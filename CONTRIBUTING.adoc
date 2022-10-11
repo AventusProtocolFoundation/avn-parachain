@@ -8,7 +8,7 @@ It's great you're considering contributing to the Aventus Network codebase! We w
 There are a few basic ground-rules for contributors (including the maintainer(s) of the project):
 
 . **No `--force` pushes** or modifying the master branch history in any way. If you need to rebase, ensure you do it in your own repo.
-. **Non-master branches**, prefixed with a short name moniker (e.g. `jay-my-feature`) must be used for ongoing work.
+. **Non-master branches**, prefixed with the JIRA ticket reference (e.g. `SYS-xxxx-my-feature`) must be used for ongoing work.
 . **All modifications** must be made in a **pull-request** to solicit feedback from other contributors.
 . A pull-request *must not be merged until CI* has finished successfully.
 
@@ -39,7 +39,7 @@ You can access the guidelines for submitting a PR xref:PULL_REQUEST_TEMPLATE.md[
 
 When reviewing a pull request, the end-goal is to suggest useful changes to the author. Reviews should finish with approval unless there are issues that would result in:
 
-. Buggy behavior.
+. Buggy behaviour.
 . Undue maintenance burden.
 . Breaking with house coding style.
 . Pessimization (i.e. reduction of speed as measured in the projects benchmarks).
