@@ -39,7 +39,7 @@ You can access the guidelines for submitting a PR xref:PULL_REQUEST_TEMPLATE.md[
 
 When reviewing a pull request, the end-goal is to suggest useful changes to the author. Reviews should finish with approval unless there are issues that would result in:
 
-. Buggy behavior.
+. Buggy behaviour.
 . Undue maintenance burden.
 . Breaking with house coding style.
 . Pessimization (i.e. reduction of speed as measured in the projects benchmarks).
