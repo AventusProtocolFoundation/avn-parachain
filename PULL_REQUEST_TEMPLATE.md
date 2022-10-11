@@ -7,7 +7,7 @@ Before you submit a PR, please check that:
 
 - [ ] You describe the purpose of the PR, e.g.:
   - What does it do?
-  - Highlights what important points reviewers should know about;
+  - Highlight what important points reviewers should know about;
   - Indicates if there is something left for follow-up PRs.
 - [ ] Documentation updated
 - [ ] Business logic tested successfully
