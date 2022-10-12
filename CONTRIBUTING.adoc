@@ -1,0 +1,64 @@
+= Contributing
+
+It's great you're considering contributing to the Aventus Network codebase! We welcome contributions from anyone, and are grateful for the smallest of fixes and even new pallets! Everyone is welcome to contribute to the codebase.  
+
+
+== Rules
+
+There are a few basic ground-rules for contributors (including the maintainer(s) of the project):
+
+. **No `--force` pushes** or modifying the master branch history in any way. If you need to rebase, ensure you do it in your own repo.
+. **Non-master branches**, prefixed with the JIRA ticket reference (e.g. `SYS-xxxx-my-feature`) must be used for ongoing work. Contributors external to Aventus may use a short name moniker (e.g. `jay-my-feature`) instead.
+. **All modifications** must be made in a **pull-request** to solicit feedback from other contributors.
+. A pull-request *must not be merged until CI* has finished successfully.
+
+== Contributing a Pallet
+
+When contributing a pallet, please ensure:
+
+- Your files contain a README.md following this format xref:pallet_contribution_template.md[here].
+- The pallet compiles successfully.
+
+
+== Merge Process
+
+*Merging pull requests once CI is successful*
+
+A PR needs to be reviewed and approved by project maintainers.  
+
+- Fork this repository
+- Create a new branch and switch to it
+
+https://guides.github.com/activities/forking/[Here] is a more detailed guide on how to submit a pull request. Ensure your code runs without errors before submitting a pull request.
+
+You can access the guidelines for submitting a PR xref:PULL_REQUEST_TEMPLATE.md[HERE].
+
+
+
+*Reviewing pull requests*:
+
+When reviewing a pull request, the end-goal is to suggest useful changes to the author. Reviews should finish with approval unless there are issues that would result in:
+
+. Buggy behaviour.
+. Undue maintenance burden.
+. Breaking with house coding style.
+. Pessimization (i.e. reduction of speed as measured in the projects benchmarks).
+. Feature reduction (i.e. it removes some aspect of functionality that a significant minority of users rely on).
+
+*Reviews may not be used as an effective veto for a PR because*:
+
+. There exists a somewhat cleaner/better/faster way of accomplishing the same feature/fix.
+. It does not fit well with some other contributors' longer-term vision for the project.
+
+
+== Releases
+
+Declaring formal releases remains the prerogative of the project maintainer(s).
+
+== Changes to this arrangement
+
+This contribution guideline is subject to changes where it is believed that there is something valuable to add or change.
+
+== Heritage
+
+These contributing guidelines are modified from the "OPEN Open Source Project" https://github.com/Level/community/blob/master/CONTRIBUTING.md[guidelines] for the Level project.
