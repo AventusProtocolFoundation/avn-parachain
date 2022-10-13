@@ -21,7 +21,7 @@ use crate::{
 };
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{Everything, GenesisBuild, LockIdentifier, OnFinalize, OnInitialize},
+	traits::{Everything, GenesisBuild, LockIdentifier, OnFinalize, OnInitialize, FindAuthor},
 	weights::Weight,
 };
 use sp_core::H256;
@@ -41,16 +41,16 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-		Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-		ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
-		BlockAuthor: block_author::{Pallet, Storage},
-	}
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
+    }
 );
 
 parameter_types! {
@@ -100,7 +100,24 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type WeightInfo = ();
 }
-impl block_author::Config for Test {}
+
+pub struct Author4;
+impl FindAuthor<u64> for Author4 {
+    fn find_author<'a, I>(_digests: I) -> Option<u64>
+    where
+        I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
+    {
+        Some(4)
+    }
+}
+
+impl pallet_authorship::Config for Test {
+    type FindAuthor = Author4;
+    type UncleGenerations = ();
+    type FilterUncle = ();
+    type EventHandler = ParachainStaking;
+}
+
 parameter_types! {
 	pub const MinBlocksPerRound: u32 = 3;
 	pub const DefaultBlocksPerRound: u32 = 5;
@@ -142,7 +159,6 @@ impl Config for Test {
 	type MinCandidateStk = MinCollatorStk;
 	type MinDelegatorStk = MinDelegatorStk;
 	type MinDelegation = MinDelegation;
-	type BlockAuthor = BlockAuthor;
 	type OnCollatorPayout = ();
 	type OnNewRound = ();
 	type WeightInfo = ();
