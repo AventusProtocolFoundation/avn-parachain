@@ -447,10 +447,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
     #[rustfmt::skip]
     fn note_author() -> Weight {
-		(71_461_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as u64))
-			.saturating_add(T::DbWeight::get().writes(4 as u64))
-	}
+        (71_461_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(3 as u64))
+            .saturating_add(T::DbWeight::get().writes(4 as u64))
+    }
 }
 
 // For backwards compatibility and tests
@@ -779,8 +779,8 @@ impl WeightInfo for () {
 	}
     #[rustfmt::skip]
     fn note_author() -> Weight {
-		(71_461_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(3 as u64))
-			.saturating_add(RocksDbWeight::get().writes(4 as u64))
-	}
+        (71_461_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(3 as u64))
+            .saturating_add(RocksDbWeight::get().writes(4 as u64))
+    }
 }

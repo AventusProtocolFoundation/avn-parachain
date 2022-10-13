@@ -1095,7 +1095,6 @@ mod tests {
 		TestExternalities::new(t)
 	}
 
-
 	#[test]
 	fn bench_set_staking_expectations() {
 		new_test_ext().execute_with(|| {

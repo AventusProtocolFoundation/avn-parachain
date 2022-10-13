@@ -1713,7 +1713,7 @@ pub mod pallet {
 
 
         fn note_uncle(_author: T::AccountId, _age: T::BlockNumber) {
-            //TODO can we ignore this?
+            //TODO: can we ignore this?
         }
     }
 }
