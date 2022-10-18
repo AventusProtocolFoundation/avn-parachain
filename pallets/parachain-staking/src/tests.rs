@@ -3978,8 +3978,6 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 			];
 			assert_eq_events!(expected.clone());
-            /*NS PR comment: Removing this because account 11 doesn't have any special role to play anymore */
-			assert_eq!(Balances::free_balance(&11), 1);
 			// ~ set block author as 1 for all blocks this round
 			set_author(2, 1, 100);
 			roll_to(16);
