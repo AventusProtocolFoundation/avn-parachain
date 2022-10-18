@@ -170,8 +170,6 @@ pub mod pallet {
 		/// Minimum stake for any registered on-chain account to be a delegator
 		#[pallet::constant]
 		type MinDelegatorStk: Get<BalanceOf<Self>>;
-		/// Get the current block author
-		type BlockAuthor: Get<Self::AccountId>;
 		/// Handler to notify the runtime when a collator is paid.
 		/// If you don't need it, you can specify the type `()`.
 		type OnCollatorPayout: OnCollatorPayout<Self::AccountId, BalanceOf<Self>>;
@@ -456,9 +454,6 @@ pub mod pallet {
 					.saturating_add(T::DbWeight::get().writes(2)),
 			);
 			weight
-		}
-		fn on_finalize(_n: T::BlockNumber) {
-			Self::award_points_to_block_author();
 		}
 	}
 
@@ -952,8 +947,8 @@ pub mod pallet {
 			let return_stake = |bond: Bond<T::AccountId, BalanceOf<T>>| -> DispatchResult {
 				// remove delegation from delegator state
 				let mut delegator = DelegatorState::<T>::get(&bond.owner).expect(
-					"Collator state and delegator state are consistent. 
-						Collator state has a record of this delegation. Therefore, 
+					"Collator state and delegator state are consistent.
+						Collator state has a record of this delegation. Therefore,
 						Delegator state also has a record. qed.",
 				);
 
@@ -1697,27 +1692,28 @@ pub mod pallet {
 		}
 	}
 
-	/// Add reward points to block authors:
-	/// * 20 points to the block producer for producing a block in the chain
-	impl<T: Config> Pallet<T> {
-		fn award_points_to_block_author() {
-			let author = T::BlockAuthor::get();
+    /// Keep track of number of authored blocks per authority, uncles are counted as well since
+    /// they're a valid proof of being online.
+    impl<T: Config + pallet_authorship::Config>
+      pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T>
+    {
+        /// Add reward points to block authors:
+        /// * 20 points to the block producer for producing a block in the chain
+        fn note_author(author: T::AccountId) {
 			let now = <Round<T>>::get().current;
 			let score_plus_20 = <AwardedPts<T>>::get(now, &author).saturating_add(20);
 			<AwardedPts<T>>::insert(now, author, score_plus_20);
 			<Points<T>>::mutate(now, |x| *x = x.saturating_add(20));
-		}
-	}
 
-	impl<T: Config> nimbus_primitives::CanAuthor<T::AccountId> for Pallet<T> {
-		fn can_author(account: &T::AccountId, _slot: &u32) -> bool {
-			Self::is_selected_candidate(account)
-		}
-	}
+            frame_system::Pallet::<T>::register_extra_weight_unchecked(
+                T::WeightInfo::note_author(),
+                DispatchClass::Mandatory,
+            );
+        }
 
-	impl<T: Config> Get<Vec<T::AccountId>> for Pallet<T> {
-		fn get() -> Vec<T::AccountId> {
-			Self::selected_candidates()
-		}
-	}
+
+        fn note_uncle(_author: T::AccountId, _age: T::BlockNumber) {
+            //TODO: can we ignore this?
+        }
+    }
 }
