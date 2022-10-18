@@ -4060,14 +4060,14 @@ fn parachain_bond_inflation_reserve_matches_config() {
 					rewards: 26,
 				},
 				Event::Rewarded {
-                    /*Explanation of how reward is computed:
+					/*Explanation of how reward is computed:
 						Total staked = 50
 						Reward left to distribute = 40 (total stake - commision)
 						Nominator stake = 10
 						nominator gets 20% ([nominator stake] * 100 / [total staked]) of 40 ([reward left]) = 8
 
-                        Total 8
-                    */
+						Total 8
+					*/
 					account: 6,
 					rewards: 8,
 				},
