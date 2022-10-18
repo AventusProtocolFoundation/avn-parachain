@@ -368,18 +368,6 @@ pub mod pallet {
 			account: T::AccountId,
 			rewards: BalanceOf<T>,
 		},
-		/// Transferred to account which holds funds reserved for parachain bond.
-		ReservedForParachainBond {
-			account: T::AccountId,
-			value: BalanceOf<T>,
-		},
-		/// Account (re)set for parachain bond treasury.
-		ParachainBondAccountSet {
-			old: T::AccountId,
-			new: T::AccountId,
-		},
-		/// Percent of inflation reserved for parachain bond (re)set.
-		ParachainBondReservePercentSet { old: Percent, new: Percent },
 		/// Annual inflation input (first 3) was used to derive new per-round inflation (last 3)
 		InflationSet {
 			annual_min: Perbill,
@@ -467,11 +455,6 @@ pub mod pallet {
 	/// The total candidates selected every round
 	type TotalSelected<T: Config> = StorageValue<_, u32, ValueQuery>;
 
-	#[pallet::storage]
-	#[pallet::getter(fn parachain_bond_info)]
-	/// Parachain bond config info { account, percent_of_inflation }
-	type ParachainBondInfo<T: Config> =
-		StorageValue<_, ParachainBondConfig<T::AccountId>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn round)]
@@ -673,13 +656,6 @@ pub mod pallet {
 			}
 			// Set collator commission to default config
 			<CollatorCommission<T>>::put(T::DefaultCollatorCommission::get());
-			// Set parachain bond config to default config
-			<ParachainBondInfo<T>>::put(ParachainBondConfig {
-				// must be set soon; if not => due inflation will be sent to collators/delegators
-				account: T::AccountId::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-					.expect("infinite length input; no invalid inputs for type; qed"),
-				percent: T::DefaultParachainBondReservePercent::get(),
-			});
 			// Set total selected candidates to minimum config
 			<TotalSelected<T>>::put(T::MinSelectedCandidates::get());
 			// Choose top TotalSelected collator candidates
@@ -747,44 +723,7 @@ pub mod pallet {
 			<InflationConfig<T>>::put(config);
 			Ok(().into())
 		}
-		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_bond_account())]
-		/// Set the account that will hold funds set aside for parachain bond
-		pub fn set_parachain_bond_account(
-			origin: OriginFor<T>,
-			new: T::AccountId,
-		) -> DispatchResultWithPostInfo {
-			T::MonetaryGovernanceOrigin::ensure_origin(origin)?;
-			let ParachainBondConfig {
-				account: old,
-				percent,
-			} = <ParachainBondInfo<T>>::get();
-			ensure!(old != new, Error::<T>::NoWritingSameValue);
-			<ParachainBondInfo<T>>::put(ParachainBondConfig {
-				account: new.clone(),
-				percent,
-			});
-			Self::deposit_event(Event::ParachainBondAccountSet { old, new });
-			Ok(().into())
-		}
-		#[pallet::weight(<T as Config>::WeightInfo::set_parachain_bond_reserve_percent())]
-		/// Set the percent of inflation set aside for parachain bond
-		pub fn set_parachain_bond_reserve_percent(
-			origin: OriginFor<T>,
-			new: Percent,
-		) -> DispatchResultWithPostInfo {
-			T::MonetaryGovernanceOrigin::ensure_origin(origin)?;
-			let ParachainBondConfig {
-				account,
-				percent: old,
-			} = <ParachainBondInfo<T>>::get();
-			ensure!(old != new, Error::<T>::NoWritingSameValue);
-			<ParachainBondInfo<T>>::put(ParachainBondConfig {
-				account,
-				percent: new,
-			});
-			Self::deposit_event(Event::ParachainBondReservePercentSet { old, new });
-			Ok(().into())
-		}
+
 		#[pallet::weight(<T as Config>::WeightInfo::set_total_selected())]
 		/// Set the total number of collator candidates selected per round
 		/// - changes are not applied until the start of the next round
@@ -1420,24 +1359,10 @@ pub mod pallet {
 			}
 			let total_staked = <Staked<T>>::take(round_to_payout);
 			let total_issuance = Self::compute_issuance(total_staked);
-			let mut left_issuance = total_issuance;
-			// reserve portion of issuance for parachain bond account
-			let bond_config = <ParachainBondInfo<T>>::get();
-			let parachain_bond_reserve = bond_config.percent * total_issuance;
-			if let Ok(imb) =
-				T::Currency::deposit_into_existing(&bond_config.account, parachain_bond_reserve)
-			{
-				// update round issuance iff transfer succeeds
-				left_issuance = left_issuance.saturating_sub(imb.peek());
-				Self::deposit_event(Event::ReservedForParachainBond {
-					account: bond_config.account,
-					value: imb.peek(),
-				});
-			}
 
 			let payout = DelayedPayout {
 				round_issuance: total_issuance,
-				total_staking_reward: left_issuance,
+				total_staking_reward: total_issuance, // TODO: Remove one of the duplicated fields
 				collator_commission: <CollatorCommission<T>>::get(),
 			};
 
