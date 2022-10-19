@@ -17,7 +17,7 @@
 //! Test utilities
 use crate as pallet_parachain_staking;
 use crate::{
-	pallet, AwardedPts, Config, InflationInfo, Points, Range, COLLATOR_LOCK_ID, DELEGATOR_LOCK_ID,
+	pallet, AwardedPts, Config, Points, COLLATOR_LOCK_ID, DELEGATOR_LOCK_ID,
 };
 use frame_support::{
 	construct_runtime, parameter_types,
@@ -242,8 +242,6 @@ pub(crate) struct ExtBuilder {
 	collators: Vec<(AccountId, Balance)>,
 	// [delegator, collator, delegation_amount]
 	delegations: Vec<(AccountId, AccountId, Balance)>,
-	// inflation config
-	inflation: InflationInfo<Balance>,
 }
 
 impl Default for ExtBuilder {
@@ -252,25 +250,6 @@ impl Default for ExtBuilder {
 			balances: vec![],
 			delegations: vec![],
 			collators: vec![],
-			inflation: InflationInfo {
-				expect: Range {
-					min: 700,
-					ideal: 700,
-					max: 700,
-				},
-				// not used
-				annual: Range {
-					min: Perbill::from_percent(50),
-					ideal: Perbill::from_percent(50),
-					max: Perbill::from_percent(50),
-				},
-				// unrealistically high parameterization, only for testing
-				round: Range {
-					min: Perbill::from_percent(5),
-					ideal: Perbill::from_percent(5),
-					max: Perbill::from_percent(5),
-				},
-			},
 		}
 	}
 }
@@ -294,12 +273,6 @@ impl ExtBuilder {
 		self
 	}
 
-	#[allow(dead_code)]
-	pub(crate) fn with_inflation(mut self, inflation: InflationInfo<Balance>) -> Self {
-		self.inflation = inflation;
-		self
-	}
-
 	pub(crate) fn build(self) -> sp_io::TestExternalities {
 		let mut t = frame_system::GenesisConfig::default()
 			.build_storage::<Test>()
@@ -313,7 +286,6 @@ impl ExtBuilder {
 		pallet_parachain_staking::GenesisConfig::<Test> {
 			candidates: self.collators,
 			delegations: self.delegations,
-			inflation_config: self.inflation,
 		}
 		.assimilate_storage(&mut t)
 		.expect("Parachain Staking's storage can be assimilated");
