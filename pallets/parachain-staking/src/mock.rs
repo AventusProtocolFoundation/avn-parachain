@@ -21,17 +21,18 @@ use crate::{
 };
 use frame_support::{
 	construct_runtime, parameter_types,
-	traits::{Everything, GenesisBuild, LockIdentifier, OnFinalize, OnInitialize, FindAuthor},
-	weights::Weight,
+	traits::{Everything, GenesisBuild, LockIdentifier, OnFinalize, OnInitialize, FindAuthor, Currency, ConstU8, Imbalance, OnUnbalanced},
+	weights::{ DispatchClass, Weight, WeightToFee as WeightToFeeT}, PalletId
 };
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
 	testing::Header,
 	traits::{BlakeTwo256, IdentityLookup},
-	Perbill, Percent,
+	Perbill, Percent, SaturatedConversion
 };
-
+use pallet_transaction_payment::CurrencyAdapter;
+use frame_system::limits;
 pub type AccountId = u64;
 pub type Balance = u128;
 pub type BlockNumber = u64;
@@ -50,15 +51,39 @@ construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
         Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
     }
 );
 
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+const MAX_BLOCK_WEIGHT: Weight = 1024;
+pub static TX_LEN: usize = 1;
+pub const BASE_FEE: u64 = 12;
+
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: Weight = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::one();
-	pub const SS58Prefix: u8 = 42;
+    pub const BlockHashCount: u64 = 250;
+    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockLength: u32 = 2 * 1024;
+    pub const AvailableBlockRatio: Perbill = Perbill::one();
+    pub const SS58Prefix: u8 = 42;
+
+    pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(1024, NORMAL_DISPATCH_RATIO);
+    pub RuntimeBlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
+        .base_block(10)
+        .for_class(DispatchClass::all(), |weights| {
+            weights.base_extrinsic = BASE_FEE;
+        })
+        .for_class(DispatchClass::Normal, |weights| {
+            weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT);
+        })
+        .for_class(DispatchClass::Operational, |weights| {
+            weights.max_total = Some(MAX_BLOCK_WEIGHT);
+            weights.reserved = Some(
+                MAX_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT
+            );
+    })
+    .avg_block_initialization(Perbill::from_percent(0))
+    .build_or_panic();
 }
 impl frame_system::Config for Test {
 	type BaseCallFilter = Everything;
@@ -80,14 +105,14 @@ impl frame_system::Config for Test {
 	type OnNewAccount = ();
 	type OnKilledAccount = ();
 	type SystemWeightInfo = ();
-	type BlockWeights = ();
-	type BlockLength = ();
+	type BlockWeights = RuntimeBlockWeights;
+	type BlockLength = BlockLength;
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = ();
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 parameter_types! {
-	pub const ExistentialDeposit: u128 = 1;
+	pub const ExistentialDeposit: u128 = 0;
 }
 impl pallet_balances::Config for Test {
 	type MaxReserves = ();
@@ -136,6 +161,7 @@ parameter_types! {
 	pub const MinCollatorStk: u128 = 10;
 	pub const MinDelegatorStk: u128 = 5;
 	pub const MinDelegation: u128 = 3;
+	pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
 }
 impl Config for Test {
 	type Event = Event;
@@ -159,9 +185,54 @@ impl Config for Test {
 	type MinCandidateStk = MinCollatorStk;
 	type MinDelegatorStk = MinDelegatorStk;
 	type MinDelegation = MinDelegation;
+	type RewardPotId = RewardPotId;
 	type OnCollatorPayout = ();
 	type OnNewRound = ();
 	type WeightInfo = ();
+}
+
+parameter_types! {
+    pub static WeightToFee: u128 = 1u128;
+    pub static TransactionByteFee: u128 = 0u128;
+}
+
+pub struct DealWithFees;
+impl OnUnbalanced<pallet_balances::NegativeImbalance<Test>> for DealWithFees {
+    fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = pallet_balances::NegativeImbalance<Test>>) {
+        if let Some(mut fees) = fees_then_tips.next() {
+            if let Some(tips) = fees_then_tips.next() {
+                tips.merge_into(&mut fees);
+            }
+            let staking_pot = ParachainStaking::compute_reward_pot_account_id();
+            Balances::resolve_creating(&staking_pot, fees);
+        }
+    }
+}
+
+impl pallet_transaction_payment::Config for Test {
+    type Event = Event;
+    type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
+    type LengthToFee = TransactionByteFee;
+    type WeightToFee = WeightToFee;
+    type FeeMultiplierUpdate = ();
+    type OperationalFeeMultiplier = ConstU8<5>;
+}
+
+impl WeightToFeeT for WeightToFee {
+    type Balance = u128;
+
+    fn weight_to_fee(weight: &Weight) -> Self::Balance {
+        Self::Balance::saturated_from(*weight).saturating_mul(WEIGHT_TO_FEE.with(|v| *v.borrow()))
+    }
+}
+
+impl WeightToFeeT for TransactionByteFee {
+    type Balance = u128;
+
+    fn weight_to_fee(weight: &Weight) -> Self::Balance {
+        Self::Balance::saturated_from(*weight)
+            .saturating_mul(TRANSACTION_BYTE_FEE.with(|v| *v.borrow()))
+    }
 }
 
 pub(crate) struct ExtBuilder {
@@ -538,30 +609,6 @@ fn geneses() {
 				);
 			}
 		});
-}
-
-#[frame_support::pallet]
-pub mod block_author {
-	use super::*;
-	use frame_support::pallet_prelude::*;
-	use frame_support::traits::Get;
-
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
-
-	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
-	pub struct Pallet<T>(_);
-
-	#[pallet::storage]
-	#[pallet::getter(fn block_author)]
-	pub(super) type BlockAuthor<T> = StorageValue<_, AccountId, ValueQuery>;
-
-	impl<T: Config> Get<AccountId> for Pallet<T> {
-		fn get() -> AccountId {
-			<BlockAuthor<T>>::get()
-		}
-	}
 }
 
 #[test]
