@@ -584,15 +584,15 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-    #[pallet::storage]
+	#[pallet::storage]
 	#[pallet::getter(fn locked_era_payout)]
 	/// Storage value that holds the total amount of payouts we are waiting to take out of this pallet's pot.
-    pub type LockedEraPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+	pub type LockedEraPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
-    #[pallet::storage]
+	#[pallet::storage]
 	#[pallet::getter(fn faild_payments)]
-    /// Storage value that holds any failed payments
-    pub type FailedRewardPayments<T: Config> = StorageMap<_, Twox64Concat, BalanceOf<T>, bool, ValueQuery>;
+	/// Storage value that holds any failed payments
+	pub type FailedRewardPayments<T: Config> = StorageMap<_, Twox64Concat, BalanceOf<T>, bool, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -1333,7 +1333,7 @@ pub mod pallet {
 			<CandidatePool<T>>::put(candidates);
 		}
 
-		/// Compute round issuance based on total staked for the given round
+		/// Compute total reward for round based on the amount in the reward pot
 		fn compute_total_reward_to_pay() -> BalanceOf<T> {
 			let total_unpaid_reward_amount = Self::reward_pot();
 			let mut payout = total_unpaid_reward_amount.checked_sub(&Self::locked_era_payout()).or_else(|| {
@@ -1390,7 +1390,7 @@ pub mod pallet {
 			}
 			// Remove stake because it has been processed.
 			<Staked<T>>::take(round_to_payout);
-			
+
 			let total_reward_to_pay = Self::compute_total_reward_to_pay();
 
 			let payout = DelayedPayout {
