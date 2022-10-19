@@ -365,6 +365,12 @@ pub(crate) fn last_event() -> Event {
 	System::events().pop().expect("Event expected").event
 }
 
+pub(crate) fn set_reward_pot(amount: Balance) {
+    Balances::make_free_balance_be(&ParachainStaking::compute_reward_pot_account_id(), amount);
+    crate::LockedEraPayout::<Test>::put(0);
+
+}
+
 pub(crate) fn events() -> Vec<pallet::Event<Test>> {
 	System::events()
 		.into_iter()

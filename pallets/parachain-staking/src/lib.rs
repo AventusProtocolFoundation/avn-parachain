@@ -83,12 +83,12 @@ pub mod pallet {
 	use crate::{set::OrderedSet, traits::*, types::*, InflationInfo, Range, WeightInfo};
 	use frame_support::{pallet_prelude::*, PalletId};
 	use frame_support::traits::{
-		tokens::WithdrawReasons, Currency, Get, Imbalance, LockIdentifier, LockableCurrency,
-		ReservableCurrency
+		tokens::WithdrawReasons, Currency, Get, LockIdentifier, LockableCurrency,
+		ReservableCurrency, ExistenceRequirement
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::{Saturating, Zero, AccountIdConversion},
+		traits::{Saturating, Zero, AccountIdConversion, CheckedAdd, CheckedSub, Bounded},
 		Perbill, Percent,
 	};
 	use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -371,6 +371,11 @@ pub mod pallet {
 			account: T::AccountId,
 			rewards: BalanceOf<T>,
 		},
+		/// There was an error attempting to pay the delegator their staking reward.
+		ErrorPayingStakingReward {
+			payee: T::AccountId,
+			rewards: BalanceOf<T>,
+		},
 		/// Annual inflation input (first 3) was used to derive new per-round inflation (last 3)
 		InflationSet {
 			annual_min: Perbill,
@@ -400,6 +405,8 @@ pub mod pallet {
 			new_per_round_inflation_ideal: Perbill,
 			new_per_round_inflation_max: Perbill,
 		},
+		/// Not enough fund to cover the staking reward payment.
+		NotEnoughFundsForEraPayment {reward_pot_balance: BalanceOf<T> },
 	}
 
 	#[pallet::hooks]
@@ -576,6 +583,16 @@ pub mod pallet {
 		RewardPoint,
 		ValueQuery,
 	>;
+
+    #[pallet::storage]
+	#[pallet::getter(fn locked_era_payout)]
+	/// Storage value that holds the total amount of payouts we are waiting to take out of this pallet's pot.
+    pub type LockedEraPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    #[pallet::storage]
+	#[pallet::getter(fn faild_payments)]
+    /// Storage value that holds any failed payments
+    pub type FailedRewardPayments<T: Config> = StorageMap<_, Twox64Concat, BalanceOf<T>, bool, ValueQuery>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
@@ -1315,19 +1332,30 @@ pub mod pallet {
 			});
 			<CandidatePool<T>>::put(candidates);
 		}
+
 		/// Compute round issuance based on total staked for the given round
-		fn compute_issuance(staked: BalanceOf<T>) -> BalanceOf<T> {
-			let config = <InflationConfig<T>>::get();
-			let round_issuance = crate::inflation::round_issuance_range::<T>(config.round);
-			// TODO: consider interpolation instead of bounded range
-			if staked < config.expect.min {
-				round_issuance.min
-			} else if staked > config.expect.max {
-				round_issuance.max
-			} else {
-				round_issuance.ideal
-			}
+		fn compute_total_reward_to_pay() -> BalanceOf<T> {
+			let total_unpaid_reward_amount = Self::reward_pot();
+			let mut payout = total_unpaid_reward_amount.checked_sub(&Self::locked_era_payout()).or_else(|| {
+				log::error!("💔 Error calculating era payout. Not enough funds in total_unpaid_reward_amount.");
+
+				//This is a bit strange but since we are dealing with money, log it.
+				Self::deposit_event(Event::NotEnoughFundsForEraPayment {reward_pot_balance: total_unpaid_reward_amount});
+				Some(BalanceOf::<T>::zero())
+			}).expect("We have a default value");
+
+			<LockedEraPayout<T>>::mutate(|lp| {
+				*lp = lp.checked_add(&payout).or_else(|| {
+					log::error!("💔 Error - locked_era_payout overflow. Reducing era payout");
+					// In the unlikely event where the value will overflow the LockedEraPayout, return the difference to avoid errors
+					payout = BalanceOf::<T>::max_value().saturating_sub(Self::locked_era_payout());
+					Some(BalanceOf::<T>::max_value())
+				}).expect("We have a default value");
+			});
+
+			return payout;
 		}
+
 		/// Remove delegation from candidate state
 		/// Amount input should be retrieved from delegator and it informs the storage lookups
 		pub(crate) fn delegator_leaves_candidate(
@@ -1360,12 +1388,14 @@ pub mod pallet {
 			if total_points.is_zero() {
 				return;
 			}
-			let total_staked = <Staked<T>>::take(round_to_payout);
-			let total_issuance = Self::compute_issuance(total_staked);
+			// Remove stake because it has been processed.
+			<Staked<T>>::take(round_to_payout);
+			
+			let total_reward_to_pay = Self::compute_total_reward_to_pay();
 
 			let payout = DelayedPayout {
-				round_issuance: total_issuance,
-				total_staking_reward: total_issuance, // TODO: Remove one of the duplicated fields
+				round_issuance: total_reward_to_pay,
+				total_staking_reward: total_reward_to_pay, // TODO: Remove one of the duplicated fields
 				collator_commission: <CollatorCommission<T>>::get(),
 			};
 
@@ -1421,11 +1451,19 @@ pub mod pallet {
 				return (None, 0u64.into());
 			}
 
+			let reward_pot_account_id = Self::compute_reward_pot_account_id();
 			let mint = |amt: BalanceOf<T>, to: T::AccountId| {
-				if let Ok(amount_transferred) = T::Currency::deposit_into_existing(&to, amt) {
+				let result = T::Currency::transfer(&reward_pot_account_id, &to, amt, ExistenceRequirement::KeepAlive);
+				if let Ok(_) = result {
 					Self::deposit_event(Event::Rewarded {
 						account: to.clone(),
-						rewards: amount_transferred.peek(),
+						rewards: amt,
+					});
+				} else {
+					log::error!("💔 Error paying staking reward: {:?}", result);
+					Self::deposit_event(Event::ErrorPayingStakingReward {
+						payee: to.clone(),
+						rewards: amt,
 					});
 				}
 			};

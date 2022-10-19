@@ -31,10 +31,10 @@ use crate::{
 	assert_tail_eq, set::OrderedSet, AtStake, Bond, BottomDelegations, CandidateInfo,
 	CandidateMetadata, CandidatePool, CapacityStatus, CollatorStatus, DelegationScheduledRequests,
 	Delegations, DelegatorAdded, DelegatorState, DelegatorStatus, Error, Event, Range,
-	TopDelegations, DELEGATOR_LOCK_ID,
+	TopDelegations, DELEGATOR_LOCK_ID, mock::set_reward_pot
 };
 use frame_support::{assert_noop, assert_ok};
-use sp_runtime::{traits::Zero, DispatchError, ModuleError, Perbill};
+use sp_runtime::{traits::Zero, DispatchError, ModuleError, Perbill, Percent};
 
 // ~~ ROOT ~~
 
@@ -3980,6 +3980,8 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			assert_eq_events!(expected.clone());
 			// ~ set block author as 1 for all blocks this round
 			set_author(2, 1, 100);
+			// We now payout from a central pot so we need to fund it
+			set_reward_pot(50);
 			roll_to(16);
 			// distribute total issuance to collator 1 and its delegators 6, 7, 19
 			let mut new = vec![
@@ -4094,13 +4096,18 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			assert_ok!(ParachainStaking::schedule_leave_delegators(Origin::signed(
 				6
 			)));
-			// fast forward to block in which delegator 6 exit executes
+			// fast forward to block in which delegator 6 exit executes. Doing it in 2 steps so we can reset the reward pot
+			set_reward_pot(53);
+			roll_to(20);
+
+			set_reward_pot(56);
 			roll_to(25);
 			assert_ok!(ParachainStaking::execute_leave_delegators(
 				Origin::signed(6),
 				6,
 				10
 			));
+			set_reward_pot(58);
 			roll_to(30);
 			let mut new2 = vec![
 				Event::DelegatorExitScheduled {
@@ -4260,6 +4267,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			assert_eq_events!(expected.clone());
 			// 6 won't be paid for this round because they left already
 			set_author(6, 1, 100);
+			set_reward_pot(61);
 			roll_to(35);
 			// keep paying 6
 			let mut new3 = vec![
@@ -4310,6 +4318,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			expected.append(&mut new3);
 			assert_eq_events!(expected.clone());
 			set_author(7, 1, 100);
+			set_reward_pot(64);
 			roll_to(40);
 			// no more paying 6
 			let mut new4 = vec![
@@ -4361,6 +4370,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			assert_eq_events!(expected.clone());
 			set_author(8, 1, 100);
 			assert_ok!(ParachainStaking::delegate(Origin::signed(8), 1, 10, 10, 10));
+			set_reward_pot(67);
 			roll_to(45);
 			// new delegation is not rewarded yet
 			let mut new5 = vec![
@@ -4418,6 +4428,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			assert_eq_events!(expected.clone());
 			set_author(9, 1, 100);
 			set_author(10, 1, 100);
+			set_reward_pot(70);
 			roll_to(50);
 			// new delegation is still not rewarded yet
 			let mut new6 = vec![
@@ -4467,6 +4478,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			];
 			expected.append(&mut new6);
 			assert_eq_events!(expected.clone());
+			set_reward_pot(75);
 			roll_to(55);
 			// new delegation is rewarded, 2 rounds after joining (`RewardPaymentDelay` is 2)
 			let mut new7 = vec![
@@ -4609,6 +4621,7 @@ fn paid_collator_commission_matches_config() {
 			assert_eq_events!(expected.clone());
 			// only reward author with id 4
 			set_author(3, 4, 100);
+			set_reward_pot(30);
 			roll_to(21);
 			// 20% of 10 is commission + due_portion (0) = 2 + 4 = 6
 			// all delegator payouts are 10-2 = 8 * stake_pct
@@ -5080,6 +5093,7 @@ fn payout_distribution_to_solo_collators() {
 			assert_eq_events!(expected.clone());
 			// ~ set block author as 1 for all blocks this round
 			set_author(2, 1, 100);
+			set_reward_pot(305);
 			roll_to(16);
 			// pay total issuance to 1
 			let mut new = vec![
@@ -5156,6 +5170,7 @@ fn payout_distribution_to_solo_collators() {
 			set_author(4, 1, 60);
 			// ~ set block author as 2 for 2 blocks this round
 			set_author(4, 2, 40);
+			set_reward_pot(320);
 			roll_to(26);
 			// pay 60% total issuance to 1 and 40% total issuance to 2
 			let mut new1 = vec![
@@ -5238,6 +5253,7 @@ fn payout_distribution_to_solo_collators() {
 			set_author(6, 3, 20);
 			set_author(6, 4, 20);
 			set_author(6, 5, 20);
+			set_reward_pot(336);
 			roll_to(39);
 			// pay 20% issuance for all collators
 			let mut new2 = vec![
@@ -5788,6 +5804,7 @@ fn payouts_follow_delegation_changes() {
 			assert_eq_events!(expected.clone());
 			// ~ set block author as 1 for all blocks this round
 			set_author(2, 1, 100);
+			set_reward_pot(50);
 			roll_to(16);
 			// distribute total issuance to collator 1 and its delegators 6, 7, 19
 			let mut new = vec![
@@ -5886,7 +5903,12 @@ fn payouts_follow_delegation_changes() {
 				6
 			)));
 			// fast forward to block in which delegator 6 exit executes
+			set_reward_pot(52);
+			roll_to(20);
+
+			set_reward_pot(56);
 			roll_to(25);
+
 			assert_ok!(ParachainStaking::execute_leave_delegators(
 				Origin::signed(6),
 				6,
@@ -6008,6 +6030,9 @@ fn payouts_follow_delegation_changes() {
 			assert_eq_events!(expected.clone());
 			// 6 won't be paid for this round because they left already
 			set_author(7, 1, 100);
+			set_reward_pot(58);
+			roll_to(30);
+			set_reward_pot(61);
 			roll_to(35);
 			// keep paying 6
 			let mut new3 = vec![
@@ -6101,6 +6126,7 @@ fn payouts_follow_delegation_changes() {
 			expected.append(&mut new3);
 			assert_eq_events!(expected.clone());
 			set_author(8, 1, 100);
+			set_reward_pot(64);
 			roll_to(40);
 			// no more paying 6
 			let mut new4 = vec![
@@ -6152,6 +6178,7 @@ fn payouts_follow_delegation_changes() {
 			assert_eq_events!(expected.clone());
 			set_author(9, 1, 100);
 			assert_ok!(ParachainStaking::delegate(Origin::signed(8), 1, 10, 10, 10));
+			set_reward_pot(67);
 			roll_to(45);
 			// new delegation is not rewarded yet
 			let mut new5 = vec![
@@ -6208,6 +6235,7 @@ fn payouts_follow_delegation_changes() {
 			expected.append(&mut new5);
 			assert_eq_events!(expected.clone());
 			set_author(10, 1, 100);
+			set_reward_pot(70);
 			roll_to(50);
 			// new delegation not rewarded yet
 			let mut new6 = vec![
@@ -6257,6 +6285,7 @@ fn payouts_follow_delegation_changes() {
 			];
 			expected.append(&mut new6);
 			assert_eq_events!(expected.clone());
+			set_reward_pot(75);
 			roll_to(55);
 			// new delegation is rewarded for first time
 			// 2 rounds after joining (`RewardPaymentDelay` = 2)
@@ -6712,6 +6741,7 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
 			];
 			assert_eq_events!(expected);
 
+			set_reward_pot(5);
 			roll_to_round_begin(3);
 			expected.append(&mut vec![
 				Event::CollatorChosen {
@@ -6851,6 +6881,7 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 
 			// first payout occurs in round 3
 			round = 3;
+			set_reward_pot(3);
 			roll_to_round_begin(round.into());
 			expected.append(&mut vec![
 				Event::CollatorChosen {
@@ -7035,13 +7066,14 @@ fn deferred_payment_steady_state_event_flow() {
 			// roll through a "steady state" round and make all of our assertions
 			// returns new round index
 			let roll_through_steady_state_round = |round: u64| -> u64 {
-				let num_rounds_rolled = roll_to_round_begin(round);
-				assert_eq!(
+			set_reward_pot(130);
+			let num_rounds_rolled = roll_to_round_begin(round);
+			assert_eq!(
 					num_rounds_rolled, 1,
 					"expected to be at round begin already"
-				);
+			);
 
-				let expected = vec![
+			let expected = vec![
 					Event::CollatorChosen {
 						round: round as u32,
 						collator_account: 1,
@@ -7082,12 +7114,12 @@ fn deferred_payment_steady_state_event_flow() {
 						rewards: 6,
 					},
 				];
-				assert_eq_last_events!(expected);
+			assert_eq_last_events!(expected);
 
-				set_round_points(round);
+			set_round_points(round);
 
-				roll_one_block();
-				let expected = vec![
+			roll_one_block();
+			let expected = vec![
 					Event::Rewarded {
 						account: 4,
 						rewards: 19,
@@ -7101,7 +7133,7 @@ fn deferred_payment_steady_state_event_flow() {
 						rewards: 6,
 					},
 				];
-				assert_eq_last_events!(expected);
+			assert_eq_last_events!(expected);
 
 				roll_one_block();
 				let expected = vec![
@@ -7569,6 +7601,7 @@ fn test_delegator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_f
 				"collator's total was reduced unexpectedly"
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(3);
 			assert_eq_last_events!(
 				vec![
@@ -7584,6 +7617,7 @@ fn test_delegator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_f
 				"delegator was not rewarded as intended"
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(4);
 			assert_eq_last_events!(
 				vec![Event::<Test>::Rewarded {
@@ -7645,6 +7679,7 @@ fn test_delegator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 				1
 			));
 
+			set_reward_pot(5);
 			roll_to_round_begin(4);
 			assert_eq_last_events!(
 				vec![Event::<Test>::Rewarded {
@@ -7665,6 +7700,7 @@ fn test_delegator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 				"collator snapshot's total was reduced unexpectedly",
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(5);
 			assert_eq_last_events!(
 				vec![
@@ -7717,6 +7753,7 @@ fn test_delegator_scheduled_for_bond_decrease_is_rewarded_for_previous_rounds_bu
 				"collator's total was reduced unexpectedly"
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(3);
 			assert_eq_last_events!(
 				vec![
@@ -7732,6 +7769,7 @@ fn test_delegator_scheduled_for_bond_decrease_is_rewarded_for_previous_rounds_bu
 				"delegator was not rewarded as intended"
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(4);
 			assert_eq_last_events!(
 				vec![
@@ -7800,6 +7838,7 @@ fn test_delegator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 				1
 			));
 
+			set_reward_pot(5);
 			roll_to_round_begin(4);
 			assert_eq_last_events!(
 				vec![
@@ -7826,6 +7865,7 @@ fn test_delegator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 				"collator snapshot's total was reduced unexpectedly",
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(5);
 			assert_eq_last_events!(
 				vec![
@@ -7872,6 +7912,7 @@ fn test_delegator_scheduled_for_leave_is_rewarded_for_previous_rounds_but_not_fo
 				"collator's total was reduced unexpectedly"
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(3);
 			assert_eq_last_events!(
 				vec![
@@ -7887,6 +7928,7 @@ fn test_delegator_scheduled_for_leave_is_rewarded_for_previous_rounds_but_not_fo
 				"delegator was not rewarded as intended"
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(4);
 			assert_eq_last_events!(
 				vec![Event::<Test>::Rewarded {
@@ -7941,6 +7983,7 @@ fn test_delegator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
 			roll_to_round_begin(2);
 			assert_ok!(ParachainStaking::cancel_leave_delegators(Origin::signed(2)));
 
+			set_reward_pot(5);
 			roll_to_round_begin(4);
 			assert_eq_last_events!(
 				vec![Event::<Test>::Rewarded {
@@ -7961,6 +8004,7 @@ fn test_delegator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
 				"collator snapshot's total was reduced unexpectedly",
 			);
 
+			set_reward_pot(5);
 			roll_to_round_begin(5);
 			assert_eq_last_events!(
 				vec![
