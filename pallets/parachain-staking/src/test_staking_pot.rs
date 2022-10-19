@@ -39,10 +39,10 @@ fn get_total_balance_of_collators(collator_account_ids: &Vec<AccountId>) -> u128
 #[test]
 fn fee_is_added_to_pot() {
     ExtBuilder::default()
-		.with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-		.with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-		.build()
-		.execute_with(|| {
+        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
+        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
+        .build()
+        .execute_with(|| {
             let fee: u128 = (BASE_FEE + TX_LEN as u64) as u128;
             let sender = NON_COLLATOR_ACCOUNT_ID;
             Balances::make_free_balance_be(&sender, AMOUNT_100_TOKEN);
@@ -68,10 +68,10 @@ fn fee_is_added_to_pot() {
 #[test]
 fn fee_is_accumulated_to_pot() {
     ExtBuilder::default()
-		.with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-		.with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-		.build()
-		.execute_with(|| {
+        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
+        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
+        .build()
+        .execute_with(|| {
             let fee: u128 = (BASE_FEE + TX_LEN as u64) as u128;
             let sender = NON_COLLATOR_ACCOUNT_ID;
             Balances::make_free_balance_be(&sender, AMOUNT_100_TOKEN);
@@ -100,10 +100,10 @@ fn fee_is_accumulated_to_pot() {
 #[test]
 fn fee_and_tip_is_added_to_pot() {
     ExtBuilder::default()
-		.with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-		.with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-		.build()
-		.execute_with(|| {
+        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
+        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
+        .build()
+        .execute_with(|| {
             let fee: u128 = (BASE_FEE + TX_LEN as u64) as u128;
             let sender = NON_COLLATOR_ACCOUNT_ID;
             let tip  = 15u128;
