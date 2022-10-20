@@ -63,7 +63,7 @@ pub trait WeightInfo {
 	#[rustfmt::skip]
 	fn set_collator_commission() -> Weight;
 	#[rustfmt::skip]
-	fn set_blocks_per_round() -> Weight;
+	fn set_blocks_per_era() -> Weight;
 	#[rustfmt::skip]
 	fn join_candidates(x: u32, ) -> Weight;
 	#[rustfmt::skip]
@@ -107,7 +107,7 @@ pub trait WeightInfo {
 	#[rustfmt::skip]
 	fn cancel_nominator_bond_less() -> Weight;
 	#[rustfmt::skip]
-	fn round_transition_on_initialize(x: u32, y: u32, ) -> Weight;
+	fn era_transition_on_initialize(x: u32, y: u32, ) -> Weight;
 	#[rustfmt::skip]
 	fn pay_one_collator_reward(y: u32, ) -> Weight;
 	#[rustfmt::skip]
@@ -149,7 +149,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking TotalSelected (r:1 w:0)
 	// Storage: ParachainStaking InflationConfig (r:1 w:1)
 	#[rustfmt::skip]
-	fn set_blocks_per_round() -> Weight {
+	fn set_blocks_per_era() -> Weight {
 		(57_722_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -389,12 +389,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Total (r:1 w:0)
 	// Storage: ParachainStaking AwardedPts (r:2 w:1)
 	// Storage: ParachainStaking AtStake (r:1 w:10)
-	// Storage: MoonbeamOrbiters OrbiterPerRound (r:1 w:0)
-	// Storage: MoonbeamOrbiters CurrentRound (r:0 w:1)
+	// Storage: MoonbeamOrbiters OrbiterPerEra (r:1 w:0)
+	// Storage: MoonbeamOrbiters CurrentEra (r:0 w:1)
 	// Storage: ParachainStaking SelectedCandidates (r:0 w:1)
 	// Storage: ParachainStaking DelayedPayouts (r:0 w:1)
 	#[rustfmt::skip]
-	fn round_transition_on_initialize(x: u32, y: u32, ) -> Weight {
+	fn era_transition_on_initialize(x: u32, y: u32, ) -> Weight {
 		(5_114_000 as Weight)
 			// Standard Error: 796_000
 			.saturating_add((52_172_000 as Weight).saturating_mul(x as Weight))
@@ -410,7 +410,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking AwardedPts (r:2 w:1)
 	// Storage: ParachainStaking AtStake (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
-	// Storage: MoonbeamOrbiters OrbiterPerRound (r:1 w:0)
+	// Storage: MoonbeamOrbiters OrbiterPerEra (r:1 w:0)
 	#[rustfmt::skip]
 	fn pay_one_collator_reward(y: u32, ) -> Weight {
 		(49_798_000 as Weight)
@@ -466,7 +466,7 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking TotalSelected (r:1 w:0)
 	// Storage: ParachainStaking InflationConfig (r:1 w:1)
 	#[rustfmt::skip]
-	fn set_blocks_per_round() -> Weight {
+	fn set_blocks_per_era() -> Weight {
 		(57_722_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
@@ -706,12 +706,12 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Total (r:1 w:0)
 	// Storage: ParachainStaking AwardedPts (r:2 w:1)
 	// Storage: ParachainStaking AtStake (r:1 w:10)
-	// Storage: MoonbeamOrbiters OrbiterPerRound (r:1 w:0)
-	// Storage: MoonbeamOrbiters CurrentRound (r:0 w:1)
+	// Storage: MoonbeamOrbiters OrbiterPerEra (r:1 w:0)
+	// Storage: MoonbeamOrbiters CurrentEra (r:0 w:1)
 	// Storage: ParachainStaking SelectedCandidates (r:0 w:1)
 	// Storage: ParachainStaking DelayedPayouts (r:0 w:1)
 	#[rustfmt::skip]
-	fn round_transition_on_initialize(x: u32, y: u32, ) -> Weight {
+	fn era_transition_on_initialize(x: u32, y: u32, ) -> Weight {
 		(5_114_000 as Weight)
 			// Standard Error: 796_000
 			.saturating_add((52_172_000 as Weight).saturating_mul(x as Weight))
@@ -727,7 +727,7 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking AwardedPts (r:2 w:1)
 	// Storage: ParachainStaking AtStake (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
-	// Storage: MoonbeamOrbiters OrbiterPerRound (r:1 w:0)
+	// Storage: MoonbeamOrbiters OrbiterPerEra (r:1 w:0)
 	#[rustfmt::skip]
 	fn pay_one_collator_reward(y: u32, ) -> Weight {
 		(49_798_000 as Weight)

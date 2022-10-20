@@ -21,14 +21,14 @@
 //! This is different from `frame/pallet-staking` where nominators approval vote and run Phragmen.
 //!
 //! ### Rules
-//! There is a new round every `<Round<T>>::get().length` blocks.
+//! There is a new era every `<Era<T>>::get().length` blocks.
 //!
-//! At the start of every round,
+//! At the start of every era,
 //! * issuance is calculated for collators (and their nominators) for block authoring
-//! `T::RewardPaymentDelay` rounds ago
+//! `T::RewardPaymentDelay` eras ago
 //! * a new set of collators is chosen from the candidates
 //!
-//! Immediately following a round change, payments are made once-per-block until all payments have
+//! Immediately following a era change, payments are made once-per-block until all payments have
 //! been made. In each such block, one collator is chosen for a rewards payment and is paid along
 //! with each of its top `T::MaxTopNominationsPerCandidate` nominators.
 //!
@@ -36,7 +36,7 @@
 //! To leave the set of candidates, call `schedule_leave_candidates`. If the call succeeds,
 //! the collator is removed from the pool of candidates so they cannot be selected for future
 //! collator sets, but they are not unbonded until their exit request is executed. Any signed
-//! account may trigger the exit `T::LeaveCandidatesDelay` rounds after the round in which the
+//! account may trigger the exit `T::LeaveCandidatesDelay` eras after the era in which the
 //! original request was made.
 //!
 //! To join the set of nominators, call `nominate` and pass in an account that is
@@ -71,7 +71,7 @@ pub use nomination_requests::{CancelledScheduledRequest, NominationAction, Sched
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
-pub use RoundIndex;
+pub use EraIndex;
 
 #[pallet]
 pub mod pallet {
@@ -96,7 +96,7 @@ pub mod pallet {
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(PhantomData<T>);
 
-	pub type RoundIndex = u32;
+	pub type EraIndex = u32;
 	type RewardPoint = u32;
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -115,31 +115,31 @@ pub mod pallet {
 			+ LockableCurrency<Self::AccountId>;
 		/// The origin for monetary governance
 		type MonetaryGovernanceOrigin: EnsureOrigin<Self::Origin>;
-		/// Minimum number of blocks per round
+		/// Minimum number of blocks per era
 		#[pallet::constant]
-		type MinBlocksPerRound: Get<u32>;
-		/// Default number of blocks per round at genesis
+		type MinBlocksPerEra: Get<u32>;
+		/// Default number of blocks per era at genesis
 		#[pallet::constant]
-		type DefaultBlocksPerRound: Get<u32>;
-		/// Number of rounds that candidates remain bonded before exit request is executable
+		type DefaultBlocksPerEra: Get<u32>;
+		/// Number of eras that candidates remain bonded before exit request is executable
 		#[pallet::constant]
-		type LeaveCandidatesDelay: Get<RoundIndex>;
-		/// Number of rounds candidate requests to decrease self-bond must wait to be executable
+		type LeaveCandidatesDelay: Get<EraIndex>;
+		/// Number of eras candidate requests to decrease self-bond must wait to be executable
 		#[pallet::constant]
-		type CandidateBondLessDelay: Get<RoundIndex>;
-		/// Number of rounds that nominators remain bonded before exit request is executable
+		type CandidateBondLessDelay: Get<EraIndex>;
+		/// Number of eras that nominators remain bonded before exit request is executable
 		#[pallet::constant]
-		type LeaveNominatorsDelay: Get<RoundIndex>;
-		/// Number of rounds that nominations remain bonded before revocation request is executable
+		type LeaveNominatorsDelay: Get<EraIndex>;
+		/// Number of eras that nominations remain bonded before revocation request is executable
 		#[pallet::constant]
-		type RevokeNominationDelay: Get<RoundIndex>;
-		/// Number of rounds that nomination less requests must wait before executable
+		type RevokeNominationDelay: Get<EraIndex>;
+		/// Number of eras that nomination less requests must wait before executable
 		#[pallet::constant]
-		type NominationBondLessDelay: Get<RoundIndex>;
-		/// Number of rounds after which block authors are rewarded
+		type NominationBondLessDelay: Get<EraIndex>;
+		/// Number of eras after which block authors are rewarded
 		#[pallet::constant]
-		type RewardPaymentDelay: Get<RoundIndex>;
-		/// Minimum number of selected candidates every round
+		type RewardPaymentDelay: Get<EraIndex>;
+		/// Minimum number of selected candidates every era
 		#[pallet::constant]
 		type MinSelectedCandidates: Get<u32>;
 		/// Maximum top nominations counted per candidate
@@ -157,7 +157,7 @@ pub mod pallet {
 		/// Default percent of inflation set aside for parachain bond account
 		#[pallet::constant]
 		type DefaultParachainBondReservePercent: Get<Percent>;
-		/// Minimum stake required for any candidate to be in `SelectedCandidates` for the round
+		/// Minimum stake required for any candidate to be in `SelectedCandidates` for the era
 		#[pallet::constant]
 		type MinCollatorStk: Get<BalanceOf<Self>>;
 		/// Minimum stake required for any account to be a collator candidate
@@ -174,9 +174,9 @@ pub mod pallet {
 		/// Handler to notify the runtime when a collator is paid.
 		/// If you don't need it, you can specify the type `()`.
 		type OnCollatorPayout: OnCollatorPayout<Self::AccountId, BalanceOf<Self>>;
-		/// Handler to notify the runtime when a new round begin.
+		/// Handler to notify the runtime when a new era begin.
 		/// If you don't need it, you can specify the type `()`.
-		type OnNewRound: OnNewRound;
+		type OnNewEra: OnNewEra;
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 	}
@@ -208,7 +208,7 @@ pub mod pallet {
 		AlreadyNominatedCandidate,
 		InvalidSchedule,
 		CannotSetBelowMin,
-		RoundLengthMustBeAtLeastTotalSelectedCollators,
+		EraLengthMustBeAtLeastTotalSelectedCollators,
 		NoWritingSameValue,
 		TooLowCandidateCountWeightHintJoinCandidates,
 		TooLowCandidateCountWeightHintCancelLeaveCandidates,
@@ -230,10 +230,10 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(crate) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Started new round.
-		NewRound {
+		/// Started new era.
+		NewEra {
 			starting_block: T::BlockNumber,
-			round: RoundIndex,
+			era: EraIndex,
 			selected_collators_number: u32,
 			total_balance: BalanceOf<T>,
 		},
@@ -245,7 +245,7 @@ pub mod pallet {
 		},
 		/// Candidate selected for collators. Total Exposed Amount includes all nominations.
 		CollatorChosen {
-			round: RoundIndex,
+			era: EraIndex,
 			collator_account: T::AccountId,
 			total_exposed_amount: BalanceOf<T>,
 		},
@@ -253,7 +253,7 @@ pub mod pallet {
 		CandidateBondLessRequested {
 			candidate: T::AccountId,
 			amount_to_decrease: BalanceOf<T>,
-			execute_round: RoundIndex,
+			execute_era: EraIndex,
 		},
 		/// Candidate has increased a self bond.
 		CandidateBondedMore {
@@ -273,9 +273,9 @@ pub mod pallet {
 		CandidateBackOnline { candidate: T::AccountId },
 		/// Candidate has requested to leave the set of candidates.
 		CandidateScheduledExit {
-			exit_allowed_round: RoundIndex,
+			exit_allowed_era: EraIndex,
 			candidate: T::AccountId,
-			scheduled_exit: RoundIndex,
+			scheduled_exit: EraIndex,
 		},
 		/// Cancelled request to leave the set of candidates.
 		CancelledCandidateExit { candidate: T::AccountId },
@@ -283,7 +283,7 @@ pub mod pallet {
 		CancelledCandidateBondLess {
 			candidate: T::AccountId,
 			amount: BalanceOf<T>,
-			execute_round: RoundIndex,
+			execute_era: EraIndex,
 		},
 		/// Candidate has left the set of candidates.
 		CandidateLeft {
@@ -296,7 +296,7 @@ pub mod pallet {
 			nominator: T::AccountId,
 			candidate: T::AccountId,
 			amount_to_decrease: BalanceOf<T>,
-			execute_round: RoundIndex,
+			execute_era: EraIndex,
 		},
 		// Nomination increased.
 		NominationIncreased {
@@ -314,16 +314,16 @@ pub mod pallet {
 		},
 		/// Nominator requested to leave the set of nominators.
 		NominatorExitScheduled {
-			round: RoundIndex,
+			era: EraIndex,
 			nominator: T::AccountId,
-			scheduled_exit: RoundIndex,
+			scheduled_exit: EraIndex,
 		},
 		/// Nominator requested to revoke nomination.
 		NominationRevocationScheduled {
-			round: RoundIndex,
+			era: EraIndex,
 			nominator: T::AccountId,
 			candidate: T::AccountId,
-			scheduled_exit: RoundIndex,
+			scheduled_exit: EraIndex,
 		},
 		/// Nominator has left the set of nominators.
 		NominatorLeft {
@@ -378,9 +378,9 @@ pub mod pallet {
 		TotalSelectedSet { old: u32, new: u32 },
 		/// Set collator commission to this value.
 		CollatorCommissionSet { old: Perbill, new: Perbill },
-		/// Set blocks per round
-		BlocksPerRoundSet {
-			current_round: RoundIndex,
+		/// Set blocks per era
+		BlocksPerEraSet {
+			current_era: EraIndex,
 			first_block: T::BlockNumber,
 			old: u32,
 			new: u32,
@@ -394,34 +394,34 @@ pub mod pallet {
 		fn on_initialize(n: T::BlockNumber) -> Weight {
 			let mut weight = T::WeightInfo::base_on_initialize();
 
-			let mut round = <Round<T>>::get();
-			if round.should_update(n) {
-				// mutate round
-				round.update(n);
-				// notify that new round begin
-				weight = weight.saturating_add(T::OnNewRound::on_new_round(round.current));
-				// pay all stakers for T::RewardPaymentDelay rounds ago
-				Self::prepare_staking_payouts(round.current);
-				// select top collator candidates for next round
+			let mut era = <Era<T>>::get();
+			if era.should_update(n) {
+				// mutate era
+				era.update(n);
+				// notify that new era begin
+				weight = weight.saturating_add(T::OnNewEra::on_new_era(era.current));
+				// pay all stakers for T::RewardPaymentDelay eras ago
+				Self::prepare_staking_payouts(era.current);
+				// select top collator candidates for next era
 				let (collator_count, nomination_count, total_staked) =
-					Self::select_top_candidates(round.current);
-				// start next round
-				<Round<T>>::put(round);
+					Self::select_top_candidates(era.current);
+				// start next era
+				<Era<T>>::put(era);
 				// snapshot total stake
-				<Staked<T>>::insert(round.current, <Total<T>>::get());
-				Self::deposit_event(Event::NewRound {
-					starting_block: round.first,
-					round: round.current,
+				<Staked<T>>::insert(era.current, <Total<T>>::get());
+				Self::deposit_event(Event::NewEra {
+					starting_block: era.first,
+					era: era.current,
 					selected_collators_number: collator_count,
 					total_balance: total_staked,
 				});
-				weight = weight.saturating_add(T::WeightInfo::round_transition_on_initialize(
+				weight = weight.saturating_add(T::WeightInfo::era_transition_on_initialize(
 					collator_count,
 					nomination_count,
 				));
 			}
 
-			weight = weight.saturating_add(Self::handle_delayed_payouts(round.current));
+			weight = weight.saturating_add(Self::handle_delayed_payouts(era.current));
 
 			// add on_finalize weight
 			weight = weight.saturating_add(
@@ -442,14 +442,14 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn total_selected)]
-	/// The total candidates selected every round
+	/// The total candidates selected every era
 	type TotalSelected<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 
 	#[pallet::storage]
-	#[pallet::getter(fn round)]
-	/// Current round index and next round scheduled transition
-	pub(crate) type Round<T: Config> = StorageValue<_, RoundInfo<T::BlockNumber>, ValueQuery>;
+	#[pallet::getter(fn era)]
+	/// Current era index and next era scheduled transition
+	pub(crate) type Era<T: Config> = StorageValue<_, EraInfo<T::BlockNumber>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn nominator_state)]
@@ -503,7 +503,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn selected_candidates)]
-	/// The collator candidates selected for the current round
+	/// The collator candidates selected for the current era
 	type SelectedCandidates<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
 	#[pallet::storage]
@@ -519,11 +519,11 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn at_stake)]
-	/// Snapshot of collator nomination stake at the start of the round
+	/// Snapshot of collator nomination stake at the start of the era
 	pub type AtStake<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
-		RoundIndex,
+		EraIndex,
 		Twox64Concat,
 		T::AccountId,
 		CollatorSnapshot<T::AccountId, BalanceOf<T>>,
@@ -534,25 +534,25 @@ pub mod pallet {
 	#[pallet::getter(fn delayed_payouts)]
 	/// Delayed payouts
 	pub type DelayedPayouts<T: Config> =
-		StorageMap<_, Twox64Concat, RoundIndex, DelayedPayout<BalanceOf<T>>, OptionQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, DelayedPayout<BalanceOf<T>>, OptionQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn staked)]
-	/// Total counted stake for selected candidates in the round
-	pub type Staked<T: Config> = StorageMap<_, Twox64Concat, RoundIndex, BalanceOf<T>, ValueQuery>;
+	/// Total counted stake for selected candidates in the era
+	pub type Staked<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn points)]
-	/// Total points awarded to collators for block production in the round
-	pub type Points<T: Config> = StorageMap<_, Twox64Concat, RoundIndex, RewardPoint, ValueQuery>;
+	/// Total points awarded to collators for block production in the era
+	pub type Points<T: Config> = StorageMap<_, Twox64Concat, EraIndex, RewardPoint, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn awarded_pts)]
-	/// Points for each collator per round
+	/// Points for each collator per era
 	pub type AwardedPts<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
-		RoundIndex,
+		EraIndex,
 		Twox64Concat,
 		T::AccountId,
 		RewardPoint,
@@ -652,15 +652,15 @@ pub mod pallet {
 			<TotalSelected<T>>::put(T::MinSelectedCandidates::get());
 			// Choose top TotalSelected collator candidates
 			let (v_count, _, total_staked) = <Pallet<T>>::select_top_candidates(1u32);
-			// Start Round 1 at Block 0
-			let round: RoundInfo<T::BlockNumber> =
-				RoundInfo::new(1u32, 0u32.into(), T::DefaultBlocksPerRound::get());
-			<Round<T>>::put(round);
+			// Start Era 1 at Block 0
+			let era: EraInfo<T::BlockNumber> =
+				EraInfo::new(1u32, 0u32.into(), T::DefaultBlocksPerEra::get());
+			<Era<T>>::put(era);
 			// Snapshot total stake
 			<Staked<T>>::insert(1u32, <Total<T>>::get());
-			<Pallet<T>>::deposit_event(Event::NewRound {
+			<Pallet<T>>::deposit_event(Event::NewEra {
 				starting_block: T::BlockNumber::zero(),
-				round: 1u32,
+				era: 1u32,
 				selected_collators_number: v_count,
 				total_balance: total_staked,
 			});
@@ -670,8 +670,8 @@ pub mod pallet {
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::weight(<T as Config>::WeightInfo::set_total_selected())]
-		/// Set the total number of collator candidates selected per round
-		/// - changes are not applied until the start of the next round
+		/// Set the total number of collator candidates selected per era
+		/// - changes are not applied until the start of the next era
 		pub fn set_total_selected(origin: OriginFor<T>, new: u32) -> DispatchResultWithPostInfo {
 			frame_system::ensure_root(origin)?;
 			ensure!(
@@ -681,8 +681,8 @@ pub mod pallet {
 			let old = <TotalSelected<T>>::get();
 			ensure!(old != new, Error::<T>::NoWritingSameValue);
 			ensure!(
-				new <= <Round<T>>::get().length,
-				Error::<T>::RoundLengthMustBeAtLeastTotalSelectedCollators,
+				new <= <Era<T>>::get().length,
+				Error::<T>::EraLengthMustBeAtLeastTotalSelectedCollators,
 			);
 			<TotalSelected<T>>::put(new);
 			Self::deposit_event(Event::TotalSelectedSet { old, new });
@@ -701,28 +701,28 @@ pub mod pallet {
 			Self::deposit_event(Event::CollatorCommissionSet { old, new });
 			Ok(().into())
 		}
-		#[pallet::weight(<T as Config>::WeightInfo::set_blocks_per_round())]
-		/// Set blocks per round
-		/// - if called with `new` less than length of current round, will transition immediately
+		#[pallet::weight(<T as Config>::WeightInfo::set_blocks_per_era())]
+		/// Set blocks per era
+		/// - if called with `new` less than length of current era, will transition immediately
 		/// in the next block
-		/// - also updates per-round inflation config
-		pub fn set_blocks_per_round(origin: OriginFor<T>, new: u32) -> DispatchResultWithPostInfo {
+		/// - also updates per-era inflation config
+		pub fn set_blocks_per_era(origin: OriginFor<T>, new: u32) -> DispatchResultWithPostInfo {
 			frame_system::ensure_root(origin)?;
 			ensure!(
-				new >= T::MinBlocksPerRound::get(),
+				new >= T::MinBlocksPerEra::get(),
 				Error::<T>::CannotSetBelowMin
 			);
-			let mut round = <Round<T>>::get();
-			let (now, first, old) = (round.current, round.first, round.length);
+			let mut era = <Era<T>>::get();
+			let (now, first, old) = (era.current, era.first, era.length);
 			ensure!(old != new, Error::<T>::NoWritingSameValue);
 			ensure!(
 				new >= <TotalSelected<T>>::get(),
-				Error::<T>::RoundLengthMustBeAtLeastTotalSelectedCollators,
+				Error::<T>::EraLengthMustBeAtLeastTotalSelectedCollators,
 			);
-			round.length = new;
-			<Round<T>>::put(round);
-			Self::deposit_event(Event::BlocksPerRoundSet {
-				current_round: now,
+			era.length = new;
+			<Era<T>>::put(era);
+			Self::deposit_event(Event::BlocksPerEraSet {
+				current_era: now,
 				first_block: first,
 				old: old,
 				new: new,
@@ -799,7 +799,7 @@ pub mod pallet {
 			}
 			<CandidateInfo<T>>::insert(&collator, state);
 			Self::deposit_event(Event::CandidateScheduledExit {
-				exit_allowed_round: now,
+				exit_allowed_era: now,
 				candidate: collator,
 				scheduled_exit: when,
 			});
@@ -984,7 +984,7 @@ pub mod pallet {
 			Self::deposit_event(Event::CandidateBondLessRequested {
 				candidate: collator,
 				amount_to_decrease: less,
-				execute_round: when,
+				execute_era: when,
 			});
 			Ok(().into())
 		}
@@ -1252,7 +1252,7 @@ pub mod pallet {
 			<CandidatePool<T>>::put(candidates);
 		}
 
-		/// Compute total reward for round based on the amount in the reward pot
+		/// Compute total reward for era based on the amount in the reward pot
 		fn compute_total_reward_to_pay() -> BalanceOf<T> {
 			let total_unpaid_reward_amount = Self::reward_pot();
 			let mut payout = total_unpaid_reward_amount.checked_sub(&Self::locked_era_payout()).or_else(|| {
@@ -1296,36 +1296,36 @@ pub mod pallet {
 			});
 			Ok(())
 		}
-		fn prepare_staking_payouts(now: RoundIndex) {
-			// payout is now - delay rounds ago => now - delay > 0 else return early
+		fn prepare_staking_payouts(now: EraIndex) {
+			// payout is now - delay eras ago => now - delay > 0 else return early
 			let delay = T::RewardPaymentDelay::get();
 			if now <= delay {
 				return;
 			}
-			let round_to_payout = now.saturating_sub(delay);
-			let total_points = <Points<T>>::get(round_to_payout);
+			let era_to_payout = now.saturating_sub(delay);
+			let total_points = <Points<T>>::get(era_to_payout);
 			if total_points.is_zero() {
 				return;
 			}
 			// Remove stake because it has been processed.
-			<Staked<T>>::take(round_to_payout);
+			<Staked<T>>::take(era_to_payout);
 
 			let total_reward_to_pay = Self::compute_total_reward_to_pay();
 
 			let payout = DelayedPayout {
-				round_issuance: total_reward_to_pay,
+				era_issuance: total_reward_to_pay,
 				total_staking_reward: total_reward_to_pay, // TODO: Remove one of the duplicated fields
 				collator_commission: <CollatorCommission<T>>::get(),
 			};
 
-			<DelayedPayouts<T>>::insert(round_to_payout, payout);
+			<DelayedPayouts<T>>::insert(era_to_payout, payout);
 		}
 
 		/// Wrapper around pay_one_collator_reward which handles the following logic:
 		/// * whether or not a payout needs to be made
 		/// * cleaning up when payouts are done
 		/// * returns the weight consumed by pay_one_collator_reward if applicable
-		fn handle_delayed_payouts(now: RoundIndex) -> Weight {
+		fn handle_delayed_payouts(now: EraIndex) -> Weight {
 			let delay = T::RewardPaymentDelay::get();
 
 			// don't underflow uint
@@ -1333,15 +1333,15 @@ pub mod pallet {
 				return 0u64.into();
 			}
 
-			let paid_for_round = now.saturating_sub(delay);
+			let paid_for_era = now.saturating_sub(delay);
 
-			if let Some(payout_info) = <DelayedPayouts<T>>::get(paid_for_round) {
-				let result = Self::pay_one_collator_reward(paid_for_round, payout_info);
+			if let Some(payout_info) = <DelayedPayouts<T>>::get(paid_for_era) {
+				let result = Self::pay_one_collator_reward(paid_for_era, payout_info);
 				if result.0.is_none() {
 					// result.0 indicates whether or not a payout was made
 					// clean up storage items that we no longer need
-					<DelayedPayouts<T>>::remove(paid_for_round);
-					<Points<T>>::remove(paid_for_round);
+					<DelayedPayouts<T>>::remove(paid_for_era);
+					<Points<T>>::remove(paid_for_era);
 				}
 				result.1 // weight consumed by pay_one_collator_reward
 			} else {
@@ -1349,24 +1349,24 @@ pub mod pallet {
 			}
 		}
 
-		/// Payout a single collator from the given round.
+		/// Payout a single collator from the given era.
 		///
 		/// Returns an optional tuple of (Collator's AccountId, total paid)
-		/// or None if there were no more payouts to be made for the round.
+		/// or None if there were no more payouts to be made for the era.
 		pub(crate) fn pay_one_collator_reward(
-			paid_for_round: RoundIndex,
+			paid_for_era: EraIndex,
 			payout_info: DelayedPayout<BalanceOf<T>>,
 		) -> (Option<(T::AccountId, BalanceOf<T>)>, Weight) {
 			// TODO: it would probably be optimal to roll Points into the DelayedPayouts storage
 			// item so that we do fewer reads each block
-			let total_points = <Points<T>>::get(paid_for_round);
+			let total_points = <Points<T>>::get(paid_for_era);
 			if total_points.is_zero() {
 				// TODO: this case is obnoxious... it's a value query, so it could mean one of two
 				// different logic errors:
 				// 1. we removed it before we should have
 				// 2. we called pay_one_collator_reward when we were actually done with deferred
 				//    payouts
-				log::warn!("pay_one_collator_reward called with no <Points<T>> for the round!");
+				log::warn!("pay_one_collator_reward called with no <Points<T>> for the era!");
 				return (None, 0u64.into());
 			}
 
@@ -1388,23 +1388,23 @@ pub mod pallet {
 			};
 
 			let collator_fee = payout_info.collator_commission;
-			let collator_issuance = collator_fee * payout_info.round_issuance;
+			let collator_issuance = collator_fee * payout_info.era_issuance;
 
 			if let Some((collator, pts)) =
-				<AwardedPts<T>>::iter_prefix(paid_for_round).drain().next()
+				<AwardedPts<T>>::iter_prefix(paid_for_era).drain().next()
 			{
 				let mut extra_weight = 0;
 				let pct_due = Perbill::from_rational(pts, total_points);
 				let total_paid = pct_due * payout_info.total_staking_reward;
 				let mut amt_due = total_paid;
 				// Take the snapshot of block author and nominations
-				let state = <AtStake<T>>::take(paid_for_round, &collator);
+				let state = <AtStake<T>>::take(paid_for_era, &collator);
 				let num_nominators = state.nominations.len();
 				if state.nominations.is_empty() {
 					// solo collator with no nominators
 					mint(amt_due, collator.clone());
 					extra_weight += T::OnCollatorPayout::on_collator_payout(
-						paid_for_round,
+						paid_for_era,
 						collator.clone(),
 						amt_due,
 					);
@@ -1416,7 +1416,7 @@ pub mod pallet {
 					let collator_reward = (collator_pct * amt_due).saturating_add(commission);
 					mint(collator_reward, collator.clone());
 					extra_weight += T::OnCollatorPayout::on_collator_payout(
-						paid_for_round,
+						paid_for_era,
 						collator.clone(),
 						collator_reward,
 					);
@@ -1461,17 +1461,17 @@ pub mod pallet {
 		}
 		/// Best as in most cumulatively supported in terms of stake
 		/// Returns [collator_count, nomination_count, total staked]
-		fn select_top_candidates(now: RoundIndex) -> (u32, u32, BalanceOf<T>) {
+		fn select_top_candidates(now: EraIndex) -> (u32, u32, BalanceOf<T>) {
 			let (mut collator_count, mut nomination_count, mut total) =
 				(0u32, 0u32, BalanceOf::<T>::zero());
 			// choose the top TotalSelected qualified candidates, ordered by stake
 			let collators = Self::compute_top_candidates();
 			if collators.is_empty() {
-				// SELECTION FAILED TO SELECT >=1 COLLATOR => select collators from previous round
-				let last_round = now.saturating_sub(1u32);
+				// SELECTION FAILED TO SELECT >=1 COLLATOR => select collators from previous era
+				let last_era = now.saturating_sub(1u32);
 				let mut total_per_candidate: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
-				// set this round AtStake to last round AtStake
-				for (account, snapshot) in <AtStake<T>>::iter_prefix(last_round) {
+				// set this era AtStake to last era AtStake
+				for (account, snapshot) in <AtStake<T>>::iter_prefix(last_era) {
 					collator_count = collator_count.saturating_add(1u32);
 					nomination_count =
 						nomination_count.saturating_add(snapshot.nominations.len() as u32);
@@ -1479,14 +1479,14 @@ pub mod pallet {
 					total_per_candidate.insert(account.clone(), snapshot.total);
 					<AtStake<T>>::insert(now, account, snapshot);
 				}
-				// `SelectedCandidates` remains unchanged from last round
+				// `SelectedCandidates` remains unchanged from last era
 				// emit CollatorChosen event for tools that use this event
 				for candidate in <SelectedCandidates<T>>::get() {
 					let snapshot_total = total_per_candidate
 						.get(&candidate)
 						.expect("all selected candidates have snapshots");
 					Self::deposit_event(Event::CollatorChosen {
-						round: now,
+						era: now,
 						collator_account: candidate,
 						total_exposed_amount: *snapshot_total,
 					})
@@ -1494,7 +1494,7 @@ pub mod pallet {
 				return (collator_count, nomination_count, total);
 			}
 
-			// snapshot exposure for round for weighting reward distribution
+			// snapshot exposure for era for weighting reward distribution
 			for account in collators.iter() {
 				let state = <CandidateInfo<T>>::get(account)
 					.expect("all members of CandidateQ must be candidates");
@@ -1515,7 +1515,7 @@ pub mod pallet {
 				};
 				<AtStake<T>>::insert(now, account, snapshot);
 				Self::deposit_event(Event::CollatorChosen {
-					round: now,
+					era: now,
 					collator_account: account.clone(),
 					total_exposed_amount: state.total_counted,
 				});
@@ -1598,7 +1598,7 @@ pub mod pallet {
         /// Add reward points to block authors:
         /// * 20 points to the block producer for producing a block in the chain
         fn note_author(author: T::AccountId) {
-			let now = <Round<T>>::get().current;
+			let now = <Era<T>>::get().current;
 			let score_plus_20 = <AwardedPts<T>>::get(now, &author).saturating_add(20);
 			<AwardedPts<T>>::insert(now, author, score_plus_20);
 			<Points<T>>::mutate(now, |x| *x = x.saturating_add(20));

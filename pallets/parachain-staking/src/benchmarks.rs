@@ -19,7 +19,7 @@
 //! Benchmarking
 use crate::{
 	AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config, NominationAction, Pallet,
-	Points, Round, ScheduledRequest,
+	Points, Era, ScheduledRequest,
 };
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency};
@@ -103,18 +103,18 @@ fn create_funded_collator<T: Config>(
 
 // Simulate staking on finalize by manually setting points
 fn parachain_staking_on_finalize<T: Config>(author: T::AccountId) {
-	let now = <Round<T>>::get().current;
+	let now = <Era<T>>::get().current;
 	let score_plus_20 = <AwardedPts<T>>::get(now, &author).saturating_add(20);
 	<AwardedPts<T>>::insert(now, author, score_plus_20);
 	<Points<T>>::mutate(now, |x| *x = x.saturating_add(20));
 }
 
 /// Run to end block and author
-fn roll_to_and_author<T: Config>(round_delay: u32, author: T::AccountId) {
-	let total_rounds = round_delay + 1u32;
-	let round_length: T::BlockNumber = Pallet::<T>::round().length.into();
+fn roll_to_and_author<T: Config>(era_delay: u32, author: T::AccountId) {
+	let total_eras = era_delay + 1u32;
+	let era_length: T::BlockNumber = Pallet::<T>::era().length.into();
 	let mut now = <frame_system::Pallet<T>>::block_number() + 1u32.into();
-	let end = Pallet::<T>::round().first + (round_length * total_rounds.into());
+	let end = Pallet::<T>::era().first + (era_length * total_eras.into());
 	while now < end {
 		parachain_staking_on_finalize::<T>(author.clone());
 		<frame_system::Pallet<T>>::on_finalize(<frame_system::Pallet<T>>::block_number());
@@ -133,7 +133,7 @@ benchmarks! {
 	// ROOT DISPATCHABLES
 
 	set_total_selected {
-		Pallet::<T>::set_blocks_per_round(RawOrigin::Root.into(), 100u32)?;
+		Pallet::<T>::set_blocks_per_era(RawOrigin::Root.into(), 100u32)?;
 	}: _(RawOrigin::Root, 100u32)
 	verify {
 		assert_eq!(Pallet::<T>::total_selected(), 100u32);
@@ -144,9 +144,9 @@ benchmarks! {
 		assert_eq!(Pallet::<T>::collator_commission(), Perbill::from_percent(33));
 	}
 
-	set_blocks_per_round {}: _(RawOrigin::Root, 1200u32)
+	set_blocks_per_era {}: _(RawOrigin::Root, 1200u32)
 	verify {
-		assert_eq!(Pallet::<T>::round().length, 1200u32);
+		assert_eq!(Pallet::<T>::era().length, 1200u32);
 	}
 
 	// USER DISPATCHABLES
@@ -782,8 +782,8 @@ benchmarks! {
 
 	// ON_INITIALIZE
 
-	round_transition_on_initialize {
-		// TOTAL SELECTED COLLATORS PER ROUND
+	era_transition_on_initialize {
+		// TOTAL SELECTED COLLATORS PER ERA
 		let x in 8..100;
 		// NOMINATIONS
 		let y in 0..(<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get() * 100);
@@ -793,9 +793,9 @@ benchmarks! {
 		// y should depend on x but cannot directly, we overwrite y here if necessary to bound it
 		let total_nominations: u32 = if max_nominations < y { max_nominations } else { y };
 		// INITIALIZE RUNTIME STATE
-		// To set total selected to 40, must first increase round length to at least 40
-		// to avoid hitting RoundLengthMustBeAtLeastTotalSelectedCollators
-		Pallet::<T>::set_blocks_per_round(RawOrigin::Root.into(), 100u32)?;
+		// To set total selected to 40, must first increase era length to at least 40
+		// to avoid hitting EraLengthMustBeAtLeastTotalSelectedCollators
+		Pallet::<T>::set_blocks_per_era(RawOrigin::Root.into(), 100u32)?;
 		Pallet::<T>::set_total_selected(RawOrigin::Root.into(), 100u32)?;
 		// INITIALIZE COLLATOR STATE
 		let mut collators: Vec<T::AccountId> = Vec::new();
@@ -885,12 +885,12 @@ benchmarks! {
 			<<T as Config>::Currency as Currency<T::AccountId>>::Balance
 		)> = nominators.iter().map(|x| (x.clone(), T::Currency::free_balance(&x))).collect();
 		// PREPARE RUN_TO_BLOCK LOOP
-		let before_running_round_index = Pallet::<T>::round().current;
-		let round_length: T::BlockNumber = Pallet::<T>::round().length.into();
+		let before_running_era_index = Pallet::<T>::era().current;
+		let era_length: T::BlockNumber = Pallet::<T>::era().length.into();
 		let reward_delay = <<T as Config>::RewardPaymentDelay as Get<u32>>::get() + 2u32;
 		let mut now = <frame_system::Pallet<T>>::block_number() + 1u32.into();
 		let mut counter = 0usize;
-		let end = Pallet::<T>::round().first + (round_length * reward_delay.into());
+		let end = Pallet::<T>::era().first + (era_length * reward_delay.into());
 		// SET collators as authors for blocks from now - end
 		while now < end {
 			let author = collators[counter % collators.len()].clone();
@@ -920,8 +920,8 @@ benchmarks! {
 		for (col, initial) in nominator_starting_balances {
 			assert!(T::Currency::free_balance(&col) > initial);
 		}
-		// Round transitions
-		assert_eq!(Pallet::<T>::round().current, before_running_round_index + reward_delay);
+		// Era transitions
+		assert_eq!(Pallet::<T>::era().current, before_running_era_index + reward_delay);
 	}
 
 	pay_one_collator_reward {
@@ -934,7 +934,7 @@ benchmarks! {
 			AwardedPts,
 		};
 
-		let before_running_round_index = Pallet::<T>::round().current;
+		let before_running_era_index = Pallet::<T>::era().current;
 		let initial_stake_amount = min_candidate_stk::<T>() * 1_000_000u32.into();
 
 		let mut total_staked = 0u32.into();
@@ -965,13 +965,13 @@ benchmarks! {
 			total_staked += initial_stake_amount;
 		}
 
-		// rather than roll through rounds in order to initialize the storage we want, we set it
+		// rather than roll through eras in order to initialize the storage we want, we set it
 		// directly and then call pay_one_collator_reward directly.
 
-		let round_for_payout = 5;
-		<DelayedPayouts<T>>::insert(&round_for_payout, DelayedPayout {
-			// NOTE: round_issuance is not correct here, but it doesn't seem to cause problems
-			round_issuance: 1000u32.into(),
+		let era_for_payout = 5;
+		<DelayedPayouts<T>>::insert(&era_for_payout, DelayedPayout {
+			// NOTE: era_issuance is not correct here, but it doesn't seem to cause problems
+			era_issuance: 1000u32.into(),
 			total_staking_reward: total_staked,
 			collator_commission: Perbill::from_rational(1u32, 100u32),
 		});
@@ -984,20 +984,20 @@ benchmarks! {
 			});
 		}
 
-		<AtStake<T>>::insert(round_for_payout, &sole_collator, CollatorSnapshot {
+		<AtStake<T>>::insert(era_for_payout, &sole_collator, CollatorSnapshot {
 			bond: 1_000u32.into(),
 			nominations,
 			total: 1_000_000u32.into(),
 		});
 
-		<Points<T>>::insert(round_for_payout, 100);
-		<AwardedPts<T>>::insert(round_for_payout, &sole_collator, 20);
+		<Points<T>>::insert(era_for_payout, 100);
+		<AwardedPts<T>>::insert(era_for_payout, &sole_collator, 20);
 
 	}: {
-		let round_for_payout = 5;
+		let era_for_payout = 5;
 		// TODO: this is an extra read right here (we should whitelist it?)
-		let payout_info = Pallet::<T>::delayed_payouts(round_for_payout).expect("payout expected");
-		let result = Pallet::<T>::pay_one_collator_reward(round_for_payout, payout_info);
+		let payout_info = Pallet::<T>::delayed_payouts(era_for_payout).expect("payout expected");
+		let result = Pallet::<T>::pay_one_collator_reward(era_for_payout, payout_info);
 		assert!(result.0.is_some()); // TODO: how to keep this in scope so it can be done in verify block?
 	}
 	verify {
@@ -1033,7 +1033,7 @@ benchmarks! {
 		<frame_system::Pallet<T>>::on_initialize(end);
 	}: { Pallet::<T>::on_initialize(end); }
 	verify {
-		// Round transitions
+		// Era transitions
 		assert_eq!(start + 1u32.into(), end);
 	}
 }
@@ -1088,9 +1088,9 @@ mod tests {
 	}
 
 	#[test]
-	fn bench_set_blocks_per_round() {
+	fn bench_set_blocks_per_era() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Pallet::<Test>::test_benchmark_set_blocks_per_round());
+			assert_ok!(Pallet::<Test>::test_benchmark_set_blocks_per_era());
 		});
 	}
 
@@ -1242,9 +1242,9 @@ mod tests {
 	}
 
 	#[test]
-	fn bench_round_transition_on_initialize() {
+	fn bench_era_transition_on_initialize() {
 		new_test_ext().execute_with(|| {
-			assert_ok!(Pallet::<Test>::test_benchmark_round_transition_on_initialize());
+			assert_ok!(Pallet::<Test>::test_benchmark_era_transition_on_initialize());
 		});
 	}
 

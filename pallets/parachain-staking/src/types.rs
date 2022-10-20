@@ -18,7 +18,7 @@
 
 use crate::{
 	set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, NominatorState, Error,
-	Event, Pallet, Round, RoundIndex, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+	Event, Pallet, Era, EraIndex, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
 	pallet_prelude::*,
@@ -88,8 +88,8 @@ pub enum CollatorStatus {
 	Active,
 	/// Temporarily inactive and excused for inactivity
 	Idle,
-	/// Bonded until the inner round
-	Leaving(RoundIndex),
+	/// Bonded until the inner era
+	Leaving(EraIndex),
 }
 
 impl Default for CollatorStatus {
@@ -99,7 +99,7 @@ impl Default for CollatorStatus {
 }
 
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-/// Snapshot of collator state at the start of the round for which they are selected
+/// Snapshot of collator state at the start of the era for which they are selected
 pub struct CollatorSnapshot<AccountId, Balance> {
 	/// The total value locked by the collator.
 	pub bond: Balance,
@@ -150,14 +150,14 @@ impl<A, B: Default> Default for CollatorSnapshot<A, B> {
 }
 
 #[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo)]
-/// Info needed to make delayed payments to stakers after round end
+/// Info needed to make delayed payments to stakers after era end
 pub struct DelayedPayout<Balance> {
-	/// Total round reward (result of compute_total_reward_to_pay() at round end)
+	/// Total era reward (result of compute_total_reward_to_pay() at era end)
 	/* TODO - remove this field because it will have the same value as the one below */
-	pub round_issuance: Balance,
-	/// The total inflation paid this round to stakers (e.g. less parachain bond fund)
+	pub era_issuance: Balance,
+	/// The total inflation paid this era to stakers (e.g. less parachain bond fund)
 	pub total_staking_reward: Balance,
-	/// Snapshot of collator commission rate at the end of the round
+	/// Snapshot of collator commission rate at the end of the era
 	pub collator_commission: Perbill,
 }
 
@@ -203,7 +203,7 @@ impl<A, B> From<Collator2<A, B>> for CollatorCandidate<A, B> {
 /// Request scheduled to change the collator candidate self-bond
 pub struct CandidateBondLessRequest<Balance> {
 	pub amount: Balance,
-	pub when_executable: RoundIndex,
+	pub when_executable: EraIndex,
 }
 
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -389,9 +389,9 @@ impl<
 	pub fn is_leaving(&self) -> bool {
 		matches!(self.status, CollatorStatus::Leaving(_))
 	}
-	pub fn schedule_leave<T: Config>(&mut self) -> Result<(RoundIndex, RoundIndex), DispatchError> {
+	pub fn schedule_leave<T: Config>(&mut self) -> Result<(EraIndex, EraIndex), DispatchError> {
 		ensure!(!self.is_leaving(), Error::<T>::CandidateAlreadyLeaving);
-		let now = <Round<T>>::get().current;
+		let now = <Era<T>>::get().current;
 		let when = now + T::LeaveCandidatesDelay::get();
 		self.status = CollatorStatus::Leaving(when);
 		Ok((now, when))
@@ -399,7 +399,7 @@ impl<
 	pub fn can_leave<T: Config>(&self) -> DispatchResult {
 		if let CollatorStatus::Leaving(when) = self.status {
 			ensure!(
-				<Round<T>>::get().current >= when,
+				<Era<T>>::get().current >= when,
 				Error::<T>::CandidateCannotLeaveYet
 			);
 			Ok(())
@@ -439,11 +439,11 @@ impl<
 		Ok(())
 	}
 	/// Schedule executable decrease of collator candidate self bond
-	/// Returns the round at which the collator can execute the pending request
+	/// Returns the era at which the collator can execute the pending request
 	pub fn schedule_bond_less<T: Config>(
 		&mut self,
 		less: Balance,
-	) -> Result<RoundIndex, DispatchError>
+	) -> Result<EraIndex, DispatchError>
 	where
 		BalanceOf<T>: Into<Balance>,
 	{
@@ -458,7 +458,7 @@ impl<
 			self.bond - less >= T::MinCandidateStk::get().into(),
 			Error::<T>::CandidateBondBelowMin
 		);
-		let when_executable = <Round<T>>::get().current + T::CandidateBondLessDelay::get();
+		let when_executable = <Era<T>>::get().current + T::CandidateBondLessDelay::get();
 		self.request = Some(CandidateBondLessRequest {
 			amount: less,
 			when_executable,
@@ -475,7 +475,7 @@ impl<
 			.request
 			.ok_or(Error::<T>::PendingCandidateRequestsDNE)?;
 		ensure!(
-			request.when_executable <= <Round<T>>::get().current,
+			request.when_executable <= <Era<T>>::get().current,
 			Error::<T>::PendingCandidateRequestNotDueYet
 		);
 		let new_total_staked = <Total<T>>::get().saturating_sub(request.amount.into());
@@ -515,7 +515,7 @@ impl<
 		let event = Event::CancelledCandidateBondLess {
 			candidate: who.clone().into(),
 			amount: request.amount.into(),
-			execute_round: request.when_executable,
+			execute_era: request.when_executable,
 		};
 		self.request = None;
 		Pallet::<T>::deposit_event(event);
@@ -1222,7 +1222,7 @@ pub enum NominatorStatus {
 	Active,
 	/// Schedule exit to revoke all ongoing nominations
 	#[deprecated(note = "must only be used for backwards compatibility reasons")]
-	Leaving(RoundIndex),
+	Leaving(EraIndex),
 }
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -1516,7 +1516,7 @@ pub mod deprecated {
 	pub struct NominationRequest<AccountId, Balance> {
 		pub collator: AccountId,
 		pub amount: Balance,
-		pub when_executable: RoundIndex,
+		pub when_executable: EraIndex,
 		pub action: NominationChange,
 	}
 
@@ -1611,31 +1611,31 @@ pub struct Nominator2<AccountId, Balance> {
 // }
 
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-/// The current round index and transition information
-pub struct RoundInfo<BlockNumber> {
-	/// Current round index
-	pub current: RoundIndex,
-	/// The first block of the current round
+/// The current era index and transition information
+pub struct EraInfo<BlockNumber> {
+	/// Current era index
+	pub current: EraIndex,
+	/// The first block of the current era
 	pub first: BlockNumber,
-	/// The length of the current round in number of blocks
+	/// The length of the current era in number of blocks
 	pub length: u32,
 }
 impl<
 		B: Copy + sp_std::ops::Add<Output = B> + sp_std::ops::Sub<Output = B> + From<u32> + PartialOrd,
-	> RoundInfo<B>
+	> EraInfo<B>
 {
-	pub fn new(current: RoundIndex, first: B, length: u32) -> RoundInfo<B> {
-		RoundInfo {
+	pub fn new(current: EraIndex, first: B, length: u32) -> EraInfo<B> {
+		EraInfo {
 			current,
 			first,
 			length,
 		}
 	}
-	/// Check if the round should be updated
+	/// Check if the era should be updated
 	pub fn should_update(&self, now: B) -> bool {
 		now - self.first >= self.length.into()
 	}
-	/// New round
+	/// New era
 	pub fn update(&mut self, now: B) {
 		self.current = self.current.saturating_add(1u32);
 		self.first = now;
@@ -1643,10 +1643,10 @@ impl<
 }
 impl<
 		B: Copy + sp_std::ops::Add<Output = B> + sp_std::ops::Sub<Output = B> + From<u32> + PartialOrd,
-	> Default for RoundInfo<B>
+	> Default for EraInfo<B>
 {
-	fn default() -> RoundInfo<B> {
-		RoundInfo::new(1u32, 1u32.into(), 20u32)
+	fn default() -> EraInfo<B> {
+		EraInfo::new(1u32, 1u32.into(), 20u32)
 	}
 }
 
