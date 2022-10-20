@@ -59,10 +59,6 @@ pub trait WeightInfo {
 	#[rustfmt::skip]
 	fn set_inflation() -> Weight;
 	#[rustfmt::skip]
-	fn set_parachain_bond_account() -> Weight;
-	#[rustfmt::skip]
-	fn set_parachain_bond_reserve_percent() -> Weight;
-	#[rustfmt::skip]
 	fn set_total_selected() -> Weight;
 	#[rustfmt::skip]
 	fn set_collator_commission() -> Weight;
@@ -137,21 +133,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
-	// Storage: ParachainStaking ParachainBondInfo (r:1 w:1)
-	#[rustfmt::skip]
-	fn set_parachain_bond_account() -> Weight {
-		(18_168_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: ParachainStaking ParachainBondInfo (r:1 w:1)
-	#[rustfmt::skip]
-	fn set_parachain_bond_reserve_percent() -> Weight {
-		(17_397_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: ParachainStaking TotalSelected (r:1 w:1)
 	#[rustfmt::skip]
 	fn set_total_selected() -> Weight {
 		(20_404_000 as Weight)
@@ -398,7 +379,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Points (r:1 w:0)
 	// Storage: ParachainStaking Staked (r:1 w:2)
 	// Storage: ParachainStaking InflationConfig (r:1 w:0)
-	// Storage: ParachainStaking ParachainBondInfo (r:1 w:0)
 	// Storage: System Account (r:302 w:301)
 	// Storage: ParachainStaking CollatorCommission (r:1 w:0)
 	// Storage: ParachainStaking CandidatePool (r:1 w:0)
@@ -445,12 +425,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn base_on_initialize() -> Weight {
 		(4_762_000 as Weight)
 	}
-    #[rustfmt::skip]
-    fn note_author() -> Weight {
-        (71_461_000 as Weight)
-            .saturating_add(T::DbWeight::get().reads(3 as u64))
-            .saturating_add(T::DbWeight::get().writes(4 as u64))
-    }
+	#[rustfmt::skip]
+	fn note_author() -> Weight {
+		(71_461_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(3 as u64))
+			.saturating_add(T::DbWeight::get().writes(4 as u64))
+	}
 }
 
 // For backwards compatibility and tests
@@ -466,20 +446,6 @@ impl WeightInfo for () {
 	#[rustfmt::skip]
 	fn set_inflation() -> Weight {
 		(53_196_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	// Storage: ParachainStaking ParachainBondInfo (r:1 w:1)
-	#[rustfmt::skip]
-	fn set_parachain_bond_account() -> Weight {
-		(18_168_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	// Storage: ParachainStaking ParachainBondInfo (r:1 w:1)
-	#[rustfmt::skip]
-	fn set_parachain_bond_reserve_percent() -> Weight {
-		(17_397_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
@@ -730,7 +696,6 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Points (r:1 w:0)
 	// Storage: ParachainStaking Staked (r:1 w:2)
 	// Storage: ParachainStaking InflationConfig (r:1 w:0)
-	// Storage: ParachainStaking ParachainBondInfo (r:1 w:0)
 	// Storage: System Account (r:302 w:301)
 	// Storage: ParachainStaking CollatorCommission (r:1 w:0)
 	// Storage: ParachainStaking CandidatePool (r:1 w:0)
@@ -777,10 +742,10 @@ impl WeightInfo for () {
 	fn base_on_initialize() -> Weight {
 		(4_762_000 as Weight)
 	}
-    #[rustfmt::skip]
-    fn note_author() -> Weight {
-        (71_461_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes(4 as u64))
-    }
+	#[rustfmt::skip]
+	fn note_author() -> Weight {
+		(71_461_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(3 as u64))
+			.saturating_add(RocksDbWeight::get().writes(4 as u64))
+	}
 }
