@@ -19,7 +19,7 @@
 //! Benchmarking
 use crate::{
 	AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config, DelegationAction, Pallet,
-	Points, Range, Round, ScheduledRequest,
+	Points, Round, ScheduledRequest,
 };
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency};
@@ -130,30 +130,6 @@ fn roll_to_and_author<T: Config>(round_delay: u32, author: T::AccountId) {
 const USER_SEED: u32 = 999666;
 
 benchmarks! {
-	// MONETARY ORIGIN DISPATCHABLES
-	set_staking_expectations {
-		let stake_range: Range<BalanceOf<T>> = Range {
-			min: 100u32.into(),
-			ideal: 200u32.into(),
-			max: 300u32.into(),
-		};
-	}: _(RawOrigin::Root, stake_range)
-	verify {
-		assert_eq!(Pallet::<T>::inflation_config().expect, stake_range);
-	}
-
-	set_inflation {
-		let inflation_range: Range<Perbill> = Range {
-			min: Perbill::from_perthousand(1),
-			ideal: Perbill::from_perthousand(2),
-			max: Perbill::from_perthousand(3),
-		};
-
-	}: _(RawOrigin::Root, inflation_range)
-	verify {
-		assert_eq!(Pallet::<T>::inflation_config().annual, inflation_range);
-	}
-
 	// ROOT DISPATCHABLES
 
 	set_total_selected {
@@ -817,12 +793,6 @@ benchmarks! {
 		// y should depend on x but cannot directly, we overwrite y here if necessary to bound it
 		let total_delegations: u32 = if max_delegations < y { max_delegations } else { y };
 		// INITIALIZE RUNTIME STATE
-		let high_inflation: Range<Perbill> = Range {
-			min: Perbill::one(),
-			ideal: Perbill::one(),
-			max: Perbill::one(),
-		};
-		Pallet::<T>::set_inflation(RawOrigin::Root.into(), high_inflation.clone())?;
 		// To set total selected to 40, must first increase round length to at least 40
 		// to avoid hitting RoundLengthMustBeAtLeastTotalSelectedCollators
 		Pallet::<T>::set_blocks_per_round(RawOrigin::Root.into(), 100u32)?;
@@ -1086,13 +1056,6 @@ mod tests {
 	fn bench_set_staking_expectations() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Pallet::<Test>::test_benchmark_set_staking_expectations());
-		});
-	}
-
-	#[test]
-	fn bench_set_inflation() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(Pallet::<Test>::test_benchmark_set_inflation());
 		});
 	}
 

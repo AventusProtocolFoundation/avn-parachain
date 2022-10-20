@@ -49,7 +49,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod delegation_requests;
-pub mod inflation;
 pub mod migrations;
 pub mod traits;
 pub mod types;
@@ -66,7 +65,6 @@ mod tests;
 mod test_staking_pot;
 
 use frame_support::pallet;
-pub use inflation::{InflationInfo, Range};
 use weights::WeightInfo;
 
 pub use delegation_requests::{CancelledScheduledRequest, DelegationAction, ScheduledRequest};
@@ -80,7 +78,7 @@ pub mod pallet {
 	use crate::delegation_requests::{
 		CancelledScheduledRequest, DelegationAction, ScheduledRequest,
 	};
-	use crate::{set::OrderedSet, traits::*, types::*, InflationInfo, Range, WeightInfo};
+	use crate::{set::OrderedSet, traits::*, types::*, WeightInfo};
 	use frame_support::{pallet_prelude::*, PalletId};
 	use frame_support::traits::{
 		tokens::WithdrawReasons, Currency, Get, LockIdentifier, LockableCurrency,
@@ -376,21 +374,6 @@ pub mod pallet {
 			payee: T::AccountId,
 			rewards: BalanceOf<T>,
 		},
-		/// Annual inflation input (first 3) was used to derive new per-round inflation (last 3)
-		InflationSet {
-			annual_min: Perbill,
-			annual_ideal: Perbill,
-			annual_max: Perbill,
-			round_min: Perbill,
-			round_ideal: Perbill,
-			round_max: Perbill,
-		},
-		/// Staking expectations set.
-		StakeExpectationsSet {
-			expect_min: BalanceOf<T>,
-			expect_ideal: BalanceOf<T>,
-			expect_max: BalanceOf<T>,
-		},
 		/// Set total selected candidates to this value.
 		TotalSelectedSet { old: u32, new: u32 },
 		/// Set collator commission to this value.
@@ -401,9 +384,6 @@ pub mod pallet {
 			first_block: T::BlockNumber,
 			old: u32,
 			new: u32,
-			new_per_round_inflation_min: Perbill,
-			new_per_round_inflation_ideal: Perbill,
-			new_per_round_inflation_max: Perbill,
 		},
 		/// Not enough fund to cover the staking reward payment.
 		NotEnoughFundsForEraPayment {reward_pot_balance: BalanceOf<T> },
@@ -562,11 +542,6 @@ pub mod pallet {
 	pub type Staked<T: Config> = StorageMap<_, Twox64Concat, RoundIndex, BalanceOf<T>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn inflation_config)]
-	/// Inflation configuration
-	pub type InflationConfig<T: Config> = StorageValue<_, InflationInfo<BalanceOf<T>>, ValueQuery>;
-
-	#[pallet::storage]
 	#[pallet::getter(fn points)]
 	/// Total points awarded to collators for block production in the round
 	pub type Points<T: Config> = StorageMap<_, Twox64Concat, RoundIndex, RewardPoint, ValueQuery>;
@@ -599,7 +574,6 @@ pub mod pallet {
 		pub candidates: Vec<(T::AccountId, BalanceOf<T>)>,
 		/// Vec of tuples of the format (delegator AccountId, collator AccountId, delegation Amount)
 		pub delegations: Vec<(T::AccountId, T::AccountId, BalanceOf<T>)>,
-		pub inflation_config: InflationInfo<BalanceOf<T>>,
 	}
 
 	#[cfg(feature = "std")]
@@ -608,7 +582,6 @@ pub mod pallet {
 			Self {
 				candidates: vec![],
 				delegations: vec![],
-				inflation_config: Default::default(),
 			}
 		}
 	}
@@ -616,7 +589,6 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
 		fn build(&self) {
-			<InflationConfig<T>>::put(self.inflation_config.clone());
 			let mut candidate_count = 0u32;
 			// Initialize the candidates
 			for &(ref candidate, balance) in &self.candidates {
@@ -697,53 +669,6 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		#[pallet::weight(<T as Config>::WeightInfo::set_staking_expectations())]
-		/// Set the expectations for total staked. These expectations determine the issuance for
-		/// the round according to logic in `fn compute_issuance`
-		pub fn set_staking_expectations(
-			origin: OriginFor<T>,
-			expectations: Range<BalanceOf<T>>,
-		) -> DispatchResultWithPostInfo {
-			T::MonetaryGovernanceOrigin::ensure_origin(origin)?;
-			ensure!(expectations.is_valid(), Error::<T>::InvalidSchedule);
-			let mut config = <InflationConfig<T>>::get();
-			ensure!(
-				config.expect != expectations,
-				Error::<T>::NoWritingSameValue
-			);
-			config.set_expectations(expectations);
-			Self::deposit_event(Event::StakeExpectationsSet {
-				expect_min: config.expect.min,
-				expect_ideal: config.expect.ideal,
-				expect_max: config.expect.max,
-			});
-			<InflationConfig<T>>::put(config);
-			Ok(().into())
-		}
-		#[pallet::weight(<T as Config>::WeightInfo::set_inflation())]
-		/// Set the annual inflation rate to derive per-round inflation
-		pub fn set_inflation(
-			origin: OriginFor<T>,
-			schedule: Range<Perbill>,
-		) -> DispatchResultWithPostInfo {
-			T::MonetaryGovernanceOrigin::ensure_origin(origin)?;
-			ensure!(schedule.is_valid(), Error::<T>::InvalidSchedule);
-			let mut config = <InflationConfig<T>>::get();
-			ensure!(config.annual != schedule, Error::<T>::NoWritingSameValue);
-			config.annual = schedule;
-			config.set_round_from_annual::<T>(schedule);
-			Self::deposit_event(Event::InflationSet {
-				annual_min: config.annual.min,
-				annual_ideal: config.annual.ideal,
-				annual_max: config.annual.max,
-				round_min: config.round.min,
-				round_ideal: config.round.ideal,
-				round_max: config.round.max,
-			});
-			<InflationConfig<T>>::put(config);
-			Ok(().into())
-		}
-
 		#[pallet::weight(<T as Config>::WeightInfo::set_total_selected())]
 		/// Set the total number of collator candidates selected per round
 		/// - changes are not applied until the start of the next round
@@ -795,20 +720,14 @@ pub mod pallet {
 				Error::<T>::RoundLengthMustBeAtLeastTotalSelectedCollators,
 			);
 			round.length = new;
-			// update per-round inflation given new rounds per year
-			let mut inflation_config = <InflationConfig<T>>::get();
-			inflation_config.reset_round(new);
 			<Round<T>>::put(round);
 			Self::deposit_event(Event::BlocksPerRoundSet {
 				current_round: now,
 				first_block: first,
 				old: old,
 				new: new,
-				new_per_round_inflation_min: inflation_config.round.min,
-				new_per_round_inflation_ideal: inflation_config.round.ideal,
-				new_per_round_inflation_max: inflation_config.round.max,
 			});
-			<InflationConfig<T>>::put(inflation_config);
+
 			Ok(().into())
 		}
 		#[pallet::weight(<T as Config>::WeightInfo::join_candidates(*candidate_count))]
