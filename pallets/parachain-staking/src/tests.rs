@@ -34,7 +34,7 @@ use crate::{
 	TopDelegations, DELEGATOR_LOCK_ID, mock::set_reward_pot
 };
 use frame_support::{assert_noop, assert_ok};
-use sp_runtime::{traits::Zero, DispatchError, ModuleError, Perbill, Percent};
+use sp_runtime::{traits::Zero, DispatchError, ModuleError, Perbill};
 
 // ~~ ROOT ~~
 
