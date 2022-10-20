@@ -152,7 +152,7 @@ impl<A, B: Default> Default for CollatorSnapshot<A, B> {
 #[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo)]
 /// Info needed to make delayed payments to stakers after round end
 pub struct DelayedPayout<Balance> {
-	/// Total round reward (result of compute_issuance() at round end)
+	/// Total round reward (result of compute_total_reward_to_pay() at round end)
 	/* TODO - remove this field because it will have the same value as the one below */
 	pub round_issuance: Balance,
 	/// The total inflation paid this round to stakers (e.g. less parachain bond fund)
