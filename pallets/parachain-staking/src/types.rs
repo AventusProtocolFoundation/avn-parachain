@@ -17,8 +17,8 @@
 //! Types for parachain-staking
 
 use crate::{
-	set::OrderedSet, BalanceOf, BottomDelegations, CandidateInfo, Config, DelegatorState, Error,
-	Event, Pallet, Round, RoundIndex, TopDelegations, Total, COLLATOR_LOCK_ID, DELEGATOR_LOCK_ID,
+	set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, NominatorState, Error,
+	Event, Pallet, Round, RoundIndex, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
 	pallet_prelude::*,
@@ -31,9 +31,9 @@ use sp_runtime::{
 };
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
-pub struct CountedDelegations<T: Config> {
+pub struct CountedNominations<T: Config> {
 	pub uncounted_stake: BalanceOf<T>,
-	pub rewardable_delegations: Vec<Bond<T::AccountId, BalanceOf<T>>>,
+	pub rewardable_nominations: Vec<Bond<T::AccountId, BalanceOf<T>>>,
 }
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -104,13 +104,13 @@ pub struct CollatorSnapshot<AccountId, Balance> {
 	/// The total value locked by the collator.
 	pub bond: Balance,
 
-	/// The rewardable delegations. This list is a subset of total delegators, where certain
-	/// delegators are adjusted based on their scheduled
-	/// [DelegationChange::Revoke] or [DelegationChange::Decrease] action.
-	pub delegations: Vec<Bond<AccountId, Balance>>,
+	/// The rewardable nominations. This list is a subset of total nominators, where certain
+	/// nominators are adjusted based on their scheduled
+	/// [NominationChange::Revoke] or [NominationChange::Decrease] action.
+	pub nominations: Vec<Bond<AccountId, Balance>>,
 
 	/// The total counted value locked for the collator, including the self bond + total staked by
-	/// top delegators.
+	/// top nominators.
 	pub total: Balance,
 }
 
@@ -129,7 +129,7 @@ impl<A: PartialEq, B: PartialEq> PartialEq for CollatorSnapshot<A, B> {
 				owner: o2,
 				amount: a2,
 			},
-		) in self.delegations.iter().zip(other.delegations.iter())
+		) in self.nominations.iter().zip(other.nominations.iter())
 		{
 			if o1 != o2 || a1 != a2 {
 				return false;
@@ -143,7 +143,7 @@ impl<A, B: Default> Default for CollatorSnapshot<A, B> {
 	fn default() -> CollatorSnapshot<A, B> {
 		CollatorSnapshot {
 			bond: B::default(),
-			delegations: Vec::new(),
+			nominations: Vec::new(),
 			total: B::default(),
 		}
 	}
@@ -163,7 +163,7 @@ pub struct DelayedPayout<Balance> {
 
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 /// DEPRECATED
-/// Collator state with commission fee, bonded stake, and delegations
+/// Collator state with commission fee, bonded stake, and nominations
 pub struct Collator2<AccountId, Balance> {
 	/// The account of this collator
 	pub id: AccountId,
@@ -171,13 +171,13 @@ pub struct Collator2<AccountId, Balance> {
 	pub bond: Balance,
 	/// Set of all nominator AccountIds (to prevent >1 nomination per AccountId)
 	pub nominators: OrderedSet<AccountId>,
-	/// Top T::MaxDelegatorsPerCollator::get() nominators, ordered greatest to least
+	/// Top T::MaxNominatorsPerCollator::get() nominators, ordered greatest to least
 	pub top_nominators: Vec<Bond<AccountId, Balance>>,
 	/// Bottom nominators (unbounded), ordered least to greatest
 	pub bottom_nominators: Vec<Bond<AccountId, Balance>>,
-	/// Sum of top delegations + self.bond
+	/// Sum of top nominations + self.bond
 	pub total_counted: Balance,
-	/// Sum of all delegations + self.bond = (total_counted + uncounted)
+	/// Sum of all nominations + self.bond = (total_counted + uncounted)
 	pub total_backing: Balance,
 	/// Current status of the collator
 	pub state: CollatorStatus,
@@ -188,9 +188,9 @@ impl<A, B> From<Collator2<A, B>> for CollatorCandidate<A, B> {
 		CollatorCandidate {
 			id: other.id,
 			bond: other.bond,
-			delegators: other.nominators,
-			top_delegations: other.top_nominators,
-			bottom_delegations: other.bottom_nominators,
+			nominators: other.nominators,
+			top_nominations: other.top_nominators,
+			bottom_nominations: other.bottom_nominators,
 			total_counted: other.total_counted,
 			total_backing: other.total_backing,
 			request: None,
@@ -207,22 +207,22 @@ pub struct CandidateBondLessRequest<Balance> {
 }
 
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-/// DEPRECATED, replaced by `CandidateMetadata` and two storage instances of `Delegations`
-/// Collator candidate state with self bond + delegations
+/// DEPRECATED, replaced by `CandidateMetadata` and two storage instances of `Nominations`
+/// Collator candidate state with self bond + nominations
 pub struct CollatorCandidate<AccountId, Balance> {
 	/// The account of this collator
 	pub id: AccountId,
 	/// This collator's self stake.
 	pub bond: Balance,
-	/// Set of all delegator AccountIds (to prevent >1 delegation per AccountId)
-	pub delegators: OrderedSet<AccountId>,
-	/// Top T::MaxDelegatorsPerCollator::get() delegations, ordered greatest to least
-	pub top_delegations: Vec<Bond<AccountId, Balance>>,
-	/// Bottom delegations (unbounded), ordered least to greatest
-	pub bottom_delegations: Vec<Bond<AccountId, Balance>>,
-	/// Sum of top delegations + self.bond
+	/// Set of all nominator AccountIds (to prevent >1 nomination per AccountId)
+	pub nominators: OrderedSet<AccountId>,
+	/// Top T::MaxNominatorsPerCollator::get() nominations, ordered greatest to least
+	pub top_nominations: Vec<Bond<AccountId, Balance>>,
+	/// Bottom nominations (unbounded), ordered least to greatest
+	pub bottom_nominations: Vec<Bond<AccountId, Balance>>,
+	/// Sum of top nominations + self.bond
 	pub total_counted: Balance,
-	/// Sum of all delegations + self.bond = (total_counted + uncounted)
+	/// Sum of all nominations + self.bond = (total_counted + uncounted)
 	pub total_backing: Balance,
 	/// Maximum 1 pending request to decrease candidate self bond at any given time
 	pub request: Option<CandidateBondLessRequest<Balance>>,
@@ -231,91 +231,91 @@ pub struct CollatorCandidate<AccountId, Balance> {
 }
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-/// Type for top and bottom delegation storage item
-pub struct Delegations<AccountId, Balance> {
-	pub delegations: Vec<Bond<AccountId, Balance>>,
+/// Type for top and bottom nomination storage item
+pub struct Nominations<AccountId, Balance> {
+	pub nominations: Vec<Bond<AccountId, Balance>>,
 	pub total: Balance,
 }
 
-impl<A, B: Default> Default for Delegations<A, B> {
-	fn default() -> Delegations<A, B> {
-		Delegations {
-			delegations: Vec::new(),
+impl<A, B: Default> Default for Nominations<A, B> {
+	fn default() -> Nominations<A, B> {
+		Nominations {
+			nominations: Vec::new(),
 			total: B::default(),
 		}
 	}
 }
 
 impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating>
-	Delegations<AccountId, Balance>
+	Nominations<AccountId, Balance>
 {
 	pub fn sort_greatest_to_least(&mut self) {
-		self.delegations.sort_by(|a, b| b.amount.cmp(&a.amount));
+		self.nominations.sort_by(|a, b| b.amount.cmp(&a.amount));
 	}
 	/// Insert sorted greatest to least and increase .total accordingly
-	/// Insertion respects first come first serve so new delegations are pushed after existing
-	/// delegations if the amount is the same
-	pub fn insert_sorted_greatest_to_least(&mut self, delegation: Bond<AccountId, Balance>) {
-		self.total = self.total.saturating_add(delegation.amount);
-		// if delegations nonempty && last_element == delegation.amount => push input and return
-		if !self.delegations.is_empty() {
-			// if last_element == delegation.amount => push the delegation and return early
-			if self.delegations[self.delegations.len() - 1].amount == delegation.amount {
-				self.delegations.push(delegation);
+	/// Insertion respects first come first serve so new nominations are pushed after existing
+	/// nominations if the amount is the same
+	pub fn insert_sorted_greatest_to_least(&mut self, nomination: Bond<AccountId, Balance>) {
+		self.total = self.total.saturating_add(nomination.amount);
+		// if nominations nonempty && last_element == nomination.amount => push input and return
+		if !self.nominations.is_empty() {
+			// if last_element == nomination.amount => push the nomination and return early
+			if self.nominations[self.nominations.len() - 1].amount == nomination.amount {
+				self.nominations.push(nomination);
 				// early return
 				return;
 			}
 		}
 		// else binary search insertion
 		match self
-			.delegations
-			.binary_search_by(|x| delegation.amount.cmp(&x.amount))
+			.nominations
+			.binary_search_by(|x| nomination.amount.cmp(&x.amount))
 		{
 			// sorted insertion on sorted vec
 			// enforces first come first serve for equal bond amounts
 			Ok(i) => {
 				let mut new_index = i + 1;
-				while new_index <= (self.delegations.len() - 1) {
-					if self.delegations[new_index].amount == delegation.amount {
+				while new_index <= (self.nominations.len() - 1) {
+					if self.nominations[new_index].amount == nomination.amount {
 						new_index = new_index.saturating_add(1);
 					} else {
-						self.delegations.insert(new_index, delegation);
+						self.nominations.insert(new_index, nomination);
 						return;
 					}
 				}
-				self.delegations.push(delegation)
+				self.nominations.push(nomination)
 			}
-			Err(i) => self.delegations.insert(i, delegation),
+			Err(i) => self.nominations.insert(i, nomination),
 		}
 	}
-	/// Return the capacity status for top delegations
+	/// Return the capacity status for top nominations
 	pub fn top_capacity<T: Config>(&self) -> CapacityStatus {
-		match &self.delegations {
-			x if x.len() as u32 >= T::MaxTopDelegationsPerCandidate::get() => CapacityStatus::Full,
+		match &self.nominations {
+			x if x.len() as u32 >= T::MaxTopNominationsPerCandidate::get() => CapacityStatus::Full,
 			x if x.is_empty() => CapacityStatus::Empty,
 			_ => CapacityStatus::Partial,
 		}
 	}
-	/// Return the capacity status for bottom delegations
+	/// Return the capacity status for bottom nominations
 	pub fn bottom_capacity<T: Config>(&self) -> CapacityStatus {
-		match &self.delegations {
-			x if x.len() as u32 >= T::MaxBottomDelegationsPerCandidate::get() => {
+		match &self.nominations {
+			x if x.len() as u32 >= T::MaxBottomNominationsPerCandidate::get() => {
 				CapacityStatus::Full
 			}
 			x if x.is_empty() => CapacityStatus::Empty,
 			_ => CapacityStatus::Partial,
 		}
 	}
-	/// Return last delegation amount without popping the delegation
-	pub fn lowest_delegation_amount(&self) -> Balance {
-		self.delegations
+	/// Return last nomination amount without popping the nomination
+	pub fn lowest_nomination_amount(&self) -> Balance {
+		self.nominations
 			.last()
 			.map(|x| x.amount)
 			.unwrap_or(Balance::zero())
 	}
-	/// Return highest delegation amount
-	pub fn highest_delegation_amount(&self) -> Balance {
-		self.delegations
+	/// Return highest nomination amount
+	pub fn highest_nomination_amount(&self) -> Balance {
+		self.nominations
 			.first()
 			.map(|x| x.amount)
 			.unwrap_or(Balance::zero())
@@ -323,34 +323,34 @@ impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating
 }
 
 #[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-/// Capacity status for top or bottom delegations
+/// Capacity status for top or bottom nominations
 pub enum CapacityStatus {
 	/// Reached capacity
 	Full,
-	/// Empty aka contains no delegations
+	/// Empty aka contains no nominations
 	Empty,
 	/// Partially full (nonempty and not full)
 	Partial,
 }
 
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-/// All candidate info except the top and bottom delegations
+/// All candidate info except the top and bottom nominations
 pub struct CandidateMetadata<Balance> {
 	/// This candidate's self bond amount
 	pub bond: Balance,
-	/// Total number of delegations to this candidate
-	pub delegation_count: u32,
-	/// Self bond + sum of top delegations
+	/// Total number of nominations to this candidate
+	pub nomination_count: u32,
+	/// Self bond + sum of top nominations
 	pub total_counted: Balance,
-	/// The smallest top delegation amount
-	pub lowest_top_delegation_amount: Balance,
-	/// The highest bottom delegation amount
-	pub highest_bottom_delegation_amount: Balance,
-	/// The smallest bottom delegation amount
-	pub lowest_bottom_delegation_amount: Balance,
-	/// Capacity status for top delegations
+	/// The smallest top nomination amount
+	pub lowest_top_nomination_amount: Balance,
+	/// The highest bottom nomination amount
+	pub highest_bottom_nomination_amount: Balance,
+	/// The smallest bottom nomination amount
+	pub lowest_bottom_nomination_amount: Balance,
+	/// Capacity status for top nominations
 	pub top_capacity: CapacityStatus,
-	/// Capacity status for bottom delegations
+	/// Capacity status for bottom nominations
 	pub bottom_capacity: CapacityStatus,
 	/// Maximum 1 pending request to decrease candidate self bond at any given time
 	pub request: Option<CandidateBondLessRequest<Balance>>,
@@ -372,11 +372,11 @@ impl<
 	pub fn new(bond: Balance) -> Self {
 		CandidateMetadata {
 			bond,
-			delegation_count: 0u32,
+			nomination_count: 0u32,
 			total_counted: bond,
-			lowest_top_delegation_amount: Zero::zero(),
-			highest_bottom_delegation_amount: Zero::zero(),
-			lowest_bottom_delegation_amount: Zero::zero(),
+			lowest_top_nomination_amount: Zero::zero(),
+			highest_bottom_nomination_amount: Zero::zero(),
+			lowest_bottom_nomination_amount: Zero::zero(),
 			top_capacity: CapacityStatus::Empty,
 			bottom_capacity: CapacityStatus::Empty,
 			request: None,
@@ -521,57 +521,57 @@ impl<
 		Pallet::<T>::deposit_event(event);
 		Ok(())
 	}
-	/// Reset top delegations metadata
+	/// Reset top nominations metadata
 	pub fn reset_top_data<T: Config>(
 		&mut self,
 		candidate: T::AccountId,
-		top_delegations: &Delegations<T::AccountId, BalanceOf<T>>,
+		top_nominations: &Nominations<T::AccountId, BalanceOf<T>>,
 	) where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
-		self.lowest_top_delegation_amount = top_delegations.lowest_delegation_amount().into();
-		self.top_capacity = top_delegations.top_capacity::<T>();
+		self.lowest_top_nomination_amount = top_nominations.lowest_nomination_amount().into();
+		self.top_capacity = top_nominations.top_capacity::<T>();
 		let old_total_counted = self.total_counted;
-		self.total_counted = self.bond.saturating_add(top_delegations.total.into());
-		// CandidatePool value for candidate always changes if top delegations total changes
+		self.total_counted = self.bond.saturating_add(top_nominations.total.into());
+		// CandidatePool value for candidate always changes if top nominations total changes
 		// so we moved the update into this function to deduplicate code and patch a bug that
-		// forgot to apply the update when increasing top delegation
+		// forgot to apply the update when increasing top nomination
 		if old_total_counted != self.total_counted && self.is_active() {
 			Pallet::<T>::update_active(candidate, self.total_counted.into());
 		}
 	}
-	/// Reset bottom delegations metadata
+	/// Reset bottom nominations metadata
 	pub fn reset_bottom_data<T: Config>(
 		&mut self,
-		bottom_delegations: &Delegations<T::AccountId, BalanceOf<T>>,
+		bottom_nominations: &Nominations<T::AccountId, BalanceOf<T>>,
 	) where
 		BalanceOf<T>: Into<Balance>,
 	{
-		self.lowest_bottom_delegation_amount = bottom_delegations.lowest_delegation_amount().into();
-		self.highest_bottom_delegation_amount =
-			bottom_delegations.highest_delegation_amount().into();
-		self.bottom_capacity = bottom_delegations.bottom_capacity::<T>();
+		self.lowest_bottom_nomination_amount = bottom_nominations.lowest_nomination_amount().into();
+		self.highest_bottom_nomination_amount =
+			bottom_nominations.highest_nomination_amount().into();
+		self.bottom_capacity = bottom_nominations.bottom_capacity::<T>();
 	}
-	/// Add delegation
-	/// Returns whether delegator was added and an optional negative total counted remainder
-	/// for if a bottom delegation was kicked
-	/// MUST ensure no delegation exists for this candidate in the `DelegatorState` before call
-	pub fn add_delegation<T: Config>(
+	/// Add nomination
+	/// Returns whether nominator was added and an optional negative total counted remainder
+	/// for if a bottom nomination was kicked
+	/// MUST ensure no nomination exists for this candidate in the `NominatorState` before call
+	pub fn add_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegation: Bond<T::AccountId, BalanceOf<T>>,
-	) -> Result<(DelegatorAdded<Balance>, Option<Balance>), DispatchError>
+		nomination: Bond<T::AccountId, BalanceOf<T>>,
+	) -> Result<(NominatorAdded<Balance>, Option<Balance>), DispatchError>
 	where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
 		let mut less_total_staked = None;
-		let delegator_added = match self.top_capacity {
+		let nominator_added = match self.top_capacity {
 			CapacityStatus::Full => {
 				// top is full, insert into top iff the lowest_top < amount
-				if self.lowest_top_delegation_amount < delegation.amount.into() {
+				if self.lowest_top_nomination_amount < nomination.amount.into() {
 					// bumps lowest top to the bottom inside this function call
-					less_total_staked = self.add_top_delegation::<T>(candidate, delegation);
-					DelegatorAdded::AddedToTop {
+					less_total_staked = self.add_top_nomination::<T>(candidate, nomination);
+					NominatorAdded::AddedToTop {
 						new_total: self.total_counted,
 					}
 				} else {
@@ -579,184 +579,184 @@ impl<
 					// be bumped out)
 					if matches!(self.bottom_capacity, CapacityStatus::Full) {
 						ensure!(
-							delegation.amount.into() > self.lowest_bottom_delegation_amount,
-							Error::<T>::CannotDelegateLessThanOrEqualToLowestBottomWhenFull
+							nomination.amount.into() > self.lowest_bottom_nomination_amount,
+							Error::<T>::CannotNominateLessThanOrEqualToLowestBottomWhenFull
 						);
 						// need to subtract from total staked
-						less_total_staked = Some(self.lowest_bottom_delegation_amount);
+						less_total_staked = Some(self.lowest_bottom_nomination_amount);
 					}
 					// insert into bottom
-					self.add_bottom_delegation::<T>(false, candidate, delegation);
-					DelegatorAdded::AddedToBottom
+					self.add_bottom_nomination::<T>(false, candidate, nomination);
+					NominatorAdded::AddedToBottom
 				}
 			}
 			// top is either empty or partially full
 			_ => {
-				self.add_top_delegation::<T>(candidate, delegation);
-				DelegatorAdded::AddedToTop {
+				self.add_top_nomination::<T>(candidate, nomination);
+				NominatorAdded::AddedToTop {
 					new_total: self.total_counted,
 				}
 			}
 		};
-		Ok((delegator_added, less_total_staked))
+		Ok((nominator_added, less_total_staked))
 	}
-	/// Add delegation to top delegation
+	/// Add nomination to top nomination
 	/// Returns Option<negative_total_staked_remainder>
-	/// Only call if lowest top delegation is less than delegation.amount || !top_full
-	pub fn add_top_delegation<T: Config>(
+	/// Only call if lowest top nomination is less than nomination.amount || !top_full
+	pub fn add_top_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegation: Bond<T::AccountId, BalanceOf<T>>,
+		nomination: Bond<T::AccountId, BalanceOf<T>>,
 	) -> Option<Balance>
 	where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
 		let mut less_total_staked = None;
-		let mut top_delegations = <TopDelegations<T>>::get(candidate)
-			.expect("CandidateInfo existence => TopDelegations existence");
-		let max_top_delegations_per_candidate = T::MaxTopDelegationsPerCandidate::get();
-		if top_delegations.delegations.len() as u32 == max_top_delegations_per_candidate {
-			// pop lowest top delegation
-			let new_bottom_delegation = top_delegations.delegations.pop().expect("");
-			top_delegations.total = top_delegations
+		let mut top_nominations = <TopNominations<T>>::get(candidate)
+			.expect("CandidateInfo existence => TopNominations existence");
+		let max_top_nominations_per_candidate = T::MaxTopNominationsPerCandidate::get();
+		if top_nominations.nominations.len() as u32 == max_top_nominations_per_candidate {
+			// pop lowest top nomination
+			let new_bottom_nomination = top_nominations.nominations.pop().expect("");
+			top_nominations.total = top_nominations
 				.total
-				.saturating_sub(new_bottom_delegation.amount);
+				.saturating_sub(new_bottom_nomination.amount);
 			if matches!(self.bottom_capacity, CapacityStatus::Full) {
-				less_total_staked = Some(self.lowest_bottom_delegation_amount);
+				less_total_staked = Some(self.lowest_bottom_nomination_amount);
 			}
-			self.add_bottom_delegation::<T>(true, candidate, new_bottom_delegation);
+			self.add_bottom_nomination::<T>(true, candidate, new_bottom_nomination);
 		}
 		// insert into top
-		top_delegations.insert_sorted_greatest_to_least(delegation);
+		top_nominations.insert_sorted_greatest_to_least(nomination);
 		// update candidate info
-		self.reset_top_data::<T>(candidate.clone(), &top_delegations);
+		self.reset_top_data::<T>(candidate.clone(), &top_nominations);
 		if less_total_staked.is_none() {
-			// only increment delegation count if we are not kicking a bottom delegation
-			self.delegation_count = self.delegation_count.saturating_add(1u32);
+			// only increment nomination count if we are not kicking a bottom nomination
+			self.nomination_count = self.nomination_count.saturating_add(1u32);
 		}
-		<TopDelegations<T>>::insert(&candidate, top_delegations);
+		<TopNominations<T>>::insert(&candidate, top_nominations);
 		less_total_staked
 	}
-	/// Add delegation to bottom delegations
-	/// Check before call that if capacity is full, inserted delegation is higher than lowest
-	/// bottom delegation (and if so, need to adjust the total storage item)
-	/// CALLER MUST ensure(lowest_bottom_to_be_kicked.amount < delegation.amount)
-	pub fn add_bottom_delegation<T: Config>(
+	/// Add nomination to bottom nominations
+	/// Check before call that if capacity is full, inserted nomination is higher than lowest
+	/// bottom nomination (and if so, need to adjust the total storage item)
+	/// CALLER MUST ensure(lowest_bottom_to_be_kicked.amount < nomination.amount)
+	pub fn add_bottom_nomination<T: Config>(
 		&mut self,
 		bumped_from_top: bool,
 		candidate: &T::AccountId,
-		delegation: Bond<T::AccountId, BalanceOf<T>>,
+		nomination: Bond<T::AccountId, BalanceOf<T>>,
 	) where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
-		let mut bottom_delegations = <BottomDelegations<T>>::get(candidate)
-			.expect("CandidateInfo existence => BottomDelegations existence");
+		let mut bottom_nominations = <BottomNominations<T>>::get(candidate)
+			.expect("CandidateInfo existence => BottomNominations existence");
 		// if bottom is full, kick the lowest bottom (which is expected to be lower than input
 		// as per check)
-		let increase_delegation_count = if bottom_delegations.delegations.len() as u32
-			== T::MaxBottomDelegationsPerCandidate::get()
+		let increase_nomination_count = if bottom_nominations.nominations.len() as u32
+			== T::MaxBottomNominationsPerCandidate::get()
 		{
-			let lowest_bottom_to_be_kicked = bottom_delegations
-				.delegations
+			let lowest_bottom_to_be_kicked = bottom_nominations
+				.nominations
 				.pop()
-				.expect("if at full capacity (>0), then >0 bottom delegations exist; qed");
-			// EXPECT lowest_bottom_to_be_kicked.amount < delegation.amount enforced by caller
-			// if lowest_bottom_to_be_kicked.amount == delegation.amount, we will still kick
+				.expect("if at full capacity (>0), then >0 bottom nominations exist; qed");
+			// EXPECT lowest_bottom_to_be_kicked.amount < nomination.amount enforced by caller
+			// if lowest_bottom_to_be_kicked.amount == nomination.amount, we will still kick
 			// the lowest bottom to enforce first come first served
-			bottom_delegations.total = bottom_delegations
+			bottom_nominations.total = bottom_nominations
 				.total
 				.saturating_sub(lowest_bottom_to_be_kicked.amount);
-			// update delegator state
-			// total staked is updated via propagation of lowest bottom delegation amount prior
+			// update nominator state
+			// total staked is updated via propagation of lowest bottom nomination amount prior
 			// to call
-			let mut delegator_state = <DelegatorState<T>>::get(&lowest_bottom_to_be_kicked.owner)
-				.expect("Delegation existence => DelegatorState existence");
-			let leaving = delegator_state.delegations.0.len() == 1usize;
-			delegator_state.rm_delegation::<T>(candidate);
-			<Pallet<T>>::delegation_remove_request_with_state(
+			let mut nominator_state = <NominatorState<T>>::get(&lowest_bottom_to_be_kicked.owner)
+				.expect("Nomination existence => NominatorState existence");
+			let leaving = nominator_state.nominations.0.len() == 1usize;
+			nominator_state.rm_nomination::<T>(candidate);
+			<Pallet<T>>::nomination_remove_request_with_state(
 				&candidate,
 				&lowest_bottom_to_be_kicked.owner,
-				&mut delegator_state,
+				&mut nominator_state,
 			);
 
-			Pallet::<T>::deposit_event(Event::DelegationKicked {
-				delegator: lowest_bottom_to_be_kicked.owner.clone(),
+			Pallet::<T>::deposit_event(Event::NominationKicked {
+				nominator: lowest_bottom_to_be_kicked.owner.clone(),
 				candidate: candidate.clone(),
 				unstaked_amount: lowest_bottom_to_be_kicked.amount,
 			});
 			if leaving {
-				<DelegatorState<T>>::remove(&lowest_bottom_to_be_kicked.owner);
-				Pallet::<T>::deposit_event(Event::DelegatorLeft {
-					delegator: lowest_bottom_to_be_kicked.owner,
+				<NominatorState<T>>::remove(&lowest_bottom_to_be_kicked.owner);
+				Pallet::<T>::deposit_event(Event::NominatorLeft {
+					nominator: lowest_bottom_to_be_kicked.owner,
 					unstaked_amount: lowest_bottom_to_be_kicked.amount,
 				});
 			} else {
-				<DelegatorState<T>>::insert(&lowest_bottom_to_be_kicked.owner, delegator_state);
+				<NominatorState<T>>::insert(&lowest_bottom_to_be_kicked.owner, nominator_state);
 			}
 			false
 		} else {
 			!bumped_from_top
 		};
-		// only increase delegation count if new bottom delegation (1) doesn't come from top &&
-		// (2) doesn't pop the lowest delegation from the bottom
-		if increase_delegation_count {
-			self.delegation_count = self.delegation_count.saturating_add(1u32);
+		// only increase nomination count if new bottom nomination (1) doesn't come from top &&
+		// (2) doesn't pop the lowest nomination from the bottom
+		if increase_nomination_count {
+			self.nomination_count = self.nomination_count.saturating_add(1u32);
 		}
-		bottom_delegations.insert_sorted_greatest_to_least(delegation);
-		self.reset_bottom_data::<T>(&bottom_delegations);
-		<BottomDelegations<T>>::insert(candidate, bottom_delegations);
+		bottom_nominations.insert_sorted_greatest_to_least(nomination);
+		self.reset_bottom_data::<T>(&bottom_nominations);
+		<BottomNominations<T>>::insert(candidate, bottom_nominations);
 	}
-	/// Remove delegation
+	/// Remove nomination
 	/// Removes from top if amount is above lowest top or top is not full
 	/// Return Ok(if_total_counted_changed)
-	pub fn rm_delegation_if_exists<T: Config>(
+	pub fn rm_nomination_if_exists<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 		amount: Balance,
 	) -> Result<bool, DispatchError>
 	where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
-		let amount_geq_lowest_top = amount >= self.lowest_top_delegation_amount;
+		let amount_geq_lowest_top = amount >= self.lowest_top_nomination_amount;
 		let top_is_not_full = !matches!(self.top_capacity, CapacityStatus::Full);
 		let lowest_top_eq_highest_bottom =
-			self.lowest_top_delegation_amount == self.highest_bottom_delegation_amount;
-		let delegation_dne_err: DispatchError = Error::<T>::DelegationDNE.into();
+			self.lowest_top_nomination_amount == self.highest_bottom_nomination_amount;
+		let nomination_dne_err: DispatchError = Error::<T>::NominationDNE.into();
 		if top_is_not_full || (amount_geq_lowest_top && !lowest_top_eq_highest_bottom) {
-			self.rm_top_delegation::<T>(candidate, delegator)
+			self.rm_top_nomination::<T>(candidate, nominator)
 		} else if amount_geq_lowest_top && lowest_top_eq_highest_bottom {
-			let result = self.rm_top_delegation::<T>(candidate, delegator.clone());
-			if result == Err(delegation_dne_err) {
+			let result = self.rm_top_nomination::<T>(candidate, nominator.clone());
+			if result == Err(nomination_dne_err) {
 				// worst case removal
-				self.rm_bottom_delegation::<T>(candidate, delegator)
+				self.rm_bottom_nomination::<T>(candidate, nominator)
 			} else {
 				result
 			}
 		} else {
-			self.rm_bottom_delegation::<T>(candidate, delegator)
+			self.rm_bottom_nomination::<T>(candidate, nominator)
 		}
 	}
-	/// Remove top delegation, bumps top bottom delegation if exists
-	pub fn rm_top_delegation<T: Config>(
+	/// Remove top nomination, bumps top bottom nomination if exists
+	pub fn rm_top_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 	) -> Result<bool, DispatchError>
 	where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
 		let old_total_counted = self.total_counted;
-		// remove top delegation
-		let mut top_delegations = <TopDelegations<T>>::get(candidate)
-			.expect("CandidateInfo exists => TopDelegations exists");
+		// remove top nomination
+		let mut top_nominations = <TopNominations<T>>::get(candidate)
+			.expect("CandidateInfo exists => TopNominations exists");
 		let mut actual_amount_option: Option<BalanceOf<T>> = None;
-		top_delegations.delegations = top_delegations
-			.delegations
+		top_nominations.nominations = top_nominations
+			.nominations
 			.clone()
 			.into_iter()
 			.filter(|d| {
-				if d.owner != delegator {
+				if d.owner != nominator {
 					true
 				} else {
 					actual_amount_option = Some(d.amount);
@@ -764,49 +764,49 @@ impl<
 				}
 			})
 			.collect();
-		let actual_amount = actual_amount_option.ok_or(Error::<T>::DelegationDNE)?;
-		top_delegations.total = top_delegations.total.saturating_sub(actual_amount);
+		let actual_amount = actual_amount_option.ok_or(Error::<T>::NominationDNE)?;
+		top_nominations.total = top_nominations.total.saturating_sub(actual_amount);
 		// if bottom nonempty => bump top bottom to top
 		if !matches!(self.bottom_capacity, CapacityStatus::Empty) {
-			let mut bottom_delegations =
-				<BottomDelegations<T>>::get(candidate).expect("bottom is nonempty as just checked");
+			let mut bottom_nominations =
+				<BottomNominations<T>>::get(candidate).expect("bottom is nonempty as just checked");
 			// expect already stored greatest to least by bond amount
-			let highest_bottom_delegation = bottom_delegations.delegations.remove(0);
-			bottom_delegations.total = bottom_delegations
+			let highest_bottom_nomination = bottom_nominations.nominations.remove(0);
+			bottom_nominations.total = bottom_nominations
 				.total
-				.saturating_sub(highest_bottom_delegation.amount);
-			self.reset_bottom_data::<T>(&bottom_delegations);
-			<BottomDelegations<T>>::insert(candidate, bottom_delegations);
-			// insert highest bottom into top delegations
-			top_delegations.insert_sorted_greatest_to_least(highest_bottom_delegation);
+				.saturating_sub(highest_bottom_nomination.amount);
+			self.reset_bottom_data::<T>(&bottom_nominations);
+			<BottomNominations<T>>::insert(candidate, bottom_nominations);
+			// insert highest bottom into top nominations
+			top_nominations.insert_sorted_greatest_to_least(highest_bottom_nomination);
 		}
 		// update candidate info
-		self.reset_top_data::<T>(candidate.clone(), &top_delegations);
-		self.delegation_count = self.delegation_count.saturating_sub(1u32);
-		<TopDelegations<T>>::insert(candidate, top_delegations);
+		self.reset_top_data::<T>(candidate.clone(), &top_nominations);
+		self.nomination_count = self.nomination_count.saturating_sub(1u32);
+		<TopNominations<T>>::insert(candidate, top_nominations);
 		// return whether total counted changed
 		Ok(old_total_counted == self.total_counted)
 	}
-	/// Remove bottom delegation
+	/// Remove bottom nomination
 	/// Returns if_total_counted_changed: bool
-	pub fn rm_bottom_delegation<T: Config>(
+	pub fn rm_bottom_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 	) -> Result<bool, DispatchError>
 	where
 		BalanceOf<T>: Into<Balance>,
 	{
-		// remove bottom delegation
-		let mut bottom_delegations = <BottomDelegations<T>>::get(candidate)
-			.expect("CandidateInfo exists => BottomDelegations exists");
+		// remove bottom nomination
+		let mut bottom_nominations = <BottomNominations<T>>::get(candidate)
+			.expect("CandidateInfo exists => BottomNominations exists");
 		let mut actual_amount_option: Option<BalanceOf<T>> = None;
-		bottom_delegations.delegations = bottom_delegations
-			.delegations
+		bottom_nominations.nominations = bottom_nominations
+			.nominations
 			.clone()
 			.into_iter()
 			.filter(|d| {
-				if d.owner != delegator {
+				if d.owner != nominator {
 					true
 				} else {
 					actual_amount_option = Some(d.amount);
@@ -814,19 +814,19 @@ impl<
 				}
 			})
 			.collect();
-		let actual_amount = actual_amount_option.ok_or(Error::<T>::DelegationDNE)?;
-		bottom_delegations.total = bottom_delegations.total.saturating_sub(actual_amount);
+		let actual_amount = actual_amount_option.ok_or(Error::<T>::NominationDNE)?;
+		bottom_nominations.total = bottom_nominations.total.saturating_sub(actual_amount);
 		// update candidate info
-		self.reset_bottom_data::<T>(&bottom_delegations);
-		self.delegation_count = self.delegation_count.saturating_sub(1u32);
-		<BottomDelegations<T>>::insert(candidate, bottom_delegations);
+		self.reset_bottom_data::<T>(&bottom_nominations);
+		self.nomination_count = self.nomination_count.saturating_sub(1u32);
+		<BottomNominations<T>>::insert(candidate, bottom_nominations);
 		Ok(false)
 	}
-	/// Increase delegation amount
-	pub fn increase_delegation<T: Config>(
+	/// Increase nomination amount
+	pub fn increase_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 		bond: BalanceOf<T>,
 		more: BalanceOf<T>,
 	) -> Result<bool, DispatchError>
@@ -834,44 +834,44 @@ impl<
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
 		let lowest_top_eq_highest_bottom =
-			self.lowest_top_delegation_amount == self.highest_bottom_delegation_amount;
-		let bond_geq_lowest_top = bond.into() >= self.lowest_top_delegation_amount;
-		let delegation_dne_err: DispatchError = Error::<T>::DelegationDNE.into();
+			self.lowest_top_nomination_amount == self.highest_bottom_nomination_amount;
+		let bond_geq_lowest_top = bond.into() >= self.lowest_top_nomination_amount;
+		let nomination_dne_err: DispatchError = Error::<T>::NominationDNE.into();
 		if bond_geq_lowest_top && !lowest_top_eq_highest_bottom {
 			// definitely in top
-			self.increase_top_delegation::<T>(candidate, delegator.clone(), more)
+			self.increase_top_nomination::<T>(candidate, nominator.clone(), more)
 		} else if bond_geq_lowest_top && lowest_top_eq_highest_bottom {
 			// update top but if error then update bottom (because could be in bottom because
 			// lowest_top_eq_highest_bottom)
-			let result = self.increase_top_delegation::<T>(candidate, delegator.clone(), more);
-			if result == Err(delegation_dne_err) {
-				self.increase_bottom_delegation::<T>(candidate, delegator, bond, more)
+			let result = self.increase_top_nomination::<T>(candidate, nominator.clone(), more);
+			if result == Err(nomination_dne_err) {
+				self.increase_bottom_nomination::<T>(candidate, nominator, bond, more)
 			} else {
 				result
 			}
 		} else {
-			self.increase_bottom_delegation::<T>(candidate, delegator, bond, more)
+			self.increase_bottom_nomination::<T>(candidate, nominator, bond, more)
 		}
 	}
-	/// Increase top delegation
-	pub fn increase_top_delegation<T: Config>(
+	/// Increase top nomination
+	pub fn increase_top_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 		more: BalanceOf<T>,
 	) -> Result<bool, DispatchError>
 	where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
-		let mut top_delegations = <TopDelegations<T>>::get(candidate)
-			.expect("CandidateInfo exists => TopDelegations exists");
+		let mut top_nominations = <TopNominations<T>>::get(candidate)
+			.expect("CandidateInfo exists => TopNominations exists");
 		let mut in_top = false;
-		top_delegations.delegations = top_delegations
-			.delegations
+		top_nominations.nominations = top_nominations
+			.nominations
 			.clone()
 			.into_iter()
 			.map(|d| {
-				if d.owner != delegator {
+				if d.owner != nominator {
 					d
 				} else {
 					in_top = true;
@@ -883,39 +883,39 @@ impl<
 				}
 			})
 			.collect();
-		ensure!(in_top, Error::<T>::DelegationDNE);
-		top_delegations.total = top_delegations.total.saturating_add(more);
-		top_delegations.sort_greatest_to_least();
-		self.reset_top_data::<T>(candidate.clone(), &top_delegations);
-		<TopDelegations<T>>::insert(candidate, top_delegations);
+		ensure!(in_top, Error::<T>::NominationDNE);
+		top_nominations.total = top_nominations.total.saturating_add(more);
+		top_nominations.sort_greatest_to_least();
+		self.reset_top_data::<T>(candidate.clone(), &top_nominations);
+		<TopNominations<T>>::insert(candidate, top_nominations);
 		Ok(true)
 	}
-	/// Increase bottom delegation
-	pub fn increase_bottom_delegation<T: Config>(
+	/// Increase bottom nomination
+	pub fn increase_bottom_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 		bond: BalanceOf<T>,
 		more: BalanceOf<T>,
 	) -> Result<bool, DispatchError>
 	where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
-		let mut bottom_delegations =
-			<BottomDelegations<T>>::get(candidate).ok_or(Error::<T>::CandidateDNE)?;
-		let mut delegation_option: Option<Bond<T::AccountId, BalanceOf<T>>> = None;
-		let in_top_after = if (bond.saturating_add(more)).into() > self.lowest_top_delegation_amount
+		let mut bottom_nominations =
+			<BottomNominations<T>>::get(candidate).ok_or(Error::<T>::CandidateDNE)?;
+		let mut nomination_option: Option<Bond<T::AccountId, BalanceOf<T>>> = None;
+		let in_top_after = if (bond.saturating_add(more)).into() > self.lowest_top_nomination_amount
 		{
 			// bump it from bottom
-			bottom_delegations.delegations = bottom_delegations
-				.delegations
+			bottom_nominations.nominations = bottom_nominations
+				.nominations
 				.clone()
 				.into_iter()
 				.filter(|d| {
-					if d.owner != delegator {
+					if d.owner != nominator {
 						true
 					} else {
-						delegation_option = Some(Bond {
+						nomination_option = Some(Bond {
 							owner: d.owner.clone(),
 							amount: d.amount.saturating_add(more),
 						});
@@ -923,37 +923,37 @@ impl<
 					}
 				})
 				.collect();
-			let delegation = delegation_option.ok_or(Error::<T>::DelegationDNE)?;
-			bottom_delegations.total = bottom_delegations.total.saturating_sub(bond);
+			let nomination = nomination_option.ok_or(Error::<T>::NominationDNE)?;
+			bottom_nominations.total = bottom_nominations.total.saturating_sub(bond);
 			// add it to top
-			let mut top_delegations = <TopDelegations<T>>::get(candidate)
-				.expect("CandidateInfo existence => TopDelegations existence");
+			let mut top_nominations = <TopNominations<T>>::get(candidate)
+				.expect("CandidateInfo existence => TopNominations existence");
 			// if top is full, pop lowest top
-			if matches!(top_delegations.top_capacity::<T>(), CapacityStatus::Full) {
-				// pop lowest top delegation
-				let new_bottom_delegation = top_delegations
-					.delegations
+			if matches!(top_nominations.top_capacity::<T>(), CapacityStatus::Full) {
+				// pop lowest top nomination
+				let new_bottom_nomination = top_nominations
+					.nominations
 					.pop()
-					.expect("Top capacity full => Exists at least 1 top delegation");
-				top_delegations.total = top_delegations
+					.expect("Top capacity full => Exists at least 1 top nomination");
+				top_nominations.total = top_nominations
 					.total
-					.saturating_sub(new_bottom_delegation.amount);
-				bottom_delegations.insert_sorted_greatest_to_least(new_bottom_delegation);
+					.saturating_sub(new_bottom_nomination.amount);
+				bottom_nominations.insert_sorted_greatest_to_least(new_bottom_nomination);
 			}
 			// insert into top
-			top_delegations.insert_sorted_greatest_to_least(delegation);
-			self.reset_top_data::<T>(candidate.clone(), &top_delegations);
-			<TopDelegations<T>>::insert(candidate, top_delegations);
+			top_nominations.insert_sorted_greatest_to_least(nomination);
+			self.reset_top_data::<T>(candidate.clone(), &top_nominations);
+			<TopNominations<T>>::insert(candidate, top_nominations);
 			true
 		} else {
 			let mut in_bottom = false;
-			// just increase the delegation
-			bottom_delegations.delegations = bottom_delegations
-				.delegations
+			// just increase the nomination
+			bottom_nominations.nominations = bottom_nominations
+				.nominations
 				.clone()
 				.into_iter()
 				.map(|d| {
-					if d.owner != delegator {
+					if d.owner != nominator {
 						d
 					} else {
 						in_bottom = true;
@@ -964,20 +964,20 @@ impl<
 					}
 				})
 				.collect();
-			ensure!(in_bottom, Error::<T>::DelegationDNE);
-			bottom_delegations.total = bottom_delegations.total.saturating_add(more);
-			bottom_delegations.sort_greatest_to_least();
+			ensure!(in_bottom, Error::<T>::NominationDNE);
+			bottom_nominations.total = bottom_nominations.total.saturating_add(more);
+			bottom_nominations.sort_greatest_to_least();
 			false
 		};
-		self.reset_bottom_data::<T>(&bottom_delegations);
-		<BottomDelegations<T>>::insert(candidate, bottom_delegations);
+		self.reset_bottom_data::<T>(&bottom_nominations);
+		<BottomNominations<T>>::insert(candidate, bottom_nominations);
 		Ok(in_top_after)
 	}
-	/// Decrease delegation
-	pub fn decrease_delegation<T: Config>(
+	/// Decrease nomination
+	pub fn decrease_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 		bond: Balance,
 		less: BalanceOf<T>,
 	) -> Result<bool, DispatchError>
@@ -985,59 +985,59 @@ impl<
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
 		let lowest_top_eq_highest_bottom =
-			self.lowest_top_delegation_amount == self.highest_bottom_delegation_amount;
-		let bond_geq_lowest_top = bond >= self.lowest_top_delegation_amount;
-		let delegation_dne_err: DispatchError = Error::<T>::DelegationDNE.into();
+			self.lowest_top_nomination_amount == self.highest_bottom_nomination_amount;
+		let bond_geq_lowest_top = bond >= self.lowest_top_nomination_amount;
+		let nomination_dne_err: DispatchError = Error::<T>::NominationDNE.into();
 		if bond_geq_lowest_top && !lowest_top_eq_highest_bottom {
 			// definitely in top
-			self.decrease_top_delegation::<T>(candidate, delegator.clone(), bond.into(), less)
+			self.decrease_top_nomination::<T>(candidate, nominator.clone(), bond.into(), less)
 		} else if bond_geq_lowest_top && lowest_top_eq_highest_bottom {
 			// update top but if error then update bottom (because could be in bottom because
 			// lowest_top_eq_highest_bottom)
 			let result =
-				self.decrease_top_delegation::<T>(candidate, delegator.clone(), bond.into(), less);
-			if result == Err(delegation_dne_err) {
-				self.decrease_bottom_delegation::<T>(candidate, delegator, less)
+				self.decrease_top_nomination::<T>(candidate, nominator.clone(), bond.into(), less);
+			if result == Err(nomination_dne_err) {
+				self.decrease_bottom_nomination::<T>(candidate, nominator, less)
 			} else {
 				result
 			}
 		} else {
-			self.decrease_bottom_delegation::<T>(candidate, delegator, less)
+			self.decrease_bottom_nomination::<T>(candidate, nominator, less)
 		}
 	}
-	/// Decrease top delegation
-	pub fn decrease_top_delegation<T: Config>(
+	/// Decrease top nomination
+	pub fn decrease_top_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 		bond: BalanceOf<T>,
 		less: BalanceOf<T>,
 	) -> Result<bool, DispatchError>
 	where
 		BalanceOf<T>: Into<Balance> + From<Balance>,
 	{
-		// The delegation after the `decrease-delegation` will be strictly less than the
-		// highest bottom delegation
+		// The nomination after the `decrease-nomination` will be strictly less than the
+		// highest bottom nomination
 		let bond_after_less_than_highest_bottom =
-			bond.saturating_sub(less).into() < self.highest_bottom_delegation_amount;
-		// The top delegations is full and the bottom delegations has at least one delegation
+			bond.saturating_sub(less).into() < self.highest_bottom_nomination_amount;
+		// The top nominations is full and the bottom nominations has at least one nomination
 		let full_top_and_nonempty_bottom = matches!(self.top_capacity, CapacityStatus::Full)
 			&& !matches!(self.bottom_capacity, CapacityStatus::Empty);
-		let mut top_delegations =
-			<TopDelegations<T>>::get(candidate).ok_or(Error::<T>::CandidateDNE)?;
+		let mut top_nominations =
+			<TopNominations<T>>::get(candidate).ok_or(Error::<T>::CandidateDNE)?;
 		let in_top_after = if bond_after_less_than_highest_bottom && full_top_and_nonempty_bottom {
-			let mut delegation_option: Option<Bond<T::AccountId, BalanceOf<T>>> = None;
-			// take delegation from top
-			top_delegations.delegations = top_delegations
-				.delegations
+			let mut nomination_option: Option<Bond<T::AccountId, BalanceOf<T>>> = None;
+			// take nomination from top
+			top_nominations.nominations = top_nominations
+				.nominations
 				.clone()
 				.into_iter()
 				.filter(|d| {
-					if d.owner != delegator {
+					if d.owner != nominator {
 						true
 					} else {
-						top_delegations.total = top_delegations.total.saturating_sub(d.amount);
-						delegation_option = Some(Bond {
+						top_nominations.total = top_nominations.total.saturating_sub(d.amount);
+						nomination_option = Some(Bond {
 							owner: d.owner.clone(),
 							amount: d.amount.saturating_sub(less),
 						});
@@ -1045,30 +1045,30 @@ impl<
 					}
 				})
 				.collect();
-			let delegation = delegation_option.ok_or(Error::<T>::DelegationDNE)?;
+			let nomination = nomination_option.ok_or(Error::<T>::NominationDNE)?;
 			// pop highest bottom by reverse and popping
-			let mut bottom_delegations = <BottomDelegations<T>>::get(candidate)
-				.expect("CandidateInfo existence => BottomDelegations existence");
-			let highest_bottom_delegation = bottom_delegations.delegations.remove(0);
-			bottom_delegations.total = bottom_delegations
+			let mut bottom_nominations = <BottomNominations<T>>::get(candidate)
+				.expect("CandidateInfo existence => BottomNominations existence");
+			let highest_bottom_nomination = bottom_nominations.nominations.remove(0);
+			bottom_nominations.total = bottom_nominations
 				.total
-				.saturating_sub(highest_bottom_delegation.amount);
+				.saturating_sub(highest_bottom_nomination.amount);
 			// insert highest bottom into top
-			top_delegations.insert_sorted_greatest_to_least(highest_bottom_delegation);
+			top_nominations.insert_sorted_greatest_to_least(highest_bottom_nomination);
 			// insert previous top into bottom
-			bottom_delegations.insert_sorted_greatest_to_least(delegation);
-			self.reset_bottom_data::<T>(&bottom_delegations);
-			<BottomDelegations<T>>::insert(candidate, bottom_delegations);
+			bottom_nominations.insert_sorted_greatest_to_least(nomination);
+			self.reset_bottom_data::<T>(&bottom_nominations);
+			<BottomNominations<T>>::insert(candidate, bottom_nominations);
 			false
 		} else {
 			// keep it in the top
 			let mut is_in_top = false;
-			top_delegations.delegations = top_delegations
-				.delegations
+			top_nominations.nominations = top_nominations
+				.nominations
 				.clone()
 				.into_iter()
 				.map(|d| {
-					if d.owner != delegator {
+					if d.owner != nominator {
 						d
 					} else {
 						is_in_top = true;
@@ -1079,34 +1079,34 @@ impl<
 					}
 				})
 				.collect();
-			ensure!(is_in_top, Error::<T>::DelegationDNE);
-			top_delegations.total = top_delegations.total.saturating_sub(less);
-			top_delegations.sort_greatest_to_least();
+			ensure!(is_in_top, Error::<T>::NominationDNE);
+			top_nominations.total = top_nominations.total.saturating_sub(less);
+			top_nominations.sort_greatest_to_least();
 			true
 		};
-		self.reset_top_data::<T>(candidate.clone(), &top_delegations);
-		<TopDelegations<T>>::insert(candidate, top_delegations);
+		self.reset_top_data::<T>(candidate.clone(), &top_nominations);
+		<TopNominations<T>>::insert(candidate, top_nominations);
 		Ok(in_top_after)
 	}
-	/// Decrease bottom delegation
-	pub fn decrease_bottom_delegation<T: Config>(
+	/// Decrease bottom nomination
+	pub fn decrease_bottom_nomination<T: Config>(
 		&mut self,
 		candidate: &T::AccountId,
-		delegator: T::AccountId,
+		nominator: T::AccountId,
 		less: BalanceOf<T>,
 	) -> Result<bool, DispatchError>
 	where
 		BalanceOf<T>: Into<Balance>,
 	{
-		let mut bottom_delegations = <BottomDelegations<T>>::get(candidate)
-			.expect("CandidateInfo exists => BottomDelegations exists");
+		let mut bottom_nominations = <BottomNominations<T>>::get(candidate)
+			.expect("CandidateInfo exists => BottomNominations exists");
 		let mut in_bottom = false;
-		bottom_delegations.delegations = bottom_delegations
-			.delegations
+		bottom_nominations.nominations = bottom_nominations
+			.nominations
 			.clone()
 			.into_iter()
 			.map(|d| {
-				if d.owner != delegator {
+				if d.owner != nominator {
 					d
 				} else {
 					in_bottom = true;
@@ -1117,10 +1117,10 @@ impl<
 				}
 			})
 			.collect();
-		ensure!(in_bottom, Error::<T>::DelegationDNE);
-		bottom_delegations.sort_greatest_to_least();
-		self.reset_bottom_data::<T>(&bottom_delegations);
-		<BottomDelegations<T>>::insert(candidate, bottom_delegations);
+		ensure!(in_bottom, Error::<T>::NominationDNE);
+		bottom_nominations.sort_greatest_to_least();
+		self.reset_bottom_data::<T>(&bottom_nominations);
+		<BottomNominations<T>>::insert(candidate, bottom_nominations);
 		Ok(false)
 	}
 }
@@ -1137,7 +1137,7 @@ impl<A: PartialEq, B: PartialEq> PartialEq for CollatorCandidate<A, B> {
 		if !must_be_true {
 			return false;
 		}
-		for (x, y) in self.delegators.0.iter().zip(other.delegators.0.iter()) {
+		for (x, y) in self.nominators.0.iter().zip(other.nominators.0.iter()) {
 			if x != y {
 				return false;
 			}
@@ -1152,9 +1152,9 @@ impl<A: PartialEq, B: PartialEq> PartialEq for CollatorCandidate<A, B> {
 				amount: a2,
 			},
 		) in self
-			.top_delegations
+			.top_nominations
 			.iter()
-			.zip(other.top_delegations.iter())
+			.zip(other.top_nominations.iter())
 		{
 			if o1 != o2 || a1 != a2 {
 				return false;
@@ -1170,9 +1170,9 @@ impl<A: PartialEq, B: PartialEq> PartialEq for CollatorCandidate<A, B> {
 				amount: a2,
 			},
 		) in self
-			.bottom_delegations
+			.bottom_nominations
 			.iter()
-			.zip(other.bottom_delegations.iter())
+			.zip(other.bottom_nominations.iter())
 		{
 			if o1 != o2 || a1 != a2 {
 				return false;
@@ -1182,10 +1182,10 @@ impl<A: PartialEq, B: PartialEq> PartialEq for CollatorCandidate<A, B> {
 	}
 }
 
-/// Convey relevant information describing if a delegator was added to the top or bottom
-/// Delegations added to the top yield a new total
+/// Convey relevant information describing if a nominator was added to the top or bottom
+/// Nominations added to the top yield a new total
 #[derive(Clone, Copy, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum DelegatorAdded<B> {
+pub enum NominatorAdded<B> {
 	AddedToTop { new_total: B },
 	AddedToBottom,
 }
@@ -1209,7 +1209,7 @@ impl<A: Clone, B: Copy> From<CollatorCandidate<A, B>> for CollatorSnapshot<A, B>
 	fn from(other: CollatorCandidate<A, B>) -> CollatorSnapshot<A, B> {
 		CollatorSnapshot {
 			bond: other.bond,
-			delegations: other.top_delegations,
+			nominations: other.top_nominations,
 			total: other.total_counted,
 		}
 	}
@@ -1217,31 +1217,31 @@ impl<A: Clone, B: Copy> From<CollatorCandidate<A, B>> for CollatorSnapshot<A, B>
 
 #[allow(deprecated)]
 #[derive(Clone, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum DelegatorStatus {
+pub enum NominatorStatus {
 	/// Active with no scheduled exit
 	Active,
-	/// Schedule exit to revoke all ongoing delegations
+	/// Schedule exit to revoke all ongoing nominations
 	#[deprecated(note = "must only be used for backwards compatibility reasons")]
 	Leaving(RoundIndex),
 }
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-/// Delegator state
-pub struct Delegator<AccountId, Balance> {
-	/// Delegator account
+/// Nominator state
+pub struct Nominator<AccountId, Balance> {
+	/// Nominator account
 	pub id: AccountId,
-	/// All current delegations
-	pub delegations: OrderedSet<Bond<AccountId, Balance>>,
-	/// Total balance locked for this delegator
+	/// All current nominations
+	pub nominations: OrderedSet<Bond<AccountId, Balance>>,
+	/// Total balance locked for this nominator
 	pub total: Balance,
 	/// Sum of pending revocation amounts + bond less amounts
 	pub less_total: Balance,
-	/// Status for this delegator
-	pub status: DelegatorStatus,
+	/// Status for this nominator
+	pub status: NominatorStatus,
 }
 
 // Temporary manual implementation for migration testing purposes
-impl<A: PartialEq, B: PartialEq> PartialEq for Delegator<A, B> {
+impl<A: PartialEq, B: PartialEq> PartialEq for Nominator<A, B> {
 	fn eq(&self, other: &Self) -> bool {
 		let must_be_true = self.id == other.id
 			&& self.total == other.total
@@ -1259,7 +1259,7 @@ impl<A: PartialEq, B: PartialEq> PartialEq for Delegator<A, B> {
 				owner: o2,
 				amount: a2,
 			},
-		) in self.delegations.0.iter().zip(other.delegations.0.iter())
+		) in self.nominations.0.iter().zip(other.nominations.0.iter())
 		{
 			if o1 != o2 || a1 != a2 {
 				return false;
@@ -1280,28 +1280,28 @@ impl<
 			+ Zero
 			+ Default
 			+ Saturating,
-	> Delegator<AccountId, Balance>
+	> Nominator<AccountId, Balance>
 {
 	pub fn new(id: AccountId, collator: AccountId, amount: Balance) -> Self {
-		Delegator {
+		Nominator {
 			id,
-			delegations: OrderedSet::from(vec![Bond {
+			nominations: OrderedSet::from(vec![Bond {
 				owner: collator,
 				amount,
 			}]),
 			total: amount,
 			less_total: Balance::zero(),
-			status: DelegatorStatus::Active,
+			status: NominatorStatus::Active,
 		}
 	}
 
 	pub fn default_with_total(id: AccountId, amount: Balance) -> Self {
-		Delegator {
+		Nominator {
 			id,
 			total: amount,
-			delegations: OrderedSet::from(vec![]),
+			nominations: OrderedSet::from(vec![]),
 			less_total: Balance::zero(),
-			status: DelegatorStatus::Active,
+			status: NominatorStatus::Active,
 		}
 	}
 
@@ -1346,28 +1346,28 @@ impl<
 	}
 
 	pub fn is_active(&self) -> bool {
-		matches!(self.status, DelegatorStatus::Active)
+		matches!(self.status, NominatorStatus::Active)
 	}
 
-	pub fn add_delegation(&mut self, bond: Bond<AccountId, Balance>) -> bool {
+	pub fn add_nomination(&mut self, bond: Bond<AccountId, Balance>) -> bool {
 		let amt = bond.amount;
-		if self.delegations.insert(bond) {
+		if self.nominations.insert(bond) {
 			self.total = self.total.saturating_add(amt);
 			true
 		} else {
 			false
 		}
 	}
-	// Return Some(remaining balance), must be more than MinDelegatorStk
-	// Return None if delegation not found
-	pub fn rm_delegation<T: Config>(&mut self, collator: &AccountId) -> Option<Balance>
+	// Return Some(remaining balance), must be more than MinNominatorStk
+	// Return None if nomination not found
+	pub fn rm_nomination<T: Config>(&mut self, collator: &AccountId) -> Option<Balance>
 	where
 		BalanceOf<T>: From<Balance>,
 		T::AccountId: From<AccountId>,
 	{
 		let mut amt: Option<Balance> = None;
-		let delegations = self
-			.delegations
+		let nominations = self
+			.nominations
 			.0
 			.iter()
 			.filter_map(|x| {
@@ -1380,7 +1380,7 @@ impl<
 			})
 			.collect();
 		if let Some(balance) = amt {
-			self.delegations = OrderedSet::from(delegations);
+			self.nominations = OrderedSet::from(nominations);
 			self.total_sub::<T>(balance)
 				.expect("Decreasing lock cannot fail, qed");
 			Some(self.total)
@@ -1388,7 +1388,7 @@ impl<
 			None
 		}
 	}
-	pub fn increase_delegation<T: Config>(
+	pub fn increase_nomination<T: Config>(
 		&mut self,
 		candidate: AccountId,
 		amount: Balance,
@@ -1396,26 +1396,26 @@ impl<
 	where
 		BalanceOf<T>: From<Balance>,
 		T::AccountId: From<AccountId>,
-		Delegator<T::AccountId, BalanceOf<T>>: From<Delegator<AccountId, Balance>>,
+		Nominator<T::AccountId, BalanceOf<T>>: From<Nominator<AccountId, Balance>>,
 	{
-		let delegator_id: T::AccountId = self.id.clone().into();
+		let nominator_id: T::AccountId = self.id.clone().into();
 		let candidate_id: T::AccountId = candidate.clone().into();
 		let balance_amt: BalanceOf<T> = amount.into();
-		// increase delegation
-		for x in &mut self.delegations.0 {
+		// increase nomination
+		for x in &mut self.nominations.0 {
 			if x.owner == candidate {
 				let before_amount: BalanceOf<T> = x.amount.into();
 				x.amount = x.amount.saturating_add(amount);
 				self.total = self.total.saturating_add(amount);
 				self.adjust_bond_lock::<T>(BondAdjust::Increase(amount))?;
 
-				// update collator state delegation
+				// update collator state nomination
 				let mut collator_state =
 					<CandidateInfo<T>>::get(&candidate_id).ok_or(Error::<T>::CandidateDNE)?;
 				let before = collator_state.total_counted;
-				let in_top = collator_state.increase_delegation::<T>(
+				let in_top = collator_state.increase_nomination::<T>(
 					&candidate_id,
-					delegator_id.clone(),
+					nominator_id.clone(),
 					before_amount,
 					balance_amt,
 				)?;
@@ -1426,10 +1426,10 @@ impl<
 				<CandidateInfo<T>>::insert(&candidate_id, collator_state);
 				let new_total_staked = <Total<T>>::get().saturating_add(balance_amt);
 				<Total<T>>::put(new_total_staked);
-				let nom_st: Delegator<T::AccountId, BalanceOf<T>> = self.clone().into();
-				<DelegatorState<T>>::insert(&delegator_id, nom_st);
-				Pallet::<T>::deposit_event(Event::DelegationIncreased {
-					delegator: delegator_id,
+				let nom_st: Nominator<T::AccountId, BalanceOf<T>> = self.clone().into();
+				<NominatorState<T>>::insert(&nominator_id, nom_st);
+				Pallet::<T>::deposit_event(Event::NominationIncreased {
+					nominator: nominator_id,
 					candidate: candidate_id,
 					amount: balance_amt,
 					in_top: in_top,
@@ -1437,10 +1437,10 @@ impl<
 				return Ok(());
 			}
 		}
-		Err(Error::<T>::DelegationDNE.into())
+		Err(Error::<T>::NominationDNE.into())
 	}
 
-	/// Updates the bond locks for this delegator.
+	/// Updates the bond locks for this nominator.
 	///
 	/// This will take the current self.total and ensure that a lock of the same amount is applied
 	/// and when increasing the bond lock will also ensure that the account has enough free balance.
@@ -1459,7 +1459,7 @@ impl<
 		match additional_required_balance {
 			BondAdjust::Increase(amount) => {
 				ensure!(
-					<Pallet<T>>::get_delegator_stakable_free_balance(&self.id.clone().into())
+					<Pallet<T>>::get_nominator_stakable_free_balance(&self.id.clone().into())
 						>= amount.into(),
 					Error::<T>::InsufficientBalance,
 				);
@@ -1474,10 +1474,10 @@ impl<
 		};
 
 		if self.total.is_zero() {
-			T::Currency::remove_lock(DELEGATOR_LOCK_ID, &self.id.clone().into());
+			T::Currency::remove_lock(NOMINATOR_LOCK_ID, &self.id.clone().into());
 		} else {
 			T::Currency::set_lock(
-				DELEGATOR_LOCK_ID,
+				NOMINATOR_LOCK_ID,
 				&self.id.clone().into(),
 				self.total.into(),
 				WithdrawReasons::all(),
@@ -1486,10 +1486,10 @@ impl<
 		Ok(())
 	}
 
-	/// Retrieves the bond amount that a delegator has provided towards a collator.
+	/// Retrieves the bond amount that a nominator has provided towards a collator.
 	/// Returns `None` if missing.
 	pub fn get_bond_amount(&self, collator: &AccountId) -> Option<Balance> {
-		self.delegations
+		self.nominations
 			.0
 			.iter()
 			.find(|b| &b.owner == collator)
@@ -1502,39 +1502,39 @@ pub mod deprecated {
 
 	use super::*;
 
-	#[deprecated(note = "use DelegationAction")]
+	#[deprecated(note = "use NominationAction")]
 	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-	/// Changes requested by the delegator
-	/// - limit of 1 ongoing change per delegation
-	pub enum DelegationChange {
+	/// Changes requested by the nominator
+	/// - limit of 1 ongoing change per nomination
+	pub enum NominationChange {
 		Revoke,
 		Decrease,
 	}
 
 	#[deprecated(note = "use ScheduledRequest")]
 	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-	pub struct DelegationRequest<AccountId, Balance> {
+	pub struct NominationRequest<AccountId, Balance> {
 		pub collator: AccountId,
 		pub amount: Balance,
 		pub when_executable: RoundIndex,
-		pub action: DelegationChange,
+		pub action: NominationChange,
 	}
 
-	#[deprecated(note = "use DelegationScheduledRequests storage item")]
+	#[deprecated(note = "use NominationScheduledRequests storage item")]
 	#[derive(Clone, Encode, PartialEq, Decode, RuntimeDebug, TypeInfo)]
-	/// Pending requests to mutate delegations for each delegator
-	pub struct PendingDelegationRequests<AccountId, Balance> {
+	/// Pending requests to mutate nominations for each nominator
+	pub struct PendingNominationRequests<AccountId, Balance> {
 		/// Number of pending revocations (necessary for determining whether revoke is exit)
 		pub revocations_count: u32,
-		/// Map from collator -> Request (enforces at most 1 pending request per delegation)
-		pub requests: BTreeMap<AccountId, DelegationRequest<AccountId, Balance>>,
+		/// Map from collator -> Request (enforces at most 1 pending request per nomination)
+		pub requests: BTreeMap<AccountId, NominationRequest<AccountId, Balance>>,
 		/// Sum of pending revocation amounts + bond less amounts
 		pub less_total: Balance,
 	}
 
-	impl<A: Ord, B: Zero> Default for PendingDelegationRequests<A, B> {
-		fn default() -> PendingDelegationRequests<A, B> {
-			PendingDelegationRequests {
+	impl<A: Ord, B: Zero> Default for PendingNominationRequests<A, B> {
+		fn default() -> PendingNominationRequests<A, B> {
+			PendingNominationRequests {
 				revocations_count: 0u32,
 				requests: BTreeMap::new(),
 				less_total: B::zero(),
@@ -1553,7 +1553,7 @@ pub mod deprecated {
 				+ sp_std::ops::SubAssign
 				+ sp_std::ops::Sub<Output = B>
 				+ Saturating,
-		> PendingDelegationRequests<A, B>
+		> PendingNominationRequests<A, B>
 	{
 		/// New default (empty) pending requests
 		pub fn new() -> Self {
@@ -1561,30 +1561,30 @@ pub mod deprecated {
 		}
 	}
 
-	#[deprecated(note = "use new crate::types::Delegator struct")]
+	#[deprecated(note = "use new crate::types::Nominator struct")]
 	#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-	/// Delegator state
-	pub struct Delegator<AccountId, Balance> {
-		/// Delegator account
+	/// Nominator state
+	pub struct Nominator<AccountId, Balance> {
+		/// Nominator account
 		pub id: AccountId,
-		/// All current delegations
-		pub delegations: OrderedSet<Bond<AccountId, Balance>>,
-		/// Total balance locked for this delegator
+		/// All current nominations
+		pub nominations: OrderedSet<Bond<AccountId, Balance>>,
+		/// Total balance locked for this nominator
 		pub total: Balance,
-		/// Requests to change delegations, relevant iff active
-		pub requests: PendingDelegationRequests<AccountId, Balance>,
-		/// Status for this delegator
-		pub status: DelegatorStatus,
+		/// Requests to change nominations, relevant iff active
+		pub requests: PendingNominationRequests<AccountId, Balance>,
+		/// Status for this nominator
+		pub status: NominatorStatus,
 	}
 }
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-/// DEPRECATED in favor of Delegator
+/// DEPRECATED in favor of Nominator
 /// Nominator state
 pub struct Nominator2<AccountId, Balance> {
-	/// All current delegations
-	pub delegations: OrderedSet<Bond<AccountId, Balance>>,
-	/// Delegations scheduled to be revoked
+	/// All current nominations
+	pub nominations: OrderedSet<Bond<AccountId, Balance>>,
+	/// Nominations scheduled to be revoked
 	pub revocations: OrderedSet<AccountId>,
 	/// Total balance locked for this nominator
 	pub total: Balance,
@@ -1593,19 +1593,19 @@ pub struct Nominator2<AccountId, Balance> {
 	/// Total amount to be unbonded once revocations are executed
 	pub scheduled_revocations_total: Balance,
 	/// Status for this nominator
-	pub status: DelegatorStatus,
+	pub status: NominatorStatus,
 }
 
 // /// Temporary function to migrate state
-// pub(crate) fn migrate_nominator_to_delegator_state<T: Config>(
+// pub(crate) fn migrate_nominator_to_nominator_state<T: Config>(
 // 	id: T::AccountId,
 // 	nominator: Nominator2<T::AccountId, BalanceOf<T>>,
-// ) -> Delegator<T::AccountId, BalanceOf<T>> {
-// 	Delegator {
+// ) -> Nominator<T::AccountId, BalanceOf<T>> {
+// 	Nominator {
 // 		id,
-// 		delegations: nominator.delegations,
+// 		nominations: nominator.nominations,
 // 		total: nominator.total,
-// 		requests: PendingDelegationRequests::new(),
+// 		requests: PendingNominationRequests::new(),
 // 		status: nominator.status,
 // 	}
 // }
