@@ -383,7 +383,7 @@ pub mod pallet {
 			current_round: RoundIndex,
 			first_block: T::BlockNumber,
 			old: u32,
-			new: u32,			
+			new: u32,
 		},
 		/// Not enough fund to cover the staking reward payment.
 		NotEnoughFundsForEraPayment {reward_pot_balance: BalanceOf<T> },
