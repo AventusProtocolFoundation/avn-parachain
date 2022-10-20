@@ -62,6 +62,8 @@ mod mock;
 mod set;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod test_staking_pot;
 
 use frame_support::pallet;
 pub use inflation::{InflationInfo, Range};
@@ -79,15 +81,14 @@ pub mod pallet {
 		CancelledScheduledRequest, DelegationAction, ScheduledRequest,
 	};
 	use crate::{set::OrderedSet, traits::*, types::*, InflationInfo, Range, WeightInfo};
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, PalletId};
 	use frame_support::traits::{
 		tokens::WithdrawReasons, Currency, Get, Imbalance, LockIdentifier, LockableCurrency,
-		ReservableCurrency,
+		ReservableCurrency
 	};
 	use frame_system::pallet_prelude::*;
-	use parity_scale_codec::Decode;
 	use sp_runtime::{
-		traits::{Saturating, Zero},
+		traits::{Saturating, Zero, AccountIdConversion},
 		Perbill, Percent,
 	};
 	use sp_std::{collections::btree_map::BTreeMap, prelude::*};
@@ -170,6 +171,8 @@ pub mod pallet {
 		/// Minimum stake for any registered on-chain account to be a delegator
 		#[pallet::constant]
 		type MinDelegatorStk: Get<BalanceOf<Self>>;
+		/// Id of the account that will hold funds to be paid as staking reward
+		type RewardPotId: Get<PalletId>;
 		/// Handler to notify the runtime when a collator is paid.
 		/// If you don't need it, you can specify the type `()`.
 		type OnCollatorPayout: OnCollatorPayout<Self::AccountId, BalanceOf<Self>>;
@@ -1614,6 +1617,19 @@ pub mod pallet {
 				uncounted_stake,
 				rewardable_delegations,
 			}
+		}
+
+		/// The account ID of the staking reward_pot.
+		/// This actually does computation. If you need to keep using it, then make sure you cache the
+		/// value and only call this once.
+		pub fn compute_reward_pot_account_id () -> T::AccountId {
+			T::RewardPotId::get().into_account_truncating()
+		}
+
+		/// The total amount of funds stored in this pallet
+		pub fn reward_pot() -> BalanceOf<T> {
+			// Must never be less than 0 but better be safe.
+			T::Currency::free_balance(&Self::compute_reward_pot_account_id()).saturating_sub(T::Currency::minimum_balance())
 		}
 	}
 
