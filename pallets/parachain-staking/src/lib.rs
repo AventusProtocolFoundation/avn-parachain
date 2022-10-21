@@ -49,7 +49,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod nomination_requests;
-pub mod migrations;
 pub mod traits;
 pub mod types;
 pub mod weights;
