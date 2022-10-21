@@ -144,8 +144,8 @@ impl pallet_authorship::Config for Test {
 }
 
 parameter_types! {
-	pub const MinBlocksPerRound: u32 = 3;
-	pub const DefaultBlocksPerRound: u32 = 5;
+	pub const MinBlocksPerEra: u32 = 3;
+	pub const DefaultBlocksPerEra: u32 = 5;
 	pub const LeaveCandidatesDelay: u32 = 2;
 	pub const CandidateBondLessDelay: u32 = 2;
 	pub const LeaveNominatorsDelay: u32 = 2;
@@ -167,8 +167,8 @@ impl Config for Test {
 	type Event = Event;
 	type Currency = Balances;
 	type MonetaryGovernanceOrigin = frame_system::EnsureRoot<AccountId>;
-	type MinBlocksPerRound = MinBlocksPerRound;
-	type DefaultBlocksPerRound = DefaultBlocksPerRound;
+	type MinBlocksPerEra = MinBlocksPerEra;
+	type DefaultBlocksPerEra = DefaultBlocksPerEra;
 	type LeaveCandidatesDelay = LeaveCandidatesDelay;
 	type CandidateBondLessDelay = CandidateBondLessDelay;
 	type LeaveNominatorsDelay = LeaveNominatorsDelay;
@@ -187,7 +187,7 @@ impl Config for Test {
 	type MinNomination = MinNomination;
 	type RewardPotId = RewardPotId;
 	type OnCollatorPayout = ();
-	type OnNewRound = ();
+	type OnNewEra = ();
 	type WeightInfo = ();
 }
 
@@ -318,18 +318,18 @@ pub(crate) fn roll_to(n: u64) -> u64 {
 	num_blocks
 }
 
-/// Rolls block-by-block to the beginning of the specified round.
-/// This will complete the block in which the round change occurs.
+/// Rolls block-by-block to the beginning of the specified era.
+/// This will complete the block in which the era change occurs.
 /// Returns the number of blocks played.
-pub(crate) fn roll_to_round_begin(round: u64) -> u64 {
-	let block = (round - 1) * DefaultBlocksPerRound::get() as u64;
+pub(crate) fn roll_to_era_begin(era: u64) -> u64 {
+	let block = (era - 1) * DefaultBlocksPerEra::get() as u64;
 	roll_to(block)
 }
 
-/// Rolls block-by-block to the end of the specified round.
-/// The block following will be the one in which the specified round change occurs.
-pub(crate) fn roll_to_round_end(round: u64) -> u64 {
-	let block = round * DefaultBlocksPerRound::get() as u64 - 1;
+/// Rolls block-by-block to the end of the specified era.
+/// The block following will be the one in which the specified era change occurs.
+pub(crate) fn roll_to_era_end(era: u64) -> u64 {
+	let block = era * DefaultBlocksPerEra::get() as u64 - 1;
 	roll_to(block)
 }
 
@@ -469,9 +469,9 @@ macro_rules! assert_event_not_emitted {
 }
 
 // Same storage changes as ParachainStaking::on_finalize
-pub(crate) fn set_author(round: u32, acc: u64, pts: u32) {
-	<Points<Test>>::mutate(round, |p| *p += pts);
-	<AwardedPts<Test>>::mutate(round, acc, |p| *p += pts);
+pub(crate) fn set_author(era: u32, acc: u64, pts: u32) {
+	<Points<Test>>::mutate(era, |p| *p += pts);
+	<AwardedPts<Test>>::mutate(era, acc, |p| *p += pts);
 }
 
 /// fn to query the lock amount
@@ -590,40 +590,40 @@ fn geneses() {
 }
 
 #[test]
-fn roll_to_round_begin_works() {
+fn roll_to_era_begin_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		// these tests assume blocks-per-round of 5, as established by DefaultBlocksPerRound
+		// these tests assume blocks-per-era of 5, as established by DefaultBlocksPerEra
 		assert_eq!(System::block_number(), 1); // we start on block 1
 
-		let num_blocks = roll_to_round_begin(1);
-		assert_eq!(System::block_number(), 1); // no-op, we're already on this round
+		let num_blocks = roll_to_era_begin(1);
+		assert_eq!(System::block_number(), 1); // no-op, we're already on this era
 		assert_eq!(num_blocks, 0);
 
-		let num_blocks = roll_to_round_begin(2);
+		let num_blocks = roll_to_era_begin(2);
 		assert_eq!(System::block_number(), 5);
 		assert_eq!(num_blocks, 4);
 
-		let num_blocks = roll_to_round_begin(3);
+		let num_blocks = roll_to_era_begin(3);
 		assert_eq!(System::block_number(), 10);
 		assert_eq!(num_blocks, 5);
 	});
 }
 
 #[test]
-fn roll_to_round_end_works() {
+fn roll_to_era_end_works() {
 	ExtBuilder::default().build().execute_with(|| {
-		// these tests assume blocks-per-round of 5, as established by DefaultBlocksPerRound
+		// these tests assume blocks-per-era of 5, as established by DefaultBlocksPerEra
 		assert_eq!(System::block_number(), 1); // we start on block 1
 
-		let num_blocks = roll_to_round_end(1);
+		let num_blocks = roll_to_era_end(1);
 		assert_eq!(System::block_number(), 4);
 		assert_eq!(num_blocks, 3);
 
-		let num_blocks = roll_to_round_end(2);
+		let num_blocks = roll_to_era_end(2);
 		assert_eq!(System::block_number(), 9);
 		assert_eq!(num_blocks, 5);
 
-		let num_blocks = roll_to_round_end(3);
+		let num_blocks = roll_to_era_end(3);
 		assert_eq!(System::block_number(), 14);
 		assert_eq!(num_blocks, 5);
 	});

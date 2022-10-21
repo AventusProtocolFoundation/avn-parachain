@@ -18,7 +18,7 @@
 
 use crate::pallet::{
 	BalanceOf, CandidateInfo, Config, NominationScheduledRequests, NominatorState, Error, Event,
-	Pallet, Round, RoundIndex, Total,
+	Pallet, Era, EraIndex, Total,
 };
 use crate::{Nominator, NominatorStatus};
 use frame_support::ensure;
@@ -47,18 +47,18 @@ impl<Balance: Copy> NominationAction<Balance> {
 }
 
 /// Represents a scheduled request that define a [NominationAction]. The request is executable
-/// iff the provided [RoundIndex] is achieved.
+/// iff the provided [EraIndex] is achieved.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, PartialOrd, Ord)]
 pub struct ScheduledRequest<AccountId, Balance> {
 	pub nominator: AccountId,
-	pub when_executable: RoundIndex,
+	pub when_executable: EraIndex,
 	pub action: NominationAction<Balance>,
 }
 
 /// Represents a cancelled scheduled request for emitting an event.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct CancelledScheduledRequest<Balance> {
-	pub when_executable: RoundIndex,
+	pub when_executable: EraIndex,
 	pub action: NominationAction<Balance>,
 }
 
@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
 		let bonded_amount = state
 			.get_bond_amount(&collator)
 			.ok_or(<Error<T>>::NominationDNE)?;
-		let now = <Round<T>>::get().current;
+		let now = <Era<T>>::get().current;
 		let when = now.saturating_add(T::RevokeNominationDelay::get());
 		scheduled_requests.push(ScheduledRequest {
 			nominator: nominator.clone(),
@@ -102,7 +102,7 @@ impl<T: Config> Pallet<T> {
 		<NominatorState<T>>::insert(nominator.clone(), state);
 
 		Self::deposit_event(Event::NominationRevocationScheduled {
-			round: now,
+			era: now,
 			nominator,
 			candidate: collator,
 			scheduled_exit: when,
@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
 			<Error<T>>::NominatorBondBelowMin
 		);
 
-		let now = <Round<T>>::get().current;
+		let now = <Era<T>>::get().current;
 		let when = now.saturating_add(T::RevokeNominationDelay::get());
 		scheduled_requests.push(ScheduledRequest {
 			nominator: nominator.clone(),
@@ -163,7 +163,7 @@ impl<T: Config> Pallet<T> {
 			nominator,
 			candidate: collator,
 			amount_to_decrease: decrease_amount,
-			execute_round: when,
+			execute_era: when,
 		});
 		Ok(().into())
 	}
@@ -219,7 +219,7 @@ impl<T: Config> Pallet<T> {
 			.ok_or(<Error<T>>::PendingNominationRequestDNE)?;
 		let request = &scheduled_requests[request_idx];
 
-		let now = <Round<T>>::get().current;
+		let now = <Era<T>>::get().current;
 		ensure!(
 			request.when_executable <= now,
 			<Error<T>>::PendingNominationRequestNotDueYet
@@ -337,7 +337,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResultWithPostInfo {
 		let mut state = <NominatorState<T>>::get(&nominator).ok_or(<Error<T>>::NominatorDNE)?;
 		let mut updated_scheduled_requests = vec![];
-		let now = <Round<T>>::get().current;
+		let now = <Era<T>>::get().current;
 		let when = now.saturating_add(T::LeaveNominatorsDelay::get());
 
 		// lazy migration for NominatorStatus::Leaving
@@ -387,7 +387,7 @@ impl<T: Config> Pallet<T> {
 
 		<NominatorState<T>>::insert(nominator.clone(), state);
 		Self::deposit_event(Event::NominatorExitScheduled {
-			round: now,
+			era: now,
 			nominator,
 			scheduled_exit: when,
 		});
@@ -396,7 +396,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Cancels every [NominationAction::Revoke] request for a nominator towards a collator.
 	/// Each nomination must have a [NominationAction::Revoke] scheduled that must be allowed to be
-	/// executed in the current round, for this function to succeed.
+	/// executed in the current era, for this function to succeed.
 	pub(crate) fn nominator_cancel_scheduled_revoke_all(
 		nominator: T::AccountId,
 	) -> DispatchResultWithPostInfo {
@@ -446,7 +446,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Executes every [NominationAction::Revoke] request for a nominator towards a collator.
 	/// Each nomination must have a [NominationAction::Revoke] scheduled that must be allowed to be
-	/// executed in the current round, for this function to succeed.
+	/// executed in the current era, for this function to succeed.
 	pub(crate) fn nominator_execute_scheduled_revoke_all(
 		nominator: T::AccountId,
 		nomination_count: u32,
@@ -456,13 +456,13 @@ impl<T: Config> Pallet<T> {
 			nomination_count >= (state.nominations.0.len() as u32),
 			Error::<T>::TooLowNominationCountToLeaveNominators
 		);
-		let now = <Round<T>>::get().current;
+		let now = <Era<T>>::get().current;
 
 		// backwards compatible handling for NominatorStatus::Leaving
 		#[allow(deprecated)]
 		if let NominatorStatus::Leaving(when) = state.status {
 			ensure!(
-				<Round<T>>::get().current >= when,
+				<Era<T>>::get().current >= when,
 				Error::<T>::NominatorCannotLeaveYet
 			);
 

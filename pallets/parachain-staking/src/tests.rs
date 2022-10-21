@@ -23,7 +23,7 @@
 //! 4. Miscellaneous Property-Based Tests
 use crate::nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
 use crate::mock::{
-	roll_one_block, roll_to, roll_to_round_begin, roll_to_round_end, set_author, Balances,
+	roll_one_block, roll_to, roll_to_era_begin, roll_to_era_end, set_author, Balances,
 	Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Test,
 };
 use crate::{
@@ -48,7 +48,7 @@ fn invalid_root_origin_fails() {
 			sp_runtime::DispatchError::BadOrigin
 		);
 		assert_noop!(
-			ParachainStaking::set_blocks_per_round(Origin::signed(45), 3u32),
+			ParachainStaking::set_blocks_per_era(Origin::signed(45), 3u32),
 			sp_runtime::DispatchError::BadOrigin
 		);
 	});
@@ -59,8 +59,8 @@ fn invalid_root_origin_fails() {
 #[test]
 fn set_total_selected_event_emits_correctly() {
 	ExtBuilder::default().build().execute_with(|| {
-		// before we can bump total_selected we must bump the blocks per round
-		assert_ok!(ParachainStaking::set_blocks_per_round(Origin::root(), 6u32));
+		// before we can bump total_selected we must bump the blocks per era
+		assert_ok!(ParachainStaking::set_blocks_per_era(Origin::root(), 6u32));
 		assert_ok!(ParachainStaking::set_total_selected(Origin::root(), 6u32));
 		assert_last_event!(MetaEvent::ParachainStaking(Event::TotalSelectedSet {
 			old: 5u32,
@@ -70,20 +70,20 @@ fn set_total_selected_event_emits_correctly() {
 }
 
 #[test]
-fn set_total_selected_fails_if_above_blocks_per_round() {
+fn set_total_selected_fails_if_above_blocks_per_era() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(ParachainStaking::round().length, 5); // test relies on this
+		assert_eq!(ParachainStaking::era().length, 5); // test relies on this
 		assert_noop!(
 			ParachainStaking::set_total_selected(Origin::root(), 6u32),
-			Error::<Test>::RoundLengthMustBeAtLeastTotalSelectedCollators,
+			Error::<Test>::EraLengthMustBeAtLeastTotalSelectedCollators,
 		);
 	});
 }
 
 #[test]
-fn set_total_selected_passes_if_equal_to_blocks_per_round() {
+fn set_total_selected_passes_if_equal_to_blocks_per_era() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(ParachainStaking::set_blocks_per_round(
+		assert_ok!(ParachainStaking::set_blocks_per_era(
 			Origin::root(),
 			10u32
 		));
@@ -92,9 +92,9 @@ fn set_total_selected_passes_if_equal_to_blocks_per_round() {
 }
 
 #[test]
-fn set_total_selected_passes_if_below_blocks_per_round() {
+fn set_total_selected_passes_if_below_blocks_per_era() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(ParachainStaking::set_blocks_per_round(
+		assert_ok!(ParachainStaking::set_blocks_per_era(
 			Origin::root(),
 			10u32
 		));
@@ -103,45 +103,45 @@ fn set_total_selected_passes_if_below_blocks_per_round() {
 }
 
 #[test]
-fn set_blocks_per_round_fails_if_below_total_selected() {
+fn set_blocks_per_era_fails_if_below_total_selected() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(ParachainStaking::set_blocks_per_round(
+		assert_ok!(ParachainStaking::set_blocks_per_era(
 			Origin::root(),
 			20u32
 		));
 		assert_ok!(ParachainStaking::set_total_selected(Origin::root(), 15u32));
 		assert_noop!(
-			ParachainStaking::set_blocks_per_round(Origin::root(), 14u32),
-			Error::<Test>::RoundLengthMustBeAtLeastTotalSelectedCollators,
+			ParachainStaking::set_blocks_per_era(Origin::root(), 14u32),
+			Error::<Test>::EraLengthMustBeAtLeastTotalSelectedCollators,
 		);
 	});
 }
 
 #[test]
-fn set_blocks_per_round_passes_if_equal_to_total_selected() {
+fn set_blocks_per_era_passes_if_equal_to_total_selected() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(ParachainStaking::set_blocks_per_round(
+		assert_ok!(ParachainStaking::set_blocks_per_era(
 			Origin::root(),
 			10u32
 		));
 		assert_ok!(ParachainStaking::set_total_selected(Origin::root(), 9u32));
-		assert_ok!(ParachainStaking::set_blocks_per_round(Origin::root(), 9u32));
+		assert_ok!(ParachainStaking::set_blocks_per_era(Origin::root(), 9u32));
 	});
 }
 
 #[test]
-fn set_blocks_per_round_passes_if_above_total_selected() {
+fn set_blocks_per_era_passes_if_above_total_selected() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(ParachainStaking::round().length, 5); // test relies on this
-		assert_ok!(ParachainStaking::set_blocks_per_round(Origin::root(), 6u32));
+		assert_eq!(ParachainStaking::era().length, 5); // test relies on this
+		assert_ok!(ParachainStaking::set_blocks_per_era(Origin::root(), 6u32));
 	});
 }
 
 #[test]
 fn set_total_selected_storage_updates_correctly() {
 	ExtBuilder::default().build().execute_with(|| {
-		// round length must be >= total_selected, so update that first
-		assert_ok!(ParachainStaking::set_blocks_per_round(
+		// era length must be >= total_selected, so update that first
+		assert_ok!(ParachainStaking::set_blocks_per_era(
 			Origin::root(),
 			10u32
 		));
@@ -216,14 +216,14 @@ fn cannot_set_collator_commission_to_current_collator_commission() {
 	});
 }
 
-// SET BLOCKS PER ROUND
+// SET BLOCKS PER ERA
 
 #[test]
-fn set_blocks_per_round_event_emits_correctly() {
+fn set_blocks_per_era_event_emits_correctly() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(ParachainStaking::set_blocks_per_round(Origin::root(), 6u32));
-		assert_last_event!(MetaEvent::ParachainStaking(Event::BlocksPerRoundSet {
-			current_round: 1,
+		assert_ok!(ParachainStaking::set_blocks_per_era(Origin::root(), 6u32));
+		assert_last_event!(MetaEvent::ParachainStaking(Event::BlocksPerEraSet {
+			current_era: 1,
 			first_block: 0,
 			old: 5,
 			new: 6,
@@ -232,61 +232,61 @@ fn set_blocks_per_round_event_emits_correctly() {
 }
 
 #[test]
-fn set_blocks_per_round_storage_updates_correctly() {
+fn set_blocks_per_era_storage_updates_correctly() {
 	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(ParachainStaking::round().length, 5);
-		assert_ok!(ParachainStaking::set_blocks_per_round(Origin::root(), 6u32));
-		assert_eq!(ParachainStaking::round().length, 6);
+		assert_eq!(ParachainStaking::era().length, 5);
+		assert_ok!(ParachainStaking::set_blocks_per_era(Origin::root(), 6u32));
+		assert_eq!(ParachainStaking::era().length, 6);
 	});
 }
 
 #[test]
-fn cannot_set_blocks_per_round_below_module_min() {
+fn cannot_set_blocks_per_era_below_module_min() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_noop!(
-			ParachainStaking::set_blocks_per_round(Origin::root(), 2u32),
+			ParachainStaking::set_blocks_per_era(Origin::root(), 2u32),
 			Error::<Test>::CannotSetBelowMin
 		);
 	});
 }
 
 #[test]
-fn cannot_set_blocks_per_round_to_current_blocks_per_round() {
+fn cannot_set_blocks_per_era_to_current_blocks_per_era() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_noop!(
-			ParachainStaking::set_blocks_per_round(Origin::root(), 5u32),
+			ParachainStaking::set_blocks_per_era(Origin::root(), 5u32),
 			Error::<Test>::NoWritingSameValue
 		);
 	});
 }
 
 #[test]
-fn round_immediately_jumps_if_current_duration_exceeds_new_blocks_per_round() {
+fn era_immediately_jumps_if_current_duration_exceeds_new_blocks_per_era() {
 	ExtBuilder::default()
 		.with_balances(vec![(1, 20)])
 		.with_candidates(vec![(1, 20)])
 		.build()
 		.execute_with(|| {
-			// we can't lower the blocks per round because it must be above the number of collators,
+			// we can't lower the blocks per era because it must be above the number of collators,
 			// and we can't lower the number of collators because it must be above
-			// MinSelectedCandidates. so we first raise blocks per round, then lower it.
-			assert_ok!(ParachainStaking::set_blocks_per_round(
+			// MinSelectedCandidates. so we first raise blocks per era, then lower it.
+			assert_ok!(ParachainStaking::set_blocks_per_era(
 				Origin::root(),
 				10u32
 			));
 
 			roll_to(17);
-			assert_last_event!(MetaEvent::ParachainStaking(Event::NewRound {
+			assert_last_event!(MetaEvent::ParachainStaking(Event::NewEra {
 				starting_block: 10,
-				round: 2,
+				era: 2,
 				selected_collators_number: 1,
 				total_balance: 20
 			}));
-			assert_ok!(ParachainStaking::set_blocks_per_round(Origin::root(), 5u32));
+			assert_ok!(ParachainStaking::set_blocks_per_era(Origin::root(), 5u32));
 			roll_to(18);
-			assert_last_event!(MetaEvent::ParachainStaking(Event::NewRound {
+			assert_last_event!(MetaEvent::ParachainStaking(Event::NewEra {
 				starting_block: 18,
-				round: 3,
+				era: 3,
 				selected_collators_number: 1,
 				total_balance: 20
 			}));
@@ -504,7 +504,7 @@ fn leave_candidates_event_emits_correctly() {
 				1u32
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateScheduledExit {
-				exit_allowed_round: 1,
+				exit_allowed_era: 1,
 				candidate: 1,
 				scheduled_exit: 3
 			}));
@@ -1128,7 +1128,7 @@ fn schedule_candidate_bond_less_event_emits_correctly() {
 				Event::CandidateBondLessRequested {
 					candidate: 1,
 					amount_to_decrease: 10,
-					execute_round: 3,
+					execute_era: 3,
 				}
 			));
 		});
@@ -1353,7 +1353,7 @@ fn cancel_candidate_bond_less_emits_event() {
 				Event::CancelledCandidateBondLess {
 					candidate: 1,
 					amount: 10,
-					execute_round: 3,
+					execute_era: 3,
 				}
 			));
 		});
@@ -1747,7 +1747,7 @@ fn schedule_leave_nominators_event_emits_correctly() {
 				2
 			)));
 			assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
-				round: 1,
+				era: 1,
 				nominator: 2,
 				scheduled_exit: 3
 			}));
@@ -2017,7 +2017,7 @@ fn cannot_execute_leave_nominators_if_single_nomination_revoke_manually_cancelle
 				ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 2),
 				Error::<Test>::NominatorNotLeaving
 			);
-			// can execute after manually scheduling revoke, and the round delay after which
+			// can execute after manually scheduling revoke, and the era delay after which
 			// all revokes can be executed
 			assert_ok!(ParachainStaking::schedule_revoke_nomination(
 				Origin::signed(2),
@@ -2137,7 +2137,7 @@ fn cannot_cancel_leave_nominators_if_single_nomination_revoke_manually_cancelled
 				ParachainStaking::cancel_leave_nominators(Origin::signed(2)),
 				Error::<Test>::NominatorNotLeaving
 			);
-			// can execute after manually scheduling revoke, without waiting for round delay after
+			// can execute after manually scheduling revoke, without waiting for era delay after
 			// which all revokes can be executed
 			assert_ok!(ParachainStaking::schedule_revoke_nomination(
 				Origin::signed(2),
@@ -2163,7 +2163,7 @@ fn revoke_nomination_event_emits_correctly() {
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(
 				Event::NominationRevocationScheduled {
-					round: 1,
+					era: 1,
 					nominator: 2,
 					candidate: 1,
 					scheduled_exit: 3,
@@ -2520,7 +2520,7 @@ fn nominator_bond_less_event_emits_correctly() {
 					nominator: 2,
 					candidate: 1,
 					amount_to_decrease: 5,
-					execute_round: 3,
+					execute_era: 3,
 				}
 			));
 		});
@@ -3079,7 +3079,7 @@ fn nominator_bond_less_after_revoke_nomination_does_not_effect_exit() {
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(
 				Event::NominationRevocationScheduled {
-					round: 1,
+					era: 1,
 					nominator: 2,
 					candidate: 1,
 					scheduled_exit: 3,
@@ -3701,39 +3701,39 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			// chooses top TotalSelectedCandidates (5), in order
 			let mut expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
 			];
 			assert_eq_events!(expected.clone());
-			// ~ set block author as 1 for all blocks this round
+			// ~ set block author as 1 for all blocks this era
 			set_author(2, 1, 100);
 			// We now payout from a central pot so we need to fund it
 			set_reward_pot(50);
@@ -3741,64 +3741,64 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			// distribute total issuance to collator 1 and its nominators 6, 7, 19
 			let mut new = vec![
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: 3,
+					era: 3,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 15,
-					round: 4,
+					era: 4,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -3839,11 +3839,11 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			];
 			expected.append(&mut new);
 			assert_eq_events!(expected.clone());
-			// ~ set block author as 1 for all blocks this round
+			// ~ set block author as 1 for all blocks this era
 			set_author(3, 1, 100);
 			set_author(4, 1, 100);
 			set_author(5, 1, 100);
-			// 1. ensure nominators are paid for 2 rounds after they leave
+			// 1. ensure nominators are paid for 2 eras after they leave
 			assert_noop!(
 				ParachainStaking::schedule_leave_nominators(Origin::signed(66)),
 				Error::<Test>::NominatorDNE
@@ -3866,38 +3866,38 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			roll_to(30);
 			let mut new2 = vec![
 				Event::NominatorExitScheduled {
-					round: 4,
+					era: 4,
 					nominator: 6,
 					scheduled_exit: 6,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 20,
-					round: 5,
+					era: 5,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -3918,33 +3918,33 @@ fn parachain_bond_inflation_reserve_matches_config() {
 					rewards: 8,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 25,
-					round: 6,
+					era: 6,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -3975,33 +3975,33 @@ fn parachain_bond_inflation_reserve_matches_config() {
 					unstaked_amount: 10,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 30,
-					round: 7,
+					era: 7,
 					selected_collators_number: 5,
 					total_balance: 130,
 				},
@@ -4020,40 +4020,40 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			];
 			expected.append(&mut new2);
 			assert_eq_events!(expected.clone());
-			// 6 won't be paid for this round because they left already
+			// 6 won't be paid for this era because they left already
 			set_author(6, 1, 100);
 			set_reward_pot(61);
 			roll_to(35);
 			// keep paying 6
 			let mut new3 = vec![
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 35,
-					round: 8,
+					era: 8,
 					selected_collators_number: 5,
 					total_balance: 130,
 				},
@@ -4078,33 +4078,33 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			// no more paying 6
 			let mut new4 = vec![
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 40,
-					round: 9,
+					era: 9,
 					selected_collators_number: 5,
 					total_balance: 130,
 				},
@@ -4136,33 +4136,33 @@ fn parachain_bond_inflation_reserve_matches_config() {
 					nominator_position: NominatorAdded::AddedToTop { new_total: 50 },
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 45,
-					round: 10,
+					era: 10,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -4188,33 +4188,33 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			// new nomination is still not rewarded yet
 			let mut new6 = vec![
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 50,
-					round: 11,
+					era: 11,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -4235,36 +4235,36 @@ fn parachain_bond_inflation_reserve_matches_config() {
 			assert_eq_events!(expected.clone());
 			set_reward_pot(75);
 			roll_to(55);
-			// new nomination is rewarded, 2 rounds after joining (`RewardPaymentDelay` is 2)
+			// new nomination is rewarded, 2 eras after joining (`RewardPaymentDelay` is 2)
 			let mut new7 = vec![
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 55,
-					round: 12,
+					era: 12,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -4309,13 +4309,13 @@ fn paid_collator_commission_matches_config() {
 			// chooses top TotalSelectedCandidates (5), in order
 			let mut expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 1,
 					total_balance: 40,
 				},
@@ -4356,18 +4356,18 @@ fn paid_collator_commission_matches_config() {
 					nominator_position: NominatorAdded::AddedToTop { new_total: 40 },
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 4,
 					total_exposed_amount: 40,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: 3,
+					era: 3,
 					selected_collators_number: 2,
 					total_balance: 80,
 				},
@@ -4382,34 +4382,34 @@ fn paid_collator_commission_matches_config() {
 			// all nominator payouts are 10-2 = 8 * stake_pct
 			let mut new2 = vec![
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 4,
 					total_exposed_amount: 40,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 15,
-					round: 4,
+					era: 4,
 					selected_collators_number: 2,
 					total_balance: 80,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 4,
 					total_exposed_amount: 40,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 20,
-					round: 5,
+					era: 5,
 					selected_collators_number: 2,
 					total_balance: 80,
 				},
@@ -4467,61 +4467,61 @@ fn collator_exit_executes_after_delay() {
 			// (within the last T::SlashingWindow blocks)
 			let expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 700,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 2,
 					total_exposed_amount: 400,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 2,
 					total_balance: 1100,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 1,
 					total_exposed_amount: 700,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 2,
 					total_exposed_amount: 400,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: 3,
+					era: 3,
 					selected_collators_number: 2,
 					total_balance: 1100,
 				},
 				Event::CandidateScheduledExit {
-					exit_allowed_round: 3,
+					exit_allowed_era: 3,
 					candidate: 2,
 					scheduled_exit: 5,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 1,
 					total_exposed_amount: 700,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 15,
-					round: 4,
+					era: 4,
 					selected_collators_number: 1,
 					total_balance: 700,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 1,
 					total_exposed_amount: 700,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 20,
-					round: 5,
+					era: 5,
 					selected_collators_number: 1,
 					total_balance: 700,
 				},
@@ -4556,33 +4556,33 @@ fn collator_selection_chooses_top_candidates() {
 			// should choose top TotalSelectedCandidates (5), in order
 			let expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
@@ -4593,7 +4593,7 @@ fn collator_selection_chooses_top_candidates() {
 				6
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateScheduledExit {
-				exit_allowed_round: 2,
+				exit_allowed_era: 2,
 				candidate: 6,
 				scheduled_exit: 4
 			}));
@@ -4619,131 +4619,131 @@ fn collator_selection_chooses_top_candidates() {
 			// should choose top TotalSelectedCandidates (5), in order
 			let expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
 				Event::CandidateScheduledExit {
-					exit_allowed_round: 2,
+					exit_allowed_era: 2,
 					candidate: 6,
 					scheduled_exit: 4,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: 3,
+					era: 3,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 15,
-					round: 4,
+					era: 4,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 20,
-					round: 5,
+					era: 5,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
@@ -4758,33 +4758,33 @@ fn collator_selection_chooses_top_candidates() {
 					new_total_amt_locked: 469,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 6,
 					total_exposed_amount: 69,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 25,
-					round: 6,
+					era: 6,
 					selected_collators_number: 5,
 					total_balance: 409,
 				},
@@ -4814,103 +4814,103 @@ fn payout_distribution_to_solo_collators() {
 			// should choose top TotalCandidatesSelected (5), in order
 			let mut expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
 			];
 			assert_eq_events!(expected.clone());
-			// ~ set block author as 1 for all blocks this round
+			// ~ set block author as 1 for all blocks this era
 			set_author(2, 1, 100);
 			set_reward_pot(305);
 			roll_to(16);
 			// pay total issuance to 1
 			let mut new = vec![
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: 3,
+					era: 3,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 15,
-					round: 4,
+					era: 4,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
@@ -4921,73 +4921,73 @@ fn payout_distribution_to_solo_collators() {
 			];
 			expected.append(&mut new);
 			assert_eq_events!(expected.clone());
-			// ~ set block author as 1 for 3 blocks this round
+			// ~ set block author as 1 for 3 blocks this era
 			set_author(4, 1, 60);
-			// ~ set block author as 2 for 2 blocks this round
+			// ~ set block author as 2 for 2 blocks this era
 			set_author(4, 2, 40);
 			set_reward_pot(320);
 			roll_to(26);
 			// pay 60% total issuance to 1 and 40% total issuance to 2
 			let mut new1 = vec![
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 20,
-					round: 5,
+					era: 5,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 25,
-					round: 6,
+					era: 6,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
@@ -5002,7 +5002,7 @@ fn payout_distribution_to_solo_collators() {
 			];
 			expected.append(&mut new1);
 			assert_eq_events!(expected.clone());
-			// ~ each collator produces 1 block this round
+			// ~ each collator produces 1 block this era
 			set_author(6, 1, 20);
 			set_author(6, 2, 20);
 			set_author(6, 3, 20);
@@ -5013,64 +5013,64 @@ fn payout_distribution_to_solo_collators() {
 			// pay 20% issuance for all collators
 			let mut new2 = vec![
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 30,
-					round: 7,
+					era: 7,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 1,
 					total_exposed_amount: 100,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 2,
 					total_exposed_amount: 90,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 3,
 					total_exposed_amount: 80,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 4,
 					total_exposed_amount: 70,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 5,
 					total_exposed_amount: 60,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 35,
-					round: 8,
+					era: 8,
 					selected_collators_number: 5,
 					total_balance: 400,
 				},
@@ -5138,33 +5138,33 @@ fn multiple_nominations() {
 			// chooses top TotalSelectedCandidates (5), in order
 			let mut expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -5194,64 +5194,64 @@ fn multiple_nominations() {
 					nominator_position: NominatorAdded::AddedToTop { new_total: 30 },
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 2,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 3,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 4,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: 3,
+					era: 3,
 					selected_collators_number: 5,
 					total_balance: 170,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 2,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 3,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 4,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 15,
-					round: 4,
+					era: 4,
 					selected_collators_number: 5,
 					total_balance: 170,
 				},
@@ -5270,33 +5270,33 @@ fn multiple_nominations() {
 			roll_to(26);
 			let mut new2 = vec![
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 2,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 3,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 4,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 20,
-					round: 5,
+					era: 5,
 					selected_collators_number: 5,
 					total_balance: 170,
 				},
@@ -5313,33 +5313,33 @@ fn multiple_nominations() {
 					nominator_position: NominatorAdded::AddedToBottom,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 2,
 					total_exposed_amount: 130,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 3,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 4,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 25,
-					round: 6,
+					era: 6,
 					selected_collators_number: 5,
 					total_balance: 250,
 				},
@@ -5351,40 +5351,40 @@ fn multiple_nominations() {
 				5
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateScheduledExit {
-				exit_allowed_round: 6,
+				exit_allowed_era: 6,
 				candidate: 2,
 				scheduled_exit: 8
 			}));
 			roll_to(31);
 			let mut new3 = vec![
 				Event::CandidateScheduledExit {
-					exit_allowed_round: 6,
+					exit_allowed_era: 6,
 					candidate: 2,
 					scheduled_exit: 8,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 3,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 4,
 					total_exposed_amount: 30,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 30,
-					round: 7,
+					era: 7,
 					selected_collators_number: 4,
 					total_balance: 120,
 				},
@@ -5525,103 +5525,103 @@ fn payouts_follow_nomination_changes() {
 			// chooses top TotalSelectedCandidates (5), in order
 			let mut expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
 			];
 			assert_eq_events!(expected.clone());
-			// ~ set block author as 1 for all blocks this round
+			// ~ set block author as 1 for all blocks this era
 			set_author(2, 1, 100);
 			set_reward_pot(50);
 			roll_to(16);
 			// distribute total issuance to collator 1 and its nominators 6, 7, 19
 			let mut new = vec![
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: 3,
+					era: 3,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 4,
+					era: 4,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 15,
-					round: 4,
+					era: 4,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -5644,12 +5644,12 @@ fn payouts_follow_nomination_changes() {
 			];
 			expected.append(&mut new);
 			assert_eq_events!(expected.clone());
-			// ~ set block author as 1 for all blocks this round
+			// ~ set block author as 1 for all blocks this era
 			set_author(3, 1, 100);
 			set_author(4, 1, 100);
 			set_author(5, 1, 100);
 			set_author(6, 1, 100);
-			// 1. ensure nominators are paid for 2 rounds after they leave
+			// 1. ensure nominators are paid for 2 eras after they leave
 			assert_noop!(
 				ParachainStaking::schedule_leave_nominators(Origin::signed(66)),
 				Error::<Test>::NominatorDNE
@@ -5672,38 +5672,38 @@ fn payouts_follow_nomination_changes() {
 			// keep paying 6 (note: inflation is in terms of total issuance so that's why 1 is 21)
 			let mut new2 = vec![
 				Event::NominatorExitScheduled {
-					round: 4,
+					era: 4,
 					nominator: 6,
 					scheduled_exit: 6,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 5,
+					era: 5,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 20,
-					round: 5,
+					era: 5,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -5724,33 +5724,33 @@ fn payouts_follow_nomination_changes() {
 					rewards: 8,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 6,
+					era: 6,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 25,
-					round: 6,
+					era: 6,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -5783,7 +5783,7 @@ fn payouts_follow_nomination_changes() {
 			];
 			expected.append(&mut new2);
 			assert_eq_events!(expected.clone());
-			// 6 won't be paid for this round because they left already
+			// 6 won't be paid for this era because they left already
 			set_author(7, 1, 100);
 			set_reward_pot(58);
 			roll_to(30);
@@ -5792,33 +5792,33 @@ fn payouts_follow_nomination_changes() {
 			// keep paying 6
 			let mut new3 = vec![
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 7,
+					era: 7,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 30,
-					round: 7,
+					era: 7,
 					selected_collators_number: 5,
 					total_balance: 130,
 				},
@@ -5835,33 +5835,33 @@ fn payouts_follow_nomination_changes() {
 					rewards: 11,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 8,
+					era: 8,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 35,
-					round: 8,
+					era: 8,
 					selected_collators_number: 5,
 					total_balance: 130,
 				},
@@ -5886,33 +5886,33 @@ fn payouts_follow_nomination_changes() {
 			// no more paying 6
 			let mut new4 = vec![
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 1,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 9,
+					era: 9,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 40,
-					round: 9,
+					era: 9,
 					selected_collators_number: 5,
 					total_balance: 130,
 				},
@@ -5944,33 +5944,33 @@ fn payouts_follow_nomination_changes() {
 					nominator_position: NominatorAdded::AddedToTop { new_total: 50 },
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 10,
+					era: 10,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 45,
-					round: 10,
+					era: 10,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -5995,33 +5995,33 @@ fn payouts_follow_nomination_changes() {
 			// new nomination not rewarded yet
 			let mut new6 = vec![
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 11,
+					era: 11,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 50,
-					round: 11,
+					era: 11,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -6043,36 +6043,36 @@ fn payouts_follow_nomination_changes() {
 			set_reward_pot(75);
 			roll_to(55);
 			// new nomination is rewarded for first time
-			// 2 rounds after joining (`RewardPaymentDelay` = 2)
+			// 2 eras after joining (`RewardPaymentDelay` = 2)
 			let mut new7 = vec![
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 1,
 					total_exposed_amount: 50,
 				},
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 2,
 					total_exposed_amount: 40,
 				},
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 12,
+					era: 12,
 					collator_account: 5,
 					total_exposed_amount: 10,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 55,
-					round: 12,
+					era: 12,
 					selected_collators_number: 5,
 					total_balance: 140,
 				},
@@ -6405,7 +6405,7 @@ fn nomination_events_convey_correct_position() {
 				nominator: 6,
 				candidate: 1,
 				amount_to_decrease: 2,
-				execute_round: 3,
+				execute_era: 3,
 			});
 			roll_to(30);
 			assert_ok!(ParachainStaking::execute_nomination_request(
@@ -6432,7 +6432,7 @@ fn nomination_events_convey_correct_position() {
 				nominator: 6,
 				candidate: 1,
 				amount_to_decrease: 1,
-				execute_round: 9,
+				execute_era: 9,
 			});
 			roll_to(40);
 			assert_ok!(ParachainStaking::execute_nomination_request(
@@ -6459,8 +6459,8 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
 		.with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20)])
 		.build()
 		.execute_with(|| {
-			roll_to_round_begin(2);
-			// payouts for round 1
+			roll_to_era_begin(2);
+			// payouts for era 1
 			set_author(1, 1, 1);
 			set_author(1, 2, 1);
 			set_author(1, 3, 1);
@@ -6468,28 +6468,28 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
 			set_author(1, 4, 1);
 			let mut expected = vec![
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 1,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 2,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 2,
+					era: 2,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: 2,
+					era: 2,
 					selected_collators_number: 4,
 					total_balance: 80,
 				},
@@ -6497,35 +6497,35 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
 			assert_eq_events!(expected);
 
 			set_reward_pot(5);
-			roll_to_round_begin(3);
+			roll_to_era_begin(3);
 			expected.append(&mut vec![
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 1,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 2,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 3,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: 3,
+					era: 3,
 					collator_account: 4,
 					total_exposed_amount: 20,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: 3,
+					era: 3,
 					selected_collators_number: 4,
 					total_balance: 80,
 				},
-				// rewards will begin immediately following a NewRound
+				// rewards will begin immediately following a NewEra
 				Event::Rewarded {
 					account: 3,
 					rewards: 1,
@@ -6533,7 +6533,7 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
 			]);
 			assert_eq_events!(expected);
 
-			// roll to the next block where we start round 3; we should have round change and first
+			// roll to the next block where we start era 3; we should have era change and first
 			// payout made.
 			roll_one_block();
 			expected.push(Event::Rewarded {
@@ -6556,8 +6556,8 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
 			});
 			assert_eq_events!(expected);
 
-			// there should be no more payments in this round...
-			let num_blocks_rolled = roll_to_round_end(3);
+			// there should be no more payments in this era...
+			let num_blocks_rolled = roll_to_era_end(3);
 			assert_eq_events!(expected);
 			assert_eq!(num_blocks_rolled, 1);
 		});
@@ -6567,7 +6567,7 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
 fn deferred_payment_storage_items_are_cleaned_up() {
 	use crate::*;
 
-	// this test sets up two collators, gives them points in round one, and focuses on the
+	// this test sets up two collators, gives them points in era one, and focuses on the
 	// storage over the next several blocks to show that it is properly cleaned up
 
 	ExtBuilder::default()
@@ -6575,40 +6575,40 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 		.with_candidates(vec![(1, 20), (2, 20)])
 		.build()
 		.execute_with(|| {
-			let mut round: u32 = 1;
-			set_author(round, 1, 1);
-			set_author(round, 2, 1);
+			let mut era: u32 = 1;
+			set_author(era, 1, 1);
+			set_author(era, 2, 1);
 
 			// reflects genesis?
-			assert!(<AtStake<Test>>::contains_key(round, 1));
-			assert!(<AtStake<Test>>::contains_key(round, 2));
+			assert!(<AtStake<Test>>::contains_key(era, 1));
+			assert!(<AtStake<Test>>::contains_key(era, 2));
 
-			round = 2;
-			roll_to_round_begin(round.into());
+			era = 2;
+			roll_to_era_begin(era.into());
 			let mut expected = vec![
 				Event::CollatorChosen {
-					round: round,
+					era: era,
 					collator_account: 1,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: round,
+					era: era,
 					collator_account: 2,
 					total_exposed_amount: 20,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 5,
-					round: round,
+					era: era,
 					selected_collators_number: 2,
 					total_balance: 40,
 				},
 			];
 			assert_eq_events!(expected);
 
-			// we should have AtStake snapshots as soon as we start a round...
+			// we should have AtStake snapshots as soon as we start a era...
 			assert!(<AtStake<Test>>::contains_key(2, 1));
 			assert!(<AtStake<Test>>::contains_key(2, 2));
-			// ...and it should persist until the round is fully paid out
+			// ...and it should persist until the era is fully paid out
 			assert!(<AtStake<Test>>::contains_key(1, 1));
 			assert!(<AtStake<Test>>::contains_key(1, 2));
 
@@ -6618,11 +6618,11 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 			);
 			assert!(
 				<Points<Test>>::contains_key(1),
-				"Points should be populated during current round"
+				"Points should be populated during current era"
 			);
 			assert!(
 				<Staked<Test>>::contains_key(1),
-				"Staked should be populated when round changes"
+				"Staked should be populated when era changes"
 			);
 
 			assert!(
@@ -6631,27 +6631,27 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 			);
 			assert!(
 				<Staked<Test>>::contains_key(2),
-				"Staked should be populated when round changes"
+				"Staked should be populated when era changes"
 			);
 
-			// first payout occurs in round 3
-			round = 3;
+			// first payout occurs in era 3
+			era = 3;
 			set_reward_pot(3);
-			roll_to_round_begin(round.into());
+			roll_to_era_begin(era.into());
 			expected.append(&mut vec![
 				Event::CollatorChosen {
-					round: round,
+					era: era,
 					collator_account: 1,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: round,
+					era: era,
 					collator_account: 2,
 					total_exposed_amount: 20,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 10,
-					round: round,
+					era: era,
 					selected_collators_number: 2,
 					total_balance: 40,
 				},
@@ -6662,7 +6662,7 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 			]);
 			assert_eq_events!(expected);
 
-			// payouts should exist for past rounds that haven't been paid out yet..
+			// payouts should exist for past eras that haven't been paid out yet..
 			assert!(<AtStake<Test>>::contains_key(3, 1));
 			assert!(<AtStake<Test>>::contains_key(3, 2));
 			assert!(<AtStake<Test>>::contains_key(2, 1));
@@ -6675,20 +6675,20 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 			assert!(<Points<Test>>::contains_key(1));
 			assert!(
 				!<Staked<Test>>::contains_key(1),
-				"Staked should be cleaned up after round change"
+				"Staked should be cleaned up after era change"
 			);
 
 			assert!(!<DelayedPayouts<Test>>::contains_key(2));
 			assert!(
 				!<Points<Test>>::contains_key(2),
-				"We never rewarded points for round 2"
+				"We never rewarded points for era 2"
 			);
 			assert!(<Staked<Test>>::contains_key(2));
 
 			assert!(!<DelayedPayouts<Test>>::contains_key(3));
 			assert!(
 				!<Points<Test>>::contains_key(3),
-				"We never awarded points for round 3"
+				"We never awarded points for era 3"
 			);
 			assert!(<Staked<Test>>::contains_key(3));
 
@@ -6700,40 +6700,40 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 			assert!(<AtStake<Test>>::contains_key(1, 2));
 			assert!(<AwardedPts<Test>>::contains_key(1, 2));
 
-			round = 4;
-			roll_to_round_begin(round.into());
+			era = 4;
+			roll_to_era_begin(era.into());
 			expected.append(&mut vec![
 				Event::Rewarded {
 					account: 2,
 					rewards: 1,
-				}, // from previous round
+				}, // from previous era
 				Event::CollatorChosen {
-					round: round,
+					era: era,
 					collator_account: 1,
 					total_exposed_amount: 20,
 				},
 				Event::CollatorChosen {
-					round: round,
+					era: era,
 					collator_account: 2,
 					total_exposed_amount: 20,
 				},
-				Event::NewRound {
+				Event::NewEra {
 					starting_block: 15,
-					round: round,
+					era: era,
 					selected_collators_number: 2,
 					total_balance: 40,
 				},
 			]);
 			assert_eq_events!(expected);
 
-			// collators have both been paid and storage fully cleaned up for round 1
+			// collators have both been paid and storage fully cleaned up for era 1
 			assert!(!<AtStake<Test>>::contains_key(1, 2));
 			assert!(!<AwardedPts<Test>>::contains_key(1, 2));
 			assert!(!<Staked<Test>>::contains_key(1));
 			assert!(!<Points<Test>>::contains_key(1)); // points should be cleaned up
 			assert!(!<DelayedPayouts<Test>>::contains_key(1));
 
-			roll_to_round_end(4);
+			roll_to_era_end(4);
 
 			// no more events expected
 			assert_eq_events!(expected);
@@ -6744,9 +6744,9 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 fn deferred_payment_steady_state_event_flow() {
 	use frame_support::traits::{Currency, ExistenceRequirement, WithdrawReasons};
 
-	// this test "flows" through a number of rounds, asserting that certain things do/don't happen
+	// this test "flows" through a number of eras, asserting that certain things do/don't happen
 	// once the staking pallet is in a "steady state" (specifically, once we are past the first few
-	// rounds to clear RewardPaymentDelay)
+	// eras to clear RewardPaymentDelay)
 
 	ExtBuilder::default()
 		.with_balances(vec![
@@ -6780,16 +6780,16 @@ fn deferred_payment_steady_state_event_flow() {
 		])
 		.build()
 		.execute_with(|| {
-			// convenience to set the round points consistently
-			let set_round_points = |round: u64| {
-				set_author(round as u32, 1, 1);
-				set_author(round as u32, 2, 1);
-				set_author(round as u32, 3, 1);
-				set_author(round as u32, 4, 1);
+			// convenience to set the era points consistently
+			let set_era_points = |era: u64| {
+				set_author(era as u32, 1, 1);
+				set_author(era as u32, 2, 1);
+				set_author(era as u32, 3, 1);
+				set_author(era as u32, 4, 1);
 			};
 
-			// grab initial issuance -- we will reset it before round issuance is calculated so that
-			// it is consistent every round
+			// grab initial issuance -- we will reset it before era issuance is calculated so that
+			// it is consistent every era
 			let initial_issuance = Balances::total_issuance();
 			let reset_issuance = || {
 				let new_issuance = Balances::total_issuance();
@@ -6804,58 +6804,58 @@ fn deferred_payment_steady_state_event_flow() {
 				.expect("Account can absorb burn");
 			};
 
-			// fn to roll through the first RewardPaymentDelay rounds. returns new round index
-			let roll_through_initial_rounds = |mut round: u64| -> u64 {
-				while round < crate::mock::RewardPaymentDelay::get() as u64 + 1 {
-					set_round_points(round);
+			// fn to roll through the first RewardPaymentDelay eras. returns new era index
+			let roll_through_initial_eras = |mut era: u64| -> u64 {
+				while era < crate::mock::RewardPaymentDelay::get() as u64 + 1 {
+					set_era_points(era);
 
-					roll_to_round_end(round);
-					round += 1;
+					roll_to_era_end(era);
+					era += 1;
 				}
 
 				reset_issuance();
 
-				round
+				era
 			};
 
-			// roll through a "steady state" round and make all of our assertions
-			// returns new round index
-			let roll_through_steady_state_round = |round: u64| -> u64 {
+			// roll through a "steady state" era and make all of our assertions
+			// returns new era index
+			let roll_through_steady_state_era = |era: u64| -> u64 {
 			set_reward_pot(130);
-			let num_rounds_rolled = roll_to_round_begin(round);
+			let num_eras_rolled = roll_to_era_begin(era);
 			assert_eq!(
-					num_rounds_rolled, 1,
-					"expected to be at round begin already"
+					num_eras_rolled, 1,
+					"expected to be at era begin already"
 			);
 
 			let expected = vec![
 					Event::CollatorChosen {
-						round: round as u32,
+						era: era as u32,
 						collator_account: 1,
 						total_exposed_amount: 400,
 					},
 					Event::CollatorChosen {
-						round: round as u32,
+						era: era as u32,
 						collator_account: 2,
 						total_exposed_amount: 400,
 					},
 					Event::CollatorChosen {
-						round: round as u32,
+						era: era as u32,
 						collator_account: 3,
 						total_exposed_amount: 400,
 					},
 					Event::CollatorChosen {
-						round: round as u32,
+						era: era as u32,
 						collator_account: 4,
 						total_exposed_amount: 400,
 					},
-					Event::NewRound {
-						starting_block: (round - 1) * 5,
-						round: round as u32,
+					Event::NewEra {
+						starting_block: (era - 1) * 5,
+						era: era as u32,
 						selected_collators_number: 4,
 						total_balance: 1600,
 					},
-					// first payout should occur on round change
+					// first payout should occur on era change
 					Event::Rewarded {
 						account: 3,
 						rewards: 19,
@@ -6871,7 +6871,7 @@ fn deferred_payment_steady_state_event_flow() {
 				];
 			assert_eq_last_events!(expected);
 
-			set_round_points(round);
+			set_era_points(era);
 
 			roll_one_block();
 			let expected = vec![
@@ -6934,18 +6934,18 @@ fn deferred_payment_steady_state_event_flow() {
 				];
 				assert_eq_last_events!(expected);
 
-				let num_rounds_rolled = roll_to_round_end(round);
-				assert_eq!(num_rounds_rolled, 0, "expected to be at round end already");
+				let num_eras_rolled = roll_to_era_end(era);
+				assert_eq!(num_eras_rolled, 0, "expected to be at era end already");
 
 				reset_issuance();
 
-				round + 1
+				era + 1
 			};
 
-			let mut round = 1;
-			round = roll_through_initial_rounds(round); // we should be at RewardPaymentDelay
+			let mut era = 1;
+			era = roll_through_initial_eras(era); // we should be at RewardPaymentDelay
 			for _ in 1..5 {
-				round = roll_through_steady_state_round(round);
+				era = roll_through_steady_state_era(era);
 			}
 		});
 }
@@ -7000,13 +7000,13 @@ fn nomination_kicked_from_bottom_removes_pending_request() {
 }
 
 #[test]
-fn no_selected_candidates_defaults_to_last_round_collators() {
+fn no_selected_candidates_defaults_to_last_era_collators() {
 	ExtBuilder::default()
 		.with_balances(vec![(1, 30), (2, 30), (3, 30), (4, 30), (5, 30)])
 		.with_candidates(vec![(1, 30), (2, 30), (3, 30), (4, 30), (5, 30)])
 		.build()
 		.execute_with(|| {
-			roll_to_round_begin(1);
+			roll_to_era_begin(1);
 			// schedule to leave
 			for i in 1..6 {
 				assert_ok!(ParachainStaking::schedule_leave_candidates(
@@ -7014,13 +7014,13 @@ fn no_selected_candidates_defaults_to_last_round_collators() {
 					5
 				));
 			}
-			let old_round = ParachainStaking::round().current;
+			let old_era = ParachainStaking::era().current;
 			let old_selected_candidates = ParachainStaking::selected_candidates();
 			let mut old_at_stake_snapshots = Vec::new();
 			for account in old_selected_candidates.clone() {
-				old_at_stake_snapshots.push(<AtStake<Test>>::get(old_round, account));
+				old_at_stake_snapshots.push(<AtStake<Test>>::get(old_era, account));
 			}
-			roll_to_round_begin(3);
+			roll_to_era_begin(3);
 			// execute leave
 			for i in 1..6 {
 				assert_ok!(ParachainStaking::execute_leave_candidates(
@@ -7029,9 +7029,9 @@ fn no_selected_candidates_defaults_to_last_round_collators() {
 					0,
 				));
 			}
-			// next round
-			roll_to_round_begin(4);
-			let new_round = ParachainStaking::round().current;
+			// next era
+			roll_to_era_begin(4);
+			let new_era = ParachainStaking::era().current;
 			// check AtStake matches previous
 			let new_selected_candidates = ParachainStaking::selected_candidates();
 			assert_eq!(old_selected_candidates, new_selected_candidates);
@@ -7039,7 +7039,7 @@ fn no_selected_candidates_defaults_to_last_round_collators() {
 			for account in new_selected_candidates {
 				assert_eq!(
 					old_at_stake_snapshots[index],
-					<AtStake<Test>>::get(new_round, account)
+					<AtStake<Test>>::get(new_era, account)
 				);
 				index += 1usize;
 			}
@@ -7047,15 +7047,15 @@ fn no_selected_candidates_defaults_to_last_round_collators() {
 }
 
 #[test]
-fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_for_future() {
+fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_eras_but_not_for_future() {
 	ExtBuilder::default()
 		.with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
 		.with_candidates(vec![(1, 20), (3, 20), (4, 20)])
 		.with_nominations(vec![(2, 1, 10), (2, 3, 10)])
 		.build()
 		.execute_with(|| {
-			// preset rewards for rounds 1, 2 and 3
-			(1..=3).for_each(|round| set_author(round, 1, 1));
+			// preset rewards for eras 1, 2 and 3
+			(1..=3).for_each(|era| set_author(era, 1, 1));
 
 			assert_ok!(ParachainStaking::schedule_revoke_nomination(
 				Origin::signed(2),
@@ -7063,7 +7063,7 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_f
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(
 				Event::NominationRevocationScheduled {
-					round: 1,
+					era: 1,
 					nominator: 2,
 					candidate: 1,
 					scheduled_exit: 3,
@@ -7080,7 +7080,7 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_f
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(3);
+			roll_to_era_begin(3);
 			assert_eq_last_events!(
 				vec![
 					Event::<Test>::Rewarded {
@@ -7096,7 +7096,7 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_f
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(4);
+			roll_to_era_begin(4);
 			assert_eq_last_events!(
 				vec![Event::<Test>::Rewarded {
 					account: 1,
@@ -7105,7 +7105,7 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_rounds_but_not_f
 				"nominator was rewarded unexpectedly"
 			);
 			let collator_snapshot =
-				ParachainStaking::at_stake(ParachainStaking::round().current, 1);
+				ParachainStaking::at_stake(ParachainStaking::era().current, 1);
 			assert_eq!(
 				1,
 				collator_snapshot.nominations.len(),
@@ -7126,8 +7126,8 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 		.with_nominations(vec![(2, 1, 10), (2, 3, 10)])
 		.build()
 		.execute_with(|| {
-			// preset rewards for rounds 2, 3 and 4
-			(2..=4).for_each(|round| set_author(round, 1, 1));
+			// preset rewards for eras 2, 3 and 4
+			(2..=4).for_each(|era| set_author(era, 1, 1));
 
 			assert_ok!(ParachainStaking::schedule_revoke_nomination(
 				Origin::signed(2),
@@ -7135,7 +7135,7 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(
 				Event::NominationRevocationScheduled {
-					round: 1,
+					era: 1,
 					nominator: 2,
 					candidate: 1,
 					scheduled_exit: 3,
@@ -7151,14 +7151,14 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 				"collator's total was reduced unexpectedly"
 			);
 
-			roll_to_round_begin(2);
+			roll_to_era_begin(2);
 			assert_ok!(ParachainStaking::cancel_nomination_request(
 				Origin::signed(2),
 				1
 			));
 
 			set_reward_pot(5);
-			roll_to_round_begin(4);
+			roll_to_era_begin(4);
 			assert_eq_last_events!(
 				vec![Event::<Test>::Rewarded {
 					account: 1,
@@ -7167,7 +7167,7 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 				"nominator was rewarded unexpectedly",
 			);
 			let collator_snapshot =
-				ParachainStaking::at_stake(ParachainStaking::round().current, 1);
+				ParachainStaking::at_stake(ParachainStaking::era().current, 1);
 			assert_eq!(
 				1,
 				collator_snapshot.nominations.len(),
@@ -7179,7 +7179,7 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(5);
+			roll_to_era_begin(5);
 			assert_eq_last_events!(
 				vec![
 					Event::<Test>::Rewarded {
@@ -7197,7 +7197,7 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 }
 
 #[test]
-fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_rounds_but_less_for_future()
+fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_less_for_future()
 {
 	ExtBuilder::default()
 		.with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
@@ -7205,8 +7205,8 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_rounds_bu
 		.with_nominations(vec![(2, 1, 20), (2, 3, 10)])
 		.build()
 		.execute_with(|| {
-			// preset rewards for rounds 1, 2 and 3
-			(1..=3).for_each(|round| set_author(round, 1, 1));
+			// preset rewards for eras 1, 2 and 3
+			(1..=3).for_each(|era| set_author(era, 1, 1));
 
 			assert_ok!(ParachainStaking::schedule_nominator_bond_less(
 				Origin::signed(2),
@@ -7215,7 +7215,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_rounds_bu
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(
 				Event::NominationDecreaseScheduled {
-					execute_round: 3,
+					execute_era: 3,
 					nominator: 2,
 					candidate: 1,
 					amount_to_decrease: 10,
@@ -7232,7 +7232,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_rounds_bu
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(3);
+			roll_to_era_begin(3);
 			assert_eq_last_events!(
 				vec![
 					Event::<Test>::Rewarded {
@@ -7248,7 +7248,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_rounds_bu
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(4);
+			roll_to_era_begin(4);
 			assert_eq_last_events!(
 				vec![
 					Event::<Test>::Rewarded {
@@ -7263,7 +7263,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_rounds_bu
 				"nominator was rewarded unexpectedly"
 			);
 			let collator_snapshot =
-				ParachainStaking::at_stake(ParachainStaking::round().current, 1);
+				ParachainStaking::at_stake(ParachainStaking::era().current, 1);
 			assert_eq!(
 				1,
 				collator_snapshot.nominations.len(),
@@ -7284,8 +7284,8 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 		.with_nominations(vec![(2, 1, 20), (2, 3, 10)])
 		.build()
 		.execute_with(|| {
-			// preset rewards for rounds 2, 3 and 4
-			(2..=4).for_each(|round| set_author(round, 1, 1));
+			// preset rewards for eras 2, 3 and 4
+			(2..=4).for_each(|era| set_author(era, 1, 1));
 
 			assert_ok!(ParachainStaking::schedule_nominator_bond_less(
 				Origin::signed(2),
@@ -7294,7 +7294,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 			));
 			assert_last_event!(MetaEvent::ParachainStaking(
 				Event::NominationDecreaseScheduled {
-					execute_round: 3,
+					execute_era: 3,
 					nominator: 2,
 					candidate: 1,
 					amount_to_decrease: 10,
@@ -7310,14 +7310,14 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 				"collator's total was reduced unexpectedly"
 			);
 
-			roll_to_round_begin(2);
+			roll_to_era_begin(2);
 			assert_ok!(ParachainStaking::cancel_nomination_request(
 				Origin::signed(2),
 				1
 			));
 
 			set_reward_pot(5);
-			roll_to_round_begin(4);
+			roll_to_era_begin(4);
 			assert_eq_last_events!(
 				vec![
 					Event::<Test>::Rewarded {
@@ -7332,7 +7332,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 				"nominator was rewarded unexpectedly",
 			);
 			let collator_snapshot =
-				ParachainStaking::at_stake(ParachainStaking::round().current, 1);
+				ParachainStaking::at_stake(ParachainStaking::era().current, 1);
 			assert_eq!(
 				1,
 				collator_snapshot.nominations.len(),
@@ -7344,7 +7344,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(5);
+			roll_to_era_begin(5);
 			assert_eq_last_events!(
 				vec![
 					Event::<Test>::Rewarded {
@@ -7362,21 +7362,21 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 }
 
 #[test]
-fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_rounds_but_not_for_future() {
+fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_eras_but_not_for_future() {
 	ExtBuilder::default()
 		.with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
 		.with_candidates(vec![(1, 20), (3, 20), (4, 20)])
 		.with_nominations(vec![(2, 1, 10), (2, 3, 10)])
 		.build()
 		.execute_with(|| {
-			// preset rewards for rounds 1, 2 and 3
-			(1..=3).for_each(|round| set_author(round, 1, 1));
+			// preset rewards for eras 1, 2 and 3
+			(1..=3).for_each(|era| set_author(era, 1, 1));
 
 			assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(
 				2
 			),));
 			assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
-				round: 1,
+				era: 1,
 				nominator: 2,
 				scheduled_exit: 3,
 			}));
@@ -7391,7 +7391,7 @@ fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_rounds_but_not_fo
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(3);
+			roll_to_era_begin(3);
 			assert_eq_last_events!(
 				vec![
 					Event::<Test>::Rewarded {
@@ -7407,7 +7407,7 @@ fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_rounds_but_not_fo
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(4);
+			roll_to_era_begin(4);
 			assert_eq_last_events!(
 				vec![Event::<Test>::Rewarded {
 					account: 1,
@@ -7416,7 +7416,7 @@ fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_rounds_but_not_fo
 				"nominator was rewarded unexpectedly"
 			);
 			let collator_snapshot =
-				ParachainStaking::at_stake(ParachainStaking::round().current, 1);
+				ParachainStaking::at_stake(ParachainStaking::era().current, 1);
 			assert_eq!(
 				1,
 				collator_snapshot.nominations.len(),
@@ -7437,14 +7437,14 @@ fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
 		.with_nominations(vec![(2, 1, 10), (2, 3, 10)])
 		.build()
 		.execute_with(|| {
-			// preset rewards for rounds 2, 3 and 4
-			(2..=4).for_each(|round| set_author(round, 1, 1));
+			// preset rewards for eras 2, 3 and 4
+			(2..=4).for_each(|era| set_author(era, 1, 1));
 
 			assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(
 				2
 			)));
 			assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
-				round: 1,
+				era: 1,
 				nominator: 2,
 				scheduled_exit: 3,
 			}));
@@ -7458,11 +7458,11 @@ fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
 				"collator's total was reduced unexpectedly"
 			);
 
-			roll_to_round_begin(2);
+			roll_to_era_begin(2);
 			assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(2)));
 
 			set_reward_pot(5);
-			roll_to_round_begin(4);
+			roll_to_era_begin(4);
 			assert_eq_last_events!(
 				vec![Event::<Test>::Rewarded {
 					account: 1,
@@ -7471,7 +7471,7 @@ fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
 				"nominator was rewarded unexpectedly",
 			);
 			let collator_snapshot =
-				ParachainStaking::at_stake(ParachainStaking::round().current, 1);
+				ParachainStaking::at_stake(ParachainStaking::era().current, 1);
 			assert_eq!(
 				1,
 				collator_snapshot.nominations.len(),
@@ -7483,7 +7483,7 @@ fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
 			);
 
 			set_reward_pot(5);
-			roll_to_round_begin(5);
+			roll_to_era_begin(5);
 			assert_eq_last_events!(
 				vec![
 					Event::<Test>::Rewarded {
@@ -7759,7 +7759,7 @@ fn revoke_last_removes_lock() {
 				Origin::signed(3),
 				1
 			));
-			roll_to_round_begin(3);
+			roll_to_era_begin(3);
 			assert_ok!(ParachainStaking::execute_nomination_request(
 				Origin::signed(3),
 				3,
@@ -7775,7 +7775,7 @@ fn revoke_last_removes_lock() {
 				Origin::signed(3),
 				2
 			));
-			roll_to_round_begin(5);
+			roll_to_era_begin(5);
 			assert_ok!(ParachainStaking::execute_nomination_request(
 				Origin::signed(3),
 				3,
@@ -7809,7 +7809,7 @@ fn test_nominator_with_deprecated_status_leaving_can_schedule_leave_nominators_a
 				.iter()
 				.any(|r| r.nominator == 2 && matches!(r.action, NominationAction::Revoke(_))));
 			assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
-				round: 1,
+				era: 1,
 				nominator: 2,
 				scheduled_exit: 3
 			}));
