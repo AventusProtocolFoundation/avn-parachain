@@ -17,7 +17,7 @@
 //! Test utilities
 use crate as pallet_parachain_staking;
 use crate::{
-	pallet, AwardedPts, Config, Points, COLLATOR_LOCK_ID, DELEGATOR_LOCK_ID,
+	pallet, AwardedPts, Config, Points, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
 	construct_runtime, parameter_types,
@@ -148,19 +148,19 @@ parameter_types! {
 	pub const DefaultBlocksPerRound: u32 = 5;
 	pub const LeaveCandidatesDelay: u32 = 2;
 	pub const CandidateBondLessDelay: u32 = 2;
-	pub const LeaveDelegatorsDelay: u32 = 2;
-	pub const RevokeDelegationDelay: u32 = 2;
-	pub const DelegationBondLessDelay: u32 = 2;
+	pub const LeaveNominatorsDelay: u32 = 2;
+	pub const RevokeNominationDelay: u32 = 2;
+	pub const NominationBondLessDelay: u32 = 2;
 	pub const RewardPaymentDelay: u32 = 2;
 	pub const MinSelectedCandidates: u32 = 5;
-	pub const MaxTopDelegationsPerCandidate: u32 = 4;
-	pub const MaxBottomDelegationsPerCandidate: u32 = 4;
-	pub const MaxDelegationsPerDelegator: u32 = 4;
+	pub const MaxTopNominationsPerCandidate: u32 = 4;
+	pub const MaxBottomNominationsPerCandidate: u32 = 4;
+	pub const MaxNominationsPerNominator: u32 = 4;
 	pub const DefaultCollatorCommission: Perbill = Perbill::from_percent(20);
 	pub const DefaultParachainBondReservePercent: Percent = Percent::from_percent(30);
 	pub const MinCollatorStk: u128 = 10;
-	pub const MinDelegatorStk: u128 = 5;
-	pub const MinDelegation: u128 = 3;
+	pub const MinNominatorStk: u128 = 5;
+	pub const MinNomination: u128 = 3;
 	pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
 }
 impl Config for Test {
@@ -171,20 +171,20 @@ impl Config for Test {
 	type DefaultBlocksPerRound = DefaultBlocksPerRound;
 	type LeaveCandidatesDelay = LeaveCandidatesDelay;
 	type CandidateBondLessDelay = CandidateBondLessDelay;
-	type LeaveDelegatorsDelay = LeaveDelegatorsDelay;
-	type RevokeDelegationDelay = RevokeDelegationDelay;
-	type DelegationBondLessDelay = DelegationBondLessDelay;
+	type LeaveNominatorsDelay = LeaveNominatorsDelay;
+	type RevokeNominationDelay = RevokeNominationDelay;
+	type NominationBondLessDelay = NominationBondLessDelay;
 	type RewardPaymentDelay = RewardPaymentDelay;
 	type MinSelectedCandidates = MinSelectedCandidates;
-	type MaxTopDelegationsPerCandidate = MaxTopDelegationsPerCandidate;
-	type MaxBottomDelegationsPerCandidate = MaxBottomDelegationsPerCandidate;
-	type MaxDelegationsPerDelegator = MaxDelegationsPerDelegator;
+	type MaxTopNominationsPerCandidate = MaxTopNominationsPerCandidate;
+	type MaxBottomNominationsPerCandidate = MaxBottomNominationsPerCandidate;
+	type MaxNominationsPerNominator = MaxNominationsPerNominator;
 	type DefaultCollatorCommission = DefaultCollatorCommission;
 	type DefaultParachainBondReservePercent = DefaultParachainBondReservePercent;
 	type MinCollatorStk = MinCollatorStk;
 	type MinCandidateStk = MinCollatorStk;
-	type MinDelegatorStk = MinDelegatorStk;
-	type MinDelegation = MinDelegation;
+	type MinNominatorStk = MinNominatorStk;
+	type MinNomination = MinNomination;
 	type RewardPotId = RewardPotId;
 	type OnCollatorPayout = ();
 	type OnNewRound = ();
@@ -240,15 +240,15 @@ pub(crate) struct ExtBuilder {
 	balances: Vec<(AccountId, Balance)>,
 	// [collator, amount]
 	collators: Vec<(AccountId, Balance)>,
-	// [delegator, collator, delegation_amount]
-	delegations: Vec<(AccountId, AccountId, Balance)>,
+	// [nominator, collator, nomination_amount]
+	nominations: Vec<(AccountId, AccountId, Balance)>,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> ExtBuilder {
 		ExtBuilder {
 			balances: vec![],
-			delegations: vec![],
+			nominations: vec![],
 			collators: vec![],
 		}
 	}
@@ -265,11 +265,11 @@ impl ExtBuilder {
 		self
 	}
 
-	pub(crate) fn with_delegations(
+	pub(crate) fn with_nominations(
 		mut self,
-		delegations: Vec<(AccountId, AccountId, Balance)>,
+		nominations: Vec<(AccountId, AccountId, Balance)>,
 	) -> Self {
-		self.delegations = delegations;
+		self.nominations = nominations;
 		self
 	}
 
@@ -285,7 +285,7 @@ impl ExtBuilder {
 		.expect("Pallet balances storage can be assimilated");
 		pallet_parachain_staking::GenesisConfig::<Test> {
 			candidates: self.collators,
-			delegations: self.delegations,
+			nominations: self.nominations,
 		}
 		.assimilate_storage(&mut t)
 		.expect("Parachain Staking's storage can be assimilated");
@@ -499,7 +499,7 @@ fn geneses() {
 			(9, 4),
 		])
 		.with_candidates(vec![(1, 500), (2, 200)])
-		.with_delegations(vec![(3, 1, 100), (4, 1, 100), (5, 2, 100), (6, 2, 100)])
+		.with_nominations(vec![(3, 1, 100), (4, 1, 100), (5, 2, 100), (6, 2, 100)])
 		.build()
 		.execute_with(|| {
 			assert!(System::events().is_empty());
@@ -516,26 +516,26 @@ fn geneses() {
 				100
 			);
 			assert!(ParachainStaking::is_candidate(&2));
-			// delegators
+			// nominators
 			for x in 3..7 {
-				assert!(ParachainStaking::is_delegator(&x));
-				assert_eq!(ParachainStaking::get_delegator_stakable_free_balance(&x), 0);
-				assert_eq!(query_lock_amount(x, DELEGATOR_LOCK_ID), Some(100));
+				assert!(ParachainStaking::is_nominator(&x));
+				assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&x), 0);
+				assert_eq!(query_lock_amount(x, NOMINATOR_LOCK_ID), Some(100));
 			}
 			// uninvolved
 			for x in 7..10 {
-				assert!(!ParachainStaking::is_delegator(&x));
+				assert!(!ParachainStaking::is_nominator(&x));
 			}
-			// no delegator staking locks
-			assert_eq!(query_lock_amount(7, DELEGATOR_LOCK_ID), None);
+			// no nominator staking locks
+			assert_eq!(query_lock_amount(7, NOMINATOR_LOCK_ID), None);
 			assert_eq!(
-				ParachainStaking::get_delegator_stakable_free_balance(&7),
+				ParachainStaking::get_nominator_stakable_free_balance(&7),
 				100
 			);
-			assert_eq!(query_lock_amount(8, DELEGATOR_LOCK_ID), None);
-			assert_eq!(ParachainStaking::get_delegator_stakable_free_balance(&8), 9);
-			assert_eq!(query_lock_amount(9, DELEGATOR_LOCK_ID), None);
-			assert_eq!(ParachainStaking::get_delegator_stakable_free_balance(&9), 4);
+			assert_eq!(query_lock_amount(8, NOMINATOR_LOCK_ID), None);
+			assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&8), 9);
+			assert_eq!(query_lock_amount(9, NOMINATOR_LOCK_ID), None);
+			assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&9), 4);
 			// no collator staking locks
 			assert_eq!(
 				ParachainStaking::get_collator_stakable_free_balance(&7),
@@ -558,7 +558,7 @@ fn geneses() {
 			(10, 100),
 		])
 		.with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 10)])
-		.with_delegations(vec![
+		.with_nominations(vec![
 			(6, 1, 10),
 			(7, 1, 10),
 			(8, 2, 10),
@@ -577,12 +577,12 @@ fn geneses() {
 			assert!(ParachainStaking::is_candidate(&5));
 			assert_eq!(query_lock_amount(5, COLLATOR_LOCK_ID), Some(10));
 			assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&5), 90);
-			// delegators
+			// nominators
 			for x in 6..11 {
-				assert!(ParachainStaking::is_delegator(&x));
-				assert_eq!(query_lock_amount(x, DELEGATOR_LOCK_ID), Some(10));
+				assert!(ParachainStaking::is_nominator(&x));
+				assert_eq!(query_lock_amount(x, NOMINATOR_LOCK_ID), Some(10));
 				assert_eq!(
-					ParachainStaking::get_delegator_stakable_free_balance(&x),
+					ParachainStaking::get_nominator_stakable_free_balance(&x),
 					90
 				);
 			}

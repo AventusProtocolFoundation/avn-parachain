@@ -4,7 +4,7 @@
 
 - [Migration PR `#1408`](https://github.com/PureStake/moonbeam/pull/1408)
 
-## Patch delegations total mismatch
+## Patch nominations total mismatch
 
 - [Migration PR `#1291`](https://github.com/PureStake/moonbeam/pull/1291)
 
@@ -12,7 +12,7 @@
 
 - [Migration PR `#1117`](https://github.com/PureStake/moonbeam/pull/1117)
 
-## Increase max delegations per candidate
+## Increase max nominations per candidate
 
 - [Migration PR `#1096`](https://github.com/PureStake/moonbeam/pull/1096)
 - [Migratio bugfix `#1112`](https://github.com/PureStake/moonbeam/pull/1112)

@@ -17,20 +17,20 @@
 //! # Parachain Staking
 //! Minimal staking pallet that implements collator selection by total backed stake.
 //! The main difference between this pallet and `frame/pallet-staking` is that this pallet
-//! uses direct delegation. Delegators choose exactly who they delegate and with what stake.
-//! This is different from `frame/pallet-staking` where delegators approval vote and run Phragmen.
+//! uses direct nomination. Nominators choose exactly who they nominate and with what stake.
+//! This is different from `frame/pallet-staking` where nominators approval vote and run Phragmen.
 //!
 //! ### Rules
 //! There is a new round every `<Round<T>>::get().length` blocks.
 //!
 //! At the start of every round,
-//! * issuance is calculated for collators (and their delegators) for block authoring
+//! * issuance is calculated for collators (and their nominators) for block authoring
 //! `T::RewardPaymentDelay` rounds ago
 //! * a new set of collators is chosen from the candidates
 //!
 //! Immediately following a round change, payments are made once-per-block until all payments have
 //! been made. In each such block, one collator is chosen for a rewards payment and is paid along
-//! with each of its top `T::MaxTopDelegationsPerCandidate` delegators.
+//! with each of its top `T::MaxTopNominationsPerCandidate` nominators.
 //!
 //! To join the set of candidates, call `join_candidates` with `bond >= MinCandidateStk`.
 //! To leave the set of candidates, call `schedule_leave_candidates`. If the call succeeds,
@@ -39,16 +39,16 @@
 //! account may trigger the exit `T::LeaveCandidatesDelay` rounds after the round in which the
 //! original request was made.
 //!
-//! To join the set of delegators, call `delegate` and pass in an account that is
-//! already a collator candidate and `bond >= MinDelegatorStk`. Each delegator can delegate up to
-//! `T::MaxDelegationsPerDelegator` collator candidates by calling `delegate`.
+//! To join the set of nominators, call `nominate` and pass in an account that is
+//! already a collator candidate and `bond >= MinNominatorStk`. Each nominator can nominate up to
+//! `T::MaxNominationsPerNominator` collator candidates by calling `nominate`.
 //!
-//! To revoke a delegation, call `revoke_delegation` with the collator candidate's account.
-//! To leave the set of delegators and revoke all delegations, call `leave_delegators`.
+//! To revoke a nomination, call `revoke_nomination` with the collator candidate's account.
+//! To leave the set of nominators and revoke all nominations, call `leave_nominators`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-mod delegation_requests;
+mod nomination_requests;
 pub mod traits;
 pub mod types;
 pub mod weights;
@@ -66,7 +66,7 @@ mod test_staking_pot;
 use frame_support::pallet;
 use weights::WeightInfo;
 
-pub use delegation_requests::{CancelledScheduledRequest, DelegationAction, ScheduledRequest};
+pub use nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
 pub use pallet::*;
 pub use traits::*;
 pub use types::*;
@@ -74,8 +74,8 @@ pub use RoundIndex;
 
 #[pallet]
 pub mod pallet {
-	use crate::delegation_requests::{
-		CancelledScheduledRequest, DelegationAction, ScheduledRequest,
+	use crate::nomination_requests::{
+		CancelledScheduledRequest, NominationAction, ScheduledRequest,
 	};
 	use crate::{set::OrderedSet, traits::*, types::*, WeightInfo};
 	use frame_support::{pallet_prelude::*, PalletId};
@@ -101,7 +101,7 @@ pub mod pallet {
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 	pub const COLLATOR_LOCK_ID: LockIdentifier = *b"stkngcol";
-	pub const DELEGATOR_LOCK_ID: LockIdentifier = *b"stkngdel";
+	pub const NOMINATOR_LOCK_ID: LockIdentifier = *b"stkngdel";
 
 	/// Configuration trait of this pallet.
 	#[pallet::config]
@@ -126,30 +126,30 @@ pub mod pallet {
 		/// Number of rounds candidate requests to decrease self-bond must wait to be executable
 		#[pallet::constant]
 		type CandidateBondLessDelay: Get<RoundIndex>;
-		/// Number of rounds that delegators remain bonded before exit request is executable
+		/// Number of rounds that nominators remain bonded before exit request is executable
 		#[pallet::constant]
-		type LeaveDelegatorsDelay: Get<RoundIndex>;
-		/// Number of rounds that delegations remain bonded before revocation request is executable
+		type LeaveNominatorsDelay: Get<RoundIndex>;
+		/// Number of rounds that nominations remain bonded before revocation request is executable
 		#[pallet::constant]
-		type RevokeDelegationDelay: Get<RoundIndex>;
-		/// Number of rounds that delegation less requests must wait before executable
+		type RevokeNominationDelay: Get<RoundIndex>;
+		/// Number of rounds that nomination less requests must wait before executable
 		#[pallet::constant]
-		type DelegationBondLessDelay: Get<RoundIndex>;
+		type NominationBondLessDelay: Get<RoundIndex>;
 		/// Number of rounds after which block authors are rewarded
 		#[pallet::constant]
 		type RewardPaymentDelay: Get<RoundIndex>;
 		/// Minimum number of selected candidates every round
 		#[pallet::constant]
 		type MinSelectedCandidates: Get<u32>;
-		/// Maximum top delegations counted per candidate
+		/// Maximum top nominations counted per candidate
 		#[pallet::constant]
-		type MaxTopDelegationsPerCandidate: Get<u32>;
-		/// Maximum bottom delegations (not counted) per candidate
+		type MaxTopNominationsPerCandidate: Get<u32>;
+		/// Maximum bottom nominations (not counted) per candidate
 		#[pallet::constant]
-		type MaxBottomDelegationsPerCandidate: Get<u32>;
-		/// Maximum delegations per delegator
+		type MaxBottomNominationsPerCandidate: Get<u32>;
+		/// Maximum nominations per nominator
 		#[pallet::constant]
-		type MaxDelegationsPerDelegator: Get<u32>;
+		type MaxNominationsPerNominator: Get<u32>;
 		/// Default commission due to collators, is `CollatorCommission` storage value in genesis
 		#[pallet::constant]
 		type DefaultCollatorCommission: Get<Perbill>;
@@ -162,12 +162,12 @@ pub mod pallet {
 		/// Minimum stake required for any account to be a collator candidate
 		#[pallet::constant]
 		type MinCandidateStk: Get<BalanceOf<Self>>;
-		/// Minimum stake for any registered on-chain account to delegate
+		/// Minimum stake for any registered on-chain account to nominate
 		#[pallet::constant]
-		type MinDelegation: Get<BalanceOf<Self>>;
-		/// Minimum stake for any registered on-chain account to be a delegator
+		type MinNomination: Get<BalanceOf<Self>>;
+		/// Minimum stake for any registered on-chain account to be a nominator
 		#[pallet::constant]
-		type MinDelegatorStk: Get<BalanceOf<Self>>;
+		type MinNominatorStk: Get<BalanceOf<Self>>;
 		/// Id of the account that will hold funds to be paid as staking reward
 		type RewardPotId: Get<PalletId>;
 		/// Handler to notify the runtime when a collator is paid.
@@ -182,29 +182,29 @@ pub mod pallet {
 
 	#[pallet::error]
 	pub enum Error<T> {
-		DelegatorDNE,
-		DelegatorDNEinTopNorBottom,
-		DelegatorDNEInDelegatorSet,
+		NominatorDNE,
+		NominatorDNEinTopNorBottom,
+		NominatorDNEInNominatorSet,
 		CandidateDNE,
-		DelegationDNE,
-		DelegatorExists,
+		NominationDNE,
+		NominatorExists,
 		CandidateExists,
 		CandidateBondBelowMin,
 		InsufficientBalance,
-		DelegatorBondBelowMin,
-		DelegationBelowMin,
+		NominatorBondBelowMin,
+		NominationBelowMin,
 		AlreadyOffline,
 		AlreadyActive,
-		DelegatorAlreadyLeaving,
-		DelegatorNotLeaving,
-		DelegatorCannotLeaveYet,
-		CannotDelegateIfLeaving,
+		NominatorAlreadyLeaving,
+		NominatorNotLeaving,
+		NominatorCannotLeaveYet,
+		CannotNominateIfLeaving,
 		CandidateAlreadyLeaving,
 		CandidateNotLeaving,
 		CandidateCannotLeaveYet,
 		CannotGoOnlineIfLeaving,
-		ExceedMaxDelegationsPerDelegator,
-		AlreadyDelegatedCandidate,
+		ExceedMaxNominationsPerNominator,
+		AlreadyNominatedCandidate,
 		InvalidSchedule,
 		CannotSetBelowMin,
 		RoundLengthMustBeAtLeastTotalSelectedCollators,
@@ -212,18 +212,18 @@ pub mod pallet {
 		TooLowCandidateCountWeightHintJoinCandidates,
 		TooLowCandidateCountWeightHintCancelLeaveCandidates,
 		TooLowCandidateCountToLeaveCandidates,
-		TooLowDelegationCountToDelegate,
-		TooLowCandidateDelegationCountToDelegate,
-		TooLowCandidateDelegationCountToLeaveCandidates,
-		TooLowDelegationCountToLeaveDelegators,
+		TooLowNominationCountToNominate,
+		TooLowCandidateNominationCountToNominate,
+		TooLowCandidateNominationCountToLeaveCandidates,
+		TooLowNominationCountToLeaveNominators,
 		PendingCandidateRequestsDNE,
 		PendingCandidateRequestAlreadyExists,
 		PendingCandidateRequestNotDueYet,
-		PendingDelegationRequestDNE,
-		PendingDelegationRequestAlreadyExists,
-		PendingDelegationRequestNotDueYet,
-		CannotDelegateLessThanOrEqualToLowestBottomWhenFull,
-		PendingDelegationRevoke,
+		PendingNominationRequestDNE,
+		PendingNominationRequestAlreadyExists,
+		PendingNominationRequestNotDueYet,
+		CannotNominateLessThanOrEqualToLowestBottomWhenFull,
+		PendingNominationRevoke,
 	}
 
 	#[pallet::event]
@@ -242,7 +242,7 @@ pub mod pallet {
 			amount_locked: BalanceOf<T>,
 			new_total_amt_locked: BalanceOf<T>,
 		},
-		/// Candidate selected for collators. Total Exposed Amount includes all delegations.
+		/// Candidate selected for collators. Total Exposed Amount includes all nominations.
 		CollatorChosen {
 			round: RoundIndex,
 			collator_account: T::AccountId,
@@ -290,85 +290,85 @@ pub mod pallet {
 			unlocked_amount: BalanceOf<T>,
 			new_total_amt_locked: BalanceOf<T>,
 		},
-		/// Delegator requested to decrease a bond for the collator candidate.
-		DelegationDecreaseScheduled {
-			delegator: T::AccountId,
+		/// Nominator requested to decrease a bond for the collator candidate.
+		NominationDecreaseScheduled {
+			nominator: T::AccountId,
 			candidate: T::AccountId,
 			amount_to_decrease: BalanceOf<T>,
 			execute_round: RoundIndex,
 		},
-		// Delegation increased.
-		DelegationIncreased {
-			delegator: T::AccountId,
+		// Nomination increased.
+		NominationIncreased {
+			nominator: T::AccountId,
 			candidate: T::AccountId,
 			amount: BalanceOf<T>,
 			in_top: bool,
 		},
-		// Delegation decreased.
-		DelegationDecreased {
-			delegator: T::AccountId,
+		// Nomination decreased.
+		NominationDecreased {
+			nominator: T::AccountId,
 			candidate: T::AccountId,
 			amount: BalanceOf<T>,
 			in_top: bool,
 		},
-		/// Delegator requested to leave the set of delegators.
-		DelegatorExitScheduled {
+		/// Nominator requested to leave the set of nominators.
+		NominatorExitScheduled {
 			round: RoundIndex,
-			delegator: T::AccountId,
+			nominator: T::AccountId,
 			scheduled_exit: RoundIndex,
 		},
-		/// Delegator requested to revoke delegation.
-		DelegationRevocationScheduled {
+		/// Nominator requested to revoke nomination.
+		NominationRevocationScheduled {
 			round: RoundIndex,
-			delegator: T::AccountId,
+			nominator: T::AccountId,
 			candidate: T::AccountId,
 			scheduled_exit: RoundIndex,
 		},
-		/// Delegator has left the set of delegators.
-		DelegatorLeft {
-			delegator: T::AccountId,
+		/// Nominator has left the set of nominators.
+		NominatorLeft {
+			nominator: T::AccountId,
 			unstaked_amount: BalanceOf<T>,
 		},
-		/// Delegation revoked.
-		DelegationRevoked {
-			delegator: T::AccountId,
+		/// Nomination revoked.
+		NominationRevoked {
+			nominator: T::AccountId,
 			candidate: T::AccountId,
 			unstaked_amount: BalanceOf<T>,
 		},
-		/// Delegation kicked.
-		DelegationKicked {
-			delegator: T::AccountId,
+		/// Nomination kicked.
+		NominationKicked {
+			nominator: T::AccountId,
 			candidate: T::AccountId,
 			unstaked_amount: BalanceOf<T>,
 		},
-		/// Cancelled a pending request to exit the set of delegators.
-		DelegatorExitCancelled { delegator: T::AccountId },
-		/// Cancelled request to change an existing delegation.
-		CancelledDelegationRequest {
-			delegator: T::AccountId,
+		/// Cancelled a pending request to exit the set of nominators.
+		NominatorExitCancelled { nominator: T::AccountId },
+		/// Cancelled request to change an existing nomination.
+		CancelledNominationRequest {
+			nominator: T::AccountId,
 			cancelled_request: CancelledScheduledRequest<BalanceOf<T>>,
 			collator: T::AccountId,
 		},
-		/// New delegation (increase of the existing one).
-		Delegation {
-			delegator: T::AccountId,
+		/// New nomination (increase of the existing one).
+		Nomination {
+			nominator: T::AccountId,
 			locked_amount: BalanceOf<T>,
 			candidate: T::AccountId,
-			delegator_position: DelegatorAdded<BalanceOf<T>>,
+			nominator_position: NominatorAdded<BalanceOf<T>>,
 		},
-		/// Delegation from candidate state has been remove.
-		DelegatorLeftCandidate {
-			delegator: T::AccountId,
+		/// Nomination from candidate state has been remove.
+		NominatorLeftCandidate {
+			nominator: T::AccountId,
 			candidate: T::AccountId,
 			unstaked_amount: BalanceOf<T>,
 			total_candidate_staked: BalanceOf<T>,
 		},
-		/// Paid the account (delegator or collator) the balance as liquid rewards.
+		/// Paid the account (nominator or collator) the balance as liquid rewards.
 		Rewarded {
 			account: T::AccountId,
 			rewards: BalanceOf<T>,
 		},
-		/// There was an error attempting to pay the delegator their staking reward.
+		/// There was an error attempting to pay the nominator their staking reward.
 		ErrorPayingStakingReward {
 			payee: T::AccountId,
 			rewards: BalanceOf<T>,
@@ -402,7 +402,7 @@ pub mod pallet {
 				// pay all stakers for T::RewardPaymentDelay rounds ago
 				Self::prepare_staking_payouts(round.current);
 				// select top collator candidates for next round
-				let (collator_count, delegation_count, total_staked) =
+				let (collator_count, nomination_count, total_staked) =
 					Self::select_top_candidates(round.current);
 				// start next round
 				<Round<T>>::put(round);
@@ -416,7 +416,7 @@ pub mod pallet {
 				});
 				weight = weight.saturating_add(T::WeightInfo::round_transition_on_initialize(
 					collator_count,
-					delegation_count,
+					nomination_count,
 				));
 			}
 
@@ -451,13 +451,13 @@ pub mod pallet {
 	pub(crate) type Round<T: Config> = StorageValue<_, RoundInfo<T::BlockNumber>, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn delegator_state)]
-	/// Get delegator state associated with an account if account is delegating else None
-	pub(crate) type DelegatorState<T: Config> = StorageMap<
+	#[pallet::getter(fn nominator_state)]
+	/// Get nominator state associated with an account if account is nominating else None
+	pub(crate) type NominatorState<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
-		Delegator<T::AccountId, BalanceOf<T>>,
+		Nominator<T::AccountId, BalanceOf<T>>,
 		OptionQuery,
 	>;
 
@@ -467,10 +467,10 @@ pub mod pallet {
 	pub(crate) type CandidateInfo<T: Config> =
 		StorageMap<_, Twox64Concat, T::AccountId, CandidateMetadata<BalanceOf<T>>, OptionQuery>;
 
-	/// Stores outstanding delegation requests per collator.
+	/// Stores outstanding nomination requests per collator.
 	#[pallet::storage]
-	#[pallet::getter(fn delegation_scheduled_requests)]
-	pub(crate) type DelegationScheduledRequests<T: Config> = StorageMap<
+	#[pallet::getter(fn nomination_scheduled_requests)]
+	pub(crate) type NominationScheduledRequests<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AccountId,
@@ -479,24 +479,24 @@ pub mod pallet {
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn top_delegations)]
-	/// Top delegations for collator candidate
-	pub(crate) type TopDelegations<T: Config> = StorageMap<
+	#[pallet::getter(fn top_nominations)]
+	/// Top nominations for collator candidate
+	pub(crate) type TopNominations<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
-		Delegations<T::AccountId, BalanceOf<T>>,
+		Nominations<T::AccountId, BalanceOf<T>>,
 		OptionQuery,
 	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn bottom_delegations)]
-	/// Bottom delegations for collator candidate
-	pub(crate) type BottomDelegations<T: Config> = StorageMap<
+	#[pallet::getter(fn bottom_nominations)]
+	/// Bottom nominations for collator candidate
+	pub(crate) type BottomNominations<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
-		Delegations<T::AccountId, BalanceOf<T>>,
+		Nominations<T::AccountId, BalanceOf<T>>,
 		OptionQuery,
 	>;
 
@@ -518,7 +518,7 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn at_stake)]
-	/// Snapshot of collator delegation stake at the start of the round
+	/// Snapshot of collator nomination stake at the start of the round
 	pub type AtStake<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
@@ -571,8 +571,8 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {
 		pub candidates: Vec<(T::AccountId, BalanceOf<T>)>,
-		/// Vec of tuples of the format (delegator AccountId, collator AccountId, delegation Amount)
-		pub delegations: Vec<(T::AccountId, T::AccountId, BalanceOf<T>)>,
+		/// Vec of tuples of the format (nominator AccountId, collator AccountId, nomination Amount)
+		pub nominations: Vec<(T::AccountId, T::AccountId, BalanceOf<T>)>,
 	}
 
 	#[cfg(feature = "std")]
@@ -580,7 +580,7 @@ pub mod pallet {
 		fn default() -> Self {
 			Self {
 				candidates: vec![],
-				delegations: vec![],
+				nominations: vec![],
 			}
 		}
 	}
@@ -606,42 +606,42 @@ pub mod pallet {
 					candidate_count = candidate_count.saturating_add(1u32);
 				}
 			}
-			let mut col_delegator_count: BTreeMap<T::AccountId, u32> = BTreeMap::new();
-			let mut del_delegation_count: BTreeMap<T::AccountId, u32> = BTreeMap::new();
-			// Initialize the delegations
-			for &(ref delegator, ref target, balance) in &self.delegations {
+			let mut col_nominator_count: BTreeMap<T::AccountId, u32> = BTreeMap::new();
+			let mut del_nomination_count: BTreeMap<T::AccountId, u32> = BTreeMap::new();
+			// Initialize the nominations
+			for &(ref nominator, ref target, balance) in &self.nominations {
 				assert!(
-					<Pallet<T>>::get_delegator_stakable_free_balance(delegator) >= balance,
-					"Account does not have enough balance to place delegation."
+					<Pallet<T>>::get_nominator_stakable_free_balance(nominator) >= balance,
+					"Account does not have enough balance to place nomination."
 				);
-				let cd_count = if let Some(x) = col_delegator_count.get(target) {
+				let cd_count = if let Some(x) = col_nominator_count.get(target) {
 					*x
 				} else {
 					0u32
 				};
-				let dd_count = if let Some(x) = del_delegation_count.get(delegator) {
+				let dd_count = if let Some(x) = del_nomination_count.get(nominator) {
 					*x
 				} else {
 					0u32
 				};
-				if let Err(error) = <Pallet<T>>::delegate(
-					T::Origin::from(Some(delegator.clone()).into()),
+				if let Err(error) = <Pallet<T>>::nominate(
+					T::Origin::from(Some(nominator.clone()).into()),
 					target.clone(),
 					balance,
 					cd_count,
 					dd_count,
 				) {
-					log::warn!("Delegate failed in genesis with error {:?}", error);
+					log::warn!("Nominate failed in genesis with error {:?}", error);
 				} else {
-					if let Some(x) = col_delegator_count.get_mut(target) {
+					if let Some(x) = col_nominator_count.get_mut(target) {
 						*x = x.saturating_add(1u32);
 					} else {
-						col_delegator_count.insert(target.clone(), 1u32);
+						col_nominator_count.insert(target.clone(), 1u32);
 					};
-					if let Some(x) = del_delegation_count.get_mut(delegator) {
+					if let Some(x) = del_nomination_count.get_mut(nominator) {
 						*x = x.saturating_add(1u32);
 					} else {
-						del_delegation_count.insert(delegator.clone(), 1u32);
+						del_nomination_count.insert(nominator.clone(), 1u32);
 					};
 				}
 			}
@@ -738,7 +738,7 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let acc = ensure_signed(origin)?;
 			ensure!(!Self::is_candidate(&acc), Error::<T>::CandidateExists);
-			ensure!(!Self::is_delegator(&acc), Error::<T>::DelegatorExists);
+			ensure!(!Self::is_nominator(&acc), Error::<T>::NominatorExists);
 			ensure!(
 				bond >= T::MinCandidateStk::get(),
 				Error::<T>::CandidateBondBelowMin
@@ -763,11 +763,11 @@ pub mod pallet {
 			T::Currency::set_lock(COLLATOR_LOCK_ID, &acc, bond, WithdrawReasons::all());
 			let candidate = CandidateMetadata::new(bond);
 			<CandidateInfo<T>>::insert(&acc, candidate);
-			let empty_delegations: Delegations<T::AccountId, BalanceOf<T>> = Default::default();
-			// insert empty top delegations
-			<TopDelegations<T>>::insert(&acc, empty_delegations.clone());
-			// insert empty bottom delegations
-			<BottomDelegations<T>>::insert(&acc, empty_delegations);
+			let empty_nominations: Nominations<T::AccountId, BalanceOf<T>> = Default::default();
+			// insert empty top nominations
+			<TopNominations<T>>::insert(&acc, empty_nominations.clone());
+			// insert empty bottom nominations
+			<BottomNominations<T>>::insert(&acc, empty_nominations);
 			<CandidatePool<T>>::put(candidates);
 			let new_total = <Total<T>>::get().saturating_add(bond);
 			<Total<T>>::put(new_total);
@@ -806,74 +806,74 @@ pub mod pallet {
 		}
 
 		#[pallet::weight(
-			<T as Config>::WeightInfo::execute_leave_candidates(*candidate_delegation_count)
+			<T as Config>::WeightInfo::execute_leave_candidates(*candidate_nomination_count)
 		)]
 		/// Execute leave candidates request
 		pub fn execute_leave_candidates(
 			origin: OriginFor<T>,
 			candidate: T::AccountId,
-			candidate_delegation_count: u32,
+			candidate_nomination_count: u32,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
 			let state = <CandidateInfo<T>>::get(&candidate).ok_or(Error::<T>::CandidateDNE)?;
 			ensure!(
-				state.delegation_count <= candidate_delegation_count,
-				Error::<T>::TooLowCandidateDelegationCountToLeaveCandidates
+				state.nomination_count <= candidate_nomination_count,
+				Error::<T>::TooLowCandidateNominationCountToLeaveCandidates
 			);
 			state.can_leave::<T>()?;
 			let return_stake = |bond: Bond<T::AccountId, BalanceOf<T>>| -> DispatchResult {
-				// remove delegation from delegator state
-				let mut delegator = DelegatorState::<T>::get(&bond.owner).expect(
-					"Collator state and delegator state are consistent.
-						Collator state has a record of this delegation. Therefore,
-						Delegator state also has a record. qed.",
+				// remove nomination from nominator state
+				let mut nominator = NominatorState::<T>::get(&bond.owner).expect(
+					"Collator state and nominator state are consistent.
+						Collator state has a record of this nomination. Therefore,
+						Nominator state also has a record. qed.",
 				);
 
-				if let Some(remaining) = delegator.rm_delegation::<T>(&candidate) {
-					Self::delegation_remove_request_with_state(
+				if let Some(remaining) = nominator.rm_nomination::<T>(&candidate) {
+					Self::nomination_remove_request_with_state(
 						&candidate,
 						&bond.owner,
-						&mut delegator,
+						&mut nominator,
 					);
 
 					if remaining.is_zero() {
-						// we do not remove the scheduled delegation requests from other collators
+						// we do not remove the scheduled nomination requests from other collators
 						// since it is assumed that they were removed incrementally before only the
-						// last delegation was left.
-						<DelegatorState<T>>::remove(&bond.owner);
-						T::Currency::remove_lock(DELEGATOR_LOCK_ID, &bond.owner);
+						// last nomination was left.
+						<NominatorState<T>>::remove(&bond.owner);
+						T::Currency::remove_lock(NOMINATOR_LOCK_ID, &bond.owner);
 					} else {
-						<DelegatorState<T>>::insert(&bond.owner, delegator);
+						<NominatorState<T>>::insert(&bond.owner, nominator);
 					}
 				} else {
-					// TODO: review. we assume here that this delegator has no remaining staked
+					// TODO: review. we assume here that this nominator has no remaining staked
 					// balance, so we ensure the lock is cleared
-					T::Currency::remove_lock(DELEGATOR_LOCK_ID, &bond.owner);
+					T::Currency::remove_lock(NOMINATOR_LOCK_ID, &bond.owner);
 				}
 				Ok(())
 			};
 			// total backing stake is at least the candidate self bond
 			let mut total_backing = state.bond;
-			// return all top delegations
-			let top_delegations =
-				<TopDelegations<T>>::take(&candidate).expect("CandidateInfo existence checked");
-			for bond in top_delegations.delegations {
+			// return all top nominations
+			let top_nominations =
+				<TopNominations<T>>::take(&candidate).expect("CandidateInfo existence checked");
+			for bond in top_nominations.nominations {
 				return_stake(bond)?;
 			}
-			total_backing = total_backing.saturating_add(top_delegations.total);
-			// return all bottom delegations
-			let bottom_delegations =
-				<BottomDelegations<T>>::take(&candidate).expect("CandidateInfo existence checked");
-			for bond in bottom_delegations.delegations {
+			total_backing = total_backing.saturating_add(top_nominations.total);
+			// return all bottom nominations
+			let bottom_nominations =
+				<BottomNominations<T>>::take(&candidate).expect("CandidateInfo existence checked");
+			for bond in bottom_nominations.nominations {
 				return_stake(bond)?;
 			}
-			total_backing = total_backing.saturating_add(bottom_delegations.total);
+			total_backing = total_backing.saturating_add(bottom_nominations.total);
 			// return stake to collator
 			T::Currency::remove_lock(COLLATOR_LOCK_ID, &candidate);
 			<CandidateInfo<T>>::remove(&candidate);
-			<DelegationScheduledRequests<T>>::remove(&candidate);
-			<TopDelegations<T>>::remove(&candidate);
-			<BottomDelegations<T>>::remove(&candidate);
+			<NominationScheduledRequests<T>>::remove(&candidate);
+			<TopNominations<T>>::remove(&candidate);
+			<BottomNominations<T>>::remove(&candidate);
 			let new_total_staked = <Total<T>>::get().saturating_sub(total_backing);
 			<Total<T>>::put(new_total_staked);
 			Self::deposit_event(Event::CandidateLeft {
@@ -1009,73 +1009,73 @@ pub mod pallet {
 			Ok(().into())
 		}
 		#[pallet::weight(
-			<T as Config>::WeightInfo::delegate(
-				*candidate_delegation_count,
-				*delegation_count
+			<T as Config>::WeightInfo::nominate(
+				*candidate_nomination_count,
+				*nomination_count
 			)
 		)]
-		/// If caller is not a delegator and not a collator, then join the set of delegators
-		/// If caller is a delegator, then makes delegation to change their delegation state
-		pub fn delegate(
+		/// If caller is not a nominator and not a collator, then join the set of nominators
+		/// If caller is a nominator, then makes nomination to change their nomination state
+		pub fn nominate(
 			origin: OriginFor<T>,
 			candidate: T::AccountId,
 			amount: BalanceOf<T>,
-			candidate_delegation_count: u32,
-			delegation_count: u32,
+			candidate_nomination_count: u32,
+			nomination_count: u32,
 		) -> DispatchResultWithPostInfo {
-			let delegator = ensure_signed(origin)?;
+			let nominator = ensure_signed(origin)?;
 			// check that caller can reserve the amount before any changes to storage
 			ensure!(
-				Self::get_delegator_stakable_free_balance(&delegator) >= amount,
+				Self::get_nominator_stakable_free_balance(&nominator) >= amount,
 				Error::<T>::InsufficientBalance
 			);
-			let mut delegator_state = if let Some(mut state) = <DelegatorState<T>>::get(&delegator)
+			let mut nominator_state = if let Some(mut state) = <NominatorState<T>>::get(&nominator)
 			{
-				// delegation after first
+				// nomination after first
 				ensure!(
-					amount >= T::MinDelegation::get(),
-					Error::<T>::DelegationBelowMin
+					amount >= T::MinNomination::get(),
+					Error::<T>::NominationBelowMin
 				);
 				ensure!(
-					delegation_count >= state.delegations.0.len() as u32,
-					Error::<T>::TooLowDelegationCountToDelegate
+					nomination_count >= state.nominations.0.len() as u32,
+					Error::<T>::TooLowNominationCountToNominate
 				);
 				ensure!(
-					(state.delegations.0.len() as u32) < T::MaxDelegationsPerDelegator::get(),
-					Error::<T>::ExceedMaxDelegationsPerDelegator
+					(state.nominations.0.len() as u32) < T::MaxNominationsPerNominator::get(),
+					Error::<T>::ExceedMaxNominationsPerNominator
 				);
 				ensure!(
-					state.add_delegation(Bond {
+					state.add_nomination(Bond {
 						owner: candidate.clone(),
 						amount
 					}),
-					Error::<T>::AlreadyDelegatedCandidate
+					Error::<T>::AlreadyNominatedCandidate
 				);
 				state
 			} else {
-				// first delegation
+				// first nomination
 				ensure!(
-					amount >= T::MinDelegatorStk::get(),
-					Error::<T>::DelegatorBondBelowMin
+					amount >= T::MinNominatorStk::get(),
+					Error::<T>::NominatorBondBelowMin
 				);
-				ensure!(!Self::is_candidate(&delegator), Error::<T>::CandidateExists);
-				Delegator::new(delegator.clone(), candidate.clone(), amount)
+				ensure!(!Self::is_candidate(&nominator), Error::<T>::CandidateExists);
+				Nominator::new(nominator.clone(), candidate.clone(), amount)
 			};
 			let mut state = <CandidateInfo<T>>::get(&candidate).ok_or(Error::<T>::CandidateDNE)?;
 			ensure!(
-				candidate_delegation_count >= state.delegation_count,
-				Error::<T>::TooLowCandidateDelegationCountToDelegate
+				candidate_nomination_count >= state.nomination_count,
+				Error::<T>::TooLowCandidateNominationCountToNominate
 			);
-			let (delegator_position, less_total_staked) = state.add_delegation::<T>(
+			let (nominator_position, less_total_staked) = state.add_nomination::<T>(
 				&candidate,
 				Bond {
-					owner: delegator.clone(),
+					owner: nominator.clone(),
 					amount,
 				},
 			)?;
 			// TODO: causes redundant free_balance check
-			delegator_state.adjust_bond_lock::<T>(BondAdjust::Increase(amount))?;
-			// only is_some if kicked the lowest bottom as a consequence of this new delegation
+			nominator_state.adjust_bond_lock::<T>(BondAdjust::Increase(amount))?;
+			// only is_some if kicked the lowest bottom as a consequence of this new nomination
 			let net_total_increase = if let Some(less) = less_total_staked {
 				amount.saturating_sub(less)
 			} else {
@@ -1084,112 +1084,112 @@ pub mod pallet {
 			let new_total_locked = <Total<T>>::get().saturating_add(net_total_increase);
 			<Total<T>>::put(new_total_locked);
 			<CandidateInfo<T>>::insert(&candidate, state);
-			<DelegatorState<T>>::insert(&delegator, delegator_state);
-			Self::deposit_event(Event::Delegation {
-				delegator: delegator,
+			<NominatorState<T>>::insert(&nominator, nominator_state);
+			Self::deposit_event(Event::Nomination {
+				nominator: nominator,
 				locked_amount: amount,
 				candidate: candidate,
-				delegator_position: delegator_position,
+				nominator_position: nominator_position,
 			});
 			Ok(().into())
 		}
 
-		/// DEPRECATED use batch util with schedule_revoke_delegation for all delegations
-		/// Request to leave the set of delegators. If successful, the caller is scheduled to be
-		/// allowed to exit via a [DelegationAction::Revoke] towards all existing delegations.
-		/// Success forbids future delegation requests until the request is invoked or cancelled.
-		#[pallet::weight(<T as Config>::WeightInfo::schedule_leave_delegators())]
-		pub fn schedule_leave_delegators(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let delegator = ensure_signed(origin)?;
-			Self::delegator_schedule_revoke_all(delegator)
+		/// DEPRECATED use batch util with schedule_revoke_nomination for all nominations
+		/// Request to leave the set of nominators. If successful, the caller is scheduled to be
+		/// allowed to exit via a [NominationAction::Revoke] towards all existing nominations.
+		/// Success forbids future nomination requests until the request is invoked or cancelled.
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_leave_nominators())]
+		pub fn schedule_leave_nominators(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let nominator = ensure_signed(origin)?;
+			Self::nominator_schedule_revoke_all(nominator)
 		}
 
-		/// DEPRECATED use batch util with execute_delegation_request for all delegations
-		/// Execute the right to exit the set of delegators and revoke all ongoing delegations.
-		#[pallet::weight(<T as Config>::WeightInfo::execute_leave_delegators(*delegation_count))]
-		pub fn execute_leave_delegators(
+		/// DEPRECATED use batch util with execute_nomination_request for all nominations
+		/// Execute the right to exit the set of nominators and revoke all ongoing nominations.
+		#[pallet::weight(<T as Config>::WeightInfo::execute_leave_nominators(*nomination_count))]
+		pub fn execute_leave_nominators(
 			origin: OriginFor<T>,
-			delegator: T::AccountId,
-			delegation_count: u32,
+			nominator: T::AccountId,
+			nomination_count: u32,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			Self::delegator_execute_scheduled_revoke_all(delegator, delegation_count)
+			Self::nominator_execute_scheduled_revoke_all(nominator, nomination_count)
 		}
 
-		/// DEPRECATED use batch util with cancel_delegation_request for all delegations
-		/// Cancel a pending request to exit the set of delegators. Success clears the pending exit
-		/// request (thereby resetting the delay upon another `leave_delegators` call).
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_leave_delegators())]
-		pub fn cancel_leave_delegators(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			let delegator = ensure_signed(origin)?;
-			Self::delegator_cancel_scheduled_revoke_all(delegator)
+		/// DEPRECATED use batch util with cancel_nomination_request for all nominations
+		/// Cancel a pending request to exit the set of nominators. Success clears the pending exit
+		/// request (thereby resetting the delay upon another `leave_nominators` call).
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_leave_nominators())]
+		pub fn cancel_leave_nominators(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+			let nominator = ensure_signed(origin)?;
+			Self::nominator_cancel_scheduled_revoke_all(nominator)
 		}
 
-		#[pallet::weight(<T as Config>::WeightInfo::schedule_revoke_delegation())]
-		/// Request to revoke an existing delegation. If successful, the delegation is scheduled
-		/// to be allowed to be revoked via the `execute_delegation_request` extrinsic.
-		pub fn schedule_revoke_delegation(
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_revoke_nomination())]
+		/// Request to revoke an existing nomination. If successful, the nomination is scheduled
+		/// to be allowed to be revoked via the `execute_nomination_request` extrinsic.
+		pub fn schedule_revoke_nomination(
 			origin: OriginFor<T>,
 			collator: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			let delegator = ensure_signed(origin)?;
-			Self::delegation_schedule_revoke(collator, delegator)
+			let nominator = ensure_signed(origin)?;
+			Self::nomination_schedule_revoke(collator, nominator)
 		}
 
-		#[pallet::weight(<T as Config>::WeightInfo::delegator_bond_more())]
-		/// Bond more for delegators wrt a specific collator candidate.
-		pub fn delegator_bond_more(
+		#[pallet::weight(<T as Config>::WeightInfo::nominator_bond_more())]
+		/// Bond more for nominators wrt a specific collator candidate.
+		pub fn nominator_bond_more(
 			origin: OriginFor<T>,
 			candidate: T::AccountId,
 			more: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let delegator = ensure_signed(origin)?;
+			let nominator = ensure_signed(origin)?;
 			ensure!(
-				!Self::delegation_request_revoke_exists(&candidate, &delegator),
-				Error::<T>::PendingDelegationRevoke
+				!Self::nomination_request_revoke_exists(&candidate, &nominator),
+				Error::<T>::PendingNominationRevoke
 			);
-			let mut state = <DelegatorState<T>>::get(&delegator).ok_or(Error::<T>::DelegatorDNE)?;
-			state.increase_delegation::<T>(candidate.clone(), more)?;
+			let mut state = <NominatorState<T>>::get(&nominator).ok_or(Error::<T>::NominatorDNE)?;
+			state.increase_nomination::<T>(candidate.clone(), more)?;
 			Ok(().into())
 		}
 
-		#[pallet::weight(<T as Config>::WeightInfo::schedule_delegator_bond_less())]
-		/// Request bond less for delegators wrt a specific collator candidate.
-		pub fn schedule_delegator_bond_less(
+		#[pallet::weight(<T as Config>::WeightInfo::schedule_nominator_bond_less())]
+		/// Request bond less for nominators wrt a specific collator candidate.
+		pub fn schedule_nominator_bond_less(
 			origin: OriginFor<T>,
 			candidate: T::AccountId,
 			less: BalanceOf<T>,
 		) -> DispatchResultWithPostInfo {
-			let delegator = ensure_signed(origin)?;
-			Self::delegation_schedule_bond_decrease(candidate, delegator, less)
+			let nominator = ensure_signed(origin)?;
+			Self::nomination_schedule_bond_decrease(candidate, nominator, less)
 		}
 
-		#[pallet::weight(<T as Config>::WeightInfo::execute_delegator_bond_less())]
-		/// Execute pending request to change an existing delegation
-		pub fn execute_delegation_request(
+		#[pallet::weight(<T as Config>::WeightInfo::execute_nominator_bond_less())]
+		/// Execute pending request to change an existing nomination
+		pub fn execute_nomination_request(
 			origin: OriginFor<T>,
-			delegator: T::AccountId,
+			nominator: T::AccountId,
 			candidate: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			ensure_signed(origin)?; // we may want to reward caller if caller != delegator
-			Self::delegation_execute_scheduled_request(candidate, delegator)
+			ensure_signed(origin)?; // we may want to reward caller if caller != nominator
+			Self::nomination_execute_scheduled_request(candidate, nominator)
 		}
 
-		#[pallet::weight(<T as Config>::WeightInfo::cancel_delegator_bond_less())]
-		/// Cancel request to change an existing delegation.
-		pub fn cancel_delegation_request(
+		#[pallet::weight(<T as Config>::WeightInfo::cancel_nominator_bond_less())]
+		/// Cancel request to change an existing nomination.
+		pub fn cancel_nomination_request(
 			origin: OriginFor<T>,
 			candidate: T::AccountId,
 		) -> DispatchResultWithPostInfo {
-			let delegator = ensure_signed(origin)?;
-			Self::delegation_cancel_request(candidate, delegator)
+			let nominator = ensure_signed(origin)?;
+			Self::nomination_cancel_request(candidate, nominator)
 		}
 
 		/// Hotfix to remove existing empty entries for candidates that have left.
 		#[pallet::weight(
 			T::DbWeight::get().reads_writes(2 * candidates.len() as u64, candidates.len() as u64)
 		)]
-		pub fn hotfix_remove_delegation_requests_exited_candidates(
+		pub fn hotfix_remove_nomination_requests_exited_candidates(
 			origin: OriginFor<T>,
 			candidates: Vec<T::AccountId>,
 		) -> DispatchResult {
@@ -1201,13 +1201,13 @@ pub mod pallet {
 					<Error<T>>::CandidateNotLeaving
 				);
 				ensure!(
-					<DelegationScheduledRequests<T>>::get(&candidate).is_empty(),
+					<NominationScheduledRequests<T>>::get(&candidate).is_empty(),
 					<Error<T>>::CandidateNotLeaving
 				);
 			}
 
 			for candidate in candidates {
-				<DelegationScheduledRequests<T>>::remove(candidate);
+				<NominationScheduledRequests<T>>::remove(candidate);
 			}
 
 			Ok(().into())
@@ -1215,8 +1215,8 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn is_delegator(acc: &T::AccountId) -> bool {
-			<DelegatorState<T>>::get(acc).is_some()
+		pub fn is_nominator(acc: &T::AccountId) -> bool {
+			<NominatorState<T>>::get(acc).is_some()
 		}
 		pub fn is_candidate(acc: &T::AccountId) -> bool {
 			<CandidateInfo<T>>::get(acc).is_some()
@@ -1224,10 +1224,10 @@ pub mod pallet {
 		pub fn is_selected_candidate(acc: &T::AccountId) -> bool {
 			<SelectedCandidates<T>>::get().binary_search(acc).is_ok()
 		}
-		/// Returns an account's free balance which is not locked in delegation staking
-		pub fn get_delegator_stakable_free_balance(acc: &T::AccountId) -> BalanceOf<T> {
+		/// Returns an account's free balance which is not locked in nomination staking
+		pub fn get_nominator_stakable_free_balance(acc: &T::AccountId) -> BalanceOf<T> {
 			let mut balance = T::Currency::free_balance(acc);
-			if let Some(state) = <DelegatorState<T>>::get(acc) {
+			if let Some(state) = <NominatorState<T>>::get(acc) {
 				balance = balance.saturating_sub(state.total());
 			}
 			balance
@@ -1274,21 +1274,21 @@ pub mod pallet {
 			return payout;
 		}
 
-		/// Remove delegation from candidate state
-		/// Amount input should be retrieved from delegator and it informs the storage lookups
-		pub(crate) fn delegator_leaves_candidate(
+		/// Remove nomination from candidate state
+		/// Amount input should be retrieved from nominator and it informs the storage lookups
+		pub(crate) fn nominator_leaves_candidate(
 			candidate: T::AccountId,
-			delegator: T::AccountId,
+			nominator: T::AccountId,
 			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let mut state = <CandidateInfo<T>>::get(&candidate).ok_or(Error::<T>::CandidateDNE)?;
-			state.rm_delegation_if_exists::<T>(&candidate, delegator.clone(), amount)?;
+			state.rm_nomination_if_exists::<T>(&candidate, nominator.clone(), amount)?;
 			let new_total_locked = <Total<T>>::get().saturating_sub(amount);
 			<Total<T>>::put(new_total_locked);
 			let new_total = state.total_counted;
 			<CandidateInfo<T>>::insert(&candidate, state);
-			Self::deposit_event(Event::DelegatorLeftCandidate {
-				delegator: delegator,
+			Self::deposit_event(Event::NominatorLeftCandidate {
+				nominator: nominator,
 				candidate: candidate,
 				unstaked_amount: amount,
 				total_candidate_staked: new_total,
@@ -1396,11 +1396,11 @@ pub mod pallet {
 				let pct_due = Perbill::from_rational(pts, total_points);
 				let total_paid = pct_due * payout_info.total_staking_reward;
 				let mut amt_due = total_paid;
-				// Take the snapshot of block author and delegations
+				// Take the snapshot of block author and nominations
 				let state = <AtStake<T>>::take(paid_for_round, &collator);
-				let num_delegators = state.delegations.len();
-				if state.delegations.is_empty() {
-					// solo collator with no delegators
+				let num_nominators = state.nominations.len();
+				if state.nominations.is_empty() {
+					// solo collator with no nominators
 					mint(amt_due, collator.clone());
 					extra_weight += T::OnCollatorPayout::on_collator_payout(
 						paid_for_round,
@@ -1419,8 +1419,8 @@ pub mod pallet {
 						collator.clone(),
 						collator_reward,
 					);
-					// pay delegators due portion
-					for Bond { owner, amount } in state.delegations {
+					// pay nominators due portion
+					for Bond { owner, amount } in state.nominations {
 						let percent = Perbill::from_rational(amount, state.total);
 						let due = percent * amt_due;
 						if !due.is_zero() {
@@ -1431,7 +1431,7 @@ pub mod pallet {
 
 				(
 					Some((collator, total_paid)),
-					T::WeightInfo::pay_one_collator_reward(num_delegators as u32) + extra_weight,
+					T::WeightInfo::pay_one_collator_reward(num_nominators as u32) + extra_weight,
 				)
 			} else {
 				// Note that we don't clean up storage here; it is cleaned up in
@@ -1459,9 +1459,9 @@ pub mod pallet {
 			collators
 		}
 		/// Best as in most cumulatively supported in terms of stake
-		/// Returns [collator_count, delegation_count, total staked]
+		/// Returns [collator_count, nomination_count, total staked]
 		fn select_top_candidates(now: RoundIndex) -> (u32, u32, BalanceOf<T>) {
-			let (mut collator_count, mut delegation_count, mut total) =
+			let (mut collator_count, mut nomination_count, mut total) =
 				(0u32, 0u32, BalanceOf::<T>::zero());
 			// choose the top TotalSelected qualified candidates, ordered by stake
 			let collators = Self::compute_top_candidates();
@@ -1472,8 +1472,8 @@ pub mod pallet {
 				// set this round AtStake to last round AtStake
 				for (account, snapshot) in <AtStake<T>>::iter_prefix(last_round) {
 					collator_count = collator_count.saturating_add(1u32);
-					delegation_count =
-						delegation_count.saturating_add(snapshot.delegations.len() as u32);
+					nomination_count =
+						nomination_count.saturating_add(snapshot.nominations.len() as u32);
 					total = total.saturating_add(snapshot.total);
 					total_per_candidate.insert(account.clone(), snapshot.total);
 					<AtStake<T>>::insert(now, account, snapshot);
@@ -1490,7 +1490,7 @@ pub mod pallet {
 						total_exposed_amount: *snapshot_total,
 					})
 				}
-				return (collator_count, delegation_count, total);
+				return (collator_count, nomination_count, total);
 			}
 
 			// snapshot exposure for round for weighting reward distribution
@@ -1499,17 +1499,17 @@ pub mod pallet {
 					.expect("all members of CandidateQ must be candidates");
 
 				collator_count = collator_count.saturating_add(1u32);
-				delegation_count = delegation_count.saturating_add(state.delegation_count);
+				nomination_count = nomination_count.saturating_add(state.nomination_count);
 				total = total.saturating_add(state.total_counted);
-				let CountedDelegations {
+				let CountedNominations {
 					uncounted_stake,
-					rewardable_delegations,
-				} = Self::get_rewardable_delegators(&account);
+					rewardable_nominations,
+				} = Self::get_rewardable_nominators(&account);
 				let total_counted = state.total_counted.saturating_sub(uncounted_stake);
 
 				let snapshot = CollatorSnapshot {
 					bond: state.bond,
-					delegations: rewardable_delegations,
+					nominations: rewardable_nominations,
 					total: total_counted,
 				};
 				<AtStake<T>>::insert(now, account, snapshot);
@@ -1521,43 +1521,43 @@ pub mod pallet {
 			}
 			// insert canonical collator set
 			<SelectedCandidates<T>>::put(collators);
-			(collator_count, delegation_count, total)
+			(collator_count, nomination_count, total)
 		}
 
-		/// Apply the delegator intent for revoke and decrease in order to build the
-		/// effective list of delegators with their intended bond amount.
+		/// Apply the nominator intent for revoke and decrease in order to build the
+		/// effective list of nominators with their intended bond amount.
 		///
 		/// This will:
-		/// - if [DelegationChange::Revoke] is outstanding, set the bond amount to 0.
-		/// - if [DelegationChange::Decrease] is outstanding, subtract the bond by specified amount.
+		/// - if [NominationChange::Revoke] is outstanding, set the bond amount to 0.
+		/// - if [NominationChange::Decrease] is outstanding, subtract the bond by specified amount.
 		/// - else, do nothing
 		///
 		/// The intended bond amounts will be used while calculating rewards.
-		fn get_rewardable_delegators(collator: &T::AccountId) -> CountedDelegations<T> {
-			let requests = <DelegationScheduledRequests<T>>::get(collator)
+		fn get_rewardable_nominators(collator: &T::AccountId) -> CountedNominations<T> {
+			let requests = <NominationScheduledRequests<T>>::get(collator)
 				.into_iter()
-				.map(|x| (x.delegator, x.action))
+				.map(|x| (x.nominator, x.action))
 				.collect::<BTreeMap<_, _>>();
 			let mut uncounted_stake = BalanceOf::<T>::zero();
-			let rewardable_delegations = <TopDelegations<T>>::get(collator)
+			let rewardable_nominations = <TopNominations<T>>::get(collator)
 				.expect("all members of CandidateQ must be candidates")
-				.delegations
+				.nominations
 				.into_iter()
 				.map(|mut bond| {
 					bond.amount = match requests.get(&bond.owner) {
 						None => bond.amount,
-						Some(DelegationAction::Revoke(_)) => {
+						Some(NominationAction::Revoke(_)) => {
 							log::warn!(
-								"reward for delegator '{:?}' set to zero due to pending \
+								"reward for nominator '{:?}' set to zero due to pending \
 								revoke request",
 								bond.owner
 							);
 							uncounted_stake = uncounted_stake.saturating_add(bond.amount);
 							BalanceOf::<T>::zero()
 						}
-						Some(DelegationAction::Decrease(amount)) => {
+						Some(NominationAction::Decrease(amount)) => {
 							log::warn!(
-								"reward for delegator '{:?}' reduced by set amount due to pending \
+								"reward for nominator '{:?}' reduced by set amount due to pending \
 								decrease request",
 								bond.owner
 							);
@@ -1569,9 +1569,9 @@ pub mod pallet {
 					bond
 				})
 				.collect();
-			CountedDelegations {
+			CountedNominations {
 				uncounted_stake,
-				rewardable_delegations,
+				rewardable_nominations,
 			}
 		}
 
