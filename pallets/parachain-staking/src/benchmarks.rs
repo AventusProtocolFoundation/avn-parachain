@@ -139,11 +139,6 @@ benchmarks! {
 		assert_eq!(Pallet::<T>::total_selected(), 100u32);
 	}
 
-	set_collator_commission {}: _(RawOrigin::Root, Perbill::from_percent(33))
-	verify {
-		assert_eq!(Pallet::<T>::collator_commission(), Perbill::from_percent(33));
-	}
-
 	set_blocks_per_era {}: _(RawOrigin::Root, 1200u32)
 	verify {
 		assert_eq!(Pallet::<T>::era().length, 1200u32);
@@ -973,7 +968,6 @@ benchmarks! {
 			// NOTE: era_issuance is not correct here, but it doesn't seem to cause problems
 			era_issuance: 1000u32.into(),
 			total_staking_reward: total_staked,
-			collator_commission: Perbill::from_rational(1u32, 100u32),
 		});
 
 		let mut nominations: Vec<Bond<T::AccountId, BalanceOf<T>>> = Vec::new();
@@ -1077,13 +1071,6 @@ mod tests {
 	fn bench_set_total_selected() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Pallet::<Test>::test_benchmark_set_total_selected());
-		});
-	}
-
-	#[test]
-	fn bench_set_collator_commission() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(Pallet::<Test>::test_benchmark_set_collator_commission());
 		});
 	}
 
