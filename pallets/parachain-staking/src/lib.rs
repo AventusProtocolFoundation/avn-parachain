@@ -1373,7 +1373,7 @@ pub mod pallet {
 				let collator_reward = collator_pct * total_reward_for_collator;
 				pay_reward(collator_reward, collator.clone());
 
-                // TODO: do we need this?
+				// TODO: do we need this?
 				extra_weight += T::OnCollatorPayout::on_collator_payout(
 					paid_for_era,
 					collator.clone(),
