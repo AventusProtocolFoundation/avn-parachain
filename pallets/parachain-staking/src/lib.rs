@@ -62,6 +62,8 @@ mod set;
 mod tests;
 #[cfg(test)]
 mod test_staking_pot;
+#[cfg(test)]
+mod test_reward_payout;
 
 use frame_support::pallet;
 use weights::WeightInfo;
@@ -1349,6 +1351,12 @@ pub mod pallet {
 						account: to.clone(),
 						rewards: amt,
 					});
+
+					// Update storage with the amount we paid
+					<LockedEraPayout<T>>::mutate(|p| {
+						*p = p.saturating_sub(amt.into());
+					});
+
 				} else {
 					log::error!("💔 Error paying staking reward: {:?}", result);
 					Self::deposit_event(Event::ErrorPayingStakingReward {
