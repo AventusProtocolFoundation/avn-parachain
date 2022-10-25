@@ -74,15 +74,21 @@ pub use EraIndex;
 
 #[pallet]
 pub mod pallet {
-    use crate::nomination_requests::{
-        CancelledScheduledRequest, NominationAction, ScheduledRequest,
+    use crate::{
+        nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
+        set::OrderedSet,
+        traits::*,
+        types::*,
+        WeightInfo,
     };
-    use crate::{set::OrderedSet, traits::*, types::*, WeightInfo};
-    use frame_support::traits::{
-        tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, LockIdentifier,
-        LockableCurrency, ReservableCurrency,
+    use frame_support::{
+        pallet_prelude::*,
+        traits::{
+            tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, LockIdentifier,
+            LockableCurrency, ReservableCurrency,
+        },
+        PalletId,
     };
-    use frame_support::{pallet_prelude::*, PalletId};
     use frame_system::pallet_prelude::*;
     use sp_runtime::{
         traits::{AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Saturating, Zero},
@@ -526,7 +532,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn locked_era_payout)]
-    /// Storage value that holds the total amount of payouts we are waiting to take out of this pallet's pot.
+    /// Storage value that holds the total amount of payouts we are waiting to take out of this
+    /// pallet's pot.
     pub type LockedEraPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
@@ -538,7 +545,8 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub candidates: Vec<(T::AccountId, BalanceOf<T>)>,
-        /// Vec of tuples of the format (nominator AccountId, collator AccountId, nomination Amount)
+        /// Vec of tuples of the format (nominator AccountId, collator AccountId, nomination
+        /// Amount)
         pub nominations: Vec<(T::AccountId, T::AccountId, BalanceOf<T>)>,
     }
 
@@ -1175,7 +1183,8 @@ pub mod pallet {
                     .checked_add(&payout)
                     .or_else(|| {
                         log::error!("💔 Error - locked_era_payout overflow. Reducing era payout");
-                        // In the unlikely event where the value will overflow the LockedEraPayout, return the difference to avoid errors
+                        // In the unlikely event where the value will overflow the LockedEraPayout,
+                        // return the difference to avoid errors
                         payout =
                             BalanceOf::<T>::max_value().saturating_sub(Self::locked_era_payout());
                         Some(BalanceOf::<T>::max_value())
@@ -1183,7 +1192,7 @@ pub mod pallet {
                     .expect("We have a default value");
             });
 
-            return payout;
+            return payout
         }
 
         /// Remove nomination from candidate state
@@ -1211,12 +1220,12 @@ pub mod pallet {
             // payout is now - delay eras ago => now - delay > 0 else return early
             let delay = T::RewardPaymentDelay::get();
             if now <= delay {
-                return;
+                return
             }
             let era_to_payout = now.saturating_sub(delay);
             let total_points = <Points<T>>::get(era_to_payout);
             if total_points.is_zero() {
-                return;
+                return
             }
             // Remove stake because it has been processed.
             <Staked<T>>::take(era_to_payout);
@@ -1225,7 +1234,8 @@ pub mod pallet {
 
             let payout = DelayedPayout {
                 era_issuance: total_reward_to_pay,
-                total_staking_reward: total_reward_to_pay, // TODO: Remove one of the duplicated fields
+                total_staking_reward: total_reward_to_pay, /* TODO: Remove one of the duplicated
+                                                            * fields */
             };
 
             <DelayedPayouts<T>>::insert(era_to_payout, payout);
@@ -1240,7 +1250,7 @@ pub mod pallet {
 
             // don't underflow uint
             if now < delay {
-                return 0u64.into();
+                return 0u64.into()
             }
 
             let paid_for_era = now.saturating_sub(delay);
@@ -1277,7 +1287,7 @@ pub mod pallet {
                 // 2. we called pay_one_collator_reward when we were actually done with deferred
                 //    payouts
                 log::warn!("pay_one_collator_reward called with no <Points<T>> for the era!");
-                return (None, 0u64.into());
+                return (None, 0u64.into())
             }
 
             let reward_pot_account_id = Self::compute_reward_pot_account_id();
@@ -1391,7 +1401,7 @@ pub mod pallet {
                         total_exposed_amount: *snapshot_total,
                     })
                 }
-                return (collator_count, nomination_count, total);
+                return (collator_count, nomination_count, total)
             }
 
             // snapshot exposure for era for weighting reward distribution
@@ -1472,8 +1482,8 @@ pub mod pallet {
         }
 
         /// The account ID of the staking reward_pot.
-        /// This actually does computation. If you need to keep using it, then make sure you cache the
-        /// value and only call this once.
+        /// This actually does computation. If you need to keep using it, then make sure you cache
+        /// the value and only call this once.
         pub fn compute_reward_pot_account_id() -> T::AccountId {
             T::RewardPotId::get().into_account_truncating()
         }

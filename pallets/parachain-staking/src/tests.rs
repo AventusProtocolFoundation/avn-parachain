@@ -21,16 +21,16 @@
 //! 2. Monetary Governance
 //! 3. Public (Collator, Nominator)
 //! 4. Miscellaneous Property-Based Tests
-use crate::mock::{
-    roll_one_block, roll_to, roll_to_era_begin, roll_to_era_end, set_author, Balances,
-    Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Test,
-};
-use crate::nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
 use crate::{
     assert_eq_events, assert_eq_last_events, assert_event_emitted, assert_last_event,
-    assert_tail_eq, mock::set_reward_pot, AtStake, Bond, CollatorStatus, Error, Event,
-    NominationScheduledRequests, NominatorAdded, NominatorState, NominatorStatus,
-    NOMINATOR_LOCK_ID,
+    assert_tail_eq,
+    mock::{
+        roll_one_block, roll_to, roll_to_era_begin, roll_to_era_end, set_author, set_reward_pot,
+        Balances, Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Test,
+    },
+    nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
+    AtStake, Bond, CollatorStatus, Error, Event, NominationScheduledRequests, NominatorAdded,
+    NominatorState, NominatorStatus, NOMINATOR_LOCK_ID,
 };
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::{traits::Zero, DispatchError, ModuleError};
@@ -2563,7 +2563,7 @@ fn execute_nominator_bond_less_updates_just_bottom_nominations() {
                     if &owner == post_owner {
                         if &amount != post_amount {
                             not_equal = true;
-                            break;
+                            break
                         }
                     }
                 }
@@ -2577,7 +2577,7 @@ fn execute_nominator_bond_less_updates_just_bottom_nominations() {
                     if &owner == post_owner {
                         if &amount != post_amount {
                             equal = false;
-                            break;
+                            break
                         }
                     }
                 }
@@ -2621,7 +2621,7 @@ fn execute_nominator_bond_less_does_not_delete_bottom_nominations() {
                     if &owner == post_owner {
                         if &amount != post_amount {
                             equal = false;
-                            break;
+                            break
                         }
                     }
                 }
@@ -2635,7 +2635,7 @@ fn execute_nominator_bond_less_does_not_delete_bottom_nominations() {
                     if &owner == post_owner {
                         if &amount != post_amount {
                             not_equal = true;
-                            break;
+                            break
                         }
                     }
                 }
@@ -2942,7 +2942,8 @@ fn parachain_bond_inflation_reserve_matches_config() {
                 Error::<Test>::NominatorDNE
             );
             assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(6)));
-            // fast forward to block in which nominator 6 exit executes. Doing it in 2 steps so we can reset the reward pot
+            // fast forward to block in which nominator 6 exit executes. Doing it in 2 steps so we
+            // can reset the reward pot
             set_reward_pot(55);
             roll_to(20);
 

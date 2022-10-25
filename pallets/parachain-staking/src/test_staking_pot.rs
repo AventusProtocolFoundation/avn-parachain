@@ -17,7 +17,7 @@ pub fn get_transfer_call() -> <Test as frame_system::Config>::Call {
     return Call::Balances(pallet_balances::Call::transfer {
         dest: NON_COLLATOR_ACCOUNT_ID,
         value: 0,
-    });
+    })
 }
 
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
@@ -48,7 +48,7 @@ fn get_total_balance_of_collators(collator_account_ids: &Vec<AccountId>) -> u128
         .clone()
         .into_iter()
         .map(|v| Balances::free_balance(v))
-        .sum::<u128>();
+        .sum::<u128>()
 }
 
 #[test]
