@@ -59,9 +59,9 @@ mod benchmarks;
 mod mock;
 mod set;
 #[cfg(test)]
-mod test_staking_pot;
-#[cfg(test)]
 mod test_reward_payout;
+#[cfg(test)]
+mod test_staking_pot;
 #[cfg(test)]
 mod tests;
 
@@ -1097,208 +1097,75 @@ pub mod pallet {
         #[pallet::weight(
 			T::DbWeight::get().reads_writes(2 * candidates.len() as u64, candidates.len() as u64)
 		)]
-		pub fn hotfix_remove_nomination_requests_exited_candidates(
-			origin: OriginFor<T>,
-			candidates: Vec<T::AccountId>,
-		) -> DispatchResult {
-			ensure_signed(origin)?;
-			ensure!(candidates.len() < 100, <Error<T>>::InsufficientBalance);
-			for candidate in &candidates {
-				ensure!(
-					<CandidateInfo<T>>::get(&candidate).is_none(),
-					<Error<T>>::CandidateNotLeaving
-				);
-				ensure!(
-					<NominationScheduledRequests<T>>::get(&candidate).is_empty(),
-					<Error<T>>::CandidateNotLeaving
-				);
-			}
+        pub fn hotfix_remove_nomination_requests_exited_candidates(
+            origin: OriginFor<T>,
+            candidates: Vec<T::AccountId>,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(candidates.len() < 100, <Error<T>>::InsufficientBalance);
+            for candidate in &candidates {
+                ensure!(
+                    <CandidateInfo<T>>::get(&candidate).is_none(),
+                    <Error<T>>::CandidateNotLeaving
+                );
+                ensure!(
+                    <NominationScheduledRequests<T>>::get(&candidate).is_empty(),
+                    <Error<T>>::CandidateNotLeaving
+                );
+            }
 
-			for candidate in candidates {
-				<NominationScheduledRequests<T>>::remove(candidate);
-			}
+            for candidate in candidates {
+                <NominationScheduledRequests<T>>::remove(candidate);
+            }
 
-			Ok(().into())
-		}
-	}
+            Ok(().into())
+        }
+    }
 
-	impl<T: Config> Pallet<T> {
-		pub fn is_nominator(acc: &T::AccountId) -> bool {
-			<NominatorState<T>>::get(acc).is_some()
-		}
-		pub fn is_candidate(acc: &T::AccountId) -> bool {
-			<CandidateInfo<T>>::get(acc).is_some()
-		}
-		pub fn is_selected_candidate(acc: &T::AccountId) -> bool {
-			<SelectedCandidates<T>>::get().binary_search(acc).is_ok()
-		}
-		/// Returns an account's free balance which is not locked in nomination staking
-		pub fn get_nominator_stakable_free_balance(acc: &T::AccountId) -> BalanceOf<T> {
-			let mut balance = T::Currency::free_balance(acc);
-			if let Some(state) = <NominatorState<T>>::get(acc) {
-				balance = balance.saturating_sub(state.total());
-			}
-			balance
-		}
-		/// Returns an account's free balance which is not locked in collator staking
-		pub fn get_collator_stakable_free_balance(acc: &T::AccountId) -> BalanceOf<T> {
-			let mut balance = T::Currency::free_balance(acc);
-			if let Some(info) = <CandidateInfo<T>>::get(acc) {
-				balance = balance.saturating_sub(info.bond);
-			}
-			balance
-		}
-		/// Caller must ensure candidate is active before calling
-		pub(crate) fn update_active(candidate: T::AccountId, total: BalanceOf<T>) {
-			let mut candidates = <CandidatePool<T>>::get();
-			candidates.remove(&Bond::from_owner(candidate.clone()));
-			candidates.insert(Bond {
-				owner: candidate,
-				amount: total,
-			});
-			<CandidatePool<T>>::put(candidates);
-		}
+    impl<T: Config> Pallet<T> {
+        pub fn is_nominator(acc: &T::AccountId) -> bool {
+            <NominatorState<T>>::get(acc).is_some()
+        }
+        pub fn is_candidate(acc: &T::AccountId) -> bool {
+            <CandidateInfo<T>>::get(acc).is_some()
+        }
+        pub fn is_selected_candidate(acc: &T::AccountId) -> bool {
+            <SelectedCandidates<T>>::get().binary_search(acc).is_ok()
+        }
+        /// Returns an account's free balance which is not locked in nomination staking
+        pub fn get_nominator_stakable_free_balance(acc: &T::AccountId) -> BalanceOf<T> {
+            let mut balance = T::Currency::free_balance(acc);
+            if let Some(state) = <NominatorState<T>>::get(acc) {
+                balance = balance.saturating_sub(state.total());
+            }
+            balance
+        }
+        /// Returns an account's free balance which is not locked in collator staking
+        pub fn get_collator_stakable_free_balance(acc: &T::AccountId) -> BalanceOf<T> {
+            let mut balance = T::Currency::free_balance(acc);
+            if let Some(info) = <CandidateInfo<T>>::get(acc) {
+                balance = balance.saturating_sub(info.bond);
+            }
+            balance
+        }
+        /// Caller must ensure candidate is active before calling
+        pub(crate) fn update_active(candidate: T::AccountId, total: BalanceOf<T>) {
+            let mut candidates = <CandidatePool<T>>::get();
+            candidates.remove(&Bond::from_owner(candidate.clone()));
+            candidates.insert(Bond { owner: candidate, amount: total });
+            <CandidatePool<T>>::put(candidates);
+        }
 
-		/// Compute total reward for era based on the amount in the reward pot
-		fn compute_total_reward_to_pay() -> BalanceOf<T> {
-			let total_unpaid_reward_amount = Self::reward_pot();
-			let mut payout = total_unpaid_reward_amount.checked_sub(&Self::locked_era_payout()).or_else(|| {
-				log::error!("💔 Error calculating era payout. Not enough funds in total_unpaid_reward_amount.");
+        /// Compute total reward for era based on the amount in the reward pot
+        fn compute_total_reward_to_pay() -> BalanceOf<T> {
+            let total_unpaid_reward_amount = Self::reward_pot();
+            let mut payout = total_unpaid_reward_amount.checked_sub(&Self::locked_era_payout()).or_else(|| {
+				log::error!("� Error calculating era payout. Not enough funds in total_unpaid_reward_amount.");
 
 				//This is a bit strange but since we are dealing with money, log it.
 				Self::deposit_event(Event::NotEnoughFundsForEraPayment {reward_pot_balance: total_unpaid_reward_amount});
 				Some(BalanceOf::<T>::zero())
 			}).expect("We have a default value");
-
-			<LockedEraPayout<T>>::mutate(|lp| {
-				*lp = lp.checked_add(&payout).or_else(|| {
-					log::error!("💔 Error - locked_era_payout overflow. Reducing era payout");
-					// In the unlikely event where the value will overflow the LockedEraPayout, return the difference to avoid errors
-					payout = BalanceOf::<T>::max_value().saturating_sub(Self::locked_era_payout());
-					Some(BalanceOf::<T>::max_value())
-				}).expect("We have a default value");
-			});
-
-			return payout;
-		}
-
-		/// Remove nomination from candidate state
-		/// Amount input should be retrieved from nominator and it informs the storage lookups
-		pub(crate) fn nominator_leaves_candidate(
-			candidate: T::AccountId,
-			nominator: T::AccountId,
-			amount: BalanceOf<T>,
-		) -> DispatchResult {
-			let mut state = <CandidateInfo<T>>::get(&candidate).ok_or(Error::<T>::CandidateDNE)?;
-			state.rm_nomination_if_exists::<T>(&candidate, nominator.clone(), amount)?;
-			let new_total_locked = <Total<T>>::get().saturating_sub(amount);
-			<Total<T>>::put(new_total_locked);
-			let new_total = state.total_counted;
-			<CandidateInfo<T>>::insert(&candidate, state);
-			Self::deposit_event(Event::NominatorLeftCandidate {
-				nominator: nominator,
-				candidate: candidate,
-				unstaked_amount: amount,
-				total_candidate_staked: new_total,
-			});
-			Ok(())
-		}
-		fn prepare_staking_payouts(now: EraIndex) {
-			// payout is now - delay eras ago => now - delay > 0 else return early
-			let delay = T::RewardPaymentDelay::get();
-			if now <= delay {
-				return;
-			}
-			let era_to_payout = now.saturating_sub(delay);
-			let total_points = <Points<T>>::get(era_to_payout);
-			if total_points.is_zero() {
-				return;
-			}
-			// Remove stake because it has been processed.
-			<Staked<T>>::take(era_to_payout);
-
-			let total_reward_to_pay = Self::compute_total_reward_to_pay();
-
-			let payout = DelayedPayout {
-				era_issuance: total_reward_to_pay,
-				total_staking_reward: total_reward_to_pay, // TODO: Remove one of the duplicated fields
-			};
-
-			<DelayedPayouts<T>>::insert(era_to_payout, payout);
-		}
-
-		/// Wrapper around pay_one_collator_reward which handles the following logic:
-		/// * whether or not a payout needs to be made
-		/// * cleaning up when payouts are done
-		/// * returns the weight consumed by pay_one_collator_reward if applicable
-		fn handle_delayed_payouts(now: EraIndex) -> Weight {
-			let delay = T::RewardPaymentDelay::get();
-
-			// don't underflow uint
-			if now < delay {
-				return 0u64.into();
-			}
-
-			let paid_for_era = now.saturating_sub(delay);
-
-			if let Some(payout_info) = <DelayedPayouts<T>>::get(paid_for_era) {
-				let result = Self::pay_one_collator_reward(paid_for_era, payout_info);
-				if result.0.is_none() {
-					// result.0 indicates whether or not a payout was made
-					// clean up storage items that we no longer need
-					<DelayedPayouts<T>>::remove(paid_for_era);
-					<Points<T>>::remove(paid_for_era);
-				}
-				result.1 // weight consumed by pay_one_collator_reward
-			} else {
-				0u64.into()
-			}
-		}
-
-		/// Payout a single collator from the given era.
-		///
-		/// Returns an optional tuple of (Collator's AccountId, total paid)
-		/// or None if there were no more payouts to be made for the era.
-		pub(crate) fn pay_one_collator_reward(
-			paid_for_era: EraIndex,
-			payout_info: DelayedPayout<BalanceOf<T>>,
-		) -> (Option<(T::AccountId, BalanceOf<T>)>, Weight) {
-			// TODO: it would probably be optimal to roll Points into the DelayedPayouts storage
-			// item so that we do fewer reads each block
-			let total_points = <Points<T>>::get(paid_for_era);
-			if total_points.is_zero() {
-				// TODO: this case is obnoxious... it's a value query, so it could mean one of two
-				// different logic errors:
-				// 1. we removed it before we should have
-				// 2. we called pay_one_collator_reward when we were actually done with deferred
-				//    payouts
-				log::warn!("pay_one_collator_reward called with no <Points<T>> for the era!");
-				return (None, 0u64.into());
-			}
-
-			let reward_pot_account_id = Self::compute_reward_pot_account_id();
-			let pay_reward = |amt: BalanceOf<T>, to: T::AccountId| {
-				let result = T::Currency::transfer(&reward_pot_account_id, &to, amt, ExistenceRequirement::KeepAlive);
-				if let Ok(_) = result {
-					Self::deposit_event(Event::Rewarded {
-						account: to.clone(),
-						rewards: amt,
-					});
-
-					// Update storage with the amount we paid
-					<LockedEraPayout<T>>::mutate(|p| {
-						*p = p.saturating_sub(amt.into());
-					});
-
-				} else {
-					log::error!("💔 Error paying staking reward: {:?}", result);
-					Self::deposit_event(Event::ErrorPayingStakingReward {
-						payee: to.clone(),
-						rewards: amt,
-					});
-					Some(BalanceOf::<T>::zero())
-				})
-				.expect("We have a default value");
 
             <LockedEraPayout<T>>::mutate(|lp| {
                 *lp = lp
@@ -1420,6 +1287,11 @@ pub mod pallet {
                 );
                 if let Ok(_) = result {
                     Self::deposit_event(Event::Rewarded { account: to.clone(), rewards: amt });
+
+                    // Update storage with the amount we paid
+                    <LockedEraPayout<T>>::mutate(|p| {
+                        *p = p.saturating_sub(amt.into());
+                    });
                 } else {
                     log::error!("💔 Error paying staking reward: {:?}", result);
                     Self::deposit_event(Event::ErrorPayingStakingReward {

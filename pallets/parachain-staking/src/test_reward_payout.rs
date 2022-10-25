@@ -1,14 +1,16 @@
 #[cfg(test)]
-
 use crate::mock::{
-    roll_one_block, roll_to_era_begin, set_author, Balances,
-    ExtBuilder, ParachainStaking, Test, BASE_FEE, TX_LEN, AccountId, Call, pay_gas_for_transaction
+    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, AccountId, Balances,
+    Call, ExtBuilder, ParachainStaking, Test, BASE_FEE, TX_LEN,
 };
 use crate::{assert_eq_events, assert_event_emitted, Event};
-use frame_support::{assert_ok, weights::{ DispatchInfo, PostDispatchInfo}};
-use sp_runtime::{traits::Zero,};
+use frame_support::{
+    assert_ok,
+    weights::{DispatchInfo, PostDispatchInfo},
+};
 use pallet_transaction_payment::ChargeTransactionPayment;
 use sp_runtime::traits::SignedExtension;
+use sp_runtime::traits::Zero;
 
 #[test]
 fn end_to_end_happy_path() {
@@ -27,7 +29,12 @@ fn end_to_end_happy_path() {
     let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
 
     ExtBuilder::default()
-        .with_balances(vec![(collator1, 10000), (collator2, 10000), (tx_sender, 10000), (nominator4, 10000),])
+        .with_balances(vec![
+            (collator1, 10000),
+            (collator2, 10000),
+            (tx_sender, 10000),
+            (nominator4, 10000),
+        ])
         .with_candidates(vec![(collator1, collator1_own_stake), (collator2, collator2_own_stake)])
         .with_nominations(vec![(nominator4, collator1, nominator4_stake)])
         .build()
@@ -41,14 +48,30 @@ fn end_to_end_happy_path() {
             //   - 2 eras must have passed
 
             // Show that reward pot is empty
-            assert_eq!(Balances::free_balance(&ParachainStaking::compute_reward_pot_account_id()), 0);
+            assert_eq!(
+                Balances::free_balance(&ParachainStaking::compute_reward_pot_account_id()),
+                0
+            );
             assert_eq!(ParachainStaking::locked_era_payout(), 0);
 
             // Show a list of events we expect when rolling to era 2. Note the absence of rewards.
             let expected_events = vec![
-                Event::CollatorChosen {era: 2, collator_account: collator1, total_exposed_amount: collator1_total_stake},
-                Event::CollatorChosen {era: 2, collator_account: collator2, total_exposed_amount: collator2_own_stake},
-                Event::NewEra {starting_block: 5, era: 2, selected_collators_number: 2, total_balance: total_stake},
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: collator1,
+                    total_exposed_amount: collator1_total_stake,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: collator2,
+                    total_exposed_amount: collator2_own_stake,
+                },
+                Event::NewEra {
+                    starting_block: 5,
+                    era: 2,
+                    selected_collators_number: 2,
+                    total_balance: total_stake,
+                },
             ];
             assert_eq_events!(expected_events);
 
@@ -58,7 +81,8 @@ fn end_to_end_happy_path() {
             // Sending a transaction (with tip) to generate income for the chain
             pay_gas_for_transaction(&tx_sender, tip);
 
-            let reward_pot_balance_before_reward_payout = Balances::free_balance(&reward_pot_account_id);
+            let reward_pot_balance_before_reward_payout =
+                Balances::free_balance(&reward_pot_account_id);
 
             // Assign block author points to collators 1 & 2.
             // Because it takes 2 eras before we can pay collators, we set the block authorship points for era 1.
@@ -72,16 +96,25 @@ fn end_to_end_happy_path() {
             //-------------------------------------------------------
 
             let total_reward_per_collator = (expected_tx_fee + tip) / 2; //divide by 2 because both collators earned 1 point each
-            let expected_collator1_reward = (total_reward_per_collator * collator1_own_stake) / collator1_total_stake;
-            let expected_nominator_reward = (total_reward_per_collator * nominator4_stake) / collator1_total_stake;
+            let expected_collator1_reward =
+                (total_reward_per_collator * collator1_own_stake) / collator1_total_stake;
+            let expected_nominator_reward =
+                (total_reward_per_collator * nominator4_stake) / collator1_total_stake;
 
-            assert_event_emitted!(Event::Rewarded {account: collator1, rewards: expected_collator1_reward});
-            assert_event_emitted!(Event::Rewarded {account: nominator4, rewards: expected_nominator_reward});
+            assert_event_emitted!(Event::Rewarded {
+                account: collator1,
+                rewards: expected_collator1_reward
+            });
+            assert_event_emitted!(Event::Rewarded {
+                account: nominator4,
+                rewards: expected_nominator_reward
+            });
 
             // Show that reward pot balance has decreased by "total reward payment amount"
             assert_eq!(
                 Balances::free_balance(&reward_pot_account_id),
-                reward_pot_balance_before_reward_payout - (expected_collator1_reward + expected_nominator_reward)
+                reward_pot_balance_before_reward_payout
+                    - (expected_collator1_reward + expected_nominator_reward)
             );
 
             // Show that locked era payout has reserved enough to pay collator2
@@ -94,14 +127,19 @@ fn end_to_end_happy_path() {
             roll_one_block();
 
             let expected_collator2_reward = total_reward_per_collator; //solo collator
-            assert_event_emitted!(Event::Rewarded {account: collator2, rewards: expected_collator2_reward});
+            assert_event_emitted!(Event::Rewarded {
+                account: collator2,
+                rewards: expected_collator2_reward
+            });
 
             // Show that reward pot balance and locked era balance are 0 because everything has been paid out for all collators
             assert_eq!(Balances::free_balance(&reward_pot_account_id), 0);
             assert_eq!(ParachainStaking::locked_era_payout(), 0);
 
             // check that distributing rewards clears awarded points
-            assert!(ParachainStaking::awarded_pts(era_blocks_have_been_authored, collator1).is_zero());
+            assert!(
+                ParachainStaking::awarded_pts(era_blocks_have_been_authored, collator1).is_zero()
+            );
         });
 }
 

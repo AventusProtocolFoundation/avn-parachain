@@ -18,21 +18,25 @@
 use crate as pallet_parachain_staking;
 use crate::{pallet, AwardedPts, Config, Points, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID};
 use frame_support::{
-	construct_runtime, parameter_types, assert_ok,
-	traits::{Everything, GenesisBuild, LockIdentifier, OnFinalize, OnInitialize, FindAuthor, Currency, ConstU8, Imbalance, OnUnbalanced},
-	weights::{ DispatchClass, DispatchInfo, PostDispatchInfo, Weight, WeightToFee as WeightToFeeT}, PalletId
+    assert_ok, construct_runtime, parameter_types,
+    traits::{
+        ConstU8, Currency, Everything, FindAuthor, GenesisBuild, Imbalance, LockIdentifier,
+        OnFinalize, OnInitialize, OnUnbalanced,
+    },
+    weights::{DispatchClass, DispatchInfo, PostDispatchInfo, Weight, WeightToFee as WeightToFeeT},
+    PalletId,
 };
 use frame_system::limits;
+use frame_system::limits;
 use pallet_transaction_payment::CurrencyAdapter;
+use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup, SignedExtension},
-	Perbill, SaturatedConversion
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup, SignedExtension},
+    Perbill, SaturatedConversion,
 };
-use pallet_transaction_payment::{CurrencyAdapter, ChargeTransactionPayment};
-use frame_system::limits;
 
 pub type AccountId = u64;
 pub type Balance = u128;
@@ -476,17 +480,17 @@ pub(crate) fn pay_gas_for_transaction(sender: &AccountId, tip: u128) {
             sender,
             &Call::System(frame_system::Call::remark { remark: vec![] }),
             &DispatchInfo { weight: 1, ..Default::default() },
-            TX_LEN).unwrap();
-
-    assert_ok!(
-        ChargeTransactionPayment::<Test>::post_dispatch(
-            Some(pre),
-            &DispatchInfo { weight: 1, ..Default::default() },
-            &PostDispatchInfo { actual_weight: None, pays_fee: Default::default() },
             TX_LEN,
-            &Ok(())
         )
-    );
+        .unwrap();
+
+    assert_ok!(ChargeTransactionPayment::<Test>::post_dispatch(
+        Some(pre),
+        &DispatchInfo { weight: 1, ..Default::default() },
+        &PostDispatchInfo { actual_weight: None, pays_fee: Default::default() },
+        TX_LEN,
+        &Ok(())
+    ));
 }
 
 #[test]
