@@ -115,13 +115,13 @@ impl<A: PartialEq, B: PartialEq> PartialEq for CollatorSnapshot<A, B> {
     fn eq(&self, other: &Self) -> bool {
         let must_be_true = self.bond == other.bond && self.total == other.total;
         if !must_be_true {
-            return false;
+            return false
         }
         for (Bond { owner: o1, amount: a1 }, Bond { owner: o2, amount: a2 }) in
             self.nominations.iter().zip(other.nominations.iter())
         {
             if o1 != o2 || a1 != a2 {
-                return false;
+                return false
             }
         }
         true
@@ -243,7 +243,7 @@ impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating
             if self.nominations[self.nominations.len() - 1].amount == nomination.amount {
                 self.nominations.push(nomination);
                 // early return
-                return;
+                return
             }
         }
         // else binary search insertion
@@ -257,7 +257,7 @@ impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating
                         new_index = new_index.saturating_add(1);
                     } else {
                         self.nominations.insert(new_index, nomination);
-                        return;
+                        return
                     }
                 }
                 self.nominations.push(nomination)
@@ -276,9 +276,8 @@ impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating
     /// Return the capacity status for bottom nominations
     pub fn bottom_capacity<T: Config>(&self) -> CapacityStatus {
         match &self.nominations {
-            x if x.len() as u32 >= T::MaxBottomNominationsPerCandidate::get() => {
-                CapacityStatus::Full
-            },
+            x if x.len() as u32 >= T::MaxBottomNominationsPerCandidate::get() =>
+                CapacityStatus::Full,
             x if x.is_empty() => CapacityStatus::Empty,
             _ => CapacityStatus::Partial,
         }
@@ -606,8 +605,8 @@ impl<
             .expect("CandidateInfo existence => BottomNominations existence");
         // if bottom is full, kick the lowest bottom (which is expected to be lower than input
         // as per check)
-        let increase_nomination_count = if bottom_nominations.nominations.len() as u32
-            == T::MaxBottomNominationsPerCandidate::get()
+        let increase_nomination_count = if bottom_nominations.nominations.len() as u32 ==
+            T::MaxBottomNominationsPerCandidate::get()
         {
             let lowest_bottom_to_be_kicked = bottom_nominations
                 .nominations
@@ -965,8 +964,8 @@ impl<
         let bond_after_less_than_highest_bottom =
             bond.saturating_sub(less).into() < self.highest_bottom_nomination_amount;
         // The top nominations is full and the bottom nominations has at least one nomination
-        let full_top_and_nonempty_bottom = matches!(self.top_capacity, CapacityStatus::Full)
-            && !matches!(self.bottom_capacity, CapacityStatus::Empty);
+        let full_top_and_nonempty_bottom = matches!(self.top_capacity, CapacityStatus::Full) &&
+            !matches!(self.bottom_capacity, CapacityStatus::Empty);
         let mut top_nominations =
             <TopNominations<T>>::get(candidate).ok_or(Error::<T>::CandidateDNE)?;
         let in_top_after = if bond_after_less_than_highest_bottom && full_top_and_nonempty_bottom {
@@ -1065,32 +1064,32 @@ impl<
 // Temporary manual implementation for migration testing purposes
 impl<A: PartialEq, B: PartialEq> PartialEq for CollatorCandidate<A, B> {
     fn eq(&self, other: &Self) -> bool {
-        let must_be_true = self.id == other.id
-            && self.bond == other.bond
-            && self.total_counted == other.total_counted
-            && self.total_backing == other.total_backing
-            && self.request == other.request
-            && self.state == other.state;
+        let must_be_true = self.id == other.id &&
+            self.bond == other.bond &&
+            self.total_counted == other.total_counted &&
+            self.total_backing == other.total_backing &&
+            self.request == other.request &&
+            self.state == other.state;
         if !must_be_true {
-            return false;
+            return false
         }
         for (x, y) in self.nominators.0.iter().zip(other.nominators.0.iter()) {
             if x != y {
-                return false;
+                return false
             }
         }
         for (Bond { owner: o1, amount: a1 }, Bond { owner: o2, amount: a2 }) in
             self.top_nominations.iter().zip(other.top_nominations.iter())
         {
             if o1 != o2 || a1 != a2 {
-                return false;
+                return false
             }
         }
         for (Bond { owner: o1, amount: a1 }, Bond { owner: o2, amount: a2 }) in
             self.bottom_nominations.iter().zip(other.bottom_nominations.iter())
         {
             if o1 != o2 || a1 != a2 {
-                return false;
+                return false
             }
         }
         true
@@ -1158,18 +1157,18 @@ pub struct Nominator<AccountId, Balance> {
 // Temporary manual implementation for migration testing purposes
 impl<A: PartialEq, B: PartialEq> PartialEq for Nominator<A, B> {
     fn eq(&self, other: &Self) -> bool {
-        let must_be_true = self.id == other.id
-            && self.total == other.total
-            && self.less_total == other.less_total
-            && self.status == other.status;
+        let must_be_true = self.id == other.id &&
+            self.total == other.total &&
+            self.less_total == other.less_total &&
+            self.status == other.status;
         if !must_be_true {
-            return false;
+            return false
         }
         for (Bond { owner: o1, amount: a1 }, Bond { owner: o2, amount: a2 }) in
             self.nominations.0.iter().zip(other.nominations.0.iter())
         {
             if o1 != o2 || a1 != a2 {
-                return false;
+                return false
             }
         }
         true
@@ -1337,7 +1336,7 @@ impl<
                     amount: balance_amt,
                     in_top,
                 });
-                return Ok(());
+                return Ok(())
             }
         }
         Err(Error::<T>::NominationDNE.into())
@@ -1348,9 +1347,9 @@ impl<
     /// This will take the current self.total and ensure that a lock of the same amount is applied
     /// and when increasing the bond lock will also ensure that the account has enough free balance.
     ///
-    /// `additional_required_balance` should reflect the change to the amount that should be locked if
-    /// positive, 0 otherwise (e.g. `min(0, change_in_total_bond)`). This is necessary because it is
-    /// not possible to query the amount that is locked for a given lock id.
+    /// `additional_required_balance` should reflect the change to the amount that should be locked
+    /// if positive, 0 otherwise (e.g. `min(0, change_in_total_bond)`). This is necessary
+    /// because it is not possible to query the amount that is locked for a given lock id.
     pub fn adjust_bond_lock<T: Config>(
         &mut self,
         additional_required_balance: BondAdjust<Balance>,
@@ -1362,15 +1361,15 @@ impl<
         match additional_required_balance {
             BondAdjust::Increase(amount) => {
                 ensure!(
-                    <Pallet<T>>::get_nominator_stakable_free_balance(&self.id.clone().into())
-                        >= amount.into(),
+                    <Pallet<T>>::get_nominator_stakable_free_balance(&self.id.clone().into()) >=
+                        amount.into(),
                     Error::<T>::InsufficientBalance,
                 );
 
                 // additional sanity check: shouldn't ever want to lock more than total
                 if amount > self.total {
                     log::warn!("LOGIC ERROR: request to reserve more than bond total");
-                    return Err(DispatchError::Other("Invalid additional_required_balance"));
+                    return Err(DispatchError::Other("Invalid additional_required_balance"))
                 }
             },
             BondAdjust::Decrease => (), // do nothing on decrease
