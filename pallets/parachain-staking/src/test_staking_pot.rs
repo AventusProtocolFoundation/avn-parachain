@@ -1,13 +1,8 @@
 #[cfg(test)]
 use crate::mock::*;
 use frame_support::{
-    assert_ok,
     traits::Currency,
-    weights::{DispatchInfo, PostDispatchInfo, Weight},
 };
-
-use pallet_transaction_payment::ChargeTransactionPayment;
-use sp_runtime::traits::SignedExtension;
 
 pub const ONE_TOKEN: u128 = 1_000000_000000_000000u128;
 pub const AMOUNT_100_TOKEN: u128 = 100 * ONE_TOKEN;

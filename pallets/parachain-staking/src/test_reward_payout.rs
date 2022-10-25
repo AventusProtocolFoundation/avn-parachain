@@ -1,15 +1,9 @@
 #[cfg(test)]
 use crate::mock::{
-    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, AccountId, Balances,
-    Call, ExtBuilder, ParachainStaking, Test, BASE_FEE, TX_LEN,
+    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, Balances,
+    ExtBuilder, ParachainStaking, BASE_FEE, TX_LEN,
 };
 use crate::{assert_eq_events, assert_event_emitted, Event};
-use frame_support::{
-    assert_ok,
-    weights::{DispatchInfo, PostDispatchInfo},
-};
-use pallet_transaction_payment::ChargeTransactionPayment;
-use sp_runtime::traits::SignedExtension;
 use sp_runtime::traits::Zero;
 
 #[test]

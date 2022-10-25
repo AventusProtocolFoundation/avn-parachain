@@ -27,8 +27,6 @@ use frame_support::{
     PalletId,
 };
 use frame_system::limits;
-use frame_system::limits;
-use pallet_transaction_payment::CurrencyAdapter;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
 use sp_core::H256;
 use sp_io;
