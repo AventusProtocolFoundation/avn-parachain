@@ -61,8 +61,6 @@ pub trait WeightInfo {
 	#[rustfmt::skip]
 	fn set_total_selected() -> Weight;
 	#[rustfmt::skip]
-	fn set_collator_commission() -> Weight;
-	#[rustfmt::skip]
 	fn set_blocks_per_era() -> Weight;
 	#[rustfmt::skip]
 	fn join_candidates(x: u32, ) -> Weight;
@@ -136,13 +134,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	#[rustfmt::skip]
 	fn set_total_selected() -> Weight {
 		(20_404_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-	// Storage: ParachainStaking CollatorCommission (r:1 w:1)
-	#[rustfmt::skip]
-	fn set_collator_commission() -> Weight {
-		(17_036_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
@@ -380,7 +371,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Staked (r:1 w:2)
 	// Storage: ParachainStaking InflationConfig (r:1 w:0)
 	// Storage: System Account (r:302 w:301)
-	// Storage: ParachainStaking CollatorCommission (r:1 w:0)
 	// Storage: ParachainStaking CandidatePool (r:1 w:0)
 	// Storage: ParachainStaking TotalSelected (r:1 w:0)
 	// Storage: ParachainStaking CandidateInfo (r:9 w:0)
@@ -453,13 +443,6 @@ impl WeightInfo for () {
 	#[rustfmt::skip]
 	fn set_total_selected() -> Weight {
 		(20_404_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-	// Storage: ParachainStaking CollatorCommission (r:1 w:1)
-	#[rustfmt::skip]
-	fn set_collator_commission() -> Weight {
-		(17_036_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
@@ -697,7 +680,6 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Staked (r:1 w:2)
 	// Storage: ParachainStaking InflationConfig (r:1 w:0)
 	// Storage: System Account (r:302 w:301)
-	// Storage: ParachainStaking CollatorCommission (r:1 w:0)
 	// Storage: ParachainStaking CandidatePool (r:1 w:0)
 	// Storage: ParachainStaking TotalSelected (r:1 w:0)
 	// Storage: ParachainStaking CandidateInfo (r:9 w:0)

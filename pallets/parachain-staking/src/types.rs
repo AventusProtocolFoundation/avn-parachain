@@ -27,7 +27,7 @@ use frame_support::{
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Saturating, Zero},
-	Perbill, Percent, RuntimeDebug,
+	Percent, RuntimeDebug,
 };
 use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
 
@@ -157,8 +157,6 @@ pub struct DelayedPayout<Balance> {
 	pub era_issuance: Balance,
 	/// The total inflation paid this era to stakers (e.g. less parachain bond fund)
 	pub total_staking_reward: Balance,
-	/// Snapshot of collator commission rate at the end of the era
-	pub collator_commission: Perbill,
 }
 
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]

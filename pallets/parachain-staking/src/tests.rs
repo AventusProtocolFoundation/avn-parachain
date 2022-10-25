@@ -32,7 +32,7 @@ use crate::{
 	NominatorAdded, NominatorState, NominatorStatus, Error, Event, NOMINATOR_LOCK_ID, mock::set_reward_pot
 };
 use frame_support::{assert_noop, assert_ok};
-use sp_runtime::{traits::Zero, DispatchError, ModuleError, Perbill};
+use sp_runtime::{traits::Zero, DispatchError, ModuleError};
 
 // ~~ ROOT ~~
 
@@ -41,10 +41,6 @@ fn invalid_root_origin_fails() {
 	ExtBuilder::default().build().execute_with(|| {
 		assert_noop!(
 			ParachainStaking::set_total_selected(Origin::signed(45), 6u32),
-			sp_runtime::DispatchError::BadOrigin
-		);
-		assert_noop!(
-			ParachainStaking::set_collator_commission(Origin::signed(45), Perbill::from_percent(5)),
 			sp_runtime::DispatchError::BadOrigin
 		);
 		assert_noop!(
@@ -168,50 +164,6 @@ fn cannot_set_total_selected_below_module_min() {
 		assert_noop!(
 			ParachainStaking::set_total_selected(Origin::root(), 4u32),
 			Error::<Test>::CannotSetBelowMin
-		);
-	});
-}
-
-// SET COLLATOR COMMISSION
-
-#[test]
-fn set_collator_commission_event_emits_correctly() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_ok!(ParachainStaking::set_collator_commission(
-			Origin::root(),
-			Perbill::from_percent(5)
-		));
-		assert_last_event!(MetaEvent::ParachainStaking(Event::CollatorCommissionSet {
-			old: Perbill::from_percent(20),
-			new: Perbill::from_percent(5),
-		}));
-	});
-}
-
-#[test]
-fn set_collator_commission_storage_updates_correctly() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_eq!(
-			ParachainStaking::collator_commission(),
-			Perbill::from_percent(20)
-		);
-		assert_ok!(ParachainStaking::set_collator_commission(
-			Origin::root(),
-			Perbill::from_percent(5)
-		));
-		assert_eq!(
-			ParachainStaking::collator_commission(),
-			Perbill::from_percent(5)
-		);
-	});
-}
-
-#[test]
-fn cannot_set_collator_commission_to_current_collator_commission() {
-	ExtBuilder::default().build().execute_with(|| {
-		assert_noop!(
-			ParachainStaking::set_collator_commission(Origin::root(), Perbill::from_percent(20)),
-			Error::<Test>::NoWritingSameValue
 		);
 	});
 }
@@ -3695,8 +3647,6 @@ fn parachain_bond_inflation_reserve_matches_config() {
 		.build()
 		.execute_with(|| {
 			assert_eq!(Balances::free_balance(&11), 1);
-			// set parachain bond account so DefaultParachainBondReservePercent = 30% of inflation
-			// is allocated to this account hereafter
 			roll_to(8);
 			// chooses top TotalSelectedCandidates (5), in order
 			let mut expected = vec![
@@ -3808,33 +3758,31 @@ fn parachain_bond_inflation_reserve_matches_config() {
 						Total reward to be paid = 50
 						Collator stake = 20
 
-						collator gets 20% commission = 10 (20% of [total reward])
-						Reward left to distribute = 40 (50 - 10)
-						collator gets 40% ([collator stake] * 100 / [total staked]) of the [reward left] = 16 (40 * 40 / 100)
-						Total 10 + 16 = 26 [commision + collator share]
+						collator gets 40% ([collator stake] * 100 / [total staked]) of the [total reward] = 20 (40 * 50 / 100)
+						Total 20
 					*/
 					account: 1,
-					rewards: 26,
+					rewards: 20,
 				},
 				Event::Rewarded {
 					/*Explanation of how reward is computed:
 						Total staked = 50
-						Reward left to distribute = 40 (total stake - commision)
+						Total reward to be paid = 50
 						Nominator stake = 10
-						nominator gets 20% ([nominator stake] * 100 / [total staked]) of 40 ([reward left]) = 8
 
-						Total 8
+						nominator gets 20% ([nominator stake] * 100 / [total staked]) of 50 ([total reward]) = 10
+						Total 10
 					*/
 					account: 6,
-					rewards: 8,
+					rewards: 10,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 8,
+					rewards: 10,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 8,
+					rewards: 10,
 				},
 			];
 			expected.append(&mut new);
@@ -3852,7 +3800,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				6
 			)));
 			// fast forward to block in which nominator 6 exit executes. Doing it in 2 steps so we can reset the reward pot
-			set_reward_pot(53);
+			set_reward_pot(55);
 			roll_to(20);
 
 			set_reward_pot(56);
@@ -3903,19 +3851,19 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 28,
+					rewards: 22,
 				},
 				Event::Rewarded {
 					account: 6,
-					rewards: 8,
+					rewards: 11,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 8,
+					rewards: 11,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 8,
+					rewards: 11,
 				},
 				Event::CollatorChosen {
 					era: 6,
@@ -3950,19 +3898,19 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 29,
+					rewards: 22,
 				},
 				Event::Rewarded {
 					account: 6,
-					rewards: 9,
+					rewards: 11,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 9,
+					rewards: 11,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 9,
+					rewards: 11,
 				},
 				Event::NominatorLeftCandidate {
 					nominator: 6,
@@ -4007,15 +3955,15 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 35,
+					rewards: 29,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 11,
+					rewards: 14,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 11,
+					rewards: 14,
 				},
 			];
 			expected.append(&mut new2);
@@ -4059,15 +4007,15 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 36,
+					rewards: 30,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 12,
+					rewards: 15,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 12,
+					rewards: 15,
 				},
 			];
 			expected.append(&mut new3);
@@ -4110,15 +4058,15 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 38,
+					rewards: 32,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 13,
+					rewards: 16,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 13,
+					rewards: 16,
 				},
 			];
 			expected.append(&mut new4);
@@ -4168,15 +4116,15 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 40,
+					rewards: 33,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 13,
+					rewards: 17,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 13,
+					rewards: 17,
 				},
 			];
 			expected.append(&mut new5);
@@ -4220,15 +4168,15 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 42,
+					rewards: 35,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 14,
+					rewards: 17,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 14,
+					rewards: 17,
 				},
 			];
 			expected.append(&mut new6);
@@ -4270,19 +4218,19 @@ fn parachain_bond_inflation_reserve_matches_config() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 39,
+					rewards: 30,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 12,
+					rewards: 15,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 12,
+					rewards: 15,
 				},
 				Event::Rewarded {
 					account: 8,
-					rewards: 12,
+					rewards: 15,
 				},
 			];
 			expected.append(&mut new7);
@@ -4291,7 +4239,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
 }
 
 #[test]
-fn paid_collator_commission_matches_config() {
+fn rewards_matches_config() {
 	ExtBuilder::default()
 		.with_balances(vec![
 			(1, 100),
@@ -4415,15 +4363,15 @@ fn paid_collator_commission_matches_config() {
 				},
 				Event::Rewarded {
 					account: 4,
-					rewards: 18,
+					rewards: 15,
 				},
 				Event::Rewarded {
 					account: 5,
-					rewards: 6,
+					rewards: 7,
 				},
 				Event::Rewarded {
 					account: 6,
-					rewards: 6,
+					rewards: 7,
 				},
 			];
 			expected.append(&mut new2);
@@ -5561,7 +5509,7 @@ fn payouts_follow_nomination_changes() {
 			set_author(2, 1, 100);
 			set_reward_pot(50);
 			roll_to(16);
-			// distribute total issuance to collator 1 and its nominators 6, 7, 19
+			// distribute total reward to collator 1 and its nominators 6, 7, 19
 			let mut new = vec![
 				Event::CollatorChosen {
 					era: 3,
@@ -5627,19 +5575,19 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 26,
+					rewards: 20,
 				},
 				Event::Rewarded {
 					account: 6,
-					rewards: 8,
+					rewards: 10,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 8,
+					rewards: 10,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 8,
+					rewards: 10,
 				},
 			];
 			expected.append(&mut new);
@@ -5709,19 +5657,19 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 27,
+					rewards: 21,
 				},
 				Event::Rewarded {
 					account: 6,
-					rewards: 8,
+					rewards: 10,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 8,
+					rewards: 10,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 8,
+					rewards: 10,
 				},
 				Event::CollatorChosen {
 					era: 6,
@@ -5756,19 +5704,19 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 29,
+					rewards: 22,
 				},
 				Event::Rewarded {
 					account: 6,
-					rewards: 9,
+					rewards: 11,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 9,
+					rewards: 11,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 9,
+					rewards: 11,
 				},
 				Event::NominatorLeftCandidate {
 					nominator: 6,
@@ -5824,15 +5772,15 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 35,
+					rewards: 29,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 11,
+					rewards: 14,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 11,
+					rewards: 14,
 				},
 				Event::CollatorChosen {
 					era: 8,
@@ -5867,15 +5815,15 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 36,
+					rewards: 30,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 12,
+					rewards: 15,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 12,
+					rewards: 15,
 				},
 			];
 			expected.append(&mut new3);
@@ -5918,15 +5866,15 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 38,
+					rewards: 32,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 13,
+					rewards: 16,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 13,
+					rewards: 16,
 				},
 			];
 			expected.append(&mut new4);
@@ -5976,15 +5924,15 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 40,
+					rewards: 33,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 13,
+					rewards: 17,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 13,
+					rewards: 17,
 				},
 			];
 			expected.append(&mut new5);
@@ -6027,15 +5975,15 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 42,
+					rewards: 35,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 14,
+					rewards: 17,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 14,
+					rewards: 17,
 				},
 			];
 			expected.append(&mut new6);
@@ -6078,19 +6026,19 @@ fn payouts_follow_nomination_changes() {
 				},
 				Event::Rewarded {
 					account: 1,
-					rewards: 39,
+					rewards: 30,
 				},
 				Event::Rewarded {
 					account: 7,
-					rewards: 12,
+					rewards: 15,
 				},
 				Event::Rewarded {
 					account: 10,
-					rewards: 12,
+					rewards: 15,
 				},
 				Event::Rewarded {
 					account: 8,
-					rewards: 12,
+					rewards: 15,
 				},
 			];
 			expected.append(&mut new7);
@@ -6858,15 +6806,15 @@ fn deferred_payment_steady_state_event_flow() {
 					// first payout should occur on era change
 					Event::Rewarded {
 						account: 3,
-						rewards: 19,
+						rewards: 16,
 					},
 					Event::Rewarded {
 						account: 22,
-						rewards: 6,
+						rewards: 8,
 					},
 					Event::Rewarded {
 						account: 33,
-						rewards: 6,
+						rewards: 8,
 					},
 				];
 			assert_eq_last_events!(expected);
@@ -6877,15 +6825,15 @@ fn deferred_payment_steady_state_event_flow() {
 			let expected = vec![
 					Event::Rewarded {
 						account: 4,
-						rewards: 19,
+						rewards: 16,
 					},
 					Event::Rewarded {
 						account: 33,
-						rewards: 6,
+						rewards: 8,
 					},
 					Event::Rewarded {
 						account: 44,
-						rewards: 6,
+						rewards: 8,
 					},
 				];
 			assert_eq_last_events!(expected);
@@ -6894,15 +6842,15 @@ fn deferred_payment_steady_state_event_flow() {
 				let expected = vec![
 					Event::Rewarded {
 						account: 1,
-						rewards: 19,
+						rewards: 16,
 					},
 					Event::Rewarded {
 						account: 11,
-						rewards: 6,
+						rewards: 8,
 					},
 					Event::Rewarded {
 						account: 44,
-						rewards: 6,
+						rewards: 8,
 					},
 				];
 				assert_eq_last_events!(expected);
@@ -6911,15 +6859,15 @@ fn deferred_payment_steady_state_event_flow() {
 				let expected = vec![
 					Event::Rewarded {
 						account: 2,
-						rewards: 19,
+						rewards: 16,
 					},
 					Event::Rewarded {
 						account: 11,
-						rewards: 6,
+						rewards: 8,
 					},
 					Event::Rewarded {
 						account: 22,
-						rewards: 6,
+						rewards: 8,
 					},
 				];
 				assert_eq_last_events!(expected);
@@ -6929,7 +6877,7 @@ fn deferred_payment_steady_state_event_flow() {
 					// we paid everyone out by now, should repeat last event
 					Event::Rewarded {
 						account: 22,
-						rewards: 6,
+						rewards: 8,
 					},
 				];
 				assert_eq_last_events!(expected);
@@ -7085,11 +7033,11 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_eras_but_not_for
 				vec![
 					Event::<Test>::Rewarded {
 						account: 1,
-						rewards: 4,
+						rewards: 3,
 					},
 					Event::<Test>::Rewarded {
 						account: 2,
-						rewards: 1,
+						rewards: 2,
 					},
 				],
 				"nominator was not rewarded as intended"
@@ -7184,11 +7132,11 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 				vec![
 					Event::<Test>::Rewarded {
 						account: 1,
-						rewards: 4,
+						rewards: 3,
 					},
 					Event::<Test>::Rewarded {
 						account: 2,
-						rewards: 1,
+						rewards: 2,
 					},
 				],
 				"nominator was not rewarded as intended",
@@ -7237,7 +7185,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_
 				vec![
 					Event::<Test>::Rewarded {
 						account: 1,
-						rewards: 3,
+						rewards: 2,
 					},
 					Event::<Test>::Rewarded {
 						account: 2,
@@ -7253,11 +7201,11 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_
 				vec![
 					Event::<Test>::Rewarded {
 						account: 1,
-						rewards: 4,
+						rewards: 3,
 					},
 					Event::<Test>::Rewarded {
 						account: 2,
-						rewards: 1,
+						rewards: 2,
 					},
 				],
 				"nominator was rewarded unexpectedly"
@@ -7322,11 +7270,11 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 				vec![
 					Event::<Test>::Rewarded {
 						account: 1,
-						rewards: 4,
+						rewards: 3,
 					},
 					Event::<Test>::Rewarded {
 						account: 2,
-						rewards: 1,
+						rewards: 2,
 					},
 				],
 				"nominator was rewarded unexpectedly",
@@ -7349,7 +7297,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 				vec![
 					Event::<Test>::Rewarded {
 						account: 1,
-						rewards: 3,
+						rewards: 2,
 					},
 					Event::<Test>::Rewarded {
 						account: 2,
@@ -7396,11 +7344,11 @@ fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_eras_but_not_for_
 				vec![
 					Event::<Test>::Rewarded {
 						account: 1,
-						rewards: 4,
+						rewards: 3,
 					},
 					Event::<Test>::Rewarded {
 						account: 2,
-						rewards: 1,
+						rewards: 2,
 					},
 				],
 				"nominator was not rewarded as intended"
@@ -7488,11 +7436,11 @@ fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
 				vec![
 					Event::<Test>::Rewarded {
 						account: 1,
-						rewards: 4,
+						rewards: 3,
 					},
 					Event::<Test>::Rewarded {
 						account: 2,
-						rewards: 1,
+						rewards: 2,
 					},
 				],
 				"nominator was not rewarded as intended",

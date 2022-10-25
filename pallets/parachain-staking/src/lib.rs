@@ -86,7 +86,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
 		traits::{Saturating, Zero, AccountIdConversion, CheckedAdd, CheckedSub, Bounded},
-		Perbill, Percent,
+		Perbill,
 	};
 	use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
@@ -150,12 +150,6 @@ pub mod pallet {
 		/// Maximum nominations per nominator
 		#[pallet::constant]
 		type MaxNominationsPerNominator: Get<u32>;
-		/// Default commission due to collators, is `CollatorCommission` storage value in genesis
-		#[pallet::constant]
-		type DefaultCollatorCommission: Get<Perbill>;
-		/// Default percent of inflation set aside for parachain bond account
-		#[pallet::constant]
-		type DefaultParachainBondReservePercent: Get<Percent>;
 		/// Minimum stake required for any candidate to be in `SelectedCandidates` for the era
 		#[pallet::constant]
 		type MinCollatorStk: Get<BalanceOf<Self>>;
@@ -375,8 +369,6 @@ pub mod pallet {
 		},
 		/// Set total selected candidates to this value.
 		TotalSelectedSet { old: u32, new: u32 },
-		/// Set collator commission to this value.
-		CollatorCommissionSet { old: Perbill, new: Perbill },
 		/// Set blocks per era
 		BlocksPerEraSet {
 			current_era: EraIndex,
@@ -433,11 +425,6 @@ pub mod pallet {
 			weight
 		}
 	}
-
-	#[pallet::storage]
-	#[pallet::getter(fn collator_commission)]
-	/// Commission percent taken off of rewards for all collators
-	type CollatorCommission<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn total_selected)]
@@ -645,8 +632,6 @@ pub mod pallet {
 					};
 				}
 			}
-			// Set collator commission to default config
-			<CollatorCommission<T>>::put(T::DefaultCollatorCommission::get());
 			// Set total selected candidates to minimum config
 			<TotalSelected<T>>::put(T::MinSelectedCandidates::get());
 			// Choose top TotalSelected collator candidates
@@ -687,19 +672,7 @@ pub mod pallet {
 			Self::deposit_event(Event::TotalSelectedSet { old, new });
 			Ok(().into())
 		}
-		#[pallet::weight(<T as Config>::WeightInfo::set_collator_commission())]
-		/// Set the commission for all collators
-		pub fn set_collator_commission(
-			origin: OriginFor<T>,
-			new: Perbill,
-		) -> DispatchResultWithPostInfo {
-			frame_system::ensure_root(origin)?;
-			let old = <CollatorCommission<T>>::get();
-			ensure!(old != new, Error::<T>::NoWritingSameValue);
-			<CollatorCommission<T>>::put(new);
-			Self::deposit_event(Event::CollatorCommissionSet { old, new });
-			Ok(().into())
-		}
+
 		#[pallet::weight(<T as Config>::WeightInfo::set_blocks_per_era())]
 		/// Set blocks per era
 		/// - if called with `new` less than length of current era, will transition immediately
@@ -1314,7 +1287,6 @@ pub mod pallet {
 			let payout = DelayedPayout {
 				era_issuance: total_reward_to_pay,
 				total_staking_reward: total_reward_to_pay, // TODO: Remove one of the duplicated fields
-				collator_commission: <CollatorCommission<T>>::get(),
 			};
 
 			<DelayedPayouts<T>>::insert(era_to_payout, payout);
@@ -1370,7 +1342,7 @@ pub mod pallet {
 			}
 
 			let reward_pot_account_id = Self::compute_reward_pot_account_id();
-			let mint = |amt: BalanceOf<T>, to: T::AccountId| {
+			let pay_reward = |amt: BalanceOf<T>, to: T::AccountId| {
 				let result = T::Currency::transfer(&reward_pot_account_id, &to, amt, ExistenceRequirement::KeepAlive);
 				if let Ok(_) = result {
 					Self::deposit_event(Event::Rewarded {
@@ -1386,51 +1358,39 @@ pub mod pallet {
 				}
 			};
 
-			let collator_fee = payout_info.collator_commission;
-			let collator_issuance = collator_fee * payout_info.era_issuance;
-
-			if let Some((collator, pts)) =
-				<AwardedPts<T>>::iter_prefix(paid_for_era).drain().next()
+			if let Some((collator, pts)) = <AwardedPts<T>>::iter_prefix(paid_for_era).drain().next()
 			{
 				let mut extra_weight = 0;
 				let pct_due = Perbill::from_rational(pts, total_points);
-				let total_paid = pct_due * payout_info.total_staking_reward;
-				let mut amt_due = total_paid;
+				let total_reward_for_collator = pct_due * payout_info.total_staking_reward;
+
 				// Take the snapshot of block author and nominations
 				let state = <AtStake<T>>::take(paid_for_era, &collator);
 				let num_nominators = state.nominations.len();
-				if state.nominations.is_empty() {
-					// solo collator with no nominators
-					mint(amt_due, collator.clone());
-					extra_weight += T::OnCollatorPayout::on_collator_payout(
-						paid_for_era,
-						collator.clone(),
-						amt_due,
-					);
-				} else {
-					// pay collator first; commission + due_portion
-					let collator_pct = Perbill::from_rational(state.bond, state.total);
-					let commission = pct_due * collator_issuance;
-					amt_due = amt_due.saturating_sub(commission);
-					let collator_reward = (collator_pct * amt_due).saturating_add(commission);
-					mint(collator_reward, collator.clone());
-					extra_weight += T::OnCollatorPayout::on_collator_payout(
-						paid_for_era,
-						collator.clone(),
-						collator_reward,
-					);
-					// pay nominators due portion
-					for Bond { owner, amount } in state.nominations {
-						let percent = Perbill::from_rational(amount, state.total);
-						let due = percent * amt_due;
-						if !due.is_zero() {
-							mint(due, owner.clone());
-						}
+
+				// pay collator's due portion first
+				let collator_pct = Perbill::from_rational(state.bond, state.total);
+				let collator_reward = collator_pct * total_reward_for_collator;
+				pay_reward(collator_reward, collator.clone());
+
+				// TODO: do we need this?
+				extra_weight += T::OnCollatorPayout::on_collator_payout(
+					paid_for_era,
+					collator.clone(),
+					collator_reward,
+				);
+
+				// pay nominators due portion, if there are any
+				for Bond { owner, amount } in state.nominations {
+					let percent = Perbill::from_rational(amount, state.total);
+					let nominator_reward = percent * total_reward_for_collator;
+					if !nominator_reward.is_zero() {
+						pay_reward(nominator_reward, owner.clone());
 					}
 				}
 
 				(
-					Some((collator, total_paid)),
+					Some((collator, total_reward_for_collator)),
 					T::WeightInfo::pay_one_collator_reward(num_nominators as u32) + extra_weight,
 				)
 			} else {
