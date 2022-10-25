@@ -16,14 +16,14 @@
 
 //! Scheduled requests functionality for nominators
 
-use crate::pallet::{
-    BalanceOf, CandidateInfo, Config, Era, EraIndex, Error, Event, NominationScheduledRequests,
-    NominatorState, Pallet, Total,
+use crate::{
+    pallet::{
+        BalanceOf, CandidateInfo, Config, Era, EraIndex, Error, Event, NominationScheduledRequests,
+        NominatorState, Pallet, Total,
+    },
+    Nominator, NominatorStatus,
 };
-use crate::{Nominator, NominatorStatus};
-use frame_support::ensure;
-use frame_support::traits::Get;
-use frame_support::{dispatch::DispatchResultWithPostInfo, RuntimeDebug};
+use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get, RuntimeDebug};
 use parity_scale_codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_runtime::traits::Saturating;
@@ -297,7 +297,7 @@ impl<T: Config> Pallet<T> {
                         } else {
                             // must rm entire nomination if bond.amount <= less or cancel request
                             Err(<Error<T>>::NominationBelowMin.into())
-                        };
+                        }
                     }
                 }
                 Err(<Error<T>>::NominationDNE.into())
@@ -351,7 +351,7 @@ impl<T: Config> Pallet<T> {
         }
 
         if existing_revoke_count == state.nominations.0.len() {
-            return Err(<Error<T>>::NominatorAlreadyLeaving.into());
+            return Err(<Error<T>>::NominatorAlreadyLeaving.into())
         }
 
         updated_scheduled_requests
@@ -384,7 +384,7 @@ impl<T: Config> Pallet<T> {
             state.status = NominatorStatus::Active;
             <NominatorState<T>>::insert(nominator.clone(), state.clone());
             Self::deposit_event(Event::NominatorExitCancelled { nominator });
-            return Ok(().into());
+            return Ok(().into())
         }
 
         // pre-validate that all nominations have a Revoke request.
@@ -454,7 +454,7 @@ impl<T: Config> Pallet<T> {
             }
             <NominatorState<T>>::remove(&nominator);
             Self::deposit_event(Event::NominatorLeft { nominator, unstaked_amount: state.total });
-            return Ok(().into());
+            return Ok(().into())
         }
 
         let mut validated_scheduled_requests = vec![];
@@ -537,7 +537,8 @@ impl<T: Config> Pallet<T> {
             .any(|req| &req.nominator == nominator)
     }
 
-    /// Returns true if a [NominationAction::Revoke] [ScheduledRequest] exists for a given nomination
+    /// Returns true if a [NominationAction::Revoke] [ScheduledRequest] exists for a given
+    /// nomination
     pub fn nomination_request_revoke_exists(
         collator: &T::AccountId,
         nominator: &T::AccountId,
