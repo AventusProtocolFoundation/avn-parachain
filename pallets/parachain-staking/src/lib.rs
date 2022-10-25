@@ -1278,25 +1278,25 @@ pub mod pallet {
             }
 
             let reward_pot_account_id = Self::compute_reward_pot_account_id();
-            let pay_reward = |amt: BalanceOf<T>, to: T::AccountId| {
+            let pay_reward = |amount: BalanceOf<T>, to: T::AccountId| {
                 let result = T::Currency::transfer(
                     &reward_pot_account_id,
                     &to,
-                    amt,
+                    amount,
                     ExistenceRequirement::KeepAlive,
                 );
                 if let Ok(_) = result {
-                    Self::deposit_event(Event::Rewarded { account: to.clone(), rewards: amt });
+                    Self::deposit_event(Event::Rewarded { account: to.clone(), rewards: amount });
 
                     // Update storage with the amount we paid
                     <LockedEraPayout<T>>::mutate(|p| {
-                        *p = p.saturating_sub(amt.into());
+                        *p = p.saturating_sub(amount.into());
                     });
                 } else {
                     log::error!("💔 Error paying staking reward: {:?}", result);
                     Self::deposit_event(Event::ErrorPayingStakingReward {
                         payee: to.clone(),
-                        rewards: amt,
+                        rewards: amount,
                     });
                 }
             };
