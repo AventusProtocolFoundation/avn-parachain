@@ -1022,8 +1022,7 @@ benchmarks! {
 
 #[cfg(test)]
 mod tests {
-    use crate::benchmarks::*;
-    use crate::mock::Test;
+    use crate::{benchmarks::*, mock::Test};
     use frame_support::assert_ok;
     use sp_io::TestExternalities;
 

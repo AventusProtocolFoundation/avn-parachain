@@ -466,7 +466,7 @@ pub(crate) fn set_author(era: u32, acc: u64, pts: u32) {
 pub(crate) fn query_lock_amount(account_id: u64, id: LockIdentifier) -> Option<Balance> {
     for lock in Balances::locks(&account_id) {
         if lock.id == id {
-            return Some(lock.amount);
+            return Some(lock.amount)
         }
     }
     None

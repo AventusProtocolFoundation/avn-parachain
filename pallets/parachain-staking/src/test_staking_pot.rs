@@ -13,7 +13,7 @@ fn get_total_balance_of_collators(collator_account_ids: &Vec<AccountId>) -> u128
         .clone()
         .into_iter()
         .map(|v| Balances::free_balance(v))
-        .sum::<u128>();
+        .sum::<u128>()
 }
 
 #[test]
