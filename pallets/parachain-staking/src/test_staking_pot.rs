@@ -1,6 +1,10 @@
 #[cfg(test)]
-use crate::mock::{*};
-use frame_support::{assert_ok, traits::Currency, weights::{ DispatchInfo, PostDispatchInfo, Weight }};
+use crate::mock::*;
+use frame_support::{
+    assert_ok,
+    traits::Currency,
+    weights::{DispatchInfo, PostDispatchInfo, Weight},
+};
 
 use pallet_transaction_payment::ChargeTransactionPayment;
 use sp_runtime::traits::SignedExtension;
@@ -10,7 +14,11 @@ pub const AMOUNT_100_TOKEN: u128 = 100 * ONE_TOKEN;
 pub const NON_COLLATOR_ACCOUNT_ID: u64 = 2u64;
 
 fn get_total_balance_of_collators(collator_account_ids: &Vec<AccountId>) -> u128 {
-    return collator_account_ids.clone().into_iter().map(|v| Balances::free_balance(v)).sum::<u128>();
+    return collator_account_ids
+        .clone()
+        .into_iter()
+        .map(|v| Balances::free_balance(v))
+        .sum::<u128>();
 }
 
 #[test]
@@ -83,7 +91,7 @@ fn fee_and_tip_is_added_to_pot() {
         .execute_with(|| {
             let fee: u128 = (BASE_FEE + TX_LEN as u64) as u128;
             let sender = NON_COLLATOR_ACCOUNT_ID;
-            let tip  = 15u128;
+            let tip = 15u128;
             Balances::make_free_balance_be(&sender, AMOUNT_100_TOKEN);
 
             let sender_balance = Balances::free_balance(sender);
