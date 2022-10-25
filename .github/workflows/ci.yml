@@ -37,11 +37,14 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Check Code
-        run: cargo fmt --all --check --manifest-path ./pallets/parachain-staking/Cargo.toml
+      - name: Linting check
+        run: cargo fmt --all --check
+
+      - name: Check code
+        run: cargo check --locked --release
 
       - name: Test Code
-        run: cargo test --manifest-path ./pallets/parachain-staking/Cargo.toml
+        run: cargo test
 
-      - name: Build
-        run: cargo build --locked --release --manifest-path ./pallets/parachain-staking/Cargo.toml
+      - name: benchmark test Code
+        run: cargo test --features runtime-benchmarks -- benchmarks

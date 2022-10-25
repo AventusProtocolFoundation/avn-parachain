@@ -12,6 +12,7 @@ jobs:
           repository: Aventus-Network-Services/avn-node-parachain
           fetch-depth: '0'
           ssh-key: ${{ secrets.avn_node_parachain_key }}
+          ref: feat/SYS-2686-staking-reimplementation
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
