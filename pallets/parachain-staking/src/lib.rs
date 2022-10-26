@@ -104,6 +104,7 @@ pub mod pallet {
     pub struct Pallet<T>(PhantomData<T>);
 
     pub type EraIndex = u32;
+    pub type CollatorPayoutPeriodIndex = u32;
     type RewardPoint = u32;
     pub type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -170,6 +171,8 @@ pub mod pallet {
         /// Minimum stake for any registered on-chain account to be a nominator
         #[pallet::constant]
         type MinNominatorStk: Get<BalanceOf<Self>>;
+        /// Number of eras to wait before we pay collator rewards
+        type ErasPerCollatorPayout: Get<CollatorPayoutPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
         type RewardPotId: Get<PalletId>;
         /// Handler to notify the runtime when a collator is paid.
@@ -539,10 +542,21 @@ pub mod pallet {
     pub type LockedEraPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn faild_payments)]
-    /// Storage value that holds any failed payments
-    pub type FailedRewardPayments<T: Config> =
-        StorageMap<_, Twox64Concat, BalanceOf<T>, bool, ValueQuery>;
+    #[pallet::getter(fn collator_payout_period_info)]
+    /// A number that tracks the period of collator payments
+    pub(crate) type CollatorPayoutPeriod<T: Config> =
+        StorageValue<_, CollatorPayoutPeriodInfo, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn collator_payout)]
+    /// Storage value that holds data to calculate collator payouts.
+    pub type CollatorPayout<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        CollatorPayoutPeriodIndex,
+        CollatorPayoutInfo<BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -623,6 +637,10 @@ pub mod pallet {
             <Era<T>>::put(era);
             // Snapshot total stake
             <Staked<T>>::insert(1u32, <Total<T>>::get());
+
+            // Set the first CollatorPayoutInfo
+            <CollatorPayout<T>>::insert(0u32, CollatorPayoutInfo::new(1u32));
+
             <Pallet<T>>::deposit_event(Event::NewEra {
                 starting_block: T::BlockNumber::zero(),
                 era: 1u32,
@@ -1213,6 +1231,7 @@ pub mod pallet {
             });
             Ok(())
         }
+
         fn prepare_staking_payouts(now: EraIndex) {
             // payout is now - delay eras ago => now - delay > 0 else return early
             let delay = T::RewardPaymentDelay::get();
@@ -1225,7 +1244,7 @@ pub mod pallet {
                 return
             }
             // Remove stake because it has been processed.
-            <Staked<T>>::take(era_to_payout);
+            let total_staked = <Staked<T>>::take(era_to_payout);
 
             let total_reward_to_pay = Self::compute_total_reward_to_pay();
 
@@ -1235,7 +1254,9 @@ pub mod pallet {
                                                             * fields */
             };
 
-            <DelayedPayouts<T>>::insert(era_to_payout, payout);
+            <DelayedPayouts<T>>::insert(era_to_payout, &payout);
+
+            Self::update_collator_payout(now, total_staked, payout);
         }
 
         /// Wrapper around pay_one_collator_reward which handles the following logic:
@@ -1371,6 +1392,7 @@ pub mod pallet {
             collators.sort();
             collators
         }
+
         /// Best as in most cumulatively supported in terms of stake
         /// Returns [collator_count, nomination_count, total staked]
         fn select_top_candidates(now: EraIndex) -> (u32, u32, BalanceOf<T>) {
@@ -1495,6 +1517,49 @@ pub mod pallet {
             // Must never be less than 0 but better be safe.
             T::Currency::free_balance(&Self::compute_reward_pot_account_id())
                 .saturating_sub(T::Currency::minimum_balance())
+        }
+
+        pub fn update_collator_payout(
+            new_era: EraIndex,
+            total_staked: BalanceOf<T>,
+            payout: DelayedPayout<BalanceOf<T>>,
+        ) {
+            let collator_payout_period = Self::collator_payout_period_info();
+            let new_total_staking_reward = payout.total_staking_reward;
+
+            if Self::is_new_payout_period(&new_era, &collator_payout_period) {
+                <CollatorPayoutPeriod<T>>::mutate(|info| {
+                    info.start_era_index = new_era;
+                    info.index = info.index.saturating_add(1);
+                });
+
+                let mut new_payout_info = CollatorPayoutInfo::new(new_era);
+                new_payout_info.total_stake_accumulator = 1u32;
+                new_payout_info.total_amount_staked = total_staked;
+                new_payout_info.total_staker_reward = new_total_staking_reward;
+
+                <CollatorPayout<T>>::insert(
+                    Self::collator_payout_period_info().index,
+                    new_payout_info,
+                );
+            } else {
+                <CollatorPayout<T>>::mutate(collator_payout_period.index, |info| {
+                    info.total_stake_accumulator = info.total_stake_accumulator.saturating_add(1);
+                    info.total_amount_staked =
+                        info.total_amount_staked.saturating_add(total_staked);
+                    info.total_staker_reward =
+                        info.total_staker_reward.saturating_add(new_total_staking_reward);
+                });
+            };
+        }
+
+        fn is_new_payout_period(
+            era_index: &EraIndex,
+            collator_payout_period: &CollatorPayoutPeriodInfo,
+        ) -> bool {
+            return collator_payout_period.index == 0 ||
+                era_index - collator_payout_period.start_era_index >=
+                    T::ErasPerCollatorPayout::get()
         }
     }
 

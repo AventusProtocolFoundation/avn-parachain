@@ -17,8 +17,9 @@
 //! Types for parachain-staking
 
 use crate::{
-    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Era, EraIndex, Error,
-    Event, NominatorState, Pallet, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, CollatorPayoutPeriodIndex,
+    Config, Era, EraIndex, Error, Event, NominatorState, Pallet, TopNominations, Total,
+    COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
     pallet_prelude::*,
@@ -1565,4 +1566,40 @@ impl<A: Decode> Default for ParachainBondConfig<A> {
 pub enum BondAdjust<Balance> {
     Increase(Balance),
     Decrease,
+}
+
+// Data structure for tracking collator rewards
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
+pub struct CollatorPayoutInfo<Balance> {
+    pub total_stake_accumulator: CollatorPayoutPeriodIndex,
+    pub total_amount_staked: Balance,
+    pub total_staker_reward: Balance,
+}
+
+impl<
+        Balance: Copy
+            + sp_std::ops::AddAssign
+            + sp_std::ops::Add<Output = Balance>
+            + sp_std::ops::SubAssign
+            + sp_std::ops::Sub<Output = Balance>
+            + Ord
+            + Zero
+            + Default
+            + Saturating,
+    > CollatorPayoutInfo<Balance>
+{
+    pub fn new(total_stake_accumulator: CollatorPayoutPeriodIndex) -> Self {
+        CollatorPayoutInfo {
+            total_stake_accumulator,
+            total_amount_staked: Balance::zero(),
+            total_staker_reward: Balance::zero(),
+        }
+    }
+}
+
+// Data structure for tracking collator reward periods
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
+pub struct CollatorPayoutPeriodInfo {
+    pub start_era_index: EraIndex,
+    pub index: CollatorPayoutPeriodIndex,
 }
