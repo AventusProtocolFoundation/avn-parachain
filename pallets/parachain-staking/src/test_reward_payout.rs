@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::mock::{
-    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, Balances,
-    ExtBuilder, ParachainStaking, BASE_FEE, TX_LEN
+    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, Balances, ExtBuilder,
+    ParachainStaking, BASE_FEE, TX_LEN,
 };
 use crate::{assert_eq_events, assert_event_emitted, Event};
 use sp_runtime::{traits::Zero, Perbill};
@@ -91,7 +91,8 @@ fn end_to_end_happy_path() {
             set_author(ERA_BLOCKS_HAVE_BEEN_AUTHORED, COLLATOR1, COLLATOR1_POINTS);
             set_author(ERA_BLOCKS_HAVE_BEEN_AUTHORED, COLLATOR2, COLLATOR2_POINTS);
 
-            // We expect reward payouts on era 3 because all 3 conditions for earning rewards are met.
+            // We expect reward payouts on era 3 because all 3 conditions for earning rewards are
+            // met.
             roll_to_era_begin(3);
 
             // We now do the relevant checks
@@ -116,14 +117,15 @@ fn end_to_end_happy_path() {
             // Show that reward pot balance has decreased by "total reward payment amount"
             assert_eq!(
                 Balances::free_balance(&reward_pot_account_id),
-                reward_pot_balance_before_reward_payout
-                    - (expected_collator1_reward + expected_nominator_reward)
+                reward_pot_balance_before_reward_payout -
+                    (expected_collator1_reward + expected_nominator_reward)
             );
 
             // Show that locked era payout has reserved enough to pay collator2
             assert_eq!(
                 ParachainStaking::locked_era_payout(),
-                reward_pot_balance_before_reward_payout - (expected_collator1_reward + expected_nominator_reward)
+                reward_pot_balance_before_reward_payout -
+                    (expected_collator1_reward + expected_nominator_reward)
             );
 
             // Move to the next block to trigger paying out the next collator
@@ -136,7 +138,8 @@ fn end_to_end_happy_path() {
                 rewards: expected_collator2_reward
             });
 
-            // Show that reward pot balance and locked era balance are 0 because everything has been paid out for all collators
+            // Show that reward pot balance and locked era balance are 0 because everything has been
+            // paid out for all collators
             assert_eq!(Balances::free_balance(&reward_pot_account_id), 0);
             assert_eq!(ParachainStaking::locked_era_payout(), 0);
 
