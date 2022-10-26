@@ -28,7 +28,7 @@ jobs:
         env:
           STRING_TO_CHANGE: '\(pallet-parachain-staking =.*branch = \)\(.*\)\( }\)'
         run: |
-          sed -i "s/$STRING_TO_CHANGE/\1\"$GITHUB_HEAD_REF\"\3/" ./runtime/Cargo.toml
+          sed -i "s/$STRING_TO_CHANGE/\1\"$GITHUB_REF_NAME\"\3/" ./runtime/Cargo.toml
           echo "using staking pallet from branch:"
           cat ./runtime/Cargo.toml | grep "^pallet-parachain-staking"
 
