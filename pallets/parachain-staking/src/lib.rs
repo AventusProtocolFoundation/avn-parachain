@@ -1180,7 +1180,6 @@ pub mod pallet {
                     .checked_add(&payout)
                     .or_else(|| {
                         log::error!("💔 Error - locked_era_payout overflow. Reducing era payout");
-                        println!("💔 Error - locked_era_payout overflow. Reducing era payout");
                         // In the unlikely event where the value will overflow the LockedEraPayout,
                         // return the difference to avoid errors
                         payout =
