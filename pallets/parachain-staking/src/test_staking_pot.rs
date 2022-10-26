@@ -1,47 +1,10 @@
 #[cfg(test)]
 use crate::mock::*;
-use frame_support::{
-    assert_ok,
-    traits::Currency,
-    weights::{DispatchInfo, PostDispatchInfo, Weight},
-};
-
-use pallet_transaction_payment::ChargeTransactionPayment;
-use sp_runtime::traits::SignedExtension;
+use frame_support::traits::Currency;
 
 pub const ONE_TOKEN: u128 = 1_000000_000000_000000u128;
 pub const AMOUNT_100_TOKEN: u128 = 100 * ONE_TOKEN;
 pub const NON_COLLATOR_ACCOUNT_ID: u64 = 2u64;
-
-pub fn get_transfer_call() -> <Test as frame_system::Config>::Call {
-    return Call::Balances(pallet_balances::Call::transfer {
-        dest: NON_COLLATOR_ACCOUNT_ID,
-        value: 0,
-    })
-}
-
-/// create a transaction info struct from weight. Handy to avoid building the whole struct.
-pub fn info_from_weight(w: Weight) -> DispatchInfo {
-    DispatchInfo { weight: w, ..Default::default() }
-}
-
-fn default_post_info() -> PostDispatchInfo {
-    PostDispatchInfo { actual_weight: None, pays_fee: Default::default() }
-}
-
-fn pay_gas_for_transaction(sender: &AccountId, tip: u128) {
-    let pre = ChargeTransactionPayment::<Test>::from(tip)
-        .pre_dispatch(sender, &get_transfer_call(), &info_from_weight(1), TX_LEN)
-        .unwrap();
-
-    assert_ok!(ChargeTransactionPayment::<Test>::post_dispatch(
-        Some(pre),
-        &info_from_weight(1),
-        &default_post_info(),
-        TX_LEN,
-        &Ok(())
-    ));
-}
 
 fn get_total_balance_of_collators(collator_account_ids: &Vec<AccountId>) -> u128 {
     return collator_account_ids

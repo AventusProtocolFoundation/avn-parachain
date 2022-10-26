@@ -59,6 +59,8 @@ mod benchmarks;
 mod mock;
 mod set;
 #[cfg(test)]
+mod test_reward_payout;
+#[cfg(test)]
 mod test_staking_pot;
 #[cfg(test)]
 mod tests;
@@ -1165,18 +1167,13 @@ pub mod pallet {
         /// Compute total reward for era based on the amount in the reward pot
         fn compute_total_reward_to_pay() -> BalanceOf<T> {
             let total_unpaid_reward_amount = Self::reward_pot();
-            let mut payout = total_unpaid_reward_amount
-				.checked_sub(&Self::locked_era_payout())
-				.or_else(|| {
-					log::error!("💔 Error calculating era payout. Not enough funds in total_unpaid_reward_amount.");
+            let mut payout = total_unpaid_reward_amount.checked_sub(&Self::locked_era_payout()).or_else(|| {
+				log::error!("� Error calculating era payout. Not enough funds in total_unpaid_reward_amount.");
 
-					//This is a bit strange but since we are dealing with money, log it.
-					Self::deposit_event(Event::NotEnoughFundsForEraPayment {
-						reward_pot_balance: total_unpaid_reward_amount,
-					});
-					Some(BalanceOf::<T>::zero())
-				})
-				.expect("We have a default value");
+				//This is a bit strange but since we are dealing with money, log it.
+				Self::deposit_event(Event::NotEnoughFundsForEraPayment {reward_pot_balance: total_unpaid_reward_amount});
+				Some(BalanceOf::<T>::zero())
+			}).expect("We have a default value");
 
             <LockedEraPayout<T>>::mutate(|lp| {
                 *lp = lp
@@ -1291,20 +1288,25 @@ pub mod pallet {
             }
 
             let reward_pot_account_id = Self::compute_reward_pot_account_id();
-            let pay_reward = |amt: BalanceOf<T>, to: T::AccountId| {
+            let pay_reward = |amount: BalanceOf<T>, to: T::AccountId| {
                 let result = T::Currency::transfer(
                     &reward_pot_account_id,
                     &to,
-                    amt,
+                    amount,
                     ExistenceRequirement::KeepAlive,
                 );
                 if let Ok(_) = result {
-                    Self::deposit_event(Event::Rewarded { account: to.clone(), rewards: amt });
+                    Self::deposit_event(Event::Rewarded { account: to.clone(), rewards: amount });
+
+                    // Update storage with the amount we paid
+                    <LockedEraPayout<T>>::mutate(|p| {
+                        *p = p.saturating_sub(amount.into());
+                    });
                 } else {
                     log::error!("💔 Error paying staking reward: {:?}", result);
                     Self::deposit_event(Event::ErrorPayingStakingReward {
                         payee: to.clone(),
-                        rewards: amt,
+                        rewards: amount,
                     });
                 }
             };
