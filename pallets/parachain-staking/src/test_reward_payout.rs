@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::mock::{
-    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, Balances,
-    ExtBuilder, ParachainStaking, BASE_FEE, TX_LEN,
+    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, Balances, ExtBuilder,
+    ParachainStaking, BASE_FEE, TX_LEN,
 };
 use crate::{assert_eq_events, assert_event_emitted, Event};
 use sp_runtime::{traits::Zero, Perbill};
@@ -85,17 +85,20 @@ fn end_to_end_happy_path() {
             assert_eq!(reward_pot_balance_before_reward_payout, expected_tx_fee + tip);
 
             // Assign block author points to collators 1 & 2.
-            // Because it takes 2 eras before we can pay collators, we set the block authorship points for era 1.
+            // Because it takes 2 eras before we can pay collators, we set the block authorship
+            // points for era 1.
             set_author(era_blocks_have_been_authored, collator1, collator1_points);
             set_author(era_blocks_have_been_authored, collator2, collator2_points);
 
-            // We expect reward payouts on era 3 because all 3 conditions for earning rewards are met.
+            // We expect reward payouts on era 3 because all 3 conditions for earning rewards are
+            // met.
             roll_to_era_begin(3);
 
             // We now do the relevant checks
             //-------------------------------------------------------
 
-            let collator1_points_percentage = Perbill::from_rational(collator1_points, total_points_for_era);
+            let collator1_points_percentage =
+                Perbill::from_rational(collator1_points, total_points_for_era);
             let collator1_total_reward = collator1_points_percentage * (expected_tx_fee + tip);
             let expected_collator1_reward =
                 (collator1_total_reward * collator1_own_stake) / collator1_total_stake;
@@ -114,27 +117,30 @@ fn end_to_end_happy_path() {
             // Show that reward pot balance has decreased by "total reward payment amount"
             assert_eq!(
                 Balances::free_balance(&reward_pot_account_id),
-                reward_pot_balance_before_reward_payout
-                    - (expected_collator1_reward + expected_nominator_reward)
+                reward_pot_balance_before_reward_payout -
+                    (expected_collator1_reward + expected_nominator_reward)
             );
 
             // Show that locked era payout has reserved enough to pay collator2
             assert_eq!(
                 ParachainStaking::locked_era_payout(),
-                reward_pot_balance_before_reward_payout - (expected_collator1_reward + expected_nominator_reward)
+                reward_pot_balance_before_reward_payout -
+                    (expected_collator1_reward + expected_nominator_reward)
             );
 
             // Move to the next block to trigger paying out the next collator
             roll_one_block();
 
-            let collator2_points_percentage = Perbill::from_rational(collator2_points, total_points_for_era);
+            let collator2_points_percentage =
+                Perbill::from_rational(collator2_points, total_points_for_era);
             let expected_collator2_reward = collator2_points_percentage * (expected_tx_fee + tip);
             assert_event_emitted!(Event::Rewarded {
                 account: collator2,
                 rewards: expected_collator2_reward
             });
 
-            // Show that reward pot balance and locked era balance are 0 because everything has been paid out for all collators
+            // Show that reward pot balance and locked era balance are 0 because everything has been
+            // paid out for all collators
             assert_eq!(Balances::free_balance(&reward_pot_account_id), 0);
             assert_eq!(ParachainStaking::locked_era_payout(), 0);
 
