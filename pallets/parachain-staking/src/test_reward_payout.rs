@@ -4,8 +4,8 @@ use crate::mock::{
     ParachainStaking, BASE_FEE, TX_LEN,
 };
 use crate::{assert_eq_events, assert_event_emitted, Event};
-use sp_runtime::{traits::Zero, Perbill};
 use frame_support::traits::Currency;
+use sp_runtime::{traits::Zero, Perbill};
 
 const COLLATOR1: u64 = 1;
 const COLLATOR2: u64 = 2;
@@ -87,7 +87,8 @@ fn end_to_end_happy_path() {
             assert_eq!(reward_pot_balance_before_reward_payout, expected_tx_fee() + TIP);
 
             // Assign block author points to collators 1 & 2.
-            // Because it takes 2 eras before we can pay collators, we set the block authorship points for era 1.
+            // Because it takes 2 eras before we can pay collators, we set the block authorship
+            // points for era 1.
             set_author(ERA_BLOCKS_HAVE_BEEN_AUTHORED, COLLATOR1, COLLATOR1_POINTS);
             set_author(ERA_BLOCKS_HAVE_BEEN_AUTHORED, COLLATOR2, COLLATOR2_POINTS);
 
@@ -98,8 +99,10 @@ fn end_to_end_happy_path() {
             // We now do the relevant checks
             //-------------------------------------------------------
 
-            let collator1_points_percentage = Perbill::from_rational(COLLATOR1_POINTS, TOTAL_POINTS_FOR_ERA);
-            let collator1_total_reward = collator1_points_percentage * reward_pot_balance_before_reward_payout;
+            let collator1_points_percentage =
+                Perbill::from_rational(COLLATOR1_POINTS, TOTAL_POINTS_FOR_ERA);
+            let collator1_total_reward =
+                collator1_points_percentage * reward_pot_balance_before_reward_payout;
             let expected_collator1_reward =
                 (collator1_total_reward * COLLATOR1_OWN_STAKE) / COLLATOR1_TOTAL_STAKE;
             let expected_nominator_reward =
@@ -131,8 +134,10 @@ fn end_to_end_happy_path() {
             // Move to the next block to trigger paying out the next collator
             roll_one_block();
 
-            let collator2_points_percentage = Perbill::from_rational(COLLATOR2_POINTS, TOTAL_POINTS_FOR_ERA);
-            let expected_collator2_reward = collator2_points_percentage * reward_pot_balance_before_reward_payout;
+            let collator2_points_percentage =
+                Perbill::from_rational(COLLATOR2_POINTS, TOTAL_POINTS_FOR_ERA);
+            let expected_collator2_reward =
+                collator2_points_percentage * reward_pot_balance_before_reward_payout;
             assert_event_emitted!(Event::Rewarded {
                 account: COLLATOR2,
                 rewards: expected_collator2_reward
@@ -161,13 +166,15 @@ fn set_reward_pot_and_trigger_payout(block_author_era: u32, destiantion_era: u64
 
     let expected_total_reward = expected_tx_fee() + TIP;
 
-    let collator1_points_percentage = Perbill::from_rational(COLLATOR1_POINTS, TOTAL_POINTS_FOR_ERA);
+    let collator1_points_percentage =
+        Perbill::from_rational(COLLATOR1_POINTS, TOTAL_POINTS_FOR_ERA);
     let collator1_total_reward = collator1_points_percentage * expected_total_reward;
 
-    let collator2_points_percentage = Perbill::from_rational(COLLATOR2_POINTS, TOTAL_POINTS_FOR_ERA);
+    let collator2_points_percentage =
+        Perbill::from_rational(COLLATOR2_POINTS, TOTAL_POINTS_FOR_ERA);
     let collator2_total_reward = collator2_points_percentage * expected_total_reward;
 
-     return (collator1_total_reward, collator2_total_reward);
+    return (collator1_total_reward, collator2_total_reward)
 }
 
 mod compute_total_reward_to_pay {
@@ -177,8 +184,11 @@ mod compute_total_reward_to_pay {
     fn works_as_expected() {
         let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
         ExtBuilder::default()
-            .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000),])
-            .with_candidates(vec![(COLLATOR1, COLLATOR1_OWN_STAKE), (COLLATOR2, COLLATOR2_OWN_STAKE)])
+            .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000)])
+            .with_candidates(vec![
+                (COLLATOR1, COLLATOR1_OWN_STAKE),
+                (COLLATOR2, COLLATOR2_OWN_STAKE),
+            ])
             .build()
             .execute_with(|| {
                 roll_to_era_begin(2);
@@ -187,7 +197,8 @@ mod compute_total_reward_to_pay {
                 assert_eq!(ParachainStaking::locked_era_payout(), 0);
 
                 let expected_total_reward = expected_tx_fee() + TIP;
-                let (collator1_reward, collator2_reward) = set_reward_pot_and_trigger_payout(ERA_BLOCKS_HAVE_BEEN_AUTHORED, 3);
+                let (collator1_reward, collator2_reward) =
+                    set_reward_pot_and_trigger_payout(ERA_BLOCKS_HAVE_BEEN_AUTHORED, 3);
 
                 // Reward pot balance has decreased
                 assert_eq!(
@@ -199,12 +210,13 @@ mod compute_total_reward_to_pay {
                 assert_eq!(ParachainStaking::locked_era_payout(), collator2_reward);
 
                 // Send another transaction and generate income
-                pay_gas_for_transaction(&TX_SENDER, TIP*2);
+                pay_gas_for_transaction(&TX_SENDER, TIP * 2);
 
-                // Show that reward pot balance has increased due to the new transaction paying a fee
+                // Show that reward pot balance has increased due to the new transaction paying a
+                // fee
                 assert_eq!(
                     Balances::free_balance(&reward_pot_account_id),
-                    collator2_reward + expected_tx_fee() + TIP*2
+                    collator2_reward + expected_tx_fee() + TIP * 2
                 );
 
                 // Locked era payout did not change
@@ -214,11 +226,15 @@ mod compute_total_reward_to_pay {
                 let new_total_reward_to_pay = ParachainStaking::compute_total_reward_to_pay();
 
                 // Locked era payout has increased
-                assert_eq!(ParachainStaking::locked_era_payout(), collator2_reward + expected_tx_fee() + TIP*2);
+                assert_eq!(
+                    ParachainStaking::locked_era_payout(),
+                    collator2_reward + expected_tx_fee() + TIP * 2
+                );
 
-                // We can only pay out new income. collator2_reward has already been locked for payment
-                assert_eq!(new_total_reward_to_pay, expected_tx_fee() + TIP*2);
-        });
+                // We can only pay out new income. collator2_reward has already been locked for
+                // payment
+                assert_eq!(new_total_reward_to_pay, expected_tx_fee() + TIP * 2);
+            });
     }
 
     mod fails_when {
@@ -228,8 +244,11 @@ mod compute_total_reward_to_pay {
         fn locked_payout_is_greater_than_total_income() {
             let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
             ExtBuilder::default()
-                .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000),])
-                .with_candidates(vec![(COLLATOR1, COLLATOR1_OWN_STAKE), (COLLATOR2, COLLATOR2_OWN_STAKE)])
+                .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000)])
+                .with_candidates(vec![
+                    (COLLATOR1, COLLATOR1_OWN_STAKE),
+                    (COLLATOR2, COLLATOR2_OWN_STAKE),
+                ])
                 .build()
                 .execute_with(|| {
                     roll_to_era_begin(2);
@@ -237,10 +256,14 @@ mod compute_total_reward_to_pay {
                     // Initial state
                     assert_eq!(ParachainStaking::locked_era_payout(), 0);
 
-                    let (_collator1_reward, collator2_reward) = set_reward_pot_and_trigger_payout(ERA_BLOCKS_HAVE_BEEN_AUTHORED, 3);
+                    let (_collator1_reward, collator2_reward) =
+                        set_reward_pot_and_trigger_payout(ERA_BLOCKS_HAVE_BEEN_AUTHORED, 3);
 
                     // Locked era payout and reward pot have the same amount
-                    assert_eq!(ParachainStaking::locked_era_payout(), Balances::free_balance(&reward_pot_account_id));
+                    assert_eq!(
+                        ParachainStaking::locked_era_payout(),
+                        Balances::free_balance(&reward_pot_account_id)
+                    );
 
                     // Reduce reward pot balance
                     let bad_reward_pot_balance = collator2_reward - 1;
@@ -254,7 +277,7 @@ mod compute_total_reward_to_pay {
                     assert_event_emitted!(Event::NotEnoughFundsForEraPayment {
                         reward_pot_balance: bad_reward_pot_balance
                     });
-            });
+                });
         }
     }
 }
@@ -266,8 +289,11 @@ mod reward_payout_fails_when {
     fn reward_pot_does_not_have_enough_funds() {
         let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
         ExtBuilder::default()
-            .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000),])
-            .with_candidates(vec![(COLLATOR1, COLLATOR1_OWN_STAKE), (COLLATOR2, COLLATOR2_OWN_STAKE)])
+            .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000)])
+            .with_candidates(vec![
+                (COLLATOR1, COLLATOR1_OWN_STAKE),
+                (COLLATOR2, COLLATOR2_OWN_STAKE),
+            ])
             .build()
             .execute_with(|| {
                 roll_to_era_begin(2);
@@ -275,18 +301,19 @@ mod reward_payout_fails_when {
                 // Initial state
                 assert_eq!(ParachainStaking::locked_era_payout(), 0);
 
-                let (_collator1_reward, collator2_reward) = set_reward_pot_and_trigger_payout(ERA_BLOCKS_HAVE_BEEN_AUTHORED, 3);
+                let (_collator1_reward, collator2_reward) =
+                    set_reward_pot_and_trigger_payout(ERA_BLOCKS_HAVE_BEEN_AUTHORED, 3);
 
                 // Reward pot balance has reserved enough to pay collator 2
                 assert_eq!(Balances::free_balance(&reward_pot_account_id), collator2_reward);
                 // Locked era payout matches reward pot balance
                 assert_eq!(ParachainStaking::locked_era_payout(), collator2_reward);
 
-                 // Reduce reward pot balance
-                 let bad_reward_pot_balance = collator2_reward - 1;
-                 Balances::make_free_balance_be(&reward_pot_account_id, bad_reward_pot_balance);
+                // Reduce reward pot balance
+                let bad_reward_pot_balance = collator2_reward - 1;
+                Balances::make_free_balance_be(&reward_pot_account_id, bad_reward_pot_balance);
 
-                 // Move to the next block to trigger paying out the next collator
+                // Move to the next block to trigger paying out the next collator
                 roll_one_block();
 
                 // Payment fails
@@ -299,6 +326,6 @@ mod reward_payout_fails_when {
                 assert_eq!(Balances::free_balance(&reward_pot_account_id), bad_reward_pot_balance);
                 // locked era balance did not change
                 assert_eq!(ParachainStaking::locked_era_payout(), collator2_reward);
-        });
+            });
     }
 }
