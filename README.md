@@ -14,6 +14,9 @@ We are very keen on community engagement and contributions.
 
 We welcome contributions but before you devote quite a bit of time to contributing, you should make sure you're certain your contribution has not already been addressed.
 
+
+
 Read our contribution guide [HERE](./CONTRIBUTING.adoc).
+
 
 Note: This repository is managed frequently so you do not need to email/contact us to notify us of your submission.
