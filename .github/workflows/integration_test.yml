@@ -1,0 +1,52 @@
+on:
+  workflow_dispatch:
+  pull_request_target:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  integration_test:
+    name: integration-test
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: Aventus-Network-Services/avn-node-parachain
+          fetch-depth: '0'
+          ssh-key: ${{ secrets.avn_node_parachain_key }}
+          ref: feat/SYS-2686-staking-reimplementation
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2022-10-18
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+          override: true
+          default: true
+
+      - name: Task pre integration test
+        env:
+          STRING_TO_CHANGE: '\(pallet-parachain-staking =.*branch = \)\(.*\)\( }\)'
+        run: |
+          if [ $GITHUB_EVENT_NAME = 'pull_request_target' ]
+          then
+              export branch=$GITHUB_HEAD_REF
+          elif [ $GITHUB_EVENT_NAME = 'workflow_dispatch' ]
+          then
+              export branch=$GITHUB_REF_NAME
+          elif [ $GITHUB_EVENT_NAME = 'push' ]
+          then
+              export branch=${GITHUB_REF#refs/heads/}
+          fi
+          sed -i "s@$STRING_TO_CHANGE@\1\"$branch\"\3@" ./runtime/Cargo.toml
+          echo "using staking pallet from branch:"
+          cat ./runtime/Cargo.toml | grep "^pallet-parachain-staking"
+
+      - name: Integration test
+        run: cargo build
