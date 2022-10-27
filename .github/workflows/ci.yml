@@ -1,6 +1,7 @@
 on:
   workflow_dispatch:
   pull_request_target:
+    types: [ "*" ]
   push: # Run CI on the main branch after every merge. This is important to fill the GitHub Actions cache in a way that pull requests can see it
     branches:
       - main
