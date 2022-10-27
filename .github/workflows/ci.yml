@@ -83,7 +83,7 @@ jobs:
           elif [ $GITHUB_EVENT_NAME = 'workflow_dispatch' ]
           then
               export branch=$GITHUB_REF_NAME
-          elif [ $GITHUB_EVENT_NAME = = 'push' ]
+          elif [ $GITHUB_EVENT_NAME = 'push' ]
           then
               export branch=${GITHUB_REF#refs/heads/}
           fi
