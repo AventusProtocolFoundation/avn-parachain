@@ -6,6 +6,7 @@ In the interest of fostering an open and welcoming environment, we as maintainer
 
 This code of conduct also extends to all contributors. Any harmful or discriminating behaviour by anyone will not be tolerated.
 
+
 ## Our Standards
 
 Examples of behaviour that contributes to creating a positive environment include:
