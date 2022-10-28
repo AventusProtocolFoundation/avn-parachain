@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: test        
-        run: echo ${{ github.event.pull_request.head.html_url }}
+        run: echo ${{ github.event.pull_request.head.repo.html_url }}
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
