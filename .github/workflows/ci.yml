@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
-      - run: echo {{ github.event }}
+      - run: echo ${{ github.event }}
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
