@@ -36,17 +36,20 @@ jobs:
         run: |
           if [ $GITHUB_EVENT_NAME = 'pull_request_target' ]
           then
-              export branch=$GITHUB_HEAD_REF
+              export BRANCH=$GITHUB_HEAD_REF
+              export REPO=${{ github.event.pull_request.head.repo.html_url }}
           elif [ $GITHUB_EVENT_NAME = 'workflow_dispatch' ]
           then
-              export branch=$GITHUB_REF_NAME
+              export BRANCH=$GITHUB_REF_NAME
+              export REPO="https://github.com/${{ github.repository }}"
           elif [ $GITHUB_EVENT_NAME = 'push' ]
           then
-              export branch=${GITHUB_REF#refs/heads/}
+              export BRANCH=${GITHUB_REF#refs/heads/}
+              export REPO="https://github.com/${{ github.repository }}"
           fi
-          sed -i "s@$STRING_TO_CHANGE@\1\"https://github.com/${{ github.repository }}\"\3\"$branch\"\5@" ./runtime/Cargo.toml
+          sed -i "s@$STRING_TO_CHANGE@\1\"https://github.com/$REPO\"\3\"$BRANCH\"\5@" ./runtime/Cargo.toml
           echo "using staking pallet from branch:"
           cat ./runtime/Cargo.toml | grep "^pallet-parachain-staking"
-
+  {}
       - name: Integration test
         run: cargo build
