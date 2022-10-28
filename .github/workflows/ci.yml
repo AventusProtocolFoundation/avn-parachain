@@ -15,8 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: test        
-        env:
-          GITHUB_CONTEXT: ${{ toJson(github.event) }}
         run: echo ${{ github.event.pull_request.head.html_url }}
 
       - name: Install Rust toolchain
