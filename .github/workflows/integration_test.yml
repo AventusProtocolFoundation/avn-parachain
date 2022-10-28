@@ -47,9 +47,9 @@ jobs:
               export BRANCH=${GITHUB_REF#refs/heads/}
               export REPO="https://github.com/${{ github.repository }}"
           fi
-          sed -i "s@$STRING_TO_CHANGE@\1\"https://github.com/$REPO\"\3\"$BRANCH\"\5@" ./runtime/Cargo.toml
+          sed -i "s@$STRING_TO_CHANGE@\1\"$REPO\"\3\"$BRANCH\"\5@" ./runtime/Cargo.toml
           echo "using staking pallet from branch:"
           cat ./runtime/Cargo.toml | grep "^pallet-parachain-staking"
-  {}
+
       - name: Integration test
         run: cargo build
