@@ -1571,8 +1571,8 @@ pub enum BondAdjust<Balance> {
 // Data structure for tracking collator rewards
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
 pub struct CollatorPayoutInfo<Balance> {
-    pub total_stake_accumulator: CollatorPayoutPeriodIndex,
-    pub total_amount_staked: Balance,
+    pub number_of_accumulations: CollatorPayoutPeriodIndex,
+    pub total_stake_accumulated: Balance,
     pub total_staker_reward: Balance,
 }
 
@@ -1588,10 +1588,10 @@ impl<
             + Saturating,
     > CollatorPayoutInfo<Balance>
 {
-    pub fn new(total_stake_accumulator: CollatorPayoutPeriodIndex) -> Self {
+    pub fn new(number_of_accumulations: CollatorPayoutPeriodIndex) -> Self {
         CollatorPayoutInfo {
-            total_stake_accumulator,
-            total_amount_staked: Balance::zero(),
+            number_of_accumulations,
+            total_stake_accumulated: Balance::zero(),
             total_staker_reward: Balance::zero(),
         }
     }

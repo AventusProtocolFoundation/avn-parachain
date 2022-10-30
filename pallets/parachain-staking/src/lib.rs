@@ -1525,7 +1525,7 @@ pub mod pallet {
             payout: DelayedPayout<BalanceOf<T>>,
         ) {
             let collator_payout_period = Self::collator_payout_period_info();
-            let new_total_staking_reward = payout.total_staking_reward;
+            let staking_reward_paid_in_era = payout.total_staking_reward;
 
             if Self::is_new_payout_period(&new_era, &collator_payout_period) {
                 <CollatorPayoutPeriod<T>>::mutate(|info| {
@@ -1534,22 +1534,16 @@ pub mod pallet {
                 });
 
                 let mut new_payout_info = CollatorPayoutInfo::new(new_era);
-                new_payout_info.total_stake_accumulator = 1u32;
-                new_payout_info.total_amount_staked = total_staked;
-                new_payout_info.total_staker_reward = new_total_staking_reward;
+                new_payout_info.number_of_accumulations = 1u32;
+                new_payout_info.total_stake_accumulated = total_staked;
+                new_payout_info.total_staker_reward = staking_reward_paid_in_era;
 
                 <CollatorPayout<T>>::insert(
                     Self::collator_payout_period_info().index,
                     new_payout_info,
                 );
             } else {
-                <CollatorPayout<T>>::mutate(collator_payout_period.index, |info| {
-                    info.total_stake_accumulator = info.total_stake_accumulator.saturating_add(1);
-                    info.total_amount_staked =
-                        info.total_amount_staked.saturating_add(total_staked);
-                    info.total_staker_reward =
-                        info.total_staker_reward.saturating_add(new_total_staking_reward);
-                });
+                Self::accumulate_payout_for_period(collator_payout_period.index, total_staked, staking_reward_paid_in_era);
             };
         }
 
@@ -1560,6 +1554,16 @@ pub mod pallet {
             return collator_payout_period.index == 0 ||
                 era_index - collator_payout_period.start_era_index >=
                     T::ErasPerCollatorPayout::get()
+        }
+
+        fn accumulate_payout_for_period(period_index: CollatorPayoutPeriodIndex, total_staked: BalanceOf<T>, staking_reward_paid_in_era: BalanceOf<T>) {
+            <CollatorPayout<T>>::mutate(period_index, |info| {
+                info.number_of_accumulations = info.number_of_accumulations.saturating_add(1);
+                info.total_stake_accumulated =
+                    info.total_stake_accumulated.saturating_add(total_staked);
+                info.total_staker_reward =
+                    info.total_staker_reward.saturating_add(staking_reward_paid_in_era);
+            });
         }
     }
 
