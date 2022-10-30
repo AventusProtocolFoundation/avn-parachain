@@ -1165,10 +1165,10 @@ pub mod pallet {
         }
 
         /// Compute total reward for era based on the amount in the reward pot
-        fn compute_total_reward_to_pay() -> BalanceOf<T> {
+        pub fn compute_total_reward_to_pay() -> BalanceOf<T> {
             let total_unpaid_reward_amount = Self::reward_pot();
             let mut payout = total_unpaid_reward_amount.checked_sub(&Self::locked_era_payout()).or_else(|| {
-				log::error!("� Error calculating era payout. Not enough funds in total_unpaid_reward_amount.");
+				log::error!("💔 Error calculating era payout. Not enough funds in total_unpaid_reward_amount.");
 
 				//This is a bit strange but since we are dealing with money, log it.
 				Self::deposit_event(Event::NotEnoughFundsForEraPayment {reward_pot_balance: total_unpaid_reward_amount});
