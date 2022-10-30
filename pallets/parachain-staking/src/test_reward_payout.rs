@@ -156,13 +156,13 @@ fn end_to_end_happy_path() {
 }
 
 // This function will setup the payments so both collators get the same reward
-fn set_reward_pot_and_trigger_payout(block_author_era: u32, destiantion_era: u64) -> (u128, u128) {
+fn set_reward_pot_and_trigger_payout(block_author_era: u32, destination_era: u64) -> (u128, u128) {
     pay_gas_for_transaction(&TX_SENDER, TIP);
 
     set_author(block_author_era, COLLATOR1, COLLATOR1_POINTS);
     set_author(block_author_era, COLLATOR2, COLLATOR2_POINTS);
 
-    roll_to_era_begin(destiantion_era);
+    roll_to_era_begin(destination_era);
 
     let expected_total_reward = expected_tx_fee() + TIP;
 
