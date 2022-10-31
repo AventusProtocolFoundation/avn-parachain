@@ -171,8 +171,8 @@ pub mod pallet {
         /// Minimum stake for any registered on-chain account to be a nominator
         #[pallet::constant]
         type MinNominatorStk: Get<BalanceOf<Self>>;
-        /// Number of eras to wait before we pay collator rewards
-        type ErasPerCollatorPayout: Get<GrowthPeriodIndex>;
+        /// Number of eras to wait before we process a new growth period
+        type ErasPerGrowthPeriod: Get<GrowthPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
         type RewardPotId: Get<PalletId>;
         /// Handler to notify the runtime when a collator is paid.
@@ -1548,7 +1548,7 @@ pub mod pallet {
         ) -> bool {
             return collator_payout_period.index == 0 ||
                 era_index - collator_payout_period.start_era_index >=
-                    T::ErasPerCollatorPayout::get()
+                    T::ErasPerGrowthPeriod::get()
         }
 
         fn accumulate_payout_for_period(

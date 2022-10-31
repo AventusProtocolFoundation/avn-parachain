@@ -162,7 +162,7 @@ parameter_types! {
     pub const MinCollatorStk: u128 = 10;
     pub const MinNominatorStk: u128 = 5;
     pub const MinNomination: u128 = 3;
-    pub const ErasPerCollatorPayout: u32 = 2;
+    pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
 }
 impl Config for Test {
@@ -186,7 +186,7 @@ impl Config for Test {
     type MinNominatorStk = MinNominatorStk;
     type MinNomination = MinNomination;
     type RewardPotId = RewardPotId;
-    type ErasPerCollatorPayout = ErasPerCollatorPayout;
+    type ErasPerGrowthPeriod = ErasPerGrowthPeriod;
     type OnCollatorPayout = ();
     type OnNewEra = ();
     type WeightInfo = ();
