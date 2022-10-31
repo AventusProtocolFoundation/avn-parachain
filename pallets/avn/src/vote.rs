@@ -81,22 +81,22 @@ impl<AccountId: Member, BlockNumber: Member> VotingSessionData<AccountId, BlockN
             end_of_voting_period,
             confirmations: Vec::new(),
             created_at_block,
-        };
+        }
     }
 
     pub fn has_outcome(&self) -> bool {
         let threshold: usize = self.threshold as usize;
-        return self.ayes.len() >= threshold || self.nays.len() >= threshold;
+        return self.ayes.len() >= threshold || self.nays.len() >= threshold
     }
 
     // The vote has been accepted (positive votes surpass or match the negative ones)
     pub fn is_approved(&self) -> bool {
-        return self.ayes.len() >= self.threshold as usize;
+        return self.ayes.len() >= self.threshold as usize
     }
 
     // The voter has already cast a vote for this vote subject in this session
     pub fn has_voted(&self, voter: &AccountId) -> bool {
-        return self.ayes.contains(voter) || self.nays.contains(voter);
+        return self.ayes.contains(voter) || self.nays.contains(voter)
     }
 }
 
@@ -107,7 +107,8 @@ pub trait VotingSessionManager<AccountId, BlockNumber> {
 
     fn state(&self) -> Result<VotingSessionData<AccountId, BlockNumber>, DispatchError>;
 
-    // The voting session has been created and the vote subject is in the correct state (for example, pending a vote)
+    // The voting session has been created and the vote subject is in the correct state (for
+    // example, pending a vote)
     fn is_valid(&self) -> bool;
 
     // The session is valid (is_valid) AND has not ended yet
@@ -168,12 +169,12 @@ pub fn end_voting_period_validate_unsigned<T: Config>(
     signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
 ) -> TransactionValidity {
     if !voting_session.is_valid() {
-        return InvalidTransaction::Custom(VOTE_SESSION_IS_NOT_VALID).into();
+        return InvalidTransaction::Custom(VOTE_SESSION_IS_NOT_VALID).into()
     }
 
     let voting_session_data = voting_session.state();
     if voting_session_data.is_err() {
-        return InvalidTransaction::Custom(VOTING_SESSION_DATA_IS_NOT_FOUND).into();
+        return InvalidTransaction::Custom(VOTING_SESSION_DATA_IS_NOT_FOUND).into()
     }
 
     let voting_session_id =
@@ -184,7 +185,7 @@ pub fn end_voting_period_validate_unsigned<T: Config>(
         &validator,
         signature,
     ) {
-        return InvalidTransaction::BadProof.into();
+        return InvalidTransaction::BadProof.into()
     };
 
     return ValidTransaction::with_tag_prefix("vote")
@@ -197,11 +198,12 @@ pub fn end_voting_period_validate_unsigned<T: Config>(
             .encode()])
         .longevity(64_u64)
         .propagate(true)
-        .build();
+        .build()
 }
 
-/// Unlike SR signatures, `_eth_signature` is not validated here and MUST be validated in the public dispatch method being called.
-/// ECDSA sig validation is different because we cannot raise an offence (and mutate storage) from validate_unsigned.
+/// Unlike SR signatures, `_eth_signature` is not validated here and MUST be validated in the public
+/// dispatch method being called. ECDSA sig validation is different because we cannot raise an
+/// offence (and mutate storage) from validate_unsigned.
 pub fn approve_vote_validate_unsigned<T: Config>(
     voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
     validator: &Validator<T::AuthorityId, T::AccountId>,
@@ -210,12 +212,12 @@ pub fn approve_vote_validate_unsigned<T: Config>(
     signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
 ) -> TransactionValidity {
     if validate_vote::<T>(&voting_session, &validator.account_id).is_err() {
-        return InvalidTransaction::Custom(APPROVE_VOTE_IS_NOT_VALID).into();
+        return InvalidTransaction::Custom(APPROVE_VOTE_IS_NOT_VALID).into()
     }
 
     let voting_session_data = voting_session.state();
     if voting_session_data.is_err() {
-        return InvalidTransaction::Custom(VOTING_SESSION_DATA_IS_NOT_FOUND).into();
+        return InvalidTransaction::Custom(VOTING_SESSION_DATA_IS_NOT_FOUND).into()
     }
 
     let voting_session_id =
@@ -232,7 +234,7 @@ pub fn approve_vote_validate_unsigned<T: Config>(
         &validator,
         signature,
     ) {
-        return InvalidTransaction::BadProof.into();
+        return InvalidTransaction::BadProof.into()
     };
 
     return ValidTransaction::with_tag_prefix("vote")
@@ -246,7 +248,7 @@ pub fn approve_vote_validate_unsigned<T: Config>(
             .encode()])
         .longevity(64_u64)
         .propagate(true)
-        .build();
+        .build()
 }
 
 pub fn reject_vote_validate_unsigned<T: Config>(
@@ -256,12 +258,12 @@ pub fn reject_vote_validate_unsigned<T: Config>(
 ) -> TransactionValidity {
     // TODO: Check if we can end the vote here
     if validate_vote::<T>(&voting_session, &validator.account_id).is_err() {
-        return InvalidTransaction::Custom(REJECT_VOTE_IS_NOT_VALID).into();
+        return InvalidTransaction::Custom(REJECT_VOTE_IS_NOT_VALID).into()
     }
 
     let voting_session_data = voting_session.state();
     if voting_session_data.is_err() {
-        return InvalidTransaction::Custom(VOTING_SESSION_DATA_IS_NOT_FOUND).into();
+        return InvalidTransaction::Custom(VOTING_SESSION_DATA_IS_NOT_FOUND).into()
     }
 
     let voting_session_id =
@@ -272,7 +274,7 @@ pub fn reject_vote_validate_unsigned<T: Config>(
         &validator,
         signature,
     ) {
-        return InvalidTransaction::BadProof.into();
+        return InvalidTransaction::BadProof.into()
     };
 
     return ValidTransaction::with_tag_prefix("vote")
@@ -286,5 +288,5 @@ pub fn reject_vote_validate_unsigned<T: Config>(
             .encode()])
         .longevity(64_u64)
         .propagate(true)
-        .build();
+        .build()
 }
