@@ -544,19 +544,13 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn growth_period_info)]
     /// Tracks the current growth period where collator will get paid for producing blocks
-    pub(crate) type GrowthPeriod<T: Config> =
-        StorageValue<_, GrowthPeriodInfo, ValueQuery>;
+    pub(crate) type GrowthPeriod<T: Config> = StorageValue<_, GrowthPeriodInfo, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn growth)]
     /// Storage value that holds data to calculate collator payouts.
-    pub type Growth<T: Config> = StorageMap<
-        _,
-        Twox64Concat,
-        GrowthPeriodIndex,
-        GrowthInfo<BalanceOf<T>>,
-        ValueQuery,
-    >;
+    pub type Growth<T: Config> =
+        StorageMap<_, Twox64Concat, GrowthPeriodIndex, GrowthInfo<BalanceOf<T>>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -1538,12 +1532,13 @@ pub mod pallet {
                 new_payout_info.total_stake_accumulated = total_staked;
                 new_payout_info.total_staker_reward = staking_reward_paid_in_era;
 
-                <Growth<T>>::insert(
-                    Self::growth_period_info().index,
-                    new_payout_info,
-                );
+                <Growth<T>>::insert(Self::growth_period_info().index, new_payout_info);
             } else {
-                Self::accumulate_payout_for_period(collator_payout_period.index, total_staked, staking_reward_paid_in_era);
+                Self::accumulate_payout_for_period(
+                    collator_payout_period.index,
+                    total_staked,
+                    staking_reward_paid_in_era,
+                );
             };
         }
 
@@ -1556,7 +1551,11 @@ pub mod pallet {
                     T::ErasPerCollatorPayout::get()
         }
 
-        fn accumulate_payout_for_period(growth_index: GrowthPeriodIndex, total_staked: BalanceOf<T>, staking_reward_paid_in_era: BalanceOf<T>) {
+        fn accumulate_payout_for_period(
+            growth_index: GrowthPeriodIndex,
+            total_staked: BalanceOf<T>,
+            staking_reward_paid_in_era: BalanceOf<T>,
+        ) {
             <Growth<T>>::mutate(growth_index, |info| {
                 info.number_of_accumulations = info.number_of_accumulations.saturating_add(1);
                 info.total_stake_accumulated =

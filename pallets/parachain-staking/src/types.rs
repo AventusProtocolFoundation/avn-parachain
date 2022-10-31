@@ -17,9 +17,9 @@
 //! Types for parachain-staking
 
 use crate::{
-    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, GrowthPeriodIndex,
-    Config, Era, EraIndex, Error, Event, NominatorState, Pallet, TopNominations, Total,
-    COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Era, EraIndex, Error,
+    Event, GrowthPeriodIndex, NominatorState, Pallet, TopNominations, Total, COLLATOR_LOCK_ID,
+    NOMINATOR_LOCK_ID,
 };
 use frame_support::{
     pallet_prelude::*,
