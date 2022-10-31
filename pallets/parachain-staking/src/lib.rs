@@ -1645,6 +1645,8 @@ pub mod pallet {
                     let percent =
                         Perbill::from_rational(collator_data.points, growth_data.total_points);
                     pay(collator_data.collator, percent * amount);
+
+                    // TODO: remove processed records to reduce state bloat
                 }
             } else {
                 // get the list of current candidates because we there is no way of knowing who they were
