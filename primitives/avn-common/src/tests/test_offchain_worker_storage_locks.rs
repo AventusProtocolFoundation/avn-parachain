@@ -62,7 +62,8 @@ fn create_local_db_entry_with_new_custom_success() {
 
 #[test]
 fn unique_data_added_to_storage_and_expiry_list_success() {
-    // TODO [TYPE: test refactoring][PRI: low]: consider wrapping these externalities in a centralized builder
+    // TODO [TYPE: test refactoring][PRI: low]: consider wrapping these externalities in a
+    // centralized builder
     let (offchain, _state) = testing::TestOffchainExt::new();
     let mut t = TestExternalities::default();
     t.register_extension(OffchainExt::new(offchain));
