@@ -17,7 +17,7 @@
 //! Types for parachain-staking
 
 use crate::{
-    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, CollatorPayoutPeriodIndex,
+    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, GrowthPeriodIndex,
     Config, Era, EraIndex, Error, Event, NominatorState, Pallet, TopNominations, Total,
     COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
@@ -1317,8 +1317,8 @@ pub enum BondAdjust<Balance> {
 
 // Data structure for tracking collator rewards
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
-pub struct CollatorPayoutInfo<Balance> {
-    pub number_of_accumulations: CollatorPayoutPeriodIndex,
+pub struct GrowthInfo<Balance> {
+    pub number_of_accumulations: GrowthPeriodIndex,
     pub total_stake_accumulated: Balance,
     pub total_staker_reward: Balance,
 }
@@ -1333,10 +1333,10 @@ impl<
             + Zero
             + Default
             + Saturating,
-    > CollatorPayoutInfo<Balance>
+    > GrowthInfo<Balance>
 {
-    pub fn new(number_of_accumulations: CollatorPayoutPeriodIndex) -> Self {
-        CollatorPayoutInfo {
+    pub fn new(number_of_accumulations: GrowthPeriodIndex) -> Self {
+        GrowthInfo {
             number_of_accumulations,
             total_stake_accumulated: Balance::zero(),
             total_staker_reward: Balance::zero(),
@@ -1346,7 +1346,7 @@ impl<
 
 // Data structure for tracking collator reward periods
 #[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
-pub struct CollatorPayoutPeriodInfo {
+pub struct GrowthPeriodInfo {
     pub start_era_index: EraIndex,
-    pub index: CollatorPayoutPeriodIndex,
+    pub index: GrowthPeriodIndex,
 }
