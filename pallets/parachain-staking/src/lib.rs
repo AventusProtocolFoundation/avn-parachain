@@ -108,7 +108,6 @@ pub mod pallet {
 
     pub type EraIndex = u32;
     pub type GrowthPeriodIndex = u32;
-
     pub type RewardPoint = u32;
     pub type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
