@@ -18,7 +18,8 @@
 
 use crate::{
     set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Era, EraIndex, Error,
-    Event, NominatorState, Pallet, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    Event, GrowthPeriodIndex, NominatorState, Pallet, TopNominations, Total, COLLATOR_LOCK_ID,
+    NOMINATOR_LOCK_ID,
 };
 use frame_support::{
     pallet_prelude::*,
@@ -1312,4 +1313,40 @@ impl<
 pub enum BondAdjust<Balance> {
     Increase(Balance),
     Decrease,
+}
+
+// Data structure for tracking collator rewards
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
+pub struct GrowthInfo<Balance> {
+    pub number_of_accumulations: GrowthPeriodIndex,
+    pub total_stake_accumulated: Balance,
+    pub total_staker_reward: Balance,
+}
+
+impl<
+        Balance: Copy
+            + sp_std::ops::AddAssign
+            + sp_std::ops::Add<Output = Balance>
+            + sp_std::ops::SubAssign
+            + sp_std::ops::Sub<Output = Balance>
+            + Ord
+            + Zero
+            + Default
+            + Saturating,
+    > GrowthInfo<Balance>
+{
+    pub fn new(number_of_accumulations: GrowthPeriodIndex) -> Self {
+        GrowthInfo {
+            number_of_accumulations,
+            total_stake_accumulated: Balance::zero(),
+            total_staker_reward: Balance::zero(),
+        }
+    }
+}
+
+// Data structure for tracking collator reward periods
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
+pub struct GrowthPeriodInfo {
+    pub start_era_index: EraIndex,
+    pub index: GrowthPeriodIndex,
 }
