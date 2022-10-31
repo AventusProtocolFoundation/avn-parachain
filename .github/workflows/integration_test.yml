@@ -1,5 +1,11 @@
 on:
   workflow_dispatch:
+  pull_request_target:
+    branches:
+      - main
+  push:
+    branches:
+      - main
 
 jobs:
   integration_test:
@@ -26,9 +32,22 @@ jobs:
 
       - name: Task pre integration test
         env:
-          STRING_TO_CHANGE: '\(pallet-parachain-staking =.*branch = \)\(.*\)\( }\)'
+          STRING_TO_CHANGE: '\(pallet-parachain-staking.*\)\(".*\)"\(.*branch.*\)\(".*"\)\(.*\)'
         run: |
-          sed -i "s/$STRING_TO_CHANGE/\1\"$GITHUB_HEAD_REF\"\3/" ./runtime/Cargo.toml
+          if [ $GITHUB_EVENT_NAME = 'pull_request_target' ]
+          then
+              export BRANCH=$GITHUB_HEAD_REF
+              export REPO=${{ github.event.pull_request.head.repo.html_url }}
+          elif [ $GITHUB_EVENT_NAME = 'workflow_dispatch' ]
+          then
+              export BRANCH=$GITHUB_REF_NAME
+              export REPO="https://github.com/${{ github.repository }}"
+          elif [ $GITHUB_EVENT_NAME = 'push' ]
+          then
+              export BRANCH=${GITHUB_REF#refs/heads/}
+              export REPO="https://github.com/${{ github.repository }}"
+          fi
+          sed -i "s@$STRING_TO_CHANGE@\1\"$REPO\"\3\"$BRANCH\"\5@" ./runtime/Cargo.toml
           echo "using staking pallet from branch:"
           cat ./runtime/Cargo.toml | grep "^pallet-parachain-staking"
 

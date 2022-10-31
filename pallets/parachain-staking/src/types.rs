@@ -27,10 +27,10 @@ use frame_support::{
 };
 use parity_scale_codec::{Decode, Encode};
 use sp_runtime::{
-    traits::{AtLeast32BitUnsigned, Saturating, Zero},
-    Percent, RuntimeDebug,
+    traits::{Saturating, Zero},
+    RuntimeDebug,
 };
-use sp_std::{cmp::Ordering, collections::btree_map::BTreeMap, prelude::*};
+use sp_std::{cmp::Ordering, prelude::*};
 
 pub struct CountedNominations<T: Config> {
     pub uncounted_stake: BalanceOf<T>,
@@ -145,73 +145,11 @@ pub struct DelayedPayout<Balance> {
     pub total_staking_reward: Balance,
 }
 
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-/// DEPRECATED
-/// Collator state with commission fee, bonded stake, and nominations
-pub struct Collator2<AccountId, Balance> {
-    /// The account of this collator
-    pub id: AccountId,
-    /// This collator's self stake.
-    pub bond: Balance,
-    /// Set of all nominator AccountIds (to prevent >1 nomination per AccountId)
-    pub nominators: OrderedSet<AccountId>,
-    /// Top T::MaxNominatorsPerCollator::get() nominators, ordered greatest to least
-    pub top_nominators: Vec<Bond<AccountId, Balance>>,
-    /// Bottom nominators (unbounded), ordered least to greatest
-    pub bottom_nominators: Vec<Bond<AccountId, Balance>>,
-    /// Sum of top nominations + self.bond
-    pub total_counted: Balance,
-    /// Sum of all nominations + self.bond = (total_counted + uncounted)
-    pub total_backing: Balance,
-    /// Current status of the collator
-    pub state: CollatorStatus,
-}
-
-impl<A, B> From<Collator2<A, B>> for CollatorCandidate<A, B> {
-    fn from(other: Collator2<A, B>) -> CollatorCandidate<A, B> {
-        CollatorCandidate {
-            id: other.id,
-            bond: other.bond,
-            nominators: other.nominators,
-            top_nominations: other.top_nominators,
-            bottom_nominations: other.bottom_nominators,
-            total_counted: other.total_counted,
-            total_backing: other.total_backing,
-            request: None,
-            state: other.state,
-        }
-    }
-}
-
 #[derive(PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
 /// Request scheduled to change the collator candidate self-bond
 pub struct CandidateBondLessRequest<Balance> {
     pub amount: Balance,
     pub when_executable: EraIndex,
-}
-
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
-/// DEPRECATED, replaced by `CandidateMetadata` and two storage instances of `Nominations`
-/// Collator candidate state with self bond + nominations
-pub struct CollatorCandidate<AccountId, Balance> {
-    /// The account of this collator
-    pub id: AccountId,
-    /// This collator's self stake.
-    pub bond: Balance,
-    /// Set of all nominator AccountIds (to prevent >1 nomination per AccountId)
-    pub nominators: OrderedSet<AccountId>,
-    /// Top T::MaxNominatorsPerCollator::get() nominations, ordered greatest to least
-    pub top_nominations: Vec<Bond<AccountId, Balance>>,
-    /// Bottom nominations (unbounded), ordered least to greatest
-    pub bottom_nominations: Vec<Bond<AccountId, Balance>>,
-    /// Sum of top nominations + self.bond
-    pub total_counted: Balance,
-    /// Sum of all nominations + self.bond = (total_counted + uncounted)
-    pub total_backing: Balance,
-    /// Maximum 1 pending request to decrease candidate self bond at any given time
-    pub request: Option<CandidateBondLessRequest<Balance>>,
-    /// Current status of the collator
-    pub state: CollatorStatus,
 }
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
@@ -1062,72 +1000,12 @@ impl<
     }
 }
 
-// Temporary manual implementation for migration testing purposes
-impl<A: PartialEq, B: PartialEq> PartialEq for CollatorCandidate<A, B> {
-    fn eq(&self, other: &Self) -> bool {
-        let must_be_true = self.id == other.id &&
-            self.bond == other.bond &&
-            self.total_counted == other.total_counted &&
-            self.total_backing == other.total_backing &&
-            self.request == other.request &&
-            self.state == other.state;
-        if !must_be_true {
-            return false
-        }
-        for (x, y) in self.nominators.0.iter().zip(other.nominators.0.iter()) {
-            if x != y {
-                return false
-            }
-        }
-        for (Bond { owner: o1, amount: a1 }, Bond { owner: o2, amount: a2 }) in
-            self.top_nominations.iter().zip(other.top_nominations.iter())
-        {
-            if o1 != o2 || a1 != a2 {
-                return false
-            }
-        }
-        for (Bond { owner: o1, amount: a1 }, Bond { owner: o2, amount: a2 }) in
-            self.bottom_nominations.iter().zip(other.bottom_nominations.iter())
-        {
-            if o1 != o2 || a1 != a2 {
-                return false
-            }
-        }
-        true
-    }
-}
-
 /// Convey relevant information describing if a nominator was added to the top or bottom
 /// Nominations added to the top yield a new total
 #[derive(Clone, Copy, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
 pub enum NominatorAdded<B> {
     AddedToTop { new_total: B },
     AddedToBottom,
-}
-
-impl<
-        A: Ord + Clone + sp_std::fmt::Debug,
-        B: AtLeast32BitUnsigned
-            + Ord
-            + Copy
-            + sp_std::ops::AddAssign
-            + sp_std::ops::SubAssign
-            + sp_std::fmt::Debug,
-    > CollatorCandidate<A, B>
-{
-    pub fn is_active(&self) -> bool {
-        self.state == CollatorStatus::Active
-    }
-}
-
-impl<A: Clone, B: Copy> From<CollatorCandidate<A, B>> for CollatorSnapshot<A, B> {
-    fn from(other: CollatorCandidate<A, B>) -> CollatorSnapshot<A, B> {
-        CollatorSnapshot {
-            bond: other.bond,
-            nominations: other.top_nominations,
-            total: other.total_counted,
-        }
-    }
 }
 
 #[allow(deprecated)]
@@ -1396,119 +1274,6 @@ impl<
     }
 }
 
-pub mod deprecated {
-    #![allow(deprecated)]
-
-    use super::*;
-
-    #[deprecated(note = "use NominationAction")]
-    #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-    /// Changes requested by the nominator
-    /// - limit of 1 ongoing change per nomination
-    pub enum NominationChange {
-        Revoke,
-        Decrease,
-    }
-
-    #[deprecated(note = "use ScheduledRequest")]
-    #[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-    pub struct NominationRequest<AccountId, Balance> {
-        pub collator: AccountId,
-        pub amount: Balance,
-        pub when_executable: EraIndex,
-        pub action: NominationChange,
-    }
-
-    #[deprecated(note = "use NominationScheduledRequests storage item")]
-    #[derive(Clone, Encode, PartialEq, Decode, RuntimeDebug, TypeInfo)]
-    /// Pending requests to mutate nominations for each nominator
-    pub struct PendingNominationRequests<AccountId, Balance> {
-        /// Number of pending revocations (necessary for determining whether revoke is exit)
-        pub revocations_count: u32,
-        /// Map from collator -> Request (enforces at most 1 pending request per nomination)
-        pub requests: BTreeMap<AccountId, NominationRequest<AccountId, Balance>>,
-        /// Sum of pending revocation amounts + bond less amounts
-        pub less_total: Balance,
-    }
-
-    impl<A: Ord, B: Zero> Default for PendingNominationRequests<A, B> {
-        fn default() -> PendingNominationRequests<A, B> {
-            PendingNominationRequests {
-                revocations_count: 0u32,
-                requests: BTreeMap::new(),
-                less_total: B::zero(),
-            }
-        }
-    }
-
-    impl<
-            A: Ord + Clone,
-            B: Zero
-                + Ord
-                + Copy
-                + Clone
-                + sp_std::ops::AddAssign
-                + sp_std::ops::Add<Output = B>
-                + sp_std::ops::SubAssign
-                + sp_std::ops::Sub<Output = B>
-                + Saturating,
-        > PendingNominationRequests<A, B>
-    {
-        /// New default (empty) pending requests
-        pub fn new() -> Self {
-            Self::default()
-        }
-    }
-
-    #[deprecated(note = "use new crate::types::Nominator struct")]
-    #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-    /// Nominator state
-    pub struct Nominator<AccountId, Balance> {
-        /// Nominator account
-        pub id: AccountId,
-        /// All current nominations
-        pub nominations: OrderedSet<Bond<AccountId, Balance>>,
-        /// Total balance locked for this nominator
-        pub total: Balance,
-        /// Requests to change nominations, relevant iff active
-        pub requests: PendingNominationRequests<AccountId, Balance>,
-        /// Status for this nominator
-        pub status: NominatorStatus,
-    }
-}
-
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
-/// DEPRECATED in favor of Nominator
-/// Nominator state
-pub struct Nominator2<AccountId, Balance> {
-    /// All current nominations
-    pub nominations: OrderedSet<Bond<AccountId, Balance>>,
-    /// Nominations scheduled to be revoked
-    pub revocations: OrderedSet<AccountId>,
-    /// Total balance locked for this nominator
-    pub total: Balance,
-    /// Total number of revocations scheduled to be executed
-    pub scheduled_revocations_count: u32,
-    /// Total amount to be unbonded once revocations are executed
-    pub scheduled_revocations_total: Balance,
-    /// Status for this nominator
-    pub status: NominatorStatus,
-}
-
-// /// Temporary function to migrate state
-// pub(crate) fn migrate_nominator_to_nominator_state<T: Config>(
-// 	id: T::AccountId,
-// 	nominator: Nominator2<T::AccountId, BalanceOf<T>>,
-// ) -> Nominator<T::AccountId, BalanceOf<T>> {
-// 	Nominator {
-// 		id,
-// 		nominations: nominator.nominations,
-// 		total: nominator.total,
-// 		requests: PendingNominationRequests::new(),
-// 		status: nominator.status,
-// 	}
-// }
-
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
 /// The current era index and transition information
 pub struct EraInfo<BlockNumber> {
@@ -1542,24 +1307,6 @@ impl<
 {
     fn default() -> EraInfo<B> {
         EraInfo::new(1u32, 1u32.into(), 20u32)
-    }
-}
-
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
-/// Reserve information { account, percent_of_inflation }
-pub struct ParachainBondConfig<AccountId> {
-    /// Account which receives funds intended for parachain bond
-    pub account: AccountId,
-    /// Percent of inflation set aside for parachain bond account
-    pub percent: Percent,
-}
-impl<A: Decode> Default for ParachainBondConfig<A> {
-    fn default() -> ParachainBondConfig<A> {
-        ParachainBondConfig {
-            account: A::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
-                .expect("infinite length input; no invalid inputs for type; qed"),
-            percent: Percent::zero(),
-        }
     }
 }
 
