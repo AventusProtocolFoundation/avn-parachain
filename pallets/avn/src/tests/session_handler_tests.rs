@@ -1,7 +1,6 @@
 // Copyright 2020 Artos Systems (UK) Ltd.
 
-use crate::mock::extension_builder::ExtBuilder;
-use crate::mock::*;
+use crate::mock::{extension_builder::ExtBuilder, *};
 use sp_avn_common::event_types::Validator;
 use sp_runtime::testing::UintAuthorityId;
 
@@ -41,8 +40,9 @@ fn advance_session_and_force_new_validators() {
     advance_session();
 }
 
-// TODO [TYPE: test refactoring][PRI: LOW]:  update this function to work with the mock builder pattern
-// Currently, a straightforward replacement of the test setup leads to an error on the assert_eq!
+// TODO [TYPE: test refactoring][PRI: LOW]:  update this function to work with the mock builder
+// pattern Currently, a straightforward replacement of the test setup leads to an error on the
+// assert_eq!
 fn advance_session() {
     let now = System::block_number().max(1);
     System::set_block_number(now + 1);
@@ -56,8 +56,8 @@ fn keys_populated_correctly_on_genesis() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         assert!(
-            AVN::validators()
-                == vec![
+            AVN::validators() ==
+                vec![
                     Validator { account_id: 1, key: UintAuthorityId(1) },
                     Validator { account_id: 2, key: UintAuthorityId(2) },
                     Validator { account_id: 3, key: UintAuthorityId(3) }
@@ -72,8 +72,8 @@ fn keys_populated_correctly_new_session_same_validators_change() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         assert!(
-            AVN::validators()
-                == vec![
+            AVN::validators() ==
+                vec![
                     Validator { account_id: 1, key: UintAuthorityId(1) },
                     Validator { account_id: 2, key: UintAuthorityId(2) },
                     Validator { account_id: 3, key: UintAuthorityId(3) }
@@ -83,8 +83,8 @@ fn keys_populated_correctly_new_session_same_validators_change() {
         advance_session();
 
         assert!(
-            AVN::validators()
-                == vec![
+            AVN::validators() ==
+                vec![
                     Validator { account_id: 1, key: UintAuthorityId(1) },
                     Validator { account_id: 2, key: UintAuthorityId(2) },
                     Validator { account_id: 3, key: UintAuthorityId(3) }
@@ -99,8 +99,8 @@ fn keys_populated_correctly_new_session_with_good_change() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         assert!(
-            AVN::validators()
-                == vec![
+            AVN::validators() ==
+                vec![
                     Validator { account_id: 1, key: UintAuthorityId(1) },
                     Validator { account_id: 2, key: UintAuthorityId(2) },
                     Validator { account_id: 3, key: UintAuthorityId(3) }
@@ -110,8 +110,8 @@ fn keys_populated_correctly_new_session_with_good_change() {
         change_validators_good();
 
         assert!(
-            AVN::validators()
-                == vec![
+            AVN::validators() ==
+                vec![
                     Validator { account_id: 1, key: UintAuthorityId(1) },
                     Validator { account_id: 2, key: UintAuthorityId(2) }
                 ]
@@ -125,8 +125,8 @@ fn keys_populated_correctly_new_session_with_empty_change() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         assert!(
-            AVN::validators()
-                == vec![
+            AVN::validators() ==
+                vec![
                     Validator { account_id: 1, key: UintAuthorityId(1) },
                     Validator { account_id: 2, key: UintAuthorityId(2) },
                     Validator { account_id: 3, key: UintAuthorityId(3) }
@@ -145,8 +145,8 @@ fn keys_populated_correctly_new_session_with_no_change() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         assert!(
-            AVN::validators()
-                == vec![
+            AVN::validators() ==
+                vec![
                     Validator { account_id: 1, key: UintAuthorityId(1) },
                     Validator { account_id: 2, key: UintAuthorityId(2) },
                     Validator { account_id: 3, key: UintAuthorityId(3) }
@@ -156,8 +156,8 @@ fn keys_populated_correctly_new_session_with_no_change() {
         advance_session_no_validators_change();
 
         assert!(
-            AVN::validators()
-                == vec![
+            AVN::validators() ==
+                vec![
                     Validator { account_id: 1, key: UintAuthorityId(1) },
                     Validator { account_id: 2, key: UintAuthorityId(2) },
                     Validator { account_id: 3, key: UintAuthorityId(3) }

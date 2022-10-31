@@ -3,22 +3,27 @@
 #![cfg(test)]
 
 use crate::{self as pallet_avn, *};
-use frame_support::{parameter_types, weights::Weight, BasicExternalities,
-    traits::{ValidatorRegistration}, //, GenesisBuild},
-    PalletId
+use frame_support::{
+    parameter_types,
+    traits::ValidatorRegistration, //, GenesisBuild},
+    weights::Weight,
+    BasicExternalities,
+    PalletId,
 };
 use frame_system::{self as system, EnsureRoot};
+use pallet_balances;
+use pallet_collator_selection::IdentityCollator;
 use pallet_session as session;
-use sp_core::offchain::testing::{OffchainState, PendingRequest};
-use sp_core::H256;
+use sp_core::{
+    offchain::testing::{OffchainState, PendingRequest},
+    H256,
+};
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     Perbill,
 };
 use std::cell::RefCell;
-use pallet_collator_selection::IdentityCollator;
-use pallet_balances;
 
 // This is added to allow configuring pallet_session GenesisConfig
 use crate::mock::sp_api_hidden_includes_construct_runtime::hidden_include::traits::GenesisBuild;
@@ -187,7 +192,7 @@ impl ExtBuilder {
     }
 }
 
-/************* Test helpers *************/
+/************* Test helpers ************ */
 
 #[allow(dead_code)]
 pub fn keys_setup_return_good_validator(
@@ -206,14 +211,14 @@ pub fn keys_setup_return_good_validator(
 
     assert_eq!(current_node_validator, Validator { account_id: 1, key: UintAuthorityId(1) });
 
-    return current_node_validator;
+    return current_node_validator
 }
 
 #[allow(dead_code)]
 pub fn bad_authority() -> Validator<<TestRuntime as Config>::AuthorityId, AccountId> {
     let validator = Validator { account_id: 0, key: UintAuthorityId(0) };
 
-    return validator;
+    return validator
 }
 
 #[allow(dead_code)]

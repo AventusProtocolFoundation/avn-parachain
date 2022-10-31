@@ -1,5 +1,4 @@
-use crate::mock::extension_builder::ExtBuilder;
-use crate::mock::*;
+use crate::mock::{extension_builder::ExtBuilder, *};
 use sp_runtime::testing::UintAuthorityId;
 
 #[test]
@@ -60,7 +59,7 @@ fn is_primary_fails_with_no_validators() {
     });
 }
 
-/************************/
+/*********************** */
 
 #[test]
 fn test_local_authority_keys_empty() {
@@ -82,4 +81,4 @@ fn test_local_authority_keys_valid() {
     });
 }
 
-/*****************************/
+/**************************** */
