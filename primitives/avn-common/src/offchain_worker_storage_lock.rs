@@ -1,4 +1,4 @@
-// Copyright 2020 Artos Systems (UK) Ltd.
+// Copyright 2022 Aventus Network Services (UK) Ltd.
 
 use codec::{Codec, Decode, Encode};
 #[cfg(feature = "std")]

@@ -1,4 +1,4 @@
-// Copyright 2020 Artos Systems (UK) Ltd.
+// Copyright 2022 Aventus Network Services (UK) Ltd.
 
 use crate::mock::{extension_builder::ExtBuilder, *};
 use sp_avn_common::event_types::Validator;
