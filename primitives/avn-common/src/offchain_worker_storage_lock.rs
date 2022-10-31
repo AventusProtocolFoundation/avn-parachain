@@ -3,10 +3,9 @@
 use codec::{Codec, Decode, Encode};
 #[cfg(feature = "std")]
 use log::trace;
-use sp_runtime::traits::Member;
 use sp_runtime::{
     offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
-    traits::AtLeast32Bit,
+    traits::{AtLeast32Bit, Member},
 };
 use sp_std::{if_std, vec, vec::Vec};
 
@@ -65,15 +64,16 @@ fn generate_name_for_block_expiring_list<BlockNumber: Member + Encode>(
 ) -> PersistentId {
     let mut name = b"expiring_at_block:".to_vec();
     name.extend_from_slice(&mut block_number.encode());
-    return name;
+    return name
 }
 
 fn generate_name_for_last_run_block(caller_id: Vec<u8>) -> PersistentId {
     let name = [caller_id.as_slice(), b"::last_run"].concat();
-    return name;
+    return name
 }
 
-// TODO [TYPE: business logic][PRI: medium] make this function reject entries with expiry in already expired blocks
+// TODO [TYPE: business logic][PRI: medium] make this function reject entries with expiry in already
+// expired blocks
 fn insert_item_to_expiry_list<BlockNumber: Member + Codec>(
     new_db_entry: &LocalDBEntry<BlockNumber, LockData>,
 ) -> Option<()> {
@@ -88,9 +88,9 @@ fn insert_item_to_expiry_list<BlockNumber: Member + Codec>(
             Ok(Some(mut expiration_list)) => {
                 if !expiration_list.contains(&new_db_entry.persistent_id) {
                     expiration_list.push(new_db_entry.persistent_id.clone());
-                    return Ok(expiration_list);
+                    return Ok(expiration_list)
                 } else {
-                    return Err(ALREADY_INSERTED);
+                    return Err(ALREADY_INSERTED)
                 }
             },
             _ => Ok(vec![new_db_entry.persistent_id.clone()]),
@@ -118,7 +118,7 @@ fn get_expiring_list_for_block<BlockNumber: Member + Codec>(
     let expiring_list_storage = StorageValueRef::persistent(&expiring_list_name);
     if let Ok(Some(stored_data)) = expiring_list_storage.get::<Vec<PersistentId>>() {
         if stored_data.len() != 0 {
-            return Some(stored_data);
+            return Some(stored_data)
         }
     }
     None
@@ -132,7 +132,7 @@ fn remove_entry_from_local_db(entry: &PersistentId) {
 fn read_data_from_local_db<Data: Decode>(persistent_id: &PersistentId) -> Option<Data> {
     let entry = StorageValueRef::persistent(persistent_id);
     if let Ok(Some(stored_data)) = entry.get::<Data>() {
-        return Some(stored_data);
+        return Some(stored_data)
     }
     None
 }
@@ -155,9 +155,9 @@ fn remove_lock_entries_from_block<BlockNumber: Member + Codec + AtLeast32Bit>(
                 let find_index = expiration_list.iter().position(|r| r[..] == to_remove[..]);
                 if let Some(index) = find_index {
                     expiration_list.remove(index);
-                    return Ok(expiration_list);
+                    return Ok(expiration_list)
                 } else {
-                    return Err(ENTRY_NOT_PRESENT);
+                    return Err(ENTRY_NOT_PRESENT)
                 }
             },
             _ => Err(ENTRY_NOT_PRESENT),
@@ -169,7 +169,7 @@ fn remove_lock_entries_from_block<BlockNumber: Member + Codec + AtLeast32Bit>(
     }
 }
 
-/****************************** Public functions ***********************************/
+/****************************** Public functions ********************************** */
 
 pub fn set_lock_with_expiry<BlockNumber: Member + Codec + AtLeast32Bit>(
     current_block: BlockNumber,
@@ -181,7 +181,7 @@ pub fn set_lock_with_expiry<BlockNumber: Member + Codec + AtLeast32Bit>(
     let new_db_entry = LocalDBEntry::new(current_block, expiry_type, 1 as LockData, persistent_id);
 
     if insert_item_to_expiry_list(&new_db_entry).is_none() {
-        return Err(());
+        return Err(())
     }
 
     let entry = StorageValueRef::persistent(&new_db_entry.persistent_id);
@@ -209,9 +209,9 @@ pub fn set_lock_with_expiry<BlockNumber: Member + Codec + AtLeast32Bit>(
 pub fn is_locked(persistent_id: &PersistentId) -> bool {
     let entry = StorageValueRef::persistent(persistent_id);
     if let Ok(Some(_)) = entry.get::<LockData>() {
-        return true;
+        return true
     }
-    return false;
+    return false
 }
 
 pub fn cleanup_expired_entries<BlockNumber: Member + Codec + Copy + AtLeast32Bit>(
@@ -224,9 +224,10 @@ pub fn cleanup_expired_entries<BlockNumber: Member + Codec + Copy + AtLeast32Bit
     )
     .unwrap_or(BlockNumber::from(1 as u32));
 
-    // This would be much easier using core::ops::Range between the block numbers and the collect or iterate the values.
-    // core::iter::Step must be implemented for BlockNumber in order to Iterate or collect from it.
-    // Unfortunately this functionality for generics is only available on nightly builds and is experimental.
+    // This would be much easier using core::ops::Range between the block numbers and the collect or
+    // iterate the values. core::iter::Step must be implemented for BlockNumber in order to
+    // Iterate or collect from it. Unfortunately this functionality for generics is only
+    // available on nightly builds and is experimental.
     let mut block_to_clean = *block_number;
     while block_to_clean > last_cleanup_block {
         cleanup_range.push(block_to_clean);
@@ -252,11 +253,13 @@ pub fn record_block_run<BlockNumber: Member + Codec + AtLeast32Bit>(
     const ALREADY_RUN: () = ();
     let key = generate_name_for_last_run_block(caller_id);
     let val = StorageValueRef::persistent(&key);
-    // Using `mutate` means that only one worker will be able to "acquire a lock" to update this value.
+    // Using `mutate` means that only one worker will be able to "acquire a lock" to update this
+    // value.
     let result = val.mutate(|last_run: Result<Option<BlockNumber>, StorageRetrievalError>| {
         match last_run {
-            // If we already have a value in storage and the value is the same or greater than the current block_number
-            // we abort the update as a worker from a newer block has beaten us here.
+            // If we already have a value in storage and the value is the same or greater than the
+            // current block_number we abort the update as a worker from a newer block
+            // has beaten us here.
             Ok(Some(block)) if block >= block_number => Err(ALREADY_RUN),
             // In every other case we attempt to acquire the lock and update the block_number.
             _ => Ok(block_number),
@@ -265,13 +268,11 @@ pub fn record_block_run<BlockNumber: Member + Codec + AtLeast32Bit>(
 
     match result {
         Ok(_) => Ok(()),
-        Err(MutateStorageError::ValueFunctionFailed(ALREADY_RUN)) => {
-            Err(OcwStorageError::OffchainWorkerAlreadyRun)
-        },
+        Err(MutateStorageError::ValueFunctionFailed(ALREADY_RUN)) =>
+            Err(OcwStorageError::OffchainWorkerAlreadyRun),
         //We didn't get a lock to update the value so return false
-        Err(MutateStorageError::ConcurrentModification(_)) => {
-            Err(OcwStorageError::ErrorRecordingOffchainWorkerRun)
-        },
+        Err(MutateStorageError::ConcurrentModification(_)) =>
+            Err(OcwStorageError::ErrorRecordingOffchainWorkerRun),
     }
 }
 
@@ -285,7 +286,8 @@ pub fn remove_storage_lock<BlockNumber: Member + Codec + AtLeast32Bit>(
     remove_lock_entries_from_block(&db_entry_to_remove.expiry, &db_entry_to_remove.persistent_id)
 }
 
-// ======================================== Tests =====================================================
+// ======================================== Tests
+// =====================================================
 
 #[cfg(test)]
 #[path = "tests/test_offchain_worker_storage_locks.rs"]

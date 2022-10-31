@@ -19,7 +19,8 @@ pub mod avn_tests_helpers;
 pub mod event_types;
 pub mod offchain_worker_storage_lock;
 
-/// Ingress counter type for a counter that can sign the same message with a different signature each time
+/// Ingress counter type for a counter that can sign the same message with a different signature
+/// each time
 pub type IngressCounter = u64;
 
 /// Key type for AVN pallet. dentified as `avnk`.
@@ -54,7 +55,7 @@ pub struct EthTransaction {
 
 impl EthTransaction {
     pub fn new(from: [u8; 32], to: H160, data: Vec<u8>) -> Self {
-        return EthTransaction { from, to, data };
+        return EthTransaction { from, to, data }
     }
 }
 
@@ -82,7 +83,8 @@ pub trait CallDecoder {
         -> Result<Proof<Self::Signature, Self::AccountId>, Self::Error>;
 }
 
-// ======================================== Proxy validation ==========================================
+// ======================================== Proxy validation
+// ==========================================
 
 pub trait InnerCallValidator {
     type Call: Dispatchable;
@@ -108,9 +110,9 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
 
 pub fn calculate_two_third_quorum(total_num_of_validators: u32) -> u32 {
     if total_num_of_validators < 3 {
-        return total_num_of_validators;
+        return total_num_of_validators
     } else {
-        return (2 * total_num_of_validators / 3) + 1;
+        return (2 * total_num_of_validators / 3) + 1
     }
 }
 
@@ -123,16 +125,16 @@ pub fn recover_public_key_from_ecdsa_signature(
         &hash_with_ethereum_prefix(message)?,
     ) {
         Ok(pubkey) => {
-            return Ok(ecdsa::Public::from_raw(pubkey));
+            return Ok(ecdsa::Public::from_raw(pubkey))
         },
         Err(EcdsaVerifyError::BadRS) => {
-            return Err(ECDSAVerificationError::InvalidValueForRS);
+            return Err(ECDSAVerificationError::InvalidValueForRS)
         },
         Err(EcdsaVerifyError::BadV) => {
-            return Err(ECDSAVerificationError::InvalidValueForV);
+            return Err(ECDSAVerificationError::InvalidValueForV)
         },
         Err(EcdsaVerifyError::BadSignature) => {
-            return Err(ECDSAVerificationError::BadSignature);
+            return Err(ECDSAVerificationError::BadSignature)
         },
     }
 }

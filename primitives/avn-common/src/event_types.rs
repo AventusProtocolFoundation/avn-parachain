@@ -65,7 +65,7 @@ pub enum ValidEvents {
     NftTransferTo,
     NftCancelListing,
     NftEndBatchListing,
-    AvtGrowthLifted
+    AvtGrowthLifted,
 }
 
 impl ValidEvents {
@@ -73,71 +73,65 @@ impl ValidEvents {
         match *self {
             // PLEASE: keep these comments in here.
             // Since hashes are one-way, they are essentially meaningless
-            // and we can't check if they are up to date or we need to change them as we update event signatures
+            // and we can't check if they are up to date or we need to change them as we update
+            // event signatures
 
             // hex string of Keccak-256 for LogValidatorRegistered(bytes32,bytes32,bytes32,uint256)
-            ValidEvents::AddedValidator => {
-                H256(hex!("ff083a6e395a67771f3c9108922bc274c27b38b48c210b0f6a8c5f4710c0494b"))
-            },
+            ValidEvents::AddedValidator =>
+                H256(hex!("ff083a6e395a67771f3c9108922bc274c27b38b48c210b0f6a8c5f4710c0494b")),
 
             // hex string of Keccak-256 for LogLifted(address,address,bytes32,uint256)
-            ValidEvents::Lifted => {
-                H256(hex!("8964776336bc2fa8ecaaf70b6f8e8450807efb1ff78f8b87980707aa821f0ec0"))
-            },
+            ValidEvents::Lifted =>
+                H256(hex!("8964776336bc2fa8ecaaf70b6f8e8450807efb1ff78f8b87980707aa821f0ec0")),
 
             // hex string of Keccak-256 for AvnMintTo(uint256,uint64,bytes32,string)
-            ValidEvents::NftMint => {
-                H256(hex!("242e8a2c5335295f6294a23543699a458e6d5ed7a5839f93cc420116e0a31f99"))
-            },
+            ValidEvents::NftMint =>
+                H256(hex!("242e8a2c5335295f6294a23543699a458e6d5ed7a5839f93cc420116e0a31f99")),
 
             // hex string of Keccak-256 for AvnTransferTo(uint256,bytes32,uint64)
-            ValidEvents::NftTransferTo => {
-                H256(hex!("fff226ba128aca9718a568817388f3711cfeedd8c81cec4d02dcefc50f3c67bb"))
-            },
+            ValidEvents::NftTransferTo =>
+                H256(hex!("fff226ba128aca9718a568817388f3711cfeedd8c81cec4d02dcefc50f3c67bb")),
 
             // hex string of Keccak-256 for AvnCancelNftListing(uint256,uint64)
-            ValidEvents::NftCancelListing => {
-                H256(hex!("eb0a71ca01b1505be834cafcd54b651d77eafd1ca915d21c0898575bcab53358"))
-            },
+            ValidEvents::NftCancelListing =>
+                H256(hex!("eb0a71ca01b1505be834cafcd54b651d77eafd1ca915d21c0898575bcab53358")),
 
             // hex string of Keccak-256 for AvnEndBatchListing(uint256)
-            ValidEvents::NftEndBatchListing => {
-                H256(hex!("20c46236a16e176bc83a795b3a64ad94e5db8bc92afc8cc6d3fd4a3864211f8f"))
-            },
+            ValidEvents::NftEndBatchListing =>
+                H256(hex!("20c46236a16e176bc83a795b3a64ad94e5db8bc92afc8cc6d3fd4a3864211f8f")),
 
             // hex string of Keccak-256 for LogGrowth(uint256,uint32)
-            ValidEvents::AvtGrowthLifted => {
-                H256(hex!("3ad58a8dc1110baa37ad88a68db14181b4ef0c69192dfa7699a9588960eca7fd"))
-            },
+            ValidEvents::AvtGrowthLifted =>
+                H256(hex!("3ad58a8dc1110baa37ad88a68db14181b4ef0c69192dfa7699a9588960eca7fd")),
         }
     }
 
     pub fn try_from(signature: &H256) -> Option<ValidEvents> {
         if signature == &ValidEvents::AddedValidator.signature() {
-            return Some(ValidEvents::AddedValidator);
+            return Some(ValidEvents::AddedValidator)
         } else if signature == &ValidEvents::Lifted.signature() {
-            return Some(ValidEvents::Lifted);
+            return Some(ValidEvents::Lifted)
         } else if signature == &ValidEvents::NftMint.signature() {
-            return Some(ValidEvents::NftMint);
+            return Some(ValidEvents::NftMint)
         } else if signature == &ValidEvents::NftTransferTo.signature() {
-            return Some(ValidEvents::NftTransferTo);
+            return Some(ValidEvents::NftTransferTo)
         } else if signature == &ValidEvents::NftCancelListing.signature() {
-            return Some(ValidEvents::NftCancelListing);
+            return Some(ValidEvents::NftCancelListing)
         } else if signature == &ValidEvents::NftEndBatchListing.signature() {
-            return Some(ValidEvents::NftEndBatchListing);
+            return Some(ValidEvents::NftEndBatchListing)
         } else if signature == &ValidEvents::AvtGrowthLifted.signature() {
-            return Some(ValidEvents::AvtGrowthLifted);
+            return Some(ValidEvents::AvtGrowthLifted)
         } else {
-            return None;
+            return None
         }
     }
 
     pub fn is_nft_event(&self) -> bool {
         match *self {
-            ValidEvents::NftMint
-            | ValidEvents::NftTransferTo
-            | ValidEvents::NftCancelListing
-            | ValidEvents::NftEndBatchListing => true,
+            ValidEvents::NftMint |
+            ValidEvents::NftTransferTo |
+            ValidEvents::NftCancelListing |
+            ValidEvents::NftEndBatchListing => true,
             _ => false,
         }
     }
@@ -156,9 +150,9 @@ impl AddedValidatorData {
     const TOPIC_INDEX_T2_ADDRESS: usize = 3;
 
     pub fn is_valid(&self) -> bool {
-        return !self.eth_public_key.is_zero()
-            && !self.t2_address.is_zero()
-            && !self.validator_account_id.is_zero();
+        return !self.eth_public_key.is_zero() &&
+            !self.t2_address.is_zero() &&
+            !self.validator_account_id.is_zero()
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -171,23 +165,23 @@ impl AddedValidatorData {
         // topics[3] --> t2 address
 
         if data.is_none() {
-            return Err(Error::AddedValidatorEventMissingData);
+            return Err(Error::AddedValidatorEventMissingData)
         }
         let data = data.expect("Already checked for errors");
 
         if data.len() != WORD_LENGTH {
-            return Err(Error::AddedValidatorEventBadDataLength);
+            return Err(Error::AddedValidatorEventBadDataLength)
         }
 
         if topics.len() != 4 {
-            return Err(Error::AddedValidatorEventWrongTopicCount);
+            return Err(Error::AddedValidatorEventWrongTopicCount)
         }
 
-        if topics[Self::TOPIC_INDEX_T1_PUBLIC_KEY_LHS].len() != WORD_LENGTH
-            || topics[Self::TOPIC_INDEX_T1_PUBLIC_KEY_RHS].len() != WORD_LENGTH
-            || topics[Self::TOPIC_INDEX_T2_ADDRESS].len() != WORD_LENGTH
+        if topics[Self::TOPIC_INDEX_T1_PUBLIC_KEY_LHS].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_T1_PUBLIC_KEY_RHS].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_T2_ADDRESS].len() != WORD_LENGTH
         {
-            return Err(Error::AddedValidatorEventBadTopicLength);
+            return Err(Error::AddedValidatorEventBadTopicLength)
         }
 
         // The full public key is split into 2 32 byte words
@@ -202,12 +196,13 @@ impl AddedValidatorData {
             eth_public_key,
             t2_address,
             validator_account_id: validator_id,
-        });
+        })
     }
 }
 
 // T1 Event definition:
-// event LogLifted(address indexed tokenContract, address indexed lifter, bytes32 indexed liftee, uint amount);
+// event LogLifted(address indexed tokenContract, address indexed lifter, bytes32 indexed liftee,
+// uint amount);
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
 pub struct LiftedData {
     pub token_contract: H160,
@@ -223,9 +218,9 @@ impl LiftedData {
     const TOPIC_INDEX_T2_ADDRESS: usize = 3;
 
     pub fn is_valid(&self) -> bool {
-        return !self.token_contract.is_zero()
-            && !self.sender_address.is_zero()
-            && !self.receiver_address.is_zero();
+        return !self.token_contract.is_zero() &&
+            !self.sender_address.is_zero() &&
+            !self.receiver_address.is_zero()
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -238,23 +233,23 @@ impl LiftedData {
         // topics[3] --> receiver t2 public key (32 bytes)
 
         if data.is_none() {
-            return Err(Error::LiftedEventMissingData);
+            return Err(Error::LiftedEventMissingData)
         }
         let data = data.expect("Already checked for errors");
 
         if data.len() != WORD_LENGTH {
-            return Err(Error::LiftedEventBadDataLength);
+            return Err(Error::LiftedEventBadDataLength)
         }
 
         if topics.len() != 4 {
-            return Err(Error::LiftedEventWrongTopicCount);
+            return Err(Error::LiftedEventWrongTopicCount)
         }
 
-        if topics[Self::TOPIC_CURRENCY_CONTRACT].len() != WORD_LENGTH
-            || topics[Self::TOPIC_INDEX_T1_ADDRESS].len() != WORD_LENGTH
-            || topics[Self::TOPIC_INDEX_T2_ADDRESS].len() != WORD_LENGTH
+        if topics[Self::TOPIC_CURRENCY_CONTRACT].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_T1_ADDRESS].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_T2_ADDRESS].len() != WORD_LENGTH
         {
-            return Err(Error::LiftedEventBadTopicLength);
+            return Err(Error::LiftedEventBadTopicLength)
         }
 
         let token_contract = H160::from_slice(
@@ -266,7 +261,7 @@ impl LiftedData {
         let receiver_address = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
 
         if data[0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
-            return Err(Error::LiftedEventDataOverflow);
+            return Err(Error::LiftedEventDataOverflow)
         }
 
         let amount = u128::from_be_bytes(
@@ -281,7 +276,7 @@ impl LiftedData {
             amount,
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
             nonce: U256::zero(),
-        });
+        })
     }
 }
 
@@ -303,9 +298,9 @@ impl NftMintData {
     const TOPIC_INDEX_T2_OWNER_PUBLIC_KEY: usize = 3;
 
     pub fn is_valid(&self) -> bool {
-        return !self.batch_id.is_zero()
-            && !self.t2_owner_public_key.is_zero()
-            && self.unique_external_ref.len() > 0;
+        return !self.batch_id.is_zero() &&
+            !self.t2_owner_public_key.is_zero() &&
+            self.unique_external_ref.len() > 0
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -318,23 +313,23 @@ impl NftMintData {
         // topics[3] --> AvN onwer public key (32 bytes)
 
         if data.is_none() {
-            return Err(Error::NftMintedEventMissingData);
+            return Err(Error::NftMintedEventMissingData)
         }
         let data = data.expect("Already checked for errors");
 
         if data.len() != 4 * WORD_LENGTH {
-            return Err(Error::NftMintedEventBadDataLength);
+            return Err(Error::NftMintedEventBadDataLength)
         }
 
         if topics.len() != 4 {
-            return Err(Error::NftMintedEventWrongTopicCount);
+            return Err(Error::NftMintedEventWrongTopicCount)
         }
 
-        if topics[Self::TOPIC_INDEX_BATCH_ID].len() != WORD_LENGTH
-            || topics[Self::TOPIC_INDEX_T2_OWNER_PUBLIC_KEY].len() != WORD_LENGTH
-            || topics[Self::TOPIC_INDEX_SALE_INDEX].len() != WORD_LENGTH
+        if topics[Self::TOPIC_INDEX_BATCH_ID].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_T2_OWNER_PUBLIC_KEY].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_SALE_INDEX].len() != WORD_LENGTH
         {
-            return Err(Error::NftMintedEventBadTopicLength);
+            return Err(Error::NftMintedEventBadTopicLength)
         }
 
         let batch_id = <U256 as From<&[u8]>>::from(&topics[Self::TOPIC_INDEX_BATCH_ID]);
@@ -347,8 +342,8 @@ impl NftMintData {
 
         // This is a string field but its value should always be 4 WORD_LENGTH.
         // The first 2 WORD_LENGTH are encoding data.
-        // The actual unique ref is expected to be a UUID which is made up of 32bytes (WORD_LENGTH) + 4bytes for the dashes
-        // Example: b1dc0452-8b2f-78ec-7e80-167002d11678
+        // The actual unique ref is expected to be a UUID which is made up of 32bytes (WORD_LENGTH)
+        // + 4bytes for the dashes Example: b1dc0452-8b2f-78ec-7e80-167002d11678
         let ref_size = WORD_LENGTH + 4 * BYTE_LENGTH;
         let unique_external_ref = data[2 * WORD_LENGTH..2 * WORD_LENGTH + ref_size].to_vec();
 
@@ -360,7 +355,7 @@ impl NftMintData {
             t1_contract_issuer: H160::zero(),
             sale_index,
             unique_external_ref,
-        });
+        })
     }
 }
 
@@ -377,7 +372,7 @@ impl NftTransferToData {
     const TOPIC_INDEX_OP_ID: usize = 3;
 
     pub fn is_valid(&self) -> bool {
-        return !self.t2_transfer_to_public_key.is_zero();
+        return !self.t2_transfer_to_public_key.is_zero()
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -390,18 +385,18 @@ impl NftTransferToData {
         // topics[3] --> transfer nonce (first 24 bytes are 0 and should be ignored)
 
         if data.is_some() {
-            return Err(Error::NftTransferToEventShouldOnlyContainTopics);
+            return Err(Error::NftTransferToEventShouldOnlyContainTopics)
         }
 
         if topics.len() != 4 {
-            return Err(Error::NftTransferToEventWrongTopicCount);
+            return Err(Error::NftTransferToEventWrongTopicCount)
         }
 
-        if topics[Self::TOPIC_INDEX_NFT_ID].len() != WORD_LENGTH
-            || topics[Self::TOPIC_INDEX_T2_TRANSFER_TO_PUBLIC_KEY].len() != WORD_LENGTH
-            || topics[Self::TOPIC_INDEX_OP_ID].len() != WORD_LENGTH
+        if topics[Self::TOPIC_INDEX_NFT_ID].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_T2_TRANSFER_TO_PUBLIC_KEY].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_OP_ID].len() != WORD_LENGTH
         {
-            return Err(Error::NftTransferToEventBadTopicLength);
+            return Err(Error::NftTransferToEventBadTopicLength)
         }
 
         let nft_id = <U256 as From<&[u8]>>::from(&topics[Self::TOPIC_INDEX_NFT_ID]);
@@ -413,7 +408,7 @@ impl NftTransferToData {
                 .map_err(|_| Error::NftTransferToEventTranferNonceConversion)?,
         );
 
-        return Ok(NftTransferToData { nft_id, t2_transfer_to_public_key, op_id });
+        return Ok(NftTransferToData { nft_id, t2_transfer_to_public_key, op_id })
     }
 }
 
@@ -428,7 +423,7 @@ impl NftCancelListingData {
     const TOPIC_INDEX_OP_ID: usize = 2;
 
     pub fn is_valid(&self) -> bool {
-        return true;
+        return true
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -440,22 +435,22 @@ impl NftCancelListingData {
         // topics[2] --> op_id (first 24 bytes are 0 and should be ignored)
 
         if data.is_some() {
-            return Err(Error::NftCancelListingEventShouldOnlyContainTopics);
+            return Err(Error::NftCancelListingEventShouldOnlyContainTopics)
         }
 
         if topics.len() != 3 {
-            return Err(Error::NftCancelListingEventWrongTopicCount);
+            return Err(Error::NftCancelListingEventWrongTopicCount)
         }
 
         if topics[Self::TOPIC_INDEX_NFT_ID].len() != WORD_LENGTH {
-            return Err(Error::NftCancelListingEventBadTopicLength);
+            return Err(Error::NftCancelListingEventBadTopicLength)
         }
 
         if topics[Self::TOPIC_INDEX_OP_ID][0..TWENTY_FOUR_BYTES]
             .iter()
             .any(|byte| byte > &0)
         {
-            return Err(Error::NftCancelListingEventDataOverflow);
+            return Err(Error::NftCancelListingEventDataOverflow)
         }
 
         let nft_id = <U256 as From<&[u8]>>::from(&topics[Self::TOPIC_INDEX_NFT_ID]);
@@ -465,7 +460,7 @@ impl NftCancelListingData {
                 .map_err(|_| Error::NftCancelListingEventTranferNonceConversion)?,
         );
 
-        return Ok(NftCancelListingData { nft_id, op_id });
+        return Ok(NftCancelListingData { nft_id, op_id })
     }
 }
 
@@ -478,7 +473,7 @@ impl NftEndBatchListingData {
     const TOPIC_INDEX_BATCH_ID: usize = 1;
 
     pub fn is_valid(&self) -> bool {
-        return true;
+        return true
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -489,20 +484,20 @@ impl NftEndBatchListingData {
         // topics[1] --> the nft nft_id (32 bytes)
 
         if data.is_some() {
-            return Err(Error::NftEndBatchListingEventShouldOnlyContainTopics);
+            return Err(Error::NftEndBatchListingEventShouldOnlyContainTopics)
         }
 
         if topics.len() != 2 {
-            return Err(Error::NftEndBatchListingEventWrongTopicCount);
+            return Err(Error::NftEndBatchListingEventWrongTopicCount)
         }
 
         if topics[Self::TOPIC_INDEX_BATCH_ID].len() != WORD_LENGTH {
-            return Err(Error::NftEndBatchListingEventBadTopicLength);
+            return Err(Error::NftEndBatchListingEventBadTopicLength)
         }
 
         let batch_id = <U256 as From<&[u8]>>::from(&topics[Self::TOPIC_INDEX_BATCH_ID]);
 
-        return Ok(NftEndBatchListingData { batch_id });
+        return Ok(NftEndBatchListingData { batch_id })
     }
 }
 
@@ -519,7 +514,7 @@ impl AvtGrowthLiftedData {
     const TOPIC_PERIOD: usize = 2;
 
     pub fn is_valid(&self) -> bool {
-        return self.amount > 0u128;
+        return self.amount > 0u128
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -531,21 +526,21 @@ impl AvtGrowthLiftedData {
         // topics[2] --> period (first 28 bytes are 0 and should be ignored)
 
         if data.is_some() {
-            return Err(Error::AvtGrowthLiftedEventShouldOnlyContainTopics);
+            return Err(Error::AvtGrowthLiftedEventShouldOnlyContainTopics)
         }
 
         if topics.len() != 3 {
-            return Err(Error::AvtGrowthLiftedEventWrongTopicCount);
+            return Err(Error::AvtGrowthLiftedEventWrongTopicCount)
         }
 
-        if topics[Self::TOPIC_AMOUNT].len() != WORD_LENGTH
-            || topics[Self::TOPIC_PERIOD].len() != WORD_LENGTH
+        if topics[Self::TOPIC_AMOUNT].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_PERIOD].len() != WORD_LENGTH
         {
-            return Err(Error::AvtGrowthLiftedEventBadTopicLength);
+            return Err(Error::AvtGrowthLiftedEventBadTopicLength)
         }
 
         if topics[Self::TOPIC_AMOUNT][0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
-            return Err(Error::AvtGrowthLiftedEventDataOverflow);
+            return Err(Error::AvtGrowthLiftedEventDataOverflow)
         }
 
         let amount = u128::from_be_bytes(
@@ -560,10 +555,7 @@ impl AvtGrowthLiftedData {
                 .map_err(|_| Error::AvtGrowthLiftedEventPeriodConversion)?,
         );
 
-        return Ok(AvtGrowthLiftedData {
-            amount,
-            period,
-        });
+        return Ok(AvtGrowthLiftedData { amount, period })
     }
 }
 
@@ -592,7 +584,7 @@ impl EventData {
             EventData::LogAvtGrowthLifted(d) => d.is_valid(),
             EventData::EmptyEvent => true,
             _ => false,
-        };
+        }
     }
 }
 
@@ -602,13 +594,15 @@ impl Default for EventData {
     }
 }
 
-// ================================= Checking and Validating Events ====================================
+// ================================= Checking and Validating Events
+// ====================================
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
 pub enum CheckResult {
     /// Event exists on tier 1
     Ok,
     /// Event is not valid.
-    /// This could be due to several reason such as the event missing or not having a correctly formatted event data
+    /// This could be due to several reason such as the event missing or not having a correctly
+    /// formatted event data
     Invalid,
     /// Http error
     HttpErrorCheckingEvent,
@@ -626,19 +620,21 @@ impl Default for CheckResult {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-// Note: strictly speaking, different contracts can have events with the same signature, which would suggests that the
-// contract should be part of the EventId.
-// But the expected communication framework is that all these events are generated by contracts we write and deploy ourselves.
-// When we check the validity of an event with this identifier, we can explicitly check it against our contracts and avoid
-// conflicts with events generated maliciously by some attacker contract
+// Note: strictly speaking, different contracts can have events with the same signature, which would
+// suggests that the contract should be part of the EventId.
+// But the expected communication framework is that all these events are generated by contracts we
+// write and deploy ourselves. When we check the validity of an event with this identifier, we can
+// explicitly check it against our contracts and avoid conflicts with events generated maliciously
+// by some attacker contract
 pub struct EthEventId {
-    pub signature: H256, // this is the Event Signature, as in ethereum's Topic0. It is not a cryptographic signature
+    pub signature: H256, /* this is the Event Signature, as in ethereum's Topic0. It is not a
+                          * cryptographic signature */
     pub transaction_hash: H256,
 }
 
 impl EthEventId {
     pub fn hashed<R, F: FnOnce(&[u8]) -> R>(&self, hasher: F) -> R {
-        return (self.signature, self.transaction_hash).using_encoded(hasher);
+        return (self.signature, self.transaction_hash).using_encoded(hasher)
     }
 }
 
@@ -676,11 +672,12 @@ impl<BlockNumber: Member, AccountId: Member> EthEventCheckResult<BlockNumber, Ac
             ready_for_processing_after_block: ready_after_block,
             checked_at_block,
             min_challenge_votes,
-        };
+        }
     }
 }
 
-// ================================= Challenges =======================================================
+// ================================= Challenges
+// =======================================================
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
 pub enum ChallengeReason {
     /// The result of the check is not correct
@@ -704,7 +701,7 @@ impl<AccountId: Member> Challenge<AccountId> {
         challenge_reason: ChallengeReason,
         challenged_by: AccountId,
     ) -> Self {
-        return Challenge::<AccountId> { event_id, challenge_reason, challenged_by };
+        return Challenge::<AccountId> { event_id, challenge_reason, challenged_by }
     }
 }
 
@@ -714,7 +711,8 @@ impl Default for ChallengeReason {
     }
 }
 
-// ================================= Authorities and Validators =======================================
+// ================================= Authorities and Validators
+// =======================================
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo)]
 pub struct Validator<AuthorityId: Member, AccountId: Member> {
@@ -724,11 +722,12 @@ pub struct Validator<AuthorityId: Member, AccountId: Member> {
 
 impl<AuthorityId: Member, AccountId: Member> Validator<AuthorityId, AccountId> {
     pub fn new(account_id: AccountId, key: AuthorityId) -> Self {
-        return Validator::<AuthorityId, AccountId> { account_id, key };
+        return Validator::<AuthorityId, AccountId> { account_id, key }
     }
 }
 
-// ======================================== Processed events ==========================================
+// ======================================== Processed events
+// ==========================================
 
 pub trait ProcessedEventHandler {
     fn on_event_processed(event: &EthEvent) -> DispatchResult;
@@ -742,7 +741,8 @@ impl ProcessedEventHandler for Tuple {
     }
 }
 
-// ======================================== Tests =====================================================
+// ======================================== Tests
+// =====================================================
 
 #[cfg(test)]
 #[path = "tests/test_event_types.rs"]
