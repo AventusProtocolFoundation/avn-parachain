@@ -66,6 +66,8 @@ mod test_staking_pot;
 mod tests;
 
 use frame_support::pallet;
+use pallet_avn::OnGrowthLiftedHandler;
+use sp_runtime::DispatchResult;
 use weights::WeightInfo;
 
 pub use nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
@@ -86,12 +88,13 @@ pub mod pallet {
     use frame_support::{
         pallet_prelude::*,
         traits::{
-            tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, LockIdentifier,
-            LockableCurrency, ReservableCurrency,
+            tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance,
+            LockIdentifier, LockableCurrency, ReservableCurrency,
         },
         PalletId,
     };
     use frame_system::pallet_prelude::*;
+    use pallet_avn::ProcessedEventsChecker;
     use sp_runtime::{
         traits::{AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Saturating, Zero},
         Perbill,
@@ -105,7 +108,8 @@ pub mod pallet {
 
     pub type EraIndex = u32;
     pub type GrowthPeriodIndex = u32;
-    type RewardPoint = u32;
+
+    pub type RewardPoint = u32;
     pub type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
@@ -175,6 +179,8 @@ pub mod pallet {
         type ErasPerCollatorPayout: Get<GrowthPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
         type RewardPotId: Get<PalletId>;
+        /// A way to check if an event has been processed by Ethereum events
+        type ProcessedEventsChecker: ProcessedEventsChecker;
         /// Handler to notify the runtime when a collator is paid.
         /// If you don't need it, you can specify the type `()`.
         type OnCollatorPayout: OnCollatorPayout<Self::AccountId, BalanceOf<Self>>;
@@ -371,6 +377,8 @@ pub mod pallet {
         BlocksPerEraSet { current_era: EraIndex, first_block: T::BlockNumber, old: u32, new: u32 },
         /// Not enough fund to cover the staking reward payment.
         NotEnoughFundsForEraPayment { reward_pot_balance: BalanceOf<T> },
+        /// A collator has been paid for producing blocks
+        CollatorPaid { account: T::AccountId, amount: BalanceOf<T>, period: GrowthPeriodIndex },
     }
 
     #[pallet::hooks]
@@ -537,8 +545,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn locked_era_payout)]
-    /// Storage value that holds the total amount of payouts we are waiting to take out of this
-    /// pallet's pot.
+    /// Total amount of payouts we are waiting to take out of this pallet's pot.
     pub type LockedEraPayout<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
@@ -548,9 +555,14 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn growth)]
-    /// Storage value that holds data to calculate collator payouts.
-    pub type Growth<T: Config> =
-        StorageMap<_, Twox64Concat, GrowthPeriodIndex, GrowthInfo<BalanceOf<T>>, ValueQuery>;
+    /// Data to calculate growth and collator payouts.
+    pub type Growth<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        GrowthPeriodIndex,
+        GrowthInfo<T::AccountId, BalanceOf<T>>,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -1250,7 +1262,18 @@ pub mod pallet {
 
             <DelayedPayouts<T>>::insert(era_to_payout, &payout);
 
-            Self::update_collator_payout(now, total_staked, payout);
+            let collator_scores: Vec<CollatorScore<T::AccountId>> =
+                <AwardedPts<T>>::iter_prefix(era_to_payout)
+                    .map(|(collator, points)| CollatorScore::new(collator, points))
+                    .collect::<Vec<CollatorScore<T::AccountId>>>();
+
+            Self::update_collator_payout(
+                era_to_payout,
+                total_staked,
+                payout,
+                total_points,
+                collator_scores,
+            );
         }
 
         /// Wrapper around pay_one_collator_reward which handles the following logic:
@@ -1517,6 +1540,8 @@ pub mod pallet {
             payout_era: EraIndex,
             total_staked: BalanceOf<T>,
             payout: DelayedPayout<BalanceOf<T>>,
+            total_points: RewardPoint,
+            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
         ) {
             let collator_payout_period = Self::growth_period_info();
             let staking_reward_paid_in_era = payout.total_staking_reward;
@@ -1531,6 +1556,8 @@ pub mod pallet {
                 new_payout_info.number_of_accumulations = 1u32;
                 new_payout_info.total_stake_accumulated = total_staked;
                 new_payout_info.total_staker_reward = staking_reward_paid_in_era;
+                new_payout_info.total_points = total_points;
+                new_payout_info.collator_scores = current_collator_scores;
 
                 <Growth<T>>::insert(Self::growth_period_info().index, new_payout_info);
             } else {
@@ -1538,6 +1565,8 @@ pub mod pallet {
                     collator_payout_period.index,
                     total_staked,
                     staking_reward_paid_in_era,
+                    total_points,
+                    current_collator_scores,
                 );
             };
         }
@@ -1555,6 +1584,8 @@ pub mod pallet {
             growth_index: GrowthPeriodIndex,
             total_staked: BalanceOf<T>,
             staking_reward_paid_in_era: BalanceOf<T>,
+            total_points: RewardPoint,
+            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
         ) {
             <Growth<T>>::mutate(growth_index, |info| {
                 info.number_of_accumulations = info.number_of_accumulations.saturating_add(1);
@@ -1562,7 +1593,70 @@ pub mod pallet {
                     info.total_stake_accumulated.saturating_add(total_staked);
                 info.total_staker_reward =
                     info.total_staker_reward.saturating_add(staking_reward_paid_in_era);
+                info.total_points = info.total_points.saturating_add(total_points);
+                info.collator_scores =
+                    Self::update_collator_scores(&info.collator_scores, current_collator_scores);
             });
+        }
+
+        fn update_collator_scores(
+            existing_collator_scores: &Vec<CollatorScore<T::AccountId>>,
+            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
+        ) -> Vec<CollatorScore<T::AccountId>> {
+            let mut current_scores = existing_collator_scores
+                .into_iter()
+                .map(|current_score| (current_score.collator.clone(), current_score.points.clone()))
+                .collect::<BTreeMap<_, _>>();
+
+            current_collator_scores.into_iter().for_each(|new_score| {
+                current_scores
+                    .entry(new_score.collator)
+                    .and_modify(|points| {
+                        *points = points.saturating_add(new_score.points);
+                    })
+                    .or_insert(new_score.points);
+            });
+
+            return current_scores
+                .into_iter()
+                .map(|(acc, pts)| CollatorScore::new(acc, pts))
+                .collect()
+        }
+
+        pub fn payout_collators(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
+            // We do not validate anything here, we trust that the instruction to pay from T1 is ok
+
+            let pay = |collator_address: T::AccountId, amount: BalanceOf<T>| {
+                if let Ok(amount_paid) =
+                    T::Currency::deposit_into_existing(&collator_address, amount)
+                {
+                    Self::deposit_event(Event::CollatorPaid {
+                        account: collator_address,
+                        amount: amount_paid.peek(),
+                        period: growth_period,
+                    });
+                }
+            };
+
+            if <Growth<T>>::contains_key(growth_period) {
+                // get the list of candidates that earned points from `growth_period`
+                let growth_data = <Growth<T>>::get(growth_period);
+                for collator_data in growth_data.collator_scores {
+                    let percent =
+                        Perbill::from_rational(collator_data.points, growth_data.total_points);
+                    pay(collator_data.collator, percent * amount);
+                }
+            } else {
+                // get the list of current candidates because we there is no way of knowing who they were
+                let collators = <SelectedCandidates<T>>::get();
+                let number_of_collators = collators.len() as u32;
+                for collator in collators.into_iter() {
+                    let percent = Perbill::from_rational(1u32, number_of_collators);
+                    pay(collator, percent * amount);
+                }
+            }
+
+            Ok(())
         }
     }
 
@@ -1588,5 +1682,11 @@ pub mod pallet {
         fn note_uncle(_author: T::AccountId, _age: T::BlockNumber) {
             //TODO: can we ignore this?
         }
+    }
+}
+
+impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
+    fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
+        return Self::payout_collators(amount, growth_period)
     }
 }

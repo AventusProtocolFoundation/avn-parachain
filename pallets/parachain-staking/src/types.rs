@@ -18,8 +18,8 @@
 
 use crate::{
     set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Era, EraIndex, Error,
-    Event, GrowthPeriodIndex, NominatorState, Pallet, TopNominations, Total, COLLATOR_LOCK_ID,
-    NOMINATOR_LOCK_ID,
+    Event, GrowthPeriodIndex, NominatorState, Pallet, RewardPoint, TopNominations, Total,
+    COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
     pallet_prelude::*,
@@ -1315,15 +1315,61 @@ pub enum BondAdjust<Balance> {
     Decrease,
 }
 
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct CollatorScore<AccountId> {
+    pub collator: AccountId,
+    pub points: RewardPoint,
+}
+
+// Datastructure for tracking collator performance
+impl<A: Decode> Default for CollatorScore<A> {
+    fn default() -> CollatorScore<A> {
+        CollatorScore {
+            collator: A::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+                .expect("infinite length input; no invalid inputs for type; qed"),
+            points: 0u32,
+        }
+    }
+}
+
+impl<AccountId> CollatorScore<AccountId> {
+    pub fn new(collator: AccountId, points: RewardPoint) -> Self {
+        CollatorScore { collator, points }
+    }
+}
+
+impl<AccountId: Ord> Eq for CollatorScore<AccountId> {}
+
+impl<AccountId: Ord> Ord for CollatorScore<AccountId> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.collator.cmp(&other.collator)
+    }
+}
+
+impl<AccountId: Ord> PartialOrd for CollatorScore<AccountId> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<AccountId: Ord> PartialEq for CollatorScore<AccountId> {
+    fn eq(&self, other: &Self) -> bool {
+        self.collator == other.collator
+    }
+}
+
 // Data structure for tracking collator rewards
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
-pub struct GrowthInfo<Balance> {
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct GrowthInfo<AccountId, Balance> {
     pub number_of_accumulations: GrowthPeriodIndex,
     pub total_stake_accumulated: Balance,
     pub total_staker_reward: Balance,
+    pub total_points: RewardPoint,
+    pub collator_scores: Vec<CollatorScore<AccountId>>,
 }
 
 impl<
+        AccountId: Clone,
         Balance: Copy
             + sp_std::ops::AddAssign
             + sp_std::ops::Add<Output = Balance>
@@ -1333,13 +1379,27 @@ impl<
             + Zero
             + Default
             + Saturating,
-    > GrowthInfo<Balance>
+    > GrowthInfo<AccountId, Balance>
 {
     pub fn new(number_of_accumulations: GrowthPeriodIndex) -> Self {
         GrowthInfo {
             number_of_accumulations,
             total_stake_accumulated: Balance::zero(),
             total_staker_reward: Balance::zero(),
+            total_points: 0u32.into(),
+            collator_scores: vec![],
+        }
+    }
+}
+
+impl<A: Decode, B: Default> Default for GrowthInfo<A, B> {
+    fn default() -> GrowthInfo<A, B> {
+        GrowthInfo {
+            number_of_accumulations: Default::default(),
+            total_stake_accumulated: B::default(),
+            total_staker_reward: B::default(),
+            total_points: Default::default(),
+            collator_scores: vec![],
         }
     }
 }
