@@ -22,7 +22,7 @@ use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler}
 use pallet_session::{self as session};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
-    event_types::Validator,
+    event_types::{EthEventId, Validator},
     offchain_worker_storage_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
@@ -541,6 +541,16 @@ pub trait FinalisedBlockChecker<BlockNumber: Member> {
 impl<BlockNumber: Member> FinalisedBlockChecker<BlockNumber> for () {
     fn is_finalised(_block_number: BlockNumber) -> bool {
         false
+    }
+}
+
+pub trait ProcessedEventsChecker {
+    fn check_event(event_id: &EthEventId) -> bool;
+}
+
+impl ProcessedEventsChecker for () {
+    fn check_event(_event_id: &EthEventId) -> bool {
+        return false
     }
 }
 
