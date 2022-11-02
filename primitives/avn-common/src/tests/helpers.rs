@@ -1,6 +1,5 @@
 // Copyright 2022 Aventus Network Services (UK) Ltd.
-
-use sp_std::vec;
+#[cfg(test)]
 
 pub mod ethereum_converters {
     use sp_std::vec::Vec;
