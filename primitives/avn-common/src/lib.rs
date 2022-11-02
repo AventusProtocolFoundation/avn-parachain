@@ -124,18 +124,10 @@ pub fn recover_public_key_from_ecdsa_signature(
         &signature.into(),
         &hash_with_ethereum_prefix(message)?,
     ) {
-        Ok(pubkey) => {
-            return Ok(ecdsa::Public::from_raw(pubkey))
-        },
-        Err(EcdsaVerifyError::BadRS) => {
-            return Err(ECDSAVerificationError::InvalidValueForRS)
-        },
-        Err(EcdsaVerifyError::BadV) => {
-            return Err(ECDSAVerificationError::InvalidValueForV)
-        },
-        Err(EcdsaVerifyError::BadSignature) => {
-            return Err(ECDSAVerificationError::BadSignature)
-        },
+        Ok(pubkey) => return Ok(ecdsa::Public::from_raw(pubkey)),
+        Err(EcdsaVerifyError::BadRS) => return Err(ECDSAVerificationError::InvalidValueForRS),
+        Err(EcdsaVerifyError::BadV) => return Err(ECDSAVerificationError::InvalidValueForV),
+        Err(EcdsaVerifyError::BadSignature) => return Err(ECDSAVerificationError::BadSignature),
     }
 }
 
