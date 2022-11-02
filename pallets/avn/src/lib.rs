@@ -40,6 +40,8 @@ pub use pallet::*;
 use pallet_collator_selection as collator_selection;
 use sp_core::ecdsa;
 
+pub mod vote;
+
 // Definition of the crypto to use for signing
 pub mod sr25519 {
     mod app_sr25519 {
