@@ -234,6 +234,8 @@ pub mod pallet {
         PendingNominationRequestNotDueYet,
         CannotNominateLessThanOrEqualToLowestBottomWhenFull,
         PendingNominationRevoke,
+        ErrorPayingCollator,
+        GrowthAlreadyProcessed,
     }
 
     #[pallet::event]
@@ -562,6 +564,10 @@ pub mod pallet {
         GrowthInfo<T::AccountId, BalanceOf<T>>,
         ValueQuery,
     >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn processed_growth_periods)]
+    pub type ProcessedGrowthPeriods<T: Config> = StorageMap<_, Twox64Concat, GrowthPeriodIndex, (), ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -1623,17 +1629,24 @@ pub mod pallet {
         }
 
         pub fn payout_collators(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
-            // We do not validate anything here, we trust that the instruction to pay from T1 is ok
+            // The only validation we do is checking for replays, for everything else we trust T1.
+            ensure!(<ProcessedGrowthPeriods<T>>::contains_key(growth_period) == false, Error::<T>::GrowthAlreadyProcessed);
 
-            let pay = |collator_address: T::AccountId, amount: BalanceOf<T>| {
-                if let Ok(amount_paid) =
-                    T::Currency::deposit_into_existing(&collator_address, amount)
-                {
-                    Self::deposit_event(Event::CollatorPaid {
-                        account: collator_address,
-                        amount: amount_paid.peek(),
-                        period: growth_period,
-                    });
+            let pay = |collator_address: T::AccountId, amount: BalanceOf<T>| -> DispatchResult {
+                match T::Currency::deposit_into_existing(&collator_address, amount) {
+                    Ok(amount_paid) => {
+                        Self::deposit_event(Event::CollatorPaid {
+                            account: collator_address,
+                            amount: amount_paid.peek(),
+                            period: growth_period,
+                        });
+
+                        return Ok(());
+                    },
+                    Err(e) => {
+                        log::error!("💔💔 Error paying {:?} AVT to collator {:?}: {:?}", amount, collator_address, e);
+                        Err(Error::<T>::ErrorPayingCollator.into())
+                    }
                 }
             };
 
@@ -1643,19 +1656,23 @@ pub mod pallet {
                 for collator_data in growth_data.collator_scores {
                     let percent =
                         Perbill::from_rational(collator_data.points, growth_data.total_points);
-                    pay(collator_data.collator, percent * amount);
-
-                    // TODO: remove processed records to reduce state bloat
+                    pay(collator_data.collator, percent * amount)?;
                 }
+
+                // Tidy up state
+                <Growth<T>>::remove(growth_period);
+                <ProcessedGrowthPeriods<T>>::insert(growth_period, ());
+
             } else {
-                // get the list of current candidates because there is no way of knowing who they
-                // were
+                // use current candidates because there is no way of knowing who they were
                 let collators = <SelectedCandidates<T>>::get();
                 let number_of_collators = collators.len() as u32;
                 for collator in collators.into_iter() {
                     let percent = Perbill::from_rational(1u32, number_of_collators);
-                    pay(collator, percent * amount);
+                    pay(collator, percent * amount)?;
                 }
+
+                <ProcessedGrowthPeriods<T>>::insert(growth_period, ());
             }
 
             Ok(())
