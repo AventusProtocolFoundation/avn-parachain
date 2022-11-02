@@ -1648,7 +1648,8 @@ pub mod pallet {
                     // TODO: remove processed records to reduce state bloat
                 }
             } else {
-                // get the list of current candidates because we there is no way of knowing who they were
+                // get the list of current candidates because we there is no way of knowing who they
+                // were
                 let collators = <SelectedCandidates<T>>::get();
                 let number_of_collators = collators.len() as u32;
                 for collator in collators.into_iter() {
