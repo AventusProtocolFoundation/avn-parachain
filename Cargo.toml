@@ -3,5 +3,6 @@ panic = "unwind"
 
 [workspace]
 members = [
-	"pallets/*",
+    "pallets/*",
+    "primitives/*",
 ]
