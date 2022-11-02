@@ -187,6 +187,7 @@ impl Config for Test {
     type MinNomination = MinNomination;
     type RewardPotId = RewardPotId;
     type ErasPerGrowthPeriod = ErasPerGrowthPeriod;
+    type ProcessedEventsChecker = ();
     type OnCollatorPayout = ();
     type OnNewEra = ();
     type WeightInfo = ();

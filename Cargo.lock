@@ -1592,6 +1592,7 @@ dependencies = [
  "log",
  "nimbus-primitives",
  "pallet-authorship",
+ "pallet-avn",
  "pallet-balances",
  "pallet-transaction-payment",
  "parity-scale-codec",
