@@ -1,4 +1,4 @@
-// Copyright 2020 Artos Systems (UK) Ltd.
+// Copyright 2022 Aventus Network Services (UK) Ltd.
 #[cfg(test)]
 use super::*; // event_types
 use crate::avn_tests_helpers::ethereum_converters::*;

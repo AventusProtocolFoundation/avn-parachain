@@ -40,6 +40,8 @@ pub use pallet::*;
 use pallet_collator_selection as collator_selection;
 use sp_core::ecdsa;
 
+#[path = "tests/testing.rs"]
+pub mod testing;
 pub mod vote;
 
 // Definition of the crypto to use for signing
@@ -551,3 +553,15 @@ impl<Balance> OnGrowthLiftedHandler<Balance> for () {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/mock.rs"]
+mod mock;
+
+#[cfg(test)]
+#[path = "tests/tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "tests/session_handler_tests.rs"]
+mod session_handler_tests;
