@@ -1645,7 +1645,7 @@ pub mod pallet {
                     },
                     Err(e) => {
                         log::error!("💔💔 Error paying {:?} AVT to collator {:?}: {:?}", amount, collator_address, e);
-                        Err(Error::<T>::ErrorPayingCollator.into())
+                        return Err(Error::<T>::ErrorPayingCollator.into());
                     }
                 }
             };

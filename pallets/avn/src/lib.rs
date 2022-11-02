@@ -22,7 +22,7 @@ use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler}
 use pallet_session::{self as session};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
-    event_types::Validator,
+    event_types::{EthEventId, Validator},
     offchain_worker_storage_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
@@ -40,6 +40,8 @@ pub use pallet::*;
 use pallet_collator_selection as collator_selection;
 use sp_core::ecdsa;
 
+#[path = "tests/testing.rs"]
+pub mod testing;
 pub mod vote;
 
 // Definition of the crypto to use for signing
@@ -542,6 +544,16 @@ impl<BlockNumber: Member> FinalisedBlockChecker<BlockNumber> for () {
     }
 }
 
+pub trait ProcessedEventsChecker {
+    fn check_event(event_id: &EthEventId) -> bool;
+}
+
+impl ProcessedEventsChecker for () {
+    fn check_event(_event_id: &EthEventId) -> bool {
+        return false
+    }
+}
+
 pub trait OnGrowthLiftedHandler<Balance> {
     fn on_growth_lifted(amount: Balance, growth_period: u32) -> DispatchResult;
 }
@@ -551,3 +563,15 @@ impl<Balance> OnGrowthLiftedHandler<Balance> for () {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/mock.rs"]
+mod mock;
+
+#[cfg(test)]
+#[path = "tests/tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "tests/session_handler_tests.rs"]
+mod session_handler_tests;
