@@ -1150,7 +1150,7 @@ pub mod pallet {
             // mutate era
             era.update(block_number);
 
-            // notify that new era begin
+            // notify new era has begun
             let mut weight = T::OnNewEra::on_new_era(era.current);
 
             // pay all stakers for T::RewardPaymentDelay eras ago
