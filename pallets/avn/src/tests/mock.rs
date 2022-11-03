@@ -3,7 +3,7 @@
 #![cfg(test)]
 
 use crate::{self as pallet_avn, *};
-use frame_support::{parameter_types, weights::Weight, BasicExternalities, traits::GenesisBuild};
+use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities};
 use frame_system as system;
 use pallet_session as session;
 use sp_core::{
@@ -118,10 +118,9 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
-        Self {
-            storage
-        }
+        let storage =
+            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+        Self { storage }
     }
 
     pub fn as_externality(self) -> sp_io::TestExternalities {
