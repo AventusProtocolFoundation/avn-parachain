@@ -3,7 +3,7 @@
 #![cfg(test)]
 
 use crate::{self as pallet_avn, *};
-use frame_support::{parameter_types, weights::Weight, BasicExternalities};
+use frame_support::{parameter_types, weights::Weight, BasicExternalities, traits::GenesisBuild};
 use frame_system as system;
 use pallet_session as session;
 use sp_core::{
@@ -16,12 +16,6 @@ use sp_runtime::{
     Perbill,
 };
 use std::cell::RefCell;
-
-// This is added to allow configuring pallet_session GenesisConfig
-use crate::mock::sp_api_hidden_includes_construct_runtime::hidden_include::traits::GenesisBuild;
-
-pub mod extension_builder;
-use crate::mock::extension_builder::ExtBuilder;
 
 pub type AccountId = <TestRuntime as system::Config>::AccountId;
 pub type AVN = Pallet<TestRuntime>;
@@ -118,7 +112,25 @@ impl session::Config for TestRuntime {
     type WeightInfo = ();
 }
 
+pub struct ExtBuilder {
+    pub storage: sp_runtime::Storage,
+}
+
 impl ExtBuilder {
+    pub fn build_default() -> Self {
+        let storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+        Self {
+            storage
+        }
+    }
+
+    pub fn as_externality(self) -> sp_io::TestExternalities {
+        let mut ext = sp_io::TestExternalities::from(self.storage);
+        // Events do not get emitted on block 0, so we increment the block here
+        ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into()));
+        ext
+    }
+
     pub fn with_validators(mut self) -> Self {
         let validators: Vec<u64> = VALIDATORS.with(|l| l.borrow_mut().take().unwrap());
 
