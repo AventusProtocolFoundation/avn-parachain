@@ -18,7 +18,7 @@
 
 use crate::{
     pallet::{
-        BalanceOf, CandidateInfo, Config, Era, EraIndex, Error, Event, NominationScheduledRequests,
+        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event, NominationScheduledRequests,
         NominatorState, Pallet, Total,
     },
     Nominator, NominatorStatus,
@@ -87,7 +87,7 @@ impl<T: Config> Pallet<T> {
 
         let bonded_amount = state.get_bond_amount(&collator).ok_or(<Error<T>>::NominationDNE)?;
         let now = <Era<T>>::get().current;
-        let when = now.saturating_add(T::RevokeNominationDelay::get());
+        let when = now.saturating_add(<Delay<T>>::get());
         scheduled_requests.push(ScheduledRequest {
             nominator: nominator.clone(),
             action: NominationAction::Revoke(bonded_amount),
@@ -132,7 +132,7 @@ impl<T: Config> Pallet<T> {
         ensure!(decrease_amount <= max_subtracted_amount, <Error<T>>::NominatorBondBelowMin);
 
         let now = <Era<T>>::get().current;
-        let when = now.saturating_add(T::RevokeNominationDelay::get());
+        let when = now.saturating_add(<Delay<T>>::get());
         scheduled_requests.push(ScheduledRequest {
             nominator: nominator.clone(),
             action: NominationAction::Decrease(decrease_amount),
@@ -313,7 +313,7 @@ impl<T: Config> Pallet<T> {
         let mut state = <NominatorState<T>>::get(&nominator).ok_or(<Error<T>>::NominatorDNE)?;
         let mut updated_scheduled_requests = vec![];
         let now = <Era<T>>::get().current;
-        let when = now.saturating_add(T::LeaveNominatorsDelay::get());
+        let when = now.saturating_add(<Delay<T>>::get());
 
         // lazy migration for NominatorStatus::Leaving
         #[allow(deprecated)]

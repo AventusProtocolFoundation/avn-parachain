@@ -29,7 +29,7 @@ use crate::{
         Balances, Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Test,
     },
     nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
-    AtStake, Bond, CollatorStatus, Error, Event, NominationScheduledRequests, NominatorAdded,
+    AtStake, Bond, CollatorStatus, Delay, Error, Event, NominationScheduledRequests, NominatorAdded,
     NominatorState, NominatorStatus, NOMINATOR_LOCK_ID,
 };
 use frame_support::{assert_noop, assert_ok};
@@ -3107,7 +3107,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
             assert_eq_events!(expected.clone());
             set_reward_pot(75);
             roll_to(55);
-            // new nomination is rewarded, 2 eras after joining (`RewardPaymentDelay` is 2)
+            // new nomination is rewarded, 2 eras after joining (`Delay` is 2)
             let mut new7 = vec![
                 Event::CollatorChosen { era: 12, collator_account: 1, total_exposed_amount: 50 },
                 Event::CollatorChosen { era: 12, collator_account: 2, total_exposed_amount: 40 },
@@ -4020,7 +4020,7 @@ fn payouts_follow_nomination_changes() {
             set_reward_pot(75);
             roll_to(55);
             // new nomination is rewarded for first time
-            // 2 eras after joining (`RewardPaymentDelay` = 2)
+            // 2 eras after joining (`Delay` = 2)
             let mut new7 = vec![
                 Event::CollatorChosen { era: 12, collator_account: 1, total_exposed_amount: 50 },
                 Event::CollatorChosen { era: 12, collator_account: 2, total_exposed_amount: 40 },
@@ -4443,7 +4443,7 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 
             assert!(
                 !<DelayedPayouts<Test>>::contains_key(1),
-                "DelayedPayouts shouldn't be populated until after RewardPaymentDelay"
+                "DelayedPayouts shouldn't be populated until after reward payment delay"
             );
             assert!(
                 <Points<Test>>::contains_key(1),
@@ -4482,7 +4482,7 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 
             assert!(
                 <DelayedPayouts<Test>>::contains_key(1),
-                "DelayedPayouts should be populated after RewardPaymentDelay"
+                "DelayedPayouts should be populated after reward payment delay"
             );
             assert!(<Points<Test>>::contains_key(1));
             assert!(
@@ -4541,7 +4541,7 @@ fn deferred_payment_steady_state_event_flow() {
 
     // this test "flows" through a number of eras, asserting that certain things do/don't happen
     // once the staking pallet is in a "steady state" (specifically, once we are past the first few
-    // eras to clear RewardPaymentDelay)
+    // eras to clear 'Delay')
 
     ExtBuilder::default()
         .with_balances(vec![
@@ -4599,9 +4599,9 @@ fn deferred_payment_steady_state_event_flow() {
                 .expect("Account can absorb burn");
             };
 
-            // fn to roll through the first RewardPaymentDelay eras. returns new era index
+            // fn to roll through the first Delay eras. returns new era index
             let roll_through_initial_eras = |mut era: u64| -> u64 {
-                while era < crate::mock::RewardPaymentDelay::get() as u64 + 1 {
+                while era < <Delay<Test>>::get() as u64 + 1 {
                     set_era_points(era);
 
                     roll_to_era_end(era);
@@ -4696,7 +4696,7 @@ fn deferred_payment_steady_state_event_flow() {
             };
 
             let mut era = 1;
-            era = roll_through_initial_eras(era); // we should be at RewardPaymentDelay
+            era = roll_through_initial_eras(era); // we should be at reward payment delay
             for _ in 1..5 {
                 era = roll_through_steady_state_era(era);
             }

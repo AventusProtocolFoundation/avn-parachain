@@ -17,7 +17,7 @@
 //! Types for parachain-staking
 
 use crate::{
-    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Era, EraIndex, Error,
+    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era, EraIndex, Error,
     Event, GrowthPeriodIndex, NominatorState, Pallet, RewardPoint, TopNominations, Total,
     COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
@@ -301,7 +301,7 @@ impl<
     pub fn schedule_leave<T: Config>(&mut self) -> Result<(EraIndex, EraIndex), DispatchError> {
         ensure!(!self.is_leaving(), Error::<T>::CandidateAlreadyLeaving);
         let now = <Era<T>>::get().current;
-        let when = now + T::LeaveCandidatesDelay::get();
+        let when = now + <Delay<T>>::get();
         self.status = CollatorStatus::Leaving(when);
         Ok((now, when))
     }
@@ -361,7 +361,7 @@ impl<
             self.bond - less >= T::MinCandidateStk::get().into(),
             Error::<T>::CandidateBondBelowMin
         );
-        let when_executable = <Era<T>>::get().current + T::CandidateBondLessDelay::get();
+        let when_executable = <Era<T>>::get().current + <Delay<T>>::get();
         self.request = Some(CandidateBondLessRequest { amount: less, when_executable });
         Ok(when_executable)
     }
