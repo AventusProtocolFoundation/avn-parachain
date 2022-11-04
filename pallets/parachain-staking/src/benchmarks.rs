@@ -34,7 +34,7 @@ fn min_candidate_stk<T: Config>() -> BalanceOf<T> {
 
 /// Minimum nominator stake
 fn min_nominator_stk<T: Config>() -> BalanceOf<T> {
-    <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get()
+    <MinNominatorStake<T>>::get()
 }
 
 /// Create a funded user.
@@ -403,7 +403,7 @@ benchmarks! {
             )?;
             collators.push(collator.clone());
         }
-        let bond = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond = <MinNominatorStake<T>>::get();
         let extra = if (bond * (collators.len() as u32 + 1u32).into()) > min_candidate_stk::<T>() {
             (bond * (collators.len() as u32 + 1u32).into()) - min_candidate_stk::<T>()
         } else {
@@ -455,7 +455,7 @@ benchmarks! {
             1u32
         )?;
         let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond = <MinNominatorStake<T>>::get();
         Pallet::<T>::nominate(RawOrigin::Signed(
             caller.clone()).into(),
             collator.clone(),
@@ -488,7 +488,7 @@ benchmarks! {
             )?;
             collators.push(collator.clone());
         }
-        let bond = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond = <MinNominatorStake<T>>::get();
         let need = bond * (collators.len() as u32).into();
         let default_minted = min_candidate_stk::<T>();
         let need: BalanceOf<T> = if need > default_minted {
@@ -528,7 +528,7 @@ benchmarks! {
             1u32
         )?;
         let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond = <MinNominatorStake<T>>::get();
         Pallet::<T>::nominate(RawOrigin::Signed(
             caller.clone()).into(),
             collator.clone(),
@@ -551,7 +551,7 @@ benchmarks! {
             1u32
         )?;
         let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond = <MinNominatorStake<T>>::get();
         Pallet::<T>::nominate(RawOrigin::Signed(
             caller.clone()).into(),
             collator.clone(),
@@ -580,7 +580,7 @@ benchmarks! {
             1u32
         )?;
         let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond = <MinNominatorStake<T>>::get();
         Pallet::<T>::nominate(
             RawOrigin::Signed(caller.clone()).into(),
             collator.clone(),
@@ -610,7 +610,7 @@ benchmarks! {
             0u32,
             0u32
         )?;
-        let bond_less = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond_less = <MinNominatorStake<T>>::get();
     }: _(RawOrigin::Signed(caller.clone()), collator.clone(), bond_less)
     verify {
         let state = Pallet::<T>::nominator_state(&caller)
@@ -634,7 +634,7 @@ benchmarks! {
             1u32
         )?;
         let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond = <MinNominatorStake<T>>::get();
         Pallet::<T>::nominate(RawOrigin::Signed(
             caller.clone()).into(),
             collator.clone(),
@@ -675,7 +675,7 @@ benchmarks! {
             0u32,
             0u32
         )?;
-        let bond_less = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond_less = <MinNominatorStake<T>>::get();
         Pallet::<T>::schedule_nominator_bond_less(
             RawOrigin::Signed(caller.clone()).into(),
             collator.clone(),
@@ -702,7 +702,7 @@ benchmarks! {
             1u32
         )?;
         let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond = <MinNominatorStake<T>>::get();
         Pallet::<T>::nominate(RawOrigin::Signed(
             caller.clone()).into(),
             collator.clone(),
@@ -743,7 +743,7 @@ benchmarks! {
             0u32,
             0u32
         )?;
-        let bond_less = <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get();
+        let bond_less = <MinNominatorStake<T>>::get();
         Pallet::<T>::schedule_nominator_bond_less(
             RawOrigin::Signed(caller.clone()).into(),
             collator.clone(),
@@ -847,7 +847,7 @@ benchmarks! {
                         if let Ok(_) = Pallet::<T>::nominate(RawOrigin::Signed(
                             caller.clone()).into(),
                             col.clone(),
-                            <<T as Config>::MinNominatorStk as Get<BalanceOf<T>>>::get(),
+                            <MinNominatorStake<T>>::get(),
                             *n_count,
                             collators.len() as u32, // overestimate
                         ) {

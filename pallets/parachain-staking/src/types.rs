@@ -1140,7 +1140,7 @@ impl<
             false
         }
     }
-    // Return Some(remaining balance), must be more than MinNominatorStk
+    // Return Some(remaining balance), must be more than MinNominatorStake
     // Return None if nomination not found
     pub fn rm_nomination<T: Config>(&mut self, collator: &AccountId) -> Option<Balance>
     where

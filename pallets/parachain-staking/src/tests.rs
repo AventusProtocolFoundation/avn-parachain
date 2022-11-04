@@ -1824,7 +1824,7 @@ fn cannot_revoke_nomination_that_dne() {
 
 #[test]
 // See `cannot_execute_revoke_nomination_below_min_nominator_stake` for where the "must be above
-// MinNominatorStk" rule is now enforced.
+// MinNominatorStake" rule is now enforced.
 fn can_schedule_revoke_nomination_below_min_nominator_stake() {
     ExtBuilder::default()
         .with_balances(vec![(1, 20), (2, 8), (3, 20)])
