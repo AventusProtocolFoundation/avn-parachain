@@ -151,6 +151,7 @@ impl pallet_authorship::Config for Test {
 
 parameter_types! {
     pub const MinBlocksPerEra: u32 = 3;
+    pub const RewardPaymentDelay: u32 = 2;
     pub const MinSelectedCandidates: u32 = 5;
     pub const MaxTopNominationsPerCandidate: u32 = 4;
     pub const MaxBottomNominationsPerCandidate: u32 = 4;
@@ -162,6 +163,7 @@ parameter_types! {
 impl Config for Test {
     type Event = Event;
     type Currency = Balances;
+    type RewardPaymentDelay = RewardPaymentDelay;
     type MinBlocksPerEra = MinBlocksPerEra;
     type MinSelectedCandidates = MinSelectedCandidates;
     type MaxTopNominationsPerCandidate = MaxTopNominationsPerCandidate;
