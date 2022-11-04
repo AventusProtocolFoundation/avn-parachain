@@ -151,7 +151,6 @@ impl pallet_authorship::Config for Test {
 
 parameter_types! {
     pub const MinBlocksPerEra: u32 = 3;
-    pub const DefaultBlocksPerEra: u32 = 5;
     pub const LeaveCandidatesDelay: u32 = 2;
     pub const CandidateBondLessDelay: u32 = 2;
     pub const LeaveNominatorsDelay: u32 = 2;
@@ -173,7 +172,6 @@ impl Config for Test {
     type Currency = Balances;
     type MonetaryGovernanceOrigin = frame_system::EnsureRoot<AccountId>;
     type MinBlocksPerEra = MinBlocksPerEra;
-    type DefaultBlocksPerEra = DefaultBlocksPerEra;
     type LeaveCandidatesDelay = LeaveCandidatesDelay;
     type CandidateBondLessDelay = CandidateBondLessDelay;
     type LeaveNominatorsDelay = LeaveNominatorsDelay;
@@ -337,18 +335,23 @@ pub(crate) fn roll_to(n: u64) -> u64 {
     num_blocks
 }
 
+// This matches the genesis era length
+pub fn get_default_block_per_era() -> u64 {
+    return MinBlocksPerEra::get() as u64 + 2;
+}
+
 /// Rolls block-by-block to the beginning of the specified era.
 /// This will complete the block in which the era change occurs.
 /// Returns the number of blocks played.
 pub(crate) fn roll_to_era_begin(era: u64) -> u64 {
-    let block = (era - 1) * DefaultBlocksPerEra::get() as u64;
+    let block = (era - 1) * get_default_block_per_era();
     roll_to(block)
 }
 
 /// Rolls block-by-block to the end of the specified era.
 /// The block following will be the one in which the specified era change occurs.
 pub(crate) fn roll_to_era_end(era: u64) -> u64 {
-    let block = era * DefaultBlocksPerEra::get() as u64 - 1;
+    let block = era * get_default_block_per_era() - 1;
     roll_to(block)
 }
 
@@ -602,7 +605,7 @@ fn geneses() {
 #[test]
 fn roll_to_era_begin_works() {
     ExtBuilder::default().build().execute_with(|| {
-        // these tests assume blocks-per-era of 5, as established by DefaultBlocksPerEra
+        // these tests assume blocks-per-era of 5, as established by get_default_block_per_era()
         assert_eq!(System::block_number(), 1); // we start on block 1
 
         let num_blocks = roll_to_era_begin(1);
@@ -622,7 +625,7 @@ fn roll_to_era_begin_works() {
 #[test]
 fn roll_to_era_end_works() {
     ExtBuilder::default().build().execute_with(|| {
-        // these tests assume blocks-per-era of 5, as established by DefaultBlocksPerEra
+        // these tests assume blocks-per-era of 5, as established by get_default_block_per_era()
         assert_eq!(System::block_number(), 1); // we start on block 1
 
         let num_blocks = roll_to_era_end(1);

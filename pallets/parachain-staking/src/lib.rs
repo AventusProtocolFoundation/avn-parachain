@@ -127,9 +127,6 @@ pub mod pallet {
         /// Minimum number of blocks per era
         #[pallet::constant]
         type MinBlocksPerEra: Get<u32>;
-        /// Default number of blocks per era at genesis
-        #[pallet::constant]
-        type DefaultBlocksPerEra: Get<u32>;
         /// Number of eras that candidates remain bonded before exit request is executable
         #[pallet::constant]
         type LeaveCandidatesDelay: Get<EraIndex>;
@@ -616,9 +613,9 @@ pub mod pallet {
             <TotalSelected<T>>::put(T::MinSelectedCandidates::get());
             // Choose top TotalSelected collator candidates
             let (v_count, _, total_staked) = <Pallet<T>>::select_top_candidates(1u32);
-            // Start Era 1 at Block 0
+            // Start Era 1 at Block 0. Set the genesis era length too.
             let era: EraInfo<T::BlockNumber> =
-                EraInfo::new(1u32, 0u32.into(), T::DefaultBlocksPerEra::get());
+                EraInfo::new(1u32, 0u32.into(), T::MinBlocksPerEra::get() + 2);
             <Era<T>>::put(era);
             // Snapshot total stake
             <Staked<T>>::insert(1u32, <Total<T>>::get());
