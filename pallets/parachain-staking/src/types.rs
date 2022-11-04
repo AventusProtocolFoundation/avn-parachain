@@ -18,7 +18,7 @@
 
 use crate::{
     set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era, EraIndex, Error,
-    Event, GrowthPeriodIndex, NominatorState, Pallet, RewardPoint, TopNominations, Total,
+    Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet, RewardPoint, TopNominations, Total,
     COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
@@ -358,7 +358,7 @@ impl<
         // ensure bond above min after decrease
         ensure!(self.bond > less, Error::<T>::CandidateBondBelowMin);
         ensure!(
-            self.bond - less >= T::MinCandidateStk::get().into(),
+            self.bond - less >= <MinCollatorStake<T>>::get().into(),
             Error::<T>::CandidateBondBelowMin
         );
         let when_executable = <Era<T>>::get().current + <Delay<T>>::get();
