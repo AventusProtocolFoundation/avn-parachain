@@ -191,8 +191,6 @@ impl Config for Test {
     type RewardPotId = RewardPotId;
     type ErasPerGrowthPeriod = ErasPerGrowthPeriod;
     type ProcessedEventsChecker = ();
-    type OnCollatorPayout = ();
-    type OnNewEra = ();
     type WeightInfo = ();
 }
 

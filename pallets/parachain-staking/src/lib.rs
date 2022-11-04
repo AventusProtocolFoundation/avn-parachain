@@ -50,7 +50,6 @@
 
 mod nomination_requests;
 pub mod session_handler;
-pub mod traits;
 pub mod types;
 pub mod weights;
 
@@ -73,7 +72,6 @@ use weights::WeightInfo;
 
 pub use nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
 pub use pallet::*;
-pub use traits::*;
 pub use types::*;
 pub use EraIndex;
 
@@ -82,7 +80,6 @@ pub mod pallet {
     use crate::{
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
         set::OrderedSet,
-        traits::*,
         types::*,
         WeightInfo,
     };
@@ -181,12 +178,6 @@ pub mod pallet {
         type RewardPotId: Get<PalletId>;
         /// A way to check if an event has been processed by Ethereum events
         type ProcessedEventsChecker: ProcessedEventsChecker;
-        /// Handler to notify the runtime when a collator is paid.
-        /// If you don't need it, you can specify the type `()`.
-        type OnCollatorPayout: OnCollatorPayout<Self::AccountId, BalanceOf<Self>>;
-        /// Handler to notify the runtime when a new era begin.
-        /// If you don't need it, you can specify the type `()`.
-        type OnNewEra: OnNewEra;
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
     }
@@ -1150,9 +1141,6 @@ pub mod pallet {
             // mutate era
             era.update(block_number);
 
-            // notify new era has begun
-            let mut weight = T::OnNewEra::on_new_era(era.current);
-
             // pay all stakers for T::RewardPaymentDelay eras ago
             Self::prepare_staking_payouts(era.current);
 
@@ -1172,12 +1160,7 @@ pub mod pallet {
                 total_balance: total_staked,
             });
 
-            weight =
-                weight.saturating_add(<T as Config>::WeightInfo::era_transition_on_initialize(
-                    collator_count,
-                    nomination_count,
-                ));
-
+            let weight = <T as Config>::WeightInfo::era_transition_on_initialize(collator_count, nomination_count);
             return (era, weight)
         }
 
@@ -1377,7 +1360,6 @@ pub mod pallet {
 
             if let Some((collator, pts)) = <AwardedPts<T>>::iter_prefix(paid_for_era).drain().next()
             {
-                let mut extra_weight = 0;
                 let pct_due = Perbill::from_rational(pts, total_points);
                 let total_reward_for_collator = pct_due * payout_info.total_staking_reward;
 
@@ -1390,13 +1372,6 @@ pub mod pallet {
                 let collator_reward = collator_pct * total_reward_for_collator;
                 pay_reward(collator_reward, collator.clone());
 
-                // TODO: do we need this?
-                extra_weight += T::OnCollatorPayout::on_collator_payout(
-                    paid_for_era,
-                    collator.clone(),
-                    collator_reward,
-                );
-
                 // pay nominators due portion, if there are any
                 for Bond { owner, amount } in state.nominations {
                     let percent = Perbill::from_rational(amount, state.total);
@@ -1408,8 +1383,7 @@ pub mod pallet {
 
                 (
                     Some((collator, total_reward_for_collator)),
-                    <T as Config>::WeightInfo::pay_one_collator_reward(num_nominators as u32) +
-                        extra_weight,
+                    <T as Config>::WeightInfo::pay_one_collator_reward(num_nominators as u32),
                 )
             } else {
                 // Note that we don't clean up storage here; it is cleaned up in
