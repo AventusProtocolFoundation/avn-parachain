@@ -162,7 +162,6 @@ parameter_types! {
 impl Config for Test {
     type Event = Event;
     type Currency = Balances;
-    type MonetaryGovernanceOrigin = frame_system::EnsureRoot<AccountId>;
     type MinBlocksPerEra = MinBlocksPerEra;
     type MinSelectedCandidates = MinSelectedCandidates;
     type MaxTopNominationsPerCandidate = MaxTopNominationsPerCandidate;

@@ -111,7 +111,7 @@ pub mod pallet {
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
     pub const COLLATOR_LOCK_ID: LockIdentifier = *b"stkngcol";
-    pub const NOMINATOR_LOCK_ID: LockIdentifier = *b"stkngdel";
+    pub const NOMINATOR_LOCK_ID: LockIdentifier = *b"stkngnom";
 
     /// Configuration trait of this pallet.
     #[pallet::config]
@@ -122,8 +122,6 @@ pub mod pallet {
         type Currency: Currency<Self::AccountId>
             + ReservableCurrency<Self::AccountId>
             + LockableCurrency<Self::AccountId>;
-        /// The origin for monetary governance
-        type MonetaryGovernanceOrigin: EnsureOrigin<Self::Origin>;
         /// Minimum number of blocks per era
         #[pallet::constant]
         type MinBlocksPerEra: Get<u32>;
