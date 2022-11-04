@@ -870,7 +870,7 @@ benchmarks! {
         // PREPARE RUN_TO_BLOCK LOOP
         let before_running_era_index = Pallet::<T>::era().current;
         let era_length: T::BlockNumber = Pallet::<T>::era().length.into();
-        let reward_delay = <Delay<T>>::get() + 2u32;
+        let reward_delay = <<T as Config>::RewardPaymentDelay as Get<u32>>::get() + 2u32;
         let mut now = <frame_system::Pallet<T>>::block_number() + 1u32.into();
         let mut counter = 0usize;
         let end = Pallet::<T>::era().first + (era_length * reward_delay.into());

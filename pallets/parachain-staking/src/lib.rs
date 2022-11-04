@@ -25,7 +25,7 @@
 //!
 //! At the start of every era,
 //! * issuance is calculated for collators (and their nominators) for block authoring
-//! `<Delay<T>>::get()` eras ago
+//! `T::RewardPaymentDelay::get()` eras ago
 //! * a new set of collators is chosen from the candidates
 //!
 //! Immediately following a era change, payments are made once-per-block until all payments have
@@ -127,6 +127,9 @@ pub mod pallet {
         /// Minimum number of blocks per era
         #[pallet::constant]
         type MinBlocksPerEra: Get<u32>;
+        /// Number of eras after which block authors are rewarded
+        #[pallet::constant]
+        type RewardPaymentDelay: Get<EraIndex>;
         /// Minimum number of selected candidates every era
         #[pallet::constant]
         type MinSelectedCandidates: Get<u32>;
@@ -1136,7 +1139,7 @@ pub mod pallet {
             // mutate era
             era.update(block_number);
 
-            // pay all stakers for <Delay<T>>::get() eras ago
+            // pay all stakers for T::RewardPaymentDelay eras ago
             Self::prepare_staking_payouts(era.current);
 
             // select top collator candidates for next era
@@ -1244,7 +1247,7 @@ pub mod pallet {
 
         fn prepare_staking_payouts(now: EraIndex) {
             // payout is now - delay eras ago => now - delay > 0 else return early
-            let delay = <Delay<T>>::get();
+            let delay = T::RewardPaymentDelay::get();
             if now <= delay {
                 return
             }
@@ -1285,7 +1288,7 @@ pub mod pallet {
         /// * cleaning up when payouts are done
         /// * returns the weight consumed by pay_one_collator_reward if applicable
         fn handle_delayed_payouts(now: EraIndex) -> Weight {
-            let delay = <Delay<T>>::get();
+            let delay = T::RewardPaymentDelay::get();
 
             // don't underflow uint
             if now < delay {
