@@ -51,6 +51,7 @@
 mod nomination_requests;
 pub mod session_handler;
 pub mod types;
+pub mod proxy_methods;
 pub mod weights;
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -84,21 +85,22 @@ pub mod pallet {
         WeightInfo,
     };
     use frame_support::{
+        weights::{GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
         traits::{
             tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance,
-            LockIdentifier, LockableCurrency, ReservableCurrency,
+            LockIdentifier, LockableCurrency, ReservableCurrency, IsSubType
         },
         PalletId,
     };
     use frame_system::pallet_prelude::*;
     use pallet_avn::ProcessedEventsChecker;
     use sp_runtime::{
-        traits::{AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Saturating, Zero},
+        traits::{Dispatchable, AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Saturating, Zero, IdentifyAccount, Verify, Member, StaticLookup},
         Perbill,
     };
     use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-
+    use sp_avn_common::{Proof};
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -116,6 +118,12 @@ pub mod pallet {
     /// Configuration trait of this pallet.
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_session::Config {
+        /// The overarching call type.
+        type Call: Parameter
+            + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+            + GetDispatchInfo
+            + From<frame_system::Call<Self>>
+            + IsSubType<Call<Self>>;
         /// Overarching event type
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         /// The currency type
@@ -149,6 +157,16 @@ pub mod pallet {
         type RewardPotId: Get<PalletId>;
         /// A way to check if an event has been processed by Ethereum events
         type ProcessedEventsChecker: ProcessedEventsChecker;
+        /// A type that can be used to verify signatures
+        type Public: IdentifyAccount<AccountId = Self::AccountId>;
+
+        /// The signature type used by accounts/transactions.
+        type Signature: Verify<Signer = Self::Public>
+            + Member
+            + Decode
+            + Encode
+            + From<sp_core::sr25519::Signature>
+            + TypeInfo;
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
     }
@@ -199,6 +217,7 @@ pub mod pallet {
         PendingNominationRevoke,
         ErrorPayingCollator,
         GrowthAlreadyProcessed,
+        UnauthorizedProxyTransaction,
     }
 
     #[pallet::event]
@@ -529,6 +548,11 @@ pub mod pallet {
     /// Minimum stake for any registered on-chain account to be a nominator
     pub type MinNominatorStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn proxy_nonce)]
+    /// An account nonce that represents the number of proxy transactions from this account
+    pub type ProxyNonces<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u64, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub candidates: Vec<(T::AccountId, BalanceOf<T>)>,
@@ -686,6 +710,7 @@ pub mod pallet {
 
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::join_candidates(*candidate_count))]
         /// Join the set of collator candidates
         pub fn join_candidates(
@@ -729,6 +754,7 @@ pub mod pallet {
             });
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::schedule_leave_candidates(*candidate_count))]
         /// Request to leave the set of candidates. If successful, the account is immediately
         /// removed from the candidate pool to prevent selection as a collator.
@@ -834,6 +860,7 @@ pub mod pallet {
             });
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::cancel_leave_candidates(*candidate_count))]
         /// Cancel open request to leave candidates
         /// - only callable by collator account
@@ -860,6 +887,7 @@ pub mod pallet {
             Self::deposit_event(Event::CancelledCandidateExit { candidate: collator });
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::go_offline())]
         /// Temporarily leave the set of collator candidates without unbonding
         pub fn go_offline(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -875,6 +903,7 @@ pub mod pallet {
             Self::deposit_event(Event::CandidateWentOffline { candidate: collator });
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::go_online())]
         /// Rejoin the set of collator candidates if previously had called `go_offline`
         pub fn go_online(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -893,6 +922,7 @@ pub mod pallet {
             Self::deposit_event(Event::CandidateBackOnline { candidate: collator });
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::candidate_bond_more())]
         /// Increase collator candidate self bond by `more`
         pub fn candidate_bond_more(
@@ -909,6 +939,7 @@ pub mod pallet {
             }
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::schedule_candidate_bond_less())]
         /// Request by collator candidate to decrease self bond by `less`
         pub fn schedule_candidate_bond_less(
@@ -926,6 +957,7 @@ pub mod pallet {
             });
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::execute_candidate_bond_less())]
         /// Execute pending request to adjust the collator candidate self bond
         pub fn execute_candidate_bond_less(
@@ -938,6 +970,7 @@ pub mod pallet {
             <CandidateInfo<T>>::insert(&candidate, state);
             Ok(().into())
         }
+
         #[pallet::weight(<T as Config>::WeightInfo::cancel_candidate_bond_less())]
         /// Cancel pending request to adjust the collator candidate self bond
         pub fn cancel_candidate_bond_less(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
@@ -947,6 +980,7 @@ pub mod pallet {
             <CandidateInfo<T>>::insert(&collator, state);
             Ok(().into())
         }
+
         #[pallet::weight(
 			<T as Config>::WeightInfo::nominate(
 				*candidate_nomination_count,
@@ -1017,6 +1051,17 @@ pub mod pallet {
                 nominator_position,
             });
             Ok(().into())
+        }
+
+        //TODO: Benchmark me
+        #[pallet::weight(0)]
+        pub fn signed_nominate(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            targets: Vec<<T::Lookup as StaticLookup>::Source>) -> DispatchResult
+        {
+            // TODO: Complete me
+            Ok(())
         }
 
         /// DEPRECATED use batch util with schedule_revoke_nomination for all nominations
