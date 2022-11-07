@@ -14,12 +14,7 @@ use frame_support::traits::IsSubType;
 use super::{*};
 use crate::{Pallet as ParachainStaking};
 
-pub const SIGNED_BOND_CONTEXT: &'static [u8] = b"authorization for bond operation";
-pub const SIGNED_BOND_EXTRA_CONTEXT: &'static [u8] = b"authorization for bond extra operation";
 pub const SIGNED_NOMINATOR_CONTEXT: &'static [u8] = b"authorization for nominate operation";
-pub const SIGNED_REBOND_CONTEXT: &'static [u8] = b"authorization for rebond operation";
-pub const SIGNED_UNBOND_CONTEXT: &'static [u8] = b"authorization for unbond operation";
-pub const SIGNED_WITHDRAW_UNBONDED_CONTEXT: &'static [u8] = b"authorization for withdraw unbonded operation";
 
 pub fn get_encoded_call_param<T: Config>(call: &<T as Config>::Call) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
     let call = match call.is_sub_type() {
