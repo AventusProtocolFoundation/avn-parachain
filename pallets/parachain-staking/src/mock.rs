@@ -29,15 +29,18 @@ use frame_support::{
 use frame_system::limits;
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
-use sp_core::H256;
+use sp_core::{sr25519, Pair, H256};
 use sp_io;
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     Perbill, SaturatedConversion,
 };
+use parity_scale_codec::{Encode, Decode};
 
-pub type AccountId = u64;
+//pub type AccountId = u64;
+pub type AccountId = <Signature as Verify>::Signer;
+pub type Signature = sr25519::Signature;
 pub type Balance = u128;
 pub type BlockNumber = u64;
 
@@ -65,6 +68,33 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 const MAX_BLOCK_WEIGHT: Weight = 1024;
 pub static TX_LEN: usize = 1;
 pub const BASE_FEE: u64 = 12;
+
+pub struct TestAccount {
+    pub seed: [u8; 32],
+}
+
+impl TestAccount {
+    pub fn new(id: u64) -> Self {
+        TestAccount { seed: Self::into_32_bytes(&id) }
+    }
+
+    pub fn account_id(&self) -> AccountId {
+        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap();
+    }
+
+    pub fn key_pair(&self) -> sr25519::Pair {
+        return sr25519::Pair::from_seed(&self.seed);
+    }
+
+    fn into_32_bytes(account: &u64) -> [u8; 32] {
+        let mut bytes = account.encode();
+        let mut bytes32: Vec<u8> = vec![0; 32 - bytes.len()];
+        bytes32.append(&mut bytes);
+        let mut data: [u8; 32] = Default::default();
+        data.copy_from_slice(&bytes32[0..32]);
+        data
+    }
+}
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -133,12 +163,12 @@ impl pallet_balances::Config for Test {
 }
 
 pub struct Author4;
-impl FindAuthor<u64> for Author4 {
-    fn find_author<'a, I>(_digests: I) -> Option<u64>
+impl FindAuthor<AccountId> for Author4 {
+    fn find_author<'a, I>(_digests: I) -> Option<AccountId>
     where
         I: 'a + IntoIterator<Item = (frame_support::ConsensusEngineId, &'a [u8])>,
     {
-        Some(4)
+        Some(TestAccount::new(4u64).account_id())
     }
 }
 
@@ -161,6 +191,7 @@ parameter_types! {
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
 }
 impl Config for Test {
+    type Call = Call;
     type Event = Event;
     type Currency = Balances;
     type RewardPaymentDelay = RewardPaymentDelay;
@@ -173,6 +204,8 @@ impl Config for Test {
     type RewardPotId = RewardPotId;
     type ErasPerGrowthPeriod = ErasPerGrowthPeriod;
     type ProcessedEventsChecker = ();
+    type Public = AccountId;
+	type Signature = Signature;
     type WeightInfo = ();
 }
 
@@ -471,13 +504,13 @@ macro_rules! assert_event_not_emitted {
 }
 
 // Same storage changes as ParachainStaking::on_finalize
-pub(crate) fn set_author(era: u32, acc: u64, pts: u32) {
+pub(crate) fn set_author(era: u32, acc: AccountId, pts: u32) {
     <Points<Test>>::mutate(era, |p| *p += pts);
     <AwardedPts<Test>>::mutate(era, acc, |p| *p += pts);
 }
 
 /// fn to query the lock amount
-pub(crate) fn query_lock_amount(account_id: u64, id: LockIdentifier) -> Option<Balance> {
+pub(crate) fn query_lock_amount(account_id: AccountId, id: LockIdentifier) -> Option<Balance> {
     for lock in Balances::locks(&account_id) {
         if lock.id == id {
             return Some(lock.amount)
@@ -506,85 +539,115 @@ pub(crate) fn pay_gas_for_transaction(sender: &AccountId, tip: u128) {
 }
 
 #[test]
-fn geneses() {
+fn genesis() {
+    let collator_1 = TestAccount::new(1u64).account_id();
+    let collator_2 = TestAccount::new(2u64).account_id();
+    let nominator_3 = TestAccount::new(3u64).account_id();
+    let nominator_4 = TestAccount::new(4u64).account_id();
+    let nominator_5 = TestAccount::new(5u64).account_id();
+    let nominator_6 = TestAccount::new(6u64).account_id();
+    let user_7 = TestAccount::new(7u64).account_id();
+    let user_8 = TestAccount::new(8u64).account_id();
+    let user_9 = TestAccount::new(9u64).account_id();
+
+    let acc = |id: u64| -> AccountId {
+        TestAccount::new(id).account_id()
+    };
+
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 1000),
-            (2, 300),
-            (3, 100),
-            (4, 100),
-            (5, 100),
-            (6, 100),
-            (7, 100),
-            (8, 9),
-            (9, 4),
+            (collator_1, 1000),
+            (collator_2, 300),
+            (nominator_3, 100),
+            (nominator_4, 100),
+            (nominator_5, 100),
+            (nominator_6, 100),
+            (user_7, 100),
+            (user_8, 9),
+            (user_9, 4),
         ])
-        .with_candidates(vec![(1, 500), (2, 200)])
-        .with_nominations(vec![(3, 1, 100), (4, 1, 100), (5, 2, 100), (6, 2, 100)])
+        .with_candidates(vec![(collator_1, 500), (collator_2, 200)])
+        .with_nominations(vec![(nominator_3, collator_1, 100), (nominator_4, collator_1, 100), (nominator_5, collator_2, 100), (nominator_6, collator_2, 100)])
         .build()
         .execute_with(|| {
             assert!(System::events().is_empty());
             // collators
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 500);
-            assert_eq!(query_lock_amount(1, COLLATOR_LOCK_ID), Some(500));
-            assert!(ParachainStaking::is_candidate(&1));
-            assert_eq!(query_lock_amount(2, COLLATOR_LOCK_ID), Some(200));
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&2), 100);
-            assert!(ParachainStaking::is_candidate(&2));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_1), 500);
+            assert_eq!(query_lock_amount(collator_1, COLLATOR_LOCK_ID), Some(500));
+            assert!(ParachainStaking::is_candidate(&collator_1));
+            assert_eq!(query_lock_amount(collator_2, COLLATOR_LOCK_ID), Some(200));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_2), 100);
+            assert!(ParachainStaking::is_candidate(&collator_2));
             // nominators
             for x in 3..7 {
-                assert!(ParachainStaking::is_nominator(&x));
-                assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&x), 0);
-                assert_eq!(query_lock_amount(x, NOMINATOR_LOCK_ID), Some(100));
+                let account_id = acc(x);
+                assert!(ParachainStaking::is_nominator(&account_id));
+                assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id), 0);
+                assert_eq!(query_lock_amount(account_id, NOMINATOR_LOCK_ID), Some(100));
             }
             // uninvolved
             for x in 7..10 {
-                assert!(!ParachainStaking::is_nominator(&x));
+                let account_id = acc(x);
+                assert!(!ParachainStaking::is_nominator(&account_id));
             }
             // no nominator staking locks
-            assert_eq!(query_lock_amount(7, NOMINATOR_LOCK_ID), None);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&7), 100);
-            assert_eq!(query_lock_amount(8, NOMINATOR_LOCK_ID), None);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&8), 9);
-            assert_eq!(query_lock_amount(9, NOMINATOR_LOCK_ID), None);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&9), 4);
+            assert_eq!(query_lock_amount(user_7, NOMINATOR_LOCK_ID), None);
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_7), 100);
+            assert_eq!(query_lock_amount(user_8, NOMINATOR_LOCK_ID), None);
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_8), 9);
+            assert_eq!(query_lock_amount(user_9, NOMINATOR_LOCK_ID), None);
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_9), 4);
             // no collator staking locks
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&7), 100);
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&8), 9);
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&9), 4);
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_7), 100);
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_8), 9);
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_9), 4);
         });
+
+
+    let collator_1 = TestAccount::new(1u64).account_id();
+    let collator_2 = TestAccount::new(2u64).account_id();
+    let collator_3 = TestAccount::new(3u64).account_id();
+    let collator_4 = TestAccount::new(4u64).account_id();
+    let collator_5 = TestAccount::new(5u64).account_id();
+    let nominator_6 = TestAccount::new(6u64).account_id();
+    let nominator_7 = TestAccount::new(7u64).account_id();
+    let nominator_8 = TestAccount::new(8u64).account_id();
+    let nominator_9 = TestAccount::new(9u64).account_id();
+    let nominator_10 = TestAccount::new(10u64).account_id();
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 100),
-            (2, 100),
-            (3, 100),
-            (4, 100),
-            (5, 100),
-            (6, 100),
-            (7, 100),
-            (8, 100),
-            (9, 100),
-            (10, 100),
+            (collator_1, 100),
+            (collator_2, 100),
+            (collator_3, 100),
+            (collator_4, 100),
+            (collator_5, 100),
+            (nominator_6, 100),
+            (nominator_7, 100),
+            (nominator_8, 100),
+            (nominator_9, 100),
+            (nominator_10, 100),
         ])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 10)])
-        .with_nominations(vec![(6, 1, 10), (7, 1, 10), (8, 2, 10), (9, 2, 10), (10, 1, 10)])
+        .with_candidates(vec![(collator_1, 20), (collator_2, 20), (collator_3, 20), (collator_4, 20), (collator_5, 10)])
+        .with_nominations(vec![(nominator_6, collator_1, 10), (nominator_7, collator_1, 10), (nominator_8, collator_2, 10), (nominator_9, collator_2, 10), (nominator_10, collator_1, 10)])
         .build()
         .execute_with(|| {
             assert!(System::events().is_empty());
             // collators
             for x in 1..5 {
-                assert!(ParachainStaking::is_candidate(&x));
-                assert_eq!(query_lock_amount(x, COLLATOR_LOCK_ID), Some(20));
-                assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&x), 80);
+                let account_id = acc(x);
+                assert!(ParachainStaking::is_candidate(&account_id));
+                assert_eq!(query_lock_amount(account_id, COLLATOR_LOCK_ID), Some(20));
+                assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 80);
             }
-            assert!(ParachainStaking::is_candidate(&5));
-            assert_eq!(query_lock_amount(5, COLLATOR_LOCK_ID), Some(10));
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&5), 90);
+            assert!(ParachainStaking::is_candidate(&collator_5));
+            assert_eq!(query_lock_amount(collator_5, COLLATOR_LOCK_ID), Some(10));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_5), 90);
             // nominators
             for x in 6..11 {
-                assert!(ParachainStaking::is_nominator(&x));
-                assert_eq!(query_lock_amount(x, NOMINATOR_LOCK_ID), Some(10));
-                assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&x), 90);
+                let account_id = acc(x);
+                assert!(ParachainStaking::is_nominator(&account_id));
+                assert_eq!(query_lock_amount(account_id, NOMINATOR_LOCK_ID), Some(10));
+                assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id), 90);
             }
         });
 }

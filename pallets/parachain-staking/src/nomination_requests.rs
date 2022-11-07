@@ -552,36 +552,39 @@ impl<T: Config> Pallet<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{mock::Test, set::OrderedSet, Bond};
+    use crate::{mock::{TestAccount, Test}, set::OrderedSet, Bond};
 
     #[test]
     fn test_cancel_request_with_state_removes_request_for_correct_nominator_and_updates_state() {
+        let nominator1_account_id = TestAccount::new(1u64).account_id();
+        let collator_account_id = TestAccount::new(2u64).account_id();
+
         let mut state = Nominator {
-            id: 1,
-            nominations: OrderedSet::from(vec![Bond { amount: 100, owner: 2 }]),
+            id: nominator1_account_id,
+            nominations: OrderedSet::from(vec![Bond { amount: 100, owner: collator_account_id }]),
             total: 100,
             less_total: 100,
             status: crate::NominatorStatus::Active,
         };
         let mut scheduled_requests = vec![
             ScheduledRequest {
-                nominator: 1,
+                nominator: nominator1_account_id,
                 when_executable: 1,
                 action: NominationAction::Revoke(100),
             },
             ScheduledRequest {
-                nominator: 2,
+                nominator: collator_account_id,
                 when_executable: 1,
                 action: NominationAction::Decrease(50),
             },
         ];
         let removed_request =
-            <Pallet<Test>>::cancel_request_with_state(&1, &mut state, &mut scheduled_requests);
+            <Pallet<Test>>::cancel_request_with_state(&nominator1_account_id, &mut state, &mut scheduled_requests);
 
         assert_eq!(
             removed_request,
             Some(ScheduledRequest {
-                nominator: 1,
+                nominator: nominator1_account_id,
                 when_executable: 1,
                 action: NominationAction::Revoke(100),
             })
@@ -589,7 +592,7 @@ mod tests {
         assert_eq!(
             scheduled_requests,
             vec![ScheduledRequest {
-                nominator: 2,
+                nominator: collator_account_id,
                 when_executable: 1,
                 action: NominationAction::Decrease(50),
             },]
@@ -597,8 +600,8 @@ mod tests {
         assert_eq!(
             state,
             Nominator {
-                id: 1,
-                nominations: OrderedSet::from(vec![Bond { amount: 100, owner: 2 }]),
+                id: nominator1_account_id,
+                nominations: OrderedSet::from(vec![Bond { amount: 100, owner: collator_account_id }]),
                 total: 100,
                 less_total: 0,
                 status: crate::NominatorStatus::Active,
@@ -608,26 +611,29 @@ mod tests {
 
     #[test]
     fn test_cancel_request_with_state_does_nothing_when_request_does_not_exist() {
+        let nominator1_account_id = TestAccount::new(1u64).account_id();
+        let collator_account_id = TestAccount::new(2u64).account_id();
+
         let mut state = Nominator {
-            id: 1,
-            nominations: OrderedSet::from(vec![Bond { amount: 100, owner: 2 }]),
+            id: nominator1_account_id,
+            nominations: OrderedSet::from(vec![Bond { amount: 100, owner: collator_account_id }]),
             total: 100,
             less_total: 100,
             status: crate::NominatorStatus::Active,
         };
         let mut scheduled_requests = vec![ScheduledRequest {
-            nominator: 2,
+            nominator: collator_account_id,
             when_executable: 1,
             action: NominationAction::Decrease(50),
         }];
         let removed_request =
-            <Pallet<Test>>::cancel_request_with_state(&1, &mut state, &mut scheduled_requests);
+            <Pallet<Test>>::cancel_request_with_state(&nominator1_account_id, &mut state, &mut scheduled_requests);
 
         assert_eq!(removed_request, None,);
         assert_eq!(
             scheduled_requests,
             vec![ScheduledRequest {
-                nominator: 2,
+                nominator: collator_account_id,
                 when_executable: 1,
                 action: NominationAction::Decrease(50),
             },]
@@ -635,8 +641,8 @@ mod tests {
         assert_eq!(
             state,
             Nominator {
-                id: 1,
-                nominations: OrderedSet::from(vec![Bond { amount: 100, owner: 2 }]),
+                id: nominator1_account_id,
+                nominations: OrderedSet::from(vec![Bond { amount: 100, owner: collator_account_id }]),
                 total: 100,
                 less_total: 100,
                 status: crate::NominatorStatus::Active,

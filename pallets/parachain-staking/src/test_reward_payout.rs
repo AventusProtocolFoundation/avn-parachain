@@ -1,16 +1,28 @@
 #[cfg(test)]
 use crate::mock::{
-    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, Balances, ExtBuilder,
-    ParachainStaking, BASE_FEE, TX_LEN,
+    AccountId, pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, Balances, ExtBuilder,
+    ParachainStaking, BASE_FEE, TestAccount, TX_LEN,
 };
 use crate::{assert_eq_events, assert_event_emitted, Event};
 use frame_support::traits::Currency;
 use sp_runtime::{traits::Zero, Perbill};
 
-const COLLATOR1: u64 = 1;
-const COLLATOR2: u64 = 2;
-const NOMINATOR4: u64 = 4;
-const TX_SENDER: u64 = 3;
+fn collator_1() -> AccountId {
+    return TestAccount::new(1u64).account_id();
+}
+
+fn collator_2() -> AccountId {
+    return TestAccount::new(2u64).account_id();
+}
+
+fn tx_sender() -> AccountId {
+    return TestAccount::new(3u64).account_id();
+}
+
+fn nominator() -> AccountId {
+    return TestAccount::new(4u64).account_id();
+}
+
 const ERA_BLOCKS_HAVE_BEEN_AUTHORED: u32 = 1;
 const TIP: u128 = 5;
 const COLLATOR1_POINTS: u32 = 4;
@@ -29,16 +41,18 @@ fn expected_tx_fee() -> u128 {
 #[test]
 fn end_to_end_happy_path() {
     let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
+    let collator_1 = collator_1();
+    let collator_2 = collator_2();
 
     ExtBuilder::default()
         .with_balances(vec![
-            (COLLATOR1, 10000),
-            (COLLATOR2, 10000),
-            (TX_SENDER, 10000),
-            (NOMINATOR4, 10000),
+            (collator_1, 10000),
+            (collator_2, 10000),
+            (tx_sender(), 10000),
+            (nominator(), 10000),
         ])
-        .with_candidates(vec![(COLLATOR1, COLLATOR1_OWN_STAKE), (COLLATOR2, COLLATOR2_OWN_STAKE)])
-        .with_nominations(vec![(NOMINATOR4, COLLATOR1, NOMINATOR4_STAKE)])
+        .with_candidates(vec![(collator_1, COLLATOR1_OWN_STAKE), (collator_2, COLLATOR2_OWN_STAKE)])
+        .with_nominations(vec![(nominator(), collator_1, NOMINATOR4_STAKE)])
         .build()
         .execute_with(|| {
             // Move to the begining of era 2.
@@ -57,12 +71,12 @@ fn end_to_end_happy_path() {
             let expected_events = vec![
                 Event::CollatorChosen {
                     era: 2,
-                    collator_account: COLLATOR1,
+                    collator_account: collator_1,
                     total_exposed_amount: COLLATOR1_TOTAL_STAKE,
                 },
                 Event::CollatorChosen {
                     era: 2,
-                    collator_account: COLLATOR2,
+                    collator_account: collator_2,
                     total_exposed_amount: COLLATOR2_OWN_STAKE,
                 },
                 Event::NewEra {
@@ -78,7 +92,7 @@ fn end_to_end_happy_path() {
             //-------------------------------------------------------
 
             // Sending a transaction (with tip) to generate income for the chain
-            pay_gas_for_transaction(&TX_SENDER, TIP);
+            pay_gas_for_transaction(&tx_sender(), TIP);
 
             let reward_pot_balance_before_reward_payout =
                 Balances::free_balance(&reward_pot_account_id);
@@ -89,8 +103,8 @@ fn end_to_end_happy_path() {
             // Assign block author points to collators 1 & 2.
             // Because it takes 2 eras before we can pay collators, we set the block authorship
             // points for era 1.
-            set_author(ERA_BLOCKS_HAVE_BEEN_AUTHORED, COLLATOR1, COLLATOR1_POINTS);
-            set_author(ERA_BLOCKS_HAVE_BEEN_AUTHORED, COLLATOR2, COLLATOR2_POINTS);
+            set_author(ERA_BLOCKS_HAVE_BEEN_AUTHORED, collator_1, COLLATOR1_POINTS);
+            set_author(ERA_BLOCKS_HAVE_BEEN_AUTHORED, collator_2, COLLATOR2_POINTS);
 
             // We expect reward payouts on era 3 because all 3 conditions for earning rewards are
             // met.
@@ -109,11 +123,11 @@ fn end_to_end_happy_path() {
                 (collator1_total_reward * NOMINATOR4_STAKE) / COLLATOR1_TOTAL_STAKE;
 
             assert_event_emitted!(Event::Rewarded {
-                account: COLLATOR1,
+                account: collator_1,
                 rewards: expected_collator1_reward
             });
             assert_event_emitted!(Event::Rewarded {
-                account: NOMINATOR4,
+                account: nominator(),
                 rewards: expected_nominator_reward
             });
 
@@ -139,7 +153,7 @@ fn end_to_end_happy_path() {
             let expected_collator2_reward =
                 collator2_points_percentage * reward_pot_balance_before_reward_payout;
             assert_event_emitted!(Event::Rewarded {
-                account: COLLATOR2,
+                account: collator_2,
                 rewards: expected_collator2_reward
             });
 
@@ -150,17 +164,17 @@ fn end_to_end_happy_path() {
 
             // check that distributing rewards clears awarded points
             assert!(
-                ParachainStaking::awarded_pts(ERA_BLOCKS_HAVE_BEEN_AUTHORED, COLLATOR1).is_zero()
+                ParachainStaking::awarded_pts(ERA_BLOCKS_HAVE_BEEN_AUTHORED, collator_1).is_zero()
             );
         });
 }
 
 // This function will setup the payments so both collators get the same reward
 fn set_reward_pot_and_trigger_payout(block_author_era: u32, destination_era: u64) -> (u128, u128) {
-    pay_gas_for_transaction(&TX_SENDER, TIP);
+    pay_gas_for_transaction(&tx_sender(), TIP);
 
-    set_author(block_author_era, COLLATOR1, COLLATOR1_POINTS);
-    set_author(block_author_era, COLLATOR2, COLLATOR2_POINTS);
+    set_author(block_author_era, collator_1(), COLLATOR1_POINTS);
+    set_author(block_author_era, collator_2(), COLLATOR2_POINTS);
 
     roll_to_era_begin(destination_era);
 
@@ -183,11 +197,14 @@ mod compute_total_reward_to_pay {
     #[test]
     fn works_as_expected() {
         let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
+        let collator_1 = collator_1();
+        let collator_2 = collator_2();
+
         ExtBuilder::default()
-            .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000)])
+            .with_balances(vec![(collator_1, 10000), (collator_2, 10000), (tx_sender(), 10000)])
             .with_candidates(vec![
-                (COLLATOR1, COLLATOR1_OWN_STAKE),
-                (COLLATOR2, COLLATOR2_OWN_STAKE),
+                (collator_1, COLLATOR1_OWN_STAKE),
+                (collator_2, COLLATOR2_OWN_STAKE),
             ])
             .build()
             .execute_with(|| {
@@ -210,7 +227,7 @@ mod compute_total_reward_to_pay {
                 assert_eq!(ParachainStaking::locked_era_payout(), collator2_reward);
 
                 // Send another transaction and generate income
-                pay_gas_for_transaction(&TX_SENDER, TIP * 2);
+                pay_gas_for_transaction(&tx_sender(), TIP * 2);
 
                 // Show that reward pot balance has increased due to the new transaction paying a
                 // fee
@@ -243,11 +260,14 @@ mod compute_total_reward_to_pay {
         #[test]
         fn locked_payout_is_greater_than_total_income() {
             let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
+            let collator_1 = collator_1();
+            let collator_2 = collator_2();
+
             ExtBuilder::default()
-                .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000)])
+                .with_balances(vec![(collator_1, 10000), (collator_2, 10000), (tx_sender(), 10000)])
                 .with_candidates(vec![
-                    (COLLATOR1, COLLATOR1_OWN_STAKE),
-                    (COLLATOR2, COLLATOR2_OWN_STAKE),
+                    (collator_1, COLLATOR1_OWN_STAKE),
+                    (collator_2, COLLATOR2_OWN_STAKE),
                 ])
                 .build()
                 .execute_with(|| {
@@ -288,11 +308,14 @@ mod reward_payout_fails_when {
     #[test]
     fn reward_pot_does_not_have_enough_funds() {
         let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
+        let collator_1 = collator_1();
+        let collator_2 = collator_2();
+
         ExtBuilder::default()
-            .with_balances(vec![(COLLATOR1, 10000), (COLLATOR2, 10000), (TX_SENDER, 10000)])
+            .with_balances(vec![(collator_1, 10000), (collator_2, 10000), (tx_sender(), 10000)])
             .with_candidates(vec![
-                (COLLATOR1, COLLATOR1_OWN_STAKE),
-                (COLLATOR2, COLLATOR2_OWN_STAKE),
+                (collator_1, COLLATOR1_OWN_STAKE),
+                (collator_2, COLLATOR2_OWN_STAKE),
             ])
             .build()
             .execute_with(|| {
@@ -318,7 +341,7 @@ mod reward_payout_fails_when {
 
                 // Payment fails
                 assert_event_emitted!(Event::ErrorPayingStakingReward {
-                    payee: COLLATOR2,
+                    payee: collator_2,
                     rewards: collator2_reward,
                 });
 
