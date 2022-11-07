@@ -80,6 +80,7 @@ pub use EraIndex;
 pub mod pallet {
     use crate::{
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
+        proxy_methods::*,
         set::OrderedSet,
         types::*,
         WeightInfo,
@@ -218,6 +219,8 @@ pub mod pallet {
         ErrorPayingCollator,
         GrowthAlreadyProcessed,
         UnauthorizedProxyTransaction,
+        SenderIsNotSigner,
+        UnauthorizedSignedNominateTransaction
     }
 
     #[pallet::event]
@@ -1060,6 +1063,14 @@ pub mod pallet {
             proof: Proof<T::Signature, T::AccountId>,
             targets: Vec<<T::Lookup as StaticLookup>::Source>) -> DispatchResult
         {
+            let staker = ensure_signed(origin)?;
+            ensure!(staker == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let staker_nonce = Self::proxy_nonce(&staker);
+            let signed_payload = encode_signed_nominate_params::<T>(&proof, &targets, staker_nonce);
+            ensure!(verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedNominateTransaction);
+
             // TODO: Complete me
             Ok(())
         }

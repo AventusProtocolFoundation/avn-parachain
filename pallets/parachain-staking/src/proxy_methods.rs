@@ -41,7 +41,7 @@ pub fn encode_signed_nominate_params<T: Config>(
     return (SIGNED_NOMINATOR_CONTEXT, proof.relayer.clone(), targets, sender_nonce).encode();
 }
 
-fn verify_signature<T: Config>(proof: &Proof<T::Signature, T::AccountId>, signed_payload: &[u8]) -> Result<(), Error<T>> {
+pub fn verify_signature<T: Config>(proof: &Proof<T::Signature, T::AccountId>, signed_payload: &[u8]) -> Result<(), Error<T>> {
     match proof.signature.verify(signed_payload, &proof.signer) {
         true => Ok(()),
         false => Err(<Error<T>>::UnauthorizedProxyTransaction.into()),
