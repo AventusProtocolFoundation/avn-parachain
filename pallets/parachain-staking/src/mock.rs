@@ -163,7 +163,6 @@ parameter_types! {
 impl Config for Test {
     type Event = Event;
     type Currency = Balances;
-    type MonetaryGovernanceOrigin = frame_system::EnsureRoot<AccountId>;
     type RewardPaymentDelay = RewardPaymentDelay;
     type MinBlocksPerEra = MinBlocksPerEra;
     type MinSelectedCandidates = MinSelectedCandidates;
