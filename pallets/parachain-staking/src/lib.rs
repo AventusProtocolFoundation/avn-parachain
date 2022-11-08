@@ -362,7 +362,9 @@ pub mod pallet {
             let mut weight = <T as Config>::WeightInfo::base_on_initialize();
             let mut era = <Era<T>>::get();
             if era.should_update(n) {
-                (era, weight) = Self::start_new_era(n, era);
+                let start_new_era_weight;
+                (era, start_new_era_weight) = Self::start_new_era(n, era);
+                weight = weight.saturating_add(start_new_era_weight);
             }
 
             weight = weight.saturating_add(Self::handle_delayed_payouts(era.current));
@@ -1156,7 +1158,10 @@ pub mod pallet {
                 total_balance: total_staked,
             });
 
-            let weight = <T as Config>::WeightInfo::era_transition_on_initialize(collator_count, nomination_count);
+            let weight = <T as Config>::WeightInfo::era_transition_on_initialize(
+                collator_count,
+                nomination_count,
+            );
             return (era, weight)
         }
 
