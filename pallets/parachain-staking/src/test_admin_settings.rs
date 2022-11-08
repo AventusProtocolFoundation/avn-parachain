@@ -95,7 +95,7 @@ mod min_nominator_stake_admin_setting {
     }
 
     #[test]
-    fn fails_if_value_is_below_min_nominations() {
+    fn updating_fails_if_value_is_below_min_nominations() {
         ExtBuilder::default()
         .build()
         .execute_with(|| {
