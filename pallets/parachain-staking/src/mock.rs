@@ -38,7 +38,6 @@ use sp_runtime::{
 };
 use parity_scale_codec::{Encode, Decode};
 
-//pub type AccountId = u64;
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
 pub type Balance = u128;
@@ -205,7 +204,7 @@ impl Config for Test {
     type ErasPerGrowthPeriod = ErasPerGrowthPeriod;
     type ProcessedEventsChecker = ();
     type Public = AccountId;
-	type Signature = Signature;
+    type Signature = Signature;
     type WeightInfo = ();
 }
 
