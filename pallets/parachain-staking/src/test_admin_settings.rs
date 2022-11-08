@@ -27,7 +27,7 @@ mod delay_admin_setting {
     }
 
     #[test]
-    fn fails_if_not_signed() {
+    fn updating_fails_if_not_signed() {
         ExtBuilder::default()
         .build()
         .execute_with(|| {
