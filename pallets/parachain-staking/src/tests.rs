@@ -26,7 +26,8 @@ use crate::{
     assert_tail_eq,
     mock::{
         roll_one_block, roll_to, roll_to_era_begin, roll_to_era_end, set_author, set_reward_pot,
-        Balances, Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Test,
+        AccountId, Balances, Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Test,
+        TestAccount,
     },
     nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
     AtStake, Bond, CollatorStatus, Error, Event, NominationScheduledRequests, NominatorAdded,
@@ -37,15 +38,19 @@ use sp_runtime::{traits::Zero, DispatchError, ModuleError};
 
 // ~~ ROOT ~~
 
+fn to_acc_id(id: u64) -> AccountId {
+    return TestAccount::new(id).account_id()
+}
+
 #[test]
 fn invalid_root_origin_fails() {
     ExtBuilder::default().build().execute_with(|| {
         assert_noop!(
-            ParachainStaking::set_total_selected(Origin::signed(45), 6u32),
+            ParachainStaking::set_total_selected(Origin::signed(to_acc_id(45)), 6u32),
             sp_runtime::DispatchError::BadOrigin
         );
         assert_noop!(
-            ParachainStaking::set_blocks_per_era(Origin::signed(45), 3u32),
+            ParachainStaking::set_blocks_per_era(Origin::signed(to_acc_id(45)), 3u32),
             sp_runtime::DispatchError::BadOrigin
         );
     });
@@ -201,8 +206,8 @@ fn cannot_set_blocks_per_era_to_current_blocks_per_era() {
 #[test]
 fn era_immediately_jumps_if_current_duration_exceeds_new_blocks_per_era() {
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(to_acc_id(1), 20)])
+        .with_candidates(vec![(to_acc_id(1), 20)])
         .build()
         .execute_with(|| {
             // we can't lower the blocks per era because it must be above the number of collators,
@@ -234,64 +239,86 @@ fn era_immediately_jumps_if_current_duration_exceeds_new_blocks_per_era() {
 
 #[test]
 fn join_candidates_event_emits_correctly() {
-    ExtBuilder::default().with_balances(vec![(1, 10)]).build().execute_with(|| {
-        assert_ok!(ParachainStaking::join_candidates(Origin::signed(1), 10u128, 0u32));
-        assert_last_event!(MetaEvent::ParachainStaking(Event::JoinedCollatorCandidates {
-            account: 1,
-            amount_locked: 10u128,
-            new_total_amt_locked: 10u128,
-        }));
-    });
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::join_candidates(Origin::signed(account_id), 10u128, 0u32));
+            assert_last_event!(MetaEvent::ParachainStaking(Event::JoinedCollatorCandidates {
+                account: account_id,
+                amount_locked: 10u128,
+                new_total_amt_locked: 10u128,
+            }));
+        });
 }
 
 #[test]
 fn join_candidates_reserves_balance() {
-    ExtBuilder::default().with_balances(vec![(1, 10)]).build().execute_with(|| {
-        assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 10);
-        assert_ok!(ParachainStaking::join_candidates(Origin::signed(1), 10u128, 0u32));
-        assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 0);
-    });
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 10);
+            assert_ok!(ParachainStaking::join_candidates(Origin::signed(account_id), 10u128, 0u32));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
+        });
 }
 
 #[test]
 fn join_candidates_increases_total_staked() {
-    ExtBuilder::default().with_balances(vec![(1, 10)]).build().execute_with(|| {
-        assert_eq!(ParachainStaking::total(), 0);
-        assert_ok!(ParachainStaking::join_candidates(Origin::signed(1), 10u128, 0u32));
-        assert_eq!(ParachainStaking::total(), 10);
-    });
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_eq!(ParachainStaking::total(), 0);
+            assert_ok!(ParachainStaking::join_candidates(Origin::signed(account_id), 10u128, 0u32));
+            assert_eq!(ParachainStaking::total(), 10);
+        });
 }
 
 #[test]
 fn join_candidates_creates_candidate_state() {
-    ExtBuilder::default().with_balances(vec![(1, 10)]).build().execute_with(|| {
-        assert!(ParachainStaking::candidate_info(1).is_none());
-        assert_ok!(ParachainStaking::join_candidates(Origin::signed(1), 10u128, 0u32));
-        let candidate_state = ParachainStaking::candidate_info(1).expect("just joined => exists");
-        assert_eq!(candidate_state.bond, 10u128);
-    });
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert!(ParachainStaking::candidate_info(account_id).is_none());
+            assert_ok!(ParachainStaking::join_candidates(Origin::signed(account_id), 10u128, 0u32));
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("just joined => exists");
+            assert_eq!(candidate_state.bond, 10u128);
+        });
 }
 
 #[test]
 fn join_candidates_adds_to_candidate_pool() {
-    ExtBuilder::default().with_balances(vec![(1, 10)]).build().execute_with(|| {
-        assert!(ParachainStaking::candidate_pool().0.is_empty());
-        assert_ok!(ParachainStaking::join_candidates(Origin::signed(1), 10u128, 0u32));
-        let candidate_pool = ParachainStaking::candidate_pool();
-        assert_eq!(candidate_pool.0[0].owner, 1);
-        assert_eq!(candidate_pool.0[0].amount, 10);
-    });
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert!(ParachainStaking::candidate_pool().0.is_empty());
+            assert_ok!(ParachainStaking::join_candidates(Origin::signed(account_id), 10u128, 0u32));
+            let candidate_pool = ParachainStaking::candidate_pool();
+            assert_eq!(candidate_pool.0[0].owner, account_id);
+            assert_eq!(candidate_pool.0[0].amount, 10);
+        });
 }
 
 #[test]
 fn cannot_join_candidates_if_candidate() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 1000)])
-        .with_candidates(vec![(1, 500)])
+        .with_balances(vec![(account_id, 1000)])
+        .with_candidates(vec![(account_id, 500)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::join_candidates(Origin::signed(1), 11u128, 100u32),
+                ParachainStaking::join_candidates(Origin::signed(account_id), 11u128, 100u32),
                 Error::<Test>::CandidateExists
             );
         });
@@ -299,14 +326,16 @@ fn cannot_join_candidates_if_candidate() {
 
 #[test]
 fn cannot_join_candidates_if_nominator() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 50), (2, 20)])
-        .with_candidates(vec![(1, 50)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 50), (account_id_2, 20)])
+        .with_candidates(vec![(account_id, 50)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::join_candidates(Origin::signed(2), 10u128, 1u32),
+                ParachainStaking::join_candidates(Origin::signed(account_id_2), 10u128, 1u32),
                 Error::<Test>::NominatorExists
             );
         });
@@ -314,38 +343,59 @@ fn cannot_join_candidates_if_nominator() {
 
 #[test]
 fn cannot_join_candidates_without_min_bond() {
-    ExtBuilder::default().with_balances(vec![(1, 1000)]).build().execute_with(|| {
-        assert_noop!(
-            ParachainStaking::join_candidates(Origin::signed(1), 9u128, 100u32),
-            Error::<Test>::CandidateBondBelowMin
-        );
-    });
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 1000)])
+        .build()
+        .execute_with(|| {
+            assert_noop!(
+                ParachainStaking::join_candidates(Origin::signed(account_id), 9u128, 100u32),
+                Error::<Test>::CandidateBondBelowMin
+            );
+        });
 }
 
 #[test]
 fn cannot_join_candidates_with_more_than_available_balance() {
-    ExtBuilder::default().with_balances(vec![(1, 500)]).build().execute_with(|| {
-        assert_noop!(
-            ParachainStaking::join_candidates(Origin::signed(1), 501u128, 100u32),
-            DispatchError::Module(ModuleError {
-                index: 2,
-                error: [8, 0, 0, 0],
-                message: Some("InsufficientBalance")
-            })
-        );
-    });
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 500)])
+        .build()
+        .execute_with(|| {
+            assert_noop!(
+                ParachainStaking::join_candidates(Origin::signed(account_id), 501u128, 100u32),
+                DispatchError::Module(ModuleError {
+                    index: 2,
+                    error: [8, 0, 0, 0],
+                    message: Some("InsufficientBalance")
+                })
+            );
+        });
 }
 
 #[test]
 fn insufficient_join_candidates_weight_hint_fails() {
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20), (6, 20)])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20)])
+        .with_balances(vec![
+            (to_acc_id(1), 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+        ])
+        .with_candidates(vec![
+            (to_acc_id(1), 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+        ])
         .build()
         .execute_with(|| {
             for i in 0..5 {
                 assert_noop!(
-                    ParachainStaking::join_candidates(Origin::signed(6), 20, i),
+                    ParachainStaking::join_candidates(Origin::signed(to_acc_id(6)), 20, i),
                     Error::<Test>::TooLowCandidateCountWeightHintJoinCandidates
                 );
             }
@@ -356,22 +406,32 @@ fn insufficient_join_candidates_weight_hint_fails() {
 fn sufficient_join_candidates_weight_hint_succeeds() {
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 20),
-            (2, 20),
-            (3, 20),
-            (4, 20),
-            (5, 20),
-            (6, 20),
-            (7, 20),
-            (8, 20),
-            (9, 20),
+            (to_acc_id(1), 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+            (to_acc_id(7), 20),
+            (to_acc_id(8), 20),
+            (to_acc_id(9), 20),
         ])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20)])
+        .with_candidates(vec![
+            (to_acc_id(1), 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+        ])
         .build()
         .execute_with(|| {
             let mut count = 5u32;
             for i in 6..10 {
-                assert_ok!(ParachainStaking::join_candidates(Origin::signed(i), 20, count));
+                assert_ok!(ParachainStaking::join_candidates(
+                    Origin::signed(to_acc_id(i)),
+                    20,
+                    count
+                ));
                 count += 1u32;
             }
         });
@@ -381,15 +441,19 @@ fn sufficient_join_candidates_weight_hint_succeeds() {
 
 #[test]
 fn leave_candidates_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateScheduledExit {
                 exit_allowed_era: 1,
-                candidate: 1,
+                candidate: account_id,
                 scheduled_exit: 3
             }));
         });
@@ -397,13 +461,17 @@ fn leave_candidates_event_emits_correctly() {
 
 #[test]
 fn leave_candidates_removes_candidate_from_candidate_pool() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::candidate_pool().0.len(), 1);
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             assert!(ParachainStaking::candidate_pool().0.is_empty());
         });
 }
@@ -412,7 +480,7 @@ fn leave_candidates_removes_candidate_from_candidate_pool() {
 fn cannot_leave_candidates_if_not_candidate() {
     ExtBuilder::default().build().execute_with(|| {
         assert_noop!(
-            ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32),
+            ParachainStaking::schedule_leave_candidates(Origin::signed(to_acc_id(1)), 1u32),
             Error::<Test>::CandidateDNE
         );
     });
@@ -420,14 +488,18 @@ fn cannot_leave_candidates_if_not_candidate() {
 
 #[test]
 fn cannot_leave_candidates_if_already_leaving_candidates() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             assert_noop!(
-                ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32),
+                ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1u32),
                 Error::<Test>::CandidateAlreadyLeaving
             );
         });
@@ -436,13 +508,25 @@ fn cannot_leave_candidates_if_already_leaving_candidates() {
 #[test]
 fn insufficient_leave_candidates_weight_hint_fails() {
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20)])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20)])
+        .with_balances(vec![
+            (to_acc_id(1), 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+        ])
+        .with_candidates(vec![
+            (to_acc_id(1), 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+        ])
         .build()
         .execute_with(|| {
             for i in 1..6 {
                 assert_noop!(
-                    ParachainStaking::schedule_leave_candidates(Origin::signed(i), 4u32),
+                    ParachainStaking::schedule_leave_candidates(Origin::signed(to_acc_id(i)), 4u32),
                     Error::<Test>::TooLowCandidateCountToLeaveCandidates
                 );
             }
@@ -452,13 +536,28 @@ fn insufficient_leave_candidates_weight_hint_fails() {
 #[test]
 fn sufficient_leave_candidates_weight_hint_succeeds() {
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20)])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20)])
+        .with_balances(vec![
+            (to_acc_id(1), 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+        ])
+        .with_candidates(vec![
+            (to_acc_id(1), 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+        ])
         .build()
         .execute_with(|| {
             let mut count = 5u32;
             for i in 1..6 {
-                assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(i), count));
+                assert_ok!(ParachainStaking::schedule_leave_candidates(
+                    Origin::signed(to_acc_id(i)),
+                    count
+                ));
                 count -= 1u32;
             }
         });
@@ -468,16 +567,24 @@ fn sufficient_leave_candidates_weight_hint_succeeds() {
 
 #[test]
 fn execute_leave_candidates_emits_event() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(1), 1, 0));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id),
+                account_id,
+                0
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateLeft {
-                ex_candidate: 1,
+                ex_candidate: account_id,
                 unlocked_amount: 10,
                 new_total_amt_locked: 0
             }));
@@ -486,119 +593,185 @@ fn execute_leave_candidates_emits_event() {
 
 #[test]
 fn execute_leave_candidates_callable_by_any_signed() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(2), 1, 0));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(to_acc_id(2)),
+                account_id,
+                0
+            ));
         });
 }
 
 #[test]
 fn execute_leave_candidates_requires_correct_weight_hint() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10), (2, 10), (3, 10), (4, 10)])
-        .with_candidates(vec![(1, 10)])
-        .with_nominations(vec![(2, 1, 10), (3, 1, 10), (4, 1, 10)])
+        .with_balances(vec![
+            (account_id, 10),
+            (to_acc_id(2), 10),
+            (to_acc_id(3), 10),
+            (to_acc_id(4), 10),
+        ])
+        .with_candidates(vec![(account_id, 10)])
+        .with_nominations(vec![
+            (to_acc_id(2), account_id, 10),
+            (to_acc_id(3), account_id, 10),
+            (to_acc_id(4), account_id, 10),
+        ])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             roll_to(10);
             for i in 0..3 {
                 assert_noop!(
-                    ParachainStaking::execute_leave_candidates(Origin::signed(1), 1, i),
+                    ParachainStaking::execute_leave_candidates(
+                        Origin::signed(account_id),
+                        account_id,
+                        i
+                    ),
                     Error::<Test>::TooLowCandidateNominationCountToLeaveCandidates
                 );
             }
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(2), 1, 3));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(to_acc_id(2)),
+                account_id,
+                3
+            ));
         });
 }
 
 #[test]
 fn execute_leave_candidates_unreserves_balance() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 0);
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(1), 1, 0));
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 10);
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id),
+                account_id,
+                0
+            ));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 10);
         });
 }
 
 #[test]
 fn execute_leave_candidates_decreases_total_staked() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 10);
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(1), 1, 0));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id),
+                account_id,
+                0
+            ));
             assert_eq!(ParachainStaking::total(), 0);
         });
 }
 
 #[test]
 fn execute_leave_candidates_removes_candidate_state() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             // candidate state is not immediately removed
             let candidate_state =
-                ParachainStaking::candidate_info(1).expect("just left => still exists");
+                ParachainStaking::candidate_info(account_id).expect("just left => still exists");
             assert_eq!(candidate_state.bond, 10u128);
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(1), 1, 0));
-            assert!(ParachainStaking::candidate_info(1).is_none());
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id),
+                account_id,
+                0
+            ));
+            assert!(ParachainStaking::candidate_info(account_id).is_none());
         });
 }
 
 #[test]
 fn execute_leave_candidates_removes_pending_nomination_requests() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10), (2, 15)])
-        .with_candidates(vec![(1, 10)])
-        .with_nominations(vec![(2, 1, 15)])
+        .with_balances(vec![(account_id, 10), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 10)])
+        .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
-            let state = ParachainStaking::nomination_scheduled_requests(&1);
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
+            let state = ParachainStaking::nomination_scheduled_requests(&account_id);
             assert_eq!(
                 state,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
                 }],
             );
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             // candidate state is not immediately removed
             let candidate_state =
-                ParachainStaking::candidate_info(1).expect("just left => still exists");
+                ParachainStaking::candidate_info(account_id).expect("just left => still exists");
             assert_eq!(candidate_state.bond, 10u128);
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(1), 1, 1));
-            assert!(ParachainStaking::candidate_info(1).is_none());
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id),
+                account_id,
+                1
+            ));
+            assert!(ParachainStaking::candidate_info(account_id).is_none());
             assert!(
-                !ParachainStaking::nomination_scheduled_requests(&1)
+                !ParachainStaking::nomination_scheduled_requests(&account_id)
                     .iter()
-                    .any(|x| x.nominator == 2),
+                    .any(|x| x.nominator == account_id_2),
                 "nomination request not removed"
             );
             assert!(
-                !<NominationScheduledRequests<Test>>::contains_key(&1),
+                !<NominationScheduledRequests<Test>>::contains_key(&account_id),
                 "the key was not removed from storage"
             );
         });
@@ -606,23 +779,40 @@ fn execute_leave_candidates_removes_pending_nomination_requests() {
 
 #[test]
 fn cannot_execute_leave_candidates_before_delay() {
+    let account_id = to_acc_id(1u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
             assert_noop!(
-                ParachainStaking::execute_leave_candidates(Origin::signed(3), 1, 0),
+                ParachainStaking::execute_leave_candidates(
+                    Origin::signed(account_id_3),
+                    account_id,
+                    0
+                ),
                 Error::<Test>::CandidateCannotLeaveYet
             );
             roll_to(9);
             assert_noop!(
-                ParachainStaking::execute_leave_candidates(Origin::signed(3), 1, 0),
+                ParachainStaking::execute_leave_candidates(
+                    Origin::signed(account_id_3),
+                    account_id,
+                    0
+                ),
                 Error::<Test>::CandidateCannotLeaveYet
             );
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(3), 1, 0));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id_3),
+                account_id,
+                0
+            ));
         });
 }
 
@@ -630,44 +820,56 @@ fn cannot_execute_leave_candidates_before_delay() {
 
 #[test]
 fn cancel_leave_candidates_emits_event() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
-            assert_ok!(ParachainStaking::cancel_leave_candidates(Origin::signed(1), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
+            assert_ok!(ParachainStaking::cancel_leave_candidates(Origin::signed(account_id), 1));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CancelledCandidateExit {
-                candidate: 1
+                candidate: account_id
             }));
         });
 }
 
 #[test]
 fn cancel_leave_candidates_updates_candidate_state() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
-            assert_ok!(ParachainStaking::cancel_leave_candidates(Origin::signed(1), 1));
-            let candidate =
-                ParachainStaking::candidate_info(&1).expect("just cancelled leave so exists");
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
+            assert_ok!(ParachainStaking::cancel_leave_candidates(Origin::signed(account_id), 1));
+            let candidate = ParachainStaking::candidate_info(&account_id)
+                .expect("just cancelled leave so exists");
             assert!(candidate.is_active());
         });
 }
 
 #[test]
 fn cancel_leave_candidates_adds_to_candidate_pool() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10)])
-        .with_candidates(vec![(1, 10)])
+        .with_balances(vec![(account_id, 10)])
+        .with_candidates(vec![(account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1u32));
-            assert_ok!(ParachainStaking::cancel_leave_candidates(Origin::signed(1), 1));
-            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, 1);
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id),
+                1u32
+            ));
+            assert_ok!(ParachainStaking::cancel_leave_candidates(Origin::signed(account_id), 1));
+            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 10);
         });
 }
@@ -676,43 +878,47 @@ fn cancel_leave_candidates_adds_to_candidate_pool() {
 
 #[test]
 fn go_offline_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::go_offline(Origin::signed(1)));
+            assert_ok!(ParachainStaking::go_offline(Origin::signed(account_id)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateWentOffline {
-                candidate: 1
+                candidate: account_id
             }));
         });
 }
 
 #[test]
 fn go_offline_removes_candidate_from_candidate_pool() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::candidate_pool().0.len(), 1);
-            assert_ok!(ParachainStaking::go_offline(Origin::signed(1)));
+            assert_ok!(ParachainStaking::go_offline(Origin::signed(account_id)));
             assert!(ParachainStaking::candidate_pool().0.is_empty());
         });
 }
 
 #[test]
 fn go_offline_updates_candidate_state_to_idle() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            let candidate_state = ParachainStaking::candidate_info(1).expect("is active candidate");
-            assert_eq!(candidate_state.status, CollatorStatus::Active);
-            assert_ok!(ParachainStaking::go_offline(Origin::signed(1)));
             let candidate_state =
-                ParachainStaking::candidate_info(1).expect("is candidate, just offline");
+                ParachainStaking::candidate_info(account_id).expect("is active candidate");
+            assert_eq!(candidate_state.status, CollatorStatus::Active);
+            assert_ok!(ParachainStaking::go_offline(Origin::signed(account_id)));
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("is candidate, just offline");
             assert_eq!(candidate_state.status, CollatorStatus::Idle);
         });
 }
@@ -720,20 +926,24 @@ fn go_offline_updates_candidate_state_to_idle() {
 #[test]
 fn cannot_go_offline_if_not_candidate() {
     ExtBuilder::default().build().execute_with(|| {
-        assert_noop!(ParachainStaking::go_offline(Origin::signed(3)), Error::<Test>::CandidateDNE);
+        assert_noop!(
+            ParachainStaking::go_offline(Origin::signed(to_acc_id(3))),
+            Error::<Test>::CandidateDNE
+        );
     });
 }
 
 #[test]
 fn cannot_go_offline_if_already_offline() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::go_offline(Origin::signed(1)));
+            assert_ok!(ParachainStaking::go_offline(Origin::signed(account_id)));
             assert_noop!(
-                ParachainStaking::go_offline(Origin::signed(1)),
+                ParachainStaking::go_offline(Origin::signed(account_id)),
                 Error::<Test>::AlreadyOffline
             );
         });
@@ -743,47 +953,51 @@ fn cannot_go_offline_if_already_offline() {
 
 #[test]
 fn go_online_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::go_offline(Origin::signed(1)));
-            assert_ok!(ParachainStaking::go_online(Origin::signed(1)));
+            assert_ok!(ParachainStaking::go_offline(Origin::signed(account_id)));
+            assert_ok!(ParachainStaking::go_online(Origin::signed(account_id)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBackOnline {
-                candidate: 1
+                candidate: account_id
             }));
         });
 }
 
 #[test]
 fn go_online_adds_to_candidate_pool() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::go_offline(Origin::signed(1)));
+            assert_ok!(ParachainStaking::go_offline(Origin::signed(account_id)));
             assert!(ParachainStaking::candidate_pool().0.is_empty());
-            assert_ok!(ParachainStaking::go_online(Origin::signed(1)));
-            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, 1);
+            assert_ok!(ParachainStaking::go_online(Origin::signed(account_id)));
+            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 20);
         });
 }
 
 #[test]
 fn go_online_storage_updates_candidate_state() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::go_offline(Origin::signed(1)));
+            assert_ok!(ParachainStaking::go_offline(Origin::signed(account_id)));
             let candidate_state =
-                ParachainStaking::candidate_info(1).expect("offline still exists");
+                ParachainStaking::candidate_info(account_id).expect("offline still exists");
             assert_eq!(candidate_state.status, CollatorStatus::Idle);
-            assert_ok!(ParachainStaking::go_online(Origin::signed(1)));
-            let candidate_state = ParachainStaking::candidate_info(1).expect("online so exists");
+            assert_ok!(ParachainStaking::go_online(Origin::signed(account_id)));
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("online so exists");
             assert_eq!(candidate_state.status, CollatorStatus::Active);
         });
 }
@@ -791,19 +1005,23 @@ fn go_online_storage_updates_candidate_state() {
 #[test]
 fn cannot_go_online_if_not_candidate() {
     ExtBuilder::default().build().execute_with(|| {
-        assert_noop!(ParachainStaking::go_online(Origin::signed(3)), Error::<Test>::CandidateDNE);
+        assert_noop!(
+            ParachainStaking::go_online(Origin::signed(to_acc_id(3))),
+            Error::<Test>::CandidateDNE
+        );
     });
 }
 
 #[test]
 fn cannot_go_online_if_already_online() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::go_online(Origin::signed(1)),
+                ParachainStaking::go_online(Origin::signed(account_id)),
                 Error::<Test>::AlreadyActive
             );
         });
@@ -811,14 +1029,15 @@ fn cannot_go_online_if_already_online() {
 
 #[test]
 fn cannot_go_online_if_leaving() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
             assert_noop!(
-                ParachainStaking::go_online(Origin::signed(1)),
+                ParachainStaking::go_online(Origin::signed(account_id)),
                 Error::<Test>::CannotGoOnlineIfLeaving
             );
         });
@@ -828,14 +1047,15 @@ fn cannot_go_online_if_leaving() {
 
 #[test]
 fn candidate_bond_more_emits_correct_event() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 50)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(1), 30));
+            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBondedMore {
-                candidate: 1,
+                candidate: account_id,
                 amount: 30,
                 new_total_bond: 50
             }));
@@ -844,26 +1064,28 @@ fn candidate_bond_more_emits_correct_event() {
 
 #[test]
 fn candidate_bond_more_reserves_balance() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 50)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 30);
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(1), 30));
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 0);
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 30);
+            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
         });
 }
 
 #[test]
 fn candidate_bond_more_increases_total() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 50)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
             let mut total = ParachainStaking::total();
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(1), 30));
+            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
             total += 30;
             assert_eq!(ParachainStaking::total(), total);
         });
@@ -871,30 +1093,34 @@ fn candidate_bond_more_increases_total() {
 
 #[test]
 fn candidate_bond_more_updates_candidate_state() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 50)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            let candidate_state = ParachainStaking::candidate_info(1).expect("updated => exists");
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 20);
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(1), 30));
-            let candidate_state = ParachainStaking::candidate_info(1).expect("updated => exists");
+            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 50);
         });
 }
 
 #[test]
 fn candidate_bond_more_updates_candidate_pool() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 50)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, 1);
+            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 20);
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(1), 30));
-            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, 1);
+            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
+            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 50);
         });
 }
@@ -903,14 +1129,18 @@ fn candidate_bond_more_updates_candidate_pool() {
 
 #[test]
 fn schedule_candidate_bond_less_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBondLessRequested {
-                candidate: 1,
+                candidate: account_id,
                 amount_to_decrease: 10,
                 execute_era: 3,
             }));
@@ -919,14 +1149,18 @@ fn schedule_candidate_bond_less_event_emits_correctly() {
 
 #[test]
 fn cannot_schedule_candidate_bond_less_if_request_exists() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 5));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                5
+            ));
             assert_noop!(
-                ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 5),
+                ParachainStaking::schedule_candidate_bond_less(Origin::signed(account_id), 5),
                 Error::<Test>::PendingCandidateRequestAlreadyExists
             );
         });
@@ -936,7 +1170,7 @@ fn cannot_schedule_candidate_bond_less_if_request_exists() {
 fn cannot_schedule_candidate_bond_less_if_not_candidate() {
     ExtBuilder::default().build().execute_with(|| {
         assert_noop!(
-            ParachainStaking::schedule_candidate_bond_less(Origin::signed(6), 50),
+            ParachainStaking::schedule_candidate_bond_less(Origin::signed(to_acc_id(6)), 50),
             Error::<Test>::CandidateDNE
         );
     });
@@ -944,13 +1178,14 @@ fn cannot_schedule_candidate_bond_less_if_not_candidate() {
 
 #[test]
 fn cannot_schedule_candidate_bond_less_if_new_total_below_min_candidate_stk() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 21),
+                ParachainStaking::schedule_candidate_bond_less(Origin::signed(account_id), 21),
                 Error::<Test>::CandidateBondBelowMin
             );
         });
@@ -958,28 +1193,37 @@ fn cannot_schedule_candidate_bond_less_if_new_total_below_min_candidate_stk() {
 
 #[test]
 fn can_schedule_candidate_bond_less_if_leaving_candidates() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1));
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
         });
 }
 
 #[test]
 fn cannot_schedule_candidate_bond_less_if_exited_candidates() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(1), 1, 0));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id),
+                account_id,
+                0
+            ));
             assert_noop!(
-                ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10),
+                ParachainStaking::schedule_candidate_bond_less(Origin::signed(account_id), 10),
                 Error::<Test>::CandidateDNE
             );
         });
@@ -989,16 +1233,23 @@ fn cannot_schedule_candidate_bond_less_if_exited_candidates() {
 
 #[test]
 fn execute_candidate_bond_less_emits_correct_event() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 50)])
-        .with_candidates(vec![(1, 50)])
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 50)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 30));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                30
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(Origin::signed(1), 1));
+            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+                Origin::signed(account_id),
+                account_id
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBondedLess {
-                candidate: 1,
+                candidate: account_id,
                 amount: 30,
                 new_bond: 20
             }));
@@ -1007,30 +1258,44 @@ fn execute_candidate_bond_less_emits_correct_event() {
 
 #[test]
 fn execute_candidate_bond_less_unreserves_balance() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 0);
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(Origin::signed(1), 1));
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&1), 10);
+            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+                Origin::signed(account_id),
+                account_id
+            ));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 10);
         });
 }
 
 #[test]
 fn execute_candidate_bond_less_decreases_total() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
             let mut total = ParachainStaking::total();
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(Origin::signed(1), 1));
+            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+                Origin::signed(account_id),
+                account_id
+            ));
             total -= 10;
             assert_eq!(ParachainStaking::total(), total);
         });
@@ -1038,34 +1303,50 @@ fn execute_candidate_bond_less_decreases_total() {
 
 #[test]
 fn execute_candidate_bond_less_updates_candidate_state() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            let candidate_state = ParachainStaking::candidate_info(1).expect("updated => exists");
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 30);
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(Origin::signed(1), 1));
-            let candidate_state = ParachainStaking::candidate_info(1).expect("updated => exists");
+            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+                Origin::signed(account_id),
+                account_id
+            ));
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 20);
         });
 }
 
 #[test]
 fn execute_candidate_bond_less_updates_candidate_pool() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, 1);
+            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 30);
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(Origin::signed(1), 1));
-            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, 1);
+            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+                Origin::signed(account_id),
+                account_id
+            ));
+            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 20);
         });
 }
@@ -1074,15 +1355,19 @@ fn execute_candidate_bond_less_updates_candidate_pool() {
 
 #[test]
 fn cancel_candidate_bond_less_emits_event() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
-            assert_ok!(ParachainStaking::cancel_candidate_bond_less(Origin::signed(1)));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
+            assert_ok!(ParachainStaking::cancel_candidate_bond_less(Origin::signed(account_id)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CancelledCandidateBondLess {
-                candidate: 1,
+                candidate: account_id,
                 amount: 10,
                 execute_era: 3,
             }));
@@ -1091,27 +1376,35 @@ fn cancel_candidate_bond_less_emits_event() {
 
 #[test]
 fn cancel_candidate_bond_less_updates_candidate_state() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
-            assert_ok!(ParachainStaking::cancel_candidate_bond_less(Origin::signed(1)));
-            assert!(ParachainStaking::candidate_info(&1).unwrap().request.is_none());
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
+            assert_ok!(ParachainStaking::cancel_candidate_bond_less(Origin::signed(account_id)));
+            assert!(ParachainStaking::candidate_info(&account_id).unwrap().request.is_none());
         });
 }
 
 #[test]
 fn only_candidate_can_cancel_candidate_bond_less_request() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(Origin::signed(1), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
+                Origin::signed(account_id),
+                10
+            ));
             assert_noop!(
-                ParachainStaking::cancel_candidate_bond_less(Origin::signed(2)),
+                ParachainStaking::cancel_candidate_bond_less(Origin::signed(to_acc_id(2))),
                 Error::<Test>::CandidateDNE
             );
         });
@@ -1121,16 +1414,23 @@ fn only_candidate_can_cancel_candidate_bond_less_request() {
 
 #[test]
 fn nominate_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30), (to_acc_id(2), 10)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 1, 10, 0, 0));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(2)),
+                account_id,
+                10,
+                0,
+                0
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::Nomination {
-                nominator: 2,
+                nominator: to_acc_id(2),
                 locked_amount: 10,
-                candidate: 1,
+                candidate: account_id,
                 nominator_position: NominatorAdded::AddedToTop { new_total: 40 },
             }));
         });
@@ -1138,55 +1438,79 @@ fn nominate_event_emits_correctly() {
 
 #[test]
 fn nominate_reserves_balance() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 10);
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 1, 10, 0, 0));
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 0);
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 10);
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_2),
+                account_id,
+                10,
+                0,
+                0
+            ));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 0);
         });
 }
 
 #[test]
 fn nominate_updates_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert!(ParachainStaking::nominator_state(2).is_none());
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 1, 10, 0, 0));
+            assert!(ParachainStaking::nominator_state(account_id_2).is_none());
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_2),
+                account_id,
+                10,
+                0,
+                0
+            ));
             let nominator_state =
-                ParachainStaking::nominator_state(2).expect("just nominated => exists");
+                ParachainStaking::nominator_state(account_id_2).expect("just nominated => exists");
             assert_eq!(nominator_state.total(), 10);
-            assert_eq!(nominator_state.nominations.0[0].owner, 1);
+            assert_eq!(nominator_state.nominations.0[0].owner, account_id);
             assert_eq!(nominator_state.nominations.0[0].amount, 10);
         });
 }
 
 #[test]
 fn nominate_updates_collator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
             let candidate_state =
-                ParachainStaking::candidate_info(1).expect("registered in genesis");
+                ParachainStaking::candidate_info(account_id).expect("registered in genesis");
             assert_eq!(candidate_state.total_counted, 30);
             let top_nominations =
-                ParachainStaking::top_nominations(1).expect("registered in genesis");
+                ParachainStaking::top_nominations(account_id).expect("registered in genesis");
             assert!(top_nominations.nominations.is_empty());
             assert!(top_nominations.total.is_zero());
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 1, 10, 0, 0));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_2),
+                account_id,
+                10,
+                0,
+                0
+            ));
             let candidate_state =
-                ParachainStaking::candidate_info(1).expect("just nominated => exists");
+                ParachainStaking::candidate_info(account_id).expect("just nominated => exists");
             assert_eq!(candidate_state.total_counted, 40);
             let top_nominations =
-                ParachainStaking::top_nominations(1).expect("just nominated => exists");
-            assert_eq!(top_nominations.nominations[0].owner, 2);
+                ParachainStaking::top_nominations(account_id).expect("just nominated => exists");
+            assert_eq!(top_nominations.nominations[0].owner, account_id_2);
             assert_eq!(top_nominations.nominations[0].amount, 10);
             assert_eq!(top_nominations.total, 10);
         });
@@ -1194,59 +1518,86 @@ fn nominate_updates_collator_state() {
 
 #[test]
 fn can_nominate_immediately_after_other_join_candidates() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::join_candidates(Origin::signed(1), 20, 0));
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 1, 20, 0, 0));
+            assert_ok!(ParachainStaking::join_candidates(Origin::signed(account_id), 20, 0));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_2),
+                account_id,
+                20,
+                0,
+                0
+            ));
         });
 }
 
 #[test]
 fn can_nominate_if_revoking() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 30), (3, 20), (4, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 30),
+            (account_id_3, 20),
+            (account_id_4, 20),
+        ])
+        .with_candidates(vec![(account_id, 20), (account_id_3, 20), (account_id_4, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 4, 10, 0, 2));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_2),
+                account_id_4,
+                10,
+                0,
+                2
+            ));
         });
 }
 
 #[test]
 fn cannot_nominate_if_full_and_new_nomination_less_than_or_equal_lowest_bottom() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 20),
-            (2, 10),
-            (3, 10),
-            (4, 10),
-            (5, 10),
-            (6, 10),
-            (7, 10),
-            (8, 10),
-            (9, 10),
-            (10, 10),
-            (11, 10),
+            (account_id, 20),
+            (to_acc_id(2), 10),
+            (to_acc_id(3), 10),
+            (to_acc_id(4), 10),
+            (to_acc_id(5), 10),
+            (to_acc_id(6), 10),
+            (to_acc_id(7), 10),
+            (to_acc_id(8), 10),
+            (to_acc_id(9), 10),
+            (to_acc_id(10), 10),
+            (to_acc_id(11), 11),
         ])
-        .with_candidates(vec![(1, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .with_nominations(vec![
-            (2, 1, 10),
-            (3, 1, 10),
-            (4, 1, 10),
-            (5, 1, 10),
-            (6, 1, 10),
-            (8, 1, 10),
-            (9, 1, 10),
-            (10, 1, 10),
+            (to_acc_id(2), account_id, 10),
+            (to_acc_id(3), account_id, 10),
+            (to_acc_id(4), account_id, 10),
+            (to_acc_id(5), account_id, 10),
+            (to_acc_id(6), account_id, 10),
+            (to_acc_id(8), account_id, 10),
+            (to_acc_id(9), account_id, 10),
+            (to_acc_id(10), account_id, 10),
         ])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::nominate(Origin::signed(11), 1, 10, 8, 0),
+                ParachainStaking::nominate(Origin::signed(to_acc_id(11)), account_id, 10, 8, 0),
                 Error::<Test>::CannotNominateLessThanOrEqualToLowestBottomWhenFull
             );
         });
@@ -1254,65 +1605,86 @@ fn cannot_nominate_if_full_and_new_nomination_less_than_or_equal_lowest_bottom()
 
 #[test]
 fn can_nominate_if_full_and_new_nomination_greater_than_lowest_bottom() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 20),
-            (2, 10),
-            (3, 10),
-            (4, 10),
-            (5, 10),
-            (6, 10),
-            (7, 10),
-            (8, 10),
-            (9, 10),
-            (10, 10),
-            (11, 11),
+            (account_id, 20),
+            (to_acc_id(2), 10),
+            (to_acc_id(3), 10),
+            (to_acc_id(4), 10),
+            (to_acc_id(5), 10),
+            (to_acc_id(6), 10),
+            (to_acc_id(7), 10),
+            (to_acc_id(8), 10),
+            (to_acc_id(9), 10),
+            (to_acc_id(10), 10),
+            (to_acc_id(11), 11),
         ])
-        .with_candidates(vec![(1, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .with_nominations(vec![
-            (2, 1, 10),
-            (3, 1, 10),
-            (4, 1, 10),
-            (5, 1, 10),
-            (6, 1, 10),
-            (8, 1, 10),
-            (9, 1, 10),
-            (10, 1, 10),
+            (to_acc_id(2), account_id, 10),
+            (to_acc_id(3), account_id, 10),
+            (to_acc_id(4), account_id, 10),
+            (to_acc_id(5), account_id, 10),
+            (to_acc_id(6), account_id, 10),
+            (to_acc_id(8), account_id, 10),
+            (to_acc_id(9), account_id, 10),
+            (to_acc_id(10), account_id, 10),
         ])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::nominate(Origin::signed(11), 1, 11, 8, 0));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(11)),
+                account_id,
+                11,
+                8,
+                0
+            ));
             assert_event_emitted!(Event::NominationKicked {
-                nominator: 10,
-                candidate: 1,
+                nominator: to_acc_id(10),
+                candidate: account_id,
                 unstaked_amount: 10
             });
-            assert_event_emitted!(Event::NominatorLeft { nominator: 10, unstaked_amount: 10 });
+            assert_event_emitted!(Event::NominatorLeft {
+                nominator: to_acc_id(10),
+                unstaked_amount: 10
+            });
         });
 }
 
 #[test]
 fn can_still_nominate_if_leaving() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20), (3, 20)])
-        .with_candidates(vec![(1, 20), (3, 20)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 20), (account_id_3, 20)])
+        .with_candidates(vec![(account_id, 20), (account_id_3, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 3, 10, 0, 1),);
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_2),
+                account_id_3,
+                10,
+                0,
+                1
+            ),);
         });
 }
 
 #[test]
 fn cannot_nominate_if_candidate() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 30)])
-        .with_candidates(vec![(1, 20), (2, 20)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 30)])
+        .with_candidates(vec![(account_id, 20), (account_id_2, 20)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::nominate(Origin::signed(2), 1, 10, 0, 0),
+                ParachainStaking::nominate(Origin::signed(account_id_2), account_id, 10, 0, 0),
                 Error::<Test>::CandidateExists
             );
         });
@@ -1320,14 +1692,16 @@ fn cannot_nominate_if_candidate() {
 
 #[test]
 fn cannot_nominate_if_already_nominated() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 30)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(2, 1, 20)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 30)])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 20)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::nominate(Origin::signed(2), 1, 10, 1, 1),
+                ParachainStaking::nominate(Origin::signed(account_id_2), account_id, 10, 1, 1),
                 Error::<Test>::AlreadyNominatedCandidate
             );
         });
@@ -1335,14 +1709,33 @@ fn cannot_nominate_if_already_nominated() {
 
 #[test]
 fn cannot_nominate_more_than_max_nominations() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 50), (3, 20), (4, 20), (5, 20), (6, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20), (5, 20), (6, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10), (2, 4, 10), (2, 5, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (to_acc_id(2), 50),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+        ])
+        .with_candidates(vec![
+            (account_id, 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+        ])
+        .with_nominations(vec![
+            (to_acc_id(2), account_id, 10),
+            (to_acc_id(2), to_acc_id(3), 10),
+            (to_acc_id(2), to_acc_id(4), 10),
+            (to_acc_id(2), to_acc_id(5), 10),
+        ])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::nominate(Origin::signed(2), 6, 10, 0, 4),
+                ParachainStaking::nominate(Origin::signed(to_acc_id(2)), to_acc_id(6), 10, 0, 4),
                 Error::<Test>::ExceedMaxNominationsPerNominator,
             );
         });
@@ -1350,31 +1743,49 @@ fn cannot_nominate_more_than_max_nominations() {
 
 #[test]
 fn sufficient_nominate_weight_hint_succeeds() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 20),
-            (2, 20),
-            (3, 20),
-            (4, 20),
-            (5, 20),
-            (6, 20),
-            (7, 20),
-            (8, 20),
-            (9, 20),
-            (10, 20),
+            (account_id, 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+            (to_acc_id(7), 20),
+            (to_acc_id(8), 20),
+            (to_acc_id(9), 20),
+            (to_acc_id(10), 20),
         ])
-        .with_candidates(vec![(1, 20), (2, 20)])
-        .with_nominations(vec![(3, 1, 10), (4, 1, 10), (5, 1, 10), (6, 1, 10)])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(2), 20)])
+        .with_nominations(vec![
+            (to_acc_id(3), account_id, 10),
+            (to_acc_id(4), account_id, 10),
+            (to_acc_id(5), account_id, 10),
+            (to_acc_id(6), account_id, 10),
+        ])
         .build()
         .execute_with(|| {
             let mut count = 4u32;
             for i in 7..11 {
-                assert_ok!(ParachainStaking::nominate(Origin::signed(i), 1, 10, count, 0u32));
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(to_acc_id(i)),
+                    account_id,
+                    10,
+                    count,
+                    0u32
+                ));
                 count += 1u32;
             }
             let mut count = 0u32;
             for i in 3..11 {
-                assert_ok!(ParachainStaking::nominate(Origin::signed(i), 2, 10, count, 1u32));
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(to_acc_id(i)),
+                    to_acc_id(2),
+                    10,
+                    count,
+                    1u32
+                ));
                 count += 1u32;
             }
         });
@@ -1382,40 +1793,64 @@ fn sufficient_nominate_weight_hint_succeeds() {
 
 #[test]
 fn insufficient_nominate_weight_hint_fails() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 20),
-            (2, 20),
-            (3, 20),
-            (4, 20),
-            (5, 20),
-            (6, 20),
-            (7, 20),
-            (8, 20),
-            (9, 20),
-            (10, 20),
+            (account_id, 20),
+            (to_acc_id(2), 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+            (to_acc_id(7), 20),
+            (to_acc_id(8), 20),
+            (to_acc_id(9), 20),
+            (to_acc_id(10), 20),
         ])
-        .with_candidates(vec![(1, 20), (2, 20)])
-        .with_nominations(vec![(3, 1, 10), (4, 1, 10), (5, 1, 10), (6, 1, 10)])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(2), 20)])
+        .with_nominations(vec![
+            (to_acc_id(3), account_id, 10),
+            (to_acc_id(4), account_id, 10),
+            (to_acc_id(5), account_id, 10),
+            (to_acc_id(6), account_id, 10),
+        ])
         .build()
         .execute_with(|| {
             let mut count = 3u32;
             for i in 7..11 {
                 assert_noop!(
-                    ParachainStaking::nominate(Origin::signed(i), 1, 10, count, 0u32),
+                    ParachainStaking::nominate(
+                        Origin::signed(to_acc_id(i)),
+                        account_id,
+                        10,
+                        count,
+                        0u32
+                    ),
                     Error::<Test>::TooLowCandidateNominationCountToNominate
                 );
             }
             // to set up for next error test
             count = 4u32;
             for i in 7..11 {
-                assert_ok!(ParachainStaking::nominate(Origin::signed(i), 1, 10, count, 0u32));
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(to_acc_id(i)),
+                    account_id,
+                    10,
+                    count,
+                    0u32
+                ));
                 count += 1u32;
             }
             count = 0u32;
             for i in 3..11 {
                 assert_noop!(
-                    ParachainStaking::nominate(Origin::signed(i), 2, 10, count, 0u32),
+                    ParachainStaking::nominate(
+                        Origin::signed(to_acc_id(i)),
+                        to_acc_id(2),
+                        10,
+                        count,
+                        0u32
+                    ),
                     Error::<Test>::TooLowNominationCountToNominate
                 );
                 count += 1u32;
@@ -1427,16 +1862,18 @@ fn insufficient_nominate_weight_hint_fails() {
 
 #[test]
 fn schedule_leave_nominators_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
                 era: 1,
-                nominator: 2,
+                nominator: account_id_2,
                 scheduled_exit: 3
             }));
         });
@@ -1444,15 +1881,17 @@ fn schedule_leave_nominators_event_emits_correctly() {
 
 #[test]
 fn cannot_schedule_leave_nominators_if_already_leaving() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             assert_noop!(
-                ParachainStaking::schedule_leave_nominators(Origin::signed(2)),
+                ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)),
                 Error::<Test>::NominatorAlreadyLeaving
             );
         });
@@ -1460,13 +1899,15 @@ fn cannot_schedule_leave_nominators_if_already_leaving() {
 
 #[test]
 fn cannot_schedule_leave_nominators_if_not_nominator() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_leave_nominators(Origin::signed(2)),
+                ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)),
                 Error::<Test>::NominatorDNE
             );
         });
@@ -1476,94 +1917,131 @@ fn cannot_schedule_leave_nominators_if_not_nominator() {
 
 #[test]
 fn execute_leave_nominators_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1));
-            assert_event_emitted!(Event::NominatorLeft { nominator: 2, unstaked_amount: 10 });
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                1
+            ));
+            assert_event_emitted!(Event::NominatorLeft {
+                nominator: account_id_2,
+                unstaked_amount: 10
+            });
         });
 }
 
 #[test]
 fn execute_leave_nominators_unreserves_balance() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 00);
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 00);
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1));
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 10);
-            assert_eq!(crate::mock::query_lock_amount(2, NOMINATOR_LOCK_ID), None);
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                1
+            ));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 10);
+            assert_eq!(crate::mock::query_lock_amount(account_id_2, NOMINATOR_LOCK_ID), None);
         });
 }
 
 #[test]
 fn execute_leave_nominators_decreases_total_staked() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                1
+            ));
             assert_eq!(ParachainStaking::total(), 30);
         });
 }
 
 #[test]
 fn execute_leave_nominators_removes_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert!(ParachainStaking::nominator_state(2).is_some());
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert!(ParachainStaking::nominator_state(account_id_2).is_some());
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1));
-            assert!(ParachainStaking::nominator_state(2).is_none());
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                1
+            ));
+            assert!(ParachainStaking::nominator_state(account_id_2).is_none());
         });
 }
 
 #[test]
 fn execute_leave_nominators_removes_pending_nomination_requests() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 10), (2, 15)])
-        .with_candidates(vec![(1, 10)])
-        .with_nominations(vec![(2, 1, 15)])
+        .with_balances(vec![(account_id, 10), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 10)])
+        .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
-            let state = ParachainStaking::nomination_scheduled_requests(&1);
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
+            let state = ParachainStaking::nomination_scheduled_requests(&account_id);
             assert_eq!(
                 state,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
                 }],
             );
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1));
-            assert!(ParachainStaking::nominator_state(2).is_none());
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                1
+            ));
+            assert!(ParachainStaking::nominator_state(account_id_2).is_none());
             assert!(
-                !ParachainStaking::nomination_scheduled_requests(&1)
+                !ParachainStaking::nomination_scheduled_requests(&account_id)
                     .iter()
-                    .any(|x| x.nominator == 2),
+                    .any(|x| x.nominator == account_id_2),
                 "nomination request not removed"
             )
         });
@@ -1571,32 +2049,58 @@ fn execute_leave_nominators_removes_pending_nomination_requests() {
 
 #[test]
 fn execute_leave_nominators_removes_nominations_from_collator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 100), (2, 20), (3, 20), (4, 20), (5, 20)])
-        .with_candidates(vec![(2, 20), (3, 20), (4, 20), (5, 20)])
-        .with_nominations(vec![(1, 2, 10), (1, 3, 10), (1, 4, 10), (1, 5, 10)])
+        .with_balances(vec![
+            (account_id, 100),
+            (account_id_2, 20),
+            (account_id_3, 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+        ])
+        .with_candidates(vec![
+            (account_id_2, 20),
+            (account_id_3, 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+        ])
+        .with_nominations(vec![
+            (account_id, account_id_2, 10),
+            (account_id, account_id_3, 10),
+            (account_id, to_acc_id(4), 10),
+            (account_id, to_acc_id(5), 10),
+        ])
         .build()
         .execute_with(|| {
             for i in 2..6 {
-                let candidate_state =
-                    ParachainStaking::candidate_info(i).expect("initialized in ext builder");
+                let candidate_state = ParachainStaking::candidate_info(to_acc_id(i))
+                    .expect("initialized in ext builder");
                 assert_eq!(candidate_state.total_counted, 30);
-                let top_nominations =
-                    ParachainStaking::top_nominations(i).expect("initialized in ext builder");
-                assert_eq!(top_nominations.nominations[0].owner, 1);
+                let top_nominations = ParachainStaking::top_nominations(to_acc_id(i))
+                    .expect("initialized in ext builder");
+                assert_eq!(top_nominations.nominations[0].owner, account_id);
                 assert_eq!(top_nominations.nominations[0].amount, 10);
                 assert_eq!(top_nominations.total, 10);
             }
-            assert_eq!(ParachainStaking::nominator_state(1).unwrap().nominations.0.len(), 4usize);
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(1)));
+            assert_eq!(
+                ParachainStaking::nominator_state(account_id).unwrap().nominations.0.len(),
+                4usize
+            );
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id)));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(1), 1, 10));
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id),
+                account_id,
+                10
+            ));
             for i in 2..6 {
-                let candidate_state =
-                    ParachainStaking::candidate_info(i).expect("initialized in ext builder");
+                let candidate_state = ParachainStaking::candidate_info(to_acc_id(i))
+                    .expect("initialized in ext builder");
                 assert_eq!(candidate_state.total_counted, 20);
-                let top_nominations =
-                    ParachainStaking::top_nominations(i).expect("initialized in ext builder");
+                let top_nominations = ParachainStaking::top_nominations(to_acc_id(i))
+                    .expect("initialized in ext builder");
                 assert!(top_nominations.nominations.is_empty());
             }
         });
@@ -1604,61 +2108,108 @@ fn execute_leave_nominators_removes_nominations_from_collator_state() {
 
 #[test]
 fn cannot_execute_leave_nominators_before_delay() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             assert_noop!(
-                ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1),
+                ParachainStaking::execute_leave_nominators(
+                    Origin::signed(account_id_2),
+                    account_id_2,
+                    1
+                ),
                 Error::<Test>::NominatorCannotLeaveYet
             );
             // can execute after delay
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                1
+            ));
         });
 }
 
 #[test]
 fn cannot_execute_leave_nominators_if_single_nomination_revoke_manually_cancelled() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 30)])
-        .with_candidates(vec![(1, 30), (3, 30)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 3));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_3
+            ));
             roll_to(10);
             assert_noop!(
-                ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 2),
+                ParachainStaking::execute_leave_nominators(
+                    Origin::signed(account_id_2),
+                    account_id_2,
+                    2
+                ),
                 Error::<Test>::NominatorNotLeaving
             );
             // can execute after manually scheduling revoke, and the era delay after which
             // all revokes can be executed
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 3));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id_3
+            ));
             roll_to(20);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 2));
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                2
+            ));
         });
 }
 
 #[test]
 fn insufficient_execute_leave_nominators_weight_hint_fails() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20), (6, 20)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(3, 1, 10), (4, 1, 10), (5, 1, 10), (6, 1, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+        ])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![
+            (to_acc_id(3), account_id, 10),
+            (to_acc_id(4), account_id, 10),
+            (to_acc_id(5), account_id, 10),
+            (to_acc_id(6), account_id, 10),
+        ])
         .build()
         .execute_with(|| {
             for i in 3..7 {
-                assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(i)));
+                assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(to_acc_id(
+                    i
+                ))));
             }
             roll_to(10);
             for i in 3..7 {
                 assert_noop!(
-                    ParachainStaking::execute_leave_nominators(Origin::signed(i), i, 0),
+                    ParachainStaking::execute_leave_nominators(
+                        Origin::signed(to_acc_id(i)),
+                        to_acc_id(i),
+                        0
+                    ),
                     Error::<Test>::TooLowNominationCountToLeaveNominators
                 );
             }
@@ -1667,18 +2218,38 @@ fn insufficient_execute_leave_nominators_weight_hint_fails() {
 
 #[test]
 fn sufficient_execute_leave_nominators_weight_hint_succeeds() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 20), (6, 20)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(3, 1, 10), (4, 1, 10), (5, 1, 10), (6, 1, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+        ])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![
+            (to_acc_id(3), account_id, 10),
+            (to_acc_id(4), account_id, 10),
+            (to_acc_id(5), account_id, 10),
+            (to_acc_id(6), account_id, 10),
+        ])
         .build()
         .execute_with(|| {
             for i in 3..7 {
-                assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(i)));
+                assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(to_acc_id(
+                    i
+                ))));
             }
             roll_to(10);
             for i in 3..7 {
-                assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(i), i, 1));
+                assert_ok!(ParachainStaking::execute_leave_nominators(
+                    Origin::signed(to_acc_id(i)),
+                    to_acc_id(i),
+                    1
+                ));
             }
         });
 }
@@ -1687,55 +2258,68 @@ fn sufficient_execute_leave_nominators_weight_hint_succeeds() {
 
 #[test]
 fn cancel_leave_nominators_emits_correct_event() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
-            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
+            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(account_id_2)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitCancelled {
-                nominator: 2
+                nominator: account_id_2
             }));
         });
 }
 
 #[test]
 fn cancel_leave_nominators_updates_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
-            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(2)));
-            let nominator =
-                ParachainStaking::nominator_state(&2).expect("just cancelled exit so exists");
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
+            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(account_id_2)));
+            let nominator = ParachainStaking::nominator_state(&account_id_2)
+                .expect("just cancelled exit so exists");
             assert!(nominator.is_active());
         });
 }
 
 #[test]
 fn cannot_cancel_leave_nominators_if_single_nomination_revoke_manually_cancelled() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 30)])
-        .with_candidates(vec![(1, 30), (3, 30)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 3));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_3
+            ));
             roll_to(10);
             assert_noop!(
-                ParachainStaking::cancel_leave_nominators(Origin::signed(2)),
+                ParachainStaking::cancel_leave_nominators(Origin::signed(account_id_2)),
                 Error::<Test>::NominatorNotLeaving
             );
             // can execute after manually scheduling revoke, without waiting for era delay after
             // which all revokes can be executed
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 3));
-            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id_3
+            ));
+            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(account_id_2)));
         });
 }
 
@@ -1743,24 +2327,34 @@ fn cannot_cancel_leave_nominators_if_single_nomination_revoke_manually_cancelled
 
 #[test]
 fn revoke_nomination_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 30)])
-        .with_candidates(vec![(1, 30), (3, 30)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationRevocationScheduled {
                 era: 1,
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 scheduled_exit: 3,
             }));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert_event_emitted!(Event::NominatorLeftCandidate {
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 unstaked_amount: 10,
                 total_candidate_staked: 30
             });
@@ -1769,29 +2363,44 @@ fn revoke_nomination_event_emits_correctly() {
 
 #[test]
 fn can_revoke_nomination_if_revoking_another_nomination() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 20)])
-        .with_candidates(vec![(1, 30), (3, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 20)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             // this is an exit implicitly because last nomination revoked
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 3));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id_3
+            ));
         });
 }
 
 #[test]
 fn nominator_not_allowed_revoke_if_already_leaving() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 20)])
-        .with_candidates(vec![(1, 30), (3, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 20)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             assert_noop!(
-                ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 3),
+                ParachainStaking::schedule_revoke_nomination(
+                    Origin::signed(account_id_2),
+                    account_id_3
+                ),
                 <Error<Test>>::PendingNominationRequestAlreadyExists,
             );
         });
@@ -1799,9 +2408,11 @@ fn nominator_not_allowed_revoke_if_already_leaving() {
 
 #[test]
 fn cannot_revoke_nomination_if_not_nominator() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default().build().execute_with(|| {
         assert_noop!(
-            ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1),
+            ParachainStaking::schedule_revoke_nomination(Origin::signed(account_id_2), account_id),
             Error::<Test>::NominatorDNE
         );
     });
@@ -1809,14 +2420,19 @@ fn cannot_revoke_nomination_if_not_nominator() {
 
 #[test]
 fn cannot_revoke_nomination_that_dne() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 3),
+                ParachainStaking::schedule_revoke_nomination(
+                    Origin::signed(account_id_2),
+                    to_acc_id(3)
+                ),
                 Error::<Test>::NominationDNE
             );
         });
@@ -1826,13 +2442,18 @@ fn cannot_revoke_nomination_that_dne() {
 // See `cannot_execute_revoke_nomination_below_min_nominator_stake` for where the "must be above
 // MinNominatorStake" rule is now enforced.
 fn can_schedule_revoke_nomination_below_min_nominator_stake() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 8), (3, 20)])
-        .with_candidates(vec![(1, 20), (3, 20)])
-        .with_nominations(vec![(2, 1, 5), (2, 3, 3)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 8), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 5), (account_id_2, to_acc_id(3), 3)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
         });
 }
 
@@ -1840,138 +2461,220 @@ fn can_schedule_revoke_nomination_below_min_nominator_stake() {
 
 #[test]
 fn nominator_bond_more_reserves_balance() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 5);
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5));
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 0);
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 5);
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 0);
         });
 }
 
 #[test]
 fn nominator_bond_more_increases_total_staked() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             assert_eq!(ParachainStaking::total(), 45);
         });
 }
 
 #[test]
 fn nominator_bond_more_updates_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::nominator_state(2).expect("exists").total(), 10);
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5));
-            assert_eq!(ParachainStaking::nominator_state(2).expect("exists").total(), 15);
+            assert_eq!(
+                ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
+                10
+            );
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
+            assert_eq!(
+                ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
+                15
+            );
         });
 }
 
 #[test]
 fn nominator_bond_more_updates_candidate_state_top_nominations() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().nominations[0].owner, 2);
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().nominations[0].amount, 10);
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().total, 10);
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5));
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().nominations[0].owner, 2);
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().nominations[0].amount, 15);
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().total, 15);
+            assert_eq!(
+                ParachainStaking::top_nominations(account_id).unwrap().nominations[0].owner,
+                account_id_2
+            );
+            assert_eq!(
+                ParachainStaking::top_nominations(account_id).unwrap().nominations[0].amount,
+                10
+            );
+            assert_eq!(ParachainStaking::top_nominations(account_id).unwrap().total, 10);
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
+            assert_eq!(
+                ParachainStaking::top_nominations(account_id).unwrap().nominations[0].owner,
+                account_id_2
+            );
+            assert_eq!(
+                ParachainStaking::top_nominations(account_id).unwrap().nominations[0].amount,
+                15
+            );
+            assert_eq!(ParachainStaking::top_nominations(account_id).unwrap().total, 15);
         });
 }
 
 #[test]
 fn nominator_bond_more_updates_candidate_state_bottom_nominations() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 20), (4, 20), (5, 20), (6, 20)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10), (3, 1, 20), (4, 1, 20), (5, 1, 20), (6, 1, 20)])
+        .with_balances(vec![
+            (account_id, 30),
+            (account_id_2, 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+        ])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![
+            (account_id_2, account_id, 10),
+            (to_acc_id(3), account_id, 20),
+            (to_acc_id(4), account_id, 20),
+            (to_acc_id(5), account_id, 20),
+            (to_acc_id(6), account_id, 20),
+        ])
         .build()
         .execute_with(|| {
             assert_eq!(
-                ParachainStaking::bottom_nominations(1).expect("exists").nominations[0].owner,
-                2
+                ParachainStaking::bottom_nominations(account_id).expect("exists").nominations[0]
+                    .owner,
+                account_id_2
             );
             assert_eq!(
-                ParachainStaking::bottom_nominations(1).expect("exists").nominations[0].amount,
+                ParachainStaking::bottom_nominations(account_id).expect("exists").nominations[0]
+                    .amount,
                 10
             );
-            assert_eq!(ParachainStaking::bottom_nominations(1).unwrap().total, 10);
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5));
+            assert_eq!(ParachainStaking::bottom_nominations(account_id).unwrap().total, 10);
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationIncreased {
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 amount: 5,
                 in_top: false
             }));
             assert_eq!(
-                ParachainStaking::bottom_nominations(1).expect("exists").nominations[0].owner,
-                2
+                ParachainStaking::bottom_nominations(account_id).expect("exists").nominations[0]
+                    .owner,
+                account_id_2
             );
             assert_eq!(
-                ParachainStaking::bottom_nominations(1).expect("exists").nominations[0].amount,
+                ParachainStaking::bottom_nominations(account_id).expect("exists").nominations[0]
+                    .amount,
                 15
             );
-            assert_eq!(ParachainStaking::bottom_nominations(1).unwrap().total, 15);
+            assert_eq!(ParachainStaking::bottom_nominations(account_id).unwrap().total, 15);
         });
 }
 
 #[test]
 fn nominator_bond_more_increases_total() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             assert_eq!(ParachainStaking::total(), 45);
         });
 }
 
 #[test]
 fn can_nominator_bond_more_for_leaving_candidate() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1));
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
         });
 }
 
 #[test]
 fn nominator_bond_more_disallowed_when_revoke_scheduled() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_noop!(
-                ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5),
+                ParachainStaking::nominator_bond_more(Origin::signed(account_id_2), account_id, 5),
                 <Error<Test>>::PendingNominationRevoke
             );
         });
@@ -1979,14 +2682,24 @@ fn nominator_bond_more_disallowed_when_revoke_scheduled() {
 
 #[test]
 fn nominator_bond_more_allowed_when_bond_decrease_scheduled() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 15)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5,));
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 1, 5));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5,
+            ));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
         });
 }
 
@@ -1994,16 +2707,22 @@ fn nominator_bond_more_allowed_when_bond_decrease_scheduled() {
 
 #[test]
 fn nominator_bond_less_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationDecreaseScheduled {
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 amount_to_decrease: 5,
                 execute_era: 3,
             }));
@@ -2012,18 +2731,24 @@ fn nominator_bond_less_event_emits_correctly() {
 
 #[test]
 fn nominator_bond_less_updates_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
-            let state = ParachainStaking::nomination_scheduled_requests(&1);
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
+            let state = ParachainStaking::nomination_scheduled_requests(&account_id);
             assert_eq!(
                 state,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
                 }],
@@ -2033,15 +2758,21 @@ fn nominator_bond_less_updates_nominator_state() {
 
 #[test]
 fn nominator_not_allowed_bond_less_if_leaving() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 1),
+                ParachainStaking::schedule_nominator_bond_less(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    1
+                ),
                 <Error<Test>>::PendingNominationRequestAlreadyExists,
             );
         });
@@ -2049,15 +2780,25 @@ fn nominator_not_allowed_bond_less_if_leaving() {
 
 #[test]
 fn cannot_nominator_bond_less_if_revoking() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25), (3, 20)])
-        .with_candidates(vec![(1, 30), (3, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25), (account_id_3, 20)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 1),
+                ParachainStaking::schedule_nominator_bond_less(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    1
+                ),
                 Error::<Test>::PendingNominationRequestAlreadyExists
             );
         });
@@ -2065,9 +2806,15 @@ fn cannot_nominator_bond_less_if_revoking() {
 
 #[test]
 fn cannot_nominator_bond_less_if_not_nominator() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default().build().execute_with(|| {
         assert_noop!(
-            ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5),
+            ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ),
             Error::<Test>::NominatorDNE
         );
     });
@@ -2075,14 +2822,20 @@ fn cannot_nominator_bond_less_if_not_nominator() {
 
 #[test]
 fn cannot_nominator_bond_less_if_candidate_dne() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 3, 5),
+                ParachainStaking::schedule_nominator_bond_less(
+                    Origin::signed(account_id_2),
+                    to_acc_id(3),
+                    5
+                ),
                 Error::<Test>::NominationDNE
             );
         });
@@ -2090,14 +2843,21 @@ fn cannot_nominator_bond_less_if_candidate_dne() {
 
 #[test]
 fn cannot_nominator_bond_less_if_nomination_dne() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10), (3, 30)])
-        .with_candidates(vec![(1, 30), (3, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 3, 5),
+                ParachainStaking::schedule_nominator_bond_less(
+                    Origin::signed(account_id_2),
+                    account_id_3,
+                    5
+                ),
                 Error::<Test>::NominationDNE
             );
         });
@@ -2105,14 +2865,20 @@ fn cannot_nominator_bond_less_if_nomination_dne() {
 
 #[test]
 fn cannot_nominator_bond_less_below_min_collator_stk() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 6),
+                ParachainStaking::schedule_nominator_bond_less(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    6
+                ),
                 Error::<Test>::NominatorBondBelowMin
             );
         });
@@ -2120,14 +2886,20 @@ fn cannot_nominator_bond_less_below_min_collator_stk() {
 
 #[test]
 fn cannot_nominator_bond_less_more_than_total_nomination() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 11),
+                ParachainStaking::schedule_nominator_bond_less(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    11
+                ),
                 Error::<Test>::NominatorBondBelowMin
             );
         });
@@ -2135,14 +2907,21 @@ fn cannot_nominator_bond_less_more_than_total_nomination() {
 
 #[test]
 fn cannot_nominator_bond_less_below_min_nomination() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 30)])
-        .with_candidates(vec![(1, 30), (3, 30)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 8),
+                ParachainStaking::schedule_nominator_bond_less(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    8
+                ),
                 Error::<Test>::NominationBelowMin
             );
         });
@@ -2154,84 +2933,133 @@ fn cannot_nominator_bond_less_below_min_nomination() {
 
 #[test]
 fn execute_revoke_nomination_emits_exit_event_if_exit_happens() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     // last nomination is revocation
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert_event_emitted!(Event::NominatorLeftCandidate {
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 unstaked_amount: 10,
                 total_candidate_staked: 30
             });
-            assert_event_emitted!(Event::NominatorLeft { nominator: 2, unstaked_amount: 10 });
+            assert_event_emitted!(Event::NominatorLeft {
+                nominator: account_id_2,
+                unstaked_amount: 10
+            });
         });
 }
 
 #[test]
 fn cannot_execute_revoke_nomination_below_min_nominator_stake() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 8), (3, 20)])
-        .with_candidates(vec![(1, 20), (3, 20)])
-        .with_nominations(vec![(2, 1, 5), (2, 3, 3)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 8), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 5), (account_id_2, to_acc_id(3), 3)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
             assert_noop!(
-                ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1),
+                ParachainStaking::execute_nomination_request(
+                    Origin::signed(account_id_2),
+                    account_id_2,
+                    account_id
+                ),
                 Error::<Test>::NominatorBondBelowMin
             );
             // but nominator can cancel the request and request to leave instead:
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 1));
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             roll_to(20);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 2));
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                2
+            ));
         });
 }
 
 #[test]
 fn revoke_nomination_executes_exit_if_last_nomination() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     // last nomination is revocation
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert_event_emitted!(Event::NominatorLeftCandidate {
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 unstaked_amount: 10,
                 total_candidate_staked: 30
             });
-            assert_event_emitted!(Event::NominatorLeft { nominator: 2, unstaked_amount: 10 });
+            assert_event_emitted!(Event::NominatorLeft {
+                nominator: account_id_2,
+                unstaked_amount: 10
+            });
         });
 }
 
 #[test]
 fn execute_revoke_nomination_emits_correct_event() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 30)])
-        .with_candidates(vec![(1, 30), (3, 30)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (to_acc_id(3), 30)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(3), 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert_event_emitted!(Event::NominatorLeftCandidate {
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 unstaked_amount: 10,
                 total_candidate_staked: 30
             });
@@ -2240,70 +3068,102 @@ fn execute_revoke_nomination_emits_correct_event() {
 
 #[test]
 fn execute_revoke_nomination_unreserves_balance() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 0);
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 0);
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 10);
         });
 }
 
 #[test]
 fn execute_revoke_nomination_adds_revocation_to_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 20)])
-        .with_candidates(vec![(1, 30), (3, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
-            assert!(!ParachainStaking::nomination_scheduled_requests(&1)
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id)
                 .iter()
-                .any(|x| x.nominator == 2));
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
-            assert!(ParachainStaking::nomination_scheduled_requests(&1)
+                .any(|x| x.nominator == account_id_2));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert!(ParachainStaking::nomination_scheduled_requests(&account_id)
                 .iter()
-                .any(|x| x.nominator == 2));
+                .any(|x| x.nominator == account_id_2));
         });
 }
 
 #[test]
 fn execute_revoke_nomination_removes_revocation_from_nominator_state_upon_execution() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 20)])
-        .with_candidates(vec![(1, 30), (3, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert!(!ParachainStaking::nomination_scheduled_requests(&1)
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id)
                 .iter()
-                .any(|x| x.nominator == 2));
+                .any(|x| x.nominator == account_id_2));
         });
 }
 
 #[test]
 fn execute_revoke_nomination_removes_revocation_from_state_for_single_nomination_leave() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 20), (3, 20)])
-        .with_candidates(vec![(1, 30), (3, 20)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert!(
-                !ParachainStaking::nomination_scheduled_requests(&1)
+                !ParachainStaking::nomination_scheduled_requests(&account_id)
                     .iter()
-                    .any(|x| x.nominator == 2),
+                    .any(|x| x.nominator == account_id_2),
                 "nomination was not removed"
             );
         });
@@ -2311,51 +3171,81 @@ fn execute_revoke_nomination_removes_revocation_from_state_for_single_nomination
 
 #[test]
 fn execute_revoke_nomination_decreases_total_staked() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert_eq!(ParachainStaking::total(), 30);
         });
 }
 
 #[test]
 fn execute_revoke_nomination_for_last_nomination_removes_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert!(ParachainStaking::nominator_state(2).is_some());
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert!(ParachainStaking::nominator_state(account_id_2).is_some());
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
             // this will be confusing for people
             // if status is leaving, then execute_nomination_request works if last nomination
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert!(ParachainStaking::nominator_state(2).is_none());
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(ParachainStaking::nominator_state(account_id_2).is_none());
         });
 }
 
 #[test]
 fn execute_revoke_nomination_removes_nomination_from_candidate_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::candidate_info(1).expect("exists").nomination_count, 1u32);
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_eq!(
+                ParachainStaking::candidate_info(account_id).expect("exists").nomination_count,
+                1u32
+            );
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert!(ParachainStaking::candidate_info(1)
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(ParachainStaking::candidate_info(account_id)
                 .expect("exists")
                 .nomination_count
                 .is_zero());
@@ -2364,87 +3254,141 @@ fn execute_revoke_nomination_removes_nomination_from_candidate_state() {
 
 #[test]
 fn can_execute_revoke_nomination_for_leaving_candidate() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1));
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
             // can execute nomination request for leaving candidate
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
         });
 }
 
 #[test]
 fn can_execute_leave_candidates_if_revoking_candidate() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1));
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             roll_to(10);
             // revocation executes during execute leave candidates (callable by anyone)
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(1), 1, 1));
-            assert!(!ParachainStaking::is_nominator(&2));
-            assert_eq!(Balances::reserved_balance(&2), 0);
-            assert_eq!(Balances::free_balance(&2), 10);
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id),
+                account_id,
+                1
+            ));
+            assert!(!ParachainStaking::is_nominator(&account_id_2));
+            assert_eq!(Balances::reserved_balance(&account_id_2), 0);
+            assert_eq!(Balances::free_balance(&account_id_2), 10);
         });
 }
 
 #[test]
 fn nominator_bond_more_after_revoke_nomination_does_not_effect_exit() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 30), (3, 30)])
-        .with_candidates(vec![(1, 30), (3, 30)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 30), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(2), 3, 10));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_2),
+                account_id_3,
+                10
+            ));
             roll_to(100);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert!(ParachainStaking::is_nominator(&2));
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(ParachainStaking::is_nominator(&account_id_2));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 10);
         });
 }
 
 #[test]
 fn nominator_bond_less_after_revoke_nomination_does_not_effect_exit() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 30), (3, 30)])
-        .with_candidates(vec![(1, 30), (3, 30)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 30), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationRevocationScheduled {
                 era: 1,
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 scheduled_exit: 3,
             }));
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 2),
+                ParachainStaking::schedule_nominator_bond_less(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    2
+                ),
                 Error::<Test>::PendingNominationRequestAlreadyExists
             );
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 3, 2));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id_3,
+                2
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 3));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id_3
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationDecreased {
-                nominator: 2,
-                candidate: 3,
+                nominator: account_id_2,
+                candidate: account_id_3,
                 amount: 2,
                 in_top: true
             }));
-            assert!(ParachainStaking::is_nominator(&2));
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 22);
+            assert!(ParachainStaking::is_nominator(&account_id_2));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 22);
         });
 }
 
@@ -2452,109 +3396,197 @@ fn nominator_bond_less_after_revoke_nomination_does_not_effect_exit() {
 
 #[test]
 fn execute_nominator_bond_less_unreserves_balance() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 0);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 0);
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&2), 5);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 5);
         });
 }
 
 #[test]
 fn execute_nominator_bond_less_decreases_total_staked() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert_eq!(ParachainStaking::total(), 35);
         });
 }
 
 #[test]
 fn execute_nominator_bond_less_updates_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::nominator_state(2).expect("exists").total(), 10);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
+            assert_eq!(
+                ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
+                10
+            );
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert_eq!(ParachainStaking::nominator_state(2).expect("exists").total(), 5);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_eq!(ParachainStaking::nominator_state(account_id_2).expect("exists").total(), 5);
         });
 }
 
 #[test]
 fn execute_nominator_bond_less_updates_candidate_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().nominations[0].owner, 2);
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().nominations[0].amount, 10);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
+            assert_eq!(
+                ParachainStaking::top_nominations(account_id).unwrap().nominations[0].owner,
+                account_id_2
+            );
+            assert_eq!(
+                ParachainStaking::top_nominations(account_id).unwrap().nominations[0].amount,
+                10
+            );
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().nominations[0].owner, 2);
-            assert_eq!(ParachainStaking::top_nominations(1).unwrap().nominations[0].amount, 5);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_eq!(
+                ParachainStaking::top_nominations(account_id).unwrap().nominations[0].owner,
+                account_id_2
+            );
+            assert_eq!(
+                ParachainStaking::top_nominations(account_id).unwrap().nominations[0].amount,
+                5
+            );
         });
 }
 
 #[test]
 fn execute_nominator_bond_less_decreases_total() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert_eq!(ParachainStaking::total(), 35);
         });
 }
 
 #[test]
 fn execute_nominator_bond_less_updates_just_bottom_nominations() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 10), (3, 11), (4, 12), (5, 14), (6, 15)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(2, 1, 10), (3, 1, 11), (4, 1, 12), (5, 1, 14), (6, 1, 15)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 10),
+            (to_acc_id(3), 11),
+            (to_acc_id(4), 12),
+            (to_acc_id(5), 14),
+            (to_acc_id(6), 15),
+        ])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![
+            (account_id_2, account_id, 10),
+            (to_acc_id(3), account_id, 11),
+            (to_acc_id(4), account_id, 12),
+            (to_acc_id(5), account_id, 14),
+            (to_acc_id(6), account_id, 15),
+        ])
         .build()
         .execute_with(|| {
             let pre_call_candidate_info =
-                ParachainStaking::candidate_info(&1).expect("nominated by all so exists");
+                ParachainStaking::candidate_info(&account_id).expect("nominated by all so exists");
             let pre_call_top_nominations =
-                ParachainStaking::top_nominations(&1).expect("nominated by all so exists");
-            let pre_call_bottom_nominations =
-                ParachainStaking::bottom_nominations(&1).expect("nominated by all so exists");
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 2));
+                ParachainStaking::top_nominations(&account_id).expect("nominated by all so exists");
+            let pre_call_bottom_nominations = ParachainStaking::bottom_nominations(&account_id)
+                .expect("nominated by all so exists");
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                2
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             let post_call_candidate_info =
-                ParachainStaking::candidate_info(&1).expect("nominated by all so exists");
+                ParachainStaking::candidate_info(&account_id).expect("nominated by all so exists");
             let post_call_top_nominations =
-                ParachainStaking::top_nominations(&1).expect("nominated by all so exists");
-            let post_call_bottom_nominations =
-                ParachainStaking::bottom_nominations(&1).expect("nominated by all so exists");
+                ParachainStaking::top_nominations(&account_id).expect("nominated by all so exists");
+            let post_call_bottom_nominations = ParachainStaking::bottom_nominations(&account_id)
+                .expect("nominated by all so exists");
             let mut not_equal = false;
             for Bond { owner, amount } in pre_call_bottom_nominations.nominations {
                 for Bond { owner: post_owner, amount: post_amount } in
@@ -2592,27 +3624,51 @@ fn execute_nominator_bond_less_updates_just_bottom_nominations() {
 
 #[test]
 fn execute_nominator_bond_less_does_not_delete_bottom_nominations() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_6 = to_acc_id(6u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 10), (3, 11), (4, 12), (5, 14), (6, 15)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(2, 1, 10), (3, 1, 11), (4, 1, 12), (5, 1, 14), (6, 1, 15)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 10),
+            (to_acc_id(3), 11),
+            (to_acc_id(4), 12),
+            (to_acc_id(5), 14),
+            (account_id_6, 15),
+        ])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![
+            (account_id_2, account_id, 10),
+            (to_acc_id(3), account_id, 11),
+            (to_acc_id(4), account_id, 12),
+            (to_acc_id(5), account_id, 14),
+            (account_id_6, account_id, 15),
+        ])
         .build()
         .execute_with(|| {
             let pre_call_candidate_info =
-                ParachainStaking::candidate_info(&1).expect("nominated by all so exists");
+                ParachainStaking::candidate_info(&account_id).expect("nominated by all so exists");
             let pre_call_top_nominations =
-                ParachainStaking::top_nominations(&1).expect("nominated by all so exists");
-            let pre_call_bottom_nominations =
-                ParachainStaking::bottom_nominations(&1).expect("nominated by all so exists");
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(6), 1, 4));
+                ParachainStaking::top_nominations(&account_id).expect("nominated by all so exists");
+            let pre_call_bottom_nominations = ParachainStaking::bottom_nominations(&account_id)
+                .expect("nominated by all so exists");
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_6),
+                account_id,
+                4
+            ));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(6), 6, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_6),
+                account_id_6,
+                account_id
+            ));
             let post_call_candidate_info =
-                ParachainStaking::candidate_info(&1).expect("nominated by all so exists");
+                ParachainStaking::candidate_info(&account_id).expect("nominated by all so exists");
             let post_call_top_nominations =
-                ParachainStaking::top_nominations(&1).expect("nominated by all so exists");
-            let post_call_bottom_nominations =
-                ParachainStaking::bottom_nominations(&1).expect("nominated by all so exists");
+                ParachainStaking::top_nominations(&account_id).expect("nominated by all so exists");
+            let post_call_bottom_nominations = ParachainStaking::bottom_nominations(&account_id)
+                .expect("nominated by all so exists");
             let mut equal = true;
             for Bond { owner, amount } in pre_call_bottom_nominations.nominations {
                 for Bond { owner: post_owner, amount: post_amount } in
@@ -2650,17 +3706,27 @@ fn execute_nominator_bond_less_does_not_delete_bottom_nominations() {
 
 #[test]
 fn can_execute_nominator_bond_less_for_leaving_candidate() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 15)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(1), 1));
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
             roll_to(10);
             // can execute bond more nomination request for leaving candidate
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
         });
 }
 
@@ -2669,17 +3735,25 @@ fn can_execute_nominator_bond_less_for_leaving_candidate() {
 
 #[test]
 fn cancel_revoke_nomination_emits_correct_event() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CancelledNominationRequest {
-                nominator: 2,
-                collator: 1,
+                nominator: account_id_2,
+                collator: account_id,
                 cancelled_request: CancelledScheduledRequest {
                     when_executable: 3,
                     action: NominationAction::Revoke(10),
@@ -2690,34 +3764,42 @@ fn cancel_revoke_nomination_emits_correct_event() {
 
 #[test]
 fn cancel_revoke_nomination_updates_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 10)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
-            let state = ParachainStaking::nomination_scheduled_requests(&1);
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            let state = ParachainStaking::nomination_scheduled_requests(&account_id);
             assert_eq!(
                 state,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Revoke(10),
                 }],
             );
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 10
             );
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 1));
-            assert!(!ParachainStaking::nomination_scheduled_requests(&1)
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id)
                 .iter()
-                .any(|x| x.nominator == 2));
+                .any(|x| x.nominator == account_id_2));
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 0
@@ -2729,17 +3811,26 @@ fn cancel_revoke_nomination_updates_nominator_state() {
 
 #[test]
 fn cancel_nominator_bond_less_correct_event() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 15)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CancelledNominationRequest {
-                nominator: 2,
-                collator: 1,
+                nominator: account_id_2,
+                collator: account_id,
                 cancelled_request: CancelledScheduledRequest {
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
@@ -2750,34 +3841,43 @@ fn cancel_nominator_bond_less_correct_event() {
 
 #[test]
 fn cancel_nominator_bond_less_updates_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 15)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 15)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 5));
-            let state = ParachainStaking::nomination_scheduled_requests(&1);
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                5
+            ));
+            let state = ParachainStaking::nomination_scheduled_requests(&account_id);
             assert_eq!(
                 state,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
                 }],
             );
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 5
             );
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 1));
-            assert!(!ParachainStaking::nomination_scheduled_requests(&1)
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id)
                 .iter()
-                .any(|x| x.nominator == 2));
+                .any(|x| x.nominator == account_id_2));
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 0
@@ -2789,47 +3889,93 @@ fn cancel_nominator_bond_less_updates_nominator_state() {
 
 #[test]
 fn nominator_schedule_revocation_total() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20), (5, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20), (5, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10), (2, 4, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 40),
+            (account_id_3, 20),
+            (account_id_4, 20),
+            (to_acc_id(5), 20),
+        ])
+        .with_candidates(vec![
+            (account_id, 20),
+            (account_id_3, 20),
+            (account_id_4, 20),
+            (to_acc_id(5), 20),
+        ])
+        .with_nominations(vec![
+            (account_id_2, account_id, 10),
+            (account_id_2, account_id_3, 10),
+            (account_id_2, account_id_4, 10),
+        ])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 10
             );
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 0
             );
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 5, 10, 0, 2));
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 3));
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 4));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_2),
+                to_acc_id(5),
+                10,
+                0,
+                2
+            ));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id_3
+            ));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id_4
+            ));
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 20,
             );
             roll_to(20);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 3));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id_3
+            ));
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 10,
             );
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(2), 2, 4));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id_4
+            ));
             assert_eq!(
-                ParachainStaking::nominator_state(&2)
+                ParachainStaking::nominator_state(&account_id_2)
                     .map(|x| x.less_total)
                     .expect("nominator state must exist"),
                 0
@@ -2839,33 +3985,73 @@ fn nominator_schedule_revocation_total() {
 
 #[test]
 fn parachain_bond_inflation_reserve_matches_config() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
+    let account_id_5 = to_acc_id(5u64);
+    let account_id_6 = to_acc_id(6u64);
+    let account_id_7 = to_acc_id(7u64);
+    let account_id_10 = to_acc_id(10u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 100),
-            (2, 100),
-            (3, 100),
-            (4, 100),
-            (5, 100),
-            (6, 100),
-            (7, 100),
-            (8, 100),
-            (9, 100),
-            (10, 100),
-            (11, 1),
+            (account_id, 100),
+            (account_id_2, 100),
+            (account_id_3, 100),
+            (account_id_4, 100),
+            (account_id_5, 100),
+            (account_id_6, 100),
+            (account_id_7, 100),
+            (to_acc_id(8), 100),
+            (to_acc_id(9), 100),
+            (account_id_10, 100),
+            (to_acc_id(11), 1),
         ])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 10)])
-        .with_nominations(vec![(6, 1, 10), (7, 1, 10), (8, 2, 10), (9, 2, 10), (10, 1, 10)])
+        .with_candidates(vec![
+            (account_id, 20),
+            (account_id_2, 20),
+            (account_id_3, 20),
+            (account_id_4, 20),
+            (account_id_5, 10),
+        ])
+        .with_nominations(vec![
+            (account_id_6, account_id, 10),
+            (account_id_7, account_id, 10),
+            (to_acc_id(8), account_id_2, 10),
+            (to_acc_id(9), account_id_2, 10),
+            (account_id_10, account_id, 10),
+        ])
         .build()
         .execute_with(|| {
-            assert_eq!(Balances::free_balance(&11), 1);
+            assert_eq!(Balances::free_balance(&to_acc_id(11)), 1);
             roll_to(8);
             // chooses top TotalSelectedCandidates (5), in order
             let mut expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 2, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 2, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
@@ -2875,28 +4061,68 @@ fn parachain_bond_inflation_reserve_matches_config() {
             ];
             assert_eq_events!(expected.clone());
             // ~ set block author as 1 for all blocks this era
-            set_author(2, 1, 100);
+            set_author(2, account_id, 100);
             // We now payout from a central pot so we need to fund it
             set_reward_pot(50);
             roll_to(16);
             // distribute total issuance to collator 1 and its nominators 6, 7, 19
             let mut new = vec![
-                Event::CollatorChosen { era: 3, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 3, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 3, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 3, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 3, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era: 3,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::CollatorChosen { era: 4, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 4, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 4, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 4, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 4, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 15,
                     era: 4,
@@ -2912,7 +4138,7 @@ fn parachain_bond_inflation_reserve_matches_config() {
                         collator gets 40% ([collator stake] * 100 / [total staked]) of the [total reward] = 20 (40 * 50 / 100)
                         Total 20
                     */
-                    account: 1,
+                    account: account_id,
                     rewards: 20,
                 },
                 Event::Rewarded {
@@ -2924,24 +4150,24 @@ fn parachain_bond_inflation_reserve_matches_config() {
                         nominator gets 20% ([nominator stake] * 100 / [total staked]) of 50 ([total reward]) = 10
                         Total 10
                     */
-                    account: 6,
+                    account: account_id_6,
                     rewards: 10,
                 },
-                Event::Rewarded { account: 7, rewards: 10 },
-                Event::Rewarded { account: 10, rewards: 10 },
+                Event::Rewarded { account: account_id_7, rewards: 10 },
+                Event::Rewarded { account: account_id_10, rewards: 10 },
             ];
             expected.append(&mut new);
             assert_eq_events!(expected.clone());
             // ~ set block author as 1 for all blocks this era
-            set_author(3, 1, 100);
-            set_author(4, 1, 100);
-            set_author(5, 1, 100);
+            set_author(3, account_id, 100);
+            set_author(4, account_id, 100);
+            set_author(5, account_id, 100);
             // 1. ensure nominators are paid for 2 eras after they leave
             assert_noop!(
-                ParachainStaking::schedule_leave_nominators(Origin::signed(66)),
+                ParachainStaking::schedule_leave_nominators(Origin::signed(to_acc_id(66))),
                 Error::<Test>::NominatorDNE
             );
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(6)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_6)));
             // fast forward to block in which nominator 6 exit executes. Doing it in 2 steps so we
             // can reset the reward pot
             set_reward_pot(55);
@@ -2949,159 +4175,313 @@ fn parachain_bond_inflation_reserve_matches_config() {
 
             set_reward_pot(56);
             roll_to(25);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(6), 6, 10));
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_6),
+                account_id_6,
+                10
+            ));
             set_reward_pot(58);
             roll_to(30);
             let mut new2 = vec![
-                Event::NominatorExitScheduled { era: 4, nominator: 6, scheduled_exit: 6 },
-                Event::CollatorChosen { era: 5, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 5, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 5, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 5, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 5, collator_account: 5, total_exposed_amount: 10 },
+                Event::NominatorExitScheduled {
+                    era: 4,
+                    nominator: account_id_6,
+                    scheduled_exit: 6,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 20,
                     era: 5,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 22 },
-                Event::Rewarded { account: 6, rewards: 11 },
-                Event::Rewarded { account: 7, rewards: 11 },
-                Event::Rewarded { account: 10, rewards: 11 },
-                Event::CollatorChosen { era: 6, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 6, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 6, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 6, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 6, collator_account: 5, total_exposed_amount: 10 },
+                Event::Rewarded { account: account_id, rewards: 22 },
+                Event::Rewarded { account: account_id_6, rewards: 11 },
+                Event::Rewarded { account: account_id_7, rewards: 11 },
+                Event::Rewarded { account: account_id_10, rewards: 11 },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 25,
                     era: 6,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 22 },
-                Event::Rewarded { account: 6, rewards: 11 },
-                Event::Rewarded { account: 7, rewards: 11 },
-                Event::Rewarded { account: 10, rewards: 11 },
+                Event::Rewarded { account: account_id, rewards: 22 },
+                Event::Rewarded { account: account_id_6, rewards: 11 },
+                Event::Rewarded { account: account_id_7, rewards: 11 },
+                Event::Rewarded { account: account_id_10, rewards: 11 },
                 Event::NominatorLeftCandidate {
-                    nominator: 6,
-                    candidate: 1,
+                    nominator: account_id_6,
+                    candidate: account_id,
                     unstaked_amount: 10,
                     total_candidate_staked: 40,
                 },
-                Event::NominatorLeft { nominator: 6, unstaked_amount: 10 },
-                Event::CollatorChosen { era: 7, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 7, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 7, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 7, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 7, collator_account: 5, total_exposed_amount: 10 },
+                Event::NominatorLeft { nominator: account_id_6, unstaked_amount: 10 },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 30,
                     era: 7,
                     selected_collators_number: 5,
                     total_balance: 130,
                 },
-                Event::Rewarded { account: 1, rewards: 29 },
-                Event::Rewarded { account: 7, rewards: 14 },
-                Event::Rewarded { account: 10, rewards: 14 },
+                Event::Rewarded { account: account_id, rewards: 29 },
+                Event::Rewarded { account: account_id_7, rewards: 14 },
+                Event::Rewarded { account: account_id_10, rewards: 14 },
             ];
             expected.append(&mut new2);
             assert_eq_events!(expected.clone());
             // 6 won't be paid for this era because they left already
-            set_author(6, 1, 100);
+            set_author(6, account_id, 100);
             set_reward_pot(61);
             roll_to(35);
             // keep paying 6
             let mut new3 = vec![
-                Event::CollatorChosen { era: 8, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 8, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 8, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 8, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 8, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 35,
                     era: 8,
                     selected_collators_number: 5,
                     total_balance: 130,
                 },
-                Event::Rewarded { account: 1, rewards: 30 },
-                Event::Rewarded { account: 7, rewards: 15 },
-                Event::Rewarded { account: 10, rewards: 15 },
+                Event::Rewarded { account: account_id, rewards: 30 },
+                Event::Rewarded { account: account_id_7, rewards: 15 },
+                Event::Rewarded { account: account_id_10, rewards: 15 },
             ];
             expected.append(&mut new3);
             assert_eq_events!(expected.clone());
-            set_author(7, 1, 100);
+            set_author(7, account_id, 100);
             set_reward_pot(64);
             roll_to(40);
             // no more paying 6
             let mut new4 = vec![
-                Event::CollatorChosen { era: 9, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 9, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 9, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 9, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 9, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 40,
                     era: 9,
                     selected_collators_number: 5,
                     total_balance: 130,
                 },
-                Event::Rewarded { account: 1, rewards: 32 },
-                Event::Rewarded { account: 7, rewards: 16 },
-                Event::Rewarded { account: 10, rewards: 16 },
+                Event::Rewarded { account: account_id, rewards: 32 },
+                Event::Rewarded { account: account_id_7, rewards: 16 },
+                Event::Rewarded { account: account_id_10, rewards: 16 },
             ];
             expected.append(&mut new4);
             assert_eq_events!(expected.clone());
-            set_author(8, 1, 100);
-            assert_ok!(ParachainStaking::nominate(Origin::signed(8), 1, 10, 10, 10));
+            set_author(8, account_id, 100);
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(8)),
+                account_id,
+                10,
+                10,
+                10
+            ));
             set_reward_pot(67);
             roll_to(45);
             // new nomination is not rewarded yet
             let mut new5 = vec![
                 Event::Nomination {
-                    nominator: 8,
+                    nominator: to_acc_id(8),
                     locked_amount: 10,
-                    candidate: 1,
+                    candidate: account_id,
                     nominator_position: NominatorAdded::AddedToTop { new_total: 50 },
                 },
-                Event::CollatorChosen { era: 10, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 10, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 10, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 10, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 10, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 45,
                     era: 10,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 33 },
-                Event::Rewarded { account: 7, rewards: 17 },
-                Event::Rewarded { account: 10, rewards: 17 },
+                Event::Rewarded { account: account_id, rewards: 33 },
+                Event::Rewarded { account: account_id_7, rewards: 17 },
+                Event::Rewarded { account: account_id_10, rewards: 17 },
             ];
             expected.append(&mut new5);
             assert_eq_events!(expected.clone());
-            set_author(9, 1, 100);
-            set_author(10, 1, 100);
+            set_author(9, account_id, 100);
+            set_author(10, account_id, 100);
             set_reward_pot(70);
             roll_to(50);
             // new nomination is still not rewarded yet
             let mut new6 = vec![
-                Event::CollatorChosen { era: 11, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 11, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 11, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 11, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 11, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 50,
                     era: 11,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 35 },
-                Event::Rewarded { account: 7, rewards: 17 },
-                Event::Rewarded { account: 10, rewards: 17 },
+                Event::Rewarded { account: account_id, rewards: 35 },
+                Event::Rewarded { account: account_id_7, rewards: 17 },
+                Event::Rewarded { account: account_id_10, rewards: 17 },
             ];
             expected.append(&mut new6);
             assert_eq_events!(expected.clone());
@@ -3109,39 +4489,76 @@ fn parachain_bond_inflation_reserve_matches_config() {
             roll_to(55);
             // new nomination is rewarded, 2 eras after joining (`RewardPaymentDelay` is 2)
             let mut new7 = vec![
-                Event::CollatorChosen { era: 12, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 12, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 12, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 12, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 12, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 55,
                     era: 12,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 30 },
-                Event::Rewarded { account: 7, rewards: 15 },
-                Event::Rewarded { account: 10, rewards: 15 },
-                Event::Rewarded { account: 8, rewards: 15 },
+                Event::Rewarded { account: account_id, rewards: 30 },
+                Event::Rewarded { account: account_id_7, rewards: 15 },
+                Event::Rewarded { account: account_id_10, rewards: 15 },
+                Event::Rewarded { account: to_acc_id(8), rewards: 15 },
             ];
             expected.append(&mut new7);
             assert_eq_events!(expected);
         });
 }
-
+// Working \^/ --------------------------
 #[test]
 fn rewards_matches_config() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
+    let account_id_5 = to_acc_id(5u64);
+    let account_id_6 = to_acc_id(6u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 100), (2, 100), (3, 100), (4, 100), (5, 100), (6, 100)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(2, 1, 10), (3, 1, 10)])
+        .with_balances(vec![
+            (account_id, 100),
+            (account_id_2, 100),
+            (account_id_3, 100),
+            (account_id_4, 100),
+            (account_id_5, 100),
+            (account_id_6, 100),
+        ])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_3, account_id, 10)])
         .build()
         .execute_with(|| {
             roll_to(8);
             // chooses top TotalSelectedCandidates (5), in order
             let mut expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 40 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
@@ -3150,36 +4567,60 @@ fn rewards_matches_config() {
                 },
             ];
             assert_eq_events!(expected.clone());
-            assert_ok!(ParachainStaking::join_candidates(Origin::signed(4), 20u128, 100u32));
+            assert_ok!(ParachainStaking::join_candidates(
+                Origin::signed(account_id_4),
+                20u128,
+                100u32
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::JoinedCollatorCandidates {
-                account: 4,
+                account: account_id_4,
                 amount_locked: 20u128,
                 new_total_amt_locked: 60u128,
             }));
             roll_to(9);
-            assert_ok!(ParachainStaking::nominate(Origin::signed(5), 4, 10, 10, 10));
-            assert_ok!(ParachainStaking::nominate(Origin::signed(6), 4, 10, 10, 10));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_5),
+                account_id_4,
+                10,
+                10,
+                10
+            ));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_6),
+                account_id_4,
+                10,
+                10,
+                10
+            ));
             roll_to(11);
             let mut new = vec![
                 Event::JoinedCollatorCandidates {
-                    account: 4,
+                    account: account_id_4,
                     amount_locked: 20,
                     new_total_amt_locked: 60,
                 },
                 Event::Nomination {
-                    nominator: 5,
+                    nominator: account_id_5,
                     locked_amount: 10,
-                    candidate: 4,
+                    candidate: account_id_4,
                     nominator_position: NominatorAdded::AddedToTop { new_total: 30 },
                 },
                 Event::Nomination {
-                    nominator: 6,
+                    nominator: account_id_6,
                     locked_amount: 10,
-                    candidate: 4,
+                    candidate: account_id_4,
                     nominator_position: NominatorAdded::AddedToTop { new_total: 40 },
                 },
-                Event::CollatorChosen { era: 3, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 3, collator_account: 4, total_exposed_amount: 40 },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era: 3,
@@ -3190,31 +4631,47 @@ fn rewards_matches_config() {
             expected.append(&mut new);
             assert_eq_events!(expected.clone());
             // only reward author with id 4
-            set_author(3, 4, 100);
+            set_author(3, account_id_4, 100);
             set_reward_pot(30);
             roll_to(21);
             // 20% of 10 is commission + due_portion (0) = 2 + 4 = 6
             // all nominator payouts are 10-2 = 8 * stake_pct
             let mut new2 = vec![
-                Event::CollatorChosen { era: 4, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 4, collator_account: 4, total_exposed_amount: 40 },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 15,
                     era: 4,
                     selected_collators_number: 2,
                     total_balance: 80,
                 },
-                Event::CollatorChosen { era: 5, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 5, collator_account: 4, total_exposed_amount: 40 },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 20,
                     era: 5,
                     selected_collators_number: 2,
                     total_balance: 80,
                 },
-                Event::Rewarded { account: 4, rewards: 15 },
-                Event::Rewarded { account: 5, rewards: 7 },
-                Event::Rewarded { account: 6, rewards: 7 },
+                Event::Rewarded { account: account_id_4, rewards: 15 },
+                Event::Rewarded { account: account_id_5, rewards: 7 },
+                Event::Rewarded { account: account_id_6, rewards: 7 },
             ];
             expected.append(&mut new2);
             assert_eq_events!(expected);
@@ -3223,42 +4680,72 @@ fn rewards_matches_config() {
 
 #[test]
 fn collator_exit_executes_after_delay() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 1000),
-            (2, 300),
-            (3, 100),
-            (4, 100),
-            (5, 100),
-            (6, 100),
-            (7, 100),
-            (8, 9),
-            (9, 4),
+            (account_id, 1000),
+            (account_id_2, 300),
+            (to_acc_id(3), 100),
+            (to_acc_id(4), 100),
+            (to_acc_id(5), 100),
+            (to_acc_id(6), 100),
+            (to_acc_id(7), 100),
+            (to_acc_id(8), 9),
+            (to_acc_id(9), 4),
         ])
-        .with_candidates(vec![(1, 500), (2, 200)])
-        .with_nominations(vec![(3, 1, 100), (4, 1, 100), (5, 2, 100), (6, 2, 100)])
+        .with_candidates(vec![(account_id, 500), (account_id_2, 200)])
+        .with_nominations(vec![
+            (to_acc_id(3), account_id, 100),
+            (to_acc_id(4), account_id, 100),
+            (to_acc_id(5), account_id_2, 100),
+            (to_acc_id(6), account_id_2, 100),
+        ])
         .build()
         .execute_with(|| {
             roll_to(11);
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(2), 2));
-            let info = ParachainStaking::candidate_info(&2).unwrap();
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id_2),
+                2
+            ));
+            let info = ParachainStaking::candidate_info(&account_id_2).unwrap();
             assert_eq!(info.status, CollatorStatus::Leaving(5));
             roll_to(21);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(2), 2, 2));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id_2),
+                account_id_2,
+                2
+            ));
             // we must exclude leaving collators from rewards while
             // holding them retroactively accountable for previous faults
             // (within the last T::SlashingWindow blocks)
             let expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 700 },
-                Event::CollatorChosen { era: 2, collator_account: 2, total_exposed_amount: 400 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 700,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 400,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
                     selected_collators_number: 2,
                     total_balance: 1100,
                 },
-                Event::CollatorChosen { era: 3, collator_account: 1, total_exposed_amount: 700 },
-                Event::CollatorChosen { era: 3, collator_account: 2, total_exposed_amount: 400 },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id,
+                    total_exposed_amount: 700,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 400,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era: 3,
@@ -3267,17 +4754,25 @@ fn collator_exit_executes_after_delay() {
                 },
                 Event::CandidateScheduledExit {
                     exit_allowed_era: 3,
-                    candidate: 2,
+                    candidate: account_id_2,
                     scheduled_exit: 5,
                 },
-                Event::CollatorChosen { era: 4, collator_account: 1, total_exposed_amount: 700 },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id,
+                    total_exposed_amount: 700,
+                },
                 Event::NewEra {
                     starting_block: 15,
                     era: 4,
                     selected_collators_number: 1,
                     total_balance: 700,
                 },
-                Event::CollatorChosen { era: 5, collator_account: 1, total_exposed_amount: 700 },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id,
+                    total_exposed_amount: 700,
+                },
                 Event::NewEra {
                     starting_block: 20,
                     era: 5,
@@ -3285,7 +4780,7 @@ fn collator_exit_executes_after_delay() {
                     total_balance: 700,
                 },
                 Event::CandidateLeft {
-                    ex_candidate: 2,
+                    ex_candidate: account_id_2,
                     unlocked_amount: 400,
                     new_total_amt_locked: 700,
                 },
@@ -3296,29 +4791,62 @@ fn collator_exit_executes_after_delay() {
 
 #[test]
 fn collator_selection_chooses_top_candidates() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
+    let account_id_5 = to_acc_id(5u64);
+    let account_id_6 = to_acc_id(6u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 1000),
-            (2, 1000),
-            (3, 1000),
-            (4, 1000),
-            (5, 1000),
-            (6, 1000),
-            (7, 33),
-            (8, 33),
-            (9, 33),
+            (account_id, 1000),
+            (account_id_2, 1000),
+            (account_id_3, 1000),
+            (account_id_4, 1000),
+            (account_id_5, 1000),
+            (account_id_6, 1000),
+            (to_acc_id(7), 33),
+            (to_acc_id(8), 33),
+            (to_acc_id(9), 33),
         ])
-        .with_candidates(vec![(1, 100), (2, 90), (3, 80), (4, 70), (5, 60), (6, 50)])
+        .with_candidates(vec![
+            (account_id, 100),
+            (account_id_2, 90),
+            (account_id_3, 80),
+            (account_id_4, 70),
+            (account_id_5, 60),
+            (account_id_6, 50),
+        ])
         .build()
         .execute_with(|| {
             roll_to(8);
             // should choose top TotalSelectedCandidates (5), in order
             let expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 2, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 2, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 2, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 2, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
@@ -3327,28 +4855,59 @@ fn collator_selection_chooses_top_candidates() {
                 },
             ];
             assert_eq_events!(expected.clone());
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(6), 6));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id_6),
+                6
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateScheduledExit {
                 exit_allowed_era: 2,
-                candidate: 6,
+                candidate: account_id_6,
                 scheduled_exit: 4
             }));
             roll_to(21);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(6), 6, 0));
-            assert_ok!(ParachainStaking::join_candidates(Origin::signed(6), 69u128, 100u32));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id_6),
+                account_id_6,
+                0
+            ));
+            assert_ok!(ParachainStaking::join_candidates(
+                Origin::signed(account_id_6),
+                69u128,
+                100u32
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::JoinedCollatorCandidates {
-                account: 6,
+                account: account_id_6,
                 amount_locked: 69u128,
                 new_total_amt_locked: 469u128,
             }));
             roll_to(27);
             // should choose top TotalSelectedCandidates (5), in order
             let expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 2, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 2, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 2, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 2, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
@@ -3357,36 +4916,96 @@ fn collator_selection_chooses_top_candidates() {
                 },
                 Event::CandidateScheduledExit {
                     exit_allowed_era: 2,
-                    candidate: 6,
+                    candidate: account_id_6,
                     scheduled_exit: 4,
                 },
-                Event::CollatorChosen { era: 3, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 3, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 3, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 3, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 3, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era: 3,
                     selected_collators_number: 5,
                     total_balance: 400,
                 },
-                Event::CollatorChosen { era: 4, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 4, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 4, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 4, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 4, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 15,
                     era: 4,
                     selected_collators_number: 5,
                     total_balance: 400,
                 },
-                Event::CollatorChosen { era: 5, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 5, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 5, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 5, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 5, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 20,
                     era: 5,
@@ -3394,20 +5013,40 @@ fn collator_selection_chooses_top_candidates() {
                     total_balance: 400,
                 },
                 Event::CandidateLeft {
-                    ex_candidate: 6,
+                    ex_candidate: account_id_6,
                     unlocked_amount: 50,
                     new_total_amt_locked: 400,
                 },
                 Event::JoinedCollatorCandidates {
-                    account: 6,
+                    account: account_id_6,
                     amount_locked: 69,
                     new_total_amt_locked: 469,
                 },
-                Event::CollatorChosen { era: 6, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 6, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 6, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 6, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 6, collator_account: 6, total_exposed_amount: 69 },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_6,
+                    total_exposed_amount: 69,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 25,
                     era: 6,
@@ -3421,29 +5060,62 @@ fn collator_selection_chooses_top_candidates() {
 
 #[test]
 fn payout_distribution_to_solo_collators() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
+    let account_id_5 = to_acc_id(5u64);
+    let account_id_6 = to_acc_id(6u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 1000),
-            (2, 1000),
-            (3, 1000),
-            (4, 1000),
-            (5, 1000),
-            (6, 1000),
-            (7, 33),
-            (8, 33),
-            (9, 33),
+            (account_id, 1000),
+            (account_id_2, 1000),
+            (account_id_3, 1000),
+            (account_id_4, 1000),
+            (account_id_5, 1000),
+            (to_acc_id(6), 1000),
+            (to_acc_id(7), 33),
+            (to_acc_id(8), 33),
+            (to_acc_id(9), 33),
         ])
-        .with_candidates(vec![(1, 100), (2, 90), (3, 80), (4, 70), (5, 60), (6, 50)])
+        .with_candidates(vec![
+            (account_id, 100),
+            (account_id_2, 90),
+            (account_id_3, 80),
+            (account_id_4, 70),
+            (account_id_5, 60),
+            (account_id_6, 50),
+        ])
         .build()
         .execute_with(|| {
             roll_to(8);
             // should choose top TotalCandidatesSelected (5), in order
             let mut expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 2, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 2, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 2, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 2, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
@@ -3453,151 +5125,310 @@ fn payout_distribution_to_solo_collators() {
             ];
             assert_eq_events!(expected.clone());
             // ~ set block author as 1 for all blocks this era
-            set_author(2, 1, 100);
+            set_author(2, account_id, 100);
             set_reward_pot(305);
             roll_to(16);
             // pay total issuance to 1
             let mut new = vec![
-                Event::CollatorChosen { era: 3, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 3, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 3, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 3, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 3, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era: 3,
                     selected_collators_number: 5,
                     total_balance: 400,
                 },
-                Event::CollatorChosen { era: 4, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 4, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 4, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 4, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 4, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 15,
                     era: 4,
                     selected_collators_number: 5,
                     total_balance: 400,
                 },
-                Event::Rewarded { account: 1, rewards: 305 },
+                Event::Rewarded { account: account_id, rewards: 305 },
             ];
             expected.append(&mut new);
             assert_eq_events!(expected.clone());
             // ~ set block author as 1 for 3 blocks this era
-            set_author(4, 1, 60);
+            set_author(4, account_id, 60);
             // ~ set block author as 2 for 2 blocks this era
-            set_author(4, 2, 40);
+            set_author(4, account_id_2, 40);
             set_reward_pot(320);
             roll_to(26);
             // pay 60% total issuance to 1 and 40% total issuance to 2
             let mut new1 = vec![
-                Event::CollatorChosen { era: 5, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 5, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 5, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 5, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 5, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 20,
                     era: 5,
                     selected_collators_number: 5,
                     total_balance: 400,
                 },
-                Event::CollatorChosen { era: 6, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 6, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 6, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 6, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 6, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 25,
                     era: 6,
                     selected_collators_number: 5,
                     total_balance: 400,
                 },
-                Event::Rewarded { account: 1, rewards: 192 },
-                Event::Rewarded { account: 2, rewards: 128 },
+                Event::Rewarded { account: account_id, rewards: 192 },
+                Event::Rewarded { account: account_id_2, rewards: 128 },
             ];
             expected.append(&mut new1);
             assert_eq_events!(expected.clone());
             // ~ each collator produces 1 block this era
-            set_author(6, 1, 20);
-            set_author(6, 2, 20);
-            set_author(6, 3, 20);
-            set_author(6, 4, 20);
-            set_author(6, 5, 20);
+            set_author(6, account_id, 20);
+            set_author(6, account_id_2, 20);
+            set_author(6, account_id_3, 20);
+            set_author(6, account_id_4, 20);
+            set_author(6, account_id_5, 20);
             set_reward_pot(336);
             roll_to(39);
             // pay 20% issuance for all collators
             let mut new2 = vec![
-                Event::CollatorChosen { era: 7, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 7, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 7, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 7, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 7, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 30,
                     era: 7,
                     selected_collators_number: 5,
                     total_balance: 400,
                 },
-                Event::CollatorChosen { era: 8, collator_account: 1, total_exposed_amount: 100 },
-                Event::CollatorChosen { era: 8, collator_account: 2, total_exposed_amount: 90 },
-                Event::CollatorChosen { era: 8, collator_account: 3, total_exposed_amount: 80 },
-                Event::CollatorChosen { era: 8, collator_account: 4, total_exposed_amount: 70 },
-                Event::CollatorChosen { era: 8, collator_account: 5, total_exposed_amount: 60 },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 60,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 80,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 70,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id,
+                    total_exposed_amount: 100,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 90,
+                },
                 Event::NewEra {
                     starting_block: 35,
                     era: 8,
                     selected_collators_number: 5,
                     total_balance: 400,
                 },
-                Event::Rewarded { account: 5, rewards: 67 },
-                Event::Rewarded { account: 3, rewards: 67 },
-                Event::Rewarded { account: 4, rewards: 67 },
-                Event::Rewarded { account: 1, rewards: 67 },
-                Event::Rewarded { account: 2, rewards: 67 },
+                Event::Rewarded { account: account_id_5, rewards: 67 },
+                Event::Rewarded { account: account_id, rewards: 67 },
+                Event::Rewarded { account: account_id_2, rewards: 67 },
+                Event::Rewarded { account: account_id_4, rewards: 67 },
+                Event::Rewarded { account: account_id_3, rewards: 67 },
             ];
             expected.append(&mut new2);
             assert_eq_events!(expected);
             // check that distributing rewards clears awarded pts
-            assert!(ParachainStaking::awarded_pts(1, 1).is_zero());
-            assert!(ParachainStaking::awarded_pts(4, 1).is_zero());
-            assert!(ParachainStaking::awarded_pts(4, 2).is_zero());
-            assert!(ParachainStaking::awarded_pts(6, 1).is_zero());
-            assert!(ParachainStaking::awarded_pts(6, 2).is_zero());
-            assert!(ParachainStaking::awarded_pts(6, 3).is_zero());
-            assert!(ParachainStaking::awarded_pts(6, 4).is_zero());
-            assert!(ParachainStaking::awarded_pts(6, 5).is_zero());
+            assert!(ParachainStaking::awarded_pts(1, account_id).is_zero());
+            assert!(ParachainStaking::awarded_pts(4, account_id).is_zero());
+            assert!(ParachainStaking::awarded_pts(4, account_id_2).is_zero());
+            assert!(ParachainStaking::awarded_pts(6, account_id).is_zero());
+            assert!(ParachainStaking::awarded_pts(6, account_id_2).is_zero());
+            assert!(ParachainStaking::awarded_pts(6, account_id_3).is_zero());
+            assert!(ParachainStaking::awarded_pts(6, account_id_4).is_zero());
+            assert!(ParachainStaking::awarded_pts(6, account_id_5).is_zero());
         });
 }
 
 #[test]
 fn multiple_nominations() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
+    let account_id_5 = to_acc_id(5u64);
+    let account_id_6 = to_acc_id(6u64);
+    let account_id_7 = to_acc_id(7u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 100),
-            (2, 100),
-            (3, 100),
-            (4, 100),
-            (5, 100),
-            (6, 100),
-            (7, 100),
-            (8, 100),
-            (9, 100),
-            (10, 100),
+            (account_id, 100),
+            (account_id_2, 100),
+            (account_id_3, 100),
+            (account_id_4, 100),
+            (account_id_5, 100),
+            (account_id_6, 100),
+            (account_id_7, 100),
+            (to_acc_id(8), 100),
+            (to_acc_id(9), 100),
+            (to_acc_id(10), 100),
         ])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 10)])
-        .with_nominations(vec![(6, 1, 10), (7, 1, 10), (8, 2, 10), (9, 2, 10), (10, 1, 10)])
+        .with_candidates(vec![
+            (account_id, 20),
+            (account_id_2, 20),
+            (account_id_3, 20),
+            (account_id_4, 20),
+            (account_id_5, 10),
+        ])
+        .with_nominations(vec![
+            (account_id_6, account_id, 10),
+            (account_id_7, account_id, 10),
+            (to_acc_id(8), account_id_2, 10),
+            (to_acc_id(9), account_id_2, 10),
+            (to_acc_id(10), account_id, 10),
+        ])
         .build()
         .execute_with(|| {
             roll_to(8);
             // chooses top TotalSelectedCandidates (5), in order
             let mut expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 2, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 2, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
@@ -3606,45 +5437,103 @@ fn multiple_nominations() {
                 },
             ];
             assert_eq_events!(expected.clone());
-            assert_ok!(ParachainStaking::nominate(Origin::signed(6), 2, 10, 10, 10));
-            assert_ok!(ParachainStaking::nominate(Origin::signed(6), 3, 10, 10, 10));
-            assert_ok!(ParachainStaking::nominate(Origin::signed(6), 4, 10, 10, 10));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_6),
+                account_id_2,
+                10,
+                10,
+                10
+            ));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_6),
+                account_id_3,
+                10,
+                10,
+                10
+            ));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_6),
+                account_id_4,
+                10,
+                10,
+                10
+            ));
             roll_to(16);
             let mut new = vec![
                 Event::Nomination {
-                    nominator: 6,
+                    nominator: account_id_6,
                     locked_amount: 10,
-                    candidate: 2,
+                    candidate: account_id_2,
                     nominator_position: NominatorAdded::AddedToTop { new_total: 50 },
                 },
                 Event::Nomination {
-                    nominator: 6,
+                    nominator: account_id_6,
                     locked_amount: 10,
-                    candidate: 3,
+                    candidate: account_id_3,
                     nominator_position: NominatorAdded::AddedToTop { new_total: 30 },
                 },
                 Event::Nomination {
-                    nominator: 6,
+                    nominator: account_id_6,
                     locked_amount: 10,
-                    candidate: 4,
+                    candidate: account_id_4,
                     nominator_position: NominatorAdded::AddedToTop { new_total: 30 },
                 },
-                Event::CollatorChosen { era: 3, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 3, collator_account: 2, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 3, collator_account: 3, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 3, collator_account: 4, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 3, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 50,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era: 3,
                     selected_collators_number: 5,
                     total_balance: 170,
                 },
-                Event::CollatorChosen { era: 4, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 4, collator_account: 2, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 4, collator_account: 3, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 4, collator_account: 4, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 4, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 50,
+                },
                 Event::NewEra {
                     starting_block: 15,
                     era: 4,
@@ -3655,15 +5544,47 @@ fn multiple_nominations() {
             expected.append(&mut new);
             assert_eq_events!(expected.clone());
             roll_to(21);
-            assert_ok!(ParachainStaking::nominate(Origin::signed(7), 2, 80, 10, 10));
-            assert_ok!(ParachainStaking::nominate(Origin::signed(10), 2, 10, 10, 10),);
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_7),
+                account_id_2,
+                80,
+                10,
+                10
+            ));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(10)),
+                account_id_2,
+                10,
+                10,
+                10
+            ),);
             roll_to(26);
             let mut new2 = vec![
-                Event::CollatorChosen { era: 5, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 5, collator_account: 2, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 5, collator_account: 3, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 5, collator_account: 4, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 5, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 50,
+                },
                 Event::NewEra {
                     starting_block: 20,
                     era: 5,
@@ -3671,22 +5592,42 @@ fn multiple_nominations() {
                     total_balance: 170,
                 },
                 Event::Nomination {
-                    nominator: 7,
+                    nominator: account_id_7,
                     locked_amount: 80,
-                    candidate: 2,
+                    candidate: account_id_2,
                     nominator_position: NominatorAdded::AddedToTop { new_total: 130 },
                 },
                 Event::Nomination {
-                    nominator: 10,
+                    nominator: to_acc_id(10),
                     locked_amount: 10,
-                    candidate: 2,
+                    candidate: account_id_2,
                     nominator_position: NominatorAdded::AddedToBottom,
                 },
-                Event::CollatorChosen { era: 6, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 6, collator_account: 2, total_exposed_amount: 130 },
-                Event::CollatorChosen { era: 6, collator_account: 3, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 6, collator_account: 4, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 6, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 130,
+                },
                 Event::NewEra {
                     starting_block: 25,
                     era: 6,
@@ -3696,23 +5637,42 @@ fn multiple_nominations() {
             ];
             expected.append(&mut new2);
             assert_eq_events!(expected.clone());
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(2), 5));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id_2),
+                5
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateScheduledExit {
                 exit_allowed_era: 6,
-                candidate: 2,
+                candidate: account_id_2,
                 scheduled_exit: 8
             }));
             roll_to(31);
             let mut new3 = vec![
                 Event::CandidateScheduledExit {
                     exit_allowed_era: 6,
-                    candidate: 2,
+                    candidate: account_id_2,
                     scheduled_exit: 8,
                 },
-                Event::CollatorChosen { era: 7, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 7, collator_account: 3, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 7, collator_account: 4, total_exposed_amount: 30 },
-                Event::CollatorChosen { era: 7, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 30,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
                 Event::NewEra {
                     starting_block: 30,
                     era: 7,
@@ -3723,22 +5683,38 @@ fn multiple_nominations() {
             expected.append(&mut new3);
             assert_eq_events!(expected);
             // verify that nominations are removed after collator leaves, not before
-            assert_eq!(ParachainStaking::nominator_state(7).unwrap().total(), 90);
-            assert_eq!(ParachainStaking::nominator_state(7).unwrap().nominations.0.len(), 2usize);
-            assert_eq!(ParachainStaking::nominator_state(6).unwrap().total(), 40);
-            assert_eq!(ParachainStaking::nominator_state(6).unwrap().nominations.0.len(), 4usize);
-            assert_eq!(Balances::locks(&6)[0].amount, 40);
-            assert_eq!(Balances::locks(&7)[0].amount, 90);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&6), 60);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&7), 10);
+            assert_eq!(ParachainStaking::nominator_state(account_id_7).unwrap().total(), 90);
+            assert_eq!(
+                ParachainStaking::nominator_state(account_id_7).unwrap().nominations.0.len(),
+                2usize
+            );
+            assert_eq!(ParachainStaking::nominator_state(account_id_6).unwrap().total(), 40);
+            assert_eq!(
+                ParachainStaking::nominator_state(account_id_6).unwrap().nominations.0.len(),
+                4usize
+            );
+            assert_eq!(Balances::locks(&account_id_6)[0].amount, 40);
+            assert_eq!(Balances::locks(&account_id_7)[0].amount, 90);
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_6), 60);
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_7), 10);
             roll_to(40);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(2), 2, 5));
-            assert_eq!(ParachainStaking::nominator_state(7).unwrap().total(), 10);
-            assert_eq!(ParachainStaking::nominator_state(6).unwrap().total(), 30);
-            assert_eq!(ParachainStaking::nominator_state(7).unwrap().nominations.0.len(), 1usize);
-            assert_eq!(ParachainStaking::nominator_state(6).unwrap().nominations.0.len(), 3usize);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&6), 70);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&7), 90);
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id_2),
+                account_id_2,
+                5
+            ));
+            assert_eq!(ParachainStaking::nominator_state(account_id_7).unwrap().total(), 10);
+            assert_eq!(ParachainStaking::nominator_state(account_id_6).unwrap().total(), 30);
+            assert_eq!(
+                ParachainStaking::nominator_state(account_id_7).unwrap().nominations.0.len(),
+                1usize
+            );
+            assert_eq!(
+                ParachainStaking::nominator_state(account_id_6).unwrap().nominations.0.len(),
+                3usize
+            );
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_6), 70);
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_7), 90);
         });
 }
 
@@ -3746,60 +5722,124 @@ fn multiple_nominations() {
 // The test verifies that the pending revoke request is removed by 2's exit so there is no dangling
 // revoke request after 2 exits
 fn execute_leave_candidate_removes_nominations() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 100), (2, 100), (3, 100), (4, 100)])
-        .with_candidates(vec![(1, 20), (2, 20)])
-        .with_nominations(vec![(3, 1, 10), (3, 2, 10), (4, 1, 10), (4, 2, 10)])
+        .with_balances(vec![
+            (account_id, 100),
+            (account_id_2, 100),
+            (account_id_3, 100),
+            (account_id_4, 100),
+        ])
+        .with_candidates(vec![(account_id, 20), (account_id_2, 20)])
+        .with_nominations(vec![
+            (account_id_3, account_id, 10),
+            (account_id_3, account_id_2, 10),
+            (account_id_4, account_id, 10),
+            (account_id_4, account_id_2, 10),
+        ])
         .build()
         .execute_with(|| {
             // Verifies the revocation request is initially empty
-            assert!(!ParachainStaking::nomination_scheduled_requests(&2)
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id_2)
                 .iter()
-                .any(|x| x.nominator == 3));
+                .any(|x| x.nominator == account_id_3));
 
-            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(2), 2));
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(3), 2));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                Origin::signed(account_id_2),
+                2
+            ));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_3),
+                account_id_2
+            ));
             // Verifies the revocation request is present
-            assert!(ParachainStaking::nomination_scheduled_requests(&2)
+            assert!(ParachainStaking::nomination_scheduled_requests(&account_id_2)
                 .iter()
-                .any(|x| x.nominator == 3));
+                .any(|x| x.nominator == account_id_3));
 
             roll_to(16);
-            assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(2), 2, 2));
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id_2),
+                account_id_2,
+                2
+            ));
             // Verifies the revocation request is again empty
-            assert!(!ParachainStaking::nomination_scheduled_requests(&2)
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id_2)
                 .iter()
-                .any(|x| x.nominator == 3));
+                .any(|x| x.nominator == account_id_3));
         });
 }
 
 #[test]
 fn payouts_follow_nomination_changes() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
+    let account_id_5 = to_acc_id(5u64);
+    let account_id_6 = to_acc_id(6u64);
+    let account_id_7 = to_acc_id(7u64);
+    let account_id_10 = to_acc_id(10u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 100),
-            (2, 100),
-            (3, 100),
-            (4, 100),
-            (5, 100),
-            (6, 100),
-            (7, 100),
-            (8, 100),
-            (9, 100),
-            (10, 100),
+            (account_id, 100),
+            (account_id_2, 100),
+            (account_id_3, 100),
+            (account_id_4, 100),
+            (account_id_5, 100),
+            (account_id_6, 100),
+            (account_id_7, 100),
+            (to_acc_id(8), 100),
+            (to_acc_id(9), 100),
+            (account_id_10, 100),
         ])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20), (5, 10)])
-        .with_nominations(vec![(6, 1, 10), (7, 1, 10), (8, 2, 10), (9, 2, 10), (10, 1, 10)])
+        .with_candidates(vec![
+            (account_id, 20),
+            (account_id_2, 20),
+            (account_id_3, 20),
+            (account_id_4, 20),
+            (account_id_5, 10),
+        ])
+        .with_nominations(vec![
+            (account_id_6, account_id, 10),
+            (account_id_7, account_id, 10),
+            (to_acc_id(8), account_id_2, 10),
+            (to_acc_id(9), account_id_2, 10),
+            (account_id_10, account_id, 10),
+        ])
         .build()
         .execute_with(|| {
             roll_to(8);
             // chooses top TotalSelectedCandidates (5), in order
             let mut expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 2, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 2, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
@@ -3809,51 +5849,91 @@ fn payouts_follow_nomination_changes() {
             ];
             assert_eq_events!(expected.clone());
             // ~ set block author as 1 for all blocks this era
-            set_author(2, 1, 100);
+            set_author(2, account_id, 100);
             set_reward_pot(50);
             roll_to(16);
             // distribute total reward to collator 1 and its nominators 6, 7, 19
             let mut new = vec![
-                Event::CollatorChosen { era: 3, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 3, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 3, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 3, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 3, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era: 3,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::CollatorChosen { era: 4, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 4, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 4, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 4, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 4, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 4,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 15,
                     era: 4,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 20 },
-                Event::Rewarded { account: 6, rewards: 10 },
-                Event::Rewarded { account: 7, rewards: 10 },
-                Event::Rewarded { account: 10, rewards: 10 },
+                Event::Rewarded { account: account_id, rewards: 20 },
+                Event::Rewarded { account: account_id_6, rewards: 10 },
+                Event::Rewarded { account: account_id_7, rewards: 10 },
+                Event::Rewarded { account: account_id_10, rewards: 10 },
             ];
             expected.append(&mut new);
             assert_eq_events!(expected.clone());
             // ~ set block author as 1 for all blocks this era
-            set_author(3, 1, 100);
-            set_author(4, 1, 100);
-            set_author(5, 1, 100);
-            set_author(6, 1, 100);
+            set_author(3, account_id, 100);
+            set_author(4, account_id, 100);
+            set_author(5, account_id, 100);
+            set_author(6, account_id, 100);
             // 1. ensure nominators are paid for 2 eras after they leave
             assert_noop!(
-                ParachainStaking::schedule_leave_nominators(Origin::signed(66)),
+                ParachainStaking::schedule_leave_nominators(Origin::signed(to_acc_id(66))),
                 Error::<Test>::NominatorDNE
             );
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(6)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_6)));
             // fast forward to block in which nominator 6 exit executes
             set_reward_pot(52);
             roll_to(20);
@@ -3861,159 +5941,313 @@ fn payouts_follow_nomination_changes() {
             set_reward_pot(56);
             roll_to(25);
 
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(6), 6, 10));
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_6),
+                account_id_6,
+                10
+            ));
             // keep paying 6 (note: inflation is in terms of total issuance so that's why 1 is 21)
             let mut new2 = vec![
-                Event::NominatorExitScheduled { era: 4, nominator: 6, scheduled_exit: 6 },
-                Event::CollatorChosen { era: 5, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 5, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 5, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 5, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 5, collator_account: 5, total_exposed_amount: 10 },
+                Event::NominatorExitScheduled {
+                    era: 4,
+                    nominator: account_id_6,
+                    scheduled_exit: 6,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 5,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 20,
                     era: 5,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 21 },
-                Event::Rewarded { account: 6, rewards: 10 },
-                Event::Rewarded { account: 7, rewards: 10 },
-                Event::Rewarded { account: 10, rewards: 10 },
-                Event::CollatorChosen { era: 6, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 6, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 6, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 6, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 6, collator_account: 5, total_exposed_amount: 10 },
+                Event::Rewarded { account: account_id, rewards: 21 },
+                Event::Rewarded { account: account_id_6, rewards: 10 },
+                Event::Rewarded { account: account_id_7, rewards: 10 },
+                Event::Rewarded { account: account_id_10, rewards: 10 },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 6,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 25,
                     era: 6,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 22 },
-                Event::Rewarded { account: 6, rewards: 11 },
-                Event::Rewarded { account: 7, rewards: 11 },
-                Event::Rewarded { account: 10, rewards: 11 },
+                Event::Rewarded { account: account_id, rewards: 22 },
+                Event::Rewarded { account: account_id_6, rewards: 11 },
+                Event::Rewarded { account: account_id_7, rewards: 11 },
+                Event::Rewarded { account: account_id_10, rewards: 11 },
                 Event::NominatorLeftCandidate {
-                    nominator: 6,
-                    candidate: 1,
+                    nominator: account_id_6,
+                    candidate: account_id,
                     unstaked_amount: 10,
                     total_candidate_staked: 40,
                 },
-                Event::NominatorLeft { nominator: 6, unstaked_amount: 10 },
+                Event::NominatorLeft { nominator: account_id_6, unstaked_amount: 10 },
             ];
             expected.append(&mut new2);
             assert_eq_events!(expected.clone());
             // 6 won't be paid for this era because they left already
-            set_author(7, 1, 100);
+            set_author(7, account_id, 100);
             set_reward_pot(58);
             roll_to(30);
             set_reward_pot(61);
             roll_to(35);
             // keep paying 6
             let mut new3 = vec![
-                Event::CollatorChosen { era: 7, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 7, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 7, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 7, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 7, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 7,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 30,
                     era: 7,
                     selected_collators_number: 5,
                     total_balance: 130,
                 },
-                Event::Rewarded { account: 1, rewards: 29 },
-                Event::Rewarded { account: 7, rewards: 14 },
-                Event::Rewarded { account: 10, rewards: 14 },
-                Event::CollatorChosen { era: 8, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 8, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 8, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 8, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 8, collator_account: 5, total_exposed_amount: 10 },
+                Event::Rewarded { account: account_id, rewards: 29 },
+                Event::Rewarded { account: account_id_7, rewards: 14 },
+                Event::Rewarded { account: account_id_10, rewards: 14 },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 8,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 35,
                     era: 8,
                     selected_collators_number: 5,
                     total_balance: 130,
                 },
-                Event::Rewarded { account: 1, rewards: 30 },
-                Event::Rewarded { account: 7, rewards: 15 },
-                Event::Rewarded { account: 10, rewards: 15 },
+                Event::Rewarded { account: account_id, rewards: 30 },
+                Event::Rewarded { account: account_id_7, rewards: 15 },
+                Event::Rewarded { account: account_id_10, rewards: 15 },
             ];
             expected.append(&mut new3);
             assert_eq_events!(expected.clone());
-            set_author(8, 1, 100);
+            set_author(8, account_id, 100);
             set_reward_pot(64);
             roll_to(40);
             // no more paying 6
             let mut new4 = vec![
-                Event::CollatorChosen { era: 9, collator_account: 1, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 9, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 9, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 9, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 9, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id,
+                    total_exposed_amount: 40,
+                },
+                Event::CollatorChosen {
+                    era: 9,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 40,
                     era: 9,
                     selected_collators_number: 5,
                     total_balance: 130,
                 },
-                Event::Rewarded { account: 1, rewards: 32 },
-                Event::Rewarded { account: 7, rewards: 16 },
-                Event::Rewarded { account: 10, rewards: 16 },
+                Event::Rewarded { account: account_id, rewards: 32 },
+                Event::Rewarded { account: account_id_7, rewards: 16 },
+                Event::Rewarded { account: account_id_10, rewards: 16 },
             ];
             expected.append(&mut new4);
             assert_eq_events!(expected.clone());
-            set_author(9, 1, 100);
-            assert_ok!(ParachainStaking::nominate(Origin::signed(8), 1, 10, 10, 10));
+            set_author(9, account_id, 100);
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(8)),
+                account_id,
+                10,
+                10,
+                10
+            ));
             set_reward_pot(67);
             roll_to(45);
             // new nomination is not rewarded yet
             let mut new5 = vec![
                 Event::Nomination {
-                    nominator: 8,
+                    nominator: to_acc_id(8),
                     locked_amount: 10,
-                    candidate: 1,
+                    candidate: account_id,
                     nominator_position: NominatorAdded::AddedToTop { new_total: 50 },
                 },
-                Event::CollatorChosen { era: 10, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 10, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 10, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 10, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 10, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 10,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 45,
                     era: 10,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 33 },
-                Event::Rewarded { account: 7, rewards: 17 },
-                Event::Rewarded { account: 10, rewards: 17 },
+                Event::Rewarded { account: account_id, rewards: 33 },
+                Event::Rewarded { account: account_id_7, rewards: 17 },
+                Event::Rewarded { account: account_id_10, rewards: 17 },
             ];
             expected.append(&mut new5);
             assert_eq_events!(expected.clone());
-            set_author(10, 1, 100);
+            set_author(10, account_id, 100);
             set_reward_pot(70);
             roll_to(50);
             // new nomination not rewarded yet
             let mut new6 = vec![
-                Event::CollatorChosen { era: 11, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 11, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 11, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 11, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 11, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 11,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 50,
                     era: 11,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 35 },
-                Event::Rewarded { account: 7, rewards: 17 },
-                Event::Rewarded { account: 10, rewards: 17 },
+                Event::Rewarded { account: account_id, rewards: 35 },
+                Event::Rewarded { account: account_id_7, rewards: 17 },
+                Event::Rewarded { account: account_id_10, rewards: 17 },
             ];
             expected.append(&mut new6);
             assert_eq_events!(expected.clone());
@@ -4022,21 +6256,41 @@ fn payouts_follow_nomination_changes() {
             // new nomination is rewarded for first time
             // 2 eras after joining (`RewardPaymentDelay` = 2)
             let mut new7 = vec![
-                Event::CollatorChosen { era: 12, collator_account: 1, total_exposed_amount: 50 },
-                Event::CollatorChosen { era: 12, collator_account: 2, total_exposed_amount: 40 },
-                Event::CollatorChosen { era: 12, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 12, collator_account: 4, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 12, collator_account: 5, total_exposed_amount: 10 },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id_5,
+                    total_exposed_amount: 10,
+                },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id,
+                    total_exposed_amount: 50,
+                },
+                Event::CollatorChosen {
+                    era: 12,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 40,
+                },
                 Event::NewEra {
                     starting_block: 55,
                     era: 12,
                     selected_collators_number: 5,
                     total_balance: 140,
                 },
-                Event::Rewarded { account: 1, rewards: 30 },
-                Event::Rewarded { account: 7, rewards: 15 },
-                Event::Rewarded { account: 10, rewards: 15 },
-                Event::Rewarded { account: 8, rewards: 15 },
+                Event::Rewarded { account: account_id, rewards: 30 },
+                Event::Rewarded { account: account_id_7, rewards: 15 },
+                Event::Rewarded { account: account_id_10, rewards: 15 },
+                Event::Rewarded { account: to_acc_id(8), rewards: 15 },
             ];
             expected.append(&mut new7);
             assert_eq_events!(expected);
@@ -4045,38 +6299,71 @@ fn payouts_follow_nomination_changes() {
 
 #[test]
 fn bottom_nominations_are_empty_when_top_nominations_not_full() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 10), (3, 10), (4, 10), (5, 10)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 10),
+            (account_id_3, 10),
+            (to_acc_id(4), 10),
+            (to_acc_id(5), 10),
+        ])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
             // no top nominators => no bottom nominators
-            let top_nominations = ParachainStaking::top_nominations(1).unwrap();
-            let bottom_nominations = ParachainStaking::bottom_nominations(1).unwrap();
+            let top_nominations = ParachainStaking::top_nominations(account_id).unwrap();
+            let bottom_nominations = ParachainStaking::bottom_nominations(account_id).unwrap();
             assert!(top_nominations.nominations.is_empty());
             assert!(bottom_nominations.nominations.is_empty());
             // 1 nominator => 1 top nominator, 0 bottom nominators
-            assert_ok!(ParachainStaking::nominate(Origin::signed(2), 1, 10, 10, 10));
-            let top_nominations = ParachainStaking::top_nominations(1).unwrap();
-            let bottom_nominations = ParachainStaking::bottom_nominations(1).unwrap();
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_2),
+                account_id,
+                10,
+                10,
+                10
+            ));
+            let top_nominations = ParachainStaking::top_nominations(account_id).unwrap();
+            let bottom_nominations = ParachainStaking::bottom_nominations(account_id).unwrap();
             assert_eq!(top_nominations.nominations.len(), 1usize);
             assert!(bottom_nominations.nominations.is_empty());
             // 2 nominators => 2 top nominators, 0 bottom nominators
-            assert_ok!(ParachainStaking::nominate(Origin::signed(3), 1, 10, 10, 10));
-            let top_nominations = ParachainStaking::top_nominations(1).unwrap();
-            let bottom_nominations = ParachainStaking::bottom_nominations(1).unwrap();
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(account_id_3),
+                account_id,
+                10,
+                10,
+                10
+            ));
+            let top_nominations = ParachainStaking::top_nominations(account_id).unwrap();
+            let bottom_nominations = ParachainStaking::bottom_nominations(account_id).unwrap();
             assert_eq!(top_nominations.nominations.len(), 2usize);
             assert!(bottom_nominations.nominations.is_empty());
             // 3 nominators => 3 top nominators, 0 bottom nominators
-            assert_ok!(ParachainStaking::nominate(Origin::signed(4), 1, 10, 10, 10));
-            let top_nominations = ParachainStaking::top_nominations(1).unwrap();
-            let bottom_nominations = ParachainStaking::bottom_nominations(1).unwrap();
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(4)),
+                account_id,
+                10,
+                10,
+                10
+            ));
+            let top_nominations = ParachainStaking::top_nominations(account_id).unwrap();
+            let bottom_nominations = ParachainStaking::bottom_nominations(account_id).unwrap();
             assert_eq!(top_nominations.nominations.len(), 3usize);
             assert!(bottom_nominations.nominations.is_empty());
             // 4 nominators => 4 top nominators, 0 bottom nominators
-            assert_ok!(ParachainStaking::nominate(Origin::signed(5), 1, 10, 10, 10));
-            let top_nominations = ParachainStaking::top_nominations(1).unwrap();
-            let bottom_nominations = ParachainStaking::bottom_nominations(1).unwrap();
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(5)),
+                account_id,
+                10,
+                10,
+                10
+            ));
+            let top_nominations = ParachainStaking::top_nominations(account_id).unwrap();
+            let bottom_nominations = ParachainStaking::bottom_nominations(account_id).unwrap();
             assert_eq!(top_nominations.nominations.len(), 4usize);
             assert!(bottom_nominations.nominations.is_empty());
         });
@@ -4084,32 +6371,36 @@ fn bottom_nominations_are_empty_when_top_nominations_not_full() {
 
 #[test]
 fn candidate_pool_updates_when_total_counted_changes() {
+    let account_id = to_acc_id(1u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_9 = to_acc_id(9u64);
+    let account_id_10 = to_acc_id(10u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 20),
-            (3, 19),
-            (4, 20),
-            (5, 21),
-            (6, 22),
-            (7, 15),
-            (8, 16),
-            (9, 17),
-            (10, 18),
+            (account_id, 20),
+            (account_id_3, 19),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 21),
+            (to_acc_id(6), 22),
+            (to_acc_id(7), 15),
+            (to_acc_id(8), 16),
+            (account_id_9, 17),
+            (account_id_10, 18),
         ])
-        .with_candidates(vec![(1, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .with_nominations(vec![
-            (3, 1, 11),
-            (4, 1, 12),
-            (5, 1, 13),
-            (6, 1, 14),
-            (7, 1, 15),
-            (8, 1, 16),
-            (9, 1, 17),
-            (10, 1, 18),
+            (account_id_3, account_id, 11),
+            (to_acc_id(4), account_id, 12),
+            (to_acc_id(5), account_id, 13),
+            (to_acc_id(6), account_id, 14),
+            (to_acc_id(7), account_id, 15),
+            (to_acc_id(8), account_id, 16),
+            (account_id_9, account_id, 17),
+            (account_id_10, account_id, 18),
         ])
         .build()
         .execute_with(|| {
-            fn is_candidate_pool_bond(account: u64, bond: u128) {
+            fn is_candidate_pool_bond(account: AccountId, bond: u128) {
                 let pool = ParachainStaking::candidate_pool();
                 for candidate in pool.0 {
                     if candidate.owner == account {
@@ -4122,105 +6413,150 @@ fn candidate_pool_updates_when_total_counted_changes() {
                 }
             }
             // 15 + 16 + 17 + 18 + 20 = 86 (top 4 + self bond)
-            is_candidate_pool_bond(1, 86);
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(3), 1, 8));
+            is_candidate_pool_bond(account_id, 86);
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_3),
+                account_id,
+                8
+            ));
             // 3: 11 -> 19 => 3 is in top, bumps out 7
             // 16 + 17 + 18 + 19 + 20 = 90 (top 4 + self bond)
-            is_candidate_pool_bond(1, 90);
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(4), 1, 8));
+            is_candidate_pool_bond(account_id, 90);
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(to_acc_id(4)),
+                account_id,
+                8
+            ));
             // 4: 12 -> 20 => 4 is in top, bumps out 8
             // 17 + 18 + 19 + 20 + 20 = 94 (top 4 + self bond)
-            is_candidate_pool_bond(1, 94);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(10), 1, 3));
+            is_candidate_pool_bond(account_id, 94);
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_10),
+                account_id,
+                3
+            ));
             roll_to(30);
             // 10: 18 -> 15 => 10 bumped to bottom, 8 bumped to top (- 18 + 16 = -2 for count)
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(10), 10, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_10),
+                account_id_10,
+                account_id
+            ));
             // 16 + 17 + 19 + 20 + 20 = 92 (top 4 + self bond)
-            is_candidate_pool_bond(1, 92);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(9), 1, 4));
+            is_candidate_pool_bond(account_id, 92);
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_9),
+                account_id,
+                4
+            ));
             roll_to(40);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(9), 9, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_9),
+                account_id_9,
+                account_id
+            ));
             // 15 + 16 + 19 + 20 + 20 = 90 (top 4 + self bond)
-            is_candidate_pool_bond(1, 90);
+            is_candidate_pool_bond(account_id, 90);
         });
 }
 
 #[test]
 fn only_top_collators_are_counted() {
+    let account_id = to_acc_id(1u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
+    let account_id_5 = to_acc_id(5u64);
+    let account_id_6 = to_acc_id(6u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 20),
-            (3, 19),
-            (4, 20),
-            (5, 21),
-            (6, 22),
-            (7, 15),
-            (8, 16),
-            (9, 17),
-            (10, 18),
+            (account_id, 20),
+            (account_id_3, 19),
+            (account_id_4, 20),
+            (account_id_5, 21),
+            (account_id_6, 22),
+            (to_acc_id(7), 15),
+            (to_acc_id(8), 16),
+            (to_acc_id(9), 17),
+            (to_acc_id(10), 18),
         ])
-        .with_candidates(vec![(1, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .with_nominations(vec![
-            (3, 1, 11),
-            (4, 1, 12),
-            (5, 1, 13),
-            (6, 1, 14),
-            (7, 1, 15),
-            (8, 1, 16),
-            (9, 1, 17),
-            (10, 1, 18),
+            (account_id_3, account_id, 11),
+            (account_id_4, account_id, 12),
+            (account_id_5, account_id, 13),
+            (account_id_6, account_id, 14),
+            (to_acc_id(7), account_id, 15),
+            (to_acc_id(8), account_id, 16),
+            (to_acc_id(9), account_id, 17),
+            (to_acc_id(10), account_id, 18),
         ])
         .build()
         .execute_with(|| {
             // sanity check that 3-10 are nominators immediately
             for i in 3..11 {
-                assert!(ParachainStaking::is_nominator(&i));
+                assert!(ParachainStaking::is_nominator(&to_acc_id(i)));
             }
-            let collator_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 15 + 16 + 17 + 18 + 20 = 86 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 86);
             // bump bottom to the top
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(3), 1, 8));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_3),
+                account_id,
+                8
+            ));
             assert_event_emitted!(Event::NominationIncreased {
-                nominator: 3,
-                candidate: 1,
+                nominator: account_id_3,
+                candidate: account_id,
                 amount: 8,
                 in_top: true,
             });
-            let collator_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 16 + 17 + 18 + 19 + 20 = 90 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 90);
             // bump bottom to the top
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(4), 1, 8));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_4),
+                account_id,
+                8
+            ));
             assert_event_emitted!(Event::NominationIncreased {
-                nominator: 4,
-                candidate: 1,
+                nominator: account_id_4,
+                candidate: account_id,
                 amount: 8,
                 in_top: true,
             });
-            let collator_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 17 + 18 + 19 + 20 + 20 = 94 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 94);
             // bump bottom to the top
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(5), 1, 8));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_5),
+                account_id,
+                8
+            ));
             assert_event_emitted!(Event::NominationIncreased {
-                nominator: 5,
-                candidate: 1,
+                nominator: account_id_5,
+                candidate: account_id,
                 amount: 8,
                 in_top: true,
             });
-            let collator_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 18 + 19 + 20 + 21 + 20 = 98 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 98);
             // bump bottom to the top
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(6), 1, 8));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(account_id_6),
+                account_id,
+                8
+            ));
             assert_event_emitted!(Event::NominationIncreased {
-                nominator: 6,
-                candidate: 1,
+                nominator: account_id_6,
+                candidate: account_id,
                 amount: 8,
                 in_top: true,
             });
-            let collator_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 19 + 20 + 21 + 22 + 20 = 102 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 102);
         });
@@ -4228,106 +6564,150 @@ fn only_top_collators_are_counted() {
 
 #[test]
 fn nomination_events_convey_correct_position() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_6 = to_acc_id(6u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 100),
-            (2, 100),
-            (3, 100),
-            (4, 100),
-            (5, 100),
-            (6, 100),
-            (7, 100),
-            (8, 100),
-            (9, 100),
-            (10, 100),
+            (account_id, 100),
+            (account_id_2, 100),
+            (to_acc_id(3), 100),
+            (to_acc_id(4), 100),
+            (to_acc_id(5), 100),
+            (to_acc_id(6), 100),
+            (to_acc_id(7), 100),
+            (to_acc_id(8), 100),
+            (to_acc_id(9), 100),
+            (to_acc_id(10), 100),
         ])
-        .with_candidates(vec![(1, 20), (2, 20)])
-        .with_nominations(vec![(3, 1, 11), (4, 1, 12), (5, 1, 13), (6, 1, 14)])
+        .with_candidates(vec![(account_id, 20), (account_id_2, 20)])
+        .with_nominations(vec![
+            (to_acc_id(3), account_id, 11),
+            (to_acc_id(4), account_id, 12),
+            (to_acc_id(5), account_id, 13),
+            (account_id_6, account_id, 14),
+        ])
         .build()
         .execute_with(|| {
-            let collator1_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator1_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 11 + 12 + 13 + 14 + 20 = 70 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 70);
             // Top nominations are full, new highest nomination is made
-            assert_ok!(ParachainStaking::nominate(Origin::signed(7), 1, 15, 10, 10));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(7)),
+                account_id,
+                15,
+                10,
+                10
+            ));
             assert_event_emitted!(Event::Nomination {
-                nominator: 7,
+                nominator: to_acc_id(7),
                 locked_amount: 15,
-                candidate: 1,
+                candidate: account_id,
                 nominator_position: NominatorAdded::AddedToTop { new_total: 74 },
             });
-            let collator1_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator1_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 12 + 13 + 14 + 15 + 20 = 70 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 74);
             // New nomination is added to the bottom
-            assert_ok!(ParachainStaking::nominate(Origin::signed(8), 1, 10, 10, 10));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(8)),
+                account_id,
+                10,
+                10,
+                10
+            ));
             assert_event_emitted!(Event::Nomination {
-                nominator: 8,
+                nominator: to_acc_id(8),
                 locked_amount: 10,
-                candidate: 1,
+                candidate: account_id,
                 nominator_position: NominatorAdded::AddedToBottom,
             });
-            let collator1_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator1_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 12 + 13 + 14 + 15 + 20 = 70 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 74);
             // 8 increases nomination to the top
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(8), 1, 3));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(to_acc_id(8)),
+                account_id,
+                3
+            ));
             assert_event_emitted!(Event::NominationIncreased {
-                nominator: 8,
-                candidate: 1,
+                nominator: to_acc_id(8),
+                candidate: account_id,
                 amount: 3,
                 in_top: true,
             });
-            let collator1_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator1_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 13 + 13 + 14 + 15 + 20 = 75 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 75);
             // 3 increases nomination but stays in bottom
-            assert_ok!(ParachainStaking::nominator_bond_more(Origin::signed(3), 1, 1));
+            assert_ok!(ParachainStaking::nominator_bond_more(
+                Origin::signed(to_acc_id(3)),
+                account_id,
+                1
+            ));
             assert_event_emitted!(Event::NominationIncreased {
-                nominator: 3,
-                candidate: 1,
+                nominator: to_acc_id(3),
+                candidate: account_id,
                 amount: 1,
                 in_top: false,
             });
-            let collator1_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator1_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 13 + 13 + 14 + 15 + 20 = 75 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 75);
             // 6 decreases nomination but stays in top
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(6), 1, 2));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_6),
+                account_id,
+                2
+            ));
             assert_event_emitted!(Event::NominationDecreaseScheduled {
-                nominator: 6,
-                candidate: 1,
+                nominator: account_id_6,
+                candidate: account_id,
                 amount_to_decrease: 2,
                 execute_era: 3,
             });
             roll_to(30);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(6), 6, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_6),
+                account_id_6,
+                account_id
+            ));
             assert_event_emitted!(Event::NominationDecreased {
-                nominator: 6,
-                candidate: 1,
+                nominator: account_id_6,
+                candidate: account_id,
                 amount: 2,
                 in_top: true,
             });
-            let collator1_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator1_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 12 + 13 + 13 + 15 + 20 = 73 (top 4 + self bond)ƒ
             assert_eq!(collator1_state.total_counted, 73);
             // 6 decreases nomination and is bumped to bottom
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(6), 1, 1));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_6),
+                account_id,
+                1
+            ));
             assert_event_emitted!(Event::NominationDecreaseScheduled {
-                nominator: 6,
-                candidate: 1,
+                nominator: account_id_6,
+                candidate: account_id,
                 amount_to_decrease: 1,
                 execute_era: 9,
             });
             roll_to(40);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(6), 6, 1));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_6),
+                account_id_6,
+                account_id
+            ));
             assert_event_emitted!(Event::NominationDecreased {
-                nominator: 6,
-                candidate: 1,
+                nominator: account_id_6,
+                candidate: account_id,
                 amount: 1,
                 in_top: false,
             });
-            let collator1_state = ParachainStaking::candidate_info(1).unwrap();
+            let collator1_state = ParachainStaking::candidate_info(account_id).unwrap();
             // 12 + 13 + 13 + 15 + 20 = 73 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 73);
         });
@@ -4335,23 +6715,53 @@ fn nomination_events_convey_correct_position() {
 
 #[test]
 fn no_rewards_paid_until_after_reward_payment_delay() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20), (3, 20), (4, 20)])
-        .with_candidates(vec![(1, 20), (2, 20), (3, 20), (4, 20)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+        ])
+        .with_candidates(vec![
+            (account_id, 20),
+            (account_id_2, 20),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+        ])
         .build()
         .execute_with(|| {
             roll_to_era_begin(2);
             // payouts for era 1
-            set_author(1, 1, 1);
-            set_author(1, 2, 1);
-            set_author(1, 3, 1);
-            set_author(1, 4, 1);
-            set_author(1, 4, 1);
+            set_author(1, account_id, 1);
+            set_author(1, account_id_2, 1);
+            set_author(1, account_id_3, 1);
+            set_author(1, account_id_4, 1);
+            set_author(1, account_id_4, 1);
             let mut expected = vec![
-                Event::CollatorChosen { era: 2, collator_account: 1, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 2, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 2, collator_account: 4, total_exposed_amount: 20 },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 2,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 20,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era: 2,
@@ -4364,10 +6774,26 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
             set_reward_pot(5);
             roll_to_era_begin(3);
             expected.append(&mut vec![
-                Event::CollatorChosen { era: 3, collator_account: 1, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 3, collator_account: 2, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 3, collator_account: 3, total_exposed_amount: 20 },
-                Event::CollatorChosen { era: 3, collator_account: 4, total_exposed_amount: 20 },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_3,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_4,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era: 3,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 20,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era: 3,
@@ -4375,22 +6801,22 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
                     total_balance: 80,
                 },
                 // rewards will begin immediately following a NewEra
-                Event::Rewarded { account: 3, rewards: 1 },
+                Event::Rewarded { account: account_id, rewards: 1 },
             ]);
             assert_eq_events!(expected);
 
             // roll to the next block where we start era 3; we should have era change and first
             // payout made.
             roll_one_block();
-            expected.push(Event::Rewarded { account: 4, rewards: 2 });
+            expected.push(Event::Rewarded { account: account_id_2, rewards: 1 });
             assert_eq_events!(expected);
 
             roll_one_block();
-            expected.push(Event::Rewarded { account: 1, rewards: 1 });
+            expected.push(Event::Rewarded { account: account_id_4, rewards: 2 });
             assert_eq_events!(expected);
 
             roll_one_block();
-            expected.push(Event::Rewarded { account: 2, rewards: 1 });
+            expected.push(Event::Rewarded { account: account_id_3, rewards: 1 });
             assert_eq_events!(expected);
 
             // there should be no more payments in this era...
@@ -4406,25 +6832,34 @@ fn deferred_payment_storage_items_are_cleaned_up() {
 
     // this test sets up two collators, gives them points in era one, and focuses on the
     // storage over the next several blocks to show that it is properly cleaned up
-
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 20)])
-        .with_candidates(vec![(1, 20), (2, 20)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 20)])
+        .with_candidates(vec![(account_id, 20), (account_id_2, 20)])
         .build()
         .execute_with(|| {
             let mut era: u32 = 1;
-            set_author(era, 1, 1);
-            set_author(era, 2, 1);
+            set_author(era, account_id, 1);
+            set_author(era, account_id_2, 1);
 
             // reflects genesis?
-            assert!(<AtStake<Test>>::contains_key(era, 1));
-            assert!(<AtStake<Test>>::contains_key(era, 2));
+            assert!(<AtStake<Test>>::contains_key(era, account_id));
+            assert!(<AtStake<Test>>::contains_key(era, account_id_2));
 
             era = 2;
             roll_to_era_begin(era.into());
             let mut expected = vec![
-                Event::CollatorChosen { era, collator_account: 1, total_exposed_amount: 20 },
-                Event::CollatorChosen { era, collator_account: 2, total_exposed_amount: 20 },
+                Event::CollatorChosen {
+                    era,
+                    collator_account: account_id,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 20,
+                },
                 Event::NewEra {
                     starting_block: 5,
                     era,
@@ -4435,11 +6870,11 @@ fn deferred_payment_storage_items_are_cleaned_up() {
             assert_eq_events!(expected);
 
             // we should have AtStake snapshots as soon as we start a era...
-            assert!(<AtStake<Test>>::contains_key(2, 1));
-            assert!(<AtStake<Test>>::contains_key(2, 2));
+            assert!(<AtStake<Test>>::contains_key(2, account_id));
+            assert!(<AtStake<Test>>::contains_key(2, account_id_2));
             // ...and it should persist until the era is fully paid out
-            assert!(<AtStake<Test>>::contains_key(1, 1));
-            assert!(<AtStake<Test>>::contains_key(1, 2));
+            assert!(<AtStake<Test>>::contains_key(1, account_id));
+            assert!(<AtStake<Test>>::contains_key(1, account_id_2));
 
             assert!(
                 !<DelayedPayouts<Test>>::contains_key(1),
@@ -4462,23 +6897,31 @@ fn deferred_payment_storage_items_are_cleaned_up() {
             set_reward_pot(3);
             roll_to_era_begin(era.into());
             expected.append(&mut vec![
-                Event::CollatorChosen { era, collator_account: 1, total_exposed_amount: 20 },
-                Event::CollatorChosen { era, collator_account: 2, total_exposed_amount: 20 },
+                Event::CollatorChosen {
+                    era,
+                    collator_account: account_id,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 20,
+                },
                 Event::NewEra {
                     starting_block: 10,
                     era,
                     selected_collators_number: 2,
                     total_balance: 40,
                 },
-                Event::Rewarded { account: 1, rewards: 1 },
+                Event::Rewarded { account: account_id, rewards: 1 },
             ]);
             assert_eq_events!(expected);
 
             // payouts should exist for past eras that haven't been paid out yet..
-            assert!(<AtStake<Test>>::contains_key(3, 1));
-            assert!(<AtStake<Test>>::contains_key(3, 2));
-            assert!(<AtStake<Test>>::contains_key(2, 1));
-            assert!(<AtStake<Test>>::contains_key(2, 2));
+            assert!(<AtStake<Test>>::contains_key(3, account_id));
+            assert!(<AtStake<Test>>::contains_key(3, account_id_2));
+            assert!(<AtStake<Test>>::contains_key(2, account_id));
+            assert!(<AtStake<Test>>::contains_key(2, account_id_2));
 
             assert!(
                 <DelayedPayouts<Test>>::contains_key(1),
@@ -4499,19 +6942,27 @@ fn deferred_payment_storage_items_are_cleaned_up() {
             assert!(<Staked<Test>>::contains_key(3));
 
             // collator 1 has been paid in this last block and associated storage cleaned up
-            assert!(!<AtStake<Test>>::contains_key(1, 1));
-            assert!(!<AwardedPts<Test>>::contains_key(1, 1));
+            assert!(!<AtStake<Test>>::contains_key(1, account_id));
+            assert!(!<AwardedPts<Test>>::contains_key(1, account_id));
 
             // but collator 2 hasn't been paid
-            assert!(<AtStake<Test>>::contains_key(1, 2));
-            assert!(<AwardedPts<Test>>::contains_key(1, 2));
+            assert!(<AtStake<Test>>::contains_key(1, account_id_2));
+            assert!(<AwardedPts<Test>>::contains_key(1, account_id_2));
 
             era = 4;
             roll_to_era_begin(era.into());
             expected.append(&mut vec![
-                Event::Rewarded { account: 2, rewards: 1 }, // from previous era
-                Event::CollatorChosen { era, collator_account: 1, total_exposed_amount: 20 },
-                Event::CollatorChosen { era, collator_account: 2, total_exposed_amount: 20 },
+                Event::Rewarded { account: account_id_2, rewards: 1 }, // from previous era
+                Event::CollatorChosen {
+                    era,
+                    collator_account: account_id,
+                    total_exposed_amount: 20,
+                },
+                Event::CollatorChosen {
+                    era,
+                    collator_account: account_id_2,
+                    total_exposed_amount: 20,
+                },
                 Event::NewEra {
                     starting_block: 15,
                     era,
@@ -4522,8 +6973,8 @@ fn deferred_payment_storage_items_are_cleaned_up() {
             assert_eq_events!(expected);
 
             // collators have both been paid and storage fully cleaned up for era 1
-            assert!(!<AtStake<Test>>::contains_key(1, 2));
-            assert!(!<AwardedPts<Test>>::contains_key(1, 2));
+            assert!(!<AtStake<Test>>::contains_key(1, account_id_2));
+            assert!(!<AwardedPts<Test>>::contains_key(1, account_id_2));
             assert!(!<Staked<Test>>::contains_key(1));
             assert!(!<Points<Test>>::contains_key(1)); // points should be cleaned up
             assert!(!<DelayedPayouts<Test>>::contains_key(1));
@@ -4542,45 +6993,57 @@ fn deferred_payment_steady_state_event_flow() {
     // this test "flows" through a number of eras, asserting that certain things do/don't happen
     // once the staking pallet is in a "steady state" (specifically, once we are past the first few
     // eras to clear RewardPaymentDelay)
-
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    let account_id_4 = to_acc_id(4u64);
+    let account_id_11 = to_acc_id(11u64);
+    let account_id_22 = to_acc_id(22u64);
+    let account_id_33 = to_acc_id(33u64);
+    let account_id_44 = to_acc_id(44u64);
     ExtBuilder::default()
         .with_balances(vec![
             // collators
-            (1, 200),
-            (2, 200),
-            (3, 200),
-            (4, 200),
+            (account_id, 200),
+            (account_id_2, 200),
+            (account_id_3, 200),
+            (account_id_4, 200),
             // nominators
-            (11, 200),
-            (22, 200),
-            (33, 200),
-            (44, 200),
+            (account_id_11, 200),
+            (account_id_22, 200),
+            (account_id_33, 200),
+            (account_id_44, 200),
             // burn account, see `reset_issuance()`
-            (111, 1000),
+            (to_acc_id(111), 1000),
         ])
-        .with_candidates(vec![(1, 200), (2, 200), (3, 200), (4, 200)])
+        .with_candidates(vec![
+            (account_id, 200),
+            (account_id_2, 200),
+            (account_id_3, 200),
+            (account_id_4, 200),
+        ])
         .with_nominations(vec![
             // nominator 11 nominates 100 to 1 and 2
-            (11, 1, 100),
-            (11, 2, 100),
+            (account_id_11, account_id, 100),
+            (account_id_11, account_id_2, 100),
             // nominator 22 nominates 100 to 2 and 3
-            (22, 2, 100),
-            (22, 3, 100),
+            (account_id_22, account_id_2, 100),
+            (account_id_22, account_id_3, 100),
             // nominator 33 nominates 100 to 3 and 4
-            (33, 3, 100),
-            (33, 4, 100),
+            (account_id_33, account_id_3, 100),
+            (account_id_33, account_id_4, 100),
             // nominator 44 nominates 100 to 4 and 1
-            (44, 4, 100),
-            (44, 1, 100),
+            (account_id_44, account_id_4, 100),
+            (account_id_44, account_id, 100),
         ])
         .build()
         .execute_with(|| {
             // convenience to set the era points consistently
             let set_era_points = |era: u64| {
-                set_author(era as u32, 1, 1);
-                set_author(era as u32, 2, 1);
-                set_author(era as u32, 3, 1);
-                set_author(era as u32, 4, 1);
+                set_author(era as u32, account_id, 1);
+                set_author(era as u32, account_id_2, 1);
+                set_author(era as u32, account_id_3, 1);
+                set_author(era as u32, account_id_4, 1);
             };
 
             // grab initial issuance -- we will reset it before era issuance is calculated so that
@@ -4591,7 +7054,7 @@ fn deferred_payment_steady_state_event_flow() {
                 let diff = new_issuance - initial_issuance;
                 let burned = Balances::burn(diff);
                 Balances::settle(
-                    &111,
+                    &to_acc_id(111),
                     burned,
                     WithdrawReasons::FEE,
                     ExistenceRequirement::AllowDeath,
@@ -4623,22 +7086,22 @@ fn deferred_payment_steady_state_event_flow() {
                 let expected = vec![
                     Event::CollatorChosen {
                         era: era as u32,
-                        collator_account: 1,
+                        collator_account: account_id_3,
                         total_exposed_amount: 400,
                     },
                     Event::CollatorChosen {
                         era: era as u32,
-                        collator_account: 2,
+                        collator_account: account_id_4,
                         total_exposed_amount: 400,
                     },
                     Event::CollatorChosen {
                         era: era as u32,
-                        collator_account: 3,
+                        collator_account: account_id,
                         total_exposed_amount: 400,
                     },
                     Event::CollatorChosen {
                         era: era as u32,
-                        collator_account: 4,
+                        collator_account: account_id_2,
                         total_exposed_amount: 400,
                     },
                     Event::NewEra {
@@ -4648,9 +7111,9 @@ fn deferred_payment_steady_state_event_flow() {
                         total_balance: 1600,
                     },
                     // first payout should occur on era change
-                    Event::Rewarded { account: 3, rewards: 16 },
-                    Event::Rewarded { account: 22, rewards: 8 },
-                    Event::Rewarded { account: 33, rewards: 8 },
+                    Event::Rewarded { account: account_id, rewards: 16 },
+                    Event::Rewarded { account: account_id_11, rewards: 8 },
+                    Event::Rewarded { account: account_id_44, rewards: 8 },
                 ];
                 assert_eq_last_events!(expected);
 
@@ -4658,32 +7121,32 @@ fn deferred_payment_steady_state_event_flow() {
 
                 roll_one_block();
                 let expected = vec![
-                    Event::Rewarded { account: 4, rewards: 16 },
-                    Event::Rewarded { account: 33, rewards: 8 },
-                    Event::Rewarded { account: 44, rewards: 8 },
+                    Event::Rewarded { account: account_id_2, rewards: 16 },
+                    Event::Rewarded { account: account_id_11, rewards: 8 },
+                    Event::Rewarded { account: account_id_22, rewards: 8 },
                 ];
                 assert_eq_last_events!(expected);
 
                 roll_one_block();
                 let expected = vec![
-                    Event::Rewarded { account: 1, rewards: 16 },
-                    Event::Rewarded { account: 11, rewards: 8 },
-                    Event::Rewarded { account: 44, rewards: 8 },
+                    Event::Rewarded { account: account_id_4, rewards: 16 },
+                    Event::Rewarded { account: account_id_33, rewards: 8 },
+                    Event::Rewarded { account: account_id_44, rewards: 8 },
                 ];
                 assert_eq_last_events!(expected);
 
                 roll_one_block();
                 let expected = vec![
-                    Event::Rewarded { account: 2, rewards: 16 },
-                    Event::Rewarded { account: 11, rewards: 8 },
-                    Event::Rewarded { account: 22, rewards: 8 },
+                    Event::Rewarded { account: account_id_3, rewards: 16 },
+                    Event::Rewarded { account: account_id_22, rewards: 8 },
+                    Event::Rewarded { account: account_id_33, rewards: 8 },
                 ];
                 assert_eq_last_events!(expected);
 
                 roll_one_block();
                 let expected = vec![
                     // we paid everyone out by now, should repeat last event
-                    Event::Rewarded { account: 22, rewards: 8 },
+                    Event::Rewarded { account: account_id_33, rewards: 8 },
                 ];
                 assert_eq_last_events!(expected);
 
@@ -4705,61 +7168,90 @@ fn deferred_payment_steady_state_event_flow() {
 
 #[test]
 fn nomination_kicked_from_bottom_removes_pending_request() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
         .with_balances(vec![
-            (1, 30),
-            (2, 29),
-            (3, 20),
-            (4, 20),
-            (5, 20),
-            (6, 20),
-            (7, 20),
-            (8, 20),
-            (9, 20),
-            (10, 20),
-            (11, 30),
+            (account_id, 30),
+            (account_id_2, 29),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+            (to_acc_id(5), 20),
+            (to_acc_id(6), 20),
+            (to_acc_id(7), 20),
+            (to_acc_id(8), 20),
+            (to_acc_id(9), 20),
+            (to_acc_id(10), 20),
+            (to_acc_id(11), 30),
         ])
-        .with_candidates(vec![(1, 30), (11, 30)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(11), 30)])
         .with_nominations(vec![
-            (2, 1, 19),
-            (2, 11, 10), // second nomination so not left after first is kicked
-            (3, 1, 20),
-            (4, 1, 20),
-            (5, 1, 20),
-            (6, 1, 20),
-            (7, 1, 20),
-            (8, 1, 20),
-            (9, 1, 20),
+            (account_id_2, account_id, 19),
+            (account_id_2, to_acc_id(11), 10), /* second nomination so not left after first is
+                                                * kicked */
+            (to_acc_id(3), account_id, 20),
+            (to_acc_id(4), account_id, 20),
+            (to_acc_id(5), account_id, 20),
+            (to_acc_id(6), account_id, 20),
+            (to_acc_id(7), account_id, 20),
+            (to_acc_id(8), account_id, 20),
+            (to_acc_id(9), account_id, 20),
         ])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             // 10 nominates to full 1 => kicks lowest nomination (2, 19)
-            assert_ok!(ParachainStaking::nominate(Origin::signed(10), 1, 20, 8, 0));
+            assert_ok!(ParachainStaking::nominate(
+                Origin::signed(to_acc_id(10)),
+                account_id,
+                20,
+                8,
+                0
+            ));
             // check the event
             assert_event_emitted!(Event::NominationKicked {
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 unstaked_amount: 19,
             });
             // ensure request DNE
-            assert!(!ParachainStaking::nomination_scheduled_requests(&1)
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id)
                 .iter()
-                .any(|x| x.nominator == 2));
+                .any(|x| x.nominator == account_id_2));
         });
 }
 
 #[test]
 fn no_selected_candidates_defaults_to_last_era_collators() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 30), (3, 30), (4, 30), (5, 30)])
-        .with_candidates(vec![(1, 30), (2, 30), (3, 30), (4, 30), (5, 30)])
+        .with_balances(vec![
+            (account_id, 30),
+            (account_id_2, 30),
+            (to_acc_id(3), 30),
+            (to_acc_id(4), 30),
+            (to_acc_id(5), 30),
+        ])
+        .with_candidates(vec![
+            (account_id, 30),
+            (account_id_2, 30),
+            (to_acc_id(3), 30),
+            (to_acc_id(4), 30),
+            (to_acc_id(5), 30),
+        ])
         .build()
         .execute_with(|| {
             roll_to_era_begin(1);
             // schedule to leave
             for i in 1..6 {
-                assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(i), 5));
+                assert_ok!(ParachainStaking::schedule_leave_candidates(
+                    Origin::signed(to_acc_id(i)),
+                    5
+                ));
             }
             let old_era = ParachainStaking::era().current;
             let old_selected_candidates = ParachainStaking::selected_candidates();
@@ -4770,7 +7262,11 @@ fn no_selected_candidates_defaults_to_last_era_collators() {
             roll_to_era_begin(3);
             // execute leave
             for i in 1..6 {
-                assert_ok!(ParachainStaking::execute_leave_candidates(Origin::signed(i), i, 0,));
+                assert_ok!(ParachainStaking::execute_leave_candidates(
+                    Origin::signed(to_acc_id(i)),
+                    to_acc_id(i),
+                    0,
+                ));
             }
             // next era
             roll_to_era_begin(4);
@@ -4788,23 +7284,34 @@ fn no_selected_candidates_defaults_to_last_era_collators() {
 
 #[test]
 fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_eras_but_not_for_future() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 40),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+        ])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20), (to_acc_id(4), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
             // preset rewards for eras 1, 2 and 3
-            (1..=3).for_each(|era| set_author(era, 1, 1));
+            (1..=3).for_each(|era| set_author(era, account_id, 1));
 
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationRevocationScheduled {
                 era: 1,
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 scheduled_exit: 3,
             }));
-            let collator = ParachainStaking::candidate_info(1).expect("candidate must exist");
+            let collator =
+                ParachainStaking::candidate_info(account_id).expect("candidate must exist");
             assert_eq!(
                 1, collator.nomination_count,
                 "collator's nominator count was reduced unexpectedly"
@@ -4815,8 +7322,8 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_eras_but_not_for
             roll_to_era_begin(3);
             assert_eq_last_events!(
                 vec![
-                    Event::<Test>::Rewarded { account: 1, rewards: 3 },
-                    Event::<Test>::Rewarded { account: 2, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id, rewards: 3 },
+                    Event::<Test>::Rewarded { account: account_id_2, rewards: 2 },
                 ],
                 "nominator was not rewarded as intended"
             );
@@ -4824,10 +7331,11 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_eras_but_not_for
             set_reward_pot(5);
             roll_to_era_begin(4);
             assert_eq_last_events!(
-                vec![Event::<Test>::Rewarded { account: 1, rewards: 5 }],
+                vec![Event::<Test>::Rewarded { account: account_id, rewards: 5 }],
                 "nominator was rewarded unexpectedly"
             );
-            let collator_snapshot = ParachainStaking::at_stake(ParachainStaking::era().current, 1);
+            let collator_snapshot =
+                ParachainStaking::at_stake(ParachainStaking::era().current, account_id);
             assert_eq!(
                 1,
                 collator_snapshot.nominations.len(),
@@ -4842,23 +7350,34 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_eras_but_not_for
 
 #[test]
 fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 40),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+        ])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20), (to_acc_id(4), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
             // preset rewards for eras 2, 3 and 4
-            (2..=4).for_each(|era| set_author(era, 1, 1));
+            (2..=4).for_each(|era| set_author(era, account_id, 1));
 
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationRevocationScheduled {
                 era: 1,
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 scheduled_exit: 3,
             }));
-            let collator = ParachainStaking::candidate_info(1).expect("candidate must exist");
+            let collator =
+                ParachainStaking::candidate_info(account_id).expect("candidate must exist");
             assert_eq!(
                 1, collator.nomination_count,
                 "collator's nominator count was reduced unexpectedly"
@@ -4866,15 +7385,19 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
             assert_eq!(30, collator.total_counted, "collator's total was reduced unexpectedly");
 
             roll_to_era_begin(2);
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id
+            ));
 
             set_reward_pot(5);
             roll_to_era_begin(4);
             assert_eq_last_events!(
-                vec![Event::<Test>::Rewarded { account: 1, rewards: 5 }],
+                vec![Event::<Test>::Rewarded { account: account_id, rewards: 5 }],
                 "nominator was rewarded unexpectedly",
             );
-            let collator_snapshot = ParachainStaking::at_stake(ParachainStaking::era().current, 1);
+            let collator_snapshot =
+                ParachainStaking::at_stake(ParachainStaking::era().current, account_id);
             assert_eq!(
                 1,
                 collator_snapshot.nominations.len(),
@@ -4889,8 +7412,8 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
             roll_to_era_begin(5);
             assert_eq_last_events!(
                 vec![
-                    Event::<Test>::Rewarded { account: 1, rewards: 3 },
-                    Event::<Test>::Rewarded { account: 2, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id, rewards: 3 },
+                    Event::<Test>::Rewarded { account: account_id_2, rewards: 2 },
                 ],
                 "nominator was not rewarded as intended",
             );
@@ -4899,23 +7422,35 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
 
 #[test]
 fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_less_for_future() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-        .with_nominations(vec![(2, 1, 20), (2, 3, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 40),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+        ])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20), (to_acc_id(4), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 20), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
             // preset rewards for eras 1, 2 and 3
-            (1..=3).for_each(|era| set_author(era, 1, 1));
+            (1..=3).for_each(|era| set_author(era, account_id, 1));
 
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 10,));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                10,
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationDecreaseScheduled {
                 execute_era: 3,
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 amount_to_decrease: 10,
             }));
-            let collator = ParachainStaking::candidate_info(1).expect("candidate must exist");
+            let collator =
+                ParachainStaking::candidate_info(account_id).expect("candidate must exist");
             assert_eq!(
                 1, collator.nomination_count,
                 "collator's nominator count was reduced unexpectedly"
@@ -4926,8 +7461,8 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_
             roll_to_era_begin(3);
             assert_eq_last_events!(
                 vec![
-                    Event::<Test>::Rewarded { account: 1, rewards: 2 },
-                    Event::<Test>::Rewarded { account: 2, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id_2, rewards: 2 },
                 ],
                 "nominator was not rewarded as intended"
             );
@@ -4936,12 +7471,13 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_
             roll_to_era_begin(4);
             assert_eq_last_events!(
                 vec![
-                    Event::<Test>::Rewarded { account: 1, rewards: 3 },
-                    Event::<Test>::Rewarded { account: 2, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id, rewards: 3 },
+                    Event::<Test>::Rewarded { account: account_id_2, rewards: 2 },
                 ],
                 "nominator was rewarded unexpectedly"
             );
-            let collator_snapshot = ParachainStaking::at_stake(ParachainStaking::era().current, 1);
+            let collator_snapshot =
+                ParachainStaking::at_stake(ParachainStaking::era().current, account_id);
             assert_eq!(
                 1,
                 collator_snapshot.nominations.len(),
@@ -4956,23 +7492,35 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_
 
 #[test]
 fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-        .with_nominations(vec![(2, 1, 20), (2, 3, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 40),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+        ])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20), (to_acc_id(4), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 20), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
             // preset rewards for eras 2, 3 and 4
-            (2..=4).for_each(|era| set_author(era, 1, 1));
+            (2..=4).for_each(|era| set_author(era, account_id, 1));
 
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(Origin::signed(2), 1, 10,));
+            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+                Origin::signed(account_id_2),
+                account_id,
+                10,
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationDecreaseScheduled {
                 execute_era: 3,
-                nominator: 2,
-                candidate: 1,
+                nominator: account_id_2,
+                candidate: account_id,
                 amount_to_decrease: 10,
             }));
-            let collator = ParachainStaking::candidate_info(1).expect("candidate must exist");
+            let collator =
+                ParachainStaking::candidate_info(account_id).expect("candidate must exist");
             assert_eq!(
                 1, collator.nomination_count,
                 "collator's nominator count was reduced unexpectedly"
@@ -4980,18 +7528,22 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
             assert_eq!(40, collator.total_counted, "collator's total was reduced unexpectedly");
 
             roll_to_era_begin(2);
-            assert_ok!(ParachainStaking::cancel_nomination_request(Origin::signed(2), 1));
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id
+            ));
 
             set_reward_pot(5);
             roll_to_era_begin(4);
             assert_eq_last_events!(
                 vec![
-                    Event::<Test>::Rewarded { account: 1, rewards: 3 },
-                    Event::<Test>::Rewarded { account: 2, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id, rewards: 3 },
+                    Event::<Test>::Rewarded { account: account_id_2, rewards: 2 },
                 ],
                 "nominator was rewarded unexpectedly",
             );
-            let collator_snapshot = ParachainStaking::at_stake(ParachainStaking::era().current, 1);
+            let collator_snapshot =
+                ParachainStaking::at_stake(ParachainStaking::era().current, account_id);
             assert_eq!(
                 1,
                 collator_snapshot.nominations.len(),
@@ -5006,8 +7558,8 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
             roll_to_era_begin(5);
             assert_eq_last_events!(
                 vec![
-                    Event::<Test>::Rewarded { account: 1, rewards: 2 },
-                    Event::<Test>::Rewarded { account: 2, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id_2, rewards: 2 },
                 ],
                 "nominator was not rewarded as intended",
             );
@@ -5016,22 +7568,30 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
 
 #[test]
 fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_eras_but_not_for_future() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 40),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+        ])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20), (to_acc_id(4), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
             // preset rewards for eras 1, 2 and 3
-            (1..=3).for_each(|era| set_author(era, 1, 1));
+            (1..=3).for_each(|era| set_author(era, account_id, 1));
 
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2),));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2),));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
                 era: 1,
-                nominator: 2,
+                nominator: account_id_2,
                 scheduled_exit: 3,
             }));
-            let collator = ParachainStaking::candidate_info(1).expect("candidate must exist");
+            let collator =
+                ParachainStaking::candidate_info(account_id).expect("candidate must exist");
             assert_eq!(
                 1, collator.nomination_count,
                 "collator's nominator count was reduced unexpectedly"
@@ -5042,8 +7602,8 @@ fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_eras_but_not_for_
             roll_to_era_begin(3);
             assert_eq_last_events!(
                 vec![
-                    Event::<Test>::Rewarded { account: 1, rewards: 3 },
-                    Event::<Test>::Rewarded { account: 2, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id, rewards: 3 },
+                    Event::<Test>::Rewarded { account: account_id_2, rewards: 2 },
                 ],
                 "nominator was not rewarded as intended"
             );
@@ -5051,10 +7611,11 @@ fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_eras_but_not_for_
             set_reward_pot(5);
             roll_to_era_begin(4);
             assert_eq_last_events!(
-                vec![Event::<Test>::Rewarded { account: 1, rewards: 5 },],
+                vec![Event::<Test>::Rewarded { account: account_id, rewards: 5 },],
                 "nominator was rewarded unexpectedly"
             );
-            let collator_snapshot = ParachainStaking::at_stake(ParachainStaking::era().current, 1);
+            let collator_snapshot =
+                ParachainStaking::at_stake(ParachainStaking::era().current, account_id);
             assert_eq!(
                 1,
                 collator_snapshot.nominations.len(),
@@ -5069,22 +7630,30 @@ fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_eras_but_not_for_
 
 #[test]
 fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40), (3, 20), (4, 20)])
-        .with_candidates(vec![(1, 20), (3, 20), (4, 20)])
-        .with_nominations(vec![(2, 1, 10), (2, 3, 10)])
+        .with_balances(vec![
+            (account_id, 20),
+            (account_id_2, 40),
+            (to_acc_id(3), 20),
+            (to_acc_id(4), 20),
+        ])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20), (to_acc_id(4), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
         .build()
         .execute_with(|| {
             // preset rewards for eras 2, 3 and 4
-            (2..=4).for_each(|era| set_author(era, 1, 1));
+            (2..=4).for_each(|era| set_author(era, account_id, 1));
 
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
                 era: 1,
-                nominator: 2,
+                nominator: account_id_2,
                 scheduled_exit: 3,
             }));
-            let collator = ParachainStaking::candidate_info(1).expect("candidate must exist");
+            let collator =
+                ParachainStaking::candidate_info(account_id).expect("candidate must exist");
             assert_eq!(
                 1, collator.nomination_count,
                 "collator's nominator count was reduced unexpectedly"
@@ -5092,15 +7661,16 @@ fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
             assert_eq!(30, collator.total_counted, "collator's total was reduced unexpectedly");
 
             roll_to_era_begin(2);
-            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(account_id_2)));
 
             set_reward_pot(5);
             roll_to_era_begin(4);
             assert_eq_last_events!(
-                vec![Event::<Test>::Rewarded { account: 1, rewards: 5 },],
+                vec![Event::<Test>::Rewarded { account: account_id, rewards: 5 },],
                 "nominator was rewarded unexpectedly",
             );
-            let collator_snapshot = ParachainStaking::at_stake(ParachainStaking::era().current, 1);
+            let collator_snapshot =
+                ParachainStaking::at_stake(ParachainStaking::era().current, account_id);
             assert_eq!(
                 1,
                 collator_snapshot.nominations.len(),
@@ -5115,8 +7685,8 @@ fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
             roll_to_era_begin(5);
             assert_eq_last_events!(
                 vec![
-                    Event::<Test>::Rewarded { account: 1, rewards: 3 },
-                    Event::<Test>::Rewarded { account: 2, rewards: 2 },
+                    Event::<Test>::Rewarded { account: account_id, rewards: 3 },
+                    Event::<Test>::Rewarded { account: account_id_2, rewards: 2 },
                 ],
                 "nominator was not rewarded as intended",
             );
@@ -5125,176 +7695,201 @@ fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
 
 #[test]
 fn test_nomination_request_exists_returns_false_when_nothing_exists() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert!(!ParachainStaking::nomination_request_exists(&1, &2));
+            assert!(!ParachainStaking::nomination_request_exists(&account_id, &account_id_2));
         });
 }
 
 #[test]
 fn test_nomination_request_exists_returns_true_when_decrease_exists() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             <NominationScheduledRequests<Test>>::insert(
-                1,
+                account_id,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
                 }],
             );
-            assert!(ParachainStaking::nomination_request_exists(&1, &2));
+            assert!(ParachainStaking::nomination_request_exists(&account_id, &account_id_2));
         });
 }
 
 #[test]
 fn test_nomination_request_exists_returns_true_when_revoke_exists() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             <NominationScheduledRequests<Test>>::insert(
-                1,
+                account_id,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Revoke(5),
                 }],
             );
-            assert!(ParachainStaking::nomination_request_exists(&1, &2));
+            assert!(ParachainStaking::nomination_request_exists(&account_id, &account_id_2));
         });
 }
 
 #[test]
 fn test_nomination_request_revoke_exists_returns_false_when_nothing_exists() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert!(!ParachainStaking::nomination_request_revoke_exists(&1, &2));
+            assert!(!ParachainStaking::nomination_request_revoke_exists(
+                &account_id,
+                &account_id_2
+            ));
         });
 }
 
 #[test]
 fn test_nomination_request_revoke_exists_returns_false_when_decrease_exists() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             <NominationScheduledRequests<Test>>::insert(
-                1,
+                account_id,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
                 }],
             );
-            assert!(!ParachainStaking::nomination_request_revoke_exists(&1, &2));
+            assert!(!ParachainStaking::nomination_request_revoke_exists(
+                &account_id,
+                &account_id_2
+            ));
         });
 }
 
 #[test]
 fn test_nomination_request_revoke_exists_returns_true_when_revoke_exists() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 30), (2, 25)])
-        .with_candidates(vec![(1, 30)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 30), (account_id_2, 25)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
             <NominationScheduledRequests<Test>>::insert(
-                1,
+                account_id,
                 vec![ScheduledRequest {
-                    nominator: 2,
+                    nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Revoke(5),
                 }],
             );
-            assert!(ParachainStaking::nomination_request_revoke_exists(&1, &2));
+            assert!(ParachainStaking::nomination_request_revoke_exists(&account_id, &account_id_2));
         });
 }
 
+//*******************************************
 #[test]
 fn test_hotfix_remove_nomination_requests_exited_candidates_cleans_up() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
             // invalid state
             <NominationScheduledRequests<Test>>::insert(
-                2,
-                Vec::<ScheduledRequest<u64, u128>>::new(),
+                account_id_2,
+                Vec::<ScheduledRequest<AccountId, u128>>::new(),
             );
             <NominationScheduledRequests<Test>>::insert(
-                3,
-                Vec::<ScheduledRequest<u64, u128>>::new(),
+                to_acc_id(3),
+                Vec::<ScheduledRequest<AccountId, u128>>::new(),
             );
             assert_ok!(ParachainStaking::hotfix_remove_nomination_requests_exited_candidates(
-                Origin::signed(1),
-                vec![2, 3, 4] // 4 does not exist, but is OK for idempotency
+                Origin::signed(account_id),
+                vec![account_id_2, to_acc_id(3), to_acc_id(4)] /* 4 does not exist, but is OK
+                                                                * for idempotency */
             ));
 
-            assert!(!<NominationScheduledRequests<Test>>::contains_key(2));
-            assert!(!<NominationScheduledRequests<Test>>::contains_key(3));
+            assert!(!<NominationScheduledRequests<Test>>::contains_key(account_id_2));
+            assert!(!<NominationScheduledRequests<Test>>::contains_key(to_acc_id(3)));
         });
 }
 
 #[test]
 fn test_hotfix_remove_nomination_requests_exited_candidates_cleans_up_only_specified_keys() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
             // invalid state
             <NominationScheduledRequests<Test>>::insert(
-                2,
-                Vec::<ScheduledRequest<u64, u128>>::new(),
+                account_id_2,
+                Vec::<ScheduledRequest<AccountId, u128>>::new(),
             );
             <NominationScheduledRequests<Test>>::insert(
-                3,
-                Vec::<ScheduledRequest<u64, u128>>::new(),
+                to_acc_id(3),
+                Vec::<ScheduledRequest<AccountId, u128>>::new(),
             );
             assert_ok!(ParachainStaking::hotfix_remove_nomination_requests_exited_candidates(
-                Origin::signed(1),
-                vec![2]
+                Origin::signed(account_id),
+                vec![account_id_2]
             ));
 
-            assert!(!<NominationScheduledRequests<Test>>::contains_key(2));
-            assert!(<NominationScheduledRequests<Test>>::contains_key(3));
+            assert!(!<NominationScheduledRequests<Test>>::contains_key(account_id_2));
+            assert!(<NominationScheduledRequests<Test>>::contains_key(to_acc_id(3)));
         });
 }
 
 #[test]
 fn test_hotfix_remove_nomination_requests_exited_candidates_errors_when_requests_not_empty() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
             // invalid state
             <NominationScheduledRequests<Test>>::insert(
-                2,
-                Vec::<ScheduledRequest<u64, u128>>::new(),
+                to_acc_id(2),
+                Vec::<ScheduledRequest<AccountId, u128>>::new(),
             );
             <NominationScheduledRequests<Test>>::insert(
-                3,
+                to_acc_id(3),
                 vec![ScheduledRequest {
-                    nominator: 10,
+                    nominator: to_acc_id(10),
                     when_executable: 1,
                     action: NominationAction::Revoke(10),
                 }],
@@ -5302,8 +7897,8 @@ fn test_hotfix_remove_nomination_requests_exited_candidates_errors_when_requests
 
             assert_noop!(
                 ParachainStaking::hotfix_remove_nomination_requests_exited_candidates(
-                    Origin::signed(1),
-                    vec![2, 3]
+                    Origin::signed(account_id),
+                    vec![to_acc_id(2), to_acc_id(3)]
                 ),
                 <Error<Test>>::CandidateNotLeaving,
             );
@@ -5312,20 +7907,21 @@ fn test_hotfix_remove_nomination_requests_exited_candidates_errors_when_requests
 
 #[test]
 fn test_hotfix_remove_nomination_requests_exited_candidates_errors_when_candidate_not_exited() {
+    let account_id = to_acc_id(1u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20)])
-        .with_candidates(vec![(1, 20)])
+        .with_balances(vec![(account_id, 20)])
+        .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
             // invalid state
             <NominationScheduledRequests<Test>>::insert(
-                1,
-                Vec::<ScheduledRequest<u64, u128>>::new(),
+                account_id,
+                Vec::<ScheduledRequest<AccountId, u128>>::new(),
             );
             assert_noop!(
                 ParachainStaking::hotfix_remove_nomination_requests_exited_candidates(
-                    Origin::signed(1),
-                    vec![1]
+                    Origin::signed(account_id),
+                    vec![account_id]
                 ),
                 <Error<Test>>::CandidateNotLeaving,
             );
@@ -5334,75 +7930,99 @@ fn test_hotfix_remove_nomination_requests_exited_candidates_errors_when_candidat
 
 #[test]
 fn locking_zero_amount_is_ignored() {
+    let account_id = to_acc_id(1u64);
     use frame_support::traits::{LockableCurrency, WithdrawReasons};
 
     // this test demonstrates the behavior of pallet Balance's `LockableCurrency` implementation of
     // `set_locks()` when an amount of 0 is provided: it is a no-op
 
-    ExtBuilder::default().with_balances(vec![(1, 100)]).build().execute_with(|| {
-        assert_eq!(crate::mock::query_lock_amount(1, NOMINATOR_LOCK_ID), None);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 100)])
+        .build()
+        .execute_with(|| {
+            assert_eq!(crate::mock::query_lock_amount(account_id, NOMINATOR_LOCK_ID), None);
 
-        Balances::set_lock(NOMINATOR_LOCK_ID, &1, 1, WithdrawReasons::all());
-        assert_eq!(crate::mock::query_lock_amount(1, NOMINATOR_LOCK_ID), Some(1));
+            Balances::set_lock(NOMINATOR_LOCK_ID, &account_id, 1, WithdrawReasons::all());
+            assert_eq!(crate::mock::query_lock_amount(account_id, NOMINATOR_LOCK_ID), Some(1));
 
-        Balances::set_lock(NOMINATOR_LOCK_ID, &1, 0, WithdrawReasons::all());
-        // Note that we tried to call `set_lock(0)` and it ignored it, we still have our lock
-        assert_eq!(crate::mock::query_lock_amount(1, NOMINATOR_LOCK_ID), Some(1));
-    });
+            Balances::set_lock(NOMINATOR_LOCK_ID, &account_id, 0, WithdrawReasons::all());
+            // Note that we tried to call `set_lock(0)` and it ignored it, we still have our lock
+            assert_eq!(crate::mock::query_lock_amount(account_id, NOMINATOR_LOCK_ID), Some(1));
+        });
 }
 
 #[test]
 fn revoke_last_removes_lock() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 100), (2, 100), (3, 100)])
-        .with_candidates(vec![(1, 25), (2, 25)])
-        .with_nominations(vec![(3, 1, 30), (3, 2, 25)])
+        .with_balances(vec![(account_id, 100), (account_id_2, 100), (account_id_3, 100)])
+        .with_candidates(vec![(account_id, 25), (account_id_2, 25)])
+        .with_nominations(vec![(account_id_3, account_id, 30), (account_id_3, account_id_2, 25)])
         .build()
         .execute_with(|| {
-            assert_eq!(crate::mock::query_lock_amount(3, NOMINATOR_LOCK_ID), Some(55));
+            assert_eq!(crate::mock::query_lock_amount(account_id_3, NOMINATOR_LOCK_ID), Some(55));
 
             // schedule and remove one...
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(3), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_3),
+                account_id
+            ));
             roll_to_era_begin(3);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(3), 3, 1));
-            assert_eq!(crate::mock::query_lock_amount(3, NOMINATOR_LOCK_ID), Some(25));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_3),
+                account_id_3,
+                account_id
+            ));
+            assert_eq!(crate::mock::query_lock_amount(account_id_3, NOMINATOR_LOCK_ID), Some(25));
 
             // schedule and remove the other...
-            assert_ok!(ParachainStaking::schedule_revoke_nomination(Origin::signed(3), 2));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_3),
+                account_id_2
+            ));
             roll_to_era_begin(5);
-            assert_ok!(ParachainStaking::execute_nomination_request(Origin::signed(3), 3, 2));
-            assert_eq!(crate::mock::query_lock_amount(3, NOMINATOR_LOCK_ID), None);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_3),
+                account_id_3,
+                account_id_2
+            ));
+            assert_eq!(crate::mock::query_lock_amount(account_id_3, NOMINATOR_LOCK_ID), None);
         });
 }
 
 #[allow(deprecated)]
 #[test]
 fn test_nominator_with_deprecated_status_leaving_can_schedule_leave_nominators_as_fix() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 40)])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            <NominatorState<Test>>::mutate(2, |value| {
+            <NominatorState<Test>>::mutate(account_id_2, |value| {
                 value.as_mut().map(|mut state| {
                     state.status = NominatorStatus::Leaving(2);
                 })
             });
-            let state = <NominatorState<Test>>::get(2);
+            let state = <NominatorState<Test>>::get(account_id_2);
             assert!(matches!(state.unwrap().status, NominatorStatus::Leaving(_)));
 
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(2)));
-            assert!(<NominationScheduledRequests<Test>>::get(1)
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
+            assert!(<NominationScheduledRequests<Test>>::get(account_id)
                 .iter()
-                .any(|r| r.nominator == 2 && matches!(r.action, NominationAction::Revoke(_))));
+                .any(|r| r.nominator == account_id_2 &&
+                    matches!(r.action, NominationAction::Revoke(_))));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
                 era: 1,
-                nominator: 2,
+                nominator: account_id_2,
                 scheduled_exit: 3
             }));
 
-            let state = <NominatorState<Test>>::get(2);
+            let state = <NominatorState<Test>>::get(account_id_2);
             assert!(matches!(state.unwrap().status, NominatorStatus::Active));
         });
 }
@@ -5410,26 +8030,28 @@ fn test_nominator_with_deprecated_status_leaving_can_schedule_leave_nominators_a
 #[allow(deprecated)]
 #[test]
 fn test_nominator_with_deprecated_status_leaving_can_cancel_leave_nominators_as_fix() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 40)])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            <NominatorState<Test>>::mutate(2, |value| {
+            <NominatorState<Test>>::mutate(account_id_2, |value| {
                 value.as_mut().map(|mut state| {
                     state.status = NominatorStatus::Leaving(2);
                 })
             });
-            let state = <NominatorState<Test>>::get(2);
+            let state = <NominatorState<Test>>::get(account_id_2);
             assert!(matches!(state.unwrap().status, NominatorStatus::Leaving(_)));
 
-            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(2)));
+            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(account_id_2)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitCancelled {
-                nominator: 2
+                nominator: account_id_2
             }));
 
-            let state = <NominatorState<Test>>::get(2);
+            let state = <NominatorState<Test>>::get(account_id_2);
             assert!(matches!(state.unwrap().status, NominatorStatus::Active));
         });
 }
@@ -5437,25 +8059,34 @@ fn test_nominator_with_deprecated_status_leaving_can_cancel_leave_nominators_as_
 #[allow(deprecated)]
 #[test]
 fn test_nominator_with_deprecated_status_leaving_can_execute_leave_nominators_as_fix() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 40)])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            <NominatorState<Test>>::mutate(2, |value| {
+            <NominatorState<Test>>::mutate(account_id_2, |value| {
                 value.as_mut().map(|mut state| {
                     state.status = NominatorStatus::Leaving(2);
                 })
             });
-            let state = <NominatorState<Test>>::get(2);
+            let state = <NominatorState<Test>>::get(account_id_2);
             assert!(matches!(state.unwrap().status, NominatorStatus::Leaving(_)));
 
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1));
-            assert_event_emitted!(Event::NominatorLeft { nominator: 2, unstaked_amount: 10 });
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                1
+            ));
+            assert_event_emitted!(Event::NominatorLeft {
+                nominator: account_id_2,
+                unstaked_amount: 10
+            });
 
-            let state = <NominatorState<Test>>::get(2);
+            let state = <NominatorState<Test>>::get(account_id_2);
             assert!(state.is_none());
         });
 }
@@ -5463,22 +8094,28 @@ fn test_nominator_with_deprecated_status_leaving_can_execute_leave_nominators_as
 #[allow(deprecated)]
 #[test]
 fn test_nominator_with_deprecated_status_leaving_cannot_execute_leave_nominators_early_no_fix() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
-        .with_balances(vec![(1, 20), (2, 40)])
-        .with_candidates(vec![(1, 20)])
-        .with_nominations(vec![(2, 1, 10)])
+        .with_balances(vec![(account_id, 20), (account_id_2, 40)])
+        .with_candidates(vec![(account_id, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            <NominatorState<Test>>::mutate(2, |value| {
+            <NominatorState<Test>>::mutate(account_id_2, |value| {
                 value.as_mut().map(|mut state| {
                     state.status = NominatorStatus::Leaving(2);
                 })
             });
-            let state = <NominatorState<Test>>::get(2);
+            let state = <NominatorState<Test>>::get(account_id_2);
             assert!(matches!(state.unwrap().status, NominatorStatus::Leaving(_)));
 
             assert_noop!(
-                ParachainStaking::execute_leave_nominators(Origin::signed(2), 2, 1),
+                ParachainStaking::execute_leave_nominators(
+                    Origin::signed(account_id_2),
+                    account_id_2,
+                    1
+                ),
                 Error::<Test>::NominatorCannotLeaveYet
             );
         });
