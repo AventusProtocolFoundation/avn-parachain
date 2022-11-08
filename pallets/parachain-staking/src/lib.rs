@@ -65,6 +65,8 @@ mod test_reward_payout;
 mod test_staking_pot;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod test_admin_settings;
 
 use frame_support::pallet;
 use pallet_avn::OnGrowthLiftedHandler;
@@ -220,7 +222,8 @@ pub mod pallet {
         GrowthAlreadyProcessed,
         UnauthorizedProxyTransaction,
         SenderIsNotSigner,
-        UnauthorizedSignedNominateTransaction
+        UnauthorizedSignedNominateTransaction,
+        AdminSettingsValueIsNotValid
     }
 
     #[pallet::event]
@@ -365,6 +368,8 @@ pub mod pallet {
         NotEnoughFundsForEraPayment { reward_pot_balance: BalanceOf<T> },
         /// A collator has been paid for producing blocks
         CollatorPaid { account: T::AccountId, amount: BalanceOf<T>, period: GrowthPeriodIndex },
+        /// An admin settings value has been updated
+        AdminSettingsUpdated {value: AdminSettings<BalanceOf<T>>}
     }
 
     #[pallet::hooks]
@@ -1192,6 +1197,23 @@ pub mod pallet {
             }
 
             Ok(().into())
+        }
+
+        // TODO: Benchmark me
+        #[pallet::weight(0)]
+        pub fn set_admin_setting(origin: OriginFor<T>, value: AdminSettings<BalanceOf<T>>) -> DispatchResult {
+            frame_system::ensure_root(origin)?;
+            ensure!(value.is_valid::<T>(), Error::<T>::AdminSettingsValueIsNotValid);
+
+            match value {
+                AdminSettings::Delay(d) => <Delay<T>>::put(d),
+                AdminSettings::MinCollatorStake(s) => <MinCollatorStake<T>>::put(s),
+                AdminSettings::MinNominatorStake(s) => <MinNominatorStake<T>>::put(s),
+            }
+
+            Self::deposit_event(Event::AdminSettingsUpdated { value });
+
+            Ok(())
         }
     }
 

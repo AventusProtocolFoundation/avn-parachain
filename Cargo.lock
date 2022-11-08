@@ -1579,6 +1579,7 @@ dependencies = [
  "scale-info",
  "serde",
  "similar-asserts",
+ "sp-avn-common",
  "sp-core 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
  "sp-io 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
  "sp-runtime 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",

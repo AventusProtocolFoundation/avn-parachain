@@ -1410,3 +1410,36 @@ pub struct GrowthPeriodInfo {
     pub start_era_index: EraIndex,
     pub index: GrowthPeriodIndex,
 }
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
+pub enum AdminSettings<Balance> {
+    /// The delay, in blocks, for actions to wait before being executed
+    Delay(EraIndex),
+    /// Minimum collator stake amount
+    MinCollatorStake(Balance),
+    /// Minimum nominator stake amount
+    MinNominatorStake(Balance),
+}
+
+impl<
+    Balance: Copy
+        + sp_std::ops::AddAssign
+        + sp_std::ops::Add<Output = Balance>
+        + sp_std::ops::SubAssign
+        + sp_std::ops::Sub<Output = Balance>
+        + Ord
+        + Zero
+        + Default
+        + Saturating,
+    > AdminSettings<Balance> {
+    #[allow(unreachable_patterns)]
+    pub fn is_valid<T: Config>(&self) -> bool where Balance: From<BalanceOf<T>>
+    {
+        return match self {
+            AdminSettings::Delay(d) => d > &0,
+            AdminSettings::MinNominatorStake(s) => s >= &<<T as Config>::MinNomination as Get<BalanceOf<T>>>::get().into(),
+            AdminSettings::MinCollatorStake(_) => true,
+            _ => false,
+        }
+    }
+}
