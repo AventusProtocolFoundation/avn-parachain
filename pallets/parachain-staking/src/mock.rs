@@ -151,11 +151,6 @@ impl pallet_authorship::Config for Test {
 
 parameter_types! {
     pub const MinBlocksPerEra: u32 = 3;
-    pub const LeaveCandidatesDelay: u32 = 2;
-    pub const CandidateBondLessDelay: u32 = 2;
-    pub const LeaveNominatorsDelay: u32 = 2;
-    pub const RevokeNominationDelay: u32 = 2;
-    pub const NominationBondLessDelay: u32 = 2;
     pub const RewardPaymentDelay: u32 = 2;
     pub const MinSelectedCandidates: u32 = 5;
     pub const MaxTopNominationsPerCandidate: u32 = 4;
@@ -171,13 +166,8 @@ impl Config for Test {
     type Event = Event;
     type Currency = Balances;
     type MonetaryGovernanceOrigin = frame_system::EnsureRoot<AccountId>;
-    type MinBlocksPerEra = MinBlocksPerEra;
-    type LeaveCandidatesDelay = LeaveCandidatesDelay;
-    type CandidateBondLessDelay = CandidateBondLessDelay;
-    type LeaveNominatorsDelay = LeaveNominatorsDelay;
-    type RevokeNominationDelay = RevokeNominationDelay;
-    type NominationBondLessDelay = NominationBondLessDelay;
     type RewardPaymentDelay = RewardPaymentDelay;
+    type MinBlocksPerEra = MinBlocksPerEra;
     type MinSelectedCandidates = MinSelectedCandidates;
     type MaxTopNominationsPerCandidate = MaxTopNominationsPerCandidate;
     type MaxBottomNominationsPerCandidate = MaxBottomNominationsPerCandidate;
@@ -303,6 +293,7 @@ impl ExtBuilder {
         pallet_parachain_staking::GenesisConfig::<Test> {
             candidates: self.collators,
             nominations: self.nominations,
+            delay: 2,
         }
         .assimilate_storage(&mut t)
         .expect("Parachain Staking's storage can be assimilated");

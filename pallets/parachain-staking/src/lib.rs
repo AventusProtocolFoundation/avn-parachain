@@ -25,7 +25,7 @@
 //!
 //! At the start of every era,
 //! * issuance is calculated for collators (and their nominators) for block authoring
-//! `T::RewardPaymentDelay` eras ago
+//! `T::RewardPaymentDelay::get()` eras ago
 //! * a new set of collators is chosen from the candidates
 //!
 //! Immediately following a era change, payments are made once-per-block until all payments have
@@ -36,7 +36,7 @@
 //! To leave the set of candidates, call `schedule_leave_candidates`. If the call succeeds,
 //! the collator is removed from the pool of candidates so they cannot be selected for future
 //! collator sets, but they are not unbonded until their exit request is executed. Any signed
-//! account may trigger the exit `T::LeaveCandidatesDelay` eras after the era in which the
+//! account may trigger the exit `<Delay<T>>::get()` eras after the era in which the
 //! original request was made.
 //!
 //! To join the set of nominators, call `nominate` and pass in an account that is
@@ -127,21 +127,6 @@ pub mod pallet {
         /// Minimum number of blocks per era
         #[pallet::constant]
         type MinBlocksPerEra: Get<u32>;
-        /// Number of eras that candidates remain bonded before exit request is executable
-        #[pallet::constant]
-        type LeaveCandidatesDelay: Get<EraIndex>;
-        /// Number of eras candidate requests to decrease self-bond must wait to be executable
-        #[pallet::constant]
-        type CandidateBondLessDelay: Get<EraIndex>;
-        /// Number of eras that nominators remain bonded before exit request is executable
-        #[pallet::constant]
-        type LeaveNominatorsDelay: Get<EraIndex>;
-        /// Number of eras that nominations remain bonded before revocation request is executable
-        #[pallet::constant]
-        type RevokeNominationDelay: Get<EraIndex>;
-        /// Number of eras that nomination less requests must wait before executable
-        #[pallet::constant]
-        type NominationBondLessDelay: Get<EraIndex>;
         /// Number of eras after which block authors are rewarded
         #[pallet::constant]
         type RewardPaymentDelay: Get<EraIndex>;
@@ -395,6 +380,11 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::getter(fn delay)]
+    /// Number of eras to wait before executing any staking action
+    pub type Delay<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
+
+    #[pallet::storage]
     #[pallet::getter(fn total_selected)]
     /// The total candidates selected every era
     type TotalSelected<T: Config> = StorageValue<_, u32, ValueQuery>;
@@ -548,12 +538,13 @@ pub mod pallet {
         /// Vec of tuples of the format (nominator AccountId, collator AccountId, nomination
         /// Amount)
         pub nominations: Vec<(T::AccountId, T::AccountId, BalanceOf<T>)>,
+        pub delay: EraIndex,
     }
 
     #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { candidates: vec![], nominations: vec![] }
+            Self { candidates: vec![], nominations: vec![], delay: Default::default() }
         }
     }
 
@@ -611,14 +602,22 @@ pub mod pallet {
                     };
                 }
             }
+
+            // Validate and set delay
+            assert!(self.delay > 0, "Delay must be greater than 0.");
+            <Delay<T>>::put(self.delay);
+
             // Set total selected candidates to minimum config
             <TotalSelected<T>>::put(T::MinSelectedCandidates::get());
+
             // Choose top TotalSelected collator candidates
             let (v_count, _, total_staked) = <Pallet<T>>::select_top_candidates(1u32);
+
             // Start Era 1 at Block 0. Set the genesis era length too.
             let era: EraInfo<T::BlockNumber> =
                 EraInfo::new(1u32, 0u32.into(), T::MinBlocksPerEra::get() + 2);
             <Era<T>>::put(era);
+
             // Snapshot total stake
             <Staked<T>>::insert(1u32, <Total<T>>::get());
 
