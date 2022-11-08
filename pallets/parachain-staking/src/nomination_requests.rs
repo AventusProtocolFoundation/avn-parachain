@@ -18,8 +18,8 @@
 
 use crate::{
     pallet::{
-        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event, NominationScheduledRequests,
-        NominatorState, Pallet, Total,
+        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event,
+        NominationScheduledRequests, NominatorState, Pallet, Total,
     },
     Nominator, NominatorStatus,
 };
