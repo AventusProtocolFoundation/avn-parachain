@@ -6,8 +6,6 @@ use crate::{
 use sp_runtime::traits::BadOrigin;
 use frame_support::{assert_ok, assert_noop};
 use frame_system::RawOrigin;
-
-
 mod delay_admin_setting {
     use super::*;
 
