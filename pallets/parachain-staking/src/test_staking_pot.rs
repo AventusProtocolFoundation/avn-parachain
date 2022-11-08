@@ -6,19 +6,19 @@ pub const ONE_TOKEN: u128 = 1_000000_000000_000000u128;
 pub const AMOUNT_100_TOKEN: u128 = 100 * ONE_TOKEN;
 
 fn collator_1() -> AccountId {
-    return TestAccount::new(1u64).account_id();
+    return TestAccount::new(1u64).account_id()
 }
 
 fn collator_3() -> AccountId {
-    return TestAccount::new(3u64).account_id();
+    return TestAccount::new(3u64).account_id()
 }
 
 fn collator_4() -> AccountId {
-    return TestAccount::new(4u64).account_id();
+    return TestAccount::new(4u64).account_id()
 }
 
 fn non_collator_account_id() -> AccountId {
-    return TestAccount::new(2u64).account_id();
+    return TestAccount::new(2u64).account_id()
 }
 
 fn get_total_balance_of_collators(collator_account_ids: &Vec<AccountId>) -> u128 {
@@ -35,7 +35,12 @@ fn fee_is_added_to_pot() {
     let collator_3 = collator_3();
 
     ExtBuilder::default()
-        .with_balances(vec![(collator_1, 20), (non_collator_account_id(), 40), (collator_3, 20), (collator_4(), 20)])
+        .with_balances(vec![
+            (collator_1, 20),
+            (non_collator_account_id(), 40),
+            (collator_3, 20),
+            (collator_4(), 20),
+        ])
         .with_candidates(vec![(collator_1, 20), (collator_3, 20), (collator_4(), 20)])
         .build()
         .execute_with(|| {
@@ -45,7 +50,8 @@ fn fee_is_added_to_pot() {
 
             let sender_balance = Balances::free_balance(sender);
             let staking_pot_balance = ParachainStaking::reward_pot();
-            let total_collators_balance = get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]);
+            let total_collators_balance =
+                get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]);
 
             let no_tip = 0u128;
             pay_gas_for_transaction(&sender, no_tip);
@@ -54,7 +60,10 @@ fn fee_is_added_to_pot() {
             assert_eq!(Balances::free_balance(sender), sender_balance - fee);
 
             // Collator balances remain the same
-            assert_eq!(get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]), total_collators_balance);
+            assert_eq!(
+                get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]),
+                total_collators_balance
+            );
 
             // New pot balance has increased
             assert_eq!(ParachainStaking::reward_pot(), staking_pot_balance + fee);
@@ -67,7 +76,12 @@ fn fee_is_accumulated_to_pot() {
     let collator_3 = collator_3();
 
     ExtBuilder::default()
-        .with_balances(vec![(collator_1, 20), (non_collator_account_id(), 40), (collator_3, 20), (collator_4(), 20)])
+        .with_balances(vec![
+            (collator_1, 20),
+            (non_collator_account_id(), 40),
+            (collator_3, 20),
+            (collator_4(), 20),
+        ])
         .with_candidates(vec![(collator_1, 20), (collator_3, 20), (collator_4(), 20)])
         .build()
         .execute_with(|| {
@@ -77,7 +91,8 @@ fn fee_is_accumulated_to_pot() {
 
             let sender_balance = Balances::free_balance(sender);
             let staking_pot_balance = ParachainStaking::reward_pot();
-            let total_collators_balance = get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]);
+            let total_collators_balance =
+                get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]);
 
             let no_tip = 0u128;
             pay_gas_for_transaction(&sender, no_tip);
@@ -89,7 +104,10 @@ fn fee_is_accumulated_to_pot() {
             assert_eq!(Balances::free_balance(sender), sender_balance - fee * 2);
 
             // Collator balances remain the same
-            assert_eq!(get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]), total_collators_balance);
+            assert_eq!(
+                get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]),
+                total_collators_balance
+            );
 
             // New pot balance has increased again
             assert_eq!(ParachainStaking::reward_pot(), staking_pot_balance + fee * 2);
@@ -102,7 +120,12 @@ fn fee_and_tip_is_added_to_pot() {
     let collator_3 = collator_3();
 
     ExtBuilder::default()
-        .with_balances(vec![(collator_1, 20), (non_collator_account_id(), 40), (collator_3, 20), (collator_4(), 20)])
+        .with_balances(vec![
+            (collator_1, 20),
+            (non_collator_account_id(), 40),
+            (collator_3, 20),
+            (collator_4(), 20),
+        ])
         .with_candidates(vec![(collator_1, 20), (collator_3, 20), (collator_4(), 20)])
         .build()
         .execute_with(|| {
@@ -113,7 +136,8 @@ fn fee_and_tip_is_added_to_pot() {
 
             let sender_balance = Balances::free_balance(sender);
             let staking_pot_balance = ParachainStaking::reward_pot();
-            let total_collators_balance = get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]);
+            let total_collators_balance =
+                get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]);
 
             pay_gas_for_transaction(&sender, tip);
 
@@ -121,7 +145,10 @@ fn fee_and_tip_is_added_to_pot() {
             assert_eq!(Balances::free_balance(sender), sender_balance - fee - tip);
 
             // Collator balances remain the same
-            assert_eq!(get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]), total_collators_balance);
+            assert_eq!(
+                get_total_balance_of_collators(&vec![collator_1, collator_3, collator_4()]),
+                total_collators_balance
+            );
 
             // New pot balance has increased
             assert_eq!(ParachainStaking::reward_pot(), staking_pot_balance + fee + tip);

@@ -29,6 +29,7 @@ use frame_support::{
 use frame_system::limits;
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
+use parity_scale_codec::{Decode, Encode};
 use sp_core::{sr25519, Pair, H256};
 use sp_io;
 use sp_runtime::{
@@ -36,7 +37,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     Perbill, SaturatedConversion,
 };
-use parity_scale_codec::{Encode, Decode};
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
@@ -78,11 +78,11 @@ impl TestAccount {
     }
 
     pub fn account_id(&self) -> AccountId {
-        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap();
+        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap()
     }
 
     pub fn key_pair(&self) -> sr25519::Pair {
-        return sr25519::Pair::from_seed(&self.seed);
+        return sr25519::Pair::from_seed(&self.seed)
     }
 
     fn into_32_bytes(account: &u64) -> [u8; 32] {
@@ -356,7 +356,7 @@ pub(crate) fn roll_to(n: u64) -> u64 {
 
 // This matches the genesis era length
 pub fn get_default_block_per_era() -> u64 {
-    return MinBlocksPerEra::get() as u64 + 2;
+    return MinBlocksPerEra::get() as u64 + 2
 }
 
 /// Rolls block-by-block to the beginning of the specified era.
@@ -549,9 +549,7 @@ fn genesis() {
     let user_8 = TestAccount::new(8u64).account_id();
     let user_9 = TestAccount::new(9u64).account_id();
 
-    let acc = |id: u64| -> AccountId {
-        TestAccount::new(id).account_id()
-    };
+    let acc = |id: u64| -> AccountId { TestAccount::new(id).account_id() };
 
     ExtBuilder::default()
         .with_balances(vec![
@@ -566,7 +564,12 @@ fn genesis() {
             (user_9, 4),
         ])
         .with_candidates(vec![(collator_1, 500), (collator_2, 200)])
-        .with_nominations(vec![(nominator_3, collator_1, 100), (nominator_4, collator_1, 100), (nominator_5, collator_2, 100), (nominator_6, collator_2, 100)])
+        .with_nominations(vec![
+            (nominator_3, collator_1, 100),
+            (nominator_4, collator_1, 100),
+            (nominator_5, collator_2, 100),
+            (nominator_6, collator_2, 100),
+        ])
         .build()
         .execute_with(|| {
             assert!(System::events().is_empty());
@@ -602,7 +605,6 @@ fn genesis() {
             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_9), 4);
         });
 
-
     let collator_1 = TestAccount::new(1u64).account_id();
     let collator_2 = TestAccount::new(2u64).account_id();
     let collator_3 = TestAccount::new(3u64).account_id();
@@ -626,8 +628,20 @@ fn genesis() {
             (nominator_9, 100),
             (nominator_10, 100),
         ])
-        .with_candidates(vec![(collator_1, 20), (collator_2, 20), (collator_3, 20), (collator_4, 20), (collator_5, 10)])
-        .with_nominations(vec![(nominator_6, collator_1, 10), (nominator_7, collator_1, 10), (nominator_8, collator_2, 10), (nominator_9, collator_2, 10), (nominator_10, collator_1, 10)])
+        .with_candidates(vec![
+            (collator_1, 20),
+            (collator_2, 20),
+            (collator_3, 20),
+            (collator_4, 20),
+            (collator_5, 10),
+        ])
+        .with_nominations(vec![
+            (nominator_6, collator_1, 10),
+            (nominator_7, collator_1, 10),
+            (nominator_8, collator_2, 10),
+            (nominator_9, collator_2, 10),
+            (nominator_10, collator_1, 10),
+        ])
         .build()
         .execute_with(|| {
             assert!(System::events().is_empty());
