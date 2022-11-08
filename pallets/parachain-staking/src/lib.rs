@@ -40,7 +40,7 @@
 //! original request was made.
 //!
 //! To join the set of nominators, call `nominate` and pass in an account that is
-//! already a collator candidate and `bond >= MinNominatorStk`. Each nominator can nominate up to
+//! already a collator candidate and `bond >= MinNominatorStake`. Each nominator can nominate up to
 //! `T::MaxNominationsPerNominator` collator candidates by calling `nominate`.
 //!
 //! To revoke a nomination, call `revoke_nomination` with the collator candidate's account.
@@ -145,9 +145,6 @@ pub mod pallet {
         /// Minimum stake for any registered on-chain account to nominate
         #[pallet::constant]
         type MinNomination: Get<BalanceOf<Self>>;
-        /// Minimum stake for any registered on-chain account to be a nominator
-        #[pallet::constant]
-        type MinNominatorStk: Get<BalanceOf<Self>>;
         /// Number of eras to wait before we process a new growth period
         type ErasPerGrowthPeriod: Get<GrowthPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
@@ -531,6 +528,11 @@ pub mod pallet {
     /// Minimum stake required for any candidate to be a collator
     pub type MinCollatorStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn min_nominator_stake)]
+    /// Minimum stake for any registered on-chain account to be a nominator
+    pub type MinNominatorStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub candidates: Vec<(T::AccountId, BalanceOf<T>)>,
@@ -539,6 +541,7 @@ pub mod pallet {
         pub nominations: Vec<(T::AccountId, T::AccountId, BalanceOf<T>)>,
         pub delay: EraIndex,
         pub min_collator_stake: BalanceOf<T>,
+        pub min_nominator_stake: BalanceOf<T>,
     }
 
     #[cfg(feature = "std")]
@@ -549,6 +552,7 @@ pub mod pallet {
                 nominations: vec![],
                 delay: Default::default(),
                 min_collator_stake: Default::default(),
+                min_nominator_stake: Default::default(),
             }
         }
     }
@@ -612,7 +616,9 @@ pub mod pallet {
             assert!(self.delay > 0, "Delay must be greater than 0.");
             <Delay<T>>::put(self.delay);
 
+            // Set min staking values
             <MinCollatorStake<T>>::put(self.min_collator_stake);
+            <MinNominatorStake<T>>::put(self.min_nominator_stake);
 
             // Set total selected candidates to minimum config
             <TotalSelected<T>>::put(T::MinSelectedCandidates::get());
@@ -986,7 +992,7 @@ pub mod pallet {
                 state
             } else {
                 // first nomination
-                ensure!(amount >= T::MinNominatorStk::get(), Error::<T>::NominatorBondBelowMin);
+                ensure!(amount >= <MinNominatorStake<T>>::get(), Error::<T>::NominatorBondBelowMin);
                 ensure!(!Self::is_candidate(&nominator), Error::<T>::CandidateExists);
                 Nominator::new(nominator.clone(), candidate.clone(), amount)
             };
