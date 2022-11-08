@@ -32,7 +32,7 @@
 //! been made. In each such block, one collator is chosen for a rewards payment and is paid along
 //! with each of its top `T::MaxTopNominationsPerCandidate` nominators.
 //!
-//! To join the set of candidates, call `join_candidates` with `bond >= MinCandidateStk`.
+//! To join the set of candidates, call `join_candidates` with `bond >= MinCollatorStake`.
 //! To leave the set of candidates, call `schedule_leave_candidates`. If the call succeeds,
 //! the collator is removed from the pool of candidates so they cannot be selected for future
 //! collator sets, but they are not unbonded until their exit request is executed. Any signed
@@ -142,12 +142,6 @@ pub mod pallet {
         /// Maximum nominations per nominator
         #[pallet::constant]
         type MaxNominationsPerNominator: Get<u32>;
-        /// Minimum stake required for any candidate to be in `SelectedCandidates` for the era
-        #[pallet::constant]
-        type MinCollatorStk: Get<BalanceOf<Self>>;
-        /// Minimum stake required for any account to be a collator candidate
-        #[pallet::constant]
-        type MinCandidateStk: Get<BalanceOf<Self>>;
         /// Minimum stake for any registered on-chain account to nominate
         #[pallet::constant]
         type MinNomination: Get<BalanceOf<Self>>;
@@ -532,6 +526,11 @@ pub mod pallet {
     #[pallet::getter(fn new_era_forced)]
     pub(crate) type ForceNewEra<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn min_collator_stake)]
+    /// Minimum stake required for any candidate to be a collator
+    pub type MinCollatorStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub candidates: Vec<(T::AccountId, BalanceOf<T>)>,
@@ -539,12 +538,18 @@ pub mod pallet {
         /// Amount)
         pub nominations: Vec<(T::AccountId, T::AccountId, BalanceOf<T>)>,
         pub delay: EraIndex,
+        pub min_collator_stake: BalanceOf<T>,
     }
 
     #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { candidates: vec![], nominations: vec![], delay: Default::default() }
+            Self {
+                candidates: vec![],
+                nominations: vec![],
+                delay: Default::default(),
+                min_collator_stake: Default::default(),
+            }
         }
     }
 
@@ -606,6 +611,8 @@ pub mod pallet {
             // Validate and set delay
             assert!(self.delay > 0, "Delay must be greater than 0.");
             <Delay<T>>::put(self.delay);
+
+            <MinCollatorStake<T>>::put(self.min_collator_stake);
 
             // Set total selected candidates to minimum config
             <TotalSelected<T>>::put(T::MinSelectedCandidates::get());
@@ -688,7 +695,7 @@ pub mod pallet {
             let acc = ensure_signed(origin)?;
             ensure!(!Self::is_candidate(&acc), Error::<T>::CandidateExists);
             ensure!(!Self::is_nominator(&acc), Error::<T>::NominatorExists);
-            ensure!(bond >= T::MinCandidateStk::get(), Error::<T>::CandidateBondBelowMin);
+            ensure!(bond >= <MinCollatorStake<T>>::get(), Error::<T>::CandidateBondBelowMin);
             let mut candidates = <CandidatePool<T>>::get();
             let old_count = candidates.0.len() as u32;
             ensure!(
@@ -1405,7 +1412,7 @@ pub mod pallet {
                 .into_iter()
                 .rev()
                 .take(top_n)
-                .filter(|x| x.amount >= T::MinCollatorStk::get())
+                .filter(|x| x.amount >= <MinCollatorStake<T>>::get())
                 .map(|x| x.owner)
                 .collect::<Vec<T::AccountId>>();
             collators.sort();
