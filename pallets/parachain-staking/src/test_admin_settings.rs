@@ -1,23 +1,27 @@
 #[cfg(test)]
-use crate::mock::{ ExtBuilder, Origin, ParachainStaking, Test, Event as MetaEvent, MinNomination, TestAccount};
-use crate::{
-    assert_last_event, Event, AdminSettings, MinCollatorStake, MinNominatorStake, Delay , BalanceOf, Error
+use crate::mock::{
+    Event as MetaEvent, ExtBuilder, MinNomination, Origin, ParachainStaking, Test, TestAccount,
 };
-use sp_runtime::traits::BadOrigin;
-use frame_support::{assert_ok, assert_noop};
+use crate::{
+    assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event, MinCollatorStake,
+    MinNominatorStake,
+};
+use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
+use sp_runtime::traits::BadOrigin;
 mod delay_admin_setting {
     use super::*;
 
     #[test]
     fn can_be_updated() {
-        ExtBuilder::default()
-        .build()
-        .execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let new_delay_value = <Delay<Test>>::get() - 1;
             let new_delay_setting = AdminSettings::<BalanceOf<Test>>::Delay(new_delay_value);
 
-            assert_ok!(ParachainStaking::set_admin_setting(Origin::root(), new_delay_setting.clone()));
+            assert_ok!(ParachainStaking::set_admin_setting(
+                Origin::root(),
+                new_delay_setting.clone()
+            ));
 
             assert_eq!(<Delay<Test>>::get(), new_delay_value);
             assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
@@ -28,14 +32,15 @@ mod delay_admin_setting {
 
     #[test]
     fn updating_fails_if_not_signed() {
-        ExtBuilder::default()
-        .build()
-        .execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let new_delay_value = <Delay<Test>>::get() - 1;
             let new_delay_setting = AdminSettings::<BalanceOf<Test>>::Delay(new_delay_value);
 
             assert_noop!(
-                ParachainStaking::set_admin_setting(RawOrigin::None.into(), new_delay_setting.clone()),
+                ParachainStaking::set_admin_setting(
+                    RawOrigin::None.into(),
+                    new_delay_setting.clone()
+                ),
                 BadOrigin
             );
         });
@@ -43,15 +48,16 @@ mod delay_admin_setting {
 
     #[test]
     fn updating_fails_if_sender_not_root() {
-        ExtBuilder::default()
-        .build()
-        .execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let non_root_sender = TestAccount::new(20).account_id();
             let new_delay_value = <Delay<Test>>::get() - 1;
             let new_delay_setting = AdminSettings::<BalanceOf<Test>>::Delay(new_delay_value);
 
             assert_noop!(
-                ParachainStaking::set_admin_setting(Origin::signed(non_root_sender), new_delay_setting.clone()),
+                ParachainStaking::set_admin_setting(
+                    Origin::signed(non_root_sender),
+                    new_delay_setting.clone()
+                ),
                 BadOrigin
             );
         });
@@ -59,9 +65,7 @@ mod delay_admin_setting {
 
     #[test]
     fn updating_fails_if_delay_is_0() {
-        ExtBuilder::default()
-        .build()
-        .execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let bad_delay_value = 0;
             let new_delay_setting = AdminSettings::<BalanceOf<Test>>::Delay(bad_delay_value);
 
@@ -71,7 +75,6 @@ mod delay_admin_setting {
             );
         });
     }
-
 }
 
 mod min_nominator_stake_admin_setting {
@@ -79,13 +82,15 @@ mod min_nominator_stake_admin_setting {
 
     #[test]
     fn can_be_updated() {
-        ExtBuilder::default()
-        .build()
-        .execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let new_min_value = <MinNominatorStake<Test>>::get() - 1;
-            let new_min_setting = AdminSettings::<BalanceOf<Test>>::MinNominatorStake(new_min_value);
+            let new_min_setting =
+                AdminSettings::<BalanceOf<Test>>::MinNominatorStake(new_min_value);
 
-            assert_ok!(ParachainStaking::set_admin_setting(Origin::root(), new_min_setting.clone()));
+            assert_ok!(ParachainStaking::set_admin_setting(
+                Origin::root(),
+                new_min_setting.clone()
+            ));
 
             assert_eq!(<MinNominatorStake<Test>>::get(), new_min_value);
             assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
@@ -96,11 +101,10 @@ mod min_nominator_stake_admin_setting {
 
     #[test]
     fn updating_fails_if_value_is_below_min_nominations() {
-        ExtBuilder::default()
-        .build()
-        .execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let bad_min_value = MinNomination::get() - 1;
-            let new_min_setting = AdminSettings::<BalanceOf<Test>>::MinNominatorStake(bad_min_value);
+            let new_min_setting =
+                AdminSettings::<BalanceOf<Test>>::MinNominatorStake(bad_min_value);
 
             assert_noop!(
                 ParachainStaking::set_admin_setting(Origin::root(), new_min_setting.clone()),
@@ -115,13 +119,14 @@ mod min_collator_stake_admin_setting {
 
     #[test]
     fn can_be_updated() {
-        ExtBuilder::default()
-        .build()
-        .execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let new_min_value = <MinCollatorStake<Test>>::get() - 1;
             let new_min_setting = AdminSettings::<BalanceOf<Test>>::MinCollatorStake(new_min_value);
 
-            assert_ok!(ParachainStaking::set_admin_setting(Origin::root(), new_min_setting.clone()));
+            assert_ok!(ParachainStaking::set_admin_setting(
+                Origin::root(),
+                new_min_setting.clone()
+            ));
 
             assert_eq!(<MinCollatorStake<Test>>::get(), new_min_value);
             assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
@@ -132,13 +137,14 @@ mod min_collator_stake_admin_setting {
 
     #[test]
     fn can_be_set_to_0() {
-        ExtBuilder::default()
-        .build()
-        .execute_with(|| {
+        ExtBuilder::default().build().execute_with(|| {
             let new_min_value = 0;
             let new_min_setting = AdminSettings::<BalanceOf<Test>>::MinCollatorStake(new_min_value);
 
-            assert_ok!(ParachainStaking::set_admin_setting(Origin::root(), new_min_setting.clone()));
+            assert_ok!(ParachainStaking::set_admin_setting(
+                Origin::root(),
+                new_min_setting.clone()
+            ));
 
             assert_eq!(<MinCollatorStake<Test>>::get(), new_min_value);
             assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
@@ -147,7 +153,3 @@ mod min_collator_stake_admin_setting {
         });
     }
 }
-
-
-
-

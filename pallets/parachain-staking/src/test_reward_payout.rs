@@ -1,26 +1,26 @@
 #[cfg(test)]
 use crate::mock::{
-    AccountId, pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, Balances, ExtBuilder,
-    ParachainStaking, BASE_FEE, TestAccount, TX_LEN,
+    pay_gas_for_transaction, roll_one_block, roll_to_era_begin, set_author, AccountId, Balances,
+    ExtBuilder, ParachainStaking, TestAccount, BASE_FEE, TX_LEN,
 };
 use crate::{assert_eq_events, assert_event_emitted, Event};
 use frame_support::traits::Currency;
 use sp_runtime::{traits::Zero, Perbill};
 
 fn collator_1() -> AccountId {
-    return TestAccount::new(1u64).account_id();
+    return TestAccount::new(1u64).account_id()
 }
 
 fn collator_2() -> AccountId {
-    return TestAccount::new(2u64).account_id();
+    return TestAccount::new(2u64).account_id()
 }
 
 fn tx_sender() -> AccountId {
-    return TestAccount::new(3u64).account_id();
+    return TestAccount::new(3u64).account_id()
 }
 
 fn nominator() -> AccountId {
-    return TestAccount::new(4u64).account_id();
+    return TestAccount::new(4u64).account_id()
 }
 
 const ERA_BLOCKS_HAVE_BEEN_AUTHORED: u32 = 1;

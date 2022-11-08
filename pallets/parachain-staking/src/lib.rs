@@ -49,9 +49,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod nomination_requests;
+pub mod proxy_methods;
 pub mod session_handler;
 pub mod types;
-pub mod proxy_methods;
 pub mod weights;
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -60,13 +60,13 @@ mod benchmarks;
 mod mock;
 mod set;
 #[cfg(test)]
+mod test_admin_settings;
+#[cfg(test)]
 mod test_reward_payout;
 #[cfg(test)]
 mod test_staking_pot;
 #[cfg(test)]
 mod tests;
-#[cfg(test)]
-mod test_admin_settings;
 
 use frame_support::pallet;
 use pallet_avn::OnGrowthLiftedHandler;
@@ -88,22 +88,25 @@ pub mod pallet {
         WeightInfo,
     };
     use frame_support::{
-        weights::{GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
         traits::{
-            tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance,
-            LockIdentifier, LockableCurrency, ReservableCurrency, IsSubType
+            tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance, IsSubType,
+            LockIdentifier, LockableCurrency, ReservableCurrency,
         },
+        weights::{GetDispatchInfo, PostDispatchInfo},
         PalletId,
     };
     use frame_system::pallet_prelude::*;
     use pallet_avn::ProcessedEventsChecker;
+    use sp_avn_common::Proof;
     use sp_runtime::{
-        traits::{Dispatchable, AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Saturating, Zero, IdentifyAccount, Verify, Member, StaticLookup},
+        traits::{
+            AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Dispatchable, IdentifyAccount,
+            Member, Saturating, StaticLookup, Verify, Zero,
+        },
         Perbill,
     };
     use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-    use sp_avn_common::{Proof};
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -223,7 +226,7 @@ pub mod pallet {
         UnauthorizedProxyTransaction,
         SenderIsNotSigner,
         UnauthorizedSignedNominateTransaction,
-        AdminSettingsValueIsNotValid
+        AdminSettingsValueIsNotValid,
     }
 
     #[pallet::event]
@@ -369,7 +372,7 @@ pub mod pallet {
         /// A collator has been paid for producing blocks
         CollatorPaid { account: T::AccountId, amount: BalanceOf<T>, period: GrowthPeriodIndex },
         /// An admin settings value has been updated
-        AdminSettingsUpdated {value: AdminSettings<BalanceOf<T>>}
+        AdminSettingsUpdated { value: AdminSettings<BalanceOf<T>> },
     }
 
     #[pallet::hooks]
@@ -378,7 +381,9 @@ pub mod pallet {
             let mut weight = <T as Config>::WeightInfo::base_on_initialize();
             let mut era = <Era<T>>::get();
             if era.should_update(n) {
-                (era, weight) = Self::start_new_era(n, era);
+                let start_new_era_weight;
+                (era, start_new_era_weight) = Self::start_new_era(n, era);
+                weight = weight.saturating_add(start_new_era_weight);
             }
 
             weight = weight.saturating_add(Self::handle_delayed_payouts(era.current));
@@ -580,7 +585,8 @@ pub mod pallet {
                 nominations: vec![],
                 delay: Default::default(),
                 min_collator_stake: Default::default(),
-                min_nominator_stake: Default::default() }
+                min_nominator_stake: Default::default(),
+            }
         }
     }
 
@@ -1066,15 +1072,17 @@ pub mod pallet {
         pub fn signed_nominate(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
-            targets: Vec<<T::Lookup as StaticLookup>::Source>) -> DispatchResult
-        {
+            targets: Vec<<T::Lookup as StaticLookup>::Source>,
+        ) -> DispatchResult {
             let staker = ensure_signed(origin)?;
             ensure!(staker == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let staker_nonce = Self::proxy_nonce(&staker);
             let signed_payload = encode_signed_nominate_params::<T>(&proof, &targets, staker_nonce);
-            ensure!(verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
-                Error::<T>::UnauthorizedSignedNominateTransaction);
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedNominateTransaction
+            );
 
             // TODO: Complete me
             Ok(())
@@ -1201,7 +1209,10 @@ pub mod pallet {
 
         // TODO: Benchmark me
         #[pallet::weight(0)]
-        pub fn set_admin_setting(origin: OriginFor<T>, value: AdminSettings<BalanceOf<T>>) -> DispatchResult {
+        pub fn set_admin_setting(
+            origin: OriginFor<T>,
+            value: AdminSettings<BalanceOf<T>>,
+        ) -> DispatchResult {
             frame_system::ensure_root(origin)?;
             ensure!(value.is_valid::<T>(), Error::<T>::AdminSettingsValueIsNotValid);
 
@@ -1244,7 +1255,10 @@ pub mod pallet {
                 total_balance: total_staked,
             });
 
-            let weight = <T as Config>::WeightInfo::era_transition_on_initialize(collator_count, nomination_count);
+            let weight = <T as Config>::WeightInfo::era_transition_on_initialize(
+                collator_count,
+                nomination_count,
+            );
             return (era, weight)
         }
 

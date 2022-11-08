@@ -17,9 +17,9 @@
 //! Types for parachain-staking
 
 use crate::{
-    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era, EraIndex, Error,
-    Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet, RewardPoint, TopNominations, Total,
-    COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era, EraIndex,
+    Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet, RewardPoint,
+    TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
     pallet_prelude::*,
@@ -1422,22 +1422,26 @@ pub enum AdminSettings<Balance> {
 }
 
 impl<
-    Balance: Copy
-        + sp_std::ops::AddAssign
-        + sp_std::ops::Add<Output = Balance>
-        + sp_std::ops::SubAssign
-        + sp_std::ops::Sub<Output = Balance>
-        + Ord
-        + Zero
-        + Default
-        + Saturating,
-    > AdminSettings<Balance> {
+        Balance: Copy
+            + sp_std::ops::AddAssign
+            + sp_std::ops::Add<Output = Balance>
+            + sp_std::ops::SubAssign
+            + sp_std::ops::Sub<Output = Balance>
+            + Ord
+            + Zero
+            + Default
+            + Saturating,
+    > AdminSettings<Balance>
+{
     #[allow(unreachable_patterns)]
-    pub fn is_valid<T: Config>(&self) -> bool where Balance: From<BalanceOf<T>>
+    pub fn is_valid<T: Config>(&self) -> bool
+    where
+        Balance: From<BalanceOf<T>>,
     {
         return match self {
             AdminSettings::Delay(d) => d > &0,
-            AdminSettings::MinNominatorStake(s) => s >= &<<T as Config>::MinNomination as Get<BalanceOf<T>>>::get().into(),
+            AdminSettings::MinNominatorStake(s) =>
+                s >= &<<T as Config>::MinNomination as Get<BalanceOf<T>>>::get().into(),
             AdminSettings::MinCollatorStake(_) => true,
             _ => false,
         }
