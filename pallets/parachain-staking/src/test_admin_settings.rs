@@ -58,7 +58,7 @@ mod delay_admin_setting {
     }
 
     #[test]
-    fn fails_if_delay_is_0() {
+    fn updating_fails_if_delay_is_0() {
         ExtBuilder::default()
         .build()
         .execute_with(|| {
