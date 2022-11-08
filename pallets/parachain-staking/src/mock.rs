@@ -27,12 +27,13 @@ use frame_support::{
     PalletId,
 };
 use frame_system::limits;
+use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup, SignedExtension},
+    testing::{Header, UintAuthorityId},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension},
     Perbill, SaturatedConversion,
 };
 
@@ -55,6 +56,8 @@ construct_runtime!(
         ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
         Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
+        AVN: pallet_avn::{Pallet, Storage},
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
     }
 );
 
@@ -237,6 +240,26 @@ impl WeightToFeeT for TransactionByteFee {
         Self::Balance::saturated_from(*weight)
             .saturating_mul(TRANSACTION_BYTE_FEE.with(|v| *v.borrow()))
     }
+}
+
+impl pallet_avn::Config for Test {
+    type AuthorityId = UintAuthorityId;
+    type EthereumPublicKeyChecker = ();
+    type NewSessionHandler = ();
+    type DisabledValidatorChecker = ();
+    type FinalisedBlockChecker = ();
+}
+
+impl session::Config for Test {
+    type SessionManager = ParachainStaking;
+    type Keys = UintAuthorityId;
+    type ShouldEndSession = ParachainStaking;
+    type SessionHandler = (AVN,);
+    type Event = Event;
+    type ValidatorId = AccountId;
+    type ValidatorIdOf = ConvertInto;
+    type NextSessionRotation = ParachainStaking;
+    type WeightInfo = ();
 }
 
 pub(crate) struct ExtBuilder {

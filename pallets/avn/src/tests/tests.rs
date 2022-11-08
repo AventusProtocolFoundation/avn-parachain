@@ -1,4 +1,4 @@
-use crate::mock::{extension_builder::ExtBuilder, *};
+use crate::mock::*;
 use sp_runtime::testing::UintAuthorityId;
 
 #[test]

@@ -19,7 +19,6 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 
 use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
-use pallet_session::{self as session};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     event_types::{EthEventId, Validator},
@@ -37,7 +36,6 @@ use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use core::convert::TryInto;
 pub use pallet::*;
-use pallet_collator_selection as collator_selection;
 use sp_core::ecdsa;
 
 #[path = "tests/testing.rs"]
@@ -62,7 +60,7 @@ pub mod pallet {
     use super::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + session::Config + collator_selection::Config {
+    pub trait Config: frame_system::Config {
         /// The identifier type for an authority.
         type AuthorityId: Member
             + Parameter
@@ -421,39 +419,6 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 
     fn on_disabled(_i: u32) {
         // ignore
-    }
-}
-
-/// Provides the new set of validator_account_ids to the session module when a session is being
-/// rotated (ended).
-impl<T: Config> session::SessionManager<T::AccountId> for Pallet<T> {
-    fn new_session(new_index: u32) -> Option<Vec<T::AccountId>> {
-        let collators = <collator_selection::Pallet<T>>::new_session(new_index)
-            .or_else(|| Some(Vec::<T::AccountId>::new()))
-            .expect("We always have an iterable");
-
-        debug!(
-            "[AVN] assembling new collators for new session {} with these validators {:#?} at #{:?}",
-            new_index,
-            collators,
-            <frame_system::Pallet<T>>::block_number(),
-        );
-
-        return Some(collators)
-    }
-
-    fn end_session(end_index: u32) {
-        <collator_selection::Pallet<T>>::end_session(end_index);
-    }
-
-    fn start_session(start_index: u32) {
-        debug!(
-            "[validators-manager] starting new session {} at #{:?}",
-            start_index,
-            <frame_system::Pallet<T>>::block_number(),
-        );
-
-        <collator_selection::Pallet<T>>::start_session(start_index);
     }
 }
 

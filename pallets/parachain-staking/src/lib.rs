@@ -49,6 +49,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod nomination_requests;
+pub mod session_handler;
 pub mod traits;
 pub mod types;
 pub mod weights;
@@ -117,7 +118,7 @@ pub mod pallet {
 
     /// Configuration trait of this pallet.
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + pallet_session::Config {
         /// Overarching event type
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
         /// The currency type
@@ -385,33 +386,12 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: T::BlockNumber) -> Weight {
-            let mut weight = T::WeightInfo::base_on_initialize();
-
+            let mut weight = <T as Config>::WeightInfo::base_on_initialize();
             let mut era = <Era<T>>::get();
             if era.should_update(n) {
-                // mutate era
-                era.update(n);
-                // notify that new era begin
-                weight = weight.saturating_add(T::OnNewEra::on_new_era(era.current));
-                // pay all stakers for T::RewardPaymentDelay eras ago
-                Self::prepare_staking_payouts(era.current);
-                // select top collator candidates for next era
-                let (collator_count, nomination_count, total_staked) =
-                    Self::select_top_candidates(era.current);
-                // start next era
-                <Era<T>>::put(era);
-                // snapshot total stake
-                <Staked<T>>::insert(era.current, <Total<T>>::get());
-                Self::deposit_event(Event::NewEra {
-                    starting_block: era.first,
-                    era: era.current,
-                    selected_collators_number: collator_count,
-                    total_balance: total_staked,
-                });
-                weight = weight.saturating_add(T::WeightInfo::era_transition_on_initialize(
-                    collator_count,
-                    nomination_count,
-                ));
+                let start_new_era_weight;
+                (era, start_new_era_weight) = Self::start_new_era(n, era);
+                weight = weight.saturating_add(start_new_era_weight);
             }
 
             weight = weight.saturating_add(Self::handle_delayed_payouts(era.current));
@@ -567,7 +547,12 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn processed_growth_periods)]
-    pub type ProcessedGrowthPeriods<T: Config> = StorageMap<_, Twox64Concat, GrowthPeriodIndex, (), ValueQuery>;
+    pub type ProcessedGrowthPeriods<T: Config> =
+        StorageMap<_, Twox64Concat, GrowthPeriodIndex, (), ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn new_era_forced)]
+    pub(crate) type ForceNewEra<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -1160,6 +1145,44 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
+        pub fn start_new_era(
+            block_number: T::BlockNumber,
+            mut era: EraInfo<T::BlockNumber>,
+        ) -> (EraInfo<T::BlockNumber>, Weight) {
+            // mutate era
+            era.update(block_number);
+
+            // notify new era has begun
+            let mut weight = T::OnNewEra::on_new_era(era.current);
+
+            // pay all stakers for T::RewardPaymentDelay eras ago
+            Self::prepare_staking_payouts(era.current);
+
+            // select top collator candidates for next era
+            let (collator_count, nomination_count, total_staked) =
+                Self::select_top_candidates(era.current);
+
+            // start next era
+            <Era<T>>::put(era);
+            // snapshot total stake
+            <Staked<T>>::insert(era.current, <Total<T>>::get());
+
+            Self::deposit_event(Event::NewEra {
+                starting_block: era.first,
+                era: era.current,
+                selected_collators_number: collator_count,
+                total_balance: total_staked,
+            });
+
+            weight =
+                weight.saturating_add(<T as Config>::WeightInfo::era_transition_on_initialize(
+                    collator_count,
+                    nomination_count,
+                ));
+
+            return (era, weight)
+        }
+
         pub fn is_nominator(acc: &T::AccountId) -> bool {
             <NominatorState<T>>::get(acc).is_some()
         }
@@ -1387,7 +1410,8 @@ pub mod pallet {
 
                 (
                     Some((collator, total_reward_for_collator)),
-                    T::WeightInfo::pay_one_collator_reward(num_nominators as u32) + extra_weight,
+                    <T as Config>::WeightInfo::pay_one_collator_reward(num_nominators as u32) +
+                        extra_weight,
                 )
             } else {
                 // Note that we don't clean up storage here; it is cleaned up in
@@ -1630,7 +1654,10 @@ pub mod pallet {
 
         pub fn payout_collators(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
             // The only validation we do is checking for replays, for everything else we trust T1.
-            ensure!(<ProcessedGrowthPeriods<T>>::contains_key(growth_period) == false, Error::<T>::GrowthAlreadyProcessed);
+            ensure!(
+                <ProcessedGrowthPeriods<T>>::contains_key(growth_period) == false,
+                Error::<T>::GrowthAlreadyProcessed
+            );
 
             let pay = |collator_address: T::AccountId, amount: BalanceOf<T>| -> DispatchResult {
                 match T::Currency::deposit_into_existing(&collator_address, amount) {
@@ -1641,12 +1668,17 @@ pub mod pallet {
                             period: growth_period,
                         });
 
-                        return Ok(());
+                        return Ok(())
                     },
                     Err(e) => {
-                        log::error!("💔💔 Error paying {:?} AVT to collator {:?}: {:?}", amount, collator_address, e);
-                        return Err(Error::<T>::ErrorPayingCollator.into());
-                    }
+                        log::error!(
+                            "💔💔 Error paying {:?} AVT to collator {:?}: {:?}",
+                            amount,
+                            collator_address,
+                            e
+                        );
+                        return Err(Error::<T>::ErrorPayingCollator.into())
+                    },
                 }
             };
 
@@ -1662,7 +1694,6 @@ pub mod pallet {
                 // Tidy up state
                 <Growth<T>>::remove(growth_period);
                 <ProcessedGrowthPeriods<T>>::insert(growth_period, ());
-
             } else {
                 // use current candidates because there is no way of knowing who they were
                 let collators = <SelectedCandidates<T>>::get();
@@ -1693,7 +1724,7 @@ pub mod pallet {
             <Points<T>>::mutate(now, |x| *x = x.saturating_add(20));
 
             frame_system::Pallet::<T>::register_extra_weight_unchecked(
-                T::WeightInfo::note_author(),
+                <T as Config>::WeightInfo::note_author(),
                 DispatchClass::Mandatory,
             );
         }

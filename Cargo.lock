@@ -1531,7 +1531,6 @@ dependencies = [
  "hex-literal",
  "impl-trait-for-tuples",
  "pallet-balances",
- "pallet-collator-selection",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -1563,26 +1562,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-collator-selection"
-version = "3.0.0"
-source = "git+https://github.com/paritytech/cumulus?branch=polkadot-v0.9.27#b86cd207fc77af888f223c10363ae4d18a4b63b4"
-dependencies = [
- "frame-benchmarking",
- "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
- "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
- "log",
- "pallet-authorship",
- "pallet-session",
- "parity-scale-codec",
- "rand 0.8.5",
- "scale-info",
- "serde",
- "sp-runtime 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
- "sp-staking 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
- "sp-std 4.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
-]
-
-[[package]]
 name = "pallet-parachain-staking"
 version = "3.0.0"
 dependencies = [
@@ -1594,6 +1573,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-avn",
  "pallet-balances",
+ "pallet-session",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
