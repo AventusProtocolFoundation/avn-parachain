@@ -18,8 +18,8 @@
 
 use crate::{
     pallet::{
-        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event, MinNominatorStake, NominationScheduledRequests,
-        NominatorState, Pallet, Total,
+        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event, MinNominatorStake,
+        NominationScheduledRequests, NominatorState, Pallet, Total,
     },
     Nominator, NominatorStatus,
 };
@@ -210,7 +210,8 @@ impl<T: Config> Pallet<T> {
                     true
                 } else {
                     ensure!(
-                        state.total().saturating_sub(<MinNominatorStake<T>>::get().into()) >= amount,
+                        state.total().saturating_sub(<MinNominatorStake<T>>::get().into()) >=
+                            amount,
                         <Error<T>>::NominatorBondBelowMin
                     );
                     false

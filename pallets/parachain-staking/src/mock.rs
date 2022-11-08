@@ -325,7 +325,7 @@ pub(crate) fn roll_to(n: u64) -> u64 {
 
 // This matches the genesis era length
 pub fn get_default_block_per_era() -> u64 {
-    return MinBlocksPerEra::get() as u64 + 2;
+    return MinBlocksPerEra::get() as u64 + 2
 }
 
 /// Rolls block-by-block to the beginning of the specified era.
