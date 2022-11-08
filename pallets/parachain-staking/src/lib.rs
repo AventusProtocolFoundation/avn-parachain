@@ -551,7 +551,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn new_era_forced)]
-    pub(crate) type ForceNewEra<T: Config> = StorageValue<_, bool, ValueQuery>;
+    pub type ForceNewEra<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn min_collator_stake)]
