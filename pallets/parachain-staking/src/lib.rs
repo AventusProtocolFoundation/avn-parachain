@@ -1162,7 +1162,10 @@ pub mod pallet {
                 total_balance: total_staked,
             });
 
-            let weight = <T as Config>::WeightInfo::era_transition_on_initialize(collator_count, nomination_count);
+            let weight = <T as Config>::WeightInfo::era_transition_on_initialize(
+                collator_count,
+                nomination_count,
+            );
             return (era, weight)
         }
 
