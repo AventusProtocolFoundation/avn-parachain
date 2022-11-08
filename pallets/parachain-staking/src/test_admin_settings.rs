@@ -42,7 +42,7 @@ mod delay_admin_setting {
     }
 
     #[test]
-    fn fails_if_not_root() {
+    fn updating_fails_if_sender_not_root() {
         ExtBuilder::default()
         .build()
         .execute_with(|| {
