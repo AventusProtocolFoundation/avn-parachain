@@ -47,7 +47,7 @@ jobs:
               export BRANCH=${GITHUB_REF#refs/heads/}
               export REPO="https://github.com/${{ github.repository }}"
           fi
-          sed "s@$STRING_TO_CHANGE@\1\"$REPO\"\3\4\"$BRANCH\"\6@" */**/*.toml
+          sed -i "s@$STRING_TO_CHANGE@\1\"$REPO\"\3\4\"$BRANCH\"\6@" */**/*.toml
           echo "Changed following configs:"
           git diff
 
