@@ -78,7 +78,7 @@ mod min_nominator_stake_admin_setting {
     use super::*;
 
     #[test]
-    fn min_nominator_stake_admin_setting_can_be_updated() {
+    fn can_be_updated() {
         ExtBuilder::default()
         .build()
         .execute_with(|| {
