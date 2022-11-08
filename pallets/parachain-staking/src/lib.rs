@@ -91,7 +91,7 @@ pub mod pallet {
         pallet_prelude::*,
         traits::{
             tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance, IsSubType,
-            LockIdentifier, LockableCurrency, ReservableCurrency,
+            LockIdentifier, LockableCurrency, ReservableCurrency, ValidatorRegistration
         },
         weights::{GetDispatchInfo, PostDispatchInfo},
         PalletId,
@@ -165,7 +165,6 @@ pub mod pallet {
         type ProcessedEventsChecker: ProcessedEventsChecker;
         /// A type that can be used to verify signatures
         type Public: IdentifyAccount<AccountId = Self::AccountId>;
-
         /// The signature type used by accounts/transactions.
         type Signature: Verify<Signer = Self::Public>
             + Member
@@ -173,6 +172,8 @@ pub mod pallet {
             + Encode
             + From<sp_core::sr25519::Signature>
             + TypeInfo;
+        ///
+        type CollatorSessionRegistration: ValidatorRegistration<Self::AccountId>;
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
     }
@@ -227,6 +228,7 @@ pub mod pallet {
         SenderIsNotSigner,
         UnauthorizedSignedNominateTransaction,
         AdminSettingsValueIsNotValid,
+        CandidateNotRegisteredSessionKeys,
     }
 
     #[pallet::event]
@@ -736,6 +738,11 @@ pub mod pallet {
             ensure!(!Self::is_candidate(&acc), Error::<T>::CandidateExists);
             ensure!(!Self::is_nominator(&acc), Error::<T>::NominatorExists);
             ensure!(bond >= <MinCollatorStake<T>>::get(), Error::<T>::CandidateBondBelowMin);
+            ensure!(
+				T::CollatorSessionRegistration::is_registered(&acc),
+				Error::<T>::CandidateNotRegisteredSessionKeys
+			);
+
             let mut candidates = <CandidatePool<T>>::get();
             let old_count = candidates.0.len() as u32;
             ensure!(
