@@ -47,9 +47,9 @@ jobs:
               export BRANCH=${GITHUB_REF#refs/heads/}
               export REPO="https://github.com/${{ github.repository }}"
           fi
-          sed -i "s@$STRING_TO_CHANGE@\1\"$REPO\"\3\4\"$BRANCH\"\6@" */**/*.toml
+          find . -name *.toml -print0 | xargs -0 sed -i "s@$STRING_TO_CHANGE@\1\"$REPO\"\3\4\"$BRANCH\"\6@"
           echo "Changed following configs:"
-          git diff
+          git diff -U0
 
       - name: Integration test
         run: cargo build
