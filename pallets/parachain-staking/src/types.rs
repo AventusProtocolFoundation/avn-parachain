@@ -1140,7 +1140,7 @@ impl<
             false
         }
     }
-    // Return Some(remaining balance), must be more than MinNominatorStake
+    // Return Some(remaining balance), must be more than MinTotalNominatorStake
     // Return None if nomination not found
     pub fn rm_nomination<T: Config>(&mut self, collator: &AccountId) -> Option<Balance>
     where
@@ -1418,7 +1418,7 @@ pub enum AdminSettings<Balance> {
     /// Minimum collator stake amount
     MinCollatorStake(Balance),
     /// Minimum nominator stake amount
-    MinNominatorStake(Balance),
+    MinTotalNominatorStake(Balance),
 }
 
 impl<
@@ -1440,8 +1440,8 @@ impl<
     {
         return match self {
             AdminSettings::Delay(d) => d > &0,
-            AdminSettings::MinNominatorStake(s) =>
-                s >= &<<T as Config>::MinNomination as Get<BalanceOf<T>>>::get().into(),
+            AdminSettings::MinTotalNominatorStake(s) =>
+                s >= &<<T as Config>::MinNominationPerCollator as Get<BalanceOf<T>>>::get().into(),
             AdminSettings::MinCollatorStake(_) => true,
             _ => false,
         }

@@ -2440,7 +2440,7 @@ fn cannot_revoke_nomination_that_dne() {
 
 #[test]
 // See `cannot_execute_revoke_nomination_below_min_nominator_stake` for where the "must be above
-// MinNominatorStake" rule is now enforced.
+// MinTotalNominatorStake" rule is now enforced.
 fn can_schedule_revoke_nomination_below_min_nominator_stake() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
