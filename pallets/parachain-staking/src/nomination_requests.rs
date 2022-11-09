@@ -18,8 +18,8 @@
 
 use crate::{
     pallet::{
-        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event, MinNominatorStake,
-        NominationScheduledRequests, NominatorState, Pallet, Total,
+        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event,
+        MinTotalNominatorStake, NominationScheduledRequests, NominatorState, Pallet, Total,
     },
     Nominator, NominatorStatus,
 };
@@ -123,12 +123,13 @@ impl<T: Config> Pallet<T> {
         let bonded_amount = state.get_bond_amount(&collator).ok_or(<Error<T>>::NominationDNE)?;
         ensure!(bonded_amount > decrease_amount, <Error<T>>::NominatorBondBelowMin);
         let new_amount: BalanceOf<T> = (bonded_amount - decrease_amount).into();
-        ensure!(new_amount >= T::MinNomination::get(), <Error<T>>::NominationBelowMin);
+        ensure!(new_amount >= T::MinNominationPerCollator::get(), <Error<T>>::NominationBelowMin);
 
         // Net Total is total after pending orders are executed
         let net_total = state.total().saturating_sub(state.less_total);
-        // Net Total is always >= MinNominatorStake
-        let max_subtracted_amount = net_total.saturating_sub(<MinNominatorStake<T>>::get().into());
+        // Net Total is always >= MinTotalNominatorStake
+        let max_subtracted_amount =
+            net_total.saturating_sub(<MinTotalNominatorStake<T>>::get().into());
         ensure!(decrease_amount <= max_subtracted_amount, <Error<T>>::NominatorBondBelowMin);
 
         let now = <Era<T>>::get().current;
@@ -210,7 +211,7 @@ impl<T: Config> Pallet<T> {
                     true
                 } else {
                     ensure!(
-                        state.total().saturating_sub(<MinNominatorStake<T>>::get().into()) >=
+                        state.total().saturating_sub(<MinTotalNominatorStake<T>>::get().into()) >=
                             amount,
                         <Error<T>>::NominatorBondBelowMin
                     );
@@ -261,11 +262,11 @@ impl<T: Config> Pallet<T> {
                             state.total_sub_if::<T, _>(amount, |total| {
                                 let new_total: BalanceOf<T> = total.into();
                                 ensure!(
-                                    new_total >= T::MinNomination::get(),
+                                    new_total >= T::MinNominationPerCollator::get(),
                                     <Error<T>>::NominationBelowMin
                                 );
                                 ensure!(
-                                    new_total >= <MinNominatorStake<T>>::get(),
+                                    new_total >= <MinTotalNominatorStake<T>>::get(),
                                     <Error<T>>::NominatorBondBelowMin
                                 );
 

@@ -1,10 +1,11 @@
 #[cfg(test)]
 use crate::mock::{
-    Event as MetaEvent, ExtBuilder, MinNomination, Origin, ParachainStaking, Test, TestAccount,
+    Event as MetaEvent, ExtBuilder, MinNominationPerCollator, Origin, ParachainStaking, Test,
+    TestAccount,
 };
 use crate::{
     assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event, MinCollatorStake,
-    MinNominatorStake,
+    MinTotalNominatorStake,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -83,16 +84,16 @@ mod min_nominator_stake_admin_setting {
     #[test]
     fn can_be_updated() {
         ExtBuilder::default().build().execute_with(|| {
-            let new_min_value = <MinNominatorStake<Test>>::get() - 1;
+            let new_min_value = <MinTotalNominatorStake<Test>>::get() - 1;
             let new_min_setting =
-                AdminSettings::<BalanceOf<Test>>::MinNominatorStake(new_min_value);
+                AdminSettings::<BalanceOf<Test>>::MinTotalNominatorStake(new_min_value);
 
             assert_ok!(ParachainStaking::set_admin_setting(
                 Origin::root(),
                 new_min_setting.clone()
             ));
 
-            assert_eq!(<MinNominatorStake<Test>>::get(), new_min_value);
+            assert_eq!(<MinTotalNominatorStake<Test>>::get(), new_min_value);
             assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
                 value: new_min_setting
             }));
@@ -102,9 +103,9 @@ mod min_nominator_stake_admin_setting {
     #[test]
     fn updating_fails_if_value_is_below_min_nominations() {
         ExtBuilder::default().build().execute_with(|| {
-            let bad_min_value = MinNomination::get() - 1;
+            let bad_min_value = MinNominationPerCollator::get() - 1;
             let new_min_setting =
-                AdminSettings::<BalanceOf<Test>>::MinNominatorStake(bad_min_value);
+                AdminSettings::<BalanceOf<Test>>::MinTotalNominatorStake(bad_min_value);
 
             assert_noop!(
                 ParachainStaking::set_admin_setting(Origin::root(), new_min_setting.clone()),

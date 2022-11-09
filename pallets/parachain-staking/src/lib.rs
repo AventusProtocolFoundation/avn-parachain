@@ -40,8 +40,8 @@
 //! original request was made.
 //!
 //! To join the set of nominators, call `nominate` and pass in an account that is
-//! already a collator candidate and `bond >= MinNominatorStake`. Each nominator can nominate up to
-//! `T::MaxNominationsPerNominator` collator candidates by calling `nominate`.
+//! already a collator candidate and `bond >= MinTotalNominatorStake`. Each nominator can nominate
+//! up to `T::MaxNominationsPerNominator` collator candidates by calling `nominate`.
 //!
 //! To revoke a nomination, call `revoke_nomination` with the collator candidate's account.
 //! To leave the set of nominators and revoke all nominations, call `leave_nominators`.
@@ -154,9 +154,9 @@ pub mod pallet {
         /// Maximum nominations per nominator
         #[pallet::constant]
         type MaxNominationsPerNominator: Get<u32>;
-        /// Minimum stake for any registered on-chain account to nominate
+        /// Minimum stake, per collator, that must be maintained by an account that is nominating
         #[pallet::constant]
-        type MinNomination: Get<BalanceOf<Self>>;
+        type MinNominationPerCollator: Get<BalanceOf<Self>>;
         /// Number of eras to wait before we process a new growth period
         type ErasPerGrowthPeriod: Get<GrowthPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
@@ -559,9 +559,10 @@ pub mod pallet {
     pub type MinCollatorStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn min_nominator_stake)]
-    /// Minimum stake for any registered on-chain account to be a nominator
-    pub type MinNominatorStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+    #[pallet::getter(fn min_total_nominator_stake)]
+    /// Minimum total stake that must be maintained for any registered on-chain account to be a
+    /// nominator
+    pub type MinTotalNominatorStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn proxy_nonce)]
@@ -576,7 +577,7 @@ pub mod pallet {
         pub nominations: Vec<(T::AccountId, T::AccountId, BalanceOf<T>)>,
         pub delay: EraIndex,
         pub min_collator_stake: BalanceOf<T>,
-        pub min_nominator_stake: BalanceOf<T>,
+        pub min_total_nominator_stake: BalanceOf<T>,
     }
 
     #[cfg(feature = "std")]
@@ -587,7 +588,7 @@ pub mod pallet {
                 nominations: vec![],
                 delay: Default::default(),
                 min_collator_stake: Default::default(),
-                min_nominator_stake: Default::default(),
+                min_total_nominator_stake: Default::default(),
             }
         }
     }
@@ -653,7 +654,7 @@ pub mod pallet {
 
             // Set min staking values
             <MinCollatorStake<T>>::put(self.min_collator_stake);
-            <MinNominatorStake<T>>::put(self.min_nominator_stake);
+            <MinTotalNominatorStake<T>>::put(self.min_total_nominator_stake);
 
             // Set total selected candidates to minimum config
             <TotalSelected<T>>::put(T::MinSelectedCandidates::get());
@@ -1025,8 +1026,11 @@ pub mod pallet {
             );
             let mut nominator_state = if let Some(mut state) = <NominatorState<T>>::get(&nominator)
             {
-                // nomination after first
-                ensure!(amount >= T::MinNomination::get(), Error::<T>::NominationBelowMin);
+                // The min amount for subsequent nominations on additional collators.
+                ensure!(
+                    amount >= T::MinNominationPerCollator::get(),
+                    Error::<T>::NominationBelowMin
+                );
                 ensure!(
                     nomination_count >= state.nominations.0.len() as u32,
                     Error::<T>::TooLowNominationCountToNominate
@@ -1042,7 +1046,10 @@ pub mod pallet {
                 state
             } else {
                 // first nomination
-                ensure!(amount >= <MinNominatorStake<T>>::get(), Error::<T>::NominatorBondBelowMin);
+                ensure!(
+                    amount >= <MinTotalNominatorStake<T>>::get(),
+                    Error::<T>::NominatorBondBelowMin
+                );
                 ensure!(!Self::is_candidate(&nominator), Error::<T>::CandidateExists);
                 Nominator::new(nominator.clone(), candidate.clone(), amount)
             };
@@ -1226,7 +1233,7 @@ pub mod pallet {
             match value {
                 AdminSettings::Delay(d) => <Delay<T>>::put(d),
                 AdminSettings::MinCollatorStake(s) => <MinCollatorStake<T>>::put(s),
-                AdminSettings::MinNominatorStake(s) => <MinNominatorStake<T>>::put(s),
+                AdminSettings::MinTotalNominatorStake(s) => <MinTotalNominatorStake<T>>::put(s),
             }
 
             Self::deposit_event(Event::AdminSettingsUpdated { value });
@@ -1272,12 +1279,15 @@ pub mod pallet {
         pub fn is_nominator(acc: &T::AccountId) -> bool {
             <NominatorState<T>>::get(acc).is_some()
         }
+
         pub fn is_candidate(acc: &T::AccountId) -> bool {
             <CandidateInfo<T>>::get(acc).is_some()
         }
+
         pub fn is_selected_candidate(acc: &T::AccountId) -> bool {
             <SelectedCandidates<T>>::get().binary_search(acc).is_ok()
         }
+
         /// Returns an account's free balance which is not locked in nomination staking
         pub fn get_nominator_stakable_free_balance(acc: &T::AccountId) -> BalanceOf<T> {
             let mut balance = T::Currency::free_balance(acc);

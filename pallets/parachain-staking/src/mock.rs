@@ -185,7 +185,7 @@ parameter_types! {
     pub const MaxTopNominationsPerCandidate: u32 = 4;
     pub const MaxBottomNominationsPerCandidate: u32 = 4;
     pub const MaxNominationsPerNominator: u32 = 4;
-    pub const MinNomination: u128 = 3;
+    pub const MinNominationPerCollator: u128 = 3;
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
 }
@@ -207,7 +207,7 @@ impl Config for Test {
     type MaxTopNominationsPerCandidate = MaxTopNominationsPerCandidate;
     type MaxBottomNominationsPerCandidate = MaxBottomNominationsPerCandidate;
     type MaxNominationsPerNominator = MaxNominationsPerNominator;
-    type MinNomination = MinNomination;
+    type MinNominationPerCollator = MinNominationPerCollator;
     type RewardPotId = RewardPotId;
     type ErasPerGrowthPeriod = ErasPerGrowthPeriod;
     type ProcessedEventsChecker = ();
@@ -330,7 +330,7 @@ impl ExtBuilder {
             nominations: self.nominations,
             delay: 2,
             min_collator_stake: 10,
-            min_nominator_stake: 5,
+            min_total_nominator_stake: 5,
         }
         .assimilate_storage(&mut t)
         .expect("Parachain Staking's storage can be assimilated");
