@@ -51,21 +51,26 @@
 mod nomination_requests;
 pub mod proxy_methods;
 pub mod session_handler;
+mod set;
 pub mod types;
 pub mod weights;
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod benchmarks;
 #[cfg(test)]
+#[path = "tests/mock.rs"]
 mod mock;
-mod set;
 #[cfg(test)]
+#[path = "tests/test_admin_settings.rs"]
 mod test_admin_settings;
 #[cfg(test)]
+#[path = "tests/test_reward_payout.rs"]
 mod test_reward_payout;
 #[cfg(test)]
+#[path = "tests/test_staking_pot.rs"]
 mod test_staking_pot;
 #[cfg(test)]
+#[path = "tests/tests.rs"]
 mod tests;
 
 use frame_support::pallet;
