@@ -18,8 +18,8 @@
 
 use crate::{
     pallet::{
-        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event, MinTotalNominatorStake,
-        NominationScheduledRequests, NominatorState, Pallet, Total,
+        BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event,
+        MinTotalNominatorStake, NominationScheduledRequests, NominatorState, Pallet, Total,
     },
     Nominator, NominatorStatus,
 };
@@ -128,7 +128,8 @@ impl<T: Config> Pallet<T> {
         // Net Total is total after pending orders are executed
         let net_total = state.total().saturating_sub(state.less_total);
         // Net Total is always >= MinTotalNominatorStake
-        let max_subtracted_amount = net_total.saturating_sub(<MinTotalNominatorStake<T>>::get().into());
+        let max_subtracted_amount =
+            net_total.saturating_sub(<MinTotalNominatorStake<T>>::get().into());
         ensure!(decrease_amount <= max_subtracted_amount, <Error<T>>::NominatorBondBelowMin);
 
         let now = <Era<T>>::get().current;

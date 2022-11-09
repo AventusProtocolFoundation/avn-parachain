@@ -40,8 +40,8 @@
 //! original request was made.
 //!
 //! To join the set of nominators, call `nominate` and pass in an account that is
-//! already a collator candidate and `bond >= MinTotalNominatorStake`. Each nominator can nominate up to
-//! `T::MaxNominationsPerNominator` collator candidates by calling `nominate`.
+//! already a collator candidate and `bond >= MinTotalNominatorStake`. Each nominator can nominate
+//! up to `T::MaxNominationsPerNominator` collator candidates by calling `nominate`.
 //!
 //! To revoke a nomination, call `revoke_nomination` with the collator candidate's account.
 //! To leave the set of nominators and revoke all nominations, call `leave_nominators`.
@@ -560,7 +560,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn min_total_nominator_stake)]
-    /// Minimum total stake that must be maintained for any registered on-chain account to be a nominator
+    /// Minimum total stake that must be maintained for any registered on-chain account to be a
+    /// nominator
     pub type MinTotalNominatorStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::storage]
@@ -1026,7 +1027,10 @@ pub mod pallet {
             let mut nominator_state = if let Some(mut state) = <NominatorState<T>>::get(&nominator)
             {
                 // The min amount for subsequent nominations on additional collators.
-                ensure!(amount >= T::MinNominationPerCollator::get(), Error::<T>::NominationBelowMin);
+                ensure!(
+                    amount >= T::MinNominationPerCollator::get(),
+                    Error::<T>::NominationBelowMin
+                );
                 ensure!(
                     nomination_count >= state.nominations.0.len() as u32,
                     Error::<T>::TooLowNominationCountToNominate
@@ -1042,7 +1046,10 @@ pub mod pallet {
                 state
             } else {
                 // first nomination
-                ensure!(amount >= <MinTotalNominatorStake<T>>::get(), Error::<T>::NominatorBondBelowMin);
+                ensure!(
+                    amount >= <MinTotalNominatorStake<T>>::get(),
+                    Error::<T>::NominatorBondBelowMin
+                );
                 ensure!(!Self::is_candidate(&nominator), Error::<T>::CandidateExists);
                 Nominator::new(nominator.clone(), candidate.clone(), amount)
             };
