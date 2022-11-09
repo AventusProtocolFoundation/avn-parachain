@@ -21,7 +21,7 @@ use frame_support::{
     assert_ok, construct_runtime, parameter_types,
     traits::{
         ConstU8, Currency, Everything, FindAuthor, GenesisBuild, Imbalance, LockIdentifier,
-        OnFinalize, OnInitialize, OnUnbalanced, ValidatorRegistration
+        OnFinalize, OnInitialize, OnUnbalanced, ValidatorRegistration,
     },
     weights::{DispatchClass, DispatchInfo, PostDispatchInfo, Weight, WeightToFee as WeightToFeeT},
     PalletId,
@@ -192,9 +192,9 @@ parameter_types! {
 
 pub struct IsRegistered;
 impl ValidatorRegistration<AccountId> for IsRegistered {
-	fn is_registered(_id: &AccountId) -> bool {
-		true
-	}
+    fn is_registered(_id: &AccountId) -> bool {
+        true
+    }
 }
 
 impl Config for Test {

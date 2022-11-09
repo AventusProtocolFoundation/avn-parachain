@@ -91,7 +91,7 @@ pub mod pallet {
         pallet_prelude::*,
         traits::{
             tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance, IsSubType,
-            LockIdentifier, LockableCurrency, ReservableCurrency, ValidatorRegistration
+            LockIdentifier, LockableCurrency, ReservableCurrency, ValidatorRegistration,
         },
         weights::{GetDispatchInfo, PostDispatchInfo},
         PalletId,
@@ -739,9 +739,9 @@ pub mod pallet {
             ensure!(!Self::is_nominator(&acc), Error::<T>::NominatorExists);
             ensure!(bond >= <MinCollatorStake<T>>::get(), Error::<T>::CandidateBondBelowMin);
             ensure!(
-				T::CollatorSessionRegistration::is_registered(&acc),
-				Error::<T>::CandidateNotRegisteredSessionKeys
-			);
+                T::CollatorSessionRegistration::is_registered(&acc),
+                Error::<T>::CandidateNotRegisteredSessionKeys
+            );
 
             let mut candidates = <CandidatePool<T>>::get();
             let old_count = candidates.0.len() as u32;
