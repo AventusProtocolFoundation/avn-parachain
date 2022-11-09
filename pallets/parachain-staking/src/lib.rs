@@ -228,7 +228,7 @@ pub mod pallet {
         SenderIsNotSigner,
         UnauthorizedSignedNominateTransaction,
         AdminSettingsValueIsNotValid,
-        CandidateNotRegisteredSessionKeys,
+        CandidateSessionKeysNotFound,
     }
 
     #[pallet::event]
@@ -740,7 +740,7 @@ pub mod pallet {
             ensure!(bond >= <MinCollatorStake<T>>::get(), Error::<T>::CandidateBondBelowMin);
             ensure!(
                 T::CollatorSessionRegistration::is_registered(&acc),
-                Error::<T>::CandidateNotRegisteredSessionKeys
+                Error::<T>::CandidateSessionKeysNotFound
             );
 
             let mut candidates = <CandidatePool<T>>::get();
