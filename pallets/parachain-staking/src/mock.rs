@@ -21,7 +21,7 @@ use frame_support::{
     assert_ok, construct_runtime, parameter_types,
     traits::{
         ConstU8, Currency, Everything, FindAuthor, GenesisBuild, Imbalance, LockIdentifier,
-        OnFinalize, OnInitialize, OnUnbalanced,
+        OnFinalize, OnInitialize, OnUnbalanced, ValidatorRegistration,
     },
     weights::{DispatchClass, DispatchInfo, PostDispatchInfo, Weight, WeightToFee as WeightToFeeT},
     PalletId,
@@ -189,6 +189,14 @@ parameter_types! {
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
 }
+
+pub struct IsRegistered;
+impl ValidatorRegistration<AccountId> for IsRegistered {
+    fn is_registered(_id: &AccountId) -> bool {
+        true
+    }
+}
+
 impl Config for Test {
     type Call = Call;
     type Event = Event;
@@ -205,6 +213,7 @@ impl Config for Test {
     type ProcessedEventsChecker = ();
     type Public = AccountId;
     type Signature = Signature;
+    type CollatorSessionRegistration = IsRegistered;
     type WeightInfo = ();
 }
 
