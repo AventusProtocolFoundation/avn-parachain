@@ -32,7 +32,7 @@ jobs:
 
       - name: Task pre integration test
         env:
-          STRING_TO_CHANGE: '\(pallet-parachain-staking.*\)\(".*\)"\(.*branch.*\)\(".*"\)\(.*\)'
+          STRING_TO_CHANGE: '\(.*\)\("https://github.com/Aventus-Network-Services/avn-parachain"\)\(.*\)\(branch.*\)\(".*"\)\(.*\)'
         run: |
           if [ $GITHUB_EVENT_NAME = 'pull_request_target' ]
           then
@@ -47,9 +47,9 @@ jobs:
               export BRANCH=${GITHUB_REF#refs/heads/}
               export REPO="https://github.com/${{ github.repository }}"
           fi
-          sed -i "s@$STRING_TO_CHANGE@\1\"$REPO\"\3\"$BRANCH\"\5@" ./runtime/Cargo.toml
-          echo "using staking pallet from branch:"
-          cat ./runtime/Cargo.toml | grep "^pallet-parachain-staking"
+          sed -i "s@$STRING_TO_CHANGE@\1\"$REPO\"\3\4\"$BRANCH\"\6@" */**/*.toml
+          echo "Changed following configs:"
+          git diff
 
       - name: Integration test
         run: cargo build
