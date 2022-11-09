@@ -468,7 +468,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn selected_candidates)]
     /// The collator candidates selected for the current era
-    type SelectedCandidates<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    pub type SelectedCandidates<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn total)]
