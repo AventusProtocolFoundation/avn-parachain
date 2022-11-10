@@ -60,18 +60,21 @@ mod benchmarks;
 #[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;
+// #[cfg(test)]
+// #[path = "tests/test_admin_settings.rs"]
+// mod test_admin_settings;
+// #[cfg(test)]
+// #[path = "tests/test_reward_payout.rs"]
+// mod test_reward_payout;
+// #[cfg(test)]
+// #[path = "tests/test_staking_pot.rs"]
+// mod test_staking_pot;
+// #[cfg(test)]
+// #[path = "tests/tests.rs"]
+// mod tests;
 #[cfg(test)]
-#[path = "tests/test_admin_settings.rs"]
-mod test_admin_settings;
-#[cfg(test)]
-#[path = "tests/test_reward_payout.rs"]
-mod test_reward_payout;
-#[cfg(test)]
-#[path = "tests/test_staking_pot.rs"]
-mod test_staking_pot;
-#[cfg(test)]
-#[path = "tests/tests.rs"]
-mod tests;
+#[path = "tests/test_growth.rs"]
+mod test_growth;
 
 use frame_support::pallet;
 use pallet_avn::OnGrowthLiftedHandler;
@@ -81,7 +84,6 @@ use weights::WeightInfo;
 pub use nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
 pub use pallet::*;
 pub use types::*;
-pub use EraIndex;
 
 #[pallet]
 pub mod pallet {
@@ -1368,14 +1370,17 @@ pub mod pallet {
         }
 
         fn prepare_staking_payouts(now: EraIndex) {
+            println!("\nprepare_staking_payouts");
             // payout is now - delay eras ago => now - delay > 0 else return early
             let delay = T::RewardPaymentDelay::get();
             if now <= delay {
+                println!("\nciao1");
                 return
             }
             let era_to_payout = now.saturating_sub(delay);
             let total_points = <Points<T>>::get(era_to_payout);
             if total_points.is_zero() {
+                println!("\nciao2");
                 return
             }
             // Remove stake because it has been processed.
@@ -1395,7 +1400,7 @@ pub mod pallet {
                 <AwardedPts<T>>::iter_prefix(era_to_payout)
                     .map(|(collator, points)| CollatorScore::new(collator, points))
                     .collect::<Vec<CollatorScore<T::AccountId>>>();
-
+println!("Updating growth");
             Self::update_collator_payout(
                 era_to_payout,
                 total_staked,
