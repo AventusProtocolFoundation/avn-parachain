@@ -231,13 +231,12 @@ mod growth_info_recorded_correctly {
                 assert_eq!(growth.number_of_accumulations, 1);
                 assert_eq!(growth.total_points, DEFAULT_POINTS * 2); // 2 collators
 
-                // Check that total stake matches era 1's (3 - 2) stake because payouts are delayed
-                // by 2 eras
+                // Check total stake matches era 1's stake because payouts are delayed by 2 eras
                 assert_eq!(growth.total_stake_accumulated, raw_era_data.get(&1).unwrap().stake);
 
-                // This is a bit tricky because `Reward` is not backdated, we pay whatever was in
-                // the reward pot at the time of payout therefore it is a sum of
-                // reward for the current era we snapshoted this GrowthPeriod)
+                // This is a bit tricky because `Reward` is not backdated. We pay whatever was
+                // in the reward pot at the time of payout therefore it is the
+                // sum of rewards for the non backdated eras that make up this GrowthPeriod)
                 let current_era_index = ParachainStaking::era().current;
                 assert_eq!(
                     growth.total_staker_reward,
@@ -336,8 +335,6 @@ mod growth_info_recorded_correctly {
                     collator2_stake,
                 );
 
-                // VERIFY: check growth data automatically
-
                 // Check that we have the expected number of records added
                 let expected_number_of_growth_records =
                     (raw_era_data.len() as u32 - reward_payment_delay) / reward_payment_delay;
@@ -349,6 +346,7 @@ mod growth_info_recorded_correctly {
                 // payout era is always 'RewardPaymentDelay' (in this case 2 eras) behind the
                 // current era.
                 let mut payout_era = (1, 2);
+
                 // current era starts at the actual era this growth period has been created (3) and
                 // ends at the last era accumulated by this growth period (4)
                 let mut current_era = (3, 4);
@@ -379,9 +377,9 @@ mod growth_info_recorded_correctly {
                         n
                     );
 
-                    // This is a bit tricky because `Reward` is not backdated, we pay whatever was
-                    // in the reward pot at the time of payout therefore it is a
-                    // sum of reward for the current era we snapshoted this GrowthPeriod)
+                    // This is a bit tricky because `Reward` is not backdated. We pay whatever was
+                    // in the reward pot at the time of payout therefore it is the
+                    // sum of rewards for the non backdated eras that make up this GrowthPeriod)
                     assert_eq!(
                         growth.total_staker_reward,
                         raw_era_data.get(&current_era.0).unwrap().reward +
