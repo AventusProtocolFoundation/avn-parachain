@@ -2,12 +2,13 @@ use crate::{
     assert_event_emitted,
     mock::{
         get_default_block_per_era, roll_one_block, roll_to_era_begin, set_author, set_reward_pot,
-        AccountId, ErasPerGrowthPeriod, ExtBuilder, Origin, ParachainStaking, RewardPaymentDelay,
-        System, Test, TestAccount,
+        AccountId, Balances, ErasPerGrowthPeriod, ExtBuilder, Origin, ParachainStaking,
+        RewardPaymentDelay, System, Test, TestAccount,
     },
-    BalanceOf, EraIndex, Event, GrowthInfo,
+    BalanceOf, CollatorScore, EraIndex, Error, Event, Growth, GrowthInfo, GrowthPeriod,
+    GrowthPeriodInfo, ProcessedGrowthPeriods,
 };
-use frame_support::assert_ok;
+use frame_support::{assert_noop, assert_ok};
 use parity_scale_codec::{Decode, Encode};
 use std::collections::HashMap;
 
@@ -395,5 +396,269 @@ mod growth_info_recorded_correctly {
                     current_era = (current_era.1 + 1, current_era.1 + 2);
                 }
             });
+    }
+}
+
+mod growth_amount {
+    use super::*;
+
+    const PERIOD_INDEX: u32 = 1;
+    const TOTAL_STAKE: u128 = 50;
+    const TOTAL_REWARD: u128 = 100;
+    const COLLATOR_BALANCE: u128 = 100;
+    const COLLATOR1_POINTS: u32 = 20;
+    const COLLATOR2_POINTS: u32 = 10;
+
+    fn set_growth_data(
+        total_staked: u128,
+        staking_reward: u128,
+        total_points: u32,
+        collator_scores: Vec<CollatorScore<AccountId>>,
+    ) {
+        <GrowthPeriod<Test>>::put(GrowthPeriodInfo { start_era_index: 1, index: 1 });
+
+        let mut new_payout_info = GrowthInfo::new(1);
+        new_payout_info.number_of_accumulations = 2u32;
+        new_payout_info.total_stake_accumulated = total_staked;
+        new_payout_info.total_staker_reward = staking_reward;
+        new_payout_info.total_points = total_points;
+        new_payout_info.collator_scores = collator_scores;
+
+        <Growth<Test>>::insert(1, new_payout_info);
+    }
+
+    mod is_paid_correctly {
+        use super::*;
+
+        #[test]
+        fn with_good_values() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let previous_collator_3 = to_acc_id(3u64);
+            let previous_collator3_points = 10;
+            let total_points = COLLATOR1_POINTS + previous_collator3_points;
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, COLLATOR_BALANCE),
+                    (collator_2, COLLATOR_BALANCE),
+                    (previous_collator_3, COLLATOR_BALANCE),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    set_growth_data(
+                        TOTAL_STAKE,
+                        TOTAL_REWARD,
+                        total_points,
+                        vec![
+                            CollatorScore::new(collator_1, COLLATOR1_POINTS),
+                            CollatorScore::new(previous_collator_3, previous_collator3_points),
+                        ],
+                    );
+
+                    // Initial state
+                    assert_eq!(Balances::free_balance(&collator_1), COLLATOR_BALANCE);
+                    assert_eq!(Balances::free_balance(&collator_2), COLLATOR_BALANCE);
+                    assert_eq!(Balances::free_balance(&previous_collator_3), COLLATOR_BALANCE);
+                    assert_eq!(true, <Growth<Test>>::contains_key(PERIOD_INDEX));
+                    assert_eq!(false, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
+
+                    let amount = 300;
+                    assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
+
+                    // Collator 1 should get 2/3 of the lifted amount because they have 20 points
+                    // (2/3 of total_points)
+                    let expected_collator_1_payment = amount * 2 / 3;
+                    assert_eq!(
+                        Balances::free_balance(&collator_1),
+                        COLLATOR_BALANCE + expected_collator_1_payment
+                    );
+
+                    // Collator 2's balance did not change, eventhough they are a "current" collator
+                    assert_eq!(Balances::free_balance(&collator_2), COLLATOR_BALANCE);
+
+                    // Previous Collator 3 should get 1/3 of the lifted amount because they have 10
+                    // points (1/3 of total_points)
+                    let expected_previous_collator_3_payment = amount / 3;
+                    assert_eq!(
+                        Balances::free_balance(&previous_collator_3),
+                        COLLATOR_BALANCE + expected_previous_collator_3_payment
+                    );
+
+                    // Check correct events emitted
+                    assert_event_emitted!(Event::CollatorPaid {
+                        account: collator_1,
+                        amount: expected_collator_1_payment,
+                        period: PERIOD_INDEX,
+                    });
+
+                    assert_event_emitted!(Event::CollatorPaid {
+                        account: previous_collator_3,
+                        amount: expected_previous_collator_3_payment,
+                        period: PERIOD_INDEX,
+                    });
+
+                    // Check processed growth has been removed to reduce state size
+                    assert_eq!(false, <Growth<Test>>::contains_key(PERIOD_INDEX));
+
+                    // Check processed growths has been updated
+                    assert_eq!(true, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
+                });
+        }
+
+        #[test]
+        fn even_if_growth_info_is_not_found() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let collator_3 = to_acc_id(3u64);
+            let collator_4 = to_acc_id(4u64);
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, COLLATOR_BALANCE),
+                    (collator_2, COLLATOR_BALANCE),
+                    (collator_3, COLLATOR_BALANCE),
+                    (collator_4, COLLATOR_BALANCE),
+                ])
+                .with_candidates(vec![
+                    (collator_1, 10),
+                    (collator_2, 10),
+                    (collator_3, 10),
+                    (collator_4, 10),
+                ])
+                .build()
+                .execute_with(|| {
+                    // Initial state
+                    assert_eq!(Balances::free_balance(&collator_1), COLLATOR_BALANCE);
+                    assert_eq!(Balances::free_balance(&collator_2), COLLATOR_BALANCE);
+                    assert_eq!(Balances::free_balance(&collator_3), COLLATOR_BALANCE);
+                    assert_eq!(Balances::free_balance(&collator_4), COLLATOR_BALANCE);
+
+                    //There is no growth record
+                    assert_eq!(false, <Growth<Test>>::contains_key(PERIOD_INDEX));
+                    assert_eq!(false, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
+
+                    let amount = 400;
+                    assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
+
+                    // Each collator gets the same share because we have no way of knowing how many
+                    // points they earned (400 / 4)
+                    let expected_collator_payment = 400 / 4;
+                    assert_eq!(
+                        Balances::free_balance(&collator_1),
+                        COLLATOR_BALANCE + expected_collator_payment
+                    );
+                    assert_eq!(
+                        Balances::free_balance(&collator_2),
+                        COLLATOR_BALANCE + expected_collator_payment
+                    );
+                    assert_eq!(
+                        Balances::free_balance(&collator_3),
+                        COLLATOR_BALANCE + expected_collator_payment
+                    );
+                    assert_eq!(
+                        Balances::free_balance(&collator_4),
+                        COLLATOR_BALANCE + expected_collator_payment
+                    );
+
+                    // Check correct events emitted
+                    assert_event_emitted!(Event::CollatorPaid {
+                        account: collator_1,
+                        amount: expected_collator_payment,
+                        period: PERIOD_INDEX,
+                    });
+
+                    assert_event_emitted!(Event::CollatorPaid {
+                        account: collator_2,
+                        amount: expected_collator_payment,
+                        period: PERIOD_INDEX,
+                    });
+
+                    assert_event_emitted!(Event::CollatorPaid {
+                        account: collator_3,
+                        amount: expected_collator_payment,
+                        period: PERIOD_INDEX,
+                    });
+
+                    assert_event_emitted!(Event::CollatorPaid {
+                        account: collator_4,
+                        amount: expected_collator_payment,
+                        period: PERIOD_INDEX,
+                    });
+
+                    // Check processed growths has been updated
+                    assert_eq!(true, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
+                });
+        }
+    }
+
+    mod fails_to_be_paid {
+        use super::*;
+
+        #[test]
+        fn when_payment_is_replayed() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let total_points = COLLATOR1_POINTS + COLLATOR2_POINTS;
+            ExtBuilder::default()
+                .with_balances(vec![(collator_1, COLLATOR_BALANCE), (collator_2, COLLATOR_BALANCE)])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    set_growth_data(
+                        TOTAL_STAKE,
+                        TOTAL_REWARD,
+                        total_points,
+                        vec![
+                            CollatorScore::new(collator_1, COLLATOR1_POINTS),
+                            CollatorScore::new(collator_2, COLLATOR2_POINTS),
+                        ],
+                    );
+
+                    assert_eq!(true, <Growth<Test>>::contains_key(PERIOD_INDEX));
+                    assert_eq!(false, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
+
+                    let amount = 300;
+                    assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
+
+                    // Second attempt to pay fails
+                    assert_noop!(
+                        ParachainStaking::payout_collators(amount, PERIOD_INDEX),
+                        Error::<Test>::GrowthAlreadyProcessed
+                    );
+                });
+        }
+
+        #[test]
+        fn when_payment_overflows() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let collator_balance = u128::max_value() / 2;
+            let total_points = COLLATOR1_POINTS + COLLATOR2_POINTS;
+            ExtBuilder::default()
+                .with_balances(vec![(collator_1, collator_balance), (collator_2, collator_balance)])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    set_growth_data(
+                        TOTAL_STAKE,
+                        TOTAL_REWARD,
+                        total_points,
+                        vec![
+                            CollatorScore::new(collator_1, COLLATOR1_POINTS),
+                            CollatorScore::new(collator_2, COLLATOR2_POINTS),
+                        ],
+                    );
+
+                    assert_eq!(true, <Growth<Test>>::contains_key(PERIOD_INDEX));
+                    assert_eq!(false, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
+
+                    let amount = u128::max_value();
+                    // Payout fails due to overflow
+                    assert_noop!(
+                        ParachainStaking::payout_collators(amount, PERIOD_INDEX),
+                        Error::<Test>::ErrorPayingCollator
+                    );
+                });
+        }
     }
 }
