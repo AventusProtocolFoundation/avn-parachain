@@ -48,6 +48,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod migration;
 mod nomination_requests;
 pub mod proxy_methods;
 pub mod session_handler;
@@ -130,7 +131,7 @@ pub mod pallet {
 
     /// Configuration trait of this pallet.
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_session::Config {
+    pub trait Config: frame_system::Config + pallet_session::Config + pallet_avn::Config {
         /// The overarching call type.
         type Call: Parameter
             + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
@@ -415,7 +416,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn total_selected)]
     /// The total candidates selected every era
-    type TotalSelected<T: Config> = StorageValue<_, u32, ValueQuery>;
+    pub type TotalSelected<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn era)]
@@ -1535,7 +1536,7 @@ pub mod pallet {
 
         /// Best as in most cumulatively supported in terms of stake
         /// Returns [collator_count, nomination_count, total staked]
-        fn select_top_candidates(now: EraIndex) -> (u32, u32, BalanceOf<T>) {
+        pub fn select_top_candidates(now: EraIndex) -> (u32, u32, BalanceOf<T>) {
             let (mut collator_count, mut nomination_count, mut total) =
                 (0u32, 0u32, BalanceOf::<T>::zero());
             // choose the top TotalSelected qualified candidates, ordered by stake
