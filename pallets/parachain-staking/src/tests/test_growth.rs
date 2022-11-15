@@ -541,7 +541,6 @@ mod growth_amount {
                     assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
 
                     assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
-
                     // Each collator gets the same share because we have no way of knowing how many
                     // points they earned (400 / 4)
                     let expected_collator_payment = 400 / 4;
