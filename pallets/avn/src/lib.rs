@@ -535,9 +535,7 @@ pub trait CollatorPayoutDustHandler<Balance> {
 }
 
 impl<Balance> CollatorPayoutDustHandler<Balance> for () {
-    fn handle_dust(_imbalance: Balance) {
-
-    }
+    fn handle_dust(_imbalance: Balance) {}
 }
 
 #[cfg(test)]

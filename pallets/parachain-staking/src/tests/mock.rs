@@ -27,9 +27,9 @@ use frame_support::{
     PalletId,
 };
 use frame_system::limits;
+use pallet_avn::CollatorPayoutDustHandler;
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
-use pallet_avn::CollatorPayoutDustHandler;
 use parity_scale_codec::{Decode, Encode};
 use sp_core::{sr25519, Pair, H256};
 use sp_io;
@@ -559,7 +559,7 @@ pub(crate) fn pay_gas_for_transaction(sender: &AccountId, tip: u128) {
 }
 
 fn fake_treasury() -> AccountId {
-    return TestAccount::new(8999999998u64).account_id();
+    return TestAccount::new(8999999998u64).account_id()
 }
 
 #[test]
