@@ -105,7 +105,7 @@ pub mod pallet {
         PalletId,
     };
     use frame_system::pallet_prelude::*;
-    use pallet_avn::ProcessedEventsChecker;
+    use pallet_avn::{CollatorPayoutDustHandler, ProcessedEventsChecker};
     use sp_avn_common::Proof;
     use sp_runtime::{
         traits::{
@@ -125,6 +125,9 @@ pub mod pallet {
     pub type RewardPoint = u32;
     pub type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+        <T as frame_system::Config>::AccountId,
+    >>::PositiveImbalance;
 
     pub const COLLATOR_LOCK_ID: LockIdentifier = *b"stkngcol";
     pub const NOMINATOR_LOCK_ID: LockIdentifier = *b"stkngnom";
@@ -180,8 +183,11 @@ pub mod pallet {
             + Encode
             + From<sp_core::sr25519::Signature>
             + TypeInfo;
-        ///
+        /// A hook to verify if a collator is registed as a validator (with keys) in the session
+        /// pallet
         type CollatorSessionRegistration: ValidatorRegistration<Self::AccountId>;
+        /// A handler to notify the runtime of any remaining amount after paying collators
+        type CollatorPayoutDustHandler: CollatorPayoutDustHandler<BalanceOf<Self>>;
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
     }
@@ -1754,28 +1760,31 @@ pub mod pallet {
                 Error::<T>::GrowthAlreadyProcessed
             );
 
-            let pay = |collator_address: T::AccountId, amount: BalanceOf<T>| -> DispatchResult {
-                match T::Currency::deposit_into_existing(&collator_address, amount) {
-                    Ok(amount_paid) => {
-                        Self::deposit_event(Event::CollatorPaid {
-                            account: collator_address,
-                            amount: amount_paid.peek(),
-                            period: growth_period,
-                        });
+            let mut imbalance: PositiveImbalanceOf<T> = PositiveImbalanceOf::<T>::zero();
+            let mut pay =
+                |collator_address: T::AccountId, amount: BalanceOf<T>| -> DispatchResult {
+                    match T::Currency::deposit_into_existing(&collator_address, amount) {
+                        Ok(amount_paid) => {
+                            Self::deposit_event(Event::CollatorPaid {
+                                account: collator_address,
+                                amount: amount_paid.peek(),
+                                period: growth_period,
+                            });
 
-                        return Ok(())
-                    },
-                    Err(e) => {
-                        log::error!(
-                            "💔💔 Error paying {:?} AVT to collator {:?}: {:?}",
-                            amount,
-                            collator_address,
-                            e
-                        );
-                        return Err(Error::<T>::ErrorPayingCollator.into())
-                    },
-                }
-            };
+                            imbalance.subsume(amount_paid);
+                            return Ok(())
+                        },
+                        Err(e) => {
+                            log::error!(
+                                "💔💔 Error paying {:?} AVT to collator {:?}: {:?}",
+                                amount,
+                                collator_address,
+                                e
+                            );
+                            return Err(Error::<T>::ErrorPayingCollator.into())
+                        },
+                    }
+                };
 
             if <Growth<T>>::contains_key(growth_period) {
                 // get the list of candidates that earned points from `growth_period`
@@ -1799,6 +1808,17 @@ pub mod pallet {
                 }
 
                 <ProcessedGrowthPeriods<T>>::insert(growth_period, ());
+            }
+
+            // Let the runtime know that we finished paying collators and we may have some amount
+            // left.
+            let dust_amount: BalanceOf<T> = amount - imbalance.peek();
+
+            // drop the imbalance to increase total issuance
+            drop(imbalance);
+
+            if dust_amount > BalanceOf::<T>::zero() {
+                T::CollatorPayoutDustHandler::handle_dust(dust_amount);
             }
 
             Ok(())
