@@ -529,15 +529,6 @@ impl<Balance> OnGrowthLiftedHandler<Balance> for () {
     }
 }
 
-// Trait that handles dust amounts after paying collators for producing blocks
-pub trait CollatorPayoutDustHandler<Balance> {
-    fn handle_dust(imbalance: Balance);
-}
-
-impl<Balance> CollatorPayoutDustHandler<Balance> for () {
-    fn handle_dust(_imbalance: Balance) {}
-}
-
 #[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;

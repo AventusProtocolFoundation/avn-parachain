@@ -10,7 +10,6 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok};
 use parity_scale_codec::{Decode, Encode};
-use sp_runtime::Perbill;
 use std::collections::HashMap;
 
 const DEFAULT_POINTS: u32 = 5;
@@ -464,15 +463,12 @@ mod growth_amount {
                     assert_eq!(true, <Growth<Test>>::contains_key(PERIOD_INDEX));
                     assert_eq!(false, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
 
-                    let payout_amount = 1111111111111111111;
-                    let current_total_issuance = pallet_balances::Pallet::<Test>::total_issuance();
-
-                    assert_ok!(ParachainStaking::payout_collators(payout_amount, PERIOD_INDEX));
+                    let amount = 300;
+                    assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
 
                     // Collator 1 should get 2/3 of the lifted amount because they have 20 points
                     // (2/3 of total_points)
-                    let expected_collator_1_payment =
-                        Perbill::from_rational::<u32>(2, 3) * payout_amount;
+                    let expected_collator_1_payment = amount * 2 / 3;
                     assert_eq!(
                         Balances::free_balance(&collator_1),
                         COLLATOR_BALANCE + expected_collator_1_payment
@@ -483,8 +479,7 @@ mod growth_amount {
 
                     // Previous Collator 3 should get 1/3 of the lifted amount because they have 10
                     // points (1/3 of total_points)
-                    let expected_previous_collator_3_payment =
-                        Perbill::from_rational::<u32>(1, 3) * payout_amount;
+                    let expected_previous_collator_3_payment = amount / 3;
                     assert_eq!(
                         Balances::free_balance(&previous_collator_3),
                         COLLATOR_BALANCE + expected_previous_collator_3_payment
@@ -508,13 +503,6 @@ mod growth_amount {
 
                     // Check processed growths has been updated
                     assert_eq!(true, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
-
-                    // Check total issuance has increased by the full amount lifted - this is very
-                    // important
-                    assert_eq!(
-                        pallet_balances::Pallet::<Test>::total_issuance(),
-                        current_total_issuance + payout_amount
-                    );
                 });
         }
 
@@ -549,15 +537,14 @@ mod growth_amount {
                     assert_eq!(false, <Growth<Test>>::contains_key(PERIOD_INDEX));
                     assert_eq!(false, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
 
-                    let payout_amount = 33333333333333;
-                    let current_total_issuance = pallet_balances::Pallet::<Test>::total_issuance();
+                    let amount = 400;
+                    assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
 
-                    assert_ok!(ParachainStaking::payout_collators(payout_amount, PERIOD_INDEX));
+                    assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
 
                     // Each collator gets the same share because we have no way of knowing how many
                     // points they earned (400 / 4)
-                    let expected_collator_payment =
-                        Perbill::from_rational::<u32>(1, 4) * payout_amount;
+                    let expected_collator_payment = 400 / 4;
                     assert_eq!(
                         Balances::free_balance(&collator_1),
                         COLLATOR_BALANCE + expected_collator_payment
@@ -602,13 +589,6 @@ mod growth_amount {
 
                     // Check processed growths has been updated
                     assert_eq!(true, <ProcessedGrowthPeriods<Test>>::contains_key(PERIOD_INDEX));
-
-                    // Check total issuance has increased by the full amount lifted - this is very
-                    // important
-                    assert_eq!(
-                        pallet_balances::Pallet::<Test>::total_issuance(),
-                        current_total_issuance + payout_amount
-                    );
                 });
         }
     }

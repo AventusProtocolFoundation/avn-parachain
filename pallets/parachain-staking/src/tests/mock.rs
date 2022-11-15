@@ -27,7 +27,6 @@ use frame_support::{
     PalletId,
 };
 use frame_system::limits;
-use pallet_avn::CollatorPayoutDustHandler;
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
 use parity_scale_codec::{Decode, Encode};
@@ -215,18 +214,7 @@ impl Config for Test {
     type Public = AccountId;
     type Signature = Signature;
     type CollatorSessionRegistration = IsRegistered;
-    type CollatorPayoutDustHandler = TestCollatorPayoutDustHandler;
     type WeightInfo = ();
-}
-
-// Deal with any positive imbalance by sending it to the fake treasury
-pub struct TestCollatorPayoutDustHandler;
-impl CollatorPayoutDustHandler<Balance> for TestCollatorPayoutDustHandler {
-    fn handle_dust(dust_amount: Balance) {
-        // Transfer the amount and drop the imbalance to increase the total issuance
-        let imbalance = Balances::deposit_creating(&fake_treasury(), dust_amount);
-        drop(imbalance);
-    }
 }
 
 parameter_types! {
@@ -556,10 +544,6 @@ pub(crate) fn pay_gas_for_transaction(sender: &AccountId, tip: u128) {
         TX_LEN,
         &Ok(())
     ));
-}
-
-fn fake_treasury() -> AccountId {
-    return TestAccount::new(8999999998u64).account_id()
 }
 
 #[test]
