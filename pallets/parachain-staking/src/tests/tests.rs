@@ -18,9 +18,8 @@
 //! The unit tests are organized by the call they test. The order matches the order
 //! of the calls in the `lib.rs`.
 //! 1. Root
-//! 2. Monetary Governance
-//! 3. Public (Collator, Nominator)
-//! 4. Miscellaneous Property-Based Tests
+//! 2. Public (Collator, Nominator)
+//! 3. Miscellaneous Property-Based Tests
 use crate::{
     assert_eq_events, assert_eq_last_events, assert_event_emitted, assert_last_event,
     assert_tail_eq,

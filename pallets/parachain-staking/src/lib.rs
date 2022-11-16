@@ -64,6 +64,9 @@ mod mock;
 #[path = "tests/test_admin_settings.rs"]
 mod test_admin_settings;
 #[cfg(test)]
+#[path = "tests/test_growth.rs"]
+mod test_growth;
+#[cfg(test)]
 #[path = "tests/test_reward_payout.rs"]
 mod test_reward_payout;
 #[cfg(test)]
@@ -81,7 +84,6 @@ use weights::WeightInfo;
 pub use nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
 pub use pallet::*;
 pub use types::*;
-pub use EraIndex;
 
 #[pallet]
 pub mod pallet {
