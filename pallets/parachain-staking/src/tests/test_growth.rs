@@ -474,7 +474,7 @@ mod growth_amount {
                         COLLATOR_BALANCE + expected_collator_1_payment
                     );
 
-                    // Collator 2's balance did not change, eventhough they are a "current" collator
+                    // Collator 2's balance did not change, even though they are a "current" collator
                     assert_eq!(Balances::free_balance(&collator_2), COLLATOR_BALANCE);
 
                     // Previous Collator 3 should get 1/3 of the lifted amount because they have 10
@@ -540,7 +540,6 @@ mod growth_amount {
                     let amount = 400;
                     assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
 
-                    assert_ok!(ParachainStaking::payout_collators(amount, PERIOD_INDEX));
                     // Each collator gets the same share because we have no way of knowing how many
                     // points they earned (400 / 4)
                     let expected_collator_payment = 400 / 4;
