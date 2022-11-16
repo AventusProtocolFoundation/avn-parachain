@@ -16,7 +16,7 @@
 
 //! Test utilities
 use crate as pallet_parachain_staking;
-use crate::{pallet, AwardedPts, Config, Points, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID};
+use crate::{pallet, AwardedPts, Config, Points, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID, Proof, TypeInfo};
 use frame_support::{
     assert_ok, construct_runtime, parameter_types,
     traits::{
@@ -38,6 +38,8 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     Perbill, SaturatedConversion,
 };
+use sp_avn_common::InnerCallValidator;
+use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
@@ -61,6 +63,7 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
         AVN: pallet_avn::{Pallet, Storage},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+        AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -94,6 +97,10 @@ impl TestAccount {
         data.copy_from_slice(&bytes32[0..32]);
         data
     }
+}
+
+pub fn sign(signer: &sr25519::Pair, message_to_sign: &[u8]) -> Signature {
+    return Signature::from(signer.sign(message_to_sign))
 }
 
 parameter_types! {
@@ -293,6 +300,89 @@ impl session::Config for Test {
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = ParachainStaking;
     type WeightInfo = ();
+}
+
+impl avn_proxy::Config for Test {
+    type Event = Event;
+    type Call = Call;
+    type Currency = Balances;
+    type Public = AccountId;
+    type Signature = Signature;
+    type ProxyConfig = TestAvnProxyConfig;
+    type WeightInfo = ();
+}
+
+// Test Avn proxy configuration logic
+// We only allow System::Remark and signed_mint_single_nft calls to be proxied
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo)]
+pub struct TestAvnProxyConfig {}
+impl Default for TestAvnProxyConfig {
+    fn default() -> Self {
+        TestAvnProxyConfig {}
+    }
+}
+
+impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
+    fn get_proof(call: &Call) -> Option<Proof<Signature, AccountId>> {
+        match call {
+            Call::System(frame_system::Call::remark { remark: _msg }) => {
+                let signer_account = TestAccount::new(985);
+                return Some(Proof {
+                    signer: signer_account.account_id(),
+                    relayer: TestAccount::new(6547).account_id(),
+                    signature: sign(&signer_account.key_pair(), &("").encode()),
+                });
+            },
+
+            Call::ParachainStaking(pallet_parachain_staking::Call::signed_nominate {
+                proof,
+                targets: _,
+            }) => return Some(proof.clone()),
+
+            _ => None,
+        }
+    }
+}
+
+impl InnerCallValidator for TestAvnProxyConfig {
+    type Call = Call;
+
+    fn signature_is_valid(call: &Box<Self::Call>) -> bool {
+        match **call {
+            Call::System(..) => return true,
+            Call::ParachainStaking(..) =>
+                return ParachainStaking::signature_is_valid(call),
+            _ => false,
+        }
+    }
+}
+
+pub fn build_proof(
+    signer: &AccountId,
+    relayer: &AccountId,
+    signature: Signature,
+) -> Proof<Signature, AccountId> {
+    return Proof { signer: *signer, relayer: *relayer, signature };
+}
+
+#[derive(Clone)]
+pub struct Staker {
+    pub relayer: AccountId,
+    pub account_id: AccountId,
+    pub key_pair: sr25519::Pair,
+}
+
+impl Default for Staker {
+    fn default() -> Self {
+        let relayer = TestAccount::new(0).account_id();
+        let account = TestAccount::new(10000);
+
+        Staker {
+            relayer,
+            key_pair: account.key_pair(),
+            account_id: account.account_id(),
+        }
+    }
 }
 
 pub(crate) struct ExtBuilder {
