@@ -54,6 +54,7 @@ pub mod proxy_methods;
 pub mod session_handler;
 mod set;
 pub mod types;
+pub mod calls;
 pub mod weights;
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -80,7 +81,7 @@ mod tests;
 use frame_support::pallet;
 use pallet_avn::OnGrowthLiftedHandler;
 use sp_runtime::DispatchResult;
-use weights::WeightInfo;
+pub use weights::WeightInfo;
 
 pub use nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
 pub use pallet::*;
@@ -89,32 +90,33 @@ pub use types::*;
 #[pallet]
 pub mod pallet {
     use crate::{
+        calls::*,
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
         proxy_methods::*,
         set::OrderedSet,
         types::*,
         WeightInfo,
     };
-    use frame_support::{
+    pub use frame_support::{
         pallet_prelude::*,
         traits::{
             tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance, IsSubType,
             LockIdentifier, LockableCurrency, ReservableCurrency, ValidatorRegistration,
         },
         weights::{GetDispatchInfo, PostDispatchInfo},
-        PalletId,
+        PalletId, transactional
     };
     use frame_system::pallet_prelude::*;
     use pallet_avn::{CollatorPayoutDustHandler, ProcessedEventsChecker};
     use sp_avn_common::Proof;
-    use sp_runtime::{
+    pub use sp_runtime::{
         traits::{
             AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Dispatchable, IdentifyAccount,
             Member, Saturating, StaticLookup, Verify, Zero,
         },
         Perbill,
     };
-    use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+    pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::without_storage_info]
@@ -1033,87 +1035,48 @@ pub mod pallet {
             nomination_count: u32,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
-            // check that caller can reserve the amount before any changes to storage
-            ensure!(
-                Self::get_nominator_stakable_free_balance(&nominator) >= amount,
-                Error::<T>::InsufficientBalance
-            );
-            let mut nominator_state = if let Some(mut state) = <NominatorState<T>>::get(&nominator)
-            {
-                // The min amount for subsequent nominations on additional collators.
-                ensure!(
-                    amount >= T::MinNominationPerCollator::get(),
-                    Error::<T>::NominationBelowMin
-                );
-                ensure!(
-                    nomination_count >= state.nominations.0.len() as u32,
-                    Error::<T>::TooLowNominationCountToNominate
-                );
-                ensure!(
-                    (state.nominations.0.len() as u32) < T::MaxNominationsPerNominator::get(),
-                    Error::<T>::ExceedMaxNominationsPerNominator
-                );
-                ensure!(
-                    state.add_nomination(Bond { owner: candidate.clone(), amount }),
-                    Error::<T>::AlreadyNominatedCandidate
-                );
-                state
-            } else {
-                // first nomination
-                ensure!(
-                    amount >= <MinTotalNominatorStake<T>>::get(),
-                    Error::<T>::NominatorBondBelowMin
-                );
-                ensure!(!Self::is_candidate(&nominator), Error::<T>::CandidateExists);
-                Nominator::new(nominator.clone(), candidate.clone(), amount)
-            };
-            let mut state = <CandidateInfo<T>>::get(&candidate).ok_or(Error::<T>::CandidateDNE)?;
-            ensure!(
-                candidate_nomination_count >= state.nomination_count,
-                Error::<T>::TooLowCandidateNominationCountToNominate
-            );
-            let (nominator_position, less_total_staked) =
-                state.add_nomination::<T>(&candidate, Bond { owner: nominator.clone(), amount })?;
-            // TODO: causes redundant free_balance check
-            nominator_state.adjust_bond_lock::<T>(BondAdjust::Increase(amount))?;
-            // only is_some if kicked the lowest bottom as a consequence of this new nomination
-            let net_total_increase = if let Some(less) = less_total_staked {
-                amount.saturating_sub(less)
-            } else {
-                amount
-            };
-            let new_total_locked = <Total<T>>::get().saturating_add(net_total_increase);
-            <Total<T>>::put(new_total_locked);
-            <CandidateInfo<T>>::insert(&candidate, state);
-            <NominatorState<T>>::insert(&nominator, nominator_state);
-            Self::deposit_event(Event::Nomination {
-                nominator,
-                locked_amount: amount,
-                candidate,
-                nominator_position,
-            });
-            Ok(().into())
+
+            return Self::call_nominate(&nominator, candidate, amount, candidate_nomination_count, nomination_count);
         }
 
         //TODO: Benchmark me
         #[pallet::weight(0)]
+        #[transactional]
         pub fn signed_nominate(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
             targets: Vec<<T::Lookup as StaticLookup>::Source>,
-        ) -> DispatchResult {
-            let staker = ensure_signed(origin)?;
-            ensure!(staker == proof.signer, Error::<T>::SenderIsNotSigner);
+        ) -> DispatchResultWithPostInfo {
+            let nominator = ensure_signed(origin)?;
+            ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
-            let staker_nonce = Self::proxy_nonce(&staker);
-            let signed_payload = encode_signed_nominate_params::<T>(&proof, &targets, staker_nonce);
+            let nominator_nonce = Self::proxy_nonce(&nominator);
+            let signed_payload = encode_signed_nominate_params::<T>(proof.relayer.clone(), &targets, nominator_nonce);
             ensure!(
                 verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedNominateTransaction
             );
 
-            // TODO: Complete me
-            Ok(())
+            let collators = Self::selected_candidates();
+            let min_stake = Self::min_total_nominator_stake();
+
+            ensure!(
+                Self::get_nominator_stakable_free_balance(&nominator) >= min_stake * (collators.len() as u32).into(),
+                Error::<T>::InsufficientBalance
+            );
+
+            let mut nomination_count = 0;
+            if let Some(nominator_state) = <NominatorState<T>>::get(&nominator) {
+                nomination_count = nominator_state.nominations.0.len() as u32;
+            }
+
+            for collator in collators.into_iter() {
+                let candidate_state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
+                Self::call_nominate(&nominator, collator, min_stake, candidate_state.nomination_count, nomination_count)?;
+                nomination_count += 1;
+            }
+
+            Ok(().into())
         }
 
         /// DEPRECATED use batch util with schedule_revoke_nomination for all nominations

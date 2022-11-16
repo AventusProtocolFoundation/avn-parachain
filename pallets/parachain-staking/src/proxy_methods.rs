@@ -27,7 +27,7 @@ pub fn get_encoded_call_param<T: Config>(
     match call {
         Call::signed_nominate { proof, targets } => {
             let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
-            let encoded_data = encode_signed_nominate_params::<T>(proof, targets, sender_nonce);
+            let encoded_data = encode_signed_nominate_params::<T>(proof.relayer.clone(), targets, sender_nonce);
 
             return Some((proof, encoded_data))
         },
@@ -36,11 +36,11 @@ pub fn get_encoded_call_param<T: Config>(
 }
 
 pub fn encode_signed_nominate_params<T: Config>(
-    proof: &Proof<T::Signature, T::AccountId>,
+    relayer: T::AccountId,
     targets: &Vec<<T::Lookup as StaticLookup>::Source>,
     sender_nonce: u64,
 ) -> Vec<u8> {
-    return (SIGNED_NOMINATOR_CONTEXT, proof.relayer.clone(), targets, sender_nonce).encode()
+    return (SIGNED_NOMINATOR_CONTEXT, relayer, targets, sender_nonce).encode()
 }
 
 pub fn verify_signature<T: Config>(
