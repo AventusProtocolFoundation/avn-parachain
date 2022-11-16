@@ -474,7 +474,8 @@ mod growth_amount {
                         COLLATOR_BALANCE + expected_collator_1_payment
                     );
 
-                    // Collator 2's balance did not change, even though they are a "current" collator
+                    // Collator 2's balance did not change, even though they are a "current"
+                    // collator
                     assert_eq!(Balances::free_balance(&collator_2), COLLATOR_BALANCE);
 
                     // Previous Collator 3 should get 1/3 of the lifted amount because they have 10
