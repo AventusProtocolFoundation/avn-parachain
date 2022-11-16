@@ -27,7 +27,8 @@ pub fn get_encoded_call_param<T: Config>(
     match call {
         Call::signed_nominate { proof, targets } => {
             let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
-            let encoded_data = encode_signed_nominate_params::<T>(proof.relayer.clone(), targets, sender_nonce);
+            let encoded_data =
+                encode_signed_nominate_params::<T>(proof.relayer.clone(), targets, sender_nonce);
 
             return Some((proof, encoded_data))
         },

@@ -14,13 +14,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientBalance
         );
 
-        let mut nominator_state = if let Some(mut state) = <NominatorState<T>>::get(nominator)
-        {
+        let mut nominator_state = if let Some(mut state) = <NominatorState<T>>::get(nominator) {
             // The min amount for subsequent nominations on additional collators.
-            ensure!(
-                amount >= T::MinNominationPerCollator::get(),
-                Error::<T>::NominationBelowMin
-            );
+            ensure!(amount >= T::MinNominationPerCollator::get(), Error::<T>::NominationBelowMin);
             ensure!(
                 nomination_count >= state.nominations.0.len() as u32,
                 Error::<T>::TooLowNominationCountToNominate
@@ -53,15 +49,12 @@ impl<T: Config> Pallet<T> {
         let (nominator_position, less_total_staked) =
             state.add_nomination::<T>(&candidate, Bond { owner: nominator.clone(), amount })?;
 
-            // TODO: causes redundant free_balance check
+        // TODO: causes redundant free_balance check
         nominator_state.adjust_bond_lock::<T>(BondAdjust::Increase(amount))?;
 
         // only is_some if kicked the lowest bottom as a consequence of this new nomination
-        let net_total_increase = if let Some(less) = less_total_staked {
-            amount.saturating_sub(less)
-        } else {
-            amount
-        };
+        let net_total_increase =
+            if let Some(less) = less_total_staked { amount.saturating_sub(less) } else { amount };
 
         let new_total_locked = <Total<T>>::get().saturating_add(net_total_increase);
         <Total<T>>::put(new_total_locked);
@@ -78,4 +71,3 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 }
-

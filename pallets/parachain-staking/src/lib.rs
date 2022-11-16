@@ -48,13 +48,13 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod calls;
 pub mod migration;
 mod nomination_requests;
 pub mod proxy_methods;
 pub mod session_handler;
 mod set;
 pub mod types;
-pub mod calls;
 pub mod weights;
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -103,8 +103,9 @@ pub mod pallet {
             tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance, IsSubType,
             LockIdentifier, LockableCurrency, ReservableCurrency, ValidatorRegistration,
         },
+        transactional,
         weights::{GetDispatchInfo, PostDispatchInfo},
-        PalletId, transactional
+        PalletId,
     };
     use frame_system::pallet_prelude::*;
     use pallet_avn::{CollatorPayoutDustHandler, ProcessedEventsChecker};
@@ -1036,7 +1037,13 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
 
-            return Self::call_nominate(&nominator, candidate, amount, candidate_nomination_count, nomination_count);
+            return Self::call_nominate(
+                &nominator,
+                candidate,
+                amount,
+                candidate_nomination_count,
+                nomination_count,
+            )
         }
 
         //TODO: Benchmark me
@@ -1051,7 +1058,11 @@ pub mod pallet {
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let nominator_nonce = Self::proxy_nonce(&nominator);
-            let signed_payload = encode_signed_nominate_params::<T>(proof.relayer.clone(), &targets, nominator_nonce);
+            let signed_payload = encode_signed_nominate_params::<T>(
+                proof.relayer.clone(),
+                &targets,
+                nominator_nonce,
+            );
             ensure!(
                 verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedNominateTransaction
@@ -1061,7 +1072,8 @@ pub mod pallet {
             let min_stake = Self::min_total_nominator_stake();
 
             ensure!(
-                Self::get_nominator_stakable_free_balance(&nominator) >= min_stake * (collators.len() as u32).into(),
+                Self::get_nominator_stakable_free_balance(&nominator) >=
+                    min_stake * (collators.len() as u32).into(),
                 Error::<T>::InsufficientBalance
             );
 
@@ -1071,8 +1083,15 @@ pub mod pallet {
             }
 
             for collator in collators.into_iter() {
-                let candidate_state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
-                Self::call_nominate(&nominator, collator, min_stake, candidate_state.nomination_count, nomination_count)?;
+                let candidate_state =
+                    <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
+                Self::call_nominate(
+                    &nominator,
+                    collator,
+                    min_stake,
+                    candidate_state.nomination_count,
+                    nomination_count,
+                )?;
                 nomination_count += 1;
             }
 
