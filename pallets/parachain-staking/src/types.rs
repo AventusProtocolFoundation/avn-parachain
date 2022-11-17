@@ -346,10 +346,7 @@ impl<
     }
     /// Schedule executable decrease of collator candidate self bond
     /// Returns the era at which the collator can execute the pending request
-    pub fn schedule_unbond<T: Config>(
-        &mut self,
-        less: Balance,
-    ) -> Result<EraIndex, DispatchError>
+    pub fn schedule_unbond<T: Config>(&mut self, less: Balance) -> Result<EraIndex, DispatchError>
     where
         BalanceOf<T>: Into<Balance>,
     {
