@@ -1053,6 +1053,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
             targets: Vec<<T::Lookup as StaticLookup>::Source>,
+            #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
@@ -1061,6 +1062,7 @@ pub mod pallet {
             let signed_payload = encode_signed_nominate_params::<T>(
                 proof.relayer.clone(),
                 &targets,
+                &amount,
                 nominator_nonce,
             );
             ensure!(
@@ -1069,11 +1071,12 @@ pub mod pallet {
             );
 
             let collators = Self::selected_candidates();
-            let min_stake = Self::min_total_nominator_stake();
+            let num_collators = collators.len() as u32;
+            let min_total_stake = Self::min_total_nominator_stake() * num_collators.into();
 
+            ensure!(amount >= min_total_stake.into(), Error::<T>::NominatorBondBelowMin);
             ensure!(
-                Self::get_nominator_stakable_free_balance(&nominator) >=
-                    min_stake * (collators.len() as u32).into(),
+                Self::get_nominator_stakable_free_balance(&nominator) >= amount,
                 Error::<T>::InsufficientBalance
             );
 
@@ -1082,18 +1085,32 @@ pub mod pallet {
                 nomination_count = nominator_state.nominations.0.len() as u32;
             }
 
-            for collator in collators.into_iter() {
-                let candidate_state =
+            let amount_per_collator = Perbill::from_rational(1, num_collators) * amount;
+            let dust = amount - (amount_per_collator * num_collators.into());
+
+            // This is only possible because we won't have more than 20 collators. If that changes,
+            // we should not use a loop here.
+            for (index, collator) in collators.into_iter().enumerate() {
+                let collator_state =
                     <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
+
+                let mut actual_amount = amount_per_collator;
+                if Self::collator_should_get_dust(dust, num_collators.into(), index as u64) {
+                    actual_amount = amount_per_collator + dust;
+                }
+
                 Self::call_nominate(
                     &nominator,
                     collator,
-                    min_stake,
-                    candidate_state.nomination_count,
+                    actual_amount,
+                    collator_state.nomination_count,
                     nomination_count,
                 )?;
+
                 nomination_count += 1;
             }
+
+            <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
 
             Ok(().into())
         }
@@ -1804,6 +1821,20 @@ pub mod pallet {
             }
 
             Ok(())
+        }
+
+        pub fn collator_should_get_dust(
+            dust: BalanceOf<T>,
+            number_of_collators: u64,
+            index: u64,
+        ) -> bool {
+            let block_number: u64 =
+                TryInto::<u64>::try_into(<frame_system::Pallet<T>>::block_number())
+                    .unwrap_or_else(|_| 0u64);
+
+            let chosen_collator_index = block_number % number_of_collators;
+
+            return !dust.is_zero() && index == chosen_collator_index
         }
     }
 
