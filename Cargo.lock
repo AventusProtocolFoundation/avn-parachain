@@ -1562,6 +1562,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-nft-manager"
+version = "0.12.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+ "frame-system 4.0.0-dev (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+ "hex-literal",
+ "pallet-avn",
+ "parity-scale-codec",
+ "parking_lot",
+ "scale-info",
+ "serde",
+ "sp-avn-common",
+ "sp-core 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+ "sp-io 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+ "sp-keystore 0.12.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+ "sp-runtime 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+ "sp-std 4.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
+ "substrate-test-utils",
+]
+
+[[package]]
 name = "pallet-parachain-staking"
 version = "3.0.0"
 dependencies = [
@@ -2718,6 +2740,7 @@ dependencies = [
  "parity-scale-codec",
  "parking_lot",
  "schnorrkel",
+ "serde",
  "sp-core 6.0.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
  "sp-externalities 0.12.0 (git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.27)",
  "thiserror",
