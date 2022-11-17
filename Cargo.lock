@@ -1618,6 +1618,7 @@ dependencies = [
  "nimbus-primitives",
  "pallet-authorship",
  "pallet-avn",
+ "pallet-avn-proxy",
  "pallet-balances",
  "pallet-session",
  "pallet-transaction-payment",

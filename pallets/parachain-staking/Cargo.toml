@@ -33,6 +33,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+pallet-avn-proxy = { version = "0.12.0", default-features = false, path = "../avn-proxy" }
 
 [features]
 default = [ "std" ]

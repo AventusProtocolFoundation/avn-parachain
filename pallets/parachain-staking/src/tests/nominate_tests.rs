@@ -142,3 +142,469 @@ mod proxy_signed_nominate {
             })
     }
 }
+
+// NOMINATE
+
+mod existing_direct_nominate_tests {
+    use super::*;
+
+    #[test]
+    fn nominate_event_emits_correctly() {
+        let account_id = to_acc_id(1u64);
+        ExtBuilder::default()
+            .with_balances(vec![(account_id, 30), (to_acc_id(2), 10)])
+            .with_candidates(vec![(account_id, 30)])
+            .build()
+            .execute_with(|| {
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(to_acc_id(2)),
+                    account_id,
+                    10,
+                    0,
+                    0
+                ));
+                assert_last_event!(MetaEvent::ParachainStaking(Event::Nomination {
+                    nominator: to_acc_id(2),
+                    locked_amount: 10,
+                    candidate: account_id,
+                    nominator_position: NominatorAdded::AddedToTop { new_total: 40 },
+                }));
+            });
+    }
+
+    #[test]
+    fn nominate_reserves_balance() {
+        let account_id = to_acc_id(1u64);
+        let account_id_2 = to_acc_id(2u64);
+        ExtBuilder::default()
+            .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+            .with_candidates(vec![(account_id, 30)])
+            .build()
+            .execute_with(|| {
+                assert_eq!(
+                    ParachainStaking::get_nominator_stakable_free_balance(&account_id_2),
+                    10
+                );
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    10,
+                    0,
+                    0
+                ));
+                assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 0);
+            });
+    }
+
+    #[test]
+    fn nominate_updates_nominator_state() {
+        let account_id = to_acc_id(1u64);
+        let account_id_2 = to_acc_id(2u64);
+        ExtBuilder::default()
+            .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+            .with_candidates(vec![(account_id, 30)])
+            .build()
+            .execute_with(|| {
+                assert!(ParachainStaking::nominator_state(account_id_2).is_none());
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    10,
+                    0,
+                    0
+                ));
+                let nominator_state = ParachainStaking::nominator_state(account_id_2)
+                    .expect("just nominated => exists");
+                assert_eq!(nominator_state.total(), 10);
+                assert_eq!(nominator_state.nominations.0[0].owner, account_id);
+                assert_eq!(nominator_state.nominations.0[0].amount, 10);
+            });
+    }
+
+    #[test]
+    fn nominate_updates_collator_state() {
+        let account_id = to_acc_id(1u64);
+        let account_id_2 = to_acc_id(2u64);
+        ExtBuilder::default()
+            .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+            .with_candidates(vec![(account_id, 30)])
+            .build()
+            .execute_with(|| {
+                let candidate_state =
+                    ParachainStaking::candidate_info(account_id).expect("registered in genesis");
+                assert_eq!(candidate_state.total_counted, 30);
+                let top_nominations =
+                    ParachainStaking::top_nominations(account_id).expect("registered in genesis");
+                assert!(top_nominations.nominations.is_empty());
+                assert!(top_nominations.total.is_zero());
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    10,
+                    0,
+                    0
+                ));
+                let candidate_state =
+                    ParachainStaking::candidate_info(account_id).expect("just nominated => exists");
+                assert_eq!(candidate_state.total_counted, 40);
+                let top_nominations = ParachainStaking::top_nominations(account_id)
+                    .expect("just nominated => exists");
+                assert_eq!(top_nominations.nominations[0].owner, account_id_2);
+                assert_eq!(top_nominations.nominations[0].amount, 10);
+                assert_eq!(top_nominations.total, 10);
+            });
+    }
+
+    #[test]
+    fn can_nominate_immediately_after_other_join_candidates() {
+        let account_id = to_acc_id(1u64);
+        let account_id_2 = to_acc_id(2u64);
+        ExtBuilder::default()
+            .with_balances(vec![(account_id, 20), (account_id_2, 20)])
+            .build()
+            .execute_with(|| {
+                assert_ok!(ParachainStaking::join_candidates(Origin::signed(account_id), 20, 0));
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    20,
+                    0,
+                    0
+                ));
+            });
+    }
+
+    #[test]
+    fn can_nominate_if_revoking() {
+        let account_id = to_acc_id(1u64);
+        let account_id_2 = to_acc_id(2u64);
+        let account_id_3 = to_acc_id(3u64);
+        let account_id_4 = to_acc_id(4u64);
+        ExtBuilder::default()
+            .with_balances(vec![
+                (account_id, 20),
+                (account_id_2, 30),
+                (account_id_3, 20),
+                (account_id_4, 20),
+            ])
+            .with_candidates(vec![(account_id, 20), (account_id_3, 20), (account_id_4, 20)])
+            .with_nominations(vec![
+                (account_id_2, account_id, 10),
+                (account_id_2, account_id_3, 10),
+            ])
+            .build()
+            .execute_with(|| {
+                assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                    Origin::signed(account_id_2),
+                    account_id
+                ));
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(account_id_2),
+                    account_id_4,
+                    10,
+                    0,
+                    2
+                ));
+            });
+    }
+
+    #[test]
+    fn cannot_nominate_if_full_and_new_nomination_less_than_or_equal_lowest_bottom() {
+        let account_id = to_acc_id(1u64);
+        ExtBuilder::default()
+            .with_balances(vec![
+                (account_id, 20),
+                (to_acc_id(2), 10),
+                (to_acc_id(3), 10),
+                (to_acc_id(4), 10),
+                (to_acc_id(5), 10),
+                (to_acc_id(6), 10),
+                (to_acc_id(7), 10),
+                (to_acc_id(8), 10),
+                (to_acc_id(9), 10),
+                (to_acc_id(10), 10),
+                (to_acc_id(11), 11),
+            ])
+            .with_candidates(vec![(account_id, 20)])
+            .with_nominations(vec![
+                (to_acc_id(2), account_id, 10),
+                (to_acc_id(3), account_id, 10),
+                (to_acc_id(4), account_id, 10),
+                (to_acc_id(5), account_id, 10),
+                (to_acc_id(6), account_id, 10),
+                (to_acc_id(8), account_id, 10),
+                (to_acc_id(9), account_id, 10),
+                (to_acc_id(10), account_id, 10),
+            ])
+            .build()
+            .execute_with(|| {
+                assert_noop!(
+                    ParachainStaking::nominate(Origin::signed(to_acc_id(11)), account_id, 10, 8, 0),
+                    Error::<Test>::CannotNominateLessThanOrEqualToLowestBottomWhenFull
+                );
+            });
+    }
+
+    #[test]
+    fn can_nominate_if_full_and_new_nomination_greater_than_lowest_bottom() {
+        let account_id = to_acc_id(1u64);
+        ExtBuilder::default()
+            .with_balances(vec![
+                (account_id, 20),
+                (to_acc_id(2), 10),
+                (to_acc_id(3), 10),
+                (to_acc_id(4), 10),
+                (to_acc_id(5), 10),
+                (to_acc_id(6), 10),
+                (to_acc_id(7), 10),
+                (to_acc_id(8), 10),
+                (to_acc_id(9), 10),
+                (to_acc_id(10), 10),
+                (to_acc_id(11), 11),
+            ])
+            .with_candidates(vec![(account_id, 20)])
+            .with_nominations(vec![
+                (to_acc_id(2), account_id, 10),
+                (to_acc_id(3), account_id, 10),
+                (to_acc_id(4), account_id, 10),
+                (to_acc_id(5), account_id, 10),
+                (to_acc_id(6), account_id, 10),
+                (to_acc_id(8), account_id, 10),
+                (to_acc_id(9), account_id, 10),
+                (to_acc_id(10), account_id, 10),
+            ])
+            .build()
+            .execute_with(|| {
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(to_acc_id(11)),
+                    account_id,
+                    11,
+                    8,
+                    0
+                ));
+                assert_event_emitted!(Event::NominationKicked {
+                    nominator: to_acc_id(10),
+                    candidate: account_id,
+                    unstaked_amount: 10
+                });
+                assert_event_emitted!(Event::NominatorLeft {
+                    nominator: to_acc_id(10),
+                    unstaked_amount: 10
+                });
+            });
+    }
+
+    #[test]
+    fn can_still_nominate_if_leaving() {
+        let account_id = to_acc_id(1u64);
+        let account_id_2 = to_acc_id(2u64);
+        let account_id_3 = to_acc_id(3u64);
+        ExtBuilder::default()
+            .with_balances(vec![(account_id, 20), (account_id_2, 20), (account_id_3, 20)])
+            .with_candidates(vec![(account_id, 20), (account_id_3, 20)])
+            .with_nominations(vec![(account_id_2, account_id, 10)])
+            .build()
+            .execute_with(|| {
+                assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(
+                    account_id_2
+                )));
+                assert_ok!(ParachainStaking::nominate(
+                    Origin::signed(account_id_2),
+                    account_id_3,
+                    10,
+                    0,
+                    1
+                ),);
+            });
+    }
+
+    #[test]
+    fn cannot_nominate_if_candidate() {
+        let account_id = to_acc_id(1u64);
+        let account_id_2 = to_acc_id(2u64);
+        ExtBuilder::default()
+            .with_balances(vec![(account_id, 20), (account_id_2, 30)])
+            .with_candidates(vec![(account_id, 20), (account_id_2, 20)])
+            .build()
+            .execute_with(|| {
+                assert_noop!(
+                    ParachainStaking::nominate(Origin::signed(account_id_2), account_id, 10, 0, 0),
+                    Error::<Test>::CandidateExists
+                );
+            });
+    }
+
+    #[test]
+    fn cannot_nominate_if_already_nominated() {
+        let account_id = to_acc_id(1u64);
+        let account_id_2 = to_acc_id(2u64);
+        ExtBuilder::default()
+            .with_balances(vec![(account_id, 20), (account_id_2, 30)])
+            .with_candidates(vec![(account_id, 20)])
+            .with_nominations(vec![(account_id_2, account_id, 20)])
+            .build()
+            .execute_with(|| {
+                assert_noop!(
+                    ParachainStaking::nominate(Origin::signed(account_id_2), account_id, 10, 1, 1),
+                    Error::<Test>::AlreadyNominatedCandidate
+                );
+            });
+    }
+
+    #[test]
+    fn cannot_nominate_more_than_max_nominations() {
+        let account_id = to_acc_id(1u64);
+        ExtBuilder::default()
+            .with_balances(vec![
+                (account_id, 20),
+                (to_acc_id(2), 50),
+                (to_acc_id(3), 20),
+                (to_acc_id(4), 20),
+                (to_acc_id(5), 20),
+                (to_acc_id(6), 20),
+            ])
+            .with_candidates(vec![
+                (account_id, 20),
+                (to_acc_id(3), 20),
+                (to_acc_id(4), 20),
+                (to_acc_id(5), 20),
+                (to_acc_id(6), 20),
+            ])
+            .with_nominations(vec![
+                (to_acc_id(2), account_id, 10),
+                (to_acc_id(2), to_acc_id(3), 10),
+                (to_acc_id(2), to_acc_id(4), 10),
+                (to_acc_id(2), to_acc_id(5), 10),
+            ])
+            .build()
+            .execute_with(|| {
+                assert_noop!(
+                    ParachainStaking::nominate(
+                        Origin::signed(to_acc_id(2)),
+                        to_acc_id(6),
+                        10,
+                        0,
+                        4
+                    ),
+                    Error::<Test>::ExceedMaxNominationsPerNominator,
+                );
+            });
+    }
+
+    #[test]
+    fn sufficient_nominate_weight_hint_succeeds() {
+        let account_id = to_acc_id(1u64);
+        ExtBuilder::default()
+            .with_balances(vec![
+                (account_id, 20),
+                (to_acc_id(2), 20),
+                (to_acc_id(3), 20),
+                (to_acc_id(4), 20),
+                (to_acc_id(5), 20),
+                (to_acc_id(6), 20),
+                (to_acc_id(7), 20),
+                (to_acc_id(8), 20),
+                (to_acc_id(9), 20),
+                (to_acc_id(10), 20),
+            ])
+            .with_candidates(vec![(account_id, 20), (to_acc_id(2), 20)])
+            .with_nominations(vec![
+                (to_acc_id(3), account_id, 10),
+                (to_acc_id(4), account_id, 10),
+                (to_acc_id(5), account_id, 10),
+                (to_acc_id(6), account_id, 10),
+            ])
+            .build()
+            .execute_with(|| {
+                let mut count = 4u32;
+                for i in 7..11 {
+                    assert_ok!(ParachainStaking::nominate(
+                        Origin::signed(to_acc_id(i)),
+                        account_id,
+                        10,
+                        count,
+                        0u32
+                    ));
+                    count += 1u32;
+                }
+                let mut count = 0u32;
+                for i in 3..11 {
+                    assert_ok!(ParachainStaking::nominate(
+                        Origin::signed(to_acc_id(i)),
+                        to_acc_id(2),
+                        10,
+                        count,
+                        1u32
+                    ));
+                    count += 1u32;
+                }
+            });
+    }
+
+    #[test]
+    fn insufficient_nominate_weight_hint_fails() {
+        let account_id = to_acc_id(1u64);
+        ExtBuilder::default()
+            .with_balances(vec![
+                (account_id, 20),
+                (to_acc_id(2), 20),
+                (to_acc_id(3), 20),
+                (to_acc_id(4), 20),
+                (to_acc_id(5), 20),
+                (to_acc_id(6), 20),
+                (to_acc_id(7), 20),
+                (to_acc_id(8), 20),
+                (to_acc_id(9), 20),
+                (to_acc_id(10), 20),
+            ])
+            .with_candidates(vec![(account_id, 20), (to_acc_id(2), 20)])
+            .with_nominations(vec![
+                (to_acc_id(3), account_id, 10),
+                (to_acc_id(4), account_id, 10),
+                (to_acc_id(5), account_id, 10),
+                (to_acc_id(6), account_id, 10),
+            ])
+            .build()
+            .execute_with(|| {
+                let mut count = 3u32;
+                for i in 7..11 {
+                    assert_noop!(
+                        ParachainStaking::nominate(
+                            Origin::signed(to_acc_id(i)),
+                            account_id,
+                            10,
+                            count,
+                            0u32
+                        ),
+                        Error::<Test>::TooLowCandidateNominationCountToNominate
+                    );
+                }
+                // to set up for next error test
+                count = 4u32;
+                for i in 7..11 {
+                    assert_ok!(ParachainStaking::nominate(
+                        Origin::signed(to_acc_id(i)),
+                        account_id,
+                        10,
+                        count,
+                        0u32
+                    ));
+                    count += 1u32;
+                }
+                count = 0u32;
+                for i in 3..11 {
+                    assert_noop!(
+                        ParachainStaking::nominate(
+                            Origin::signed(to_acc_id(i)),
+                            to_acc_id(2),
+                            10,
+                            count,
+                            0u32
+                        ),
+                        Error::<Test>::TooLowNominationCountToNominate
+                    );
+                    count += 1u32;
+                }
+            });
+    }
+}
