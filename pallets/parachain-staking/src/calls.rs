@@ -70,4 +70,20 @@ impl<T: Config> Pallet<T> {
 
         Ok(().into())
     }
+
+    pub fn call_bond_extra(
+        nominator: &T::AccountId,
+        candidate: T::AccountId,
+        additional_amount: BalanceOf<T>) -> DispatchResultWithPostInfo
+    {
+        ensure!(
+            !Self::nomination_request_revoke_exists(&candidate, nominator),
+            Error::<T>::PendingNominationRevoke
+        );
+
+        let mut state = <NominatorState<T>>::get(&nominator).ok_or(Error::<T>::NominatorDNE)?;
+        state.increase_nomination::<T>(candidate.clone(), additional_amount)?;
+
+        Ok(().into())
+    }
 }

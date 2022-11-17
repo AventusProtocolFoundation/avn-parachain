@@ -1160,21 +1160,15 @@ pub mod pallet {
             Self::nomination_schedule_revoke(collator, nominator)
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::nominator_bond_more())]
+        #[pallet::weight(<T as Config>::WeightInfo::bond_extra())]
         /// Bond more for nominators wrt a specific collator candidate.
-        pub fn nominator_bond_more(
+        pub fn bond_extra(
             origin: OriginFor<T>,
             candidate: T::AccountId,
             more: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
-            ensure!(
-                !Self::nomination_request_revoke_exists(&candidate, &nominator),
-                Error::<T>::PendingNominationRevoke
-            );
-            let mut state = <NominatorState<T>>::get(&nominator).ok_or(Error::<T>::NominatorDNE)?;
-            state.increase_nomination::<T>(candidate.clone(), more)?;
-            Ok(().into())
+            return Self::call_bond_extra(&nominator, candidate, more)
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::schedule_nominator_bond_less())]

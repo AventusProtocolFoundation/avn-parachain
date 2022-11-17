@@ -93,7 +93,7 @@ pub trait WeightInfo {
     #[rustfmt::skip]
 	fn schedule_revoke_nomination() -> Weight;
     #[rustfmt::skip]
-	fn nominator_bond_more() -> Weight;
+	fn bond_extra() -> Weight;
     #[rustfmt::skip]
 	fn schedule_nominator_bond_less() -> Weight;
     #[rustfmt::skip]
@@ -312,7 +312,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     // Storage: ParachainStaking CandidatePool (r:1 w:1)
     // Storage: ParachainStaking Total (r:1 w:1)
 	#[rustfmt::skip]
-    fn nominator_bond_more() -> Weight {
+    fn bond_extra() -> Weight {
 		(66_476_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(7 as Weight))
 			.saturating_add(T::DbWeight::get().writes(6 as Weight))
@@ -621,7 +621,7 @@ impl WeightInfo for () {
     // Storage: ParachainStaking CandidatePool (r:1 w:1)
     // Storage: ParachainStaking Total (r:1 w:1)
 	#[rustfmt::skip]
-    fn nominator_bond_more() -> Weight {
+    fn bond_extra() -> Weight {
 		(66_476_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
