@@ -345,6 +345,10 @@ impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
                 proof,
                 extra_amount: _,
             }) => return Some(proof.clone()),
+            Call::ParachainStaking(pallet_parachain_staking::Call::signed_candidate_bond_extra {
+                proof,
+                extra_amount: _,
+            }) => return Some(proof.clone()),
 
             _ => None,
         }
