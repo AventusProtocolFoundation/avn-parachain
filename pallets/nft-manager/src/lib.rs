@@ -710,8 +710,9 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        // Note: this "special" function will run during every runtime upgrade. Any complicated migration logic should be done in a
-        // separate function so it can be tested properly.
+        // Note: this "special" function will run during every runtime upgrade. Any complicated
+        // migration logic should be done in a separate function so it can be tested
+        // properly.
         fn on_runtime_upgrade() -> Weight {
             if <StorageVersion<T>>::get() == Releases::V2_0_0 {
                 <StorageVersion<T>>::put(Releases::V3_0_0);
@@ -827,9 +828,8 @@ impl<T: Config> Pallet<T> {
         <Nfts<T>>::mutate(nft_id, |maybe_nft| maybe_nft.as_mut().map(|nft| nft.nonce += 1u64));
     }
 
-    /// The NftId for a single mint is calculated by this formula: uint256(keccak256(“A”, contract_address, unique_id))
-    // TODOs: Confirm that the data are packed the same as encodePacked.
-    // TODOs: Confirm that which data needs to be in BE format.
+    /// The NftId for a single mint is calculated by this formula: uint256(keccak256(“A”,
+    /// contract_address, unique_id))
     fn generate_nft_id_single_mint(contract: &H160, unique_id: NftUniqueId) -> U256 {
         let mut data_to_hash = SINGLE_NFT_ID_CONTEXT.to_vec();
 

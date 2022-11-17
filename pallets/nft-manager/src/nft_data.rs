@@ -88,7 +88,8 @@ pub struct NftInfo<AccountId: Member> {
     ///  - >1: it is for a batch
     pub total_supply: u64,
     /// Minter's tier 1 address
-    pub t1_authority: H160, //TODO: rename and remove t1 reference. Call it something like "provenance"
+    pub t1_authority: H160, /* TODO: rename and remove t1 reference. Call it something like
+                             * "provenance" */
     /// The address of the initial creator
     pub creator: Option<AccountId>,
 }

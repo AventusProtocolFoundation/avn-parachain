@@ -127,7 +127,8 @@ mod mint_single_nft {
             });
         }
 
-        // TODO This test might not be relevant anymore if we don't want to use t1 contracts in the generation.
+        // TODO This test might not be relevant anymore if we don't want to use t1 contracts in the
+        // generation.
         #[ignore]
         #[test]
         fn minter_t1_address_is_missing() {

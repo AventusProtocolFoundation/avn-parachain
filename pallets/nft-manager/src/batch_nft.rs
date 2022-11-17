@@ -21,7 +21,8 @@ pub fn generate_batch_id<T: Config>(unique_id: NftUniqueId) -> U256 {
     return U256::from(hash)
 }
 
-/// The NftId for a Batch Sale is calculated by this formula: uint256(keccak256(“B”, batchId, sales_index))
+/// The NftId for a Batch Sale is calculated by this formula: uint256(keccak256(“B”, batchId,
+/// sales_index))
 pub fn generate_batch_nft_id<T: Config>(batch_id: &NftBatchId, sales_index: &u64) -> U256 {
     let mut data_to_hash = BATCH_NFT_ID_CONTEXT.to_vec();
 
