@@ -6,7 +6,7 @@ use crate::{
     assert_event_emitted, assert_last_event, encode_signed_bond_extra_params,
     mock::{
         build_proof, sign, AccountId, AvnProxy, Call as MockCall, Event as MetaEvent, ExtBuilder,
-        Origin, ParachainStaking, Signature, Staker, Test, TestAccount, MinNominationPerCollator
+        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, Test, TestAccount,
     },
     Config, Error, Event, NominatorAdded, Proof, StaticLookup,
 };
@@ -63,11 +63,11 @@ mod proxy_signed_bond_extra {
                 (staker.account_id, initial_balance),
                 (staker.relayer, initial_balance),
             ])
-            .with_candidates(vec![
-                (collator_1, initial_stake),
-                (collator_2, initial_stake),
+            .with_candidates(vec![(collator_1, initial_stake), (collator_2, initial_stake)])
+            .with_nominations(vec![
+                (staker.account_id, collator_1, initial_stake),
+                (staker.account_id, collator_2, initial_stake),
             ])
-            .with_nominations(vec![(staker.account_id, collator_1, initial_stake), (staker.account_id, collator_2, initial_stake)])
             .build()
             .execute_with(|| {
                 let collators = ParachainStaking::selected_candidates();
@@ -78,11 +78,7 @@ mod proxy_signed_bond_extra {
                 let dust = 1u128;
                 let amount_to_topup = (min_user_stake * 2u128) + dust;
                 let nonce = ParachainStaking::proxy_nonce(staker.account_id);
-                let bond_extra_call = create_call_for_bond_extra(
-                    &staker,
-                    nonce,
-                    amount_to_topup,
-                );
+                let bond_extra_call = create_call_for_bond_extra(&staker, nonce, amount_to_topup);
                 assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None));
 
                 // The staker state has also been updated
@@ -111,10 +107,7 @@ mod proxy_signed_bond_extra {
 
                     // Collator state has been updated
                     let collator_state = ParachainStaking::candidate_info(collator).unwrap();
-                    assert_eq!(
-                        collator_state.total_counted,
-                        initial_stake + initial_stake + topup
-                    );
+                    assert_eq!(collator_state.total_counted, initial_stake + initial_stake + topup);
 
                     // Collator nominations have also been updated
                     let top_nominations = ParachainStaking::top_nominations(collator).unwrap();
@@ -128,7 +121,10 @@ mod proxy_signed_bond_extra {
                 );
 
                 // The total amount staked on chain should increase
-                assert_eq!(initial_total_stake_on_chain + amount_to_topup, ParachainStaking::total());
+                assert_eq!(
+                    initial_total_stake_on_chain + amount_to_topup,
+                    ParachainStaking::total()
+                );
 
                 // Nonce has increased
                 assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
@@ -151,16 +147,16 @@ mod proxy_signed_bond_extra {
                     (staker.relayer, 10000),
                 ])
                 .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
-                .with_nominations(vec![(staker.account_id, collator_1, 10), (staker.account_id, collator_2, 10)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, 10),
+                    (staker.account_id, collator_2, 10),
+                ])
                 .build()
                 .execute_with(|| {
                     let amount_to_topup = MinNominationPerCollator::get() * 2u128;
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
-                    let bond_extra_call = create_call_for_bond_extra(
-                        &staker,
-                        nonce,
-                        amount_to_topup,
-                    );
+                    let bond_extra_call =
+                        create_call_for_bond_extra(&staker, nonce, amount_to_topup);
 
                     assert_noop!(
                         AvnProxy::proxy(RawOrigin::None.into(), bond_extra_call, None),
@@ -184,7 +180,10 @@ mod proxy_signed_bond_extra {
                     (staker.relayer, 10000),
                 ])
                 .with_candidates(vec![(collator_1, initial_stake), (collator_2, initial_stake)])
-                .with_nominations(vec![(staker.account_id, collator_1, initial_stake), (staker.account_id, collator_2, initial_stake)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, initial_stake),
+                    (staker.account_id, collator_2, initial_stake),
+                ])
                 .build()
                 .execute_with(|| {
                     let bad_amount_to_stake = staker_balance + 1;
@@ -196,11 +195,8 @@ mod proxy_signed_bond_extra {
                     // Make sure staker has less than they are attempting to stake
                     assert!(staker_balance < bad_amount_to_stake);
 
-                    let bond_extra_call = create_call_for_bond_extra(
-                        &staker,
-                        nonce,
-                        bad_amount_to_stake,
-                    );
+                    let bond_extra_call =
+                        create_call_for_bond_extra(&staker, nonce, bad_amount_to_stake);
 
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
@@ -223,7 +219,10 @@ mod proxy_signed_bond_extra {
                     (staker.relayer, 10000),
                 ])
                 .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
-                .with_nominations(vec![(staker.account_id, collator_1, 10), (staker.account_id, collator_2, 10)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, 10),
+                    (staker.account_id, collator_2, 10),
+                ])
                 .build()
                 .execute_with(|| {
                     let min_allowed_amount_to_stake = MinNominationPerCollator::get() * 2u128;
@@ -233,11 +232,8 @@ mod proxy_signed_bond_extra {
                     assert!(staker_balance > bad_stake_amount);
 
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
-                    let bond_extra_call = create_call_for_bond_extra(
-                        &staker,
-                        nonce,
-                        bad_stake_amount,
-                    );
+                    let bond_extra_call =
+                        create_call_for_bond_extra(&staker, nonce, bad_stake_amount);
 
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),

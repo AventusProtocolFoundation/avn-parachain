@@ -304,7 +304,7 @@ benchmarks! {
         assert!(Pallet::<T>::candidate_info(&caller).unwrap().is_active());
     }
 
-    candidate_bond_more {
+    candidate_bond_extra {
         let more = min_candidate_stk::<T>();
         let caller: T::AccountId = create_funded_collator::<T>(
             "collator",

@@ -86,4 +86,21 @@ impl<T: Config> Pallet<T> {
 
         Ok(().into())
     }
+
+    pub fn call_candidate_bond_extra(
+        collator: &T::AccountId,
+        additional_amount: BalanceOf<T>,
+    ) -> DispatchResultWithPostInfo {
+        let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
+        state.bond_more::<T>(collator.clone(), additional_amount)?;
+
+        let (is_active, total_counted) = (state.is_active(), state.total_counted);
+        <CandidateInfo<T>>::insert(&collator, state);
+
+        if is_active {
+            Self::update_active(collator.clone(), total_counted);
+        }
+
+        Ok(().into())
+    }
 }

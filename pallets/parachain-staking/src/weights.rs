@@ -75,7 +75,7 @@ pub trait WeightInfo {
     #[rustfmt::skip]
 	fn go_online() -> Weight;
     #[rustfmt::skip]
-	fn candidate_bond_more() -> Weight;
+	fn candidate_bond_extra() -> Weight;
     #[rustfmt::skip]
 	fn schedule_candidate_bond_less() -> Weight;
     #[rustfmt::skip]
@@ -218,7 +218,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     // Storage: ParachainStaking Total (r:1 w:1)
     // Storage: ParachainStaking CandidatePool (r:1 w:1)
 	#[rustfmt::skip]
-    fn candidate_bond_more() -> Weight {
+    fn candidate_bond_extra() -> Weight {
 		(45_671_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(4 as Weight))
@@ -527,7 +527,7 @@ impl WeightInfo for () {
     // Storage: ParachainStaking Total (r:1 w:1)
     // Storage: ParachainStaking CandidatePool (r:1 w:1)
 	#[rustfmt::skip]
-    fn candidate_bond_more() -> Weight {
+    fn candidate_bond_extra() -> Weight {
 		(45_671_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
