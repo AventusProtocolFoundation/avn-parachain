@@ -2,8 +2,8 @@
 // Copyright 2020 Aventus Network Services (UK) Ltd.
 
 //! The avnProxy pallet is responsible for proxying transactions to a list of whitelisted pallets.
-//! The target pallets are responsible for validating the transaction and should not make any assumption
-//! about where the transaction is coming from.
+//! The target pallets are responsible for validating the transaction and should not make any
+//! assumption about where the transaction is coming from.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -117,7 +117,8 @@ pub mod pallet {
                 final_weight = T::WeightInfo::charge_fee()
                     .saturating_add(call.get_dispatch_info().weight)
                     .saturating_add(50_000);
-                // If the inner call signature does not validate, exit without charging the sender a fee
+                // If the inner call signature does not validate, exit without charging the sender a
+                // fee
                 Self::validate_inner_call_signature(&call)?;
                 Self::charge_fee(&proof, *payment_info)?;
             }
