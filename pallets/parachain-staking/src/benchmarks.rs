@@ -594,7 +594,7 @@ benchmarks! {
         assert_eq!(T::Currency::reserved_balance(&caller), expected_bond);
     }
 
-    schedule_nominator_bond_less {
+    schedule_nominator_unbond {
         let collator: T::AccountId = create_funded_collator::<T>(
             "collator",
             USER_SEED,
@@ -659,7 +659,7 @@ benchmarks! {
         );
     }
 
-    execute_nominator_bond_less {
+    execute_nominator_unbond {
         let collator: T::AccountId = create_funded_collator::<T>(
             "collator",
             USER_SEED,
@@ -676,7 +676,7 @@ benchmarks! {
             0u32
         )?;
         let bond_less = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::schedule_nominator_bond_less(
+        Pallet::<T>::schedule_nominator_unbond(
             RawOrigin::Signed(caller.clone()).into(),
             collator.clone(),
             bond_less
@@ -727,7 +727,7 @@ benchmarks! {
         );
     }
 
-    cancel_nominator_bond_less {
+    cancel_nominator_unbond {
         let collator: T::AccountId = create_funded_collator::<T>(
             "collator",
             USER_SEED,
@@ -744,7 +744,7 @@ benchmarks! {
             0u32
         )?;
         let bond_less = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::schedule_nominator_bond_less(
+        Pallet::<T>::schedule_nominator_unbond(
             RawOrigin::Signed(caller.clone()).into(),
             collator.clone(),
             bond_less
@@ -1179,9 +1179,9 @@ mod tests {
     }
 
     #[test]
-    fn bench_schedule_nominator_bond_less() {
+    fn bench_schedule_nominator_unbond() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_schedule_nominator_bond_less());
+            assert_ok!(Pallet::<Test>::test_benchmark_schedule_nominator_unbond());
         });
     }
 
@@ -1193,9 +1193,9 @@ mod tests {
     }
 
     #[test]
-    fn bench_execute_nominator_bond_less() {
+    fn bench_execute_nominator_unbond() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_execute_nominator_bond_less());
+            assert_ok!(Pallet::<Test>::test_benchmark_execute_nominator_unbond());
         });
     }
 
@@ -1207,9 +1207,9 @@ mod tests {
     }
 
     #[test]
-    fn bench_cancel_nominator_bond_less() {
+    fn bench_cancel_nominator_unbond() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_cancel_nominator_bond_less());
+            assert_ok!(Pallet::<Test>::test_benchmark_cancel_nominator_unbond());
         });
     }
 

@@ -734,7 +734,7 @@ fn execute_leave_candidates_removes_pending_nomination_requests() {
         .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -1452,7 +1452,7 @@ fn execute_leave_nominators_removes_pending_nomination_requests() {
         .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -1896,7 +1896,7 @@ fn can_schedule_revoke_nomination_below_min_nominator_stake() {
 // NOMINATOR BOND LESS
 
 #[test]
-fn nominator_bond_less_event_emits_correctly() {
+fn nominator_unbond_event_emits_correctly() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -1905,7 +1905,7 @@ fn nominator_bond_less_event_emits_correctly() {
         .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -1920,7 +1920,7 @@ fn nominator_bond_less_event_emits_correctly() {
 }
 
 #[test]
-fn nominator_bond_less_updates_nominator_state() {
+fn nominator_unbond_updates_nominator_state() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -1929,7 +1929,7 @@ fn nominator_bond_less_updates_nominator_state() {
         .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -1947,7 +1947,7 @@ fn nominator_bond_less_updates_nominator_state() {
 }
 
 #[test]
-fn nominator_not_allowed_bond_less_if_leaving() {
+fn nominator_not_allowed_to_unbond_if_leaving() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -1958,7 +1958,7 @@ fn nominator_not_allowed_bond_less_if_leaving() {
         .execute_with(|| {
             assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(
+                ParachainStaking::schedule_nominator_unbond(
                     Origin::signed(account_id_2),
                     account_id,
                     1
@@ -1969,7 +1969,7 @@ fn nominator_not_allowed_bond_less_if_leaving() {
 }
 
 #[test]
-fn cannot_nominator_bond_less_if_revoking() {
+fn cannot_nominator_unbond_if_revoking() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     let account_id_3 = to_acc_id(3u64);
@@ -1984,7 +1984,7 @@ fn cannot_nominator_bond_less_if_revoking() {
                 account_id
             ));
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(
+                ParachainStaking::schedule_nominator_unbond(
                     Origin::signed(account_id_2),
                     account_id,
                     1
@@ -1995,12 +1995,12 @@ fn cannot_nominator_bond_less_if_revoking() {
 }
 
 #[test]
-fn cannot_nominator_bond_less_if_not_nominator() {
+fn cannot_nominator_unbond_if_not_nominator() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default().build().execute_with(|| {
         assert_noop!(
-            ParachainStaking::schedule_nominator_bond_less(
+            ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -2011,7 +2011,7 @@ fn cannot_nominator_bond_less_if_not_nominator() {
 }
 
 #[test]
-fn cannot_nominator_bond_less_if_candidate_dne() {
+fn cannot_nominator_unbond_if_candidate_dne() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2021,7 +2021,7 @@ fn cannot_nominator_bond_less_if_candidate_dne() {
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(
+                ParachainStaking::schedule_nominator_unbond(
                     Origin::signed(account_id_2),
                     to_acc_id(3),
                     5
@@ -2032,7 +2032,7 @@ fn cannot_nominator_bond_less_if_candidate_dne() {
 }
 
 #[test]
-fn cannot_nominator_bond_less_if_nomination_dne() {
+fn cannot_nominator_unbond_if_nomination_dne() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     let account_id_3 = to_acc_id(3u64);
@@ -2043,7 +2043,7 @@ fn cannot_nominator_bond_less_if_nomination_dne() {
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(
+                ParachainStaking::schedule_nominator_unbond(
                     Origin::signed(account_id_2),
                     account_id_3,
                     5
@@ -2054,7 +2054,7 @@ fn cannot_nominator_bond_less_if_nomination_dne() {
 }
 
 #[test]
-fn cannot_nominator_bond_less_below_min_collator_stk() {
+fn cannot_nominator_unbond_below_min_collator_stk() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2064,7 +2064,7 @@ fn cannot_nominator_bond_less_below_min_collator_stk() {
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(
+                ParachainStaking::schedule_nominator_unbond(
                     Origin::signed(account_id_2),
                     account_id,
                     6
@@ -2075,7 +2075,7 @@ fn cannot_nominator_bond_less_below_min_collator_stk() {
 }
 
 #[test]
-fn cannot_nominator_bond_less_more_than_total_nomination() {
+fn cannot_nominator_unbond_more_than_total_nomination() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2085,7 +2085,7 @@ fn cannot_nominator_bond_less_more_than_total_nomination() {
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(
+                ParachainStaking::schedule_nominator_unbond(
                     Origin::signed(account_id_2),
                     account_id,
                     11
@@ -2096,7 +2096,7 @@ fn cannot_nominator_bond_less_more_than_total_nomination() {
 }
 
 #[test]
-fn cannot_nominator_bond_less_below_min_nomination() {
+fn cannot_nominator_unbond_below_min_nomination() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     let account_id_3 = to_acc_id(3u64);
@@ -2107,7 +2107,7 @@ fn cannot_nominator_bond_less_below_min_nomination() {
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(
+                ParachainStaking::schedule_nominator_unbond(
                     Origin::signed(account_id_2),
                     account_id,
                     8
@@ -2527,7 +2527,7 @@ fn nominator_bond_more_after_revoke_nomination_does_not_effect_exit() {
 }
 
 #[test]
-fn nominator_bond_less_after_revoke_nomination_does_not_effect_exit() {
+fn nominator_unbond_after_revoke_nomination_does_not_effect_exit() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     let account_id_3 = to_acc_id(3u64);
@@ -2548,14 +2548,14 @@ fn nominator_bond_less_after_revoke_nomination_does_not_effect_exit() {
                 scheduled_exit: 3,
             }));
             assert_noop!(
-                ParachainStaking::schedule_nominator_bond_less(
+                ParachainStaking::schedule_nominator_unbond(
                     Origin::signed(account_id_2),
                     account_id,
                     2
                 ),
                 Error::<Test>::PendingNominationRequestAlreadyExists
             );
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id_3,
                 2
@@ -2585,7 +2585,7 @@ fn nominator_bond_less_after_revoke_nomination_does_not_effect_exit() {
 // 2. EXECUTE BOND LESS
 
 #[test]
-fn execute_nominator_bond_less_unreserves_balance() {
+fn execute_nominator_unbond_unreserves_balance() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2595,7 +2595,7 @@ fn execute_nominator_bond_less_unreserves_balance() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 0);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -2611,7 +2611,7 @@ fn execute_nominator_bond_less_unreserves_balance() {
 }
 
 #[test]
-fn execute_nominator_bond_less_decreases_total_staked() {
+fn execute_nominator_unbond_decreases_total_staked() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2621,7 +2621,7 @@ fn execute_nominator_bond_less_decreases_total_staked() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -2637,7 +2637,7 @@ fn execute_nominator_bond_less_decreases_total_staked() {
 }
 
 #[test]
-fn execute_nominator_bond_less_updates_nominator_state() {
+fn execute_nominator_unbond_updates_nominator_state() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2650,7 +2650,7 @@ fn execute_nominator_bond_less_updates_nominator_state() {
                 ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
                 10
             );
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -2666,7 +2666,7 @@ fn execute_nominator_bond_less_updates_nominator_state() {
 }
 
 #[test]
-fn execute_nominator_bond_less_updates_candidate_state() {
+fn execute_nominator_unbond_updates_candidate_state() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2683,7 +2683,7 @@ fn execute_nominator_bond_less_updates_candidate_state() {
                 ParachainStaking::top_nominations(account_id).unwrap().nominations[0].amount,
                 10
             );
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -2706,7 +2706,7 @@ fn execute_nominator_bond_less_updates_candidate_state() {
 }
 
 #[test]
-fn execute_nominator_bond_less_decreases_total() {
+fn execute_nominator_unbond_decreases_total() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2716,7 +2716,7 @@ fn execute_nominator_bond_less_decreases_total() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -2732,7 +2732,7 @@ fn execute_nominator_bond_less_decreases_total() {
 }
 
 #[test]
-fn execute_nominator_bond_less_updates_just_bottom_nominations() {
+fn execute_nominator_unbond_updates_just_bottom_nominations() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2760,7 +2760,7 @@ fn execute_nominator_bond_less_updates_just_bottom_nominations() {
                 ParachainStaking::top_nominations(&account_id).expect("nominated by all so exists");
             let pre_call_bottom_nominations = ParachainStaking::bottom_nominations(&account_id)
                 .expect("nominated by all so exists");
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 2
@@ -2813,7 +2813,7 @@ fn execute_nominator_bond_less_updates_just_bottom_nominations() {
 }
 
 #[test]
-fn execute_nominator_bond_less_does_not_delete_bottom_nominations() {
+fn execute_nominator_unbond_does_not_delete_bottom_nominations() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     let account_id_6 = to_acc_id(6u64);
@@ -2842,7 +2842,7 @@ fn execute_nominator_bond_less_does_not_delete_bottom_nominations() {
                 ParachainStaking::top_nominations(&account_id).expect("nominated by all so exists");
             let pre_call_bottom_nominations = ParachainStaking::bottom_nominations(&account_id)
                 .expect("nominated by all so exists");
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_6),
                 account_id,
                 4
@@ -2895,7 +2895,7 @@ fn execute_nominator_bond_less_does_not_delete_bottom_nominations() {
 }
 
 #[test]
-fn can_execute_nominator_bond_less_for_leaving_candidate() {
+fn can_execute_nominator_unbond_for_leaving_candidate() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -2905,7 +2905,7 @@ fn can_execute_nominator_bond_less_for_leaving_candidate() {
         .build()
         .execute_with(|| {
             assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -3000,7 +3000,7 @@ fn cancel_revoke_nomination_updates_nominator_state() {
 // 2. CANCEL NOMINATOR BOND LESS
 
 #[test]
-fn cancel_nominator_bond_less_correct_event() {
+fn cancel_nominator_unbond_correct_event() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -3009,7 +3009,7 @@ fn cancel_nominator_bond_less_correct_event() {
         .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -3030,7 +3030,7 @@ fn cancel_nominator_bond_less_correct_event() {
 }
 
 #[test]
-fn cancel_nominator_bond_less_updates_nominator_state() {
+fn cancel_nominator_unbond_updates_nominator_state() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()
@@ -3039,7 +3039,7 @@ fn cancel_nominator_bond_less_updates_nominator_state() {
         .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5
@@ -5612,7 +5612,7 @@ fn candidate_pool_updates_when_total_counted_changes() {
             // 4: 12 -> 20 => 4 is in top, bumps out 8
             // 17 + 18 + 19 + 20 + 20 = 94 (top 4 + self bond)
             is_candidate_pool_bond(account_id, 94);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_10),
                 account_id,
                 3
@@ -5626,7 +5626,7 @@ fn candidate_pool_updates_when_total_counted_changes() {
             ));
             // 16 + 17 + 19 + 20 + 20 = 92 (top 4 + self bond)
             is_candidate_pool_bond(account_id, 92);
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_9),
                 account_id,
                 4
@@ -5815,7 +5815,7 @@ fn nomination_events_convey_correct_position() {
             // 13 + 13 + 14 + 15 + 20 = 75 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 75);
             // 6 decreases nomination but stays in top
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_6),
                 account_id,
                 2
@@ -5842,7 +5842,7 @@ fn nomination_events_convey_correct_position() {
             // 12 + 13 + 13 + 15 + 20 = 73 (top 4 + self bond)ƒ
             assert_eq!(collator1_state.total_counted, 73);
             // 6 decreases nomination and is bumped to bottom
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_6),
                 account_id,
                 1
@@ -6596,7 +6596,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_
             // preset rewards for eras 1, 2 and 3
             (1..=3).for_each(|era| set_author(era, account_id, 1));
 
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 10,
@@ -6666,7 +6666,7 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
             // preset rewards for eras 2, 3 and 4
             (2..=4).for_each(|era| set_author(era, account_id, 1));
 
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 10,

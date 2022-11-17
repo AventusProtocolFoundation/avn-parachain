@@ -584,7 +584,7 @@ fn nominator_bond_extra_allowed_when_bond_decrease_scheduled() {
         .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_nominator_bond_less(
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 Origin::signed(account_id_2),
                 account_id,
                 5,
