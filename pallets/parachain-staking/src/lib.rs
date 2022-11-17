@@ -1160,9 +1160,9 @@ pub mod pallet {
             Self::nomination_schedule_revoke(collator, nominator)
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::nominator_bond_more())]
+        #[pallet::weight(<T as Config>::WeightInfo::bond_extra())]
         /// Bond more for nominators wrt a specific collator candidate.
-        pub fn nominator_bond_more(
+        pub fn bond_extra(
             origin: OriginFor<T>,
             candidate: T::AccountId,
             more: BalanceOf<T>,

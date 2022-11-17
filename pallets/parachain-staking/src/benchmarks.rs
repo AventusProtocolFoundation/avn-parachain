@@ -571,7 +571,7 @@ benchmarks! {
         );
     }
 
-    nominator_bond_more {
+    bond_extra {
         let collator: T::AccountId = create_funded_collator::<T>(
             "collator",
             USER_SEED,
