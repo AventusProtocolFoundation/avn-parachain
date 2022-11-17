@@ -15,6 +15,7 @@ use super::*;
 use crate::Pallet as ParachainStaking;
 
 pub const SIGNED_NOMINATOR_CONTEXT: &'static [u8] = b"authorization for nominate operation";
+pub const SIGNED_BOND_EXTRA_CONTEXT: &'static [u8] = b"authorization for bond extra operation";
 
 pub fn get_encoded_call_param<T: Config>(
     call: &<T as Config>::Call,
@@ -36,6 +37,16 @@ pub fn get_encoded_call_param<T: Config>(
 
             return Some((proof, encoded_data))
         },
+        Call::signed_bond_extra { proof, max_additional } => {
+            let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
+            let encoded_data = encode_signed_bond_extra_params::<T>(
+                proof.relayer.clone(),
+                max_additional,
+                sender_nonce,
+            );
+
+            return Some((proof, encoded_data))
+        },
         _ => return None,
     }
 }
@@ -47,6 +58,14 @@ pub fn encode_signed_nominate_params<T: Config>(
     sender_nonce: u64,
 ) -> Vec<u8> {
     return (SIGNED_NOMINATOR_CONTEXT, relayer, targets, amount, sender_nonce).encode()
+}
+
+pub fn encode_signed_bond_extra_params<T: Config>(
+    relayer: T::AccountId,
+    max_additional: &BalanceOf<T>,
+    sender_nonce: u64,
+) -> Vec<u8> {
+    return (SIGNED_BOND_EXTRA_CONTEXT, relayer, max_additional, sender_nonce).encode()
 }
 
 pub fn verify_signature<T: Config>(

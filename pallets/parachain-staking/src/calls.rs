@@ -74,8 +74,8 @@ impl<T: Config> Pallet<T> {
     pub fn call_bond_extra(
         nominator: &T::AccountId,
         candidate: T::AccountId,
-        additional_amount: BalanceOf<T>) -> DispatchResultWithPostInfo
-    {
+        additional_amount: BalanceOf<T>,
+    ) -> DispatchResultWithPostInfo {
         ensure!(
             !Self::nomination_request_revoke_exists(&candidate, nominator),
             Error::<T>::PendingNominationRevoke
