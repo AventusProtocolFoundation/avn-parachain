@@ -63,6 +63,9 @@ mod benchmarks;
 #[path = "tests/mock.rs"]
 mod mock;
 #[cfg(test)]
+#[path = "tests/nominate_tests.rs"]
+mod nominate_tests;
+#[cfg(test)]
 #[path = "tests/test_admin_settings.rs"]
 mod test_admin_settings;
 #[cfg(test)]
@@ -77,9 +80,6 @@ mod test_staking_pot;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
-#[cfg(test)]
-#[path = "tests/nominate_tests.rs"]
-mod nominate_tests;
 
 use frame_support::pallet;
 use pallet_avn::OnGrowthLiftedHandler;
