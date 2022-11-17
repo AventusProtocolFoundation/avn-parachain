@@ -66,6 +66,9 @@ mod mock;
 #[path = "tests/nominate_tests.rs"]
 mod nominate_tests;
 #[cfg(test)]
+#[path = "tests/bond_extra_tests.rs"]
+mod bond_extra_tests;
+#[cfg(test)]
 #[path = "tests/test_admin_settings.rs"]
 mod test_admin_settings;
 #[cfg(test)]
