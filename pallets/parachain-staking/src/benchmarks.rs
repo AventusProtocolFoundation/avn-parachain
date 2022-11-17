@@ -319,7 +319,7 @@ benchmarks! {
         assert_eq!(T::Currency::reserved_balance(&caller), expected_bond);
     }
 
-    schedule_candidate_bond_less {
+    schedule_candidate_unbond {
         let min_candidate_stk = min_candidate_stk::<T>();
         let caller: T::AccountId = create_funded_collator::<T>(
             "collator",
@@ -340,7 +340,7 @@ benchmarks! {
         );
     }
 
-    execute_candidate_bond_less {
+    execute_candidate_unbond {
         let min_candidate_stk = min_candidate_stk::<T>();
         let caller: T::AccountId = create_funded_collator::<T>(
             "collator",
@@ -349,13 +349,13 @@ benchmarks! {
             false,
             1u32,
         )?;
-        Pallet::<T>::schedule_candidate_bond_less(
+        Pallet::<T>::schedule_candidate_unbond(
             RawOrigin::Signed(caller.clone()).into(),
             min_candidate_stk
         )?;
         roll_to_and_author::<T>(2, caller.clone());
     }: {
-        Pallet::<T>::execute_candidate_bond_less(
+        Pallet::<T>::execute_candidate_unbond(
             RawOrigin::Signed(caller.clone()).into(),
             caller.clone()
         )?;
@@ -363,7 +363,7 @@ benchmarks! {
         assert_eq!(T::Currency::reserved_balance(&caller), min_candidate_stk);
     }
 
-    cancel_candidate_bond_less {
+    cancel_candidate_unbond {
         let min_candidate_stk = min_candidate_stk::<T>();
         let caller: T::AccountId = create_funded_collator::<T>(
             "collator",
@@ -372,12 +372,12 @@ benchmarks! {
             false,
             1u32,
         )?;
-        Pallet::<T>::schedule_candidate_bond_less(
+        Pallet::<T>::schedule_candidate_unbond(
             RawOrigin::Signed(caller.clone()).into(),
             min_candidate_stk
         )?;
     }: {
-        Pallet::<T>::cancel_candidate_bond_less(
+        Pallet::<T>::cancel_candidate_unbond(
             RawOrigin::Signed(caller.clone()).into(),
         )?;
     } verify {
@@ -1116,23 +1116,23 @@ mod tests {
     }
 
     #[test]
-    fn bench_schedule_candidate_bond_less() {
+    fn bench_schedule_candidate_unbond() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_schedule_candidate_bond_less());
+            assert_ok!(Pallet::<Test>::test_benchmark_schedule_candidate_unbond());
         });
     }
 
     #[test]
-    fn bench_execute_candidate_bond_less() {
+    fn bench_execute_candidate_unbond() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_execute_candidate_bond_less());
+            assert_ok!(Pallet::<Test>::test_benchmark_execute_candidate_unbond());
         });
     }
 
     #[test]
-    fn bench_cancel_candidate_bond_less() {
+    fn bench_cancel_candidate_unbond() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_cancel_candidate_bond_less());
+            assert_ok!(Pallet::<Test>::test_benchmark_cancel_candidate_unbond());
         });
     }
 
