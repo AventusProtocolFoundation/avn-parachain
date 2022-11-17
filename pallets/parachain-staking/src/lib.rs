@@ -63,6 +63,9 @@ mod benchmarks;
 #[path = "tests/mock.rs"]
 mod mock;
 #[cfg(test)]
+#[path = "tests/nominate_tests.rs"]
+mod nominate_tests;
+#[cfg(test)]
 #[path = "tests/test_admin_settings.rs"]
 mod test_admin_settings;
 #[cfg(test)]
@@ -89,7 +92,7 @@ pub use types::*;
 
 #[pallet]
 pub mod pallet {
-    use crate::{
+    pub use crate::{
         calls::*,
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
         proxy_methods::*,
@@ -107,9 +110,9 @@ pub mod pallet {
         weights::{GetDispatchInfo, PostDispatchInfo},
         PalletId,
     };
-    use frame_system::pallet_prelude::*;
-    use pallet_avn::{CollatorPayoutDustHandler, ProcessedEventsChecker};
-    use sp_avn_common::Proof;
+    pub use frame_system::pallet_prelude::*;
+    pub use pallet_avn::{CollatorPayoutDustHandler, ProcessedEventsChecker};
+    pub use sp_avn_common::Proof;
     pub use sp_runtime::{
         traits::{
             AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Dispatchable, IdentifyAccount,
