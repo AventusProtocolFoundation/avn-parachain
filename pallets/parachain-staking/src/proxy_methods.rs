@@ -37,11 +37,11 @@ pub fn get_encoded_call_param<T: Config>(
 
             return Some((proof, encoded_data))
         },
-        Call::signed_bond_extra { proof, max_additional } => {
+        Call::signed_bond_extra { proof, extra_amount } => {
             let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
             let encoded_data = encode_signed_bond_extra_params::<T>(
                 proof.relayer.clone(),
-                max_additional,
+                extra_amount,
                 sender_nonce,
             );
 
@@ -62,10 +62,10 @@ pub fn encode_signed_nominate_params<T: Config>(
 
 pub fn encode_signed_bond_extra_params<T: Config>(
     relayer: T::AccountId,
-    max_additional: &BalanceOf<T>,
+    extra_amount: &BalanceOf<T>,
     sender_nonce: u64,
 ) -> Vec<u8> {
-    return (SIGNED_BOND_EXTRA_CONTEXT, relayer, max_additional, sender_nonce).encode()
+    return (SIGNED_BOND_EXTRA_CONTEXT, relayer, extra_amount, sender_nonce).encode()
 }
 
 pub fn verify_signature<T: Config>(
