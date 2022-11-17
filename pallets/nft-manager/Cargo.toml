@@ -5,7 +5,7 @@ authors = ["Aventus Network Services Team"]
 edition = "2021"
 license = "GPL-3.0"
 homepage = "http://www.aventus.io/"
-repository = "https://github.com/Aventus-Network-Services/avn-node-parachain/"
+repository = "https://github.com/Aventus-Network-Services/avn-parachain/"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -19,7 +19,7 @@ frame-system = { default-features = false, git = "https://github.com/paritytech/
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
-sp-avn-common = { git = "https://github.com/Aventus-Network-Services/avn-parachain", default-features = false,  branch = "main" }
+sp-avn-common = { version = "0.12.0", default-features = false, path = "../../primitives/avn-common" }
 sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 pallet-avn = { version = "0.12.0", default-features = false, path = "../avn" }
 
