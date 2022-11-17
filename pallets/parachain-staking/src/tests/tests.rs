@@ -1052,10 +1052,7 @@ fn schedule_candidate_unbond_event_emits_correctly() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBondLessRequested {
                 candidate: account_id,
                 amount_to_decrease: 10,
@@ -1072,10 +1069,7 @@ fn cannot_schedule_candidate_unbond_if_request_exists() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                5
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 5));
             assert_noop!(
                 ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 5),
                 Error::<Test>::PendingCandidateRequestAlreadyExists
@@ -1117,10 +1111,7 @@ fn can_schedule_candidate_unbond_if_leaving_candidates() {
         .build()
         .execute_with(|| {
             assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
         });
 }
 
@@ -1156,10 +1147,7 @@ fn execute_candidate_unbond_emits_correct_event() {
         .with_candidates(vec![(account_id, 50)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                30
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 30));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
@@ -1182,10 +1170,7 @@ fn execute_candidate_unbond_unreserves_balance() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
@@ -1204,10 +1189,7 @@ fn execute_candidate_unbond_decreases_total() {
         .build()
         .execute_with(|| {
             let mut total = ParachainStaking::total();
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
@@ -1229,10 +1211,7 @@ fn execute_candidate_unbond_updates_candidate_state() {
             let candidate_state =
                 ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 30);
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
@@ -1254,10 +1233,7 @@ fn execute_candidate_unbond_updates_candidate_pool() {
         .execute_with(|| {
             assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 30);
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
@@ -1278,10 +1254,7 @@ fn cancel_candidate_unbond_emits_event() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             assert_ok!(ParachainStaking::cancel_candidate_unbond(Origin::signed(account_id)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CancelledCandidateBondLess {
                 candidate: account_id,
@@ -1299,10 +1272,7 @@ fn cancel_candidate_unbond_updates_candidate_state() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             assert_ok!(ParachainStaking::cancel_candidate_unbond(Origin::signed(account_id)));
             assert!(ParachainStaking::candidate_info(&account_id).unwrap().request.is_none());
         });
@@ -1316,10 +1286,7 @@ fn only_candidate_can_cancel_candidate_unbond_request() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             assert_noop!(
                 ParachainStaking::cancel_candidate_unbond(Origin::signed(to_acc_id(2))),
                 Error::<Test>::CandidateDNE
