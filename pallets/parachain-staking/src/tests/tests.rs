@@ -2021,11 +2021,7 @@ fn nominator_bond_more_reserves_balance() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 5);
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
             assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 0);
         });
 }
@@ -2041,11 +2037,7 @@ fn nominator_bond_more_increases_total_staked() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
             assert_eq!(ParachainStaking::total(), 45);
         });
 }
@@ -2064,11 +2056,7 @@ fn nominator_bond_more_updates_nominator_state() {
                 ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
                 10
             );
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
             assert_eq!(
                 ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
                 15
@@ -2095,11 +2083,7 @@ fn nominator_bond_more_updates_candidate_state_top_nominations() {
                 10
             );
             assert_eq!(ParachainStaking::top_nominations(account_id).unwrap().total, 10);
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
             assert_eq!(
                 ParachainStaking::top_nominations(account_id).unwrap().nominations[0].owner,
                 account_id_2
@@ -2146,11 +2130,7 @@ fn nominator_bond_more_updates_candidate_state_bottom_nominations() {
                 10
             );
             assert_eq!(ParachainStaking::bottom_nominations(account_id).unwrap().total, 10);
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominationIncreased {
                 nominator: account_id_2,
                 candidate: account_id,
@@ -2182,11 +2162,7 @@ fn nominator_bond_more_increases_total() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
             assert_eq!(ParachainStaking::total(), 45);
         });
 }
@@ -2202,11 +2178,7 @@ fn can_nominator_bond_more_for_leaving_candidate() {
         .build()
         .execute_with(|| {
             assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
         });
 }
 
@@ -2246,11 +2218,7 @@ fn nominator_bond_more_allowed_when_bond_decrease_scheduled() {
                 account_id,
                 5,
             ));
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
         });
 }
 
@@ -5965,19 +5933,11 @@ fn candidate_pool_updates_when_total_counted_changes() {
             }
             // 15 + 16 + 17 + 18 + 20 = 86 (top 4 + self bond)
             is_candidate_pool_bond(account_id, 86);
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_3),
-                account_id,
-                8
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_3), account_id, 8));
             // 3: 11 -> 19 => 3 is in top, bumps out 7
             // 16 + 17 + 18 + 19 + 20 = 90 (top 4 + self bond)
             is_candidate_pool_bond(account_id, 90);
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(to_acc_id(4)),
-                account_id,
-                8
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(to_acc_id(4)), account_id, 8));
             // 4: 12 -> 20 => 4 is in top, bumps out 8
             // 17 + 18 + 19 + 20 + 20 = 94 (top 4 + self bond)
             is_candidate_pool_bond(account_id, 94);
@@ -6051,11 +6011,7 @@ fn only_top_collators_are_counted() {
             // 15 + 16 + 17 + 18 + 20 = 86 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 86);
             // bump bottom to the top
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_3),
-                account_id,
-                8
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_3), account_id, 8));
             assert_event_emitted!(Event::NominationIncreased {
                 nominator: account_id_3,
                 candidate: account_id,
@@ -6066,11 +6022,7 @@ fn only_top_collators_are_counted() {
             // 16 + 17 + 18 + 19 + 20 = 90 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 90);
             // bump bottom to the top
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_4),
-                account_id,
-                8
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_4), account_id, 8));
             assert_event_emitted!(Event::NominationIncreased {
                 nominator: account_id_4,
                 candidate: account_id,
@@ -6081,11 +6033,7 @@ fn only_top_collators_are_counted() {
             // 17 + 18 + 19 + 20 + 20 = 94 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 94);
             // bump bottom to the top
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_5),
-                account_id,
-                8
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_5), account_id, 8));
             assert_event_emitted!(Event::NominationIncreased {
                 nominator: account_id_5,
                 candidate: account_id,
@@ -6096,11 +6044,7 @@ fn only_top_collators_are_counted() {
             // 18 + 19 + 20 + 21 + 20 = 98 (top 4 + self bond)
             assert_eq!(collator_state.total_counted, 98);
             // bump bottom to the top
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(account_id_6),
-                account_id,
-                8
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_6), account_id, 8));
             assert_event_emitted!(Event::NominationIncreased {
                 nominator: account_id_6,
                 candidate: account_id,
@@ -6178,11 +6122,7 @@ fn nomination_events_convey_correct_position() {
             // 12 + 13 + 14 + 15 + 20 = 70 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 74);
             // 8 increases nomination to the top
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(to_acc_id(8)),
-                account_id,
-                3
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(to_acc_id(8)), account_id, 3));
             assert_event_emitted!(Event::NominationIncreased {
                 nominator: to_acc_id(8),
                 candidate: account_id,
@@ -6193,11 +6133,7 @@ fn nomination_events_convey_correct_position() {
             // 13 + 13 + 14 + 15 + 20 = 75 (top 4 + self bond)
             assert_eq!(collator1_state.total_counted, 75);
             // 3 increases nomination but stays in bottom
-            assert_ok!(ParachainStaking::bond_extra(
-                Origin::signed(to_acc_id(3)),
-                account_id,
-                1
-            ));
+            assert_ok!(ParachainStaking::bond_extra(Origin::signed(to_acc_id(3)), account_id, 1));
             assert_event_emitted!(Event::NominationIncreased {
                 nominator: to_acc_id(3),
                 candidate: account_id,

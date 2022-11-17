@@ -247,6 +247,7 @@ pub mod pallet {
         UnauthorizedProxyTransaction,
         SenderIsNotSigner,
         UnauthorizedSignedNominateTransaction,
+        UnauthorizedSignedBondExtraTransaction,
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
     }
@@ -1169,6 +1170,61 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             return Self::call_bond_extra(&nominator, candidate, more)
+        }
+
+        /// Bond a maximum of 'max_additional' amount. Due to rounding, its possible that a small
+        /// amount is retuned to the caller, hence why its 'max_additional'.
+        // TODO: benchmark me
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn signed_bond_extra(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            #[pallet::compact] max_additional: BalanceOf<T>,
+        ) -> DispatchResult {
+            let nominator = ensure_signed(origin)?;
+            ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let nominator_nonce = Self::proxy_nonce(&nominator);
+            let signed_payload = encode_signed_bond_extra_params::<T>(
+                proof.relayer.clone(),
+                &max_additional,
+                nominator_nonce,
+            );
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedBondExtraTransaction
+            );
+
+            ensure!(
+                Self::get_nominator_stakable_free_balance(&nominator) >= max_additional,
+                Error::<T>::InsufficientBalance
+            );
+
+            let collators = Self::selected_candidates();
+            let num_collators = collators.len() as u32;
+            let amount_per_collator = Perbill::from_rational(1, num_collators) * max_additional;
+            ensure!(
+                amount_per_collator >= T::MinNominationPerCollator::get(),
+                Error::<T>::NominationBelowMin
+            );
+
+            let dust = max_additional - (amount_per_collator * num_collators.into());
+
+            // This is only possible because we won't have more than 20 collators. If that changes,
+            // we should not use a loop here.
+            for (index, collator) in collators.into_iter().enumerate() {
+                let mut actual_amount = amount_per_collator;
+                if Self::collator_should_get_dust(dust, num_collators.into(), index as u64) {
+                    actual_amount = amount_per_collator + dust;
+                }
+
+                Self::call_bond_extra(&nominator, collator, actual_amount);
+            }
+
+            <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
+
+            Ok(())
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::schedule_nominator_bond_less())]
