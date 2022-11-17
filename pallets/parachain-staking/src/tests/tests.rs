@@ -1409,7 +1409,6 @@ fn only_candidate_can_cancel_candidate_bond_less_request() {
         });
 }
 
-
 // SCHEDULE LEAVE NOMINATORS
 
 #[test]
