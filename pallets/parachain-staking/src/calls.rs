@@ -103,4 +103,21 @@ impl<T: Config> Pallet<T> {
 
         Ok(().into())
     }
+
+    pub fn call_schedule_candidate_unbond(
+        collator: &T::AccountId,
+        amount_to_decrease: BalanceOf<T>,
+    ) -> DispatchResultWithPostInfo {
+        let mut state = <CandidateInfo<T>>::get(collator).ok_or(Error::<T>::CandidateDNE)?;
+        let when = state.schedule_unbond::<T>(amount_to_decrease)?;
+        <CandidateInfo<T>>::insert(collator, state);
+
+        Self::deposit_event(Event::CandidateBondLessRequested {
+            candidate: collator.clone(),
+            amount_to_decrease,
+            execute_era: when,
+        });
+
+        Ok(().into())
+    }
 }
