@@ -1310,7 +1310,8 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedUnbondTransaction
             );
 
-            let (payers, mut outstanding_withdrawal) = Self::identify_collators_to_withdraw_from(&nominator, less)?;
+            let (payers, mut outstanding_withdrawal) =
+                Self::identify_collators_to_withdraw_from(&nominator, less)?;
 
             // Deal with any outstanding amount to withdraw and schedule decrease
             for mut stake in payers.clone().into_iter() {
@@ -1337,7 +1338,7 @@ pub mod pallet {
 
             Ok(().into())
         }
-	
+
         #[pallet::weight(<T as Config>::WeightInfo::execute_nominator_unbond())]
         /// Execute pending request to change an existing nomination
         pub fn execute_nomination_request(
@@ -1990,9 +1991,10 @@ pub mod pallet {
             return !dust.is_zero() && index == chosen_collator_index
         }
 
-        pub fn identify_collators_to_withdraw_from(nominator: &T::AccountId, total_reduction: BalanceOf<T>)
-            -> Result<(Vec<StakeInfo<T::AccountId, BalanceOf<T>>>, BalanceOf<T>), Error<T>>
-        {
+        pub fn identify_collators_to_withdraw_from(
+            nominator: &T::AccountId,
+            total_reduction: BalanceOf<T>,
+        ) -> Result<(Vec<StakeInfo<T::AccountId, BalanceOf<T>>>, BalanceOf<T>), Error<T>> {
             let state = <NominatorState<T>>::get(&nominator).ok_or(<Error<T>>::NominatorDNE)?;
             let net_total_bonded = state.total().saturating_sub(state.less_total);
             // Make sure the nominator has enough to unbond and stay above the min requirement
@@ -2002,8 +2004,8 @@ pub mod pallet {
             );
 
             // Desired balance on each collator after nominator reduces its stake
-            let target_average_amount =
-                Perbill::from_rational(1, state.nominations.0.len() as u32) * (net_total_bonded - total_reduction);
+            let target_average_amount = Perbill::from_rational(1, state.nominations.0.len() as u32) *
+                (net_total_bonded - total_reduction);
 
             // Make sure each nominator will have at least required min amount
             ensure!(
@@ -2016,8 +2018,8 @@ pub mod pallet {
             let mut payers: Vec<StakeInfo<T::AccountId, BalanceOf<T>>> = vec![];
 
             for bond in state.nominations.0.into_iter() {
-                let amount_to_withdraw = outstanding_withdrawal
-                    .min(bond.amount.saturating_sub(target_average_amount));
+                let amount_to_withdraw =
+                    outstanding_withdrawal.min(bond.amount.saturating_sub(target_average_amount));
 
                 if bond.amount >= amount_to_withdraw {
                     outstanding_withdrawal -= amount_to_withdraw;
@@ -2035,7 +2037,7 @@ pub mod pallet {
                 }
             }
 
-            return Ok((payers, outstanding_withdrawal));
+            return Ok((payers, outstanding_withdrawal))
         }
     }
 
