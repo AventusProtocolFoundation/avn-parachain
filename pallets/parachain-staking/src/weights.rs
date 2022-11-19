@@ -77,11 +77,11 @@ pub trait WeightInfo {
     #[rustfmt::skip]
 	fn candidate_bond_extra() -> Weight;
     #[rustfmt::skip]
-	fn schedule_candidate_bond_less() -> Weight;
+	fn schedule_candidate_unbond() -> Weight;
     #[rustfmt::skip]
-	fn execute_candidate_bond_less() -> Weight;
+	fn execute_candidate_unbond() -> Weight;
     #[rustfmt::skip]
-	fn cancel_candidate_bond_less() -> Weight;
+	fn cancel_candidate_unbond() -> Weight;
     #[rustfmt::skip]
 	fn nominate(x: u32, y: u32, ) -> Weight;
     #[rustfmt::skip]
@@ -95,15 +95,15 @@ pub trait WeightInfo {
     #[rustfmt::skip]
 	fn bond_extra() -> Weight;
     #[rustfmt::skip]
-	fn schedule_nominator_bond_less() -> Weight;
+	fn schedule_nominator_unbond() -> Weight;
     #[rustfmt::skip]
 	fn execute_revoke_nomination() -> Weight;
     #[rustfmt::skip]
-	fn execute_nominator_bond_less() -> Weight;
+	fn execute_nominator_unbond() -> Weight;
     #[rustfmt::skip]
 	fn cancel_revoke_nomination() -> Weight;
     #[rustfmt::skip]
-	fn cancel_nominator_bond_less() -> Weight;
+	fn cancel_nominator_unbond() -> Weight;
     #[rustfmt::skip]
 	fn era_transition_on_initialize(x: u32, y: u32, ) -> Weight;
     #[rustfmt::skip]
@@ -225,7 +225,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
     // Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	#[rustfmt::skip]
-    fn schedule_candidate_bond_less() -> Weight {
+    fn schedule_candidate_unbond() -> Weight {
 		(26_710_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -235,14 +235,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     // Storage: ParachainStaking Total (r:1 w:1)
     // Storage: ParachainStaking CandidatePool (r:1 w:1)
 	#[rustfmt::skip]
-    fn execute_candidate_bond_less() -> Weight {
+    fn execute_candidate_unbond() -> Weight {
 		(54_648_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(4 as Weight))
 			.saturating_add(T::DbWeight::get().writes(4 as Weight))
 	}
     // Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	#[rustfmt::skip]
-    fn cancel_candidate_bond_less() -> Weight {
+    fn cancel_candidate_unbond() -> Weight {
 		(22_585_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -320,7 +320,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     // Storage: ParachainStaking NominatorState (r:1 w:1)
     // Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	#[rustfmt::skip]
-    fn schedule_nominator_bond_less() -> Weight {
+    fn schedule_nominator_unbond() -> Weight {
 		(31_467_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
@@ -346,7 +346,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     // Storage: ParachainStaking CandidatePool (r:1 w:1)
     // Storage: ParachainStaking Total (r:1 w:1)
 	#[rustfmt::skip]
-    fn execute_nominator_bond_less() -> Weight {
+    fn execute_nominator_unbond() -> Weight {
 		(75_207_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(7 as Weight))
 			.saturating_add(T::DbWeight::get().writes(7 as Weight))
@@ -362,7 +362,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     // Storage: ParachainStaking NominatorState (r:1 w:1)
     // Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	#[rustfmt::skip]
-    fn cancel_nominator_bond_less() -> Weight {
+    fn cancel_nominator_unbond() -> Weight {
 		(35_951_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
@@ -534,7 +534,7 @@ impl WeightInfo for () {
 	}
     // Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	#[rustfmt::skip]
-    fn schedule_candidate_bond_less() -> Weight {
+    fn schedule_candidate_unbond() -> Weight {
 		(26_710_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
@@ -544,14 +544,14 @@ impl WeightInfo for () {
     // Storage: ParachainStaking Total (r:1 w:1)
     // Storage: ParachainStaking CandidatePool (r:1 w:1)
 	#[rustfmt::skip]
-    fn execute_candidate_bond_less() -> Weight {
+    fn execute_candidate_unbond() -> Weight {
 		(54_648_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
 	}
     // Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	#[rustfmt::skip]
-    fn cancel_candidate_bond_less() -> Weight {
+    fn cancel_candidate_unbond() -> Weight {
 		(22_585_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
@@ -629,7 +629,7 @@ impl WeightInfo for () {
     // Storage: ParachainStaking NominatorState (r:1 w:1)
     // Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	#[rustfmt::skip]
-    fn schedule_nominator_bond_less() -> Weight {
+    fn schedule_nominator_unbond() -> Weight {
 		(31_467_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
@@ -655,7 +655,7 @@ impl WeightInfo for () {
     // Storage: ParachainStaking CandidatePool (r:1 w:1)
     // Storage: ParachainStaking Total (r:1 w:1)
 	#[rustfmt::skip]
-    fn execute_nominator_bond_less() -> Weight {
+    fn execute_nominator_unbond() -> Weight {
 		(75_207_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
@@ -671,7 +671,7 @@ impl WeightInfo for () {
     // Storage: ParachainStaking NominatorState (r:1 w:1)
     // Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	#[rustfmt::skip]
-    fn cancel_nominator_bond_less() -> Weight {
+    fn cancel_nominator_unbond() -> Weight {
 		(35_951_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
