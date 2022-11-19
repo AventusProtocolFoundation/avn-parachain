@@ -1444,3 +1444,28 @@ impl<
         }
     }
 }
+
+// Amount based stake data. Note: 2 stakes with the same free amount are considered equal
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+pub struct StakeInfo<AccountId, Balance> {
+    pub owner: AccountId,
+    pub free_amount: Balance,
+    pub reserved_amount: Balance,
+}
+
+impl<A: Decode, B: Default> Default for StakeInfo<A, B> {
+    fn default() -> StakeInfo<A, B> {
+        StakeInfo {
+            owner: A::decode(&mut sp_runtime::traits::TrailingZeroInput::zeroes())
+                .expect("infinite length input; no invalid inputs for type; qed"),
+            free_amount: B::default(),
+            reserved_amount: B::default(),
+        }
+    }
+}
+
+impl<A, B: Default> StakeInfo<A, B> {
+    pub fn new(owner: A, free_amount: B, reserved_amount: B) -> Self {
+        StakeInfo { owner, free_amount, reserved_amount }
+    }
+}
