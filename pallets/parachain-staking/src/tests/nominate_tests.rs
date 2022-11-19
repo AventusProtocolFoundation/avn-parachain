@@ -174,6 +174,38 @@ mod proxy_signed_nominate {
         }
 
         #[test]
+        fn proxy_proof_is_not_valid() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    let amount_to_stake = ParachainStaking::min_total_nominator_stake() * 2u128;
+                    let bad_nonce = ParachainStaking::proxy_nonce(staker.account_id) + 1;
+
+                    let nominate_call = create_call_for_nominate(
+                        &staker,
+                        bad_nonce,
+                        vec![collator_1, collator_2],
+                        amount_to_stake,
+                    );
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
+                        Error::<Test>::UnauthorizedSignedNominateTransaction
+                    );
+                });
+        }
+
+        #[test]
         fn staker_does_not_have_enough_funds() {
             let collator_1 = to_acc_id(1u64);
             let collator_2 = to_acc_id(2u64);
