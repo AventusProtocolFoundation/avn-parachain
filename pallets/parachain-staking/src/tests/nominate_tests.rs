@@ -595,11 +595,17 @@ mod existing_direct_nominate_tests {
         ExtBuilder::default()
             .with_balances(vec![
                 (account_id, 20),
-                (to_acc_id(2), 50),
+                (to_acc_id(2), 110),
                 (to_acc_id(3), 20),
                 (to_acc_id(4), 20),
                 (to_acc_id(5), 20),
                 (to_acc_id(6), 20),
+                (to_acc_id(7), 20),
+                (to_acc_id(8), 20),
+                (to_acc_id(9), 20),
+                (to_acc_id(10), 20),
+                (to_acc_id(11), 20),
+                (to_acc_id(12), 20),
             ])
             .with_candidates(vec![
                 (account_id, 20),
@@ -607,22 +613,34 @@ mod existing_direct_nominate_tests {
                 (to_acc_id(4), 20),
                 (to_acc_id(5), 20),
                 (to_acc_id(6), 20),
+                (to_acc_id(7), 20),
+                (to_acc_id(8), 20),
+                (to_acc_id(9), 20),
+                (to_acc_id(10), 20),
+                (to_acc_id(11), 20),
+                (to_acc_id(12), 20),
             ])
             .with_nominations(vec![
                 (to_acc_id(2), account_id, 10),
                 (to_acc_id(2), to_acc_id(3), 10),
                 (to_acc_id(2), to_acc_id(4), 10),
                 (to_acc_id(2), to_acc_id(5), 10),
+                (to_acc_id(2), to_acc_id(6), 10),
+                (to_acc_id(2), to_acc_id(7), 10),
+                (to_acc_id(2), to_acc_id(8), 10),
+                (to_acc_id(2), to_acc_id(9), 10),
+                (to_acc_id(2), to_acc_id(10), 10),
+                (to_acc_id(2), to_acc_id(11), 10),
             ])
             .build()
             .execute_with(|| {
                 assert_noop!(
                     ParachainStaking::nominate(
                         Origin::signed(to_acc_id(2)),
-                        to_acc_id(6),
+                        to_acc_id(12),
                         10,
                         0,
-                        4
+                        10
                     ),
                     Error::<Test>::ExceedMaxNominationsPerNominator,
                 );
