@@ -158,18 +158,21 @@ mod proxy_signed_nominate {
                 .execute_with(|| {
                     let amount_to_stake = ParachainStaking::min_total_nominator_stake() * 2u128;
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
-
-                    let nominate_call = create_call_for_nominate(
-                        &staker,
+                    let targets = vec![collator_1, collator_2];
+                    let proof = create_proof_for_signed_nominate(
                         nonce,
-                        vec![collator_1, collator_2],
-                        amount_to_stake,
+                        &staker,
+                        &targets,
+                        &amount_to_stake,
                     );
 
                     assert_noop!(
-                        AvnProxy::proxy(RawOrigin::None.into(), nominate_call, None),
+                        ParachainStaking::signed_nominate(RawOrigin::None.into(), proof.clone(), targets.clone(), amount_to_stake),
                         BadOrigin
                     );
+
+                    // Show that we can send a successful transaction if its signed.
+                    assert_ok!(ParachainStaking::signed_nominate(Origin::signed(staker.account_id), proof, targets, amount_to_stake));
                 });
         }
 

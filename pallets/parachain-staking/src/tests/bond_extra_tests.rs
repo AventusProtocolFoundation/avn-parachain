@@ -155,13 +155,19 @@ mod proxy_signed_bond_extra {
                 .execute_with(|| {
                     let amount_to_topup = MinNominationPerCollator::get() * 2u128;
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
-                    let bond_extra_call =
-                        create_call_for_bond_extra(&staker, nonce, amount_to_topup);
+                    let proof = create_proof_for_signed_bond_extra(
+                        nonce,
+                        &staker,
+                        &amount_to_topup,
+                    );
 
                     assert_noop!(
-                        AvnProxy::proxy(RawOrigin::None.into(), bond_extra_call, None),
+                        ParachainStaking::signed_bond_extra(RawOrigin::None.into(), proof.clone(), amount_to_topup),
                         BadOrigin
                     );
+
+                    // Show that we can send a successful transaction if its signed.
+                    assert_ok!(ParachainStaking::signed_bond_extra(Origin::signed(staker.account_id), proof, amount_to_topup));
                 });
         }
 
@@ -394,13 +400,19 @@ mod proxy_signed_candidate_bond_extra {
                     let min_collator_stake = ParachainStaking::min_collator_stake();
                     let amount_to_topup = min_collator_stake + 1u128;
                     let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
-                    let bond_extra_call =
-                        create_call_for_candidate_bond_extra(&collator_1, nonce, amount_to_topup);
+                    let proof = create_proof_for_signed_candidate_bond_extra(
+                        nonce,
+                        &collator_1,
+                        &amount_to_topup,
+                    );
 
                     assert_noop!(
-                        AvnProxy::proxy(RawOrigin::None.into(), bond_extra_call, None),
+                        ParachainStaking::signed_candidate_bond_extra(RawOrigin::None.into(), proof.clone(), amount_to_topup),
                         BadOrigin
                     );
+
+                    // Show that we can send a successful transaction if its signed.
+                    assert_ok!(ParachainStaking::signed_candidate_bond_extra(Origin::signed(collator_1.account_id), proof, amount_to_topup));
                 });
         }
 
