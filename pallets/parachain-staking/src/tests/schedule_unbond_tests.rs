@@ -3,12 +3,12 @@
 #![cfg(test)]
 
 use crate::{
-    encode_signed_schedule_nominator_unbond_params,
+    assert_event_emitted, encode_signed_schedule_nominator_unbond_params,
     mock::{
         build_proof, sign, AccountId, AvnProxy, Call as MockCall, ExtBuilder,
-        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, Test, TestAccount,
+        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, Test, TestAccount, System
     },
-    Config, Proof, Error, Event
+    Config, Proof, Error, Event, EraIndex
 };
 use frame_support::{assert_ok, assert_noop, error::BadOrigin};
 use frame_system::{self as system, RawOrigin};
@@ -100,6 +100,16 @@ mod proxy_signed_schedule_unbond {
         return build_proof(&staker.account_id, &staker.relayer, signature)
     }
 
+
+    fn unbond_event_emitted(nominator: AccountId) -> bool {
+        System::events()
+            .into_iter()
+            .map(|r| r.event)
+            .filter_map(|e| if let crate::mock::Event::ParachainStaking(inner) = e { Some(inner) } else { None })
+            .filter_map(|inner| if let Event::NominationDecreaseScheduled{ nominator, .. } = inner { Some(nominator) } else { None })
+            .any(|n| n == nominator)
+    }
+
     #[test]
     fn suceeds_with_good_values() {
         ExtBuilder::default().build().execute_with(|| {
@@ -154,6 +164,8 @@ mod proxy_signed_schedule_unbond {
                     AMOUNT_TO_UNBOND.with(|v| *v.borrow()),
                 );
                 assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
+
+                assert!(unbond_event_emitted(Staker::default().account_id));
             });
     }
 
