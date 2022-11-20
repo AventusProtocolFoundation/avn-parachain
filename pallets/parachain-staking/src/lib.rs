@@ -1061,7 +1061,7 @@ pub mod pallet {
             ensure!(collator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let collator_nonce = Self::proxy_nonce(&collator);
-            let signed_payload = encode_signed_candidate_unbond_params::<T>(
+            let signed_payload = encode_signed_schedule_candidate_unbond_params::<T>(
                 proof.relayer.clone(),
                 &less,
                 collator_nonce,
