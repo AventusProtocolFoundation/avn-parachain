@@ -111,7 +111,7 @@ mod proxy_signed_schedule_unbond {
     }
 
     #[test]
-    fn suceeds_with_good_values() {
+    fn succeeds_with_good_values() {
         ExtBuilder::default().build().execute_with(|| {
             let num_collators = 10;
 
