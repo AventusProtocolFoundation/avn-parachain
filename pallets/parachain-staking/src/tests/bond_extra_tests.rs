@@ -8,14 +8,25 @@ use crate::{
         build_proof, sign, AccountId, AvnProxy, Call as MockCall, Event as MetaEvent, ExtBuilder,
         MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, Test, TestAccount,
     },
-    Config, Error, Event, NominatorAdded, Proof, StaticLookup,
+    Config, Error, Event, Proof,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
-use frame_system::{self as system, RawOrigin};
-use sp_runtime::traits::Zero;
+use frame_system::RawOrigin;
 
 fn to_acc_id(id: u64) -> AccountId {
     return TestAccount::new(id).account_id()
+}
+
+fn create_proof_for_signed_bond_extra(
+    sender_nonce: u64,
+    staker: &Staker,
+    extra_amount: &u128,
+) -> Proof<Signature, AccountId> {
+    let data_to_sign =
+        encode_signed_bond_extra_params::<Test>(staker.relayer.clone(), extra_amount, sender_nonce);
+
+    let signature = sign(&staker.key_pair, &data_to_sign);
+    return build_proof(&staker.account_id, &staker.relayer, signature)
 }
 
 mod proxy_signed_bond_extra {
@@ -32,21 +43,6 @@ mod proxy_signed_bond_extra {
             proof,
             extra_amount,
         }))
-    }
-
-    fn create_proof_for_signed_bond_extra(
-        sender_nonce: u64,
-        staker: &Staker,
-        extra_amount: &u128,
-    ) -> Proof<Signature, AccountId> {
-        let data_to_sign = encode_signed_bond_extra_params::<Test>(
-            staker.relayer.clone(),
-            extra_amount,
-            sender_nonce,
-        );
-
-        let signature = sign(&staker.key_pair, &data_to_sign);
-        return build_proof(&staker.account_id, &staker.relayer, signature)
     }
 
     #[test]
@@ -239,6 +235,161 @@ mod proxy_signed_bond_extra {
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
                         Error::<Test>::NominationBelowMin
+                    );
+                });
+        }
+    }
+}
+
+mod proxy_signed_candidate_bond_extra {
+    use super::*;
+
+    fn create_call_for_candidate_bond_extra(
+        staker: &Staker,
+        sender_nonce: u64,
+        extra_amount: u128,
+    ) -> Box<<Test as Config>::Call> {
+        let proof = create_proof_for_signed_bond_extra(sender_nonce, staker, &extra_amount);
+
+        return Box::new(MockCall::ParachainStaking(
+            super::super::Call::<Test>::signed_candidate_bond_extra { proof, extra_amount },
+        ))
+    }
+
+    #[test]
+    fn succeeds_with_good_parameters() {
+        let collator_1: Staker = Default::default();
+        let collator_2 = to_acc_id(2u64);
+        let initial_stake = 10;
+        ExtBuilder::default()
+            .with_balances(vec![
+                (collator_1.account_id, 10000),
+                (collator_2, 10000),
+                (collator_1.relayer, 10000),
+            ])
+            .with_candidates(vec![
+                (collator_1.account_id, initial_stake),
+                (collator_2, initial_stake),
+            ])
+            .build()
+            .execute_with(|| {
+                let min_collator_stake = ParachainStaking::min_collator_stake();
+                let initial_total_stake_on_chain = ParachainStaking::total();
+
+                let amount_to_topup = min_collator_stake + 1u128;
+                let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
+                let bond_extra_call =
+                    create_call_for_candidate_bond_extra(&collator_1, nonce, amount_to_topup);
+                assert_ok!(AvnProxy::proxy(
+                    Origin::signed(collator_1.relayer),
+                    bond_extra_call,
+                    None
+                ));
+
+                assert_event_emitted!(Event::CandidateBondedMore {
+                    candidate: collator_1.account_id,
+                    amount: amount_to_topup,
+                    new_total_bond: initial_stake + amount_to_topup
+                });
+
+                // Candidate pool has been updated
+                assert_eq!(ParachainStaking::candidate_pool().0[0].owner, collator_1.account_id);
+                assert_eq!(
+                    ParachainStaking::candidate_pool().0[0].amount,
+                    initial_stake + amount_to_topup
+                );
+
+                // Collator state has been updated
+                let collator_state =
+                    ParachainStaking::candidate_info(collator_1.account_id).unwrap();
+                assert_eq!(collator_state.bond, initial_stake + amount_to_topup);
+
+                // The staker free balance has been reduced
+                assert_eq!(
+                    ParachainStaking::get_collator_stakable_free_balance(&collator_1.account_id),
+                    10000 - (initial_stake + amount_to_topup)
+                );
+
+                // The total amount staked on chain should increase
+                assert_eq!(
+                    initial_total_stake_on_chain + amount_to_topup,
+                    ParachainStaking::total()
+                );
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(collator_1.account_id), nonce + 1);
+            })
+    }
+
+    mod fails_when {
+        use super::*;
+
+        #[test]
+        fn extrinsic_is_unsigned() {
+            let collator_1: Staker = Default::default();
+            let collator_2 = to_acc_id(2u64);
+            let initial_stake = 10;
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1.account_id, 10000),
+                    (collator_2, 10000),
+                    (collator_1.relayer, 10000),
+                ])
+                .with_candidates(vec![
+                    (collator_1.account_id, initial_stake),
+                    (collator_2, initial_stake),
+                ])
+                .build()
+                .execute_with(|| {
+                    let min_collator_stake = ParachainStaking::min_collator_stake();
+                    let amount_to_topup = min_collator_stake + 1u128;
+                    let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
+                    let bond_extra_call =
+                        create_call_for_candidate_bond_extra(&collator_1, nonce, amount_to_topup);
+
+                    assert_noop!(
+                        AvnProxy::proxy(RawOrigin::None.into(), bond_extra_call, None),
+                        BadOrigin
+                    );
+                });
+        }
+
+        #[test]
+        fn candidate_does_not_have_enough_funds() {
+            let collator_1: Staker = Default::default();
+            let collator_2 = to_acc_id(2u64);
+            let initial_balance = 10000;
+            let initial_stake = 10;
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1.account_id, initial_balance),
+                    (collator_2, initial_balance),
+                    (collator_1.relayer, initial_balance),
+                ])
+                .with_candidates(vec![
+                    (collator_1.account_id, initial_stake),
+                    (collator_2, initial_stake),
+                ])
+                .build()
+                .execute_with(|| {
+                    let bad_amount_to_stake = initial_balance + 1;
+                    let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
+
+                    // Make sure 'bad_amount' is over the minimum allowed.
+                    assert!(bad_amount_to_stake > ParachainStaking::min_collator_stake());
+
+                    // Make sure staker has less than they are attempting to stake
+                    assert!(initial_balance < bad_amount_to_stake);
+
+                    let bond_extra_call = create_call_for_candidate_bond_extra(
+                        &collator_1,
+                        nonce,
+                        bad_amount_to_stake,
+                    );
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(collator_1.relayer), bond_extra_call, None),
+                        Error::<Test>::InsufficientBalance
                     );
                 });
         }
@@ -440,5 +591,87 @@ fn nominator_bond_extra_allowed_when_bond_decrease_scheduled() {
                 5,
             ));
             assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
+        });
+}
+
+// CANDIDATE BOND EXTRA
+
+#[test]
+fn candidate_bond_more_emits_correct_event() {
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
+            assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBondedMore {
+                candidate: account_id,
+                amount: 30,
+                new_total_bond: 50
+            }));
+        });
+}
+
+#[test]
+fn candidate_bond_more_reserves_balance() {
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
+        .build()
+        .execute_with(|| {
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 30);
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
+            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
+        });
+}
+
+#[test]
+fn candidate_bond_more_increases_total() {
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
+        .build()
+        .execute_with(|| {
+            let additional_stake = 30;
+            let total = ParachainStaking::total();
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), additional_stake));
+            assert_eq!(ParachainStaking::total(), total + additional_stake);
+        });
+}
+
+#[test]
+fn candidate_bond_more_updates_candidate_state() {
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
+        .build()
+        .execute_with(|| {
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("updated => exists");
+            assert_eq!(candidate_state.bond, 20);
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
+            let candidate_state =
+                ParachainStaking::candidate_info(account_id).expect("updated => exists");
+            assert_eq!(candidate_state.bond, 50);
+        });
+}
+
+#[test]
+fn candidate_bond_more_updates_candidate_pool() {
+    let account_id = to_acc_id(1u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 50)])
+        .with_candidates(vec![(account_id, 20)])
+        .build()
+        .execute_with(|| {
+            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
+            assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 20);
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
+            assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
+            assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 50);
         });
 }
