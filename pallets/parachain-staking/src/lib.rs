@@ -60,6 +60,9 @@ pub mod weights;
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod benchmarks;
 #[cfg(test)]
+#[path = "tests/bond_extra_tests.rs"]
+mod bond_extra_tests;
+#[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;
 #[cfg(test)]
