@@ -6,11 +6,12 @@ use crate::{
     assert_event_emitted, encode_signed_schedule_nominator_unbond_params,
     mock::{
         build_proof, sign, AccountId, AvnProxy, Call as MockCall, ExtBuilder,
-        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, Test, TestAccount, System
+        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, System, Test,
+        TestAccount,
     },
-    Config, Proof, Error, Event, EraIndex
+    Config, EraIndex, Error, Event, Proof,
 };
-use frame_support::{assert_ok, assert_noop, error::BadOrigin};
+use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::{self as system, RawOrigin};
 use std::cell::RefCell;
 
@@ -100,13 +101,24 @@ mod proxy_signed_schedule_unbond {
         return build_proof(&staker.account_id, &staker.relayer, signature)
     }
 
-
     fn unbond_event_emitted(nominator: AccountId) -> bool {
         System::events()
             .into_iter()
             .map(|r| r.event)
-            .filter_map(|e| if let crate::mock::Event::ParachainStaking(inner) = e { Some(inner) } else { None })
-            .filter_map(|inner| if let Event::NominationDecreaseScheduled{ nominator, .. } = inner { Some(nominator) } else { None })
+            .filter_map(|e| {
+                if let crate::mock::Event::ParachainStaking(inner) = e {
+                    Some(inner)
+                } else {
+                    None
+                }
+            })
+            .filter_map(|inner| {
+                if let Event::NominationDecreaseScheduled { nominator, .. } = inner {
+                    Some(nominator)
+                } else {
+                    None
+                }
+            })
             .any(|n| n == nominator)
     }
 
@@ -200,12 +212,20 @@ mod proxy_signed_schedule_unbond {
                     );
 
                     assert_noop!(
-                        ParachainStaking::signed_schedule_nominator_unbond(RawOrigin::None.into(), proof.clone(), amount_to_withdraw),
+                        ParachainStaking::signed_schedule_nominator_unbond(
+                            RawOrigin::None.into(),
+                            proof.clone(),
+                            amount_to_withdraw
+                        ),
                         BadOrigin
                     );
 
                     // Show that we can send a successful transaction if its signed.
-                    assert_ok!(ParachainStaking::signed_schedule_nominator_unbond(Origin::signed(staker.account_id), proof, amount_to_withdraw));
+                    assert_ok!(ParachainStaking::signed_schedule_nominator_unbond(
+                        Origin::signed(staker.account_id),
+                        proof,
+                        amount_to_withdraw
+                    ));
                 });
         }
 
@@ -264,9 +284,10 @@ mod proxy_signed_schedule_unbond {
                 ])
                 .build()
                 .execute_with(|| {
-                    let total_stake = staker_balance * 2 ;
+                    let total_stake = staker_balance * 2;
                     // amount falls below min total stake
-                    let bad_amount_to_unbond = total_stake - ParachainStaking::min_total_nominator_stake() - 1;
+                    let bad_amount_to_unbond =
+                        total_stake - ParachainStaking::min_total_nominator_stake() - 1;
 
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
                     let unbond_call = create_call_for_signed_schedule_nominator_unbond(
@@ -304,7 +325,8 @@ mod proxy_signed_schedule_unbond {
                 .build()
                 .execute_with(|| {
                     let total_stake = 20;
-                    let bad_amount_to_unbond = (total_stake - (2 * MinNominationPerCollator::get())) + 1;
+                    let bad_amount_to_unbond =
+                        (total_stake - (2 * MinNominationPerCollator::get())) + 1;
 
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
                     let unbond_call = create_call_for_signed_schedule_nominator_unbond(

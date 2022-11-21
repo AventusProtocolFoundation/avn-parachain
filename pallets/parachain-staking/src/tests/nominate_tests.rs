@@ -167,12 +167,22 @@ mod proxy_signed_nominate {
                     );
 
                     assert_noop!(
-                        ParachainStaking::signed_nominate(RawOrigin::None.into(), proof.clone(), targets.clone(), amount_to_stake),
+                        ParachainStaking::signed_nominate(
+                            RawOrigin::None.into(),
+                            proof.clone(),
+                            targets.clone(),
+                            amount_to_stake
+                        ),
                         BadOrigin
                     );
 
                     // Show that we can send a successful transaction if its signed.
-                    assert_ok!(ParachainStaking::signed_nominate(Origin::signed(staker.account_id), proof, targets, amount_to_stake));
+                    assert_ok!(ParachainStaking::signed_nominate(
+                        Origin::signed(staker.account_id),
+                        proof,
+                        targets,
+                        amount_to_stake
+                    ));
                 });
         }
 
