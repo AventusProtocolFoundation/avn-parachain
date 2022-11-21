@@ -252,6 +252,7 @@ pub mod pallet {
         UnauthorizedSignedNominateTransaction,
         UnauthorizedSignedBondExtraTransaction,
         UnauthorizedSignedCandidateBondExtraTransaction,
+        UnauthorizedSignedCandidateUnbondTransaction,
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
     }
@@ -1017,15 +1018,7 @@ pub mod pallet {
             less: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let collator = ensure_signed(origin)?;
-            let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
-            let when = state.schedule_unbond::<T>(less)?;
-            <CandidateInfo<T>>::insert(&collator, state);
-            Self::deposit_event(Event::CandidateBondLessRequested {
-                candidate: collator,
-                amount_to_decrease: less,
-                execute_era: when,
-            });
-            Ok(().into())
+            return Self::call_schedule_candidate_unbond(&collator, less)
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::execute_candidate_unbond())]
@@ -1051,6 +1044,35 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::weight(0)]
+        /// Signed request by collator candidate to decrease self bond by `less`
+        pub fn signed_schedule_candidate_unbond(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            less: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let collator = ensure_signed(origin)?;
+
+            ensure!(collator == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let collator_nonce = Self::proxy_nonce(&collator);
+            let signed_payload = encode_signed_candidate_unbond_params::<T>(
+                proof.relayer.clone(),
+                &less,
+                collator_nonce,
+            );
+
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedCandidateUnbondTransaction
+            );
+
+            Self::call_schedule_candidate_unbond(&collator, less)?;
+
+            <ProxyNonces<T>>::mutate(&collator, |n| *n += 1);
+
+            Ok(().into())
+        }
         #[pallet::weight(
 			<T as Config>::WeightInfo::nominate(
 				*candidate_nomination_count,

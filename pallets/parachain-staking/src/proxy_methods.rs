@@ -18,6 +18,9 @@ pub const SIGNED_NOMINATOR_CONTEXT: &'static [u8] = b"authorization for nominate
 pub const SIGNED_BOND_EXTRA_CONTEXT: &'static [u8] = b"authorization for bond extra operation";
 pub const SIGNED_CANDIDATE_BOND_EXTRA_CONTEXT: &'static [u8] =
     b"authorization for candidate bond extra operation";
+pub const SIGNED_UNBOND_CONTEXT: &'static [u8] = b"authorization for unbond operation";
+pub const SIGNED_CANDIDATE_UNBOND_CONTEXT: &'static [u8] =
+    b"authorization for candidate unbond operation";
 
 pub fn get_encoded_call_param<T: Config>(
     call: &<T as Config>::Call,
@@ -59,6 +62,16 @@ pub fn get_encoded_call_param<T: Config>(
 
             return Some((proof, encoded_data))
         },
+        Call::signed_schedule_candidate_unbond { proof, less } => {
+            let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
+            let encoded_data = encode_signed_candidate_unbond_params::<T>(
+                proof.relayer.clone(),
+                less,
+                sender_nonce,
+            );
+
+            return Some((proof, encoded_data))
+        },
         _ => return None,
     }
 }
@@ -86,6 +99,14 @@ pub fn encode_signed_candidate_bond_extra_params<T: Config>(
     sender_nonce: u64,
 ) -> Vec<u8> {
     return (SIGNED_CANDIDATE_BOND_EXTRA_CONTEXT, relayer, extra_amount, sender_nonce).encode()
+}
+
+pub fn encode_signed_candidate_unbond_params<T: Config>(
+    relayer: T::AccountId,
+    value: &BalanceOf<T>,
+    sender_nonce: u64,
+) -> Vec<u8> {
+    return (SIGNED_CANDIDATE_UNBOND_CONTEXT, relayer, value, sender_nonce).encode()
 }
 
 pub fn verify_signature<T: Config>(
