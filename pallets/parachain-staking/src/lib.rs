@@ -251,6 +251,7 @@ pub mod pallet {
         SenderIsNotSigner,
         UnauthorizedSignedNominateTransaction,
         UnauthorizedSignedBondExtraTransaction,
+        UnauthorizedSignedCandidateBondExtraTransaction,
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
     }
@@ -991,14 +992,14 @@ pub mod pallet {
             ensure!(collator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let collator_nonce = Self::proxy_nonce(&collator);
-            let signed_payload = encode_signed_bond_extra_params::<T>(
+            let signed_payload = encode_signed_candidate_bond_extra_params::<T>(
                 proof.relayer.clone(),
                 &extra_amount,
                 collator_nonce,
             );
             ensure!(
                 verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
-                Error::<T>::UnauthorizedSignedBondExtraTransaction
+                Error::<T>::UnauthorizedSignedCandidateBondExtraTransaction
             );
 
             // Defer any additional validation to the common logic
