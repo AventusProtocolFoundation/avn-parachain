@@ -30,7 +30,6 @@ pub const SIGNED_SCHEDULE_LEAVE_NOMINATORS_CONTEXT: &'static [u8] =
 pub const SIGNED_EXECUTE_LEAVE_NOMINATORS_CONTEXT: &'static [u8] =
     b"parachain authorization for executing leave nominators operation";
 
-
 pub fn get_encoded_call_param<T: Config>(
     call: &<T as Config>::Call,
 ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {

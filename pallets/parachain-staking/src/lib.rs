@@ -1183,8 +1183,7 @@ pub mod pallet {
         /// allowed to exit via a [NominationAction::Revoke] towards all existing nominations.
         /// Success forbids future nomination requests until the request is invoked or cancelled.
         #[pallet::weight(<T as Config>::WeightInfo::schedule_leave_nominators())]
-        pub fn schedule_leave_nominators(origin: OriginFor<T>) -> DispatchResultWithPostInfo
-        {
+        pub fn schedule_leave_nominators(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             Self::nominator_schedule_revoke_all(nominator)
         }
@@ -1193,8 +1192,7 @@ pub mod pallet {
         pub fn signed_schedule_leave_nominators(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
-        ) -> DispatchResultWithPostInfo
-        {
+        ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
 
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
@@ -1250,7 +1248,7 @@ pub mod pallet {
             if let Some(nominator_state) = <NominatorState<T>>::get(&nominator) {
                 let nomination_count = nominator_state.nominations.0.len() as u32;
 
-                return Self::nominator_execute_scheduled_revoke_all(nominator, nomination_count);
+                return Self::nominator_execute_scheduled_revoke_all(nominator, nomination_count)
             }
 
             Err(Error::<T>::NominatorDNE)?
