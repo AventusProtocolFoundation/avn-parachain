@@ -3,20 +3,16 @@
 #![cfg(test)]
 
 use crate::{
-    assert_eq_events, assert_eq_last_events, assert_event_emitted, assert_last_event,
-    assert_tail_eq, encode_signed_nominate_params,
+    assert_event_emitted, assert_last_event, encode_signed_nominate_params,
     mock::{
-        build_proof, roll_one_block, roll_to, roll_to_era_begin, roll_to_era_end, set_author,
-        set_reward_pot, sign, AccountId, AvnProxy, Balances, Call as MockCall, Event as MetaEvent,
-        ExtBuilder, Origin, ParachainStaking, Signature, Staker, Test, TestAccount,
+        build_proof, sign, AccountId, AvnProxy, Call as MockCall, Event as MetaEvent, ExtBuilder,
+        Origin, ParachainStaking, Signature, Staker, Test, TestAccount,
     },
-    nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
-    AtStake, Bond, CollatorStatus, Config, Error, Event, NominationScheduledRequests,
-    NominatorAdded, NominatorState, NominatorStatus, Proof, StaticLookup, NOMINATOR_LOCK_ID,
+    Config, Error, Event, NominatorAdded, Proof, StaticLookup,
 };
-use frame_support::{assert_noop, assert_ok};
-use frame_system::{self as system};
-use sp_runtime::{traits::Zero, DispatchError, ModuleError, Perbill};
+use frame_support::{assert_noop, assert_ok, error::BadOrigin};
+use frame_system::{self as system, RawOrigin};
+use sp_runtime::traits::Zero;
 
 fn to_acc_id(id: u64) -> AccountId {
     return TestAccount::new(id).account_id()
@@ -140,6 +136,116 @@ mod proxy_signed_nominate {
                 // Nonce has increased
                 assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
             })
+    }
+
+    mod fails_when {
+        use super::*;
+
+        #[test]
+        fn extrinsic_is_unsigned() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    let amount_to_stake = ParachainStaking::min_total_nominator_stake() * 2u128;
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+
+                    let nominate_call = create_call_for_nominate(
+                        &staker,
+                        nonce,
+                        vec![collator_1, collator_2],
+                        amount_to_stake,
+                    );
+
+                    assert_noop!(
+                        AvnProxy::proxy(RawOrigin::None.into(), nominate_call, None),
+                        BadOrigin
+                    );
+                });
+        }
+
+        #[test]
+        fn staker_does_not_have_enough_funds() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            let staker_balance = 10;
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, staker_balance),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    let bad_amount_to_stake = staker_balance + 1;
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+
+                    // Make sure staker has less than they are attempting to stake
+                    assert!(staker_balance < bad_amount_to_stake);
+
+                    let nominate_call = create_call_for_nominate(
+                        &staker,
+                        nonce,
+                        vec![collator_1, collator_2],
+                        bad_amount_to_stake,
+                    );
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
+                        Error::<Test>::InsufficientBalance
+                    );
+                });
+        }
+
+        #[test]
+        fn stake_is_less_than_min_allowed() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            let staker_balance = 10000;
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, staker_balance),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    let min_allowed_amount_to_stake =
+                        ParachainStaking::min_total_nominator_stake() * 2u128;
+                    let bad_stake_amount = min_allowed_amount_to_stake - 1;
+
+                    // Show that the staker has enough funds to cover the stake
+                    assert!(staker_balance > bad_stake_amount);
+
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                    let nominate_call = create_call_for_nominate(
+                        &staker,
+                        nonce,
+                        vec![collator_1, collator_2],
+                        bad_stake_amount,
+                    );
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
+                        Error::<Test>::NominatorBondBelowMin
+                    );
+                });
+        }
     }
 }
 

@@ -1181,7 +1181,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
             #[pallet::compact] max_additional: BalanceOf<T>,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
@@ -1219,12 +1219,12 @@ pub mod pallet {
                     actual_amount = amount_per_collator + dust;
                 }
 
-                Self::call_bond_extra(&nominator, collator, actual_amount);
+                Self::call_bond_extra(&nominator, collator, actual_amount)?;
             }
 
             <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
 
-            Ok(())
+            Ok(().into())
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::schedule_nominator_bond_less())]
