@@ -346,10 +346,7 @@ impl<
     }
     /// Schedule executable decrease of collator candidate self bond
     /// Returns the era at which the collator can execute the pending request
-    pub fn schedule_bond_less<T: Config>(
-        &mut self,
-        less: Balance,
-    ) -> Result<EraIndex, DispatchError>
+    pub fn schedule_unbond<T: Config>(&mut self, less: Balance) -> Result<EraIndex, DispatchError>
     where
         BalanceOf<T>: Into<Balance>,
     {
@@ -367,7 +364,7 @@ impl<
     }
     /// Execute pending request to decrease the collator self bond
     /// Returns the event to be emitted
-    pub fn execute_bond_less<T: Config>(&mut self, who: T::AccountId) -> DispatchResult
+    pub fn execute_unbond<T: Config>(&mut self, who: T::AccountId) -> DispatchResult
     where
         BalanceOf<T>: From<Balance>,
     {
@@ -379,7 +376,7 @@ impl<
         let new_total_staked = <Total<T>>::get().saturating_sub(request.amount.into());
         <Total<T>>::put(new_total_staked);
         // Arithmetic assumptions are self.bond > less && self.bond - less > CollatorMinBond
-        // (assumptions enforced by `schedule_bond_less`; if storage corrupts, must re-verify)
+        // (assumptions enforced by `schedule_unbond`; if storage corrupts, must re-verify)
         self.bond = self.bond.saturating_sub(request.amount);
         T::Currency::set_lock(
             COLLATOR_LOCK_ID,
@@ -403,7 +400,7 @@ impl<
         Ok(())
     }
     /// Cancel candidate bond less request
-    pub fn cancel_bond_less<T: Config>(&mut self, who: T::AccountId) -> DispatchResult
+    pub fn cancel_unbond<T: Config>(&mut self, who: T::AccountId) -> DispatchResult
     where
         BalanceOf<T>: From<Balance>,
     {

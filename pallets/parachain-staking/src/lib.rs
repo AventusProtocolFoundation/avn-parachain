@@ -1017,7 +1017,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let collator = ensure_signed(origin)?;
             let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
-            let when = state.schedule_bond_less::<T>(less)?;
+            let when = state.schedule_unbond::<T>(less)?;
             <CandidateInfo<T>>::insert(&collator, state);
             Self::deposit_event(Event::CandidateBondLessRequested {
                 candidate: collator,
@@ -1035,7 +1035,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?; // we may want to reward this if caller != candidate
             let mut state = <CandidateInfo<T>>::get(&candidate).ok_or(Error::<T>::CandidateDNE)?;
-            state.execute_bond_less::<T>(candidate.clone())?;
+            state.execute_unbond::<T>(candidate.clone())?;
             <CandidateInfo<T>>::insert(&candidate, state);
             Ok(().into())
         }
@@ -1045,7 +1045,7 @@ pub mod pallet {
         pub fn cancel_candidate_unbond(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let collator = ensure_signed(origin)?;
             let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
-            state.cancel_bond_less::<T>(collator.clone())?;
+            state.cancel_unbond::<T>(collator.clone())?;
             <CandidateInfo<T>>::insert(&collator, state);
             Ok(().into())
         }
@@ -1252,9 +1252,9 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::schedule_nominator_bond_less())]
+        #[pallet::weight(<T as Config>::WeightInfo::schedule_nominator_unbond())]
         /// Request bond less for nominators wrt a specific collator candidate.
-        pub fn schedule_nominator_bond_less(
+        pub fn schedule_nominator_unbond(
             origin: OriginFor<T>,
             candidate: T::AccountId,
             less: BalanceOf<T>,
@@ -1263,7 +1263,7 @@ pub mod pallet {
             Self::nomination_schedule_bond_decrease(candidate, nominator, less)
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::execute_nominator_bond_less())]
+        #[pallet::weight(<T as Config>::WeightInfo::execute_nominator_unbond())]
         /// Execute pending request to change an existing nomination
         pub fn execute_nomination_request(
             origin: OriginFor<T>,
@@ -1274,7 +1274,7 @@ pub mod pallet {
             Self::nomination_execute_scheduled_request(candidate, nominator)
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::cancel_nominator_bond_less())]
+        #[pallet::weight(<T as Config>::WeightInfo::cancel_nominator_unbond())]
         /// Cancel request to change an existing nomination.
         pub fn cancel_nomination_request(
             origin: OriginFor<T>,
