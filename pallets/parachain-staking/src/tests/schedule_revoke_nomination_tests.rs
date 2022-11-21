@@ -3,14 +3,16 @@
 #![cfg(test)]
 
 use crate::{
-    assert_event_emitted, encode_signed_schedule_revoke_nomination_params, encode_signed_schedule_candidate_unbond_params,
+    assert_event_emitted, encode_signed_schedule_candidate_unbond_params,
+    encode_signed_schedule_revoke_nomination_params,
     mock::{
         build_proof, sign, AccountId, AvnProxy, Call as MockCall, ExtBuilder,
-        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, Test, TestAccount, System
+        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, System, Test,
+        TestAccount,
     },
-    Config, Proof, Error, Event
+    Config, Error, Event, Proof,
 };
-use frame_support::{assert_ok, assert_noop, error::BadOrigin};
+use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::{self as system, RawOrigin};
 use std::cell::RefCell;
 
@@ -30,11 +32,8 @@ mod proxy_signed_schedule_revoke_nomination {
         sender_nonce: u64,
         collator: &AccountId,
     ) -> Box<<Test as Config>::Call> {
-        let proof = create_proof_for_signed_schedule_revoke_nomination(
-            sender_nonce,
-            staker,
-            &collator,
-        );
+        let proof =
+            create_proof_for_signed_schedule_revoke_nomination(sender_nonce, staker, &collator);
 
         return Box::new(MockCall::ParachainStaking(
             super::super::Call::<Test>::signed_schedule_revoke_nomination {
@@ -72,10 +71,7 @@ mod proxy_signed_schedule_revoke_nomination {
                 (staker.account_id, 10000),
                 (staker.relayer, 10000),
             ])
-            .with_candidates(vec![
-                (collator_1, initial_stake),
-                (collator_2, initial_stake),
-            ])
+            .with_candidates(vec![(collator_1, initial_stake), (collator_2, initial_stake)])
             .with_nominations(vec![
                 (staker.account_id, collator_1, 10),
                 (staker.account_id, collator_2, 10),
@@ -84,7 +80,7 @@ mod proxy_signed_schedule_revoke_nomination {
             .execute_with(|| {
                 let nonce = ParachainStaking::proxy_nonce(staker.account_id);
                 let revoke_nomination_call =
-                create_call_for_signed_schedule_revoke_nomination(&staker, nonce, &collator_1);
+                    create_call_for_signed_schedule_revoke_nomination(&staker, nonce, &collator_1);
 
                 assert_ok!(AvnProxy::proxy(
                     Origin::signed(staker.relayer),
@@ -131,12 +127,20 @@ mod proxy_signed_schedule_revoke_nomination {
                     );
 
                     assert_noop!(
-                        ParachainStaking::signed_schedule_revoke_nomination(RawOrigin::None.into(), proof.clone(), collator_1),
+                        ParachainStaking::signed_schedule_revoke_nomination(
+                            RawOrigin::None.into(),
+                            proof.clone(),
+                            collator_1
+                        ),
                         BadOrigin
                     );
 
                     // Show that we can send a successful transaction if its signed.
-                    assert_ok!(ParachainStaking::signed_schedule_revoke_nomination(Origin::signed(staker.account_id), proof, collator_1));
+                    assert_ok!(ParachainStaking::signed_schedule_revoke_nomination(
+                        Origin::signed(staker.account_id),
+                        proof,
+                        collator_1
+                    ));
                 });
         }
 
@@ -159,11 +163,19 @@ mod proxy_signed_schedule_revoke_nomination {
                 ])
                 .build()
                 .execute_with(|| {
-                    let bad_nonce = ParachainStaking::proxy_nonce(staker.account_id) +1 ;
-                    let proof = create_proof_for_signed_schedule_revoke_nomination(bad_nonce, &staker, &collator_1);
+                    let bad_nonce = ParachainStaking::proxy_nonce(staker.account_id) + 1;
+                    let proof = create_proof_for_signed_schedule_revoke_nomination(
+                        bad_nonce,
+                        &staker,
+                        &collator_1,
+                    );
 
                     assert_noop!(
-                        ParachainStaking::signed_schedule_revoke_nomination(Origin::signed(staker.account_id), proof.clone(), collator_1),
+                        ParachainStaking::signed_schedule_revoke_nomination(
+                            Origin::signed(staker.account_id),
+                            proof.clone(),
+                            collator_1
+                        ),
                         Error::<Test>::UnauthorizedSignedRemoveBondTransaction
                     );
                 });

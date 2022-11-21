@@ -21,7 +21,8 @@ pub const SIGNED_CANDIDATE_BOND_EXTRA_CONTEXT: &'static [u8] =
 pub const SIGNED_UNBOND_CONTEXT: &'static [u8] = b"authorization for unbond operation";
 pub const SIGNED_CANDIDATE_UNBOND_CONTEXT: &'static [u8] =
     b"authorization for candidate unbond operation";
-pub const SIGNED_NOMINATOR_REMOVE_BOND_CONTEXT: &'static [u8] = b"authorization for nominator remove bond operation";
+pub const SIGNED_NOMINATOR_REMOVE_BOND_CONTEXT: &'static [u8] =
+    b"authorization for nominator remove bond operation";
 
 pub fn get_encoded_call_param<T: Config>(
     call: &<T as Config>::Call,

@@ -69,6 +69,9 @@ mod mock;
 #[path = "tests/nominate_tests.rs"]
 mod nominate_tests;
 #[cfg(test)]
+#[path = "tests/schedule_revoke_nomination_tests.rs"]
+mod schedule_revoke_nomination_tests;
+#[cfg(test)]
 #[path = "tests/schedule_unbond_tests.rs"]
 mod schedule_unbond_tests;
 #[cfg(test)]
@@ -86,9 +89,6 @@ mod test_staking_pot;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
-#[cfg(test)]
-#[path = "tests/schedule_revoke_nomination_tests.rs"]
-mod schedule_revoke_nomination_tests;
 
 use frame_support::pallet;
 use pallet_avn::OnGrowthLiftedHandler;
@@ -1220,8 +1220,9 @@ pub mod pallet {
         }
 
         #[pallet::weight(0)]
-        /// Signed request to revoke an existing nomination. If successful, the nomination is scheduled
-        /// to be allowed to be revoked via the `execute_nomination_request` extrinsic.
+        /// Signed request to revoke an existing nomination. If successful, the nomination is
+        /// scheduled to be allowed to be revoked via the `execute_nomination_request`
+        /// extrinsic.
         pub fn signed_schedule_revoke_nomination(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
