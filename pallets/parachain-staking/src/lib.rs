@@ -969,21 +969,14 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::candidate_bond_more())]
+        #[pallet::weight(<T as Config>::WeightInfo::candidate_bond_extra())]
         /// Increase collator candidate self bond by `more`
-        pub fn candidate_bond_more(
+        pub fn candidate_bond_extra(
             origin: OriginFor<T>,
             more: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let collator = ensure_signed(origin)?;
-            let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
-            state.bond_more::<T>(collator.clone(), more)?;
-            let (is_active, total_counted) = (state.is_active(), state.total_counted);
-            <CandidateInfo<T>>::insert(&collator, state);
-            if is_active {
-                Self::update_active(collator, total_counted);
-            }
-            Ok(().into())
+            return Self::call_candidate_bond_extra(&collator, more)
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::schedule_candidate_bond_less())]

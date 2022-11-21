@@ -1042,7 +1042,7 @@ fn cannot_go_online_if_leaving() {
         });
 }
 
-// CANDIDATE BOND MORE
+// CANDIDATE BOND EXTRA
 
 #[test]
 fn candidate_bond_more_emits_correct_event() {
@@ -1052,7 +1052,7 @@ fn candidate_bond_more_emits_correct_event() {
         .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBondedMore {
                 candidate: account_id,
                 amount: 30,
@@ -1070,7 +1070,7 @@ fn candidate_bond_more_reserves_balance() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 30);
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
         });
 }
@@ -1084,7 +1084,7 @@ fn candidate_bond_more_increases_total() {
         .build()
         .execute_with(|| {
             let mut total = ParachainStaking::total();
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
             total += 30;
             assert_eq!(ParachainStaking::total(), total);
         });
@@ -1101,7 +1101,7 @@ fn candidate_bond_more_updates_candidate_state() {
             let candidate_state =
                 ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 20);
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
             let candidate_state =
                 ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 50);
@@ -1118,7 +1118,7 @@ fn candidate_bond_more_updates_candidate_pool() {
         .execute_with(|| {
             assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 20);
-            assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(account_id), 30));
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
             assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 50);
         });

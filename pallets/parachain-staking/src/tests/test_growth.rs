@@ -57,8 +57,8 @@ fn increase_collator_nomination(
     collator_2: AccountId,
     increase_amount: u128,
 ) {
-    assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(collator_1), increase_amount));
-    assert_ok!(ParachainStaking::candidate_bond_more(Origin::signed(collator_2), increase_amount));
+    assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(collator_1), increase_amount));
+    assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(collator_2), increase_amount));
 }
 
 fn get_expected_block_number(growth_index: u64) -> u64 {
