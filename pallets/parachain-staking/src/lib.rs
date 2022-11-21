@@ -86,6 +86,9 @@ mod test_staking_pot;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "tests/schedule_revoke_nomination_tests.rs"]
+mod schedule_revoke_nomination_tests;
 
 use frame_support::pallet;
 use pallet_avn::OnGrowthLiftedHandler;
@@ -257,6 +260,7 @@ pub mod pallet {
         UnauthorizedSignedCandidateBondExtraTransaction,
         UnauthorizedSignedCandidateUnbondTransaction,
         UnauthorizedSignedUnbondTransaction,
+        UnauthorizedSignedRemoveBondTransaction,
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
         FailedToWithdrawFullAmount,
@@ -1212,6 +1216,31 @@ pub mod pallet {
             collator: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
+            Self::nomination_schedule_revoke(collator, nominator)
+        }
+
+        #[pallet::weight(0)]
+        /// Signed request to revoke an existing nomination. If successful, the nomination is scheduled
+        /// to be allowed to be revoked via the `execute_nomination_request` extrinsic.
+        pub fn signed_schedule_revoke_nomination(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            collator: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let nominator = ensure_signed(origin)?;
+            ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let nominator_nonce = Self::proxy_nonce(&nominator);
+            let signed_payload = encode_signed_schedule_revoke_nomination_params::<T>(
+                proof.relayer.clone(),
+                &collator,
+                nominator_nonce,
+            );
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedRemoveBondTransaction
+            );
+
             Self::nomination_schedule_revoke(collator, nominator)
         }
 
