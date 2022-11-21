@@ -14,8 +14,10 @@ use sp_std::prelude::*;
 use super::*;
 use crate::Pallet as ParachainStaking;
 
-pub const SIGNED_NOMINATOR_CONTEXT: &'static [u8] = b"parachain authorization for nominate operation";
-pub const SIGNED_BOND_EXTRA_CONTEXT: &'static [u8] = b"parachain authorization for bond extra operation";
+pub const SIGNED_NOMINATOR_CONTEXT: &'static [u8] =
+    b"parachain authorization for nominate operation";
+pub const SIGNED_BOND_EXTRA_CONTEXT: &'static [u8] =
+    b"parachain authorization for bond extra operation";
 pub const SIGNED_CANDIDATE_BOND_EXTRA_CONTEXT: &'static [u8] =
     b"parachain authorization for candidate bond extra operation";
 pub const SIGNED_UNBOND_CONTEXT: &'static [u8] = b"parachain authorization for unbond operation";
@@ -204,7 +206,6 @@ pub fn encode_signed_execute_nomination_request_params<T: Config>(
 ) -> Vec<u8> {
     return (SIGNED_EXECUTE_NOMINATION_REQUESTS_CONTEXT, relayer, nominator, sender_nonce).encode()
 }
-
 
 pub fn verify_signature<T: Config>(
     proof: &Proof<T::Signature, T::AccountId>,
