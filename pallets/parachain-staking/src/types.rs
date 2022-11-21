@@ -1021,9 +1021,8 @@ pub struct Nominator<AccountId, Balance> {
 // Temporary manual implementation for migration testing purposes
 impl<A: PartialEq, B: PartialEq> PartialEq for Nominator<A, B> {
     fn eq(&self, other: &Self) -> bool {
-        let must_be_true = self.id == other.id &&
-            self.total == other.total &&
-            self.less_total == other.less_total;
+        let must_be_true =
+            self.id == other.id && self.total == other.total && self.less_total == other.less_total;
         if !must_be_true {
             return false
         }
