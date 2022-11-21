@@ -1175,15 +1175,14 @@ pub mod pallet {
             return Self::call_bond_extra(&nominator, candidate, more)
         }
 
-        /// Bond a maximum of 'max_additional' amount. Due to rounding, its possible that a small
-        /// amount is retuned to the caller, hence why its 'max_additional'.
+        /// Bond a maximum of 'extra_amount' amount.
         // TODO: benchmark me
         #[pallet::weight(0)]
         #[transactional]
         pub fn signed_bond_extra(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
-            #[pallet::compact] max_additional: BalanceOf<T>,
+            #[pallet::compact] extra_amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
@@ -1191,7 +1190,7 @@ pub mod pallet {
             let nominator_nonce = Self::proxy_nonce(&nominator);
             let signed_payload = encode_signed_bond_extra_params::<T>(
                 proof.relayer.clone(),
-                &max_additional,
+                &extra_amount,
                 nominator_nonce,
             );
             ensure!(
@@ -1200,19 +1199,19 @@ pub mod pallet {
             );
 
             ensure!(
-                Self::get_nominator_stakable_free_balance(&nominator) >= max_additional,
+                Self::get_nominator_stakable_free_balance(&nominator) >= extra_amount,
                 Error::<T>::InsufficientBalance
             );
 
             let collators = Self::selected_candidates();
             let num_collators = collators.len() as u32;
-            let amount_per_collator = Perbill::from_rational(1, num_collators) * max_additional;
+            let amount_per_collator = Perbill::from_rational(1, num_collators) * extra_amount;
             ensure!(
                 amount_per_collator >= T::MinNominationPerCollator::get(),
                 Error::<T>::NominationBelowMin
             );
 
-            let dust = max_additional - (amount_per_collator * num_collators.into());
+            let dust = extra_amount - (amount_per_collator * num_collators.into());
 
             // This is only possible because we won't have more than 20 collators. If that changes,
             // we should not use a loop here.
