@@ -24,6 +24,13 @@ pub const SIGNED_CANDIDATE_UNBOND_CONTEXT: &'static [u8] =
 pub const SIGNED_NOMINATOR_REMOVE_BOND_CONTEXT: &'static [u8] =
     b"authorization for nominator remove bond operation";
 
+pub const SIGNED_SCHEDULE_LEAVE_NOMINATORS_CONTEXT: &'static [u8] =
+    b"parachain authorization for scheduling leaving nominators operation";
+
+pub const SIGNED_EXECUTE_LEAVE_NOMINATORS_CONTEXT: &'static [u8] =
+    b"parachain authorization for executing leave nominators operation";
+
+
 pub fn get_encoded_call_param<T: Config>(
     call: &<T as Config>::Call,
 ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
@@ -94,6 +101,25 @@ pub fn get_encoded_call_param<T: Config>(
 
             return Some((proof, encoded_data))
         },
+        Call::signed_schedule_leave_nominators { proof } => {
+            let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
+            let encoded_data = encode_signed_schedule_leave_nominators_params::<T>(
+                proof.relayer.clone(),
+                sender_nonce,
+            );
+
+            return Some((proof, encoded_data))
+        },
+        Call::signed_execute_leave_nominators { proof, nominator } => {
+            let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
+            let encoded_data = encode_signed_execute_leave_nominators_params::<T>(
+                proof.relayer.clone(),
+                nominator,
+                sender_nonce,
+            );
+
+            return Some((proof, encoded_data))
+        },
         _ => return None,
     }
 }
@@ -145,6 +171,21 @@ pub fn encode_signed_schedule_revoke_nomination_params<T: Config>(
     sender_nonce: u64,
 ) -> Vec<u8> {
     return (SIGNED_NOMINATOR_REMOVE_BOND_CONTEXT, relayer, collator, sender_nonce).encode()
+}
+
+pub fn encode_signed_schedule_leave_nominators_params<T: Config>(
+    relayer: T::AccountId,
+    sender_nonce: u64,
+) -> Vec<u8> {
+    return (SIGNED_SCHEDULE_LEAVE_NOMINATORS_CONTEXT, relayer, sender_nonce).encode()
+}
+
+pub fn encode_signed_execute_leave_nominators_params<T: Config>(
+    relayer: T::AccountId,
+    nominator: &T::AccountId,
+    sender_nonce: u64,
+) -> Vec<u8> {
+    return (SIGNED_EXECUTE_LEAVE_NOMINATORS_CONTEXT, relayer, nominator, sender_nonce).encode()
 }
 
 pub fn verify_signature<T: Config>(
