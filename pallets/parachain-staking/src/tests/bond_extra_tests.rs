@@ -84,7 +84,8 @@ mod proxy_signed_bond_extra {
                 // Each collator has been topped up by the expected amount
                 for (index, collator) in collators.into_iter().enumerate() {
                     // We should have one event per collator. One of the collators gets any
-                    // remaining dust.
+                    // remaining dust. We selected index 1 because the test starts at block #1 and
+                    // 1 mod num_of_collators is always 1.
                     let mut topup = min_user_stake;
                     if index == 1 {
                         topup = min_user_stake + dust;
