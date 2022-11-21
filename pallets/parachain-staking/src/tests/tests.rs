@@ -1045,17 +1045,14 @@ fn cannot_go_online_if_leaving() {
 // SCHEDULE CANDIDATE BOND LESS
 
 #[test]
-fn schedule_candidate_bond_less_event_emits_correctly() {
+fn schedule_candidate_unbond_event_emits_correctly() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBondLessRequested {
                 candidate: account_id,
                 amount_to_decrease: 10,
@@ -1065,36 +1062,33 @@ fn schedule_candidate_bond_less_event_emits_correctly() {
 }
 
 #[test]
-fn cannot_schedule_candidate_bond_less_if_request_exists() {
+fn cannot_schedule_candidate_unbond_if_request_exists() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                5
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 5));
             assert_noop!(
-                ParachainStaking::schedule_candidate_bond_less(Origin::signed(account_id), 5),
+                ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 5),
                 Error::<Test>::PendingCandidateRequestAlreadyExists
             );
         });
 }
 
 #[test]
-fn cannot_schedule_candidate_bond_less_if_not_candidate() {
+fn cannot_schedule_candidate_unbond_if_not_candidate() {
     ExtBuilder::default().build().execute_with(|| {
         assert_noop!(
-            ParachainStaking::schedule_candidate_bond_less(Origin::signed(to_acc_id(6)), 50),
+            ParachainStaking::schedule_candidate_unbond(Origin::signed(to_acc_id(6)), 50),
             Error::<Test>::CandidateDNE
         );
     });
 }
 
 #[test]
-fn cannot_schedule_candidate_bond_less_if_new_total_below_min_candidate_stk() {
+fn cannot_schedule_candidate_unbond_if_new_total_below_min_candidate_stk() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
@@ -1102,14 +1096,14 @@ fn cannot_schedule_candidate_bond_less_if_new_total_below_min_candidate_stk() {
         .build()
         .execute_with(|| {
             assert_noop!(
-                ParachainStaking::schedule_candidate_bond_less(Origin::signed(account_id), 21),
+                ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 21),
                 Error::<Test>::CandidateBondBelowMin
             );
         });
 }
 
 #[test]
-fn can_schedule_candidate_bond_less_if_leaving_candidates() {
+fn can_schedule_candidate_unbond_if_leaving_candidates() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
@@ -1117,15 +1111,12 @@ fn can_schedule_candidate_bond_less_if_leaving_candidates() {
         .build()
         .execute_with(|| {
             assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
         });
 }
 
 #[test]
-fn cannot_schedule_candidate_bond_less_if_exited_candidates() {
+fn cannot_schedule_candidate_unbond_if_exited_candidates() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
@@ -1140,7 +1131,7 @@ fn cannot_schedule_candidate_bond_less_if_exited_candidates() {
                 0
             ));
             assert_noop!(
-                ParachainStaking::schedule_candidate_bond_less(Origin::signed(account_id), 10),
+                ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10),
                 Error::<Test>::CandidateDNE
             );
         });
@@ -1149,19 +1140,16 @@ fn cannot_schedule_candidate_bond_less_if_exited_candidates() {
 // 2. EXECUTE BOND LESS REQUEST
 
 #[test]
-fn execute_candidate_bond_less_emits_correct_event() {
+fn execute_candidate_unbond_emits_correct_event() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 50)])
         .with_candidates(vec![(account_id, 50)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                30
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 30));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+            assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
                 account_id
             ));
@@ -1174,7 +1162,7 @@ fn execute_candidate_bond_less_emits_correct_event() {
 }
 
 #[test]
-fn execute_candidate_bond_less_unreserves_balance() {
+fn execute_candidate_unbond_unreserves_balance() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
@@ -1182,12 +1170,9 @@ fn execute_candidate_bond_less_unreserves_balance() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+            assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
                 account_id
             ));
@@ -1196,7 +1181,7 @@ fn execute_candidate_bond_less_unreserves_balance() {
 }
 
 #[test]
-fn execute_candidate_bond_less_decreases_total() {
+fn execute_candidate_unbond_decreases_total() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
@@ -1204,12 +1189,9 @@ fn execute_candidate_bond_less_decreases_total() {
         .build()
         .execute_with(|| {
             let mut total = ParachainStaking::total();
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+            assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
                 account_id
             ));
@@ -1219,7 +1201,7 @@ fn execute_candidate_bond_less_decreases_total() {
 }
 
 #[test]
-fn execute_candidate_bond_less_updates_candidate_state() {
+fn execute_candidate_unbond_updates_candidate_state() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
@@ -1229,12 +1211,9 @@ fn execute_candidate_bond_less_updates_candidate_state() {
             let candidate_state =
                 ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 30);
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+            assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
                 account_id
             ));
@@ -1245,7 +1224,7 @@ fn execute_candidate_bond_less_updates_candidate_state() {
 }
 
 #[test]
-fn execute_candidate_bond_less_updates_candidate_pool() {
+fn execute_candidate_unbond_updates_candidate_pool() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
@@ -1254,12 +1233,9 @@ fn execute_candidate_bond_less_updates_candidate_pool() {
         .execute_with(|| {
             assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 30);
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             roll_to(10);
-            assert_ok!(ParachainStaking::execute_candidate_bond_less(
+            assert_ok!(ParachainStaking::execute_candidate_unbond(
                 Origin::signed(account_id),
                 account_id
             ));
@@ -1271,18 +1247,15 @@ fn execute_candidate_bond_less_updates_candidate_pool() {
 // CANCEL CANDIDATE BOND LESS REQUEST
 
 #[test]
-fn cancel_candidate_bond_less_emits_event() {
+fn cancel_candidate_unbond_emits_event() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
-            assert_ok!(ParachainStaking::cancel_candidate_bond_less(Origin::signed(account_id)));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
+            assert_ok!(ParachainStaking::cancel_candidate_unbond(Origin::signed(account_id)));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CancelledCandidateBondLess {
                 candidate: account_id,
                 amount: 10,
@@ -1292,36 +1265,30 @@ fn cancel_candidate_bond_less_emits_event() {
 }
 
 #[test]
-fn cancel_candidate_bond_less_updates_candidate_state() {
+fn cancel_candidate_unbond_updates_candidate_state() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
-            assert_ok!(ParachainStaking::cancel_candidate_bond_less(Origin::signed(account_id)));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
+            assert_ok!(ParachainStaking::cancel_candidate_unbond(Origin::signed(account_id)));
             assert!(ParachainStaking::candidate_info(&account_id).unwrap().request.is_none());
         });
 }
 
 #[test]
-fn only_candidate_can_cancel_candidate_bond_less_request() {
+fn only_candidate_can_cancel_candidate_unbond_request() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 30)])
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_bond_less(
-                Origin::signed(account_id),
-                10
-            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(Origin::signed(account_id), 10));
             assert_noop!(
-                ParachainStaking::cancel_candidate_bond_less(Origin::signed(to_acc_id(2))),
+                ParachainStaking::cancel_candidate_unbond(Origin::signed(to_acc_id(2))),
                 Error::<Test>::CandidateDNE
             );
         });

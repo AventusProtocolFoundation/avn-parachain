@@ -1009,9 +1009,9 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::schedule_candidate_bond_less())]
+        #[pallet::weight(<T as Config>::WeightInfo::schedule_candidate_unbond())]
         /// Request by collator candidate to decrease self bond by `less`
-        pub fn schedule_candidate_bond_less(
+        pub fn schedule_candidate_unbond(
             origin: OriginFor<T>,
             less: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
@@ -1027,9 +1027,9 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::execute_candidate_bond_less())]
+        #[pallet::weight(<T as Config>::WeightInfo::execute_candidate_unbond())]
         /// Execute pending request to adjust the collator candidate self bond
-        pub fn execute_candidate_bond_less(
+        pub fn execute_candidate_unbond(
             origin: OriginFor<T>,
             candidate: T::AccountId,
         ) -> DispatchResultWithPostInfo {
@@ -1040,9 +1040,9 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::cancel_candidate_bond_less())]
+        #[pallet::weight(<T as Config>::WeightInfo::cancel_candidate_unbond())]
         /// Cancel pending request to adjust the collator candidate self bond
-        pub fn cancel_candidate_bond_less(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn cancel_candidate_unbond(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let collator = ensure_signed(origin)?;
             let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
             state.cancel_bond_less::<T>(collator.clone())?;
