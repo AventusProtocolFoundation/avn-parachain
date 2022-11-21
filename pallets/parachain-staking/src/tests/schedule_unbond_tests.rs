@@ -179,6 +179,9 @@ mod proxy_signed_schedule_unbond {
                 assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
 
                 assert!(unbond_event_emitted(Staker::default().account_id));
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
             });
     }
 
@@ -383,7 +386,7 @@ mod proxy_signed_schedule_collator_unbond {
     }
 
     #[test]
-    fn suceeds_with_good_values() {
+    fn succeeds_with_good_values() {
         let collator_1: Staker = Default::default();
         let collator_2 = to_acc_id(2u64);
         let initial_stake = 100;
@@ -420,6 +423,9 @@ mod proxy_signed_schedule_collator_unbond {
                     amount_to_decrease,
                     execute_era: ParachainStaking::delay() + 1,
                 });
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(collator_1.account_id), nonce + 1);
             });
     }
 
