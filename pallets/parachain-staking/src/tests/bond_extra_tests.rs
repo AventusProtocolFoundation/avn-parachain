@@ -721,7 +721,10 @@ fn candidate_bond_more_increases_total() {
         .execute_with(|| {
             let additional_stake = 30;
             let total = ParachainStaking::total();
-            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), additional_stake));
+            assert_ok!(ParachainStaking::candidate_bond_extra(
+                Origin::signed(account_id),
+                additional_stake
+            ));
             assert_eq!(ParachainStaking::total(), total + additional_stake);
         });
 }
