@@ -635,10 +635,10 @@ fn candidate_bond_more_increases_total() {
         .with_candidates(vec![(account_id, 20)])
         .build()
         .execute_with(|| {
-            let mut total = ParachainStaking::total();
-            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), 30));
-            total += 30;
-            assert_eq!(ParachainStaking::total(), total);
+            let additional_stake = 30;
+            let total = ParachainStaking::total();
+            assert_ok!(ParachainStaking::candidate_bond_extra(Origin::signed(account_id), additional_stake));
+            assert_eq!(ParachainStaking::total(), total + additional_stake);
         });
 }
 
