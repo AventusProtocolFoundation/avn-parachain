@@ -253,8 +253,10 @@ pub mod pallet {
         UnauthorizedSignedBondExtraTransaction,
         UnauthorizedSignedCandidateBondExtraTransaction,
         UnauthorizedSignedCandidateUnbondTransaction,
+        UnauthorizedSignedUnbondTransaction,
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
+        FailedToWithdrawFullAmount,
     }
 
     #[pallet::event]
@@ -1286,6 +1288,57 @@ pub mod pallet {
             Self::nomination_schedule_bond_decrease(candidate, nominator, less)
         }
 
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn signed_schedule_nominator_unbond(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            less: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let nominator = ensure_signed(origin)?;
+
+            ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let nominator_nonce = Self::proxy_nonce(&nominator);
+            let signed_payload = encode_signed_schedule_nominator_unbond_params::<T>(
+                proof.relayer.clone(),
+                &less,
+                nominator_nonce,
+            );
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedUnbondTransaction
+            );
+
+            let (payers, mut outstanding_withdrawal) =
+                Self::identify_collators_to_withdraw_from(&nominator, less)?;
+
+            // Deal with any outstanding amount to withdraw and schedule decrease
+            for mut stake in payers.clone().into_iter() {
+                if !outstanding_withdrawal.is_zero() {
+                    let max_amount_to_withdraw = stake.free_amount.min(outstanding_withdrawal);
+                    stake.reserved_amount += max_amount_to_withdraw;
+                    outstanding_withdrawal -= max_amount_to_withdraw;
+                }
+
+                Self::nomination_schedule_bond_decrease(
+                    stake.owner,
+                    nominator.clone(),
+                    stake.reserved_amount,
+                )?;
+            }
+
+            // Make sure we have unbonded the full amount requested by the user
+            ensure!(
+                outstanding_withdrawal == BalanceOf::<T>::zero(),
+                Error::<T>::FailedToWithdrawFullAmount
+            );
+
+            <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
+
+            Ok(().into())
+        }
+
         #[pallet::weight(<T as Config>::WeightInfo::execute_nominator_unbond())]
         /// Execute pending request to change an existing nomination
         pub fn execute_nomination_request(
@@ -1936,6 +1989,55 @@ pub mod pallet {
             let chosen_collator_index = block_number % number_of_collators;
 
             return !dust.is_zero() && index == chosen_collator_index
+        }
+
+        pub fn identify_collators_to_withdraw_from(
+            nominator: &T::AccountId,
+            total_reduction: BalanceOf<T>,
+        ) -> Result<(Vec<StakeInfo<T::AccountId, BalanceOf<T>>>, BalanceOf<T>), Error<T>> {
+            let state = <NominatorState<T>>::get(&nominator).ok_or(<Error<T>>::NominatorDNE)?;
+            let net_total_bonded = state.total().saturating_sub(state.less_total);
+            // Make sure the nominator has enough to unbond and stay above the min requirement
+            ensure!(
+                net_total_bonded >= Self::min_total_nominator_stake() + total_reduction,
+                Error::<T>::NominatorBondBelowMin
+            );
+
+            // Desired balance on each collator after nominator reduces its stake
+            let target_average_amount = Perbill::from_rational(1, state.nominations.0.len() as u32) *
+                (net_total_bonded - total_reduction);
+
+            // Make sure each nominator will have at least required min amount
+            ensure!(
+                target_average_amount >= T::MinNominationPerCollator::get(),
+                Error::<T>::NominationBelowMin
+            );
+
+            // The remaining amount the nominator wants to withdraw
+            let mut outstanding_withdrawal = total_reduction;
+            let mut payers: Vec<StakeInfo<T::AccountId, BalanceOf<T>>> = vec![];
+
+            for bond in state.nominations.0.into_iter() {
+                let amount_to_withdraw =
+                    outstanding_withdrawal.min(bond.amount.saturating_sub(target_average_amount));
+
+                if bond.amount >= amount_to_withdraw {
+                    outstanding_withdrawal -= amount_to_withdraw;
+
+                    payers.push(StakeInfo::new(
+                        bond.owner,
+                        bond.amount - (amount_to_withdraw + T::MinNominationPerCollator::get()),
+                        amount_to_withdraw,
+                    ));
+                }
+
+                if outstanding_withdrawal.is_zero() {
+                    // exit early
+                    break
+                }
+            }
+
+            return Ok((payers, outstanding_withdrawal))
         }
     }
 
