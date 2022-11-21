@@ -21,7 +21,7 @@ use crate::{
         BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event,
         MinTotalNominatorStake, NominationScheduledRequests, NominatorState, Pallet, Total,
     },
-    Nominator, NominatorStatus,
+    Nominator,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get, RuntimeDebug};
 use parity_scale_codec::{Decode, Encode};
@@ -317,13 +317,6 @@ impl<T: Config> Pallet<T> {
         let now = <Era<T>>::get().current;
         let when = now.saturating_add(<Delay<T>>::get());
 
-        // lazy migration for NominatorStatus::Leaving
-        #[allow(deprecated)]
-        if matches!(state.status, NominatorStatus::Leaving(_)) {
-            state.status = NominatorStatus::Active;
-            <NominatorState<T>>::insert(nominator.clone(), state.clone());
-        }
-
         // it is assumed that a multiple nominations to the same collator does not exist, else this
         // will cause a bug - the last duplicate nomination update will be the only one applied.
         let mut existing_revoke_count = 0;
@@ -380,15 +373,6 @@ impl<T: Config> Pallet<T> {
         let mut state = <NominatorState<T>>::get(&nominator).ok_or(<Error<T>>::NominatorDNE)?;
         let mut updated_scheduled_requests = vec![];
 
-        // backwards compatible handling for NominatorStatus::Leaving
-        #[allow(deprecated)]
-        if matches!(state.status, NominatorStatus::Leaving(_)) {
-            state.status = NominatorStatus::Active;
-            <NominatorState<T>>::insert(nominator.clone(), state.clone());
-            Self::deposit_event(Event::NominatorExitCancelled { nominator });
-            return Ok(().into())
-        }
-
         // pre-validate that all nominations have a Revoke request.
         for bond in &state.nominations.0 {
             let collator = bond.owner.clone();
@@ -434,31 +418,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::TooLowNominationCountToLeaveNominators
         );
         let now = <Era<T>>::get().current;
-
-        // backwards compatible handling for NominatorStatus::Leaving
-        #[allow(deprecated)]
-        if let NominatorStatus::Leaving(when) = state.status {
-            ensure!(<Era<T>>::get().current >= when, Error::<T>::NominatorCannotLeaveYet);
-
-            for bond in state.nominations.0.clone() {
-                if let Err(error) = Self::nominator_leaves_candidate(
-                    bond.owner.clone(),
-                    nominator.clone(),
-                    bond.amount,
-                ) {
-                    log::warn!(
-                        "STORAGE CORRUPTED \nNominator leaving collator failed with error: {:?}",
-                        error
-                    );
-                }
-
-                Self::nomination_remove_request_with_state(&bond.owner, &nominator, &mut state);
-            }
-            <NominatorState<T>>::remove(&nominator);
-            Self::deposit_event(Event::NominatorLeft { nominator, unstaked_amount: state.total });
-            return Ok(().into())
-        }
-
         let mut validated_scheduled_requests = vec![];
         // pre-validate that all nominations have a Revoke request that can be executed now.
         for bond in &state.nominations.0 {
@@ -570,7 +529,6 @@ mod tests {
             nominations: OrderedSet::from(vec![Bond { amount: 100, owner: collator_account_id }]),
             total: 100,
             less_total: 100,
-            status: crate::NominatorStatus::Active,
         };
         let mut scheduled_requests = vec![
             ScheduledRequest {
@@ -616,7 +574,6 @@ mod tests {
                 }]),
                 total: 100,
                 less_total: 0,
-                status: crate::NominatorStatus::Active,
             }
         );
     }
@@ -631,7 +588,6 @@ mod tests {
             nominations: OrderedSet::from(vec![Bond { amount: 100, owner: collator_account_id }]),
             total: 100,
             less_total: 100,
-            status: crate::NominatorStatus::Active,
         };
         let mut scheduled_requests = vec![ScheduledRequest {
             nominator: collator_account_id,
@@ -663,7 +619,6 @@ mod tests {
                 }]),
                 total: 100,
                 less_total: 100,
-                status: crate::NominatorStatus::Active,
             }
         );
     }

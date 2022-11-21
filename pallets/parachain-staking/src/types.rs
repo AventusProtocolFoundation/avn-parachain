@@ -1005,16 +1005,6 @@ pub enum NominatorAdded<B> {
     AddedToBottom,
 }
 
-#[allow(deprecated)]
-#[derive(Clone, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
-pub enum NominatorStatus {
-    /// Active with no scheduled exit
-    Active,
-    /// Schedule exit to revoke all ongoing nominations
-    #[deprecated(note = "must only be used for backwards compatibility reasons")]
-    Leaving(EraIndex),
-}
-
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 /// Nominator state
 pub struct Nominator<AccountId, Balance> {
@@ -1026,8 +1016,6 @@ pub struct Nominator<AccountId, Balance> {
     pub total: Balance,
     /// Sum of pending revocation amounts + bond less amounts
     pub less_total: Balance,
-    /// Status for this nominator
-    pub status: NominatorStatus,
 }
 
 // Temporary manual implementation for migration testing purposes
@@ -1035,8 +1023,7 @@ impl<A: PartialEq, B: PartialEq> PartialEq for Nominator<A, B> {
     fn eq(&self, other: &Self) -> bool {
         let must_be_true = self.id == other.id &&
             self.total == other.total &&
-            self.less_total == other.less_total &&
-            self.status == other.status;
+            self.less_total == other.less_total;
         if !must_be_true {
             return false
         }
@@ -1070,7 +1057,6 @@ impl<
             nominations: OrderedSet::from(vec![Bond { owner: collator, amount }]),
             total: amount,
             less_total: Balance::zero(),
-            status: NominatorStatus::Active,
         }
     }
 
@@ -1080,7 +1066,6 @@ impl<
             total: amount,
             nominations: OrderedSet::from(vec![]),
             less_total: Balance::zero(),
-            status: NominatorStatus::Active,
         }
     }
 
@@ -1122,10 +1107,6 @@ impl<
         self.total = self.total.saturating_sub(amount);
         self.adjust_bond_lock::<T>(BondAdjust::Decrease)?;
         Ok(())
-    }
-
-    pub fn is_active(&self) -> bool {
-        matches!(self.status, NominatorStatus::Active)
     }
 
     pub fn add_nomination(&mut self, bond: Bond<AccountId, Balance>) -> bool {
