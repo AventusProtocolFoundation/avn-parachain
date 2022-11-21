@@ -979,6 +979,36 @@ pub mod pallet {
             return Self::call_candidate_bond_extra(&collator, more)
         }
 
+        #[pallet::weight(0)]
+        /// Increase collator candidate self bond by `more`
+        pub fn signed_candidate_bond_extra(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            extra_amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
+            let collator = ensure_signed(origin)?;
+
+            ensure!(collator == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let collator_nonce = Self::proxy_nonce(&collator);
+            let signed_payload = encode_signed_bond_extra_params::<T>(
+                proof.relayer.clone(),
+                &extra_amount,
+                collator_nonce,
+            );
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedBondExtraTransaction
+            );
+
+            // Defer any additional validation to the common logic
+            Self::call_candidate_bond_extra(&collator, extra_amount)?;
+
+            <ProxyNonces<T>>::mutate(&collator, |n| *n += 1);
+
+            Ok(().into())
+        }
+
         #[pallet::weight(<T as Config>::WeightInfo::schedule_candidate_bond_less())]
         /// Request by collator candidate to decrease self bond by `less`
         pub fn schedule_candidate_bond_less(
