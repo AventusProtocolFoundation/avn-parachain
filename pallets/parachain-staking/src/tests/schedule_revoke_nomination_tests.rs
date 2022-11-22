@@ -60,7 +60,7 @@ mod proxy_signed_schedule_revoke_nomination {
     }
 
     #[test]
-    fn suceeds_with_good_values() {
+    fn succeeds_with_good_values() {
         let collator_1 = to_acc_id(1u64);
         let collator_2 = to_acc_id(2u64);
         let staker: Staker = Default::default();
@@ -95,6 +95,9 @@ mod proxy_signed_schedule_revoke_nomination {
                     candidate: collator_1,
                     scheduled_exit: ParachainStaking::delay() + 1,
                 });
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
             });
     }
 
@@ -212,7 +215,7 @@ mod proxy_signed_schedule_leave_nominators {
     }
 
     #[test]
-    fn suceeds_with_good_values() {
+    fn succeeds_with_good_values() {
         let collator_1 = to_acc_id(1u64);
         let collator_2 = to_acc_id(2u64);
         let staker: Staker = Default::default();
@@ -246,6 +249,9 @@ mod proxy_signed_schedule_leave_nominators {
                     nominator: staker.account_id,
                     scheduled_exit: ParachainStaking::delay() + 1,
                 });
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
             });
     }
 
@@ -371,7 +377,7 @@ mod proxy_signed_execute_revoke_all_nomination {
     }
 
     #[test]
-    fn suceeds_with_good_values() {
+    fn succeeds_with_good_values() {
         let collator_1 = to_acc_id(1u64);
         let collator_2 = to_acc_id(2u64);
         let staker: Staker = Default::default();
@@ -413,6 +419,9 @@ mod proxy_signed_execute_revoke_all_nomination {
                     nominator: staker.account_id,
                     unstaked_amount: nomination * 2,
                 });
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
             });
     }
 
