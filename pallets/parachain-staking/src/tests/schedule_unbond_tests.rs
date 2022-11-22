@@ -3,10 +3,10 @@
 #![cfg(test)]
 
 use crate::{
-    assert_event_emitted, encode_signed_schedule_candidate_unbond_params,
-    encode_signed_schedule_nominator_unbond_params,
+    assert_event_emitted, encode_signed_execute_nomination_request_params,
+    encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_nominator_unbond_params,
     mock::{
-        build_proof, sign, AccountId, AvnProxy, Call as MockCall, ExtBuilder,
+        build_proof, roll_to_era_begin, sign, AccountId, AvnProxy, Call as MockCall, ExtBuilder,
         MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, System, Test,
         TestAccount,
     },
@@ -68,7 +68,7 @@ fn get_max_to_unbond(nominations: &Vec<u128>, num_collators: u32) -> u128 {
 mod proxy_signed_schedule_unbond {
     use super::*;
 
-    fn create_call_for_signed_schedule_nominator_unbond(
+    pub fn create_call_for_signed_schedule_nominator_unbond(
         staker: &Staker,
         sender_nonce: u64,
         reduction_amount: u128,
@@ -528,6 +528,247 @@ mod proxy_signed_schedule_collator_unbond {
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(collator_1.relayer), unbond_call, None),
                         Error::<Test>::CandidateBondBelowMin
+                    );
+                });
+        }
+    }
+}
+
+mod signed_execute_nomination_request {
+    use super::*;
+    use crate::schedule_unbond_tests::proxy_signed_schedule_unbond::create_call_for_signed_schedule_nominator_unbond;
+
+    fn schedule_unbond(staker: &Staker, amount: &u128) {
+        let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+        let unbond_call = create_call_for_signed_schedule_nominator_unbond(staker, nonce, *amount);
+
+        assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
+    }
+
+    fn create_call_for_signed_execute_nomination_request(
+        staker: &Staker,
+        sender_nonce: u64,
+        nominator: AccountId,
+    ) -> Box<<Test as Config>::Call> {
+        let proof =
+            create_proof_for_signed_execute_nomination_request(sender_nonce, staker, &nominator);
+
+        return Box::new(MockCall::ParachainStaking(
+            super::super::Call::<Test>::signed_execute_nomination_request { proof, nominator },
+        ))
+    }
+
+    fn create_proof_for_signed_execute_nomination_request(
+        sender_nonce: u64,
+        staker: &Staker,
+        nominator: &AccountId,
+    ) -> Proof<Signature, AccountId> {
+        let data_to_sign = encode_signed_execute_nomination_request_params::<Test>(
+            staker.relayer.clone(),
+            nominator,
+            sender_nonce,
+        );
+
+        let signature = sign(&staker.key_pair, &data_to_sign);
+        return build_proof(&staker.account_id, &staker.relayer, signature)
+    }
+
+    #[test]
+    fn suceeds_with_good_values() {
+        let collator_1 = to_acc_id(1u64);
+        let collator_2 = to_acc_id(2u64);
+        let staker: Staker = Default::default();
+        let initial_stake = 100;
+        let initial_balance = 10000;
+        ExtBuilder::default()
+            .with_balances(vec![
+                (collator_1, initial_balance),
+                (collator_2, initial_balance),
+                (staker.account_id, initial_balance),
+                (staker.relayer, initial_balance),
+            ])
+            .with_candidates(vec![(collator_1, initial_stake), (collator_2, initial_stake)])
+            .with_nominations(vec![
+                (staker.account_id, collator_1, initial_stake),
+                (staker.account_id, collator_2, initial_stake),
+            ])
+            .build()
+            .execute_with(|| {
+                let amount_to_unbond = 100;
+                let initial_free_balance =
+                    ParachainStaking::get_nominator_stakable_free_balance(&staker.account_id);
+                let initial_total_stake = ParachainStaking::total();
+                let initial_state_total =
+                    ParachainStaking::nominator_state(staker.account_id).unwrap().total();
+                let initial_collator1_state =
+                    &ParachainStaking::top_nominations(collator_1).unwrap().nominations[0];
+                let initial_collator2_state =
+                    &ParachainStaking::top_nominations(collator_2).unwrap().nominations[0];
+
+                schedule_unbond(&staker, &amount_to_unbond);
+                roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
+
+                let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                let execute_unbond_call = create_call_for_signed_execute_nomination_request(
+                    &staker,
+                    nonce,
+                    staker.account_id,
+                );
+
+                assert_ok!(AvnProxy::proxy(
+                    Origin::signed(staker.relayer),
+                    execute_unbond_call,
+                    None
+                ));
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
+                assert_eq!(
+                    ParachainStaking::get_nominator_stakable_free_balance(&staker.account_id),
+                    initial_free_balance + amount_to_unbond
+                );
+                assert_eq!(ParachainStaking::total(), initial_total_stake - amount_to_unbond);
+                assert_eq!(
+                    ParachainStaking::nominator_state(staker.account_id).unwrap().total(),
+                    initial_state_total - amount_to_unbond
+                );
+                assert_eq!(
+                    ParachainStaking::top_nominations(collator_1).unwrap().nominations[0].amount,
+                    initial_collator1_state.amount - 50
+                );
+                assert_eq!(
+                    ParachainStaking::top_nominations(collator_2).unwrap().nominations[0].amount,
+                    initial_collator2_state.amount - 50
+                );
+            });
+    }
+
+    mod fails_when {
+        use super::*;
+
+        #[test]
+        fn extrinsic_is_unsigned() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 100), (collator_2, 100)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, 100),
+                    (staker.account_id, collator_2, 100),
+                ])
+                .build()
+                .execute_with(|| {
+                    let amount_to_unbond = 100;
+                    schedule_unbond(&staker, &amount_to_unbond);
+                    roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
+
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                    let proof = create_proof_for_signed_execute_nomination_request(
+                        nonce,
+                        &staker,
+                        &staker.account_id,
+                    );
+
+                    assert_noop!(
+                        ParachainStaking::signed_execute_nomination_request(
+                            RawOrigin::None.into(),
+                            proof.clone(),
+                            staker.account_id,
+                        ),
+                        BadOrigin
+                    );
+
+                    // Show that we can send a successful transaction if its signed.
+                    assert_ok!(ParachainStaking::signed_execute_nomination_request(
+                        Origin::signed(staker.account_id),
+                        proof.clone(),
+                        staker.account_id,
+                    ));
+                });
+        }
+
+        #[test]
+        fn proxy_proof_is_not_valid_nonce() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 100), (collator_2, 100)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, 100),
+                    (staker.account_id, collator_2, 100),
+                ])
+                .build()
+                .execute_with(|| {
+                    let amount_to_unbond = 100;
+                    schedule_unbond(&staker, &amount_to_unbond);
+                    roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
+
+                    let bad_nonce = ParachainStaking::proxy_nonce(staker.account_id) + 1;
+                    let execute_unbond_call = create_call_for_signed_execute_nomination_request(
+                        &staker,
+                        bad_nonce,
+                        staker.account_id,
+                    );
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(staker.relayer), execute_unbond_call, None),
+                        Error::<Test>::UnauthorizedSignedExecuteNominationRequestTransaction
+                    );
+                });
+        }
+
+        #[test]
+        fn proxy_proof_is_not_valid_nominator() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 100), (collator_2, 100)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, 100),
+                    (staker.account_id, collator_2, 100),
+                ])
+                .build()
+                .execute_with(|| {
+                    let amount_to_unbond = 100;
+                    schedule_unbond(&staker, &amount_to_unbond);
+                    roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
+
+                    let bad_nominator = staker.relayer;
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                    let proof = create_proof_for_signed_execute_nomination_request(
+                        nonce,
+                        &staker,
+                        &bad_nominator,
+                    );
+
+                    assert_noop!(
+                        ParachainStaking::signed_execute_nomination_request(
+                            Origin::signed(staker.account_id),
+                            proof.clone(),
+                            staker.account_id,
+                        ),
+                        Error::<Test>::UnauthorizedSignedExecuteNominationRequestTransaction
                     );
                 });
         }
