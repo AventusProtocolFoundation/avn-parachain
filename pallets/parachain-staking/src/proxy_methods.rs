@@ -64,7 +64,7 @@ pub fn get_encoded_call_param<T: Config>(
         },
         Call::signed_schedule_candidate_unbond { proof, less } => {
             let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
-            let encoded_data = encode_signed_candidate_unbond_params::<T>(
+            let encoded_data = encode_signed_schedule_candidate_unbond_params::<T>(
                 proof.relayer.clone(),
                 less,
                 sender_nonce,
@@ -119,7 +119,7 @@ pub fn encode_signed_schedule_nominator_unbond_params<T: Config>(
     return (SIGNED_UNBOND_CONTEXT, relayer, value, sender_nonce).encode()
 }
 
-pub fn encode_signed_candidate_unbond_params<T: Config>(
+pub fn encode_signed_schedule_candidate_unbond_params<T: Config>(
     relayer: T::AccountId,
     value: &BalanceOf<T>,
     sender_nonce: u64,

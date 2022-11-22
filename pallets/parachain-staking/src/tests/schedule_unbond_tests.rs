@@ -3,13 +3,14 @@
 #![cfg(test)]
 
 use crate::{
-    assert_event_emitted, encode_signed_schedule_nominator_unbond_params,
+    assert_event_emitted, encode_signed_schedule_candidate_unbond_params,
+    encode_signed_schedule_nominator_unbond_params,
     mock::{
         build_proof, sign, AccountId, AvnProxy, Call as MockCall, ExtBuilder,
         MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, System, Test,
         TestAccount,
     },
-    Config, EraIndex, Error, Event, Proof,
+    Config, Error, Event, Proof,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::{self as system, RawOrigin};
@@ -178,6 +179,9 @@ mod proxy_signed_schedule_unbond {
                 assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
 
                 assert!(unbond_event_emitted(Staker::default().account_id));
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
             });
     }
 
@@ -338,6 +342,192 @@ mod proxy_signed_schedule_unbond {
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None),
                         Error::<Test>::NominationBelowMin
+                    );
+                });
+        }
+    }
+}
+
+mod proxy_signed_schedule_collator_unbond {
+    use super::*;
+
+    fn create_call_for_signed_schedule_candidate_unbond(
+        staker: &Staker,
+        sender_nonce: u64,
+        reduction_amount: u128,
+    ) -> Box<<Test as Config>::Call> {
+        let proof = create_proof_for_signed_schedule_candidate_unbond(
+            sender_nonce,
+            staker,
+            &reduction_amount,
+        );
+
+        return Box::new(MockCall::ParachainStaking(
+            super::super::Call::<Test>::signed_schedule_candidate_unbond {
+                proof,
+                less: reduction_amount,
+            },
+        ))
+    }
+
+    fn create_proof_for_signed_schedule_candidate_unbond(
+        sender_nonce: u64,
+        staker: &Staker,
+        reduction_amount: &u128,
+    ) -> Proof<Signature, AccountId> {
+        let data_to_sign = encode_signed_schedule_candidate_unbond_params::<Test>(
+            staker.relayer.clone(),
+            reduction_amount,
+            sender_nonce,
+        );
+
+        let signature = sign(&staker.key_pair, &data_to_sign);
+        return build_proof(&staker.account_id, &staker.relayer, signature)
+    }
+
+    #[test]
+    fn succeeds_with_good_values() {
+        let collator_1: Staker = Default::default();
+        let collator_2 = to_acc_id(2u64);
+        let initial_stake = 100;
+        ExtBuilder::default()
+            .with_balances(vec![
+                (collator_1.account_id, 10000),
+                (collator_2, 10000),
+                (collator_1.relayer, 10000),
+            ])
+            .with_candidates(vec![
+                (collator_1.account_id, initial_stake),
+                (collator_2, initial_stake),
+            ])
+            .build()
+            .execute_with(|| {
+                let min_collator_stake = ParachainStaking::min_collator_stake();
+
+                let amount_to_decrease = initial_stake - min_collator_stake;
+                let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
+                let candidate_unbond_call = create_call_for_signed_schedule_candidate_unbond(
+                    &collator_1,
+                    nonce,
+                    amount_to_decrease,
+                );
+
+                assert_ok!(AvnProxy::proxy(
+                    Origin::signed(collator_1.relayer),
+                    candidate_unbond_call,
+                    None
+                ));
+
+                assert_event_emitted!(Event::CandidateBondLessRequested {
+                    candidate: collator_1.account_id,
+                    amount_to_decrease,
+                    execute_era: ParachainStaking::delay() + 1,
+                });
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(collator_1.account_id), nonce + 1);
+            });
+    }
+
+    mod fails_when {
+        use super::*;
+
+        #[test]
+        fn extrinsic_is_unsigned() {
+            let collator_1: Staker = Default::default();
+            let collator_2 = to_acc_id(2u64);
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_2, 10000),
+                    (collator_1.account_id, 10000),
+                    (collator_1.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1.account_id, 100), (collator_2, 100)])
+                .build()
+                .execute_with(|| {
+                    let amount_to_withdraw = 10;
+                    let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
+                    let proof = create_proof_for_signed_schedule_candidate_unbond(
+                        nonce,
+                        &collator_1,
+                        &amount_to_withdraw,
+                    );
+
+                    assert_noop!(
+                        ParachainStaking::signed_schedule_candidate_unbond(
+                            RawOrigin::None.into(),
+                            proof.clone(),
+                            amount_to_withdraw
+                        ),
+                        BadOrigin
+                    );
+
+                    // Show that we can send a successful transaction if its signed.
+                    assert_ok!(ParachainStaking::signed_schedule_candidate_unbond(
+                        Origin::signed(collator_1.account_id),
+                        proof,
+                        amount_to_withdraw
+                    ));
+                });
+        }
+
+        #[test]
+        fn proxy_proof_is_not_valid() {
+            let collator_1: Staker = Default::default();
+            let collator_2 = to_acc_id(2u64);
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_2, 10000),
+                    (collator_1.account_id, 10000),
+                    (collator_1.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1.account_id, 100), (collator_2, 100)])
+                .build()
+                .execute_with(|| {
+                    let amount_to_withdraw = 10;
+                    let bad_nonce = ParachainStaking::proxy_nonce(collator_1.account_id) + 1;
+                    let unbond_call = create_call_for_signed_schedule_candidate_unbond(
+                        &collator_1,
+                        bad_nonce,
+                        amount_to_withdraw,
+                    );
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(collator_1.relayer), unbond_call, None),
+                        Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction
+                    );
+                });
+        }
+
+        #[test]
+        fn withdrawal_reduces_candidate_bond_below_min_allowed() {
+            let collator_1: Staker = Default::default();
+            let collator_2 = to_acc_id(2u64);
+            let collator_stake = 100;
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_2, 10000),
+                    (collator_1.account_id, 10000),
+                    (collator_1.relayer, 10000),
+                ])
+                .with_candidates(vec![
+                    (collator_1.account_id, collator_stake),
+                    (collator_2, collator_stake),
+                ])
+                .build()
+                .execute_with(|| {
+                    let amount_to_withdraw =
+                        (collator_stake - ParachainStaking::min_collator_stake()) + 1;
+                    let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
+                    let unbond_call = create_call_for_signed_schedule_candidate_unbond(
+                        &collator_1,
+                        nonce,
+                        amount_to_withdraw,
+                    );
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(collator_1.relayer), unbond_call, None),
+                        Error::<Test>::CandidateBondBelowMin
                     );
                 });
         }
