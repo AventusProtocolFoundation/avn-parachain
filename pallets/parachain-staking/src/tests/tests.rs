@@ -2688,32 +2688,6 @@ fn execute_nominator_unbond_updates_candidate_state() {
 }
 
 #[test]
-fn execute_nominator_unbond_decreases_total() {
-    let account_id = to_acc_id(1u64);
-    let account_id_2 = to_acc_id(2u64);
-    ExtBuilder::default()
-        .with_balances(vec![(account_id, 30), (account_id_2, 15)])
-        .with_candidates(vec![(account_id, 30)])
-        .with_nominations(vec![(account_id_2, account_id, 10)])
-        .build()
-        .execute_with(|| {
-            assert_eq!(ParachainStaking::total(), 40);
-            assert_ok!(ParachainStaking::schedule_nominator_unbond(
-                Origin::signed(account_id_2),
-                account_id,
-                5
-            ));
-            roll_to(10);
-            assert_ok!(ParachainStaking::execute_nomination_request(
-                Origin::signed(account_id_2),
-                account_id_2,
-                account_id
-            ));
-            assert_eq!(ParachainStaking::total(), 35);
-        });
-}
-
-#[test]
 fn execute_nominator_unbond_updates_just_bottom_nominations() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
