@@ -363,6 +363,15 @@ impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
                     collator: _,
                 },
             ) => return Some(proof.clone()),
+            Call::ParachainStaking(
+                pallet_parachain_staking::Call::signed_schedule_leave_nominators { proof },
+            ) => return Some(proof.clone()),
+            Call::ParachainStaking(
+                pallet_parachain_staking::Call::signed_execute_leave_nominators {
+                    proof,
+                    nominator: _,
+                },
+            ) => return Some(proof.clone()),
 
             _ => None,
         }
