@@ -55,8 +55,6 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for parachain_staking.
 pub trait WeightInfo {
     #[rustfmt::skip]
-	fn set_staking_expectations() -> Weight;
-    #[rustfmt::skip]
 	fn set_total_selected() -> Weight;
     #[rustfmt::skip]
 	fn set_blocks_per_era() -> Weight;
