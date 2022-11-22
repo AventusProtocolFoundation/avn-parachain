@@ -30,7 +30,7 @@ use crate::{
     },
     nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
     AtStake, Bond, CollatorStatus, Error, Event, NominationScheduledRequests, NominatorAdded,
-    NominatorState, NominatorStatus, NOMINATOR_LOCK_ID,
+    NominatorState, NOMINATOR_LOCK_ID,
 };
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::{traits::Zero, DispatchError, ModuleError};
@@ -1707,24 +1707,6 @@ fn cancel_leave_nominators_emits_correct_event() {
             assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitCancelled {
                 nominator: account_id_2
             }));
-        });
-}
-
-#[test]
-fn cancel_leave_nominators_updates_nominator_state() {
-    let account_id = to_acc_id(1u64);
-    let account_id_2 = to_acc_id(2u64);
-    ExtBuilder::default()
-        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
-        .with_candidates(vec![(account_id, 30)])
-        .with_nominations(vec![(account_id_2, account_id, 10)])
-        .build()
-        .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
-            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(account_id_2)));
-            let nominator = ParachainStaking::nominator_state(&account_id_2)
-                .expect("just cancelled exit so exists");
-            assert!(nominator.is_active());
         });
 }
 
@@ -7147,134 +7129,5 @@ fn revoke_last_removes_lock() {
                 account_id_2
             ));
             assert_eq!(crate::mock::query_lock_amount(account_id_3, NOMINATOR_LOCK_ID), None);
-        });
-}
-
-#[allow(deprecated)]
-#[test]
-fn test_nominator_with_deprecated_status_leaving_can_schedule_leave_nominators_as_fix() {
-    let account_id = to_acc_id(1u64);
-    let account_id_2 = to_acc_id(2u64);
-    ExtBuilder::default()
-        .with_balances(vec![(account_id, 20), (account_id_2, 40)])
-        .with_candidates(vec![(account_id, 20)])
-        .with_nominations(vec![(account_id_2, account_id, 10)])
-        .build()
-        .execute_with(|| {
-            <NominatorState<Test>>::mutate(account_id_2, |value| {
-                value.as_mut().map(|mut state| {
-                    state.status = NominatorStatus::Leaving(2);
-                })
-            });
-            let state = <NominatorState<Test>>::get(account_id_2);
-            assert!(matches!(state.unwrap().status, NominatorStatus::Leaving(_)));
-
-            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
-            assert!(<NominationScheduledRequests<Test>>::get(account_id)
-                .iter()
-                .any(|r| r.nominator == account_id_2 &&
-                    matches!(r.action, NominationAction::Revoke(_))));
-            assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitScheduled {
-                era: 1,
-                nominator: account_id_2,
-                scheduled_exit: 3
-            }));
-
-            let state = <NominatorState<Test>>::get(account_id_2);
-            assert!(matches!(state.unwrap().status, NominatorStatus::Active));
-        });
-}
-
-#[allow(deprecated)]
-#[test]
-fn test_nominator_with_deprecated_status_leaving_can_cancel_leave_nominators_as_fix() {
-    let account_id = to_acc_id(1u64);
-    let account_id_2 = to_acc_id(2u64);
-    ExtBuilder::default()
-        .with_balances(vec![(account_id, 20), (account_id_2, 40)])
-        .with_candidates(vec![(account_id, 20)])
-        .with_nominations(vec![(account_id_2, account_id, 10)])
-        .build()
-        .execute_with(|| {
-            <NominatorState<Test>>::mutate(account_id_2, |value| {
-                value.as_mut().map(|mut state| {
-                    state.status = NominatorStatus::Leaving(2);
-                })
-            });
-            let state = <NominatorState<Test>>::get(account_id_2);
-            assert!(matches!(state.unwrap().status, NominatorStatus::Leaving(_)));
-
-            assert_ok!(ParachainStaking::cancel_leave_nominators(Origin::signed(account_id_2)));
-            assert_last_event!(MetaEvent::ParachainStaking(Event::NominatorExitCancelled {
-                nominator: account_id_2
-            }));
-
-            let state = <NominatorState<Test>>::get(account_id_2);
-            assert!(matches!(state.unwrap().status, NominatorStatus::Active));
-        });
-}
-
-#[allow(deprecated)]
-#[test]
-fn test_nominator_with_deprecated_status_leaving_can_execute_leave_nominators_as_fix() {
-    let account_id = to_acc_id(1u64);
-    let account_id_2 = to_acc_id(2u64);
-    ExtBuilder::default()
-        .with_balances(vec![(account_id, 20), (account_id_2, 40)])
-        .with_candidates(vec![(account_id, 20)])
-        .with_nominations(vec![(account_id_2, account_id, 10)])
-        .build()
-        .execute_with(|| {
-            <NominatorState<Test>>::mutate(account_id_2, |value| {
-                value.as_mut().map(|mut state| {
-                    state.status = NominatorStatus::Leaving(2);
-                })
-            });
-            let state = <NominatorState<Test>>::get(account_id_2);
-            assert!(matches!(state.unwrap().status, NominatorStatus::Leaving(_)));
-
-            roll_to(10);
-            assert_ok!(ParachainStaking::execute_leave_nominators(
-                Origin::signed(account_id_2),
-                account_id_2,
-                1
-            ));
-            assert_event_emitted!(Event::NominatorLeft {
-                nominator: account_id_2,
-                unstaked_amount: 10
-            });
-
-            let state = <NominatorState<Test>>::get(account_id_2);
-            assert!(state.is_none());
-        });
-}
-
-#[allow(deprecated)]
-#[test]
-fn test_nominator_with_deprecated_status_leaving_cannot_execute_leave_nominators_early_no_fix() {
-    let account_id = to_acc_id(1u64);
-    let account_id_2 = to_acc_id(2u64);
-    ExtBuilder::default()
-        .with_balances(vec![(account_id, 20), (account_id_2, 40)])
-        .with_candidates(vec![(account_id, 20)])
-        .with_nominations(vec![(account_id_2, account_id, 10)])
-        .build()
-        .execute_with(|| {
-            <NominatorState<Test>>::mutate(account_id_2, |value| {
-                value.as_mut().map(|mut state| {
-                    state.status = NominatorStatus::Leaving(2);
-                })
-            });
-            let state = <NominatorState<Test>>::get(account_id_2);
-            assert!(matches!(state.unwrap().status, NominatorStatus::Leaving(_)));
-
-            assert_noop!(
-                ParachainStaking::execute_leave_nominators(
-                    Origin::signed(account_id_2),
-                    account_id_2,
-                    1
-                ),
-                Error::<Test>::NominatorCannotLeaveYet
-            );
         });
 }
