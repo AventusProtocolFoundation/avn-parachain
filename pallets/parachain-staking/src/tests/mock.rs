@@ -194,7 +194,7 @@ parameter_types! {
     pub const MinSelectedCandidates: u32 = 5;
     pub const MaxTopNominationsPerCandidate: u32 = 4;
     pub const MaxBottomNominationsPerCandidate: u32 = 4;
-    pub const MaxNominationsPerNominator: u32 = 4;
+    pub const MaxNominationsPerNominator: u32 = 10;
     pub const MinNominationPerCollator: u128 = 3;
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
@@ -354,6 +354,9 @@ impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
             Call::ParachainStaking(
                 pallet_parachain_staking::Call::signed_schedule_candidate_unbond { proof, less: _ },
             ) => return Some(proof.clone()),
+            Call::ParachainStaking(
+                pallet_parachain_staking::Call::signed_schedule_nominator_unbond { proof, less: _ },
+            ) => return Some(proof.clone()),
 
             _ => None,
         }
@@ -403,11 +406,19 @@ pub(crate) struct ExtBuilder {
     collators: Vec<(AccountId, Balance)>,
     // [nominator, collator, nomination_amount]
     nominations: Vec<(AccountId, AccountId, Balance)>,
+    min_collator_stake: Balance,
+    min_total_nominator_stake: Balance,
 }
 
 impl Default for ExtBuilder {
     fn default() -> ExtBuilder {
-        ExtBuilder { balances: vec![], nominations: vec![], collators: vec![] }
+        ExtBuilder {
+            balances: vec![],
+            nominations: vec![],
+            collators: vec![],
+            min_collator_stake: 10,
+            min_total_nominator_stake: 5,
+        }
     }
 }
 
@@ -430,6 +441,16 @@ impl ExtBuilder {
         self
     }
 
+    pub(crate) fn with_staking_config(
+        mut self,
+        min_collator_stake: Balance,
+        min_total_nominator_stake: Balance,
+    ) -> Self {
+        self.min_collator_stake = min_collator_stake;
+        self.min_total_nominator_stake = min_total_nominator_stake;
+        self
+    }
+
     pub(crate) fn build(self) -> sp_io::TestExternalities {
         let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
@@ -442,8 +463,8 @@ impl ExtBuilder {
             candidates: self.collators,
             nominations: self.nominations,
             delay: 2,
-            min_collator_stake: 10,
-            min_total_nominator_stake: 5,
+            min_collator_stake: self.min_collator_stake,
+            min_total_nominator_stake: self.min_total_nominator_stake,
         }
         .assimilate_storage(&mut t)
         .expect("Parachain Staking's storage can be assimilated");

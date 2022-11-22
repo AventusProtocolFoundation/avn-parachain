@@ -69,6 +69,9 @@ mod mock;
 #[path = "tests/nominate_tests.rs"]
 mod nominate_tests;
 #[cfg(test)]
+#[path = "tests/schedule_unbond_tests.rs"]
+mod schedule_unbond_tests;
+#[cfg(test)]
 #[path = "tests/test_admin_settings.rs"]
 mod test_admin_settings;
 #[cfg(test)]
