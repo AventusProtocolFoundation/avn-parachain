@@ -2139,7 +2139,11 @@ pub mod pallet {
             return Ok((payers, outstanding_withdrawal))
         }
 
-        pub fn split_and_nominate(nominator: &T::AccountId, targets: Vec<<T::Lookup as StaticLookup>::Source>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+        pub fn split_and_nominate(
+            nominator: &T::AccountId,
+            targets: Vec<<T::Lookup as StaticLookup>::Source>,
+            amount: BalanceOf<T>,
+        ) -> DispatchResultWithPostInfo {
             let num_collators = targets.len() as u32;
             let min_total_stake = Self::min_total_nominator_stake() * num_collators.into();
 
