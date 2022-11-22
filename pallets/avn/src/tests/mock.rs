@@ -164,19 +164,6 @@ thread_local! {
 pub type SessionIndex = u32;
 pub type ValidatorId = <Test as session::Config>::ValidatorId;
 
-// pub struct TestSessionManager;
-// impl session::SessionManager<ValidatorId> for TestSessionManager {
-//     fn new_session(_new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
-//         // let seeds = VALIDATOR_SEEDS.with(|l| l.borrow_mut().take().unwrap());
-//         let seeds: Vec<u64> = vec![1,2,3];
-
-//         let validator_ids = seeds.into_iter().map(|id| TestAccount::derive_account_id(id)).collect();
-//         Some(validator_ids)
-//     }
-//     fn end_session(_: SessionIndex) {}
-//     fn start_session(_: SessionIndex) {}
-// }
-
 impl session::Config for Test {
     type SessionManager = ParachainStaking;
     type Keys = UintAuthorityId;
