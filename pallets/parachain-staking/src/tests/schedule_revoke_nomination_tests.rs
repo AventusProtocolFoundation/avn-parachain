@@ -345,7 +345,7 @@ mod proxy_signed_execute_revoke_all_nomination {
 
         assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), leave_nominators_call, None));
 
-        return ParachainStaking::proxy_nonce(staker.account_id);
+        return ParachainStaking::proxy_nonce(staker.account_id)
     }
 
     fn create_call_for_signed_execute_leave_nominators(
@@ -426,7 +426,10 @@ mod proxy_signed_execute_revoke_all_nomination {
                 });
 
                 // Nonce has increased
-                assert_eq!(ParachainStaking::proxy_nonce(random_user.account_id), random_user_nonce + 1);
+                assert_eq!(
+                    ParachainStaking::proxy_nonce(random_user.account_id),
+                    random_user_nonce + 1
+                );
                 // Staker nonce has not changed
                 assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), staker_nonce);
             });

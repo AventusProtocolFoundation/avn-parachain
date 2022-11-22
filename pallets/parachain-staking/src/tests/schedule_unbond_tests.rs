@@ -545,7 +545,7 @@ mod signed_execute_nomination_request {
         assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
 
         // return updated nonce
-        return ParachainStaking::proxy_nonce(staker.account_id);
+        return ParachainStaking::proxy_nonce(staker.account_id)
     }
 
     fn create_call_for_signed_execute_nomination_request(
