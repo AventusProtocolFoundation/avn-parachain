@@ -165,10 +165,8 @@ mod chain_started_with_initial_colators {
             let mut ext = setup_initial_collators();
 
             ext.execute_with(|| {
-                // add 2 validators
                 add_two_collators_and_force_two_sessions();
 
-                //verify and remove 1 validator
                 let current_collators = avn_known_collators();
                 assert_eq!(current_collators, vec![
                     TestAccount::derive_validator(5),
@@ -182,7 +180,6 @@ mod chain_started_with_initial_colators {
 
                 advance_session();
 
-                //check if validator was removed
                 let final_collators = avn_known_collators();
                 assert_eq!(final_collators, vec![
                     TestAccount::derive_validator(5),
@@ -199,10 +196,8 @@ mod chain_started_with_initial_colators {
             let mut ext = setup_initial_collators();
 
             ext.execute_with(|| {
-                // add 2 validators
                 add_two_collators_and_force_two_sessions();
 
-                //verify and remove 1 validator
                 let current_collators = avn_known_collators();
                 assert_eq!(current_collators, vec![
                     TestAccount::derive_validator(5),
@@ -217,7 +212,6 @@ mod chain_started_with_initial_colators {
                 advance_session();
                 advance_session();
 
-                //check if validator was removed
                 let final_collators = avn_known_collators();
                 assert_eq!(final_collators, vec![
                     TestAccount::derive_validator(3),
@@ -245,7 +239,6 @@ mod chain_started_with_initial_colators {
                 let initial_collators = avn_known_collators();
                 setup_adds_seven_collators();
 
-                //advance 1 session
                 advance_session();
 
                 let final_collators = avn_known_collators();
@@ -260,7 +253,6 @@ mod chain_started_with_initial_colators {
             ext.execute_with(|| {
                 setup_adds_seven_collators();
 
-                //advance 2 sessions
                 advance_session();
                 advance_session();
 
