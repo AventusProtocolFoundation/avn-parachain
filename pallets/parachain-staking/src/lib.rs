@@ -263,6 +263,7 @@ pub mod pallet {
         UnauthorizedSignedRemoveBondTransaction,
         UnauthorizedSignedScheduleLeaveNominatorsTransaction,
         UnauthorizedSignedExecuteLeaveNominatorsTransaction,
+        UnauthorizedSignedExecuteNominationRequestTransaction,
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
         FailedToWithdrawFullAmount,
@@ -1406,7 +1407,7 @@ pub mod pallet {
                 Self::identify_collators_to_withdraw_from(&nominator, less)?;
 
             // Deal with any outstanding amount to withdraw and schedule decrease
-            for mut stake in payers.clone().into_iter() {
+            for mut stake in payers.into_iter() {
                 if !outstanding_withdrawal.is_zero() {
                     let max_amount_to_withdraw = stake.free_amount.min(outstanding_withdrawal);
                     stake.reserved_amount += max_amount_to_withdraw;
@@ -1440,6 +1441,50 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?; // we may want to reward caller if caller != nominator
             Self::nomination_execute_scheduled_request(candidate, nominator)
+        }
+
+        #[pallet::weight(0)]
+        /// Execute pending request to change an existing nomination
+        pub fn signed_execute_nomination_request(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            nominator: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let sender_nonce = Self::proxy_nonce(&sender);
+            let signed_payload = encode_signed_execute_nomination_request_params::<T>(
+                proof.relayer.clone(),
+                &nominator,
+                sender_nonce,
+            );
+
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedExecuteNominationRequestTransaction
+            );
+
+            let now = <Era<T>>::get().current;
+            let state = <NominatorState<T>>::get(&nominator).ok_or(<Error<T>>::NominatorDNE)?;
+            for bond in state.nominations.0 {
+                let collator = bond.owner;
+                let scheduled_requests = &<NominationScheduledRequests<T>>::get(&collator);
+
+                let request_idx = scheduled_requests
+                    .iter()
+                    .position(|req| req.nominator == nominator)
+                    .ok_or(<Error<T>>::PendingNominationRequestDNE)?;
+
+                if scheduled_requests[request_idx].when_executable <= now {
+                    Self::nomination_execute_scheduled_request(collator, nominator.clone())?;
+                }
+            }
+
+            <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
+
+            Ok(().into())
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::cancel_nominator_unbond())]
