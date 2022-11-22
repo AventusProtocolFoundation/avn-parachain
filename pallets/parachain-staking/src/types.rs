@@ -139,9 +139,6 @@ impl<A, B: Default> Default for CollatorSnapshot<A, B> {
 /// Info needed to make delayed payments to stakers after era end
 pub struct DelayedPayout<Balance> {
     /// Total era reward (result of compute_total_reward_to_pay() at era end)
-    /* TODO - remove this field because it will have the same value as the one below */
-    pub era_issuance: Balance,
-    /// The total inflation paid this era to stakers (e.g. less parachain bond fund)
     pub total_staking_reward: Balance,
 }
 
