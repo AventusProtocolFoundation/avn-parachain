@@ -57,8 +57,6 @@ pub trait WeightInfo {
     #[rustfmt::skip]
 	fn set_staking_expectations() -> Weight;
     #[rustfmt::skip]
-	fn set_inflation() -> Weight;
-    #[rustfmt::skip]
 	fn set_total_selected() -> Weight;
     #[rustfmt::skip]
 	fn set_blocks_per_era() -> Weight;
@@ -117,20 +115,6 @@ pub trait WeightInfo {
 /// Weights for parachain_staking using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-    // Storage: ParachainStaking InflationConfig (r:1 w:1)
-	#[rustfmt::skip]
-    fn set_staking_expectations() -> Weight {
-		(18_520_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
-    // Storage: ParachainStaking InflationConfig (r:1 w:1)
-	#[rustfmt::skip]
-    fn set_inflation() -> Weight {
-		(53_196_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
 	#[rustfmt::skip]
     fn set_total_selected() -> Weight {
 		(20_404_000 as Weight)
@@ -138,7 +122,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
     // Storage: ParachainStaking TotalSelected (r:1 w:0)
-    // Storage: ParachainStaking InflationConfig (r:1 w:1)
 	#[rustfmt::skip]
     fn set_blocks_per_era() -> Weight {
 		(57_722_000 as Weight)
@@ -369,7 +352,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
     // Storage: ParachainStaking Points (r:1 w:0)
     // Storage: ParachainStaking Staked (r:1 w:2)
-    // Storage: ParachainStaking InflationConfig (r:1 w:0)
     // Storage: System Account (r:302 w:301)
     // Storage: ParachainStaking CandidatePool (r:1 w:0)
     // Storage: ParachainStaking TotalSelected (r:1 w:0)
@@ -425,20 +407,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-    // Storage: ParachainStaking InflationConfig (r:1 w:1)
-	#[rustfmt::skip]
-    fn set_staking_expectations() -> Weight {
-		(18_520_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
-    // Storage: ParachainStaking InflationConfig (r:1 w:1)
-	#[rustfmt::skip]
-    fn set_inflation() -> Weight {
-		(53_196_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
     // Storage: ParachainStaking TotalSelected (r:1 w:1)
 	#[rustfmt::skip]
     fn set_total_selected() -> Weight {
@@ -447,7 +415,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
     // Storage: ParachainStaking TotalSelected (r:1 w:0)
-    // Storage: ParachainStaking InflationConfig (r:1 w:1)
 	#[rustfmt::skip]
     fn set_blocks_per_era() -> Weight {
 		(57_722_000 as Weight)
@@ -678,7 +645,6 @@ impl WeightInfo for () {
 	}
     // Storage: ParachainStaking Points (r:1 w:0)
     // Storage: ParachainStaking Staked (r:1 w:2)
-    // Storage: ParachainStaking InflationConfig (r:1 w:0)
     // Storage: System Account (r:302 w:301)
     // Storage: ParachainStaking CandidatePool (r:1 w:0)
     // Storage: ParachainStaking TotalSelected (r:1 w:0)
