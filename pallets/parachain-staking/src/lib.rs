@@ -261,6 +261,8 @@ pub mod pallet {
         UnauthorizedSignedCandidateUnbondTransaction,
         UnauthorizedSignedUnbondTransaction,
         UnauthorizedSignedRemoveBondTransaction,
+        UnauthorizedSignedScheduleLeaveNominatorsTransaction,
+        UnauthorizedSignedExecuteLeaveNominatorsTransaction,
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
         FailedToWithdrawFullAmount,
@@ -1177,8 +1179,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// DEPRECATED use batch util with schedule_revoke_nomination for all nominations
-        /// Request to leave the set of nominators. If successful, the caller is scheduled to be
+        /// If successful, the caller is scheduled to be
         /// allowed to exit via a [NominationAction::Revoke] towards all existing nominations.
         /// Success forbids future nomination requests until the request is invoked or cancelled.
         #[pallet::weight(<T as Config>::WeightInfo::schedule_leave_nominators())]
@@ -1187,7 +1188,28 @@ pub mod pallet {
             Self::nominator_schedule_revoke_all(nominator)
         }
 
-        /// DEPRECATED use batch util with execute_nomination_request for all nominations
+        #[pallet::weight(0)]
+        pub fn signed_schedule_leave_nominators(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+        ) -> DispatchResultWithPostInfo {
+            let nominator = ensure_signed(origin)?;
+
+            ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let nominator_nonce = Self::proxy_nonce(&nominator);
+            let signed_payload = encode_signed_schedule_leave_nominators_params::<T>(
+                proof.relayer.clone(),
+                nominator_nonce,
+            );
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedScheduleLeaveNominatorsTransaction
+            );
+
+            Self::nominator_schedule_revoke_all(nominator)
+        }
+
         /// Execute the right to exit the set of nominators and revoke all ongoing nominations.
         #[pallet::weight(<T as Config>::WeightInfo::execute_leave_nominators(*nomination_count))]
         pub fn execute_leave_nominators(
@@ -1197,6 +1219,39 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
             Self::nominator_execute_scheduled_revoke_all(nominator, nomination_count)
+        }
+
+        /// Execute the right to exit the set of nominators and revoke all ongoing nominations.
+        /// Any account can call this extrinsic
+        #[pallet::weight(0)]
+        pub fn signed_execute_leave_nominators(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            nominator: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?;
+
+            ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let sender_nonce = Self::proxy_nonce(&sender);
+            let signed_payload = encode_signed_execute_leave_nominators_params::<T>(
+                proof.relayer.clone(),
+                &nominator,
+                sender_nonce,
+            );
+
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
+            );
+
+            if let Some(nominator_state) = <NominatorState<T>>::get(&nominator) {
+                let nomination_count = nominator_state.nominations.0.len() as u32;
+
+                return Self::nominator_execute_scheduled_revoke_all(nominator, nomination_count)
+            }
+
+            Err(Error::<T>::NominatorDNE)?
         }
 
         /// DEPRECATED use batch util with cancel_nomination_request for all nominations
@@ -1242,7 +1297,11 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedRemoveBondTransaction
             );
 
-            Self::nomination_schedule_revoke(collator, nominator)
+            Self::nomination_schedule_revoke(collator, nominator.clone())?;
+
+            <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
+
+            Ok(().into())
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::bond_extra())]
