@@ -224,7 +224,7 @@ mod proxy_signed_schedule_unbond {
                         BadOrigin
                     );
 
-                    // Show that we can send a successful transaction if its signed.
+                    // Show that we can send a successful transaction if it's signed.
                     assert_ok!(ParachainStaking::signed_schedule_nominator_unbond(
                         Origin::signed(staker.account_id),
                         proof,
