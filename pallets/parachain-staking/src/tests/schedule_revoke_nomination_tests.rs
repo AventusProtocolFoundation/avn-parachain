@@ -338,12 +338,14 @@ mod proxy_signed_execute_revoke_all_nomination {
 
     use crate::schedule_revoke_nomination_tests::proxy_signed_schedule_leave_nominators::create_call_for_signed_schedule_leave_nominators;
 
-    fn schedule_leave(staker: Staker) {
+    fn schedule_leave(staker: Staker) -> u64 {
         let nonce = ParachainStaking::proxy_nonce(staker.account_id);
         let leave_nominators_call =
             create_call_for_signed_schedule_leave_nominators(&staker, nonce);
 
         assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), leave_nominators_call, None));
+
+        return ParachainStaking::proxy_nonce(staker.account_id);
     }
 
     fn create_call_for_signed_execute_leave_nominators(
@@ -382,6 +384,7 @@ mod proxy_signed_execute_revoke_all_nomination {
         let collator_1 = to_acc_id(1u64);
         let collator_2 = to_acc_id(2u64);
         let staker: Staker = Default::default();
+        let random_user: Staker = Staker::new(59u64, 88u64);
         let initial_stake = 100;
         let nomination = 10;
         ExtBuilder::default()
@@ -398,20 +401,21 @@ mod proxy_signed_execute_revoke_all_nomination {
             ])
             .build()
             .execute_with(|| {
-                schedule_leave(staker.clone());
+                let staker_nonce = schedule_leave(staker.clone());
 
                 // Roll foreward by "Delay" eras to activate leave
                 roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
 
-                let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                // Anyone can send this request
+                let random_user_nonce = ParachainStaking::proxy_nonce(random_user.account_id);
                 let execute_leave_nomination_call = create_call_for_signed_execute_leave_nominators(
-                    &staker,
-                    nonce,
+                    &random_user,
+                    random_user_nonce,
                     &staker.account_id,
                 );
 
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(staker.relayer),
+                    Origin::signed(random_user.relayer),
                     execute_leave_nomination_call,
                     None
                 ));
@@ -422,7 +426,9 @@ mod proxy_signed_execute_revoke_all_nomination {
                 });
 
                 // Nonce has increased
-                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
+                assert_eq!(ParachainStaking::proxy_nonce(random_user.account_id), random_user_nonce + 1);
+                // Staker nonce has not changed
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), staker_nonce);
             });
     }
 
