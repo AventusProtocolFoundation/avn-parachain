@@ -1298,7 +1298,11 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedRemoveBondTransaction
             );
 
-            Self::nomination_schedule_revoke(collator, nominator)
+            Self::nomination_schedule_revoke(collator, nominator.clone())?;
+
+            <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
+
+            Ok(().into())
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::bond_extra())]
