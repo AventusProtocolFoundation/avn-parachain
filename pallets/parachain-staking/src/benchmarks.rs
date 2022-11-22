@@ -1109,9 +1109,9 @@ mod tests {
     }
 
     #[test]
-    fn bench_candidate_bond_more() {
+    fn bench_candidate_bond_extra() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_candidate_bond_more());
+            assert_ok!(Pallet::<Test>::test_benchmark_candidate_bond_extra());
         });
     }
 
@@ -1172,9 +1172,9 @@ mod tests {
     }
 
     #[test]
-    fn bench_nominator_bond_more() {
+    fn bench_nominator_bond_extra() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_nominator_bond_more());
+            assert_ok!(Pallet::<Test>::test_benchmark_nominator_bond_extra());
         });
     }
 

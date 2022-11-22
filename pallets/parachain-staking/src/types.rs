@@ -319,7 +319,7 @@ impl<
     pub fn go_online(&mut self) {
         self.status = CollatorStatus::Active;
     }
-    pub fn bond_more<T: Config>(&mut self, who: T::AccountId, more: Balance) -> DispatchResult
+    pub fn bond_extra<T: Config>(&mut self, who: T::AccountId, more: Balance) -> DispatchResult
     where
         BalanceOf<T>: From<Balance>,
     {
