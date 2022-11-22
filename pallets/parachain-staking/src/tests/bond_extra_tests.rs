@@ -168,7 +168,7 @@ mod proxy_signed_bond_extra {
                         BadOrigin
                     );
 
-                    // Show that we can send a successful transaction if its signed.
+                    // Show that we can send a successful transaction if it's signed.
                     assert_ok!(ParachainStaking::signed_bond_extra(
                         Origin::signed(staker.account_id),
                         proof,
@@ -421,7 +421,7 @@ mod proxy_signed_candidate_bond_extra {
                         BadOrigin
                     );
 
-                    // Show that we can send a successful transaction if its signed.
+                    // Show that we can send a successful transaction if it's signed.
                     assert_ok!(ParachainStaking::signed_candidate_bond_extra(
                         Origin::signed(collator_1.account_id),
                         proof,
