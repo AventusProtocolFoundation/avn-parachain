@@ -8,8 +8,8 @@ use crate::{
     encode_signed_schedule_revoke_nomination_params,
     mock::{
         build_proof, roll_to, roll_to_era_begin, sign, AccountId, AvnProxy, Balances,
-        Call as MockCall, Event as MetaEvent, ExtBuilder, Origin,
-        ParachainStaking, Signature, Staker, Test, TestAccount,
+        Call as MockCall, Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Signature,
+        Staker, Test, TestAccount,
     },
     Config, Error, Event, Proof,
 };

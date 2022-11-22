@@ -3,8 +3,9 @@
 #![cfg(test)]
 
 use crate::{
-    assert_event_emitted, assert_last_event, encode_signed_execute_nomination_request_params,
-    encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_nominator_unbond_params, encode_signed_execute_candidate_unbond_params,
+    assert_event_emitted, assert_last_event, encode_signed_execute_candidate_unbond_params,
+    encode_signed_execute_nomination_request_params,
+    encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_nominator_unbond_params,
     mock::{
         build_proof, roll_to, roll_to_era_begin, sign, AccountId, AvnProxy, Call as MockCall,
         Event as MetaEvent, ExtBuilder, MinNominationPerCollator, Origin, ParachainStaking,
@@ -790,7 +791,8 @@ mod signed_execute_candidate_unbond {
 
     fn schedule_candidate_unbond(candidate: &Staker, amount: &u128) -> u64 {
         let nonce = ParachainStaking::proxy_nonce(candidate.account_id);
-        let candidate_unbond_call = create_call_for_signed_schedule_candidate_unbond(candidate, nonce, *amount);
+        let candidate_unbond_call =
+            create_call_for_signed_schedule_candidate_unbond(candidate, nonce, *amount);
 
         assert_ok!(AvnProxy::proxy(Origin::signed(candidate.relayer), candidate_unbond_call, None));
 
@@ -840,7 +842,10 @@ mod signed_execute_candidate_unbond {
                 (collator_1.account_id, initial_balance),
                 (collator_1.relayer, initial_balance),
             ])
-            .with_candidates(vec![(collator_1.account_id, initial_stake), (collator_2, initial_stake)])
+            .with_candidates(vec![
+                (collator_1.account_id, initial_stake),
+                (collator_2, initial_stake),
+            ])
             .build()
             .execute_with(|| {
                 let amount_to_unbond = 10;
@@ -850,7 +855,8 @@ mod signed_execute_candidate_unbond {
 
                 assert_eq!(ParachainStaking::candidate_pool().0[0].owner, collator_1.account_id);
                 let initial_candidate_pool_amount = ParachainStaking::candidate_pool().0[0].amount;
-                let initial_candidate_state = ParachainStaking::candidate_info(collator_1.account_id).unwrap();
+                let initial_candidate_state =
+                    ParachainStaking::candidate_info(collator_1.account_id).unwrap();
 
                 let collator_1_nonce = schedule_candidate_unbond(&collator_1, &amount_to_unbond);
                 roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
@@ -881,16 +887,21 @@ mod signed_execute_candidate_unbond {
                 );
                 assert_eq!(ParachainStaking::total(), initial_total_stake - amount_to_unbond);
 
-                assert_eq!(ParachainStaking::candidate_info(collator_1.account_id).unwrap().bond, initial_candidate_state.bond - amount_to_unbond);
+                assert_eq!(
+                    ParachainStaking::candidate_info(collator_1.account_id).unwrap().bond,
+                    initial_candidate_state.bond - amount_to_unbond
+                );
                 // Candidate pool owner has not changed, but the amount has.
                 assert_eq!(ParachainStaking::candidate_pool().0[0].owner, collator_1.account_id);
-                assert_eq!(ParachainStaking::candidate_pool().0[0].amount, initial_candidate_pool_amount - amount_to_unbond);
+                assert_eq!(
+                    ParachainStaking::candidate_pool().0[0].amount,
+                    initial_candidate_pool_amount - amount_to_unbond
+                );
 
                 // Nonce has increased
                 assert_eq!(ParachainStaking::proxy_nonce(random_user.account_id), nonce + 1);
                 // Staker nonce has stayed the same
                 assert_eq!(ParachainStaking::proxy_nonce(collator_1.account_id), collator_1_nonce);
-
             });
     }
 
@@ -971,12 +982,9 @@ mod signed_execute_candidate_unbond {
                         ),
                         Error::<Test>::UnauthorizedSignedExecuteCandidateUnbondTransaction
                     );
-
                 });
         }
-
     }
-
 }
 
 // NOMINATOR BOND LESS
