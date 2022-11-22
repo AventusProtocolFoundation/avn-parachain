@@ -55,8 +55,6 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for parachain_staking.
 pub trait WeightInfo {
     #[rustfmt::skip]
-	fn set_staking_expectations() -> Weight;
-    #[rustfmt::skip]
 	fn set_total_selected() -> Weight;
     #[rustfmt::skip]
 	fn set_blocks_per_era() -> Weight;
@@ -115,7 +113,7 @@ pub trait WeightInfo {
 /// Weights for parachain_staking using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	#[rustfmt::skip]
+    #[rustfmt::skip]
     fn set_total_selected() -> Weight {
 		(20_404_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
