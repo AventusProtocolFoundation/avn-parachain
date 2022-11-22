@@ -1135,45 +1135,7 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedNominateTransaction
             );
 
-            let collators = Self::selected_candidates();
-            let num_collators = collators.len() as u32;
-            let min_total_stake = Self::min_total_nominator_stake() * num_collators.into();
-
-            ensure!(amount >= min_total_stake.into(), Error::<T>::NominatorBondBelowMin);
-            ensure!(
-                Self::get_nominator_stakable_free_balance(&nominator) >= amount,
-                Error::<T>::InsufficientBalance
-            );
-
-            let mut nomination_count = 0;
-            if let Some(nominator_state) = <NominatorState<T>>::get(&nominator) {
-                nomination_count = nominator_state.nominations.0.len() as u32;
-            }
-
-            let amount_per_collator = Perbill::from_rational(1, num_collators) * amount;
-            let dust = amount - (amount_per_collator * num_collators.into());
-
-            // This is only possible because we won't have more than 20 collators. If that changes,
-            // we should not use a loop here.
-            for (index, collator) in collators.into_iter().enumerate() {
-                let collator_state =
-                    <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
-
-                let mut actual_amount = amount_per_collator;
-                if Self::collator_should_get_dust(dust, num_collators.into(), index as u64) {
-                    actual_amount = amount_per_collator + dust;
-                }
-
-                Self::call_nominate(
-                    &nominator,
-                    collator,
-                    actual_amount,
-                    collator_state.nomination_count,
-                    nomination_count,
-                )?;
-
-                nomination_count += 1;
-            }
+            Self::split_and_nominate(&nominator, targets, amount)?;
 
             <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
 
@@ -2171,6 +2133,50 @@ pub mod pallet {
             }
 
             return Ok((payers, outstanding_withdrawal))
+        }
+
+        pub fn split_and_nominate(nominator: &T::AccountId, targets: Vec<<T::Lookup as StaticLookup>::Source>, amount: BalanceOf<T>) -> DispatchResultWithPostInfo {
+            let num_collators = targets.len() as u32;
+            let min_total_stake = Self::min_total_nominator_stake() * num_collators.into();
+
+            ensure!(amount >= min_total_stake.into(), Error::<T>::NominatorBondBelowMin);
+            ensure!(
+                Self::get_nominator_stakable_free_balance(nominator) >= amount,
+                Error::<T>::InsufficientBalance
+            );
+
+            let mut nomination_count = 0;
+            if let Some(nominator_state) = <NominatorState<T>>::get(nominator) {
+                nomination_count = nominator_state.nominations.0.len() as u32;
+            }
+
+            let amount_per_collator = Perbill::from_rational(1, num_collators) * amount;
+            let dust = amount - (amount_per_collator * num_collators.into());
+
+            // This is only possible because we won't have more than 20 collators. If that changes,
+            // we should not use a loop here.
+            for (index, target) in targets.into_iter().enumerate() {
+                let collator = T::Lookup::lookup(target)?;
+                let collator_state =
+                    <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
+
+                let mut actual_amount = amount_per_collator;
+                if Self::collator_should_get_dust(dust, num_collators.into(), index as u64) {
+                    actual_amount = amount_per_collator + dust;
+                }
+
+                Self::call_nominate(
+                    nominator,
+                    collator,
+                    actual_amount,
+                    collator_state.nomination_count,
+                    nomination_count,
+                )?;
+
+                nomination_count += 1;
+            }
+
+            Ok(().into())
         }
     }
 
