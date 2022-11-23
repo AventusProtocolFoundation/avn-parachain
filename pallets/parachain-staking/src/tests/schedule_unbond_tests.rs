@@ -654,6 +654,16 @@ mod signed_execute_nomination_request {
         ))
     }
 
+    fn create_call_for_signed_execute_nomination_request_proof(
+        proof: Proof<Signature, AccountId>,
+        nominator: AccountId,
+    ) -> Box<<Test as Config>::Call> {
+
+        return Box::new(MockCall::ParachainStaking(
+            super::super::Call::<Test>::signed_execute_nomination_request { proof, nominator },
+        ))
+    }
+
     fn create_proof_for_signed_execute_nomination_request(
         sender_nonce: u64,
         staker: &Staker,
