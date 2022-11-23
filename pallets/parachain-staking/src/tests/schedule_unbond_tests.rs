@@ -538,11 +538,14 @@ mod signed_execute_nomination_request {
     use super::*;
     use crate::schedule_unbond_tests::proxy_signed_schedule_unbond::create_call_for_signed_schedule_nominator_unbond;
 
-    fn schedule_unbond(staker: &Staker, amount: &u128) {
+    fn schedule_unbond(staker: &Staker, amount: &u128) -> u64 {
         let nonce = ParachainStaking::proxy_nonce(staker.account_id);
         let unbond_call = create_call_for_signed_schedule_nominator_unbond(staker, nonce, *amount);
 
         assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
+
+        // return updated nonce
+        return ParachainStaking::proxy_nonce(staker.account_id)
     }
 
     fn create_call_for_signed_execute_nomination_request(
@@ -578,12 +581,14 @@ mod signed_execute_nomination_request {
         let collator_1 = to_acc_id(1u64);
         let collator_2 = to_acc_id(2u64);
         let staker: Staker = Default::default();
+        let random_user: Staker = Staker::new(59u64, 88u64);
         let initial_stake = 100;
         let initial_balance = 10000;
         ExtBuilder::default()
             .with_balances(vec![
                 (collator_1, initial_balance),
                 (collator_2, initial_balance),
+                (random_user.account_id, initial_balance),
                 (staker.account_id, initial_balance),
                 (staker.relayer, initial_balance),
             ])
@@ -605,24 +610,28 @@ mod signed_execute_nomination_request {
                 let initial_collator2_state =
                     &ParachainStaking::top_nominations(collator_2).unwrap().nominations[0];
 
-                schedule_unbond(&staker, &amount_to_unbond);
+                let staker_nonce = schedule_unbond(&staker, &amount_to_unbond);
                 roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
 
-                let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                // Anyone can send this request
+                let nonce = ParachainStaking::proxy_nonce(random_user.account_id);
                 let execute_unbond_call = create_call_for_signed_execute_nomination_request(
-                    &staker,
+                    &random_user,
                     nonce,
                     staker.account_id,
                 );
 
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(staker.relayer),
+                    Origin::signed(random_user.relayer),
                     execute_unbond_call,
                     None
                 ));
 
                 // Nonce has increased
-                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
+                assert_eq!(ParachainStaking::proxy_nonce(random_user.account_id), nonce + 1);
+                // Staker nonce has stayed the same
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), staker_nonce);
+
                 assert_eq!(
                     ParachainStaking::get_nominator_stakable_free_balance(&staker.account_id),
                     initial_free_balance + amount_to_unbond

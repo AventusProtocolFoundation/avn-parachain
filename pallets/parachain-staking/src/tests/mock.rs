@@ -420,6 +420,15 @@ impl Default for Staker {
     }
 }
 
+impl Staker {
+    pub fn new(relayer_seed: u64, nominator_seed: u64) -> Self {
+        let relayer = TestAccount::new(relayer_seed).account_id();
+        let account = TestAccount::new(nominator_seed);
+
+        Staker { relayer, key_pair: account.key_pair(), account_id: account.account_id() }
+    }
+}
+
 pub(crate) struct ExtBuilder {
     // endowed accounts with balances
     balances: Vec<(AccountId, Balance)>,

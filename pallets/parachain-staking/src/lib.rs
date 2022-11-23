@@ -1170,7 +1170,11 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedScheduleLeaveNominatorsTransaction
             );
 
-            Self::nominator_schedule_revoke_all(nominator)
+            Self::nominator_schedule_revoke_all(nominator.clone())?;
+
+            <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
+
+            Ok(().into())
         }
 
         /// Execute the right to exit the set of nominators and revoke all ongoing nominations.
@@ -1211,7 +1215,11 @@ pub mod pallet {
             if let Some(nominator_state) = <NominatorState<T>>::get(&nominator) {
                 let nomination_count = nominator_state.nominations.0.len() as u32;
 
-                return Self::nominator_execute_scheduled_revoke_all(nominator, nomination_count)
+                Self::nominator_execute_scheduled_revoke_all(nominator.clone(), nomination_count)?;
+
+                <ProxyNonces<T>>::mutate(&sender, |n| *n += 1);
+
+                return Ok(().into())
             }
 
             Err(Error::<T>::NominatorDNE)?
@@ -1444,7 +1452,7 @@ pub mod pallet {
                 }
             }
 
-            <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
+            <ProxyNonces<T>>::mutate(&sender, |n| *n += 1);
 
             Ok(().into())
         }
