@@ -18,8 +18,8 @@
 
 //! Benchmarking
 use crate::{
-    AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config, Era, NominationAction, Pallet,
-    Points, ScheduledRequest, MinTotalNominatorStake, MinCollatorStake
+    AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config, Era, MinCollatorStake,
+    MinTotalNominatorStake, NominationAction, Pallet, Points, ScheduledRequest,
 };
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
@@ -40,9 +40,11 @@ fn min_nominator_stk<T: Config>() -> BalanceOf<T> {
 /// Create a funded user.
 /// Extra + min_candidate_stk is total minted funds
 /// Returns tuple (id, balance)
-fn create_funded_user<T: Config>(string: &'static str, n: u32, extra: BalanceOf<T>)
-    -> (T::AccountId, BalanceOf<T>)
-{
+fn create_funded_user<T: Config>(
+    string: &'static str,
+    n: u32,
+    extra: BalanceOf<T>,
+) -> (T::AccountId, BalanceOf<T>) {
     const SEED: u32 = 0;
     let user = account(string, n, SEED);
     let min_candidate_stk = min_candidate_stk::<T>();
@@ -316,9 +318,9 @@ benchmarks! {
     verify {
         let expected_bond = more * 2u32.into();
         assert_eq!(
-			Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
-			expected_bond,
-		);
+            Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
+            expected_bond,
+        );
     }
 
     schedule_candidate_unbond {
@@ -363,9 +365,9 @@ benchmarks! {
         )?;
     } verify {
         assert_eq!(
-			Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
-			min_candidate_stk,
-		);
+            Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
+            min_candidate_stk,
+        );
     }
 
     cancel_candidate_unbond {
@@ -547,8 +549,8 @@ benchmarks! {
     verify {
         // After cancelling the request, there shouldn't be any amount pending withdrawal
         assert_eq!(
-			Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").less_total, total_amount_to_withdraw - bond
-		);
+            Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").less_total, total_amount_to_withdraw - bond
+        );
     }
 
     schedule_revoke_nomination {
@@ -601,9 +603,9 @@ benchmarks! {
     verify {
         let expected_bond = bond * 2u32.into();
         assert_eq!(
-			Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").total,
-			expected_bond,
-		);
+            Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").total,
+            expected_bond,
+        );
     }
 
     schedule_nominator_unbond {
@@ -703,9 +705,9 @@ benchmarks! {
     } verify {
         let expected = total - bond_less;
         assert_eq!(
-			Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").total,
-			expected,
-		);
+            Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").total,
+            expected,
+        );
     }
 
     cancel_revoke_nomination {
