@@ -91,7 +91,6 @@ mod proxy_signed_schedule_unbond {
         proof: Proof<Signature, AccountId>,
         reduction_amount: u128,
     ) -> Box<<Test as Config>::Call> {
-
         return Box::new(MockCall::ParachainStaking(
             super::super::Call::<Test>::signed_schedule_nominator_unbond {
                 proof,
@@ -311,7 +310,7 @@ mod proxy_signed_schedule_unbond {
 
                     let unbond_call = create_call_for_signed_schedule_nominator_unbond_proof(
                         proof,
-                        bad_amount_to_withdraw
+                        bad_amount_to_withdraw,
                     );
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None),
@@ -427,7 +426,6 @@ mod proxy_signed_schedule_collator_unbond {
         proof: Proof<Signature, AccountId>,
         reduction_amount: u128,
     ) -> Box<<Test as Config>::Call> {
-
         return Box::new(MockCall::ParachainStaking(
             super::super::Call::<Test>::signed_schedule_candidate_unbond {
                 proof,
@@ -587,7 +585,10 @@ mod proxy_signed_schedule_collator_unbond {
                         &amount_to_withdraw,
                     );
 
-                    let unbond_call = create_call_for_signed_schedule_candidate_unbond_proof(proof, bad_amount_to_withdraw);
+                    let unbond_call = create_call_for_signed_schedule_candidate_unbond_proof(
+                        proof,
+                        bad_amount_to_withdraw,
+                    );
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(collator_1.relayer), unbond_call, None),
                         Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction
@@ -658,7 +659,6 @@ mod signed_execute_nomination_request {
         proof: Proof<Signature, AccountId>,
         nominator: AccountId,
     ) -> Box<<Test as Config>::Call> {
-
         return Box::new(MockCall::ParachainStaking(
             super::super::Call::<Test>::signed_execute_nomination_request { proof, nominator },
         ))

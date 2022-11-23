@@ -240,7 +240,8 @@ mod proxy_signed_bond_extra {
                     let bad_amount_to_topup = 0u128;
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
 
-                    let proof = create_proof_for_signed_bond_extra(nonce, &staker, &bad_amount_to_topup);
+                    let proof =
+                        create_proof_for_signed_bond_extra(nonce, &staker, &bad_amount_to_topup);
                     let bond_extra_call =
                         create_call_for_bond_extra_from_proof(proof, bad_amount_to_topup);
 
@@ -537,8 +538,13 @@ mod proxy_signed_candidate_bond_extra {
                     let bad_amount_to_topup = 0u128;
                     let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
 
-                    let proof = create_proof_for_signed_candidate_bond_extra(nonce, &collator_1, &amount_to_topup);
-                    let bond_extra_call = create_call_for_candidate_bond_extra_from_proof(proof, bad_amount_to_topup);
+                    let proof = create_proof_for_signed_candidate_bond_extra(
+                        nonce,
+                        &collator_1,
+                        &amount_to_topup,
+                    );
+                    let bond_extra_call =
+                        create_call_for_candidate_bond_extra_from_proof(proof, bad_amount_to_topup);
 
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(collator_1.relayer), bond_extra_call, None),

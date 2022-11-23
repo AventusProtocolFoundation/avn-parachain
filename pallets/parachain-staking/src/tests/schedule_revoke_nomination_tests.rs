@@ -48,7 +48,6 @@ mod proxy_signed_schedule_revoke_nomination {
         proof: Proof<Signature, AccountId>,
         collator: &AccountId,
     ) -> Box<<Test as Config>::Call> {
-
         return Box::new(MockCall::ParachainStaking(
             super::super::Call::<Test>::signed_schedule_revoke_nomination {
                 proof,
@@ -197,8 +196,7 @@ mod proxy_signed_schedule_revoke_nomination {
                     );
                 });
         }
-        // let proof =
-        //     create_proof_for_signed_schedule_revoke_nomination(sender_nonce, staker, &collator);
+
         #[test]
         fn proxy_proof_collator_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
@@ -381,7 +379,6 @@ mod proxy_signed_schedule_leave_nominators {
                     );
                 });
         }
-
     }
 }
 
@@ -418,7 +415,6 @@ mod proxy_signed_execute_revoke_all_nomination {
         proof: Proof<Signature, AccountId>,
         nominator: &AccountId,
     ) -> Box<<Test as Config>::Call> {
-
         return Box::new(MockCall::ParachainStaking(
             super::super::Call::<Test>::signed_execute_leave_nominators {
                 proof,
@@ -613,11 +609,17 @@ mod proxy_signed_execute_revoke_all_nomination {
 
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
 
-                    let proof =
-                        create_proof_for_signed_execute_leave_nominators(nonce, &staker, &bad_nominator);
+                    let proof = create_proof_for_signed_execute_leave_nominators(
+                        nonce,
+                        &staker,
+                        &bad_nominator,
+                    );
 
                     let execute_leave_nominators_call =
-                        create_call_for_signed_execute_leave_nominators_from_proof(proof, &bad_nominator);
+                        create_call_for_signed_execute_leave_nominators_from_proof(
+                            proof,
+                            &bad_nominator,
+                        );
 
                     assert_noop!(
                         AvnProxy::proxy(
@@ -629,6 +631,5 @@ mod proxy_signed_execute_revoke_all_nomination {
                     );
                 });
         }
-
     }
 }
