@@ -515,7 +515,7 @@ mod proxy_signed_candidate_bond_extra {
                 });
         }
 
-        // this passes, find out whats wrong.
+        // TODO-FIX
         #[test]
         fn proxy_proof_extra_amount_is_not_valid() {
             let collator_1: Staker = Default::default();

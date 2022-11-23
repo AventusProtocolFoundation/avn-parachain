@@ -36,6 +36,19 @@ mod proxy_signed_nominate {
         }))
     }
 
+    fn create_call_for_nominate_from_proof(
+        proof: Proof<Signature, AccountId>,
+        targets: Vec<<<Test as system::Config>::Lookup as StaticLookup>::Source>,
+        amount: u128,
+    ) -> Box<<Test as Config>::Call> {
+
+        return Box::new(MockCall::ParachainStaking(super::super::Call::<Test>::signed_nominate {
+            proof,
+            targets,
+            amount,
+        }))
+    }
+
     fn create_proof_for_signed_nominate(
         sender_nonce: u64,
         staker: &Staker,
@@ -187,7 +200,7 @@ mod proxy_signed_nominate {
         }
 
         #[test]
-        fn proxy_proof_is_not_valid() {
+        fn proxy_proof_nonce_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
             let collator_2 = to_acc_id(2u64);
             let staker: Staker = Default::default();
@@ -211,6 +224,62 @@ mod proxy_signed_nominate {
                         amount_to_stake,
                     );
 
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
+                        Error::<Test>::UnauthorizedSignedNominateTransaction
+                    );
+                });
+        }
+
+        // this test fails, find out why
+        #[test]
+        fn proxy_proof_amount_to_stake_is_not_valid() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    let bad_amount_to_stake = 0u128;
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+
+                    let proof = create_proof_for_signed_nominate(nonce, &staker, &vec![collator_1, collator_2], &bad_amount_to_stake);
+                    let nominate_call = create_call_for_nominate_from_proof(proof, vec![collator_1, collator_2], bad_amount_to_stake);
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
+                        Error::<Test>::NominatorBondBelowMin
+                    );
+                });
+        }
+
+        // TODO-FIX
+        #[test]
+        fn proxy_proof_targets_are_not_valid() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .build()
+                .execute_with(|| {
+                    let amount_to_stake = ParachainStaking::min_total_nominator_stake() * 2u128;
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                    let bad_targets = vec![];
+                    let proof = create_proof_for_signed_nominate(nonce, &staker, &bad_targets, &amount_to_stake);
+                    let nominate_call = create_call_for_nominate_from_proof(proof, bad_targets, amount_to_stake);
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
                         Error::<Test>::UnauthorizedSignedNominateTransaction
