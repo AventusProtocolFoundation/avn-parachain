@@ -346,6 +346,15 @@ mod proxy_signed_candidate_bond_extra {
         ))
     }
 
+    fn create_call_for_candidate_bond_extra_from_proof(
+        proof: Proof<Signature, AccountId>,
+        extra_amount: u128,
+    ) -> Box<<Test as Config>::Call> {
+        return Box::new(MockCall::ParachainStaking(
+            super::super::Call::<Test>::signed_candidate_bond_extra { proof, extra_amount },
+        ))
+    }
+
     fn create_proof_for_signed_candidate_bond_extra(
         sender_nonce: u64,
         staker: &Staker,
@@ -474,7 +483,7 @@ mod proxy_signed_candidate_bond_extra {
         }
 
         #[test]
-        fn proxy_proof_is_not_valid() {
+        fn proxy_proof_nonce_is_not_valid() {
             let collator_1: Staker = Default::default();
             let collator_2 = to_acc_id(2u64);
             let initial_stake = 10;
@@ -498,6 +507,37 @@ mod proxy_signed_candidate_bond_extra {
                         bad_nonce,
                         amount_to_topup,
                     );
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(collator_1.relayer), bond_extra_call, None),
+                        Error::<Test>::UnauthorizedSignedCandidateBondExtraTransaction
+                    );
+                });
+        }
+
+        // this passes, find out whats wrong.
+        #[test]
+        fn proxy_proof_extra_amount_is_not_valid() {
+            let collator_1: Staker = Default::default();
+            let collator_2 = to_acc_id(2u64);
+            let initial_stake = 10;
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1.account_id, 10000),
+                    (collator_2, 10000),
+                    (collator_1.relayer, 10000),
+                ])
+                .with_candidates(vec![
+                    (collator_1.account_id, initial_stake),
+                    (collator_2, initial_stake),
+                ])
+                .build()
+                .execute_with(|| {
+                    let bad_amount_to_topup = 0u128;
+                    let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
+
+                    let proof = create_proof_for_signed_candidate_bond_extra(nonce, &collator_1, &bad_amount_to_topup);
+                    let bond_extra_call = create_call_for_candidate_bond_extra_from_proof(proof, bad_amount_to_topup);
 
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(collator_1.relayer), bond_extra_call, None),
