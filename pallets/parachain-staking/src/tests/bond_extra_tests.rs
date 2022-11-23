@@ -34,7 +34,7 @@ mod proxy_signed_bond_extra {
         }))
     }
 
-    fn create_call_for_bond_extra_2(
+    fn create_call_for_bond_extra_from_proof(
         proof: Proof<Signature, AccountId>,
         extra_amount: u128,
     ) -> Box<<Test as Config>::Call> {
@@ -242,7 +242,7 @@ mod proxy_signed_bond_extra {
 
                     let proof = create_proof_for_signed_bond_extra(nonce, &staker, &bad_amount_to_topup);
                     let bond_extra_call =
-                        create_call_for_bond_extra_2(proof, bad_amount_to_topup);
+                        create_call_for_bond_extra_from_proof(proof, bad_amount_to_topup);
 
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
