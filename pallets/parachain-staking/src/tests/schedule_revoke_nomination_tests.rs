@@ -3,18 +3,19 @@
 #![cfg(test)]
 
 use crate::{
-    assert_event_emitted, encode_signed_execute_leave_nominators_params,
+    assert_event_emitted, assert_last_event, encode_signed_execute_leave_nominators_params,
     encode_signed_schedule_leave_nominators_params,
     encode_signed_schedule_revoke_nomination_params,
     mock::{
-        build_proof, roll_to_era_begin, sign, AccountId, AvnProxy, Call as MockCall, ExtBuilder,
-        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, System, Test,
-        TestAccount,
+        build_proof, roll_to, roll_to_era_begin, sign, AccountId, AvnProxy, Balances,
+        Call as MockCall, Event as MetaEvent, ExtBuilder, MinNominationPerCollator, Origin,
+        ParachainStaking, Signature, Staker, System, Test, TestAccount,
     },
     Config, Error, Event, Proof,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::{self as system, RawOrigin};
+use sp_runtime::traits::Zero;
 use std::cell::RefCell;
 
 thread_local! {
@@ -520,4 +521,601 @@ mod proxy_signed_execute_revoke_all_nomination {
                 });
         }
     }
+}
+
+// SCHEDULE REVOKE NOMINATION
+
+#[test]
+fn revoke_nomination_event_emits_correctly() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert_last_event!(MetaEvent::ParachainStaking(Event::NominationRevocationScheduled {
+                era: 1,
+                nominator: account_id_2,
+                candidate: account_id,
+                scheduled_exit: 3,
+            }));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_event_emitted!(Event::NominatorLeftCandidate {
+                nominator: account_id_2,
+                candidate: account_id,
+                unstaked_amount: 10,
+                total_candidate_staked: 30
+            });
+        });
+}
+
+#[test]
+fn can_revoke_nomination_if_revoking_another_nomination() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 20)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            // this is an exit implicitly because last nomination revoked
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id_3
+            ));
+        });
+}
+
+#[test]
+fn nominator_not_allowed_revoke_if_already_leaving() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (account_id_3, 20)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
+            assert_noop!(
+                ParachainStaking::schedule_revoke_nomination(
+                    Origin::signed(account_id_2),
+                    account_id_3
+                ),
+                <Error<Test>>::PendingNominationRequestAlreadyExists,
+            );
+        });
+}
+
+#[test]
+fn cannot_revoke_nomination_if_not_nominator() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default().build().execute_with(|| {
+        assert_noop!(
+            ParachainStaking::schedule_revoke_nomination(Origin::signed(account_id_2), account_id),
+            Error::<Test>::NominatorDNE
+        );
+    });
+}
+
+#[test]
+fn cannot_revoke_nomination_that_dne() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_noop!(
+                ParachainStaking::schedule_revoke_nomination(
+                    Origin::signed(account_id_2),
+                    to_acc_id(3)
+                ),
+                Error::<Test>::NominationDNE
+            );
+        });
+}
+
+#[test]
+// See `cannot_execute_revoke_nomination_below_min_nominator_stake` for where the "must be above
+// MinTotalNominatorStake" rule is now enforced.
+fn can_schedule_revoke_nomination_below_min_nominator_stake() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 20), (account_id_2, 8), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 5), (account_id_2, to_acc_id(3), 3)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+        });
+}
+
+// EXECUTE REVOKE NOMINATION REQUEST
+
+#[test]
+fn execute_revoke_nomination_emits_exit_event_if_exit_happens() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    // last nomination is revocation
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_event_emitted!(Event::NominatorLeftCandidate {
+                nominator: account_id_2,
+                candidate: account_id,
+                unstaked_amount: 10,
+                total_candidate_staked: 30
+            });
+            assert_event_emitted!(Event::NominatorLeft {
+                nominator: account_id_2,
+                unstaked_amount: 10
+            });
+        });
+}
+
+#[test]
+fn cannot_execute_revoke_nomination_below_min_nominator_stake() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 20), (account_id_2, 8), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 20), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 5), (account_id_2, to_acc_id(3), 3)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_noop!(
+                ParachainStaking::execute_nomination_request(
+                    Origin::signed(account_id_2),
+                    account_id_2,
+                    account_id
+                ),
+                Error::<Test>::NominatorBondBelowMin
+            );
+            // but nominator can cancel the request and request to leave instead:
+            assert_ok!(ParachainStaking::cancel_nomination_request(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
+            roll_to(20);
+            assert_ok!(ParachainStaking::execute_leave_nominators(
+                Origin::signed(account_id_2),
+                account_id_2,
+                2
+            ));
+        });
+}
+
+#[test]
+fn revoke_nomination_executes_exit_if_last_nomination() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    // last nomination is revocation
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_event_emitted!(Event::NominatorLeftCandidate {
+                nominator: account_id_2,
+                candidate: account_id,
+                unstaked_amount: 10,
+                total_candidate_staked: 30
+            });
+            assert_event_emitted!(Event::NominatorLeft {
+                nominator: account_id_2,
+                unstaked_amount: 10
+            });
+        });
+}
+
+#[test]
+fn execute_revoke_nomination_emits_correct_event() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (to_acc_id(3), 30)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(3), 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_event_emitted!(Event::NominatorLeftCandidate {
+                nominator: account_id_2,
+                candidate: account_id,
+                unstaked_amount: 10,
+                total_candidate_staked: 30
+            });
+        });
+}
+
+#[test]
+fn execute_revoke_nomination_unreserves_balance() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 0);
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 10);
+        });
+}
+
+#[test]
+fn execute_revoke_nomination_adds_revocation_to_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
+        .build()
+        .execute_with(|| {
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id)
+                .iter()
+                .any(|x| x.nominator == account_id_2));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert!(ParachainStaking::nomination_scheduled_requests(&account_id)
+                .iter()
+                .any(|x| x.nominator == account_id_2));
+        });
+}
+
+#[test]
+fn execute_revoke_nomination_removes_revocation_from_nominator_state_upon_execution() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, to_acc_id(3), 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(!ParachainStaking::nomination_scheduled_requests(&account_id)
+                .iter()
+                .any(|x| x.nominator == account_id_2));
+        });
+}
+
+#[test]
+fn execute_revoke_nomination_removes_revocation_from_state_for_single_nomination_leave() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 20), (to_acc_id(3), 20)])
+        .with_candidates(vec![(account_id, 30), (to_acc_id(3), 20)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(
+                !ParachainStaking::nomination_scheduled_requests(&account_id)
+                    .iter()
+                    .any(|x| x.nominator == account_id_2),
+                "nomination was not removed"
+            );
+        });
+}
+
+#[test]
+fn execute_revoke_nomination_decreases_total_staked() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_eq!(ParachainStaking::total(), 40);
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_eq!(ParachainStaking::total(), 30);
+        });
+}
+
+#[test]
+fn execute_revoke_nomination_for_last_nomination_removes_nominator_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert!(ParachainStaking::nominator_state(account_id_2).is_some());
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            // this will be confusing for people
+            // if status is leaving, then execute_nomination_request works if last nomination
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(ParachainStaking::nominator_state(account_id_2).is_none());
+        });
+}
+
+#[test]
+fn execute_revoke_nomination_removes_nomination_from_candidate_state() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_eq!(
+                ParachainStaking::candidate_info(account_id).expect("exists").nomination_count,
+                1u32
+            );
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(ParachainStaking::candidate_info(account_id)
+                .expect("exists")
+                .nomination_count
+                .is_zero());
+        });
+}
+
+#[test]
+fn can_execute_revoke_nomination_for_leaving_candidate() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            // can execute nomination request for leaving candidate
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+        });
+}
+
+#[test]
+fn can_execute_leave_candidates_if_revoking_candidate() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 10)])
+        .with_candidates(vec![(account_id, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_leave_candidates(Origin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            roll_to(10);
+            // revocation executes during execute leave candidates (callable by anyone)
+            assert_ok!(ParachainStaking::execute_leave_candidates(
+                Origin::signed(account_id),
+                account_id,
+                1
+            ));
+            assert!(!ParachainStaking::is_nominator(&account_id_2));
+            assert_eq!(Balances::reserved_balance(&account_id_2), 0);
+            assert_eq!(Balances::free_balance(&account_id_2), 10);
+        });
+}
+
+#[test]
+fn nominator_bond_more_after_revoke_nomination_does_not_effect_exit() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 30), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert_ok!(ParachainStaking::bond_extra(
+                Origin::signed(account_id_2),
+                account_id_3,
+                10
+            ));
+            roll_to(100);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert!(ParachainStaking::is_nominator(&account_id_2));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 10);
+        });
+}
+
+#[test]
+fn nominator_unbond_after_revoke_nomination_does_not_effect_exit() {
+    let account_id = to_acc_id(1u64);
+    let account_id_2 = to_acc_id(2u64);
+    let account_id_3 = to_acc_id(3u64);
+    ExtBuilder::default()
+        .with_balances(vec![(account_id, 30), (account_id_2, 30), (account_id_3, 30)])
+        .with_candidates(vec![(account_id, 30), (account_id_3, 30)])
+        .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
+        .build()
+        .execute_with(|| {
+            assert_ok!(ParachainStaking::schedule_revoke_nomination(
+                Origin::signed(account_id_2),
+                account_id
+            ));
+            assert_last_event!(MetaEvent::ParachainStaking(Event::NominationRevocationScheduled {
+                era: 1,
+                nominator: account_id_2,
+                candidate: account_id,
+                scheduled_exit: 3,
+            }));
+            assert_noop!(
+                ParachainStaking::schedule_nominator_unbond(
+                    Origin::signed(account_id_2),
+                    account_id,
+                    2
+                ),
+                Error::<Test>::PendingNominationRequestAlreadyExists
+            );
+            assert_ok!(ParachainStaking::schedule_nominator_unbond(
+                Origin::signed(account_id_2),
+                account_id_3,
+                2
+            ));
+            roll_to(10);
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id
+            ));
+            assert_ok!(ParachainStaking::execute_nomination_request(
+                Origin::signed(account_id_2),
+                account_id_2,
+                account_id_3
+            ));
+            assert_last_event!(MetaEvent::ParachainStaking(Event::NominationDecreased {
+                nominator: account_id_2,
+                candidate: account_id_3,
+                amount: 2,
+                in_top: true
+            }));
+            assert!(ParachainStaking::is_nominator(&account_id_2));
+            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id_2), 22);
+        });
 }
