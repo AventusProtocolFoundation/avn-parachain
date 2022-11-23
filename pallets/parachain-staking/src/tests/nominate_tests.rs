@@ -259,7 +259,6 @@ mod proxy_signed_nominate {
                 });
         }
 
-        // TODO-FIX
         #[test]
         fn proxy_proof_targets_are_not_valid() {
             let collator_1 = to_acc_id(1u64);
@@ -278,7 +277,7 @@ mod proxy_signed_nominate {
                     let amount_to_stake = ParachainStaking::min_total_nominator_stake() * 2u128;
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
                     let bad_targets = vec![];
-                    let proof = create_proof_for_signed_nominate(nonce, &staker, &bad_targets, &amount_to_stake);
+                    let proof = create_proof_for_signed_nominate(nonce, &staker, &vec![collator_1, collator_2], &amount_to_stake);
                     let nominate_call = create_call_for_nominate_from_proof(proof, bad_targets, amount_to_stake);
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),

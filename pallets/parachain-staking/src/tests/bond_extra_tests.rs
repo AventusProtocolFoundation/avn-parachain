@@ -515,7 +515,6 @@ mod proxy_signed_candidate_bond_extra {
                 });
         }
 
-        // TODO-FIX
         #[test]
         fn proxy_proof_extra_amount_is_not_valid() {
             let collator_1: Staker = Default::default();
@@ -533,10 +532,12 @@ mod proxy_signed_candidate_bond_extra {
                 ])
                 .build()
                 .execute_with(|| {
+                    let min_collator_stake = ParachainStaking::min_collator_stake();
+                    let amount_to_topup = min_collator_stake + 1u128;
                     let bad_amount_to_topup = 0u128;
                     let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
 
-                    let proof = create_proof_for_signed_candidate_bond_extra(nonce, &collator_1, &bad_amount_to_topup);
+                    let proof = create_proof_for_signed_candidate_bond_extra(nonce, &collator_1, &amount_to_topup);
                     let bond_extra_call = create_call_for_candidate_bond_extra_from_proof(proof, bad_amount_to_topup);
 
                     assert_noop!(

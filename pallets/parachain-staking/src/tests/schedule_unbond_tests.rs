@@ -280,7 +280,6 @@ mod proxy_signed_schedule_unbond {
                 });
         }
 
-        // TODO-FIX
         #[test]
         fn proxy_proof_amount_to_withdraw_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
@@ -300,13 +299,14 @@ mod proxy_signed_schedule_unbond {
                 ])
                 .build()
                 .execute_with(|| {
+                    let amount_to_withdraw = 10;
                     let bad_amount_to_withdraw = 0u128;
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
 
                     let proof = create_proof_for_signed_schedule_nominator_unbond(
                         nonce,
                         &staker,
-                        &bad_amount_to_withdraw,
+                        &amount_to_withdraw,
                     );
 
                     let unbond_call = create_call_for_signed_schedule_nominator_unbond_proof(
@@ -564,7 +564,6 @@ mod proxy_signed_schedule_collator_unbond {
                 });
         }
 
-        // TODO-FIX
         #[test]
         fn proxy_proof_amount_to_withdraw_is_not_valid() {
             let collator_1: Staker = Default::default();
@@ -578,7 +577,8 @@ mod proxy_signed_schedule_collator_unbond {
                 .with_candidates(vec![(collator_1.account_id, 100), (collator_2, 100)])
                 .build()
                 .execute_with(|| {
-                    let amount_to_withdraw = 0;
+                    let amount_to_withdraw = 10;
+                    let bad_amount_to_withdraw = 0;
                     let nonce = ParachainStaking::proxy_nonce(collator_1.account_id);
 
                     let proof = create_proof_for_signed_schedule_candidate_unbond(
@@ -587,7 +587,7 @@ mod proxy_signed_schedule_collator_unbond {
                         &amount_to_withdraw,
                     );
 
-                    let unbond_call = create_call_for_signed_schedule_candidate_unbond_proof(proof, amount_to_withdraw);
+                    let unbond_call = create_call_for_signed_schedule_candidate_unbond_proof(proof, bad_amount_to_withdraw);
                     assert_noop!(
                         AvnProxy::proxy(Origin::signed(collator_1.relayer), unbond_call, None),
                         Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction
