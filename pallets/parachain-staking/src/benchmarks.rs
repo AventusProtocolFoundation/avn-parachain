@@ -19,17 +19,17 @@
 //! Benchmarking
 use crate::{
     AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config, Era, NominationAction, Pallet,
-    Points, ScheduledRequest,
+    Points, ScheduledRequest, MinTotalNominatorStake, MinCollatorStake
 };
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec};
-use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize, ReservableCurrency};
+use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::RawOrigin;
-use sp_runtime::{Perbill, Percent};
+//use sp_runtime::{Perbill, Percent};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 /// Minimum collator candidate stake
 fn min_candidate_stk<T: Config>() -> BalanceOf<T> {
-    <<T as Config>::MinCollatorStake as Get<BalanceOf<T>>>::get()
+    <MinCollatorStake<T>>::get()
 }
 
 /// Minimum nominator stake
@@ -40,11 +40,9 @@ fn min_nominator_stk<T: Config>() -> BalanceOf<T> {
 /// Create a funded user.
 /// Extra + min_candidate_stk is total minted funds
 /// Returns tuple (id, balance)
-fn create_funded_user<T: Config>(
-    string: &'static str,
-    n: u32,
-    extra: BalanceOf<T>,
-) -> (T::AccountId, BalanceOf<T>) {
+fn create_funded_user<T: Config>(string: &'static str, n: u32, extra: BalanceOf<T>)
+    -> (T::AccountId, BalanceOf<T>)
+{
     const SEED: u32 = 0;
     let user = account(string, n, SEED);
     let min_candidate_stk = min_candidate_stk::<T>();
@@ -155,6 +153,7 @@ benchmarks! {
         assert!(Pallet::<T>::is_candidate(&caller));
     }
 
+
     // This call schedules the collator's exit and removes them from the candidate pool
     // -> it retains the self-bond and nominator bonds
     schedule_leave_candidates {
@@ -188,7 +187,7 @@ benchmarks! {
     execute_leave_candidates {
         // x is total number of nominations for the candidate
         let x in 2..(<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get()
-        + <<T as Config>::MaxBottomNominationsPerCandidate as Get<u32>>::get());
+            + <<T as Config>::MaxBottomNominationsPerCandidate as Get<u32>>::get());
         let candidate: T::AccountId = create_funded_collator::<T>(
             "unique_caller",
             USER_SEED - 100,
@@ -316,7 +315,10 @@ benchmarks! {
     }: _(RawOrigin::Signed(caller.clone()), more)
     verify {
         let expected_bond = more * 2u32.into();
-        assert_eq!(T::Currency::reserved_balance(&caller), expected_bond);
+        assert_eq!(
+			Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
+			expected_bond,
+		);
     }
 
     schedule_candidate_unbond {
@@ -360,7 +362,10 @@ benchmarks! {
             caller.clone()
         )?;
     } verify {
-        assert_eq!(T::Currency::reserved_balance(&caller), min_candidate_stk);
+        assert_eq!(
+			Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
+			min_candidate_stk,
+		);
     }
 
     cancel_candidate_unbond {
@@ -537,9 +542,13 @@ benchmarks! {
             0u32
         )?;
         Pallet::<T>::schedule_leave_nominators(RawOrigin::Signed(caller.clone()).into())?;
+        let total_amount_to_withdraw = Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").less_total;
     }: _(RawOrigin::Signed(caller.clone()))
     verify {
-        assert!(Pallet::<T>::nominator_state(&caller).unwrap().is_active());
+        // After cancelling the request, there shouldn't be any amount pending withdrawal
+        assert_eq!(
+			Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").less_total, total_amount_to_withdraw - bond
+		);
     }
 
     schedule_revoke_nomination {
@@ -591,7 +600,10 @@ benchmarks! {
     }: _(RawOrigin::Signed(caller.clone()), collator.clone(), bond)
     verify {
         let expected_bond = bond * 2u32.into();
-        assert_eq!(T::Currency::reserved_balance(&caller), expected_bond);
+        assert_eq!(
+			Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").total,
+			expected_bond,
+		);
     }
 
     schedule_nominator_unbond {
@@ -690,7 +702,10 @@ benchmarks! {
         )?;
     } verify {
         let expected = total - bond_less;
-        assert_eq!(T::Currency::reserved_balance(&caller), expected);
+        assert_eq!(
+			Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").total,
+			expected,
+		);
     }
 
     cancel_revoke_nomination {
@@ -767,7 +782,7 @@ benchmarks! {
 
     era_transition_on_initialize {
         // TOTAL SELECTED COLLATORS PER ERA
-        let x in 8..100;
+        let x in 8..20;
         // NOMINATIONS
         let y in 0..(<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get() * 100);
         let max_nominators_per_collator =
@@ -876,6 +891,9 @@ benchmarks! {
         let end = Pallet::<T>::era().first + (era_length * reward_delay.into());
         // SET collators as authors for blocks from now - end
         while now < end {
+            // Set some rewards to payout
+            T::Currency::make_free_balance_be(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000u32.into());
+
             let author = collators[counter % collators.len()].clone();
             parachain_staking_on_finalize::<T>(author);
             <frame_system::Pallet<T>>::on_finalize(<frame_system::Pallet<T>>::block_number());
@@ -888,6 +906,10 @@ benchmarks! {
             counter += 1usize;
         }
         parachain_staking_on_finalize::<T>(collators[counter % collators.len()].clone());
+
+        // Set some rewards to payout
+        T::Currency::make_free_balance_be(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000u32.into());
+
         <frame_system::Pallet<T>>::on_finalize(<frame_system::Pallet<T>>::block_number());
         <frame_system::Pallet<T>>::set_block_number(
             <frame_system::Pallet<T>>::block_number() + 1u32.into()
@@ -1025,22 +1047,7 @@ mod tests {
     use sp_io::TestExternalities;
 
     pub fn new_test_ext() -> TestExternalities {
-        let t = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-        TestExternalities::new(t)
-    }
-
-    #[test]
-    fn bench_set_parachain_bond_account() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_set_parachain_bond_account());
-        });
-    }
-
-    #[test]
-    fn bench_set_parachain_bond_reserve_percent() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_set_parachain_bond_reserve_percent());
-        });
+        crate::mock::ExtBuilder::default().build()
     }
 
     #[test]
@@ -1165,7 +1172,7 @@ mod tests {
     #[test]
     fn bench_nominator_bond_extra() {
         new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_nominator_bond_extra());
+            assert_ok!(Pallet::<Test>::test_benchmark_bond_extra());
         });
     }
 
