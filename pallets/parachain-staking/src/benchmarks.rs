@@ -318,7 +318,7 @@ benchmarks! {
     verify {
         let expected_bond = more * 2u32.into();
         assert_eq!(
-            Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
+            Pallet::<T>::candidate_info(&caller).expect("caller was created, qed").bond,
             expected_bond,
         );
     }
@@ -365,7 +365,7 @@ benchmarks! {
         )?;
     } verify {
         assert_eq!(
-            Pallet::<T>::candidate_info(&caller).expect("candidate was created, qed").bond,
+            Pallet::<T>::candidate_info(&caller).expect("caller was created, qed").bond,
             min_candidate_stk,
         );
     }
@@ -544,12 +544,12 @@ benchmarks! {
             0u32
         )?;
         Pallet::<T>::schedule_leave_nominators(RawOrigin::Signed(caller.clone()).into())?;
-        let total_amount_to_withdraw = Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").less_total;
+        let total_amount_to_withdraw = Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").less_total;
     }: _(RawOrigin::Signed(caller.clone()))
     verify {
         // After cancelling the request, there shouldn't be any amount pending withdrawal
         assert_eq!(
-            Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").less_total, total_amount_to_withdraw - bond
+            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").less_total, total_amount_to_withdraw - bond
         );
     }
 
@@ -603,7 +603,7 @@ benchmarks! {
     verify {
         let expected_bond = bond * 2u32.into();
         assert_eq!(
-            Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").total,
+            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
             expected_bond,
         );
     }
@@ -705,7 +705,7 @@ benchmarks! {
     } verify {
         let expected = total - bond_less;
         assert_eq!(
-            Pallet::<T>::nominator_state(&caller).expect("candidate was created, qed").total,
+            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
             expected,
         );
     }
