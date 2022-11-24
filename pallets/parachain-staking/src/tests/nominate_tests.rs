@@ -230,7 +230,6 @@ mod proxy_signed_nominate {
                 });
         }
 
-        // this test fails, find out why
         #[test]
         fn proxy_proof_amount_to_stake_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
