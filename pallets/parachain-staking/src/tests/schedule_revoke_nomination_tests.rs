@@ -8,13 +8,13 @@ use crate::{
     encode_signed_schedule_revoke_nomination_params,
     mock::{
         build_proof, roll_to, roll_to_era_begin, sign, AccountId, AvnProxy, Balances,
-        Call as MockCall, Event as MetaEvent, ExtBuilder, MinNominationPerCollator, Origin,
-        ParachainStaking, Signature, Staker, System, Test, TestAccount,
+        Call as MockCall, Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Signature,
+        Staker, Test, TestAccount,
     },
     Config, Error, Event, Proof,
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
-use frame_system::{self as system, RawOrigin};
+use frame_system::RawOrigin;
 use sp_runtime::traits::Zero;
 use std::cell::RefCell;
 

@@ -29,8 +29,8 @@ use crate::{
         TestAccount,
     },
     nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
-    AtStake, Bond, CollatorStatus, Error, Event, NominationScheduledRequests, NominatorAdded,
-    NominatorState, NOMINATOR_LOCK_ID,
+    AtStake, CollatorStatus, Error, Event, NominationScheduledRequests, NominatorAdded,
+    NOMINATOR_LOCK_ID,
 };
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::{traits::Zero, DispatchError, ModuleError};
