@@ -1030,13 +1030,6 @@ mod tests {
     }
 
     #[test]
-    fn bench_set_staking_expectations() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_set_staking_expectations());
-        });
-    }
-
-    #[test]
     fn bench_set_parachain_bond_account() {
         new_test_ext().execute_with(|| {
             assert_ok!(Pallet::<Test>::test_benchmark_set_parachain_bond_account());

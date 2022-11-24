@@ -743,7 +743,6 @@ pub mod pallet {
         /// Set blocks per era
         /// - if called with `new` less than length of current era, will transition immediately
         /// in the next block
-        /// - also updates per-era inflation config
         pub fn set_blocks_per_era(origin: OriginFor<T>, new: u32) -> DispatchResultWithPostInfo {
             frame_system::ensure_root(origin)?;
             ensure!(new >= T::MinBlocksPerEra::get(), Error::<T>::CannotSetBelowMin);
