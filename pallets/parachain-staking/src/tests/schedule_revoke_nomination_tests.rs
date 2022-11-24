@@ -44,6 +44,18 @@ mod proxy_signed_schedule_revoke_nomination {
         ))
     }
 
+    fn create_call_for_signed_schedule_revoke_nomination_proof(
+        proof: Proof<Signature, AccountId>,
+        collator: &AccountId,
+    ) -> Box<<Test as Config>::Call> {
+        return Box::new(MockCall::ParachainStaking(
+            super::super::Call::<Test>::signed_schedule_revoke_nomination {
+                proof,
+                collator: collator.clone(),
+            },
+        ))
+    }
+
     fn create_proof_for_signed_schedule_revoke_nomination(
         sender_nonce: u64,
         staker: &Staker,
@@ -149,7 +161,7 @@ mod proxy_signed_schedule_revoke_nomination {
         }
 
         #[test]
-        fn proxy_proof_is_not_valid() {
+        fn proxy_proof_nonce_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
             let collator_2 = to_acc_id(2u64);
             let staker: Staker = Default::default();
@@ -181,6 +193,44 @@ mod proxy_signed_schedule_revoke_nomination {
                             collator_1
                         ),
                         Error::<Test>::UnauthorizedSignedRemoveBondTransaction
+                    );
+                });
+        }
+
+        #[test]
+        fn proxy_proof_collator_is_not_valid() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let bad_collator = to_acc_id(10000000u64);
+
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, 10),
+                    (staker.account_id, collator_2, 10),
+                ])
+                .build()
+                .execute_with(|| {
+                    let bad_nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                    let proof = create_proof_for_signed_schedule_revoke_nomination(
+                        bad_nonce,
+                        &staker,
+                        &bad_collator,
+                    );
+                    assert_noop!(
+                        ParachainStaking::signed_schedule_revoke_nomination(
+                            Origin::signed(staker.account_id),
+                            proof.clone(),
+                            bad_collator
+                        ),
+                        Error::<Test>::NominationDNE
                     );
                 });
         }
@@ -361,6 +411,18 @@ mod proxy_signed_execute_revoke_all_nomination {
         ))
     }
 
+    fn create_call_for_signed_execute_leave_nominators_from_proof(
+        proof: Proof<Signature, AccountId>,
+        nominator: &AccountId,
+    ) -> Box<<Test as Config>::Call> {
+        return Box::new(MockCall::ParachainStaking(
+            super::super::Call::<Test>::signed_execute_leave_nominators {
+                proof,
+                nominator: nominator.clone(),
+            },
+        ))
+    }
+
     fn create_proof_for_signed_execute_leave_nominators(
         sender_nonce: u64,
         staker: &Staker,
@@ -478,7 +540,7 @@ mod proxy_signed_execute_revoke_all_nomination {
         }
 
         #[test]
-        fn proxy_proof_is_not_valid() {
+        fn proxy_proof_nonce_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
             let collator_2 = to_acc_id(2u64);
             let staker: Staker = Default::default();
@@ -516,6 +578,56 @@ mod proxy_signed_execute_revoke_all_nomination {
                             None
                         ),
                         Error::<Test>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
+                    );
+                });
+        }
+
+        #[test]
+        fn proxy_proof_nominator_is_not_valid() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let bad_nominator = to_acc_id(2000u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, 10),
+                    (staker.account_id, collator_2, 10),
+                ])
+                .build()
+                .execute_with(|| {
+                    schedule_leave(staker.clone());
+
+                    // Roll foreward by "Delay" eras to activate leave
+                    roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
+
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+
+                    let proof = create_proof_for_signed_execute_leave_nominators(
+                        nonce,
+                        &staker,
+                        &bad_nominator,
+                    );
+
+                    let execute_leave_nominators_call =
+                        create_call_for_signed_execute_leave_nominators_from_proof(
+                            proof,
+                            &bad_nominator,
+                        );
+
+                    assert_noop!(
+                        AvnProxy::proxy(
+                            Origin::signed(staker.relayer),
+                            execute_leave_nominators_call,
+                            None
+                        ),
+                        Error::<Test>::NominatorDNE
                     );
                 });
         }
