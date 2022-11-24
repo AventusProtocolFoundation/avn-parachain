@@ -1653,7 +1653,6 @@ pub mod pallet {
             let total_reward_to_pay = Self::compute_total_reward_to_pay();
 
             let payout = DelayedPayout {
-                era_issuance: total_reward_to_pay,
                 total_staking_reward: total_reward_to_pay, /* TODO: Remove one of the duplicated
                                                             * fields */
             };

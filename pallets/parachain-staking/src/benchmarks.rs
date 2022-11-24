@@ -953,8 +953,6 @@ benchmarks! {
 
         let era_for_payout = 5;
         <DelayedPayouts<T>>::insert(&era_for_payout, DelayedPayout {
-            // NOTE: era_issuance is not correct here, but it doesn't seem to cause problems
-            era_issuance: 1000u32.into(),
             total_staking_reward: total_staked,
         });
 
