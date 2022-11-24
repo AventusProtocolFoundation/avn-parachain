@@ -120,4 +120,12 @@ impl<T: Config> Pallet<T> {
 
         Ok(().into())
     }
+
+    pub fn call_execute_candidate_unbond(candidate: &T::AccountId) -> DispatchResultWithPostInfo {
+        let mut state = <CandidateInfo<T>>::get(candidate).ok_or(Error::<T>::CandidateDNE)?;
+        state.execute_unbond::<T>(candidate.clone())?;
+        <CandidateInfo<T>>::insert(&candidate, state);
+
+        Ok(().into())
+    }
 }

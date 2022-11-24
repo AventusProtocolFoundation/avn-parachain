@@ -210,8 +210,6 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         NominatorDNE,
-        NominatorDNEinTopNorBottom,
-        NominatorDNEInNominatorSet,
         CandidateDNE,
         NominationDNE,
         NominatorExists,
@@ -225,7 +223,6 @@ pub mod pallet {
         NominatorAlreadyLeaving,
         NominatorNotLeaving,
         NominatorCannotLeaveYet,
-        CannotNominateIfLeaving,
         CandidateAlreadyLeaving,
         CandidateNotLeaving,
         CandidateCannotLeaveYet,
@@ -264,6 +261,7 @@ pub mod pallet {
         UnauthorizedSignedScheduleLeaveNominatorsTransaction,
         UnauthorizedSignedExecuteLeaveNominatorsTransaction,
         UnauthorizedSignedExecuteNominationRequestTransaction,
+        UnauthorizedSignedExecuteCandidateUnbondTransaction,
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
         FailedToWithdrawFullAmount,
@@ -1039,9 +1037,36 @@ pub mod pallet {
             candidate: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?; // we may want to reward this if caller != candidate
-            let mut state = <CandidateInfo<T>>::get(&candidate).ok_or(Error::<T>::CandidateDNE)?;
-            state.execute_unbond::<T>(candidate.clone())?;
-            <CandidateInfo<T>>::insert(&candidate, state);
+            return Self::call_execute_candidate_unbond(&candidate)
+        }
+
+        #[pallet::weight(0)]
+        /// Execute pending request to adjust the collator candidate self bond
+        pub fn signed_execute_candidate_unbond(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            candidate: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?; // we may want to reward this if caller != candidate
+
+            ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
+
+            let sender_nonce = Self::proxy_nonce(&sender);
+            let signed_payload = encode_signed_execute_candidate_unbond_params::<T>(
+                proof.relayer.clone(),
+                &candidate,
+                sender_nonce,
+            );
+
+            ensure!(
+                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                Error::<T>::UnauthorizedSignedExecuteCandidateUnbondTransaction
+            );
+
+            Self::call_execute_candidate_unbond(&candidate)?;
+
+            <ProxyNonces<T>>::mutate(&sender, |n| *n += 1);
+
             Ok(().into())
         }
 
@@ -1084,6 +1109,7 @@ pub mod pallet {
 
             Ok(().into())
         }
+
         #[pallet::weight(
 			<T as Config>::WeightInfo::nominate(
 				*candidate_nomination_count,
@@ -1224,7 +1250,6 @@ pub mod pallet {
             Err(Error::<T>::NominatorDNE)?
         }
 
-        /// DEPRECATED use batch util with cancel_nomination_request for all nominations
         /// Cancel a pending request to exit the set of nominators. Success clears the pending exit
         /// request (thereby resetting the delay upon another `leave_nominators` call).
         #[pallet::weight(<T as Config>::WeightInfo::cancel_leave_nominators())]
