@@ -966,7 +966,7 @@ fn cannot_nominator_unbond_below_min_collator_stk() {
 }
 
 #[test]
-fn cannot_nominator_unbond_more_than_total_nomination() {
+fn cannot_nominator_unbond_extra_than_total_nomination() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default()

@@ -1043,7 +1043,7 @@ fn can_execute_leave_candidates_if_revoking_candidate() {
 }
 
 #[test]
-fn nominator_bond_more_after_revoke_nomination_does_not_effect_exit() {
+fn nominator_bond_extra_after_revoke_nomination_does_not_effect_exit() {
     let account_id = to_acc_id(1u64);
     let account_id_2 = to_acc_id(2u64);
     let account_id_3 = to_acc_id(3u64);

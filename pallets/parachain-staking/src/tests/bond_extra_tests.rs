@@ -706,7 +706,7 @@ fn nominator_bond_extra_allowed_when_bond_decrease_scheduled() {
 // CANDIDATE BOND EXTRA
 
 #[test]
-fn candidate_bond_more_emits_correct_event() {
+fn candidate_bond_extra_emits_correct_event() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 50)])
@@ -723,7 +723,7 @@ fn candidate_bond_more_emits_correct_event() {
 }
 
 #[test]
-fn candidate_bond_more_reserves_balance() {
+fn candidate_bond_extra_reserves_balance() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 50)])
@@ -737,7 +737,7 @@ fn candidate_bond_more_reserves_balance() {
 }
 
 #[test]
-fn candidate_bond_more_increases_total() {
+fn candidate_bond_extra_increases_total() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 50)])
@@ -755,7 +755,7 @@ fn candidate_bond_more_increases_total() {
 }
 
 #[test]
-fn candidate_bond_more_updates_candidate_state() {
+fn candidate_bond_extra_updates_candidate_state() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 50)])
@@ -773,7 +773,7 @@ fn candidate_bond_more_updates_candidate_state() {
 }
 
 #[test]
-fn candidate_bond_more_updates_candidate_pool() {
+fn candidate_bond_extra_updates_candidate_pool() {
     let account_id = to_acc_id(1u64);
     ExtBuilder::default()
         .with_balances(vec![(account_id, 50)])
