@@ -16,13 +16,14 @@ use crate::Pallet as ParachainStaking;
 
 pub const SIGNED_NOMINATOR_CONTEXT: &'static [u8] =
     b"parachain authorization for nominate operation";
-pub const SIGNED_BOND_EXTRA_CONTEXT: &'static [u8] =
-    b"parachain authorization for bond extra operation";
+pub const SIGNED_NOMINATOR_BOND_EXTRA_CONTEXT: &'static [u8] =
+    b"parachain authorization for nominator bond extra operation";
 pub const SIGNED_CANDIDATE_BOND_EXTRA_CONTEXT: &'static [u8] =
     b"parachain authorization for candidate bond extra operation";
-pub const SIGNED_UNBOND_CONTEXT: &'static [u8] = b"parachain authorization for unbond operation";
-pub const SIGNED_CANDIDATE_UNBOND_CONTEXT: &'static [u8] =
-    b"parachain authorization for candidate unbond operation";
+pub const SIGNED_SCHEDULE_NOMINATOR_UNBOND_CONTEXT: &'static [u8] =
+    b"parachain authorization for scheduling nominator unbond operation";
+pub const SIGNED_SCHEDULE_CANDIDATE_UNBOND_CONTEXT: &'static [u8] =
+    b"parachain authorization for scheduling candidate unbond operation";
 pub const SIGNED_NOMINATOR_REMOVE_BOND_CONTEXT: &'static [u8] =
     b"parachain authorization for nominator remove bond operation";
 pub const SIGNED_SCHEDULE_LEAVE_NOMINATORS_CONTEXT: &'static [u8] =
@@ -149,7 +150,7 @@ pub fn encode_signed_bond_extra_params<T: Config>(
     extra_amount: &BalanceOf<T>,
     sender_nonce: u64,
 ) -> Vec<u8> {
-    return (SIGNED_BOND_EXTRA_CONTEXT, relayer, extra_amount, sender_nonce).encode()
+    return (SIGNED_NOMINATOR_BOND_EXTRA_CONTEXT, relayer, extra_amount, sender_nonce).encode()
 }
 
 pub fn encode_signed_candidate_bond_extra_params<T: Config>(
@@ -165,7 +166,7 @@ pub fn encode_signed_schedule_nominator_unbond_params<T: Config>(
     value: &BalanceOf<T>,
     sender_nonce: u64,
 ) -> Vec<u8> {
-    return (SIGNED_UNBOND_CONTEXT, relayer, value, sender_nonce).encode()
+    return (SIGNED_SCHEDULE_NOMINATOR_UNBOND_CONTEXT, relayer, value, sender_nonce).encode()
 }
 
 pub fn encode_signed_schedule_candidate_unbond_params<T: Config>(
@@ -173,7 +174,7 @@ pub fn encode_signed_schedule_candidate_unbond_params<T: Config>(
     value: &BalanceOf<T>,
     sender_nonce: u64,
 ) -> Vec<u8> {
-    return (SIGNED_CANDIDATE_UNBOND_CONTEXT, relayer, value, sender_nonce).encode()
+    return (SIGNED_SCHEDULE_CANDIDATE_UNBOND_CONTEXT, relayer, value, sender_nonce).encode()
 }
 
 pub fn encode_signed_schedule_revoke_nomination_params<T: Config>(
