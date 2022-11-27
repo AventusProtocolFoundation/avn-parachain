@@ -218,9 +218,9 @@ mod proxy_signed_schedule_revoke_nomination {
                 ])
                 .build()
                 .execute_with(|| {
-                    let bad_nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
                     let proof = create_proof_for_signed_schedule_revoke_nomination(
-                        bad_nonce,
+                        nonce,
                         &staker,
                         &bad_collator,
                     );
@@ -586,7 +586,7 @@ mod proxy_signed_execute_revoke_all_nomination {
         fn proxy_proof_nominator_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
             let collator_2 = to_acc_id(2u64);
-            let bad_nominator = to_acc_id(2000u64);
+
             let staker: Staker = Default::default();
             ExtBuilder::default()
                 .with_balances(vec![
@@ -608,6 +608,7 @@ mod proxy_signed_execute_revoke_all_nomination {
                     roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
 
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                    let bad_nominator = to_acc_id(2000u64);
 
                     let proof = create_proof_for_signed_execute_leave_nominators(
                         nonce,
