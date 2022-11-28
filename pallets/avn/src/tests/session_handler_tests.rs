@@ -3,10 +3,6 @@
 use crate::mock::*;
 use sp_runtime::testing::UintAuthorityId;
 
-// TODO [TYPE: test refactoring][PRI: LOW]:  update this function to work with the mock builder
-// pattern Currently, a straightforward replacement of the test setup leads to an error on the
-// assert_eq!
-
 fn avn_known_collators() -> sp_application_crypto::Vec<
     sp_avn_common::event_types::Validator<AuthorityId, sp_core::sr25519::Public>,
 > {
