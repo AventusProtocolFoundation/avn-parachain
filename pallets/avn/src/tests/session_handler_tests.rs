@@ -141,8 +141,8 @@ mod chain_started_with_initial_colators {
         fn with_new_key_then_avn_information_is_updated() {
             let mut ext = setup_initial_collators();
             ext.execute_with(|| {
-                let added_valditator = TestAccount::derive_validator(3);
-                add_collator_candidate(added_valditator.account_id, 4);
+                let added_validator = TestAccount::derive_validator(3);
+                add_collator_candidate(added_validator.account_id, 4);
 
                 advance_session();
                 advance_session();
