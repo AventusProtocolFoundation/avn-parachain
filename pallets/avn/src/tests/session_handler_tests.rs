@@ -178,18 +178,6 @@ mod chain_started_with_initial_colators {
             ext.execute_with(|| {
                 add_two_collators_and_force_two_sessions();
 
-                let current_collators = avn_known_collators();
-                assert_eq!(
-                    current_collators,
-                    vec![
-                        TestAccount::derive_validator(5),
-                        TestAccount::derive_validator(3),
-                        TestAccount::derive_validator(4),
-                        TestAccount::derive_validator(1),
-                        TestAccount::derive_validator(2),
-                    ]
-                );
-
                 remove_collator_candidate(TestAccount::derive_validator(5).account_id, 5);
 
                 advance_session();
@@ -214,18 +202,6 @@ mod chain_started_with_initial_colators {
 
             ext.execute_with(|| {
                 add_two_collators_and_force_two_sessions();
-
-                let current_collators = avn_known_collators();
-                assert_eq!(
-                    current_collators,
-                    vec![
-                        TestAccount::derive_validator(5),
-                        TestAccount::derive_validator(3),
-                        TestAccount::derive_validator(4),
-                        TestAccount::derive_validator(1),
-                        TestAccount::derive_validator(2),
-                    ]
-                );
 
                 remove_collator_candidate(TestAccount::derive_validator(5).account_id, 5);
 
