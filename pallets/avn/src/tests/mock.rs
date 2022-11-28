@@ -358,12 +358,12 @@ fn set_session_keys(collator_id: &AccountId, auth_id: AuthorityId) {
     pallet_session::NextKeys::<Test>::insert::<AccountId, UintAuthorityId>(*collator_id, auth_id);
 }
 
-pub fn add_collator(account_id: &AccountId, auth_id: AuthorityId) {
+pub fn add_collator_aux(account_id: &AccountId, auth_id: AuthorityId) {
     set_session_keys(account_id, auth_id);
     ParachainStaking::join_candidates(Origin::signed(account_id.clone()), 11u128, 4u32);
 }
 
-pub fn remove_collator(collator_id: &AccountId, validator_count: u32) {
+pub fn remove_collator_aux(collator_id: &AccountId, validator_count: u32) {
     ParachainStaking::schedule_leave_candidates(
         RawOrigin::Signed(collator_id.clone()).into(),
         validator_count,
