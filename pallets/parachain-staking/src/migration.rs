@@ -24,6 +24,7 @@ pub fn enable_staking<T: Config>() -> Weight {
     let initial_delay: u32 = 2;
     let initial_min_collator_stake = 5_000_000_000_000_000_000_000u128; //5000AVT
     let initial_min_user_stake = 100_000_000_000_000_000_000u128; // 100 AVT
+    let intial_blocks_per_era = 7_200u32; // 24 HOURS (12sec per block)
     let intial_era_index = 1u32;
     let initial_growth_period_index = 0u32;
     let current_block_number = frame_system::Pallet::<T>::block_number();
@@ -115,7 +116,7 @@ pub fn enable_staking<T: Config>() -> Weight {
 
     // Calculate the first era info.
     let era: EraInfo<T::BlockNumber> =
-        EraInfo::new(intial_era_index, current_block_number.into(), T::MinBlocksPerEra::get() + 2);
+        EraInfo::new(intial_era_index, current_block_number.into(), intial_blocks_per_era);
 
     //Write: [Era, Staked, Growth]
     add_weight(0, 3, 0);
