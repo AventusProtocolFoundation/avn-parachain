@@ -18,16 +18,17 @@
 
 //! Benchmarking
 use crate::{
-    AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config, Era, MinCollatorStake,
-    MinTotalNominatorStake, NominationAction, Pallet, Points, ScheduledRequest, Proof, encode_signed_nominate_params
+    encode_signed_nominate_params, AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config,
+    Era, MinCollatorStake, MinTotalNominatorStake, NominationAction, Pallet, Points, Proof,
+    ScheduledRequest,
 };
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::RawOrigin;
+use parity_scale_codec::Decode;
+use sp_core::Pair;
 use sp_runtime::traits::StaticLookup;
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-use sp_core::Pair;
-use parity_scale_codec::{Decode};
 
 /// Minimum collator candidate stake
 fn min_candidate_stk<T: Config>() -> BalanceOf<T> {
@@ -45,7 +46,7 @@ fn fund_account<T: Config>(account: &T::AccountId, extra: BalanceOf<T>) -> Balan
     T::Currency::make_free_balance_be(&account, total);
     T::Currency::issue(total);
 
-    return total;
+    return total
 }
 
 /// Create a funded user.
@@ -123,9 +124,12 @@ fn roll_to_and_author<T: Config>(era_delay: u32, author: T::AccountId) {
     }
 }
 
-fn setup_nomination<T: Config>(max_collators: u32, max_nominators: u32, bond: BalanceOf<T>, caller: &T::AccountId)
-    -> Result<(T::AccountId, Vec<T::AccountId>, Vec<T::AccountId>), &'static str>
-{
+fn setup_nomination<T: Config>(
+    max_collators: u32,
+    max_nominators: u32,
+    bond: BalanceOf<T>,
+    caller: &T::AccountId,
+) -> Result<(T::AccountId, Vec<T::AccountId>, Vec<T::AccountId>), &'static str> {
     // Worst Case is full of nominations before calling `nominate`
     let mut collators: Vec<T::AccountId> = Vec::new();
 
@@ -155,7 +159,11 @@ fn setup_nomination<T: Config>(max_collators: u32, max_nominators: u32, bond: Ba
     // Nominate MaxNominationsPerNominators collator candidates
     for col in collators.clone() {
         Pallet::<T>::nominate(
-            RawOrigin::Signed(caller.clone()).into(), col, bond, 0u32, del_del_count
+            RawOrigin::Signed(caller.clone()).into(),
+            col,
+            bond,
+            0u32,
+            del_del_count,
         )?;
         del_del_count += 1u32;
     }
@@ -184,15 +192,15 @@ fn setup_nomination<T: Config>(max_collators: u32, max_nominators: u32, bond: Ba
         nominators.push(nominator);
     }
 
-    return Ok((collator, collators, nominators));
+    return Ok((collator, collators, nominators))
 }
 
-fn get_proof<T: Config>(relayer: &T::AccountId, signer: &T::AccountId, signature: sp_core::sr25519::Signature) -> Proof<T::Signature, T::AccountId> {
-    return Proof {
-        signer: signer.clone(),
-        relayer: relayer.clone(),
-        signature: signature.into()
-    };
+fn get_proof<T: Config>(
+    relayer: &T::AccountId,
+    signer: &T::AccountId,
+    signature: sp_core::sr25519::Signature,
+) -> Proof<T::Signature, T::AccountId> {
+    return Proof { signer: signer.clone(), relayer: relayer.clone(), signature: signature.into() }
 }
 
 const USER_SEED: u32 = 999666;
