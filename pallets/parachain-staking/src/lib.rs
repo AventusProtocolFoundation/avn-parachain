@@ -1346,7 +1346,7 @@ pub mod pallet {
                 Error::<T>::NominationBelowMin
             );
 
-            let dust = extra_amount - (amount_per_collator * num_collators.into());
+            let dust = extra_amount.saturating_sub(amount_per_collator * num_collators.into());
 
             // This is only possible because we won't have more than 20 collators. If that changes,
             // we should not use a loop here.
@@ -2095,7 +2095,7 @@ pub mod pallet {
 
             // Let the runtime know that we finished paying collators and we may have some amount
             // left.
-            let dust_amount: BalanceOf<T> = amount - imbalance.peek();
+            let dust_amount: BalanceOf<T> = amount.saturating_sub(imbalance.peek());
 
             // drop the imbalance to increase total issuance
             drop(imbalance);
@@ -2135,7 +2135,7 @@ pub mod pallet {
 
             // Desired balance on each collator after nominator reduces its stake
             let target_average_amount = Perbill::from_rational(1, state.nominations.0.len() as u32) *
-                (net_total_bonded - total_reduction);
+                (net_total_bonded.saturating_sub(total_reduction));
 
             // Make sure each nominator will have at least required min amount
             ensure!(
@@ -2190,7 +2190,7 @@ pub mod pallet {
             }
 
             let amount_per_collator = Perbill::from_rational(1, num_collators) * amount;
-            let dust = amount - (amount_per_collator * num_collators.into());
+            let dust = amount.saturating_sub(amount_per_collator * num_collators.into());
 
             // This is only possible because we won't have more than 20 collators. If that changes,
             // we should not use a loop here.
