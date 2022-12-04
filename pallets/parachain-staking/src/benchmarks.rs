@@ -25,21 +25,21 @@ use crate::{
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::RawOrigin;
-use parity_scale_codec::{Encode, Decode};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use parity_scale_codec::{Decode, Encode};
 use rand::{RngCore, SeedableRng};
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 use sp_application_crypto::KeyTypeId;
 use sp_runtime::{
-	traits::{AppVerify, Hash, StaticLookup},
-	RuntimeAppPublic,
+    traits::{AppVerify, Hash, StaticLookup},
+    RuntimeAppPublic,
 };
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 mod app_sr25519 {
-	use super::BENCH_KEY_TYPE_ID;
-	use sp_application_crypto::{app_crypto, sr25519};
-	app_crypto!(sr25519, BENCH_KEY_TYPE_ID);
+    use super::BENCH_KEY_TYPE_ID;
+    use sp_application_crypto::{app_crypto, sr25519};
+    app_crypto!(sr25519, BENCH_KEY_TYPE_ID);
 }
 
 type SignerId = app_sr25519::Public;
@@ -128,7 +128,9 @@ fn set_session_keys<T: Config>(user: &T::AccountId, index: u32) -> Result<(), &'
     let keys: T::Keys = Decode::decode(&mut &keys[..]).unwrap();
 
     pallet_session::Pallet::<T>::set_keys(
-        RawOrigin::<T::AccountId>::Signed(user.clone()).into(), keys, Vec::new()
+        RawOrigin::<T::AccountId>::Signed(user.clone()).into(),
+        keys,
+        Vec::new(),
     )?;
 
     Ok(())
@@ -161,7 +163,7 @@ fn roll_to_and_author<T: Config>(era_delay: u32, author: T::AccountId) {
 }
 
 fn get_collator_count<T: Config>() -> u32 {
-    return Pallet::<T>::selected_candidates().len() as u32;
+    return Pallet::<T>::selected_candidates().len() as u32
 }
 
 fn setup_nomination<T: Config>(
@@ -1203,7 +1205,7 @@ mod tests {
 
     pub fn new_test_ext() -> TestExternalities {
         use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStorePtr};
-		use sp_std::sync::Arc;
+        use sp_std::sync::Arc;
 
         let mut ext = crate::mock::ExtBuilder::default().build();
         ext.register_extension(KeystoreExt(Arc::new(KeyStore::new()) as SyncCryptoStorePtr));
