@@ -18,13 +18,12 @@
 
 //! Benchmarking
 use crate::{
-    encode_signed_nominate_params, encode_signed_bond_extra_params,
-    encode_signed_candidate_bond_extra_params, encode_signed_execute_candidate_unbond_params,
-    encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_leave_nominators_params,
-    encode_signed_execute_leave_nominators_params,
-    AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config,
-    Era, MinCollatorStake, MinTotalNominatorStake, NominationAction, Pallet, Points, Proof,
-    ScheduledRequest,
+    encode_signed_bond_extra_params, encode_signed_candidate_bond_extra_params,
+    encode_signed_execute_candidate_unbond_params, encode_signed_execute_leave_nominators_params,
+    encode_signed_nominate_params, encode_signed_schedule_candidate_unbond_params,
+    encode_signed_schedule_leave_nominators_params, AwardedPts, BalanceOf, Call,
+    CandidateBondLessRequest, Config, Era, MinCollatorStake, MinTotalNominatorStake,
+    NominationAction, Pallet, Points, Proof, ScheduledRequest,
 };
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec, Zero};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
@@ -34,10 +33,7 @@ use rand::{RngCore, SeedableRng};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 use sp_application_crypto::KeyTypeId;
-use sp_runtime::{
-    traits::StaticLookup,
-    RuntimeAppPublic,
-};
+use sp_runtime::{traits::StaticLookup, RuntimeAppPublic};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 mod app_sr25519 {
@@ -119,10 +115,18 @@ fn create_funded_collator<T: Config>(
     Ok(user)
 }
 
-fn set_account_as_collator<T: Config>(account: &T::AccountId, additional_bond: BalanceOf<T>, candidate_count: u32) -> Result<(), &'static str> {
+fn set_account_as_collator<T: Config>(
+    account: &T::AccountId,
+    additional_bond: BalanceOf<T>,
+    candidate_count: u32,
+) -> Result<(), &'static str> {
     set_session_keys::<T>(account, candidate_count)?;
     let total_bond = additional_bond + min_candidate_stk::<T>();
-    Pallet::<T>::join_candidates(RawOrigin::Signed(account.clone()).into(), total_bond, candidate_count)?;
+    Pallet::<T>::join_candidates(
+        RawOrigin::Signed(account.clone()).into(),
+        total_bond,
+        candidate_count,
+    )?;
 
     Ok(())
 }
@@ -258,17 +262,21 @@ fn get_proof<T: Config>(
     return Proof { signer: signer.clone(), relayer: relayer.clone(), signature: signature.into() }
 }
 
-fn get_caller<T: Config, F>(encoder: F) -> Result<(T::AccountId, Proof<T::Signature, T::AccountId>), &'static str>
-    where F: Fn(T::AccountId, u64) -> Vec<u8>
+fn get_caller<T: Config, F>(
+    encoder: F,
+) -> Result<(T::AccountId, Proof<T::Signature, T::AccountId>), &'static str>
+where
+    F: Fn(T::AccountId, u64) -> Vec<u8>,
 {
     let key = SignerId::generate_pair(None);
-    let caller: T::AccountId = T::AccountId::decode(&mut Encode::encode(&key).as_slice()).expect("valid account id");
+    let caller: T::AccountId =
+        T::AccountId::decode(&mut Encode::encode(&key).as_slice()).expect("valid account id");
     let sender_nonce = Pallet::<T>::proxy_nonce(&caller);
     let encoded_data = encoder(caller.clone(), sender_nonce);
     let signature = key.sign(&encoded_data).ok_or("Error signing proof")?;
     let proof = get_proof::<T>(&caller, &caller, signature.into());
 
-    return Ok((caller, proof));
+    return Ok((caller, proof))
 }
 
 const USER_SEED: u32 = 999666;
