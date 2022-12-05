@@ -18,11 +18,15 @@
 
 //! Benchmarking
 use crate::{
-    encode_signed_nominate_params, AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config,
+    encode_signed_nominate_params, encode_signed_bond_extra_params,
+    encode_signed_candidate_bond_extra_params, encode_signed_execute_candidate_unbond_params,
+    encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_leave_nominators_params,
+    encode_signed_execute_leave_nominators_params,
+    AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config,
     Era, MinCollatorStake, MinTotalNominatorStake, NominationAction, Pallet, Points, Proof,
     ScheduledRequest,
 };
-use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec, Zero};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::RawOrigin;
 use parity_scale_codec::{Decode, Encode};
@@ -30,7 +34,10 @@ use rand::{RngCore, SeedableRng};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 use sp_application_crypto::KeyTypeId;
-use sp_runtime::{traits::StaticLookup, RuntimeAppPublic};
+use sp_runtime::{
+    traits::StaticLookup,
+    RuntimeAppPublic,
+};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 mod app_sr25519 {
@@ -110,6 +117,14 @@ fn create_funded_collator<T: Config>(
     Pallet::<T>::join_candidates(RawOrigin::Signed(user.clone()).into(), bond, candidate_count)?;
 
     Ok(user)
+}
+
+fn set_account_as_collator<T: Config>(account: &T::AccountId, additional_bond: BalanceOf<T>, candidate_count: u32) -> Result<(), &'static str> {
+    set_session_keys::<T>(account, candidate_count)?;
+    let total_bond = additional_bond + min_candidate_stk::<T>();
+    Pallet::<T>::join_candidates(RawOrigin::Signed(account.clone()).into(), total_bond, candidate_count)?;
+
+    Ok(())
 }
 
 fn set_session_keys<T: Config>(user: &T::AccountId, index: u32) -> Result<(), &'static str> {
@@ -241,6 +256,19 @@ fn get_proof<T: Config>(
     signature: sp_core::sr25519::Signature,
 ) -> Proof<T::Signature, T::AccountId> {
     return Proof { signer: signer.clone(), relayer: relayer.clone(), signature: signature.into() }
+}
+
+fn get_caller<T: Config, F>(encoder: F) -> Result<(T::AccountId, Proof<T::Signature, T::AccountId>), &'static str>
+    where F: Fn(T::AccountId, u64) -> Vec<u8>
+{
+    let key = SignerId::generate_pair(None);
+    let caller: T::AccountId = T::AccountId::decode(&mut Encode::encode(&key).as_slice()).expect("valid account id");
+    let sender_nonce = Pallet::<T>::proxy_nonce(&caller);
+    let encoded_data = encoder(caller.clone(), sender_nonce);
+    let signature = key.sign(&encoded_data).ok_or("Error signing proof")?;
+    let proof = get_proof::<T>(&caller, &caller, signature.into());
+
+    return Ok((caller, proof));
 }
 
 const USER_SEED: u32 = 999666;
@@ -468,6 +496,20 @@ benchmarks! {
         );
     }
 
+    signed_candidate_bond_extra {
+        let more = min_candidate_stk::<T>();
+        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_candidate_bond_extra_params::<T>(relayer, &more, nonce))?;
+        fund_account::<T>(&caller, more * 2u32.into());
+        set_account_as_collator::<T>(&caller, BalanceOf::<T>::zero(), get_collator_count::<T>())?;
+    }: _(RawOrigin::Signed(caller.clone()), proof, more)
+    verify {
+        let expected_bond = more * 2u32.into();
+        assert_eq!(
+            Pallet::<T>::candidate_info(&caller).expect("caller was created, qed").bond,
+            expected_bond,
+        );
+    }
+
     schedule_candidate_unbond {
         let min_candidate_stk = min_candidate_stk::<T>();
         let caller: T::AccountId = create_funded_collator::<T>(
@@ -478,6 +520,23 @@ benchmarks! {
             get_collator_count::<T>(),
         )?;
     }: _(RawOrigin::Signed(caller.clone()), min_candidate_stk)
+    verify {
+        let state = Pallet::<T>::candidate_info(&caller).expect("request bonded less so exists");
+        assert_eq!(
+            state.request,
+            Some(CandidateBondLessRequest {
+                amount: min_candidate_stk,
+                when_executable: 3,
+            })
+        );
+    }
+
+    signed_schedule_candidate_unbond {
+        let min_candidate_stk = min_candidate_stk::<T>();
+        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_candidate_unbond_params::<T>(relayer, &min_candidate_stk, nonce))?;
+        fund_account::<T>(&caller, min_candidate_stk * 2u32.into());
+        set_account_as_collator::<T>(&caller, min_candidate_stk, get_collator_count::<T>())?;
+    }: _(RawOrigin::Signed(caller.clone()), proof, min_candidate_stk)
     verify {
         let state = Pallet::<T>::candidate_info(&caller).expect("request bonded less so exists");
         assert_eq!(
@@ -506,6 +565,31 @@ benchmarks! {
     }: {
         Pallet::<T>::execute_candidate_unbond(
             RawOrigin::Signed(caller.clone()).into(),
+            caller.clone()
+        )?;
+    } verify {
+        assert_eq!(
+            Pallet::<T>::candidate_info(&caller).expect("caller was created, qed").bond,
+            min_candidate_stk,
+        );
+    }
+
+    signed_execute_candidate_unbond {
+        let min_candidate_stk = min_candidate_stk::<T>();
+        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_execute_candidate_unbond_params::<T>(relayer.clone(), &relayer, nonce))?;
+        fund_account::<T>(&caller, min_candidate_stk * 2u32.into());
+        set_account_as_collator::<T>(&caller, min_candidate_stk, get_collator_count::<T>())?;
+
+        Pallet::<T>::schedule_candidate_unbond(
+            RawOrigin::Signed(caller.clone()).into(),
+            min_candidate_stk
+        )?;
+
+        roll_to_and_author::<T>(2, caller.clone());
+    }: {
+        Pallet::<T>::signed_execute_candidate_unbond(
+            RawOrigin::Signed(caller.clone()).into(),
+            proof,
             caller.clone()
         )?;
     } verify {
@@ -560,18 +644,11 @@ benchmarks! {
 
         set_session_keys::<T>(&collator, y)?;
 
-        let key = SignerId::generate_pair(None);
         let mut targets: Vec<<T::Lookup as StaticLookup>::Source> = collators.into_iter().map(|c| T::Lookup::unlookup(c)).collect::<_>();
         targets.push(T::Lookup::unlookup(collator));
 
-        let caller: T::AccountId = T::AccountId::decode(&mut Encode::encode(&key).as_slice()).expect("valid account id");
+        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_nominate_params::<T>(relayer, &targets, &bond, nonce))?;
         fund_account::<T>(&caller, bond * 2u32.into());
-
-        let sender_nonce = Pallet::<T>::proxy_nonce(&caller);
-        let encoded_data = encode_signed_nominate_params::<T>(caller.clone(), &targets, &bond, sender_nonce);
-        let signature = key.sign(&encoded_data).ok_or("Error signing proof")?;
-        let proof = get_proof::<T>(&caller, &caller, signature.into());
-
     }: _(RawOrigin::Signed(caller.clone()), proof, targets, bond)
     verify {
         assert!(Pallet::<T>::is_nominator(&caller));
@@ -725,6 +802,38 @@ benchmarks! {
             0u32
         )?;
     }: _(RawOrigin::Signed(caller.clone()), collator.clone(), bond)
+    verify {
+        let expected_bond = bond * 2u32.into();
+        assert_eq!(
+            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
+            expected_bond,
+        );
+    }
+
+    signed_bond_extra {
+        let collator: T::AccountId = create_funded_collator::<T>(
+            "collator",
+            USER_SEED,
+            0u32.into(),
+            true,
+            get_collator_count::<T>()
+        )?;
+
+        let bond = <MinTotalNominatorStake<T>>::get() * 10u32.into();
+        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_bond_extra_params::<T>(relayer, &bond, nonce))?;
+        fund_account::<T>(&caller, bond * 2u32.into());
+
+        Pallet::<T>::nominate(
+            RawOrigin::Signed(caller.clone()).into(),
+            collator.clone(),
+            bond,
+            0u32,
+            0u32
+        )?;
+
+        roll_to_and_author::<T>(2, collator.clone());
+
+    }: _(RawOrigin::Signed(caller.clone()), proof, bond)
     verify {
         let expected_bond = bond * 2u32.into();
         assert_eq!(
