@@ -31,7 +31,7 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 use sp_application_crypto::KeyTypeId;
 use sp_runtime::{
-    traits::{AppVerify, Hash, StaticLookup},
+    traits::StaticLookup,
     RuntimeAppPublic,
 };
 

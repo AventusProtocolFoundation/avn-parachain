@@ -25,9 +25,6 @@ pallet-authorship = { git = "https://github.com/paritytech/substrate", default-f
 pallet-avn = { version = "0.12.0", default-features = false, path = "../avn" }
 pallet-session = {features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
-# Nimbus
-nimbus-primitives = { git = "https://github.com/purestake/nimbus", branch = "moonbeam-polkadot-v0.9.26", default-features = false }
-
 [dev-dependencies]
 similar-asserts = "1.1.0"
 
@@ -43,7 +40,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"nimbus-primitives/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
 	"serde",
