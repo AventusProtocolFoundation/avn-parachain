@@ -85,8 +85,6 @@ pub fn enable_staking<T: Config>() -> Weight {
         ) {
             log::error!("💔 Join candidates failed in genesis with error {:?}", error);
             continue
-        } else {
-            candidate_count = candidate_count.saturating_add(1u32);
         }
 
         add_weight(0, 0, <T as Config>::WeightInfo::join_candidates(candidate_count));

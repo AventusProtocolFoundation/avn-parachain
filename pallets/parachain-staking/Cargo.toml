@@ -8,6 +8,7 @@ version = "3.0.0"
 [dependencies]
 log = "0.4"
 serde = { version = "1.0.101", optional = true }
+rand = { version = "0.7.2", default-features = false }
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", optional = true, default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", default-features = false }
@@ -18,20 +19,18 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkad
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", default-features = false }
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 sp-avn-common = { version = "0.12.0", default-features = false, path = "../../primitives/avn-common" }
+sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 substrate-fixed = { git = "https://github.com/encointer/substrate-fixed", default-features = false }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.27" }
 pallet-avn = { version = "0.12.0", default-features = false, path = "../avn" }
 pallet-session = {features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", default-features = false }
-
-# Nimbus
-nimbus-primitives = { git = "https://github.com/purestake/nimbus", branch = "moonbeam-polkadot-v0.9.26", default-features = false }
 
 [dev-dependencies]
 similar-asserts = "1.1.0"
 
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 pallet-avn-proxy = { version = "0.12.0", default-features = false, path = "../avn-proxy" }
 
@@ -41,12 +40,12 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"nimbus-primitives/std",
 	"parity-scale-codec/std",
 	"scale-info/std",
 	"serde",
 	"sp-runtime/std",
 	"sp-std/std",
+	"sp-core/std",
 	"pallet-authorship/std",
 	"pallet-avn/std",
 	"pallet-session/std",
