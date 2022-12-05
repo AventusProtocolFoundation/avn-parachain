@@ -30,10 +30,7 @@ use rand::{RngCore, SeedableRng};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 use sp_application_crypto::KeyTypeId;
-use sp_runtime::{
-    traits::StaticLookup,
-    RuntimeAppPublic,
-};
+use sp_runtime::{traits::StaticLookup, RuntimeAppPublic};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 mod app_sr25519 {
