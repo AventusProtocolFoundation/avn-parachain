@@ -23,8 +23,8 @@ use crate::{
     encode_signed_execute_nomination_request_params, encode_signed_nominate_params,
     encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_leave_nominators_params,
     encode_signed_schedule_nominator_unbond_params,
-    encode_signed_schedule_revoke_nomination_params, AwardedPts, BalanceOf, Call,
-    CandidateBondLessRequest, Config, Era, MinCollatorStake, MinTotalNominatorStake,
+    encode_signed_schedule_revoke_nomination_params, AdminSettings, AwardedPts, BalanceOf, Call,
+    CandidateBondLessRequest, Config, Delay, Era, MinCollatorStake, MinTotalNominatorStake,
     NominationAction, Pallet, Points, Proof, ScheduledRequest,
 };
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec, Zero};
@@ -1473,7 +1473,7 @@ benchmarks! {
         assert_eq!(Pallet::<T>::selected_candidates().len() as u32, T::MinSelectedCandidates::get());
     }
 
-   // worse case is paying a non-existing candidate account.
+    // worse case is paying a non-existing candidate account.
     note_author {
         let candidate_count = get_collator_count::<T>();
         let author = create_funded_collator::<T>(
@@ -1498,6 +1498,13 @@ benchmarks! {
         assert_eq!(20u32, <Points<T>>::get(now));
     }
 
+    set_admin_setting {
+        let new_delay_value = <Delay<T>>::get() - 1;
+        let new_delay_setting = AdminSettings::<BalanceOf<T>>::Delay(new_delay_value);
+    }: _(RawOrigin::Root, new_delay_setting)
+    verify {
+        assert_eq!(new_delay_value, <Delay<T>>::get());
+    }
 }
 
 #[cfg(test)]
@@ -1513,195 +1520,6 @@ mod tests {
         let mut ext = crate::mock::ExtBuilder::default().build();
         ext.register_extension(KeystoreExt(Arc::new(KeyStore::new()) as SyncCryptoStorePtr));
         ext
-    }
-
-    #[test]
-    fn bench_set_total_selected() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_set_total_selected());
-        });
-    }
-
-    #[test]
-    fn bench_set_blocks_per_era() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_set_blocks_per_era());
-        });
-    }
-
-    #[test]
-    fn bench_join_candidates() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_join_candidates());
-        });
-    }
-
-    #[test]
-    fn bench_schedule_leave_candidates() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_schedule_leave_candidates());
-        });
-    }
-
-    #[test]
-    fn bench_execute_leave_candidates() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_execute_leave_candidates());
-        });
-    }
-
-    #[test]
-    fn bench_cancel_leave_candidates() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_cancel_leave_candidates());
-        });
-    }
-
-    #[test]
-    fn bench_go_offline() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_go_offline());
-        });
-    }
-
-    #[test]
-    fn bench_go_online() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_go_online());
-        });
-    }
-
-    #[test]
-    fn bench_candidate_bond_extra() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_candidate_bond_extra());
-        });
-    }
-
-    #[test]
-    fn bench_schedule_candidate_unbond() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_schedule_candidate_unbond());
-        });
-    }
-
-    #[test]
-    fn bench_execute_candidate_unbond() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_execute_candidate_unbond());
-        });
-    }
-
-    #[test]
-    fn bench_cancel_candidate_unbond() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_cancel_candidate_unbond());
-        });
-    }
-
-    #[test]
-    fn bench_nominate() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_nominate());
-        });
-    }
-
-    #[test]
-    fn bench_schedule_leave_nominators() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_schedule_leave_nominators());
-        });
-    }
-
-    #[test]
-    fn bench_execute_leave_nominators() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_execute_leave_nominators());
-        });
-    }
-
-    #[test]
-    fn bench_cancel_leave_nominators() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_cancel_leave_nominators());
-        });
-    }
-
-    #[test]
-    fn bench_schedule_revoke_nomination() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_schedule_revoke_nomination());
-        });
-    }
-
-    #[test]
-    fn bench_nominator_bond_extra() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_bond_extra());
-        });
-    }
-
-    #[test]
-    fn bench_schedule_nominator_unbond() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_schedule_nominator_unbond());
-        });
-    }
-
-    #[test]
-    fn bench_execute_revoke_nomination() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_execute_revoke_nomination());
-        });
-    }
-
-    #[test]
-    fn bench_execute_nominator_unbond() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_execute_nominator_unbond());
-        });
-    }
-
-    #[test]
-    fn bench_cancel_revoke_nomination() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_cancel_revoke_nomination());
-        });
-    }
-
-    #[test]
-    fn bench_cancel_nominator_unbond() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_cancel_nominator_unbond());
-        });
-    }
-
-    #[test]
-    fn bench_era_transition_on_initialize() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_era_transition_on_initialize());
-        });
-    }
-
-    #[test]
-    fn bench_base_on_initialize() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_base_on_initialize());
-        });
-    }
-
-    #[test]
-    fn bench_select_top_candidates() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_select_top_candidates());
-        });
-    }
-
-    #[test]
-    fn bench_signed_nominate() {
-        new_test_ext().execute_with(|| {
-            assert_ok!(Pallet::<Test>::test_benchmark_signed_nominate());
-        });
     }
 }
 

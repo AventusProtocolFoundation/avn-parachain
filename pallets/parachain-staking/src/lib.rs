@@ -46,6 +46,7 @@
 //! To revoke a nomination, call `revoke_nomination` with the collator candidate's account.
 //! To leave the set of nominators and revoke all nominations, call `leave_nominators`.
 
+#![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod calls;
@@ -465,7 +466,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn candidate_info)]
     /// Get collator candidate info associated with an account if account is candidate else None
-    pub(crate) type CandidateInfo<T: Config> =
+    pub type CandidateInfo<T: Config> =
         StorageMap<_, Twox64Concat, T::AccountId, CandidateMetadata<BalanceOf<T>>, OptionQuery>;
 
     /// Stores outstanding nomination requests per collator.
@@ -990,7 +991,8 @@ pub mod pallet {
             return Self::call_candidate_bond_extra(&collator, more)
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_candidate_bond_extra())]
+        #[transactional]
         /// Increase collator candidate self bond by `more`
         pub fn signed_candidate_bond_extra(
             origin: OriginFor<T>,
@@ -1040,7 +1042,8 @@ pub mod pallet {
             return Self::call_execute_candidate_unbond(&candidate)
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_execute_candidate_unbond())]
+        #[transactional]
         /// Execute pending request to adjust the collator candidate self bond
         pub fn signed_execute_candidate_unbond(
             origin: OriginFor<T>,
@@ -1080,7 +1083,8 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_schedule_candidate_unbond())]
+        #[transactional]
         /// Signed request by collator candidate to decrease self bond by `less`
         pub fn signed_schedule_candidate_unbond(
             origin: OriginFor<T>,
@@ -1136,8 +1140,7 @@ pub mod pallet {
             )
         }
 
-        //TODO: Benchmark me
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_nominate(300u32, 20u32))]
         #[transactional]
         pub fn signed_nominate(
             origin: OriginFor<T>,
@@ -1176,7 +1179,8 @@ pub mod pallet {
             Self::nominator_schedule_revoke_all(nominator)
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_schedule_leave_nominators())]
+        #[transactional]
         pub fn signed_schedule_leave_nominators(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1215,7 +1219,8 @@ pub mod pallet {
 
         /// Execute the right to exit the set of nominators and revoke all ongoing nominations.
         /// Any account can call this extrinsic
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_execute_leave_nominators(20u32))]
+        #[transactional]
         pub fn signed_execute_leave_nominators(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1269,7 +1274,8 @@ pub mod pallet {
             Self::nomination_schedule_revoke(collator, nominator)
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_schedule_revoke_nomination())]
+        #[transactional]
         /// Signed request to revoke an existing nomination. If successful, the nomination is
         /// scheduled to be allowed to be revoked via the `execute_nomination_request`
         /// extrinsic.
@@ -1311,8 +1317,7 @@ pub mod pallet {
         }
 
         /// Bond a maximum of 'extra_amount' amount.
-        // TODO: benchmark me
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_bond_extra())]
         #[transactional]
         pub fn signed_bond_extra(
             origin: OriginFor<T>,
@@ -1377,7 +1382,7 @@ pub mod pallet {
             Self::nomination_schedule_bond_decrease(candidate, nominator, less)
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_schedule_nominator_unbond())]
         #[transactional]
         pub fn signed_schedule_nominator_unbond(
             origin: OriginFor<T>,
@@ -1439,7 +1444,8 @@ pub mod pallet {
             Self::nomination_execute_scheduled_request(candidate, nominator)
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_execute_nominator_unbond())]
+        #[transactional]
         /// Execute pending request to change an existing nomination
         pub fn signed_execute_nomination_request(
             origin: OriginFor<T>,
@@ -1522,7 +1528,7 @@ pub mod pallet {
         }
 
         // TODO: Benchmark me
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_admin_setting())]
         pub fn set_admin_setting(
             origin: OriginFor<T>,
             value: AdminSettings<BalanceOf<T>>,
@@ -2223,9 +2229,7 @@ pub mod pallet {
 
     /// Keep track of number of authored blocks per authority, uncles are counted as well since
     /// they're a valid proof of being online.
-    impl<T: Config + pallet_authorship::Config>
-        pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T>
-    {
+    impl<T: Config> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T> {
         /// Add reward points to block authors:
         /// * 20 points to the block producer for producing a block in the chain
         fn note_author(author: T::AccountId) {
