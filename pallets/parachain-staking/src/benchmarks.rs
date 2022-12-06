@@ -30,12 +30,12 @@ use crate::{
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec, Zero};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::RawOrigin;
+use pallet_authorship::EventHandler;
 use parity_scale_codec::{Decode, Encode};
 use rand::{RngCore, SeedableRng};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-
 use sp_application_crypto::KeyTypeId;
 use sp_runtime::{traits::StaticLookup, RuntimeAppPublic};
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 mod app_sr25519 {
@@ -1471,6 +1471,31 @@ benchmarks! {
     }: { Pallet::<T>::select_top_candidates(1u32) }
     verify {
         assert_eq!(Pallet::<T>::selected_candidates().len() as u32, T::MinSelectedCandidates::get());
+    }
+
+   // worse case is paying a non-existing candidate account.
+    note_author {
+        let candidate_count = get_collator_count::<T>();
+        let author = create_funded_collator::<T>(
+            "collator",
+            USER_SEED,
+            0u32.into(),
+            true,
+            candidate_count
+        )?;
+
+        let new_block: T::BlockNumber = 10u32.into();
+        let now = <Era<T>>::get().current;
+
+        frame_system::Pallet::<T>::set_block_number(new_block);
+        assert_eq!(0u32, <AwardedPts<T>>::get(now, author.clone()));
+        assert_eq!(0u32, <Points<T>>::get(now));
+    }: {
+        <Pallet::<T> as EventHandler<_, _>>::note_author(author.clone())
+    } verify {
+        assert_eq!(frame_system::Pallet::<T>::block_number(), new_block);
+        assert_eq!(20u32, <AwardedPts<T>>::get(now, author));
+        assert_eq!(20u32, <Points<T>>::get(now));
     }
 
 }

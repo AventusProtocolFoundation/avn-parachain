@@ -65,7 +65,11 @@ mod proxy_signed_bond_extra {
                 (staker.account_id, initial_balance),
                 (staker.relayer, initial_balance),
             ])
-            .with_candidates(vec![(collator_1, initial_stake), (collator_2, initial_stake), (collator_3, initial_stake)])
+            .with_candidates(vec![
+                (collator_1, initial_stake),
+                (collator_2, initial_stake),
+                (collator_3, initial_stake),
+            ])
             .with_nominations(vec![
                 (staker.account_id, collator_1, initial_stake),
                 (staker.account_id, collator_2, initial_stake),
@@ -109,11 +113,13 @@ mod proxy_signed_bond_extra {
                     assert_eq!(staker_state.nominations.0[index].amount, initial_stake + topup);
 
                     // Collator state has been updated
-                    let collator_state = ParachainStaking::candidate_info(nomination.owner).unwrap();
+                    let collator_state =
+                        ParachainStaking::candidate_info(nomination.owner).unwrap();
                     assert_eq!(collator_state.total_counted, initial_stake + initial_stake + topup);
 
                     // Collator nominations have also been updated
-                    let top_nominations = ParachainStaking::top_nominations(nomination.owner).unwrap();
+                    let top_nominations =
+                        ParachainStaking::top_nominations(nomination.owner).unwrap();
                     assert_eq!(top_nominations.total, initial_stake + topup);
                 }
 
