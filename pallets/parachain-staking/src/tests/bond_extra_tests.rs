@@ -53,6 +53,7 @@ mod proxy_signed_bond_extra {
     fn succeeds_with_good_parameters() {
         let collator_1 = to_acc_id(1u64);
         let collator_2 = to_acc_id(2u64);
+        let collator_3 = to_acc_id(3u64);
         let staker: Staker = Default::default();
         let initial_stake = 10;
         let initial_balance = 10000;
@@ -60,17 +61,21 @@ mod proxy_signed_bond_extra {
             .with_balances(vec![
                 (collator_1, initial_balance),
                 (collator_2, initial_balance),
+                (collator_3, initial_balance),
                 (staker.account_id, initial_balance),
                 (staker.relayer, initial_balance),
             ])
-            .with_candidates(vec![(collator_1, initial_stake), (collator_2, initial_stake)])
+            .with_candidates(vec![
+                (collator_1, initial_stake),
+                (collator_2, initial_stake),
+                (collator_3, initial_stake),
+            ])
             .with_nominations(vec![
                 (staker.account_id, collator_1, initial_stake),
                 (staker.account_id, collator_2, initial_stake),
             ])
             .build()
             .execute_with(|| {
-                let collators = ParachainStaking::selected_candidates();
                 let min_user_stake = MinNominationPerCollator::get();
                 let initial_total_stake_on_chain = ParachainStaking::total();
 
@@ -85,8 +90,9 @@ mod proxy_signed_bond_extra {
                 let staker_state = ParachainStaking::nominator_state(staker.account_id).unwrap();
                 assert_eq!(staker_state.total(), initial_stake * 2 + amount_to_topup);
 
-                // Each collator has been topped up by the expected amount
-                for (index, collator) in collators.into_iter().enumerate() {
+                // Each collator that has been nominated has been topped up by the expected amount
+                let nominations = staker_state.nominations.0.clone();
+                for (index, nomination) in nominations.into_iter().enumerate() {
                     // We should have one event per collator. One of the collators gets any
                     // remaining dust. We selected index 1 because the test starts at block #1 and
                     // 1 mod num_of_collators is always 1.
@@ -97,21 +103,23 @@ mod proxy_signed_bond_extra {
 
                     assert_event_emitted!(Event::NominationIncreased {
                         nominator: staker.account_id,
-                        candidate: collator,
+                        candidate: nomination.owner,
                         amount: topup,
                         in_top: true
                     });
 
                     // Staker state reflects the new nomination for each collator
-                    assert_eq!(staker_state.nominations.0[index].owner, collator);
+                    assert_eq!(staker_state.nominations.0[index].owner, nomination.owner);
                     assert_eq!(staker_state.nominations.0[index].amount, initial_stake + topup);
 
                     // Collator state has been updated
-                    let collator_state = ParachainStaking::candidate_info(collator).unwrap();
+                    let collator_state =
+                        ParachainStaking::candidate_info(nomination.owner).unwrap();
                     assert_eq!(collator_state.total_counted, initial_stake + initial_stake + topup);
 
                     // Collator nominations have also been updated
-                    let top_nominations = ParachainStaking::top_nominations(collator).unwrap();
+                    let top_nominations =
+                        ParachainStaking::top_nominations(nomination.owner).unwrap();
                     assert_eq!(top_nominations.total, initial_stake + topup);
                 }
 

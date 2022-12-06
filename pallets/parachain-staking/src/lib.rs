@@ -1338,25 +1338,27 @@ pub mod pallet {
                 Error::<T>::InsufficientBalance
             );
 
-            let collators = Self::selected_candidates();
-            let num_collators = collators.len() as u32;
-            let amount_per_collator = Perbill::from_rational(1, num_collators) * extra_amount;
+            // Top up existing nominations only.
+            let state = <NominatorState<T>>::get(&nominator).ok_or(<Error<T>>::NominatorDNE)?;
+            let nominations = state.nominations.0;
+            let num_nominations = nominations.len() as u32;
+            let amount_per_collator = Perbill::from_rational(1, num_nominations) * extra_amount;
             ensure!(
                 amount_per_collator >= T::MinNominationPerCollator::get(),
                 Error::<T>::NominationBelowMin
             );
 
-            let dust = extra_amount.saturating_sub(amount_per_collator * num_collators.into());
+            let dust = extra_amount.saturating_sub(amount_per_collator * num_nominations.into());
 
             // This is only possible because we won't have more than 20 collators. If that changes,
             // we should not use a loop here.
-            for (index, collator) in collators.into_iter().enumerate() {
+            for (index, nomination) in nominations.into_iter().enumerate() {
                 let mut actual_amount = amount_per_collator;
-                if Self::collator_should_get_dust(dust, num_collators.into(), index as u64) {
+                if Self::collator_should_get_dust(dust, num_nominations.into(), index as u64) {
                     actual_amount = amount_per_collator + dust;
                 }
 
-                Self::call_bond_extra(&nominator, collator, actual_amount)?;
+                Self::call_bond_extra(&nominator, nomination.owner, actual_amount)?;
             }
 
             <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
