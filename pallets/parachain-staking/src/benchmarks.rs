@@ -853,7 +853,7 @@ benchmarks! {
             true,
             get_collator_count::<T>()
         )?;
-        //let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+
         let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_revoke_nomination_params::<T>(relayer.clone(), &collator, nonce))?;
         fund_account::<T>(&caller, min_nominator_stk::<T>());
 
@@ -1082,7 +1082,6 @@ benchmarks! {
             true,
             get_collator_count::<T>()
         )?;
-        //let (caller, total) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
 
         let amount = min_nominator_stk::<T>();
         let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_execute_nomination_request_params::<T>(relayer.clone(), &relayer, nonce))?;
@@ -1095,7 +1094,6 @@ benchmarks! {
             0u32,
             0u32
         )?;
-
 
         Pallet::<T>::schedule_nominator_unbond(
             RawOrigin::Signed(caller.clone()).into(),
