@@ -108,9 +108,8 @@ pub fn enable_staking<T: Config>() -> Weight {
 
     // Choose top TotalSelected collator candidates
     let (collator_count, _, total_staked) = <Pallet<T>>::select_top_candidates(intial_era_index);
-    // TODO: benchmark this and add to weight
-    // add_weight(0, 0, <T as
-    // pallet_staking::Config>::WeightInfo::select_top_candidates(candidate_count));
+    //Call: [select_top_candidates()]
+    add_weight(0, 0, <T as Config>::WeightInfo::select_top_candidates());
 
     // Calculate the first era info.
     let era: EraInfo<T::BlockNumber> =

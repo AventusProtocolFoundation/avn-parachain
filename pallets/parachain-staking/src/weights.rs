@@ -107,6 +107,8 @@ pub trait WeightInfo {
     #[rustfmt::skip]
 	fn base_on_initialize() -> Weight;
     #[rustfmt::skip]
+    fn select_top_candidates() -> Weight;
+    #[rustfmt::skip]
     fn note_author() -> Weight;
 }
 
@@ -401,6 +403,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3 as u64))
 			.saturating_add(T::DbWeight::get().writes(4 as u64))
 	}
+    // Storage: ParachainStaking CandidatePool (r:1 w:0)
+    // Storage: ParachainStaking TotalSelected (r:1 w:0)
+    // Storage: ParachainStaking MinCollatorStake (r:1 w:0)
+    // Storage: ParachainStaking CandidateInfo (r:20 w:0)
+    // Storage: ParachainStaking NominationScheduledRequests (r:20 w:0)
+    // Storage: ParachainStaking TopNominations (r:20 w:0)
+    // Storage: ParachainStaking SelectedCandidates (r:0 w:1)
+    // Storage: ParachainStaking AtStake (r:0 w:20)
+    #[rustfmt::skip]
+    fn select_top_candidates() -> Weight {
+        (470_411_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(63 as Weight))
+            .saturating_add(T::DbWeight::get().writes(21 as Weight))
+    }
 }
 
 // For backwards compatibility and tests
@@ -694,4 +710,18 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(3 as u64))
 			.saturating_add(RocksDbWeight::get().writes(4 as u64))
 	}
+    // Storage: ParachainStaking CandidatePool (r:1 w:0)
+    // Storage: ParachainStaking TotalSelected (r:1 w:0)
+    // Storage: ParachainStaking MinCollatorStake (r:1 w:0)
+    // Storage: ParachainStaking CandidateInfo (r:20 w:0)
+    // Storage: ParachainStaking NominationScheduledRequests (r:20 w:0)
+    // Storage: ParachainStaking TopNominations (r:20 w:0)
+    // Storage: ParachainStaking SelectedCandidates (r:0 w:1)
+    // Storage: ParachainStaking AtStake (r:0 w:20)
+    #[rustfmt::skip]
+    fn select_top_candidates() -> Weight {
+        (470_411_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(63 as u64))
+            .saturating_add(RocksDbWeight::get().writes(21 as u64))
+    }
 }
