@@ -279,6 +279,53 @@ where
     return Ok((caller, proof))
 }
 
+fn setup_leave_nominator_state<T: Config>(
+    num_of_collators: u32,
+    caller: &T::AccountId,
+) -> Result<u32, &'static str> {
+    // Worst Case is full of nominations before execute exit
+    let mut collators: Vec<T::AccountId> = Vec::new();
+    let initial_candidate_count = get_collator_count::<T>();
+    // Initialize MaxNominationsPerNominator collator candidates
+    for i in 1..num_of_collators {
+        let seed = USER_SEED - i;
+        let collator = create_funded_collator::<T>(
+            "leave_collator",
+            seed,
+            0u32.into(),
+            true,
+            collators.len() as u32 + initial_candidate_count + 1u32,
+        )?;
+        collators.push(collator.clone());
+    }
+    let bond = <MinTotalNominatorStake<T>>::get();
+    let need = bond * (collators.len() as u32).into();
+    let default_minted = min_candidate_stk::<T>();
+
+    if need > default_minted {
+        fund_account::<T>(&caller, need - default_minted);
+    };
+
+    // Nomination count
+    let mut nomination_count = 0u32;
+    let author = collators[0].clone();
+    // Nominate MaxNominationsPerNominators collator candidates
+    for col in collators {
+        Pallet::<T>::nominate(
+            RawOrigin::Signed(caller.clone()).into(),
+            col,
+            bond,
+            0u32,
+            nomination_count,
+        )?;
+        nomination_count += 1u32;
+    }
+    Pallet::<T>::schedule_leave_nominators(RawOrigin::Signed(caller.clone()).into())?;
+    roll_to_and_author::<T>(2, author);
+
+    return Ok(nomination_count)
+}
+
 const USER_SEED: u32 = 999666;
 
 benchmarks! {
@@ -688,50 +735,54 @@ benchmarks! {
         );
     }
 
+    signed_schedule_leave_nominators {
+        let collator: T::AccountId = create_funded_collator::<T>(
+            "collator",
+            USER_SEED,
+            0u32.into(),
+            true,
+            get_collator_count::<T>()
+        )?;
+
+        let bond = <MinTotalNominatorStake<T>>::get();
+        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_leave_nominators_params::<T>(relayer, nonce))?;
+        fund_account::<T>(&caller, bond * 2u32.into());
+
+        Pallet::<T>::nominate(RawOrigin::Signed(
+            caller.clone()).into(),
+            collator.clone(),
+            bond,
+            0u32,
+            0u32
+        )?;
+    }: _(RawOrigin::Signed(caller.clone()), proof)
+    verify {
+        assert!(
+            Pallet::<T>::nomination_scheduled_requests(&collator)
+                .iter()
+                .any(|r| r.nominator == caller && matches!(r.action, NominationAction::Revoke(_)))
+        );
+    }
+
     execute_leave_nominators {
         let x in 2..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
-        // Worst Case is full of nominations before execute exit
-        let mut collators: Vec<T::AccountId> = Vec::new();
-        let initial_candidate_count = get_collator_count::<T>();
-        // Initialize MaxNominationsPerNominator collator candidates
-        for i in 1..x {
-            let seed = USER_SEED - i;
-            let collator = create_funded_collator::<T>(
-                "leave_collator",
-                seed,
-                0u32.into(),
-                true,
-                collators.len() as u32 + initial_candidate_count + 1u32
-            )?;
-            collators.push(collator.clone());
-        }
-        let bond = <MinTotalNominatorStake<T>>::get();
-        let need = bond * (collators.len() as u32).into();
-        let default_minted = min_candidate_stk::<T>();
-        let need: BalanceOf<T> = if need > default_minted {
-            need - default_minted
-        } else {
-            0u32.into()
-        };
+
         // Fund the nominator
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, need);
-        // Nomination count
-        let mut nomination_count = 0u32;
-        let author = collators[0].clone();
-        // Nominate MaxNominationsPerNominators collator candidates
-        for col in collators {
-            Pallet::<T>::nominate(
-                RawOrigin::Signed(caller.clone()).into(),
-                col,
-                bond,
-                0u32,
-                nomination_count
-            )?;
-            nomination_count += 1u32;
-        }
-        Pallet::<T>::schedule_leave_nominators(RawOrigin::Signed(caller.clone()).into())?;
-        roll_to_and_author::<T>(2, author);
+        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, min_nominator_stk::<T>());
+        let nomination_count = setup_leave_nominator_state::<T>(x, &caller)?;
+
     }: _(RawOrigin::Signed(caller.clone()), caller.clone(), nomination_count)
+    verify {
+        assert!(Pallet::<T>::nominator_state(&caller).is_none());
+    }
+
+    signed_execute_leave_nominators {
+        let x in 2..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
+        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_execute_leave_nominators_params::<T>(relayer.clone(), &relayer, nonce))?;
+        fund_account::<T>(&caller, min_nominator_stk::<T>());
+
+        setup_leave_nominator_state::<T>(x, &caller)?;
+    }: _(RawOrigin::Signed(caller.clone()), proof, caller.clone())
     verify {
         assert!(Pallet::<T>::nominator_state(&caller).is_none());
     }
