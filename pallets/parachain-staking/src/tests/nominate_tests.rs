@@ -194,7 +194,7 @@ mod proxy_signed_nominate {
                 // Nonce has increased
                 assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
             })
-        }
+    }
 
     mod fails_when {
         use super::*;

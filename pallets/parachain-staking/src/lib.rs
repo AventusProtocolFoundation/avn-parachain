@@ -2128,7 +2128,9 @@ pub mod pallet {
             number_of_collators: u64,
             index: u64,
         ) -> bool {
-            if dust.is_zero() { return false }
+            if dust.is_zero() {
+                return false
+            }
 
             let block_number: u64 =
                 TryInto::<u64>::try_into(<frame_system::Pallet<T>>::block_number())
