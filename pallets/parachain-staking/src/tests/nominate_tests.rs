@@ -138,6 +138,64 @@ mod proxy_signed_nominate {
             })
     }
 
+    #[test]
+    fn succeeds_with_negative_dust() {
+        let collator_1 = to_acc_id(1u64);
+        let collator_2 = to_acc_id(2u64);
+        let collator_3 = to_acc_id(3u64);
+        let collator_4 = to_acc_id(4u64);
+        let collator_5 = to_acc_id(5u64);
+        let staker: Staker = Default::default();
+        let initial_collator_stake = 1000;
+        let initial_balance = 596583960081717817908u128;
+        ExtBuilder::default()
+            .with_balances(vec![
+                (collator_1, initial_balance),
+                (collator_2, initial_balance),
+                (collator_3, initial_balance),
+                (collator_4, initial_balance),
+                (collator_5, initial_balance),
+                (staker.account_id, initial_balance),
+                (staker.relayer, initial_balance),
+            ])
+            .with_candidates(vec![
+                (collator_1, initial_collator_stake),
+                (collator_2, initial_collator_stake),
+                (collator_3, initial_collator_stake),
+                (collator_4, initial_collator_stake),
+                (collator_5, initial_collator_stake),
+            ])
+            .build()
+            .execute_with(|| {
+                // Pick an amount that is not perfectly divisible by the number of collators
+                // 496583960081717817908 / 5 * 5 will give 496583960081717817910 due to rounding
+                let amount_to_stake = 496583960081717817908u128;
+                let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                let nominate_call = create_call_for_nominate(
+                    &staker,
+                    nonce,
+                    vec![collator_1, collator_2, collator_3, collator_4, collator_5],
+                    amount_to_stake,
+                );
+
+                assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None));
+
+                let staker_state = ParachainStaking::nominator_state(staker.account_id).unwrap();
+
+                // The staker state has also been updated
+                assert_eq!(staker_state.total(), amount_to_stake);
+
+                // The staker free balance has been reduced
+                assert_eq!(
+                    ParachainStaking::get_nominator_stakable_free_balance(&staker.account_id),
+                    initial_balance - amount_to_stake
+                );
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
+            })
+    }
+
     mod fails_when {
         use super::*;
 

@@ -140,6 +140,75 @@ mod proxy_signed_bond_extra {
             })
     }
 
+    #[test]
+    fn succeeds_with_negative_dust() {
+        let collator_1 = to_acc_id(1u64);
+        let collator_2 = to_acc_id(2u64);
+        let collator_3 = to_acc_id(3u64);
+        let collator_4 = to_acc_id(4u64);
+        let collator_5 = to_acc_id(5u64);
+        let collator_6 = to_acc_id(6u64);
+        let staker: Staker = Default::default();
+        let initial_stake = 10;
+        let initial_balance = 596583960081717817908u128;
+        ExtBuilder::default()
+            .with_balances(vec![
+                (collator_1, initial_balance),
+                (collator_2, initial_balance),
+                (collator_3, initial_balance),
+                (collator_4, initial_balance),
+                (collator_5, initial_balance),
+                (collator_6, initial_balance),
+                (staker.account_id, initial_balance),
+                (staker.relayer, initial_balance),
+            ])
+            .with_candidates(vec![
+                (collator_1, initial_stake),
+                (collator_2, initial_stake),
+                (collator_3, initial_stake),
+                (collator_4, initial_stake),
+                (collator_5, initial_stake),
+                (collator_6, initial_stake),
+            ])
+            .with_nominations(vec![
+                (staker.account_id, collator_1, initial_stake),
+                (staker.account_id, collator_2, initial_stake),
+                (staker.account_id, collator_3, initial_stake),
+                (staker.account_id, collator_4, initial_stake),
+                (staker.account_id, collator_5, initial_stake),
+            ])
+            .build()
+            .execute_with(|| {
+                let initial_total_stake_on_chain = ParachainStaking::total();
+
+                // Pick an amount that is not perfectly divisible by the number of collators
+                // 496583960081717817908 / 5 * 5 will give 496583960081717817910 due to rounding
+                let amount_to_topup = 496583960081717817908u128;
+                let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+                let bond_extra_call = create_call_for_bond_extra(&staker, nonce, amount_to_topup);
+                assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None));
+
+                // The staker state has also been updated
+                let staker_state = ParachainStaking::nominator_state(staker.account_id).unwrap();
+                assert_eq!(staker_state.total(), initial_stake * 5 + amount_to_topup);
+
+                // The staker free balance has been reduced
+                assert_eq!(
+                    ParachainStaking::get_nominator_stakable_free_balance(&staker.account_id),
+                    initial_balance - (initial_stake * 5 + amount_to_topup)
+                );
+
+                // The total amount staked on chain should increase
+                assert_eq!(
+                    initial_total_stake_on_chain + amount_to_topup,
+                    ParachainStaking::total()
+                );
+
+                // Nonce has increased
+                assert_eq!(ParachainStaking::proxy_nonce(staker.account_id), nonce + 1);
+            })
+    }
+
     mod fails_when {
         use super::*;
 
