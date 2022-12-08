@@ -23,7 +23,7 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 pub fn enable_staking<T: Config>() -> Weight {
     let initial_delay: u32 = 2;
     let initial_min_collator_stake = 5_000_000_000_000_000_000_000u128; //5000AVT
-    let initial_min_user_stake = 100_000_000_000_000_000_000u128; // 100 AVT
+    let initial_min_user_stake = 10_000_000_000_000_000_000u128; // 10 AVT (100 in total)
     let intial_blocks_per_era = 7_200u32; // 24 HOURS (12sec per block)
     let intial_era_index = 1u32;
     let initial_growth_period_index = 0u32;

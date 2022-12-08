@@ -1140,7 +1140,10 @@ pub mod pallet {
             )
         }
 
-        #[pallet::weight(<T as Config>::WeightInfo::signed_nominate(300u32, 20u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_nominate(
+            (T::MaxNominationsPerNominator::get() + T::MaxBottomNominationsPerCandidate::get()) * T::MinSelectedCandidates::get(),
+            T::MaxNominationsPerNominator::get())
+        )]
         #[transactional]
         pub fn signed_nominate(
             origin: OriginFor<T>,
@@ -1219,7 +1222,7 @@ pub mod pallet {
 
         /// Execute the right to exit the set of nominators and revoke all ongoing nominations.
         /// Any account can call this extrinsic
-        #[pallet::weight(<T as Config>::WeightInfo::signed_execute_leave_nominators(20u32))]
+        #[pallet::weight(<T as Config>::WeightInfo::signed_execute_leave_nominators(T::MaxNominationsPerNominator::get()))]
         #[transactional]
         pub fn signed_execute_leave_nominators(
             origin: OriginFor<T>,
@@ -1354,7 +1357,7 @@ pub mod pallet {
             );
 
             let dust = extra_amount.saturating_sub(amount_per_collator * num_nominations.into());
-
+            let mut remaining_amount_to_nominate = extra_amount;
             // This is only possible because we won't have more than 20 collators. If that changes,
             // we should not use a loop here.
             for (index, nomination) in nominations.into_iter().enumerate() {
@@ -1363,7 +1366,12 @@ pub mod pallet {
                     actual_amount = amount_per_collator + dust;
                 }
 
+                // make sure we don't bond more than what the user asked
+                actual_amount = remaining_amount_to_nominate.min(actual_amount);
+
                 Self::call_bond_extra(&nominator, nomination.owner, actual_amount)?;
+
+                remaining_amount_to_nominate -= actual_amount;
             }
 
             <ProxyNonces<T>>::mutate(&nominator, |n| *n += 1);
@@ -2120,13 +2128,15 @@ pub mod pallet {
             number_of_collators: u64,
             index: u64,
         ) -> bool {
+            if dust.is_zero() { return false }
+
             let block_number: u64 =
                 TryInto::<u64>::try_into(<frame_system::Pallet<T>>::block_number())
                     .unwrap_or_else(|_| 0u64);
 
             let chosen_collator_index = block_number % number_of_collators;
 
-            return !dust.is_zero() && index == chosen_collator_index
+            return index == chosen_collator_index
         }
 
         pub fn identify_collators_to_withdraw_from(
@@ -2199,6 +2209,7 @@ pub mod pallet {
 
             let amount_per_collator = Perbill::from_rational(1, num_collators) * amount;
             let dust = amount.saturating_sub(amount_per_collator * num_collators.into());
+            let mut remaining_amount_to_nominate = amount;
 
             // This is only possible because we won't have more than 20 collators. If that changes,
             // we should not use a loop here.
@@ -2212,6 +2223,9 @@ pub mod pallet {
                     actual_amount = amount_per_collator + dust;
                 }
 
+                // make sure we don't nominate more than what the user asked
+                actual_amount = remaining_amount_to_nominate.min(actual_amount);
+
                 Self::call_nominate(
                     nominator,
                     collator,
@@ -2220,6 +2234,7 @@ pub mod pallet {
                     nomination_count,
                 )?;
 
+                remaining_amount_to_nominate -= actual_amount;
                 nomination_count += 1;
             }
 
