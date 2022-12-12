@@ -253,6 +253,41 @@ mod proxy_signed_bond_extra {
         }
 
         #[test]
+        fn proxy_proof_extra_signature_is_not_valid() {
+            let collator_1 = to_acc_id(1u64);
+            let collator_2 = to_acc_id(2u64);
+            let staker: Staker = Default::default();
+            ExtBuilder::default()
+                .with_balances(vec![
+                    (collator_1, 10000),
+                    (collator_2, 10000),
+                    (staker.account_id, 10000),
+                    (staker.relayer, 10000),
+                ])
+                .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+                .with_nominations(vec![
+                    (staker.account_id, collator_1, 10),
+                    (staker.account_id, collator_2, 10),
+                ])
+                .build()
+                .execute_with(|| {
+                    let amount_to_topup = 1u128;
+                    let bad_amount_to_topup = 0u128;
+                    let nonce = ParachainStaking::proxy_nonce(staker.account_id);
+
+                    let proof =
+                        create_proof_for_signed_bond_extra(nonce, &staker, &amount_to_topup);
+                    let bond_extra_call =
+                        create_call_for_bond_extra_from_proof(proof, bad_amount_to_topup);
+
+                    assert_noop!(
+                        AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
+                        Error::<Test>::UnauthorizedSignedBondExtraTransaction
+                    );
+                });
+        }
+
+        #[test]
         fn staker_does_not_have_enough_funds() {
             let collator_1 = to_acc_id(1u64);
             let collator_2 = to_acc_id(2u64);
@@ -517,7 +552,7 @@ mod proxy_signed_candidate_bond_extra {
         }
 
         #[test]
-        fn proxy_proof_extra_amount_is_not_valid() {
+        fn proxy_proof_signature_is_not_valid() {
             let collator_1: Staker = Default::default();
             let collator_2 = to_acc_id(2u64);
             let initial_stake = 10;
