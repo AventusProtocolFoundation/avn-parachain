@@ -270,8 +270,6 @@ mod proxy_signed_schedule_revoke_nomination {
                     );
                 });
         }
-
-
     }
 }
 
