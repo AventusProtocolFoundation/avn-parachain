@@ -280,7 +280,7 @@ mod proxy_signed_schedule_unbond {
         }
 
         #[test]
-        fn proxy_proof_amount_to_withdraw_is_not_valid() {
+        fn proxy_proof_signature_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
             let collator_2 = to_acc_id(2u64);
             let staker: Staker = Default::default();
@@ -563,7 +563,7 @@ mod proxy_signed_schedule_collator_unbond {
         }
 
         #[test]
-        fn proxy_proof_amount_to_withdraw_is_not_valid() {
+        fn proxy_proof_signature_is_not_valid() {
             let collator_1: Staker = Default::default();
             let collator_2 = to_acc_id(2u64);
             ExtBuilder::default()
