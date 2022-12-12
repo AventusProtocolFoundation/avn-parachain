@@ -30,6 +30,7 @@ parking_lot = { version = "0.12.0" }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+pallet-parachain-staking = { version = "3.0.0", default-features = false, path = "../parachain-staking" }
 
 [features]
 migrate = []
@@ -45,4 +46,5 @@ std = [
 	"sp-avn-common/std",
 	"pallet-session/std",
 	"sp-application-crypto/std",
+	"pallet-parachain-staking/std",
 ]
