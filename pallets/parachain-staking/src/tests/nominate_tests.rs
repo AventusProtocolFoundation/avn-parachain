@@ -267,7 +267,7 @@ mod proxy_signed_nominate {
         }
 
         #[test]
-        fn proxy_proof_targets_are_not_valid() {
+        fn proxy_proof_signature_is_not_valid() {
             let collator_1 = to_acc_id(1u64);
             let collator_2 = to_acc_id(2u64);
             let staker: Staker = Default::default();
