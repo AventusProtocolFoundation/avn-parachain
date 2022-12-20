@@ -1141,8 +1141,7 @@ pub mod pallet {
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::signed_nominate(
-            (T::MaxNominationsPerNominator::get() + T::MaxBottomNominationsPerCandidate::get()) * T::MinSelectedCandidates::get(),
-            T::MaxNominationsPerNominator::get())
+            T::MaxNominationsPerNominator::get(), T::MaxTopNominationsPerCandidate::get())
         )]
         #[transactional]
         pub fn signed_nominate(
