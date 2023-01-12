@@ -14,6 +14,9 @@ use sp_runtime::{
 };
 use sp_std::{boxed::Box, vec::Vec};
 
+pub const OPEN_BYTES_TAG: &'static [u8] = b"<Bytes>";
+pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
+
 #[path = "tests/helpers.rs"]
 pub mod avn_tests_helpers;
 pub mod event_types;

@@ -16,7 +16,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_avn_common::{InnerCallValidator, Proof};
+use sp_avn_common::{InnerCallValidator, Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG};
 
 use core::convert::TryInto;
 pub use pallet::*;
@@ -152,20 +152,26 @@ impl<T: Config> Pallet<T> {
         payment_info: &PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
         payment_nonce: u64,
     ) -> Result<(), Error<T>> {
-        let signed_payload = (
+        let encoded_payload = (
             PAYMENT_AUTH_CONTEXT,
             &proof,
             &payment_info.recipient,
             &payment_info.amount,
             payment_nonce,
-        );
+        )
+            .encode();
 
-        match payment_info
-            .signature
-            .verify(signed_payload.encode().as_slice(), &payment_info.payer)
-        {
+        // TODO: centralise wrapped payload signature verification logic in primitives if possible.
+        let wrapped_encoded_payload: Vec<u8> =
+            [OPEN_BYTES_TAG, encoded_payload.as_slice(), CLOSE_BYTES_TAG].concat();
+        match payment_info.signature.verify(&*wrapped_encoded_payload, &payment_info.payer) {
             true => Ok(()),
-            false => Err(<Error<T>>::UnauthorizedFee.into()),
+            false =>
+                match payment_info.signature.verify(encoded_payload.as_slice(), &payment_info.payer)
+                {
+                    true => Ok(()),
+                    false => Err(<Error<T>>::UnauthorizedFee.into()),
+                },
         }
     }
 
