@@ -145,10 +145,19 @@ pub fn enable_staking<T: Config>() -> Weight {
 pub struct EnableStaking<T>(PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for EnableStaking<T> {
     fn on_runtime_upgrade() -> Weight {
-        let onchain_version = Pallet::<T>::on_chain_storage_version();
+        let current = Pallet::<T>::current_storage_version();
+        let onchain = Pallet::<T>::on_chain_storage_version();
 
-        if onchain_version < 1 {
+        log::info!(
+            "💽 Running migration with current storage version {:?} / onchain {:?}",
+            current,
+            onchain
+        );
+
+        if current == 1 && onchain == 0 {
             return enable_staking::<T>()
+        } else {
+            log::info!("💽 Migration was skipped");
         }
 
         Weight::zero()

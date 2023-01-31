@@ -133,6 +133,7 @@ pub mod pallet {
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
     /// Pallet for parachain staking
     #[pallet::pallet]
+    #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
     #[pallet::without_storage_info]
     pub struct Pallet<T>(PhantomData<T>);
 
@@ -716,6 +717,19 @@ pub mod pallet {
                 selected_collators_number: v_count,
                 total_balance: total_staked,
             });
+
+            log::info!(
+                "Staking storage chain/current storage version: {:?} / {:?}",
+                Pallet::<T>::on_chain_storage_version(),
+                Pallet::<T>::current_storage_version(),
+            );
+
+            // Set storage version
+            log::info!(
+                "Setting staking storage to latest version: {:?}",
+                crate::migration::STORAGE_VERSION
+            );
+            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 

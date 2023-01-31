@@ -45,18 +45,6 @@ mod proxy_signed_schedule_revoke_nomination {
         ))
     }
 
-    fn create_call_for_signed_schedule_revoke_nomination_proof(
-        proof: Proof<Signature, AccountId>,
-        collator: &AccountId,
-    ) -> Box<<Test as Config>::Call> {
-        return Box::new(MockCall::ParachainStaking(
-            super::super::Call::<Test>::signed_schedule_revoke_nomination {
-                proof,
-                collator: collator.clone(),
-            },
-        ))
-    }
-
     fn create_proof_for_signed_schedule_revoke_nomination(
         sender_nonce: u64,
         staker: &Staker,
@@ -705,7 +693,7 @@ mod proxy_signed_execute_revoke_all_nomination {
                     roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
 
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
-                    let bad_nominator = to_acc_id(2000u64);
+                    let _bad_nominator = to_acc_id(2000u64);
 
                     let proof = create_proof_for_signed_execute_leave_nominators(
                         nonce,
