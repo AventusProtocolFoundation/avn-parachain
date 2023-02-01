@@ -725,7 +725,6 @@ pub mod pallet {
                 Pallet::<T>::on_chain_storage_version(),
                 Pallet::<T>::current_storage_version(),
             );
-
         }
     }
 
