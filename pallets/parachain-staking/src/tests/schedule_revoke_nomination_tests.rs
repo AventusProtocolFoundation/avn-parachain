@@ -693,7 +693,6 @@ mod proxy_signed_execute_revoke_all_nomination {
                     roll_to_era_begin((ParachainStaking::delay() + 1u32) as u64);
 
                     let nonce = ParachainStaking::proxy_nonce(staker.account_id);
-                    let _bad_nominator = to_acc_id(2000u64);
 
                     let proof = create_proof_for_signed_execute_leave_nominators(
                         nonce,
