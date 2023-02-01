@@ -718,18 +718,14 @@ pub mod pallet {
                 total_balance: total_staked,
             });
 
-            log::info!(
+            // Set storage version
+            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
+            log::debug!(
                 "Staking storage chain/current storage version: {:?} / {:?}",
                 Pallet::<T>::on_chain_storage_version(),
                 Pallet::<T>::current_storage_version(),
             );
 
-            // Set storage version
-            log::info!(
-                "Setting staking storage to latest version: {:?}",
-                crate::migration::STORAGE_VERSION
-            );
-            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 
