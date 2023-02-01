@@ -148,16 +148,13 @@ impl<T: Config> OnRuntimeUpgrade for EnableStaking<T> {
         let current = Pallet::<T>::current_storage_version();
         let onchain = Pallet::<T>::on_chain_storage_version();
 
-        log::info!(
-            "💽 Running migration with current storage version {:?} / onchain {:?}",
-            current,
-            onchain
-        );
-
-        if current == 1 && onchain == 0 {
+        if onchain < 1 {
+            log::info!(
+                "💽 Running migration with current storage version {:?} / onchain {:?}",
+                current,
+                onchain
+            );
             return enable_staking::<T>()
-        } else {
-            log::info!("💽 Migration was skipped");
         }
 
         Weight::zero()
