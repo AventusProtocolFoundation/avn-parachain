@@ -1,0 +1,56 @@
+[package]
+name = "pallet-token-manager"
+version = "0.1.0"
+authors = ["Aventus Network Services Team"]
+edition = "2021"
+license = "GPL-3.0"
+homepage = "http://www.aventus.io/"
+repository = "https://github.com/Aventus-Network-Services/avn-parachain/"
+
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
+enumflags2 = { version = "0.7.4" }
+pallet-avn = { git = "https://github.com/Aventus-Network-Services/avn-parachain", default-features = false,  tag = "v1.0.1" }
+hex-literal = { version = "0.3.4", default-features = false }
+scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
+sp-avn-common = { git = "https://github.com/Aventus-Network-Services/avn-parachain", default-features = false,  tag = "v1.0.1" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+
+# Optional imports for benchmarking
+serde = { version = "1.0.137", optional = true }
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", optional = true }
+
+[dev-dependencies]
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+pallet-parachain-staking = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.0.1" }
+pallet-session = { features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+	"serde",
+	"codec/std",
+	"sp-std/std",
+	"sp-runtime/std",
+	"frame-support/std",
+	"frame-system/std",
+	"sp-avn-common/std",
+	"pallet-avn/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
