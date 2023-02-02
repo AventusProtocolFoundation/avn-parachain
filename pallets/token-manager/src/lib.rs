@@ -262,7 +262,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// This extrinsic allows relayer to dispatch a `signed_transfer` or `signed_lower` call for
-        /// a sender As a general rule, every function that can be proxied should follow
+        /// a sender. As a general rule, every function that can be proxied should follow
         /// this convention:
         /// - its first argument (after origin) should be a public verification key and a signature
         #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(call.get_dispatch_info().weight))]
@@ -488,9 +488,9 @@ impl<T: Config> Pallet<T> {
             let lower_amount = <BalanceOf<T> as TryFrom<u128>>::try_from(amount)
                 .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
             // Note: Keep account alive when balance is lower than existence requirement,
-            //       so the SystemNonce will not be reset just in case if any logic relies on the
-            // SystemNonce.       However all zero AVT account balances will be kept in
-            // our runtime storage
+            // so the SystemNonce will not be reset just in case if any logic relies on the
+            // SystemNonce. However all zero AVT account balances will be kept in our
+            // runtime storage.
             let imbalance = <T as pallet::Config>::Currency::withdraw(
                 &from,
                 lower_amount,
@@ -552,8 +552,8 @@ impl<T: Config> Pallet<T> {
             .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
 
         // Drop the imbalance caused by depositing amount into the recipient account without a
-        // corresponding deduction If the recipient account does not exist, deposit_creating
-        // function will create a new one.
+        // corresponding deduction.  If the recipient account does not exist,
+        // deposit_creating function will create a new one.
         let imbalance: PositiveImbalanceOf<T> =
             <T as pallet::Config>::Currency::deposit_creating(recipient_account_id, amount);
 

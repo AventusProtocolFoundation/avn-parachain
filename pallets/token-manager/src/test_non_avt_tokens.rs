@@ -831,7 +831,7 @@ fn avn_test_lower_non_avt_token_should_fail_when_sender_does_not_have_enough_tok
 }
 
 // Note: This test prevents the implementation of lower function from using a t2 destination account
-// to receive all the tokens,       which may cause an overflow of the t2 destination account token
+// to receive all the tokens, which may cause an overflow of the t2 destination account token
 // balance
 #[test]
 fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {

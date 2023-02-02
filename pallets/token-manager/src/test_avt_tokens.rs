@@ -220,8 +220,7 @@ fn avn_test_lower_avt_token_should_fail_when_sender_does_not_have_enough_avt_tok
 }
 
 // Note: This test prevents the implementation of lower function to use a t2 destination account to
-// receive all the tokens       which may cause an overflow of the t2 destination account token
-// balance
+// receive all the tokens which may cause an overflow of the t2 destination account token balance
 #[test]
 fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
     let mut ext = ExtBuilder::build_default()
