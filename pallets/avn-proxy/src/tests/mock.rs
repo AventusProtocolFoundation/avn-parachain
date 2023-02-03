@@ -293,6 +293,25 @@ pub fn proxy_event_emitted(
     })
 }
 
+pub fn proxy_failed_inner_dispatch_event_emitted(
+    call_relayer: AccountId,
+    call_hash: <TestRuntime as system::Config>::Hash,
+) -> bool {
+    return System::events().iter().any(|a| match a.event {
+        Event::AvnProxy(crate::Event::<TestRuntime>::InnerCallFailedDispatch {
+            relayer,
+            hash,
+            ..
+        }) =>
+        if relayer == call_relayer && call_hash == hash {
+            return true
+            } else {
+                return false
+            },
+        _ => false,
+    })
+}
+
 #[derive(Clone)]
 pub struct SingleNftContext {
     pub unique_external_ref: Vec<u8>,

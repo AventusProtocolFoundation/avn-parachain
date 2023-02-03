@@ -81,7 +81,15 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        CallDispatched { relayer: T::AccountId, hash: T::Hash },
+        CallDispatched {
+            relayer: T::AccountId,
+            hash: T::Hash,
+        },
+        InnerCallFailedDispatch {
+            relayer: T::AccountId,
+            hash: T::Hash,
+            dispatch_error: DispatchError,
+        },
     }
 
     #[pallet::error]
@@ -126,8 +134,19 @@ pub mod pallet {
             let call_hash: T::Hash = T::Hashing::hash_of(&call);
             let sender: T::Origin = frame_system::RawOrigin::Signed(proof.signer.clone()).into();
 
-            call.dispatch(sender).map(|_| ()).map_err(|e| e.error)?;
-            Self::deposit_event(Event::<T>::CallDispatched { relayer, hash: call_hash });
+            let dispatch_result = call.dispatch(sender).map(|_| ()).map_err(|e| e.error);
+            match dispatch_result {
+                Ok(_) => {
+                    Self::deposit_event(Event::<T>::CallDispatched { relayer, hash: call_hash });
+                },
+                Err(dispatch_error) => {
+                    Self::deposit_event(Event::<T>::InnerCallFailedDispatch {
+                        relayer,
+                        hash: call_hash,
+                        dispatch_error,
+                    });
+                },
+            }
 
             Ok(Some(final_weight).into())
         }
