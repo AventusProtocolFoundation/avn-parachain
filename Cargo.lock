@@ -1517,6 +1517,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-avn-finality-tracker"
+version = "0.12.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "pallet-avn",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "parking_lot",
+ "scale-info",
+ "serde",
+ "sp-application-crypto",
+ "sp-avn-common",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "substrate-test-utils",
+]
+
+[[package]]
 name = "pallet-avn-proxy"
 version = "0.12.0"
 dependencies = [
