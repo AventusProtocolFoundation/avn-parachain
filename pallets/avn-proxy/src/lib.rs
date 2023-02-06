@@ -85,7 +85,7 @@ pub mod pallet {
             relayer: T::AccountId,
             hash: T::Hash,
         },
-        InnerCallFailedDispatch {
+        InnerCallDispatchFailed {
             relayer: T::AccountId,
             hash: T::Hash,
             dispatch_error: DispatchError,
@@ -140,7 +140,7 @@ pub mod pallet {
                     Self::deposit_event(Event::<T>::CallDispatched { relayer, hash: call_hash });
                 },
                 Err(dispatch_error) => {
-                    Self::deposit_event(Event::<T>::InnerCallFailedDispatch {
+                    Self::deposit_event(Event::<T>::InnerCallDispatchFailed {
                         relayer,
                         hash: call_hash,
                         dispatch_error,
