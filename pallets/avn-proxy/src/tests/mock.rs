@@ -303,8 +303,8 @@ pub fn proxy_failed_inner_dispatch_event_emitted(
             hash,
             ..
         }) =>
-        if relayer == call_relayer && call_hash == hash {
-            return true
+            if relayer == call_relayer && call_hash == hash {
+                return true
             } else {
                 return false
             },
