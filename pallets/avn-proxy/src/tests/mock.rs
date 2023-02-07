@@ -298,11 +298,7 @@ pub fn proxy_failed_inner_dispatch_event_emitted(
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
     return System::events().iter().any(|a| match a.event {
-        Event::AvnProxy(crate::Event::<TestRuntime>::InnerCallFailed {
-            relayer,
-            hash,
-            ..
-        }) =>
+        Event::AvnProxy(crate::Event::<TestRuntime>::InnerCallFailed { relayer, hash, .. }) =>
             if relayer == call_relayer && call_hash == hash {
                 return true
             } else {
