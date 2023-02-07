@@ -74,10 +74,7 @@ mod proxy_without_fees {
 
                 assert_eq!(
                     true,
-                    inner_call_failed_event_emitted(
-                        context.relayer.account_id(),
-                        call_hash
-                    )
+                    inner_call_failed_event_emitted(context.relayer.account_id(), call_hash)
                 );
             })
         }

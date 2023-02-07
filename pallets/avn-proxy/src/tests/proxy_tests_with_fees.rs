@@ -127,10 +127,7 @@ mod charging_fees {
 
                 assert_eq!(
                     true,
-                    inner_call_failed_event_emitted(
-                        context.relayer.account_id(),
-                        call_hash
-                    )
+                    inner_call_failed_event_emitted(context.relayer.account_id(), call_hash)
                 );
                 assert_eq!(false, proxy_event_emitted(context.relayer.account_id(), call_hash));
                 assert_eq!(false, single_nft_minted_events_emitted());
