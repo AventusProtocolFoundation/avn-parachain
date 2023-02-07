@@ -127,7 +127,7 @@ mod charging_fees {
 
                 assert_eq!(
                     true,
-                    proxy_failed_inner_dispatch_event_emitted(
+                    inner_call_failed_event_emitted(
                         context.relayer.account_id(),
                         call_hash
                     )

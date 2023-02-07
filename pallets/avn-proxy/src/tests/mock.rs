@@ -293,7 +293,7 @@ pub fn proxy_event_emitted(
     })
 }
 
-pub fn proxy_failed_inner_dispatch_event_emitted(
+pub fn inner_call_failed_event_emitted(
     call_relayer: AccountId,
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
