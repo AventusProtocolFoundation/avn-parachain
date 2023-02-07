@@ -111,8 +111,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotin
     }
 }
 
-/***************************** Functions that run in an offchain worker context
- * **************************** */
+/***************** Functions that run in an offchain worker context  **************** */
 
 pub fn create_vote_lock_name<T: Config>(root_id: &RootId<T::BlockNumber>) -> OcwLock::PersistentId {
     let mut name = b"vote_summary::hash::".to_vec();
@@ -240,7 +239,7 @@ pub fn end_voting_if_required<T: Config>(
 
 fn root_can_be_voted_on<T: Config>(root_id: &RootId<T::BlockNumber>, voter: &T::AccountId) -> bool {
     // There is an edge case here. If this is being run very close to `end_of_voting_period`, by the
-    // time the vote gets mined It may be outside the voting window and get rejected.
+    // time the vote gets mined. It may be outside the voting window and get rejected.
     let root_voting_session = Summary::<T>::get_root_voting_session(root_id);
     let voting_session_data = root_voting_session.state();
     return voting_session_data.is_ok() &&
