@@ -7,9 +7,9 @@ use crate::{
     encode_signed_execute_nomination_request_params,
     encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_nominator_unbond_params,
     mock::{
-        build_proof, roll_to, roll_to_era_begin, sign, AccountId, AvnProxy, Call as MockCall,
-        Event as MetaEvent, ExtBuilder, MinNominationPerCollator, Origin, ParachainStaking,
-        Signature, Staker, System, Test, TestAccount,
+        build_proof, inner_call_failed_event_emitted, roll_to, roll_to_era_begin, sign, AccountId,
+        AvnProxy, Call as MockCall, Event as MetaEvent, ExtBuilder, MinNominationPerCollator,
+        Origin, ParachainStaking, Signature, Staker, System, Test, TestAccount,
     },
     Bond, Config, Error, Event, NominationAction, Proof, ScheduledRequest,
 };
@@ -273,9 +273,12 @@ mod proxy_signed_schedule_nominator_unbond {
                         amount_to_withdraw,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None),
-                        Error::<Test>::UnauthorizedSignedUnbondTransaction
+                    assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedUnbondTransaction.into()
+                        )
                     );
                 });
         }
@@ -313,9 +316,12 @@ mod proxy_signed_schedule_nominator_unbond {
                         proof,
                         bad_amount_to_withdraw,
                     );
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None),
-                        Error::<Test>::UnauthorizedSignedUnbondTransaction
+                    assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedUnbondTransaction.into()
+                        )
                     );
                 });
         }
@@ -353,9 +359,12 @@ mod proxy_signed_schedule_nominator_unbond {
                         bad_amount_to_unbond,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None),
-                        Error::<Test>::NominatorBondBelowMin
+                    assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::NominatorBondBelowMin.into()
+                        )
                     );
                 });
         }
@@ -392,9 +401,10 @@ mod proxy_signed_schedule_nominator_unbond {
                         bad_amount_to_unbond,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None),
-                        Error::<Test>::NominationBelowMin
+                    assert_ok!(AvnProxy::proxy(Origin::signed(staker.relayer), unbond_call, None));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(Error::<Test>::NominationBelowMin.into())
                     );
                 });
         }
@@ -556,9 +566,16 @@ mod proxy_signed_schedule_collator_unbond {
                         bad_nonce,
                         amount_to_withdraw,
                     );
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(collator_1.relayer), unbond_call, None),
-                        Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(collator_1.relayer),
+                        unbond_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction.into()
+                        )
                     );
                 });
         }
@@ -590,9 +607,16 @@ mod proxy_signed_schedule_collator_unbond {
                         proof,
                         bad_amount_to_withdraw,
                     );
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(collator_1.relayer), unbond_call, None),
-                        Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(collator_1.relayer),
+                        unbond_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction.into()
+                        )
                     );
                 });
         }
@@ -623,9 +647,16 @@ mod proxy_signed_schedule_collator_unbond {
                         amount_to_withdraw,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(collator_1.relayer), unbond_call, None),
-                        Error::<Test>::CandidateBondBelowMin
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(collator_1.relayer),
+                        unbond_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::CandidateBondBelowMin.into()
+                        )
                     );
                 });
         }
@@ -831,9 +862,17 @@ mod signed_execute_nomination_request {
                         staker.account_id,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), execute_unbond_call, None),
-                        Error::<Test>::UnauthorizedSignedExecuteNominationRequestTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        execute_unbond_call,
+                        None
+                    ),);
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedExecuteNominationRequestTransaction
+                                .into()
+                        )
                     );
                 });
         }

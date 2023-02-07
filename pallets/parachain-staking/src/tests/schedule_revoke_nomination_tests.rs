@@ -7,9 +7,9 @@ use crate::{
     encode_signed_schedule_leave_nominators_params,
     encode_signed_schedule_revoke_nomination_params,
     mock::{
-        build_proof, roll_to, roll_to_era_begin, sign, AccountId, AvnProxy, Balances,
-        Call as MockCall, Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Signature,
-        Staker, Test, TestAccount,
+        build_proof, inner_call_failed_event_emitted, roll_to, roll_to_era_begin, sign, AccountId,
+        AvnProxy, Balances, Call as MockCall, Event as MetaEvent, ExtBuilder, Origin,
+        ParachainStaking, Signature, Staker, Test, TestAccount,
     },
     Config, Error, Event, Proof,
 };
@@ -394,13 +394,17 @@ mod proxy_signed_schedule_leave_nominators {
                     let leave_nominators_call =
                         create_call_for_signed_schedule_leave_nominators(&staker, bad_nonce);
 
-                    assert_noop!(
-                        AvnProxy::proxy(
-                            Origin::signed(staker.relayer),
-                            leave_nominators_call,
-                            None
-                        ),
-                        Error::<Test>::UnauthorizedSignedScheduleLeaveNominatorsTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        leave_nominators_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedScheduleLeaveNominatorsTransaction
+                                .into()
+                        )
                     );
                 });
         }
@@ -605,13 +609,17 @@ mod proxy_signed_execute_revoke_all_nomination {
                             &staker.account_id,
                         );
 
-                    assert_noop!(
-                        AvnProxy::proxy(
-                            Origin::signed(staker.relayer),
-                            execute_leave_nominators_call,
-                            None
-                        ),
-                        Error::<Test>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        execute_leave_nominators_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
+                                .into()
+                        )
                     );
                 });
         }
@@ -656,13 +664,14 @@ mod proxy_signed_execute_revoke_all_nomination {
                             &bad_nominator,
                         );
 
-                    assert_noop!(
-                        AvnProxy::proxy(
-                            Origin::signed(staker.relayer),
-                            execute_leave_nominators_call,
-                            None
-                        ),
-                        Error::<Test>::NominatorDNE
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        execute_leave_nominators_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(Error::<Test>::NominatorDNE.into())
                     );
                 });
         }
@@ -706,13 +715,17 @@ mod proxy_signed_execute_revoke_all_nomination {
                             &collator_1,
                         );
 
-                    assert_noop!(
-                        AvnProxy::proxy(
-                            Origin::signed(staker.relayer),
-                            execute_leave_nominators_call,
-                            None
-                        ),
-                        Error::<Test>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        execute_leave_nominators_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
+                                .into()
+                        )
                     );
                 });
         }

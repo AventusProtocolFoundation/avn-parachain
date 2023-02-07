@@ -6,11 +6,13 @@ use crate::{
     assert_event_emitted, assert_last_event, encode_signed_bond_extra_params,
     encode_signed_candidate_bond_extra_params,
     mock::{
-        build_proof, sign, AccountId, AvnProxy, Call as MockCall, Event as MetaEvent, ExtBuilder,
-        MinNominationPerCollator, Origin, ParachainStaking, Signature, Staker, Test, TestAccount,
+        build_proof, inner_call_failed_event_emitted, sign, AccountId, AvnProxy, Call as MockCall,
+        Event as MetaEvent, ExtBuilder, MinNominationPerCollator, Origin, ParachainStaking,
+        Signature, Staker, Test, TestAccount,
     },
     Config, Error, Event, Proof,
 };
+
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
 
@@ -288,9 +290,16 @@ mod proxy_signed_bond_extra {
                     let bond_extra_call =
                         create_call_for_bond_extra(&staker, bad_nonce, amount_to_topup);
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
-                        Error::<Test>::UnauthorizedSignedBondExtraTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        bond_extra_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedBondExtraTransaction.into()
+                        )
                     );
                 });
         }
@@ -322,9 +331,14 @@ mod proxy_signed_bond_extra {
                     let bond_extra_call =
                         create_call_for_bond_extra_from_proof(proof, bad_amount_to_topup);
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
-                        Error::<Test>::NominationBelowMin
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        bond_extra_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(Error::<Test>::NominationBelowMin.into())
                     );
                 });
         }
@@ -357,9 +371,17 @@ mod proxy_signed_bond_extra {
                     let bond_extra_call =
                         create_call_for_bond_extra_from_proof(proof, bad_amount_to_topup);
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
-                        Error::<Test>::UnauthorizedSignedBondExtraTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        bond_extra_call,
+                        None
+                    ));
+
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedBondExtraTransaction.into()
+                        )
                     );
                 });
         }
@@ -397,9 +419,14 @@ mod proxy_signed_bond_extra {
                     let bond_extra_call =
                         create_call_for_bond_extra(&staker, nonce, bad_amount_to_stake);
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
-                        Error::<Test>::InsufficientBalance
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        bond_extra_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(Error::<Test>::InsufficientBalance.into())
                     );
                 });
         }
@@ -434,9 +461,14 @@ mod proxy_signed_bond_extra {
                     let bond_extra_call =
                         create_call_for_bond_extra(&staker, nonce, bad_stake_amount);
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), bond_extra_call, None),
-                        Error::<Test>::NominationBelowMin
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        bond_extra_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(Error::<Test>::NominationBelowMin.into())
                     );
                 });
         }
@@ -621,9 +653,16 @@ mod proxy_signed_candidate_bond_extra {
                         amount_to_topup,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(collator_1.relayer), bond_extra_call, None),
-                        Error::<Test>::UnauthorizedSignedCandidateBondExtraTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(collator_1.relayer),
+                        bond_extra_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedCandidateBondExtraTransaction.into()
+                        )
                     );
                 });
         }
@@ -658,9 +697,16 @@ mod proxy_signed_candidate_bond_extra {
                     let bond_extra_call =
                         create_call_for_candidate_bond_extra_from_proof(proof, bad_amount_to_topup);
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(collator_1.relayer), bond_extra_call, None),
-                        Error::<Test>::UnauthorizedSignedCandidateBondExtraTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(collator_1.relayer),
+                        bond_extra_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedCandidateBondExtraTransaction.into()
+                        )
                     );
                 });
         }
@@ -698,9 +744,14 @@ mod proxy_signed_candidate_bond_extra {
                         bad_amount_to_stake,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(collator_1.relayer), bond_extra_call, None),
-                        Error::<Test>::InsufficientBalance
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(collator_1.relayer),
+                        bond_extra_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(Error::<Test>::InsufficientBalance.into())
                     );
                 });
         }
