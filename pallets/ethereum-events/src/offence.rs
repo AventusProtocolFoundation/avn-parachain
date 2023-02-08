@@ -1,4 +1,4 @@
-//Copyright 2020 Artos Systems (UK) Ltd.
+//Copyright 2021 Aventus Network Services (UK) Ltd.
 
 use sp_runtime::Perbill;
 use sp_staking::{
