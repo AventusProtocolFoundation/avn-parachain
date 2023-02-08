@@ -34,7 +34,7 @@ substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
-pallet-parachain-staking = { version = "3.0.0", default-features = false, path = "../parachain-staking" }
+pallet-parachain-staking = { version = "3.0.0", path = "../parachain-staking" }
 pallet-session = { features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", default-features = false }
 
 [features]
