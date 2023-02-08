@@ -1,0 +1,54 @@
+[package]
+name = "pallet-avn-finality-tracker"
+version = "0.12.0"
+authors = ["Aventus Network Services Team"]
+edition = "2021"
+license = "GPL-3.0"
+homepage = "http://www.aventus.io/"
+repository = "https://github.com/Aventus-Network-Services/avn-node-parachain/"
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+
+sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+sp-avn-common = { version = "0.12.0", default-features = false, path = "../../primitives/avn-common" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+pallet-avn = { version = "0.12.0", default-features = false, path = "../avn" }
+
+# Optional imports
+serde = { version = "1.0.137", optional = true }
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27", optional = true }
+
+[dev-dependencies]
+hex-literal = { version = "0.3.4", default-features = false }
+parking_lot = { version = "0.12.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.27" }
+
+[features]
+migrate = []
+default = ["std"]
+std = [
+	"serde",
+	"codec/std",
+	"sp-std/std",
+	"sp-core/std",
+	"frame-support/std",
+	"sp-runtime/std",
+	"sp-avn-common/std",
+	"frame-system/std",
+	"sp-application-crypto/std",
+	"pallet-avn/std"
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
