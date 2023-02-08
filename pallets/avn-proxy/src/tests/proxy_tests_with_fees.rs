@@ -2,9 +2,8 @@
 
 #![cfg(test)]
 use crate::{mock::*, *};
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use pallet_balances::Error as BalanceError;
-use pallet_nft_manager::Error as NftManagerError;
 use sp_runtime::traits::Hash;
 
 pub const GATEWAY_FEE: u128 = ONE_AVT;
@@ -120,16 +119,16 @@ mod charging_fees {
                 let relayer_balance = Balances::free_balance(context.relayer.account_id());
 
                 // Dispatch fails
-                assert_err!(
-                    AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
-                        inner_call,
-                        payment_authorisation
-                    ),
-                    NftManagerError::<TestRuntime>::ExternalRefIsMandatory
-                );
+                assert_ok!(AvnProxy::proxy(
+                    Origin::signed(context.relayer.account_id()),
+                    inner_call,
+                    payment_authorisation
+                ));
 
-                // No success events emitted
+                assert_eq!(
+                    true,
+                    inner_call_failed_event_emitted(context.relayer.account_id(), call_hash)
+                );
                 assert_eq!(false, proxy_event_emitted(context.relayer.account_id(), call_hash));
                 assert_eq!(false, single_nft_minted_events_emitted());
 

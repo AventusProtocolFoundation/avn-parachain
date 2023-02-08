@@ -5,8 +5,9 @@
 use crate::{
     assert_event_emitted, assert_last_event, encode_signed_nominate_params,
     mock::{
-        build_proof, sign, AccountId, AvnProxy, Call as MockCall, Event as MetaEvent, ExtBuilder,
-        Origin, ParachainStaking, Signature, Staker, Test, TestAccount,
+        build_proof, inner_call_failed_event_emitted, sign, AccountId, AvnProxy, Call as MockCall,
+        Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Signature, Staker, Test,
+        TestAccount,
     },
     Config, Error, Event, NominatorAdded, Proof, StaticLookup,
 };
@@ -281,9 +282,16 @@ mod proxy_signed_nominate {
                         amount_to_stake,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
-                        Error::<Test>::UnauthorizedSignedNominateTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        nominate_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedNominateTransaction.into()
+                        )
                     );
                 });
         }
@@ -317,9 +325,16 @@ mod proxy_signed_nominate {
                         vec![collator_1, collator_2],
                         bad_amount_to_stake,
                     );
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
-                        Error::<Test>::NominatorBondBelowMin
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        nominate_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::NominatorBondBelowMin.into()
+                        )
                     );
                 });
         }
@@ -350,9 +365,16 @@ mod proxy_signed_nominate {
                     );
                     let nominate_call =
                         create_call_for_nominate_from_proof(proof, bad_targets, amount_to_stake);
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
-                        Error::<Test>::UnauthorizedSignedNominateTransaction
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        nominate_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::UnauthorizedSignedNominateTransaction.into()
+                        )
                     );
                 });
         }
@@ -386,9 +408,14 @@ mod proxy_signed_nominate {
                         bad_amount_to_stake,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
-                        Error::<Test>::InsufficientBalance
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        nominate_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(Error::<Test>::InsufficientBalance.into())
                     );
                 });
         }
@@ -424,9 +451,16 @@ mod proxy_signed_nominate {
                         bad_stake_amount,
                     );
 
-                    assert_noop!(
-                        AvnProxy::proxy(Origin::signed(staker.relayer), nominate_call, None),
-                        Error::<Test>::NominatorBondBelowMin
+                    assert_ok!(AvnProxy::proxy(
+                        Origin::signed(staker.relayer),
+                        nominate_call,
+                        None
+                    ));
+                    assert_eq!(
+                        true,
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::NominatorBondBelowMin.into()
+                        )
                     );
                 });
         }

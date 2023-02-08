@@ -40,7 +40,7 @@ use sp_io;
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
-    Perbill, SaturatedConversion,
+    DispatchError, Perbill, SaturatedConversion,
 };
 
 pub type AccountId = <Signature as Verify>::Signer;
@@ -400,6 +400,18 @@ impl InnerCallValidator for TestAvnProxyConfig {
             _ => false,
         }
     }
+}
+
+pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bool {
+    return System::events().iter().any(|a| match a.event {
+        Event::AvnProxy(avn_proxy::Event::<Test>::InnerCallFailed { dispatch_error, .. }) =>
+            if dispatch_error == call_dispatch_error {
+                return true
+            } else {
+                return false
+            },
+        _ => false,
+    })
 }
 
 pub fn build_proof(

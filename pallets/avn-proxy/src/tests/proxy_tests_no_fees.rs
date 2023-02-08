@@ -4,7 +4,6 @@
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
-use pallet_nft_manager::Error as NftManagerError;
 use sp_runtime::traits::Hash;
 
 mod proxy_without_fees {
@@ -45,6 +44,38 @@ mod proxy_without_fees {
                     None
                 ));
                 assert_eq!(true, single_nft_minted_events_emitted());
+            })
+        }
+
+        #[test]
+        fn inner_call_fails_to_execute() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let context: ProxyContext = Default::default();
+                let inner_call = create_signed_mint_single_nft_call(&context);
+
+                assert_eq!(false, single_nft_minted_events_emitted());
+                assert_ok!(AvnProxy::proxy(
+                    Origin::signed(context.relayer.account_id()),
+                    inner_call,
+                    None
+                ));
+                assert_eq!(single_nft_minted_events_count(), 1);
+
+                let inner_call_with_duplicate_external_ref =
+                    create_signed_mint_single_nft_call(&context);
+                let call_hash = Hashing::hash_of(&inner_call_with_duplicate_external_ref);
+
+                assert_ok!(AvnProxy::proxy(
+                    Origin::signed(context.relayer.account_id()),
+                    inner_call_with_duplicate_external_ref,
+                    None
+                ));
+
+                assert_eq!(
+                    true,
+                    inner_call_failed_event_emitted(context.relayer.account_id(), call_hash)
+                );
             })
         }
     }
@@ -122,35 +153,6 @@ mod proxy_without_fees {
                 );
 
                 assert_eq!(System::events().len(), 0);
-            })
-        }
-
-        #[test]
-        fn inner_call_fails_to_execute() {
-            let mut ext = ExtBuilder::build_default().as_externality();
-            ext.execute_with(|| {
-                let context: ProxyContext = Default::default();
-                let inner_call = create_signed_mint_single_nft_call(&context);
-
-                assert_eq!(false, single_nft_minted_events_emitted());
-                assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
-                    inner_call,
-                    None
-                ));
-                assert_eq!(single_nft_minted_events_count(), 1);
-
-                let inner_call_with_duplicate_external_ref =
-                    create_signed_mint_single_nft_call(&context);
-
-                assert_noop!(
-                    AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
-                        inner_call_with_duplicate_external_ref,
-                        None
-                    ),
-                    NftManagerError::<TestRuntime>::ExternalRefIsAlreadyInUse
-                );
             })
         }
     }
