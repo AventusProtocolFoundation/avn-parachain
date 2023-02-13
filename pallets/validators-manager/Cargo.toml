@@ -46,7 +46,7 @@ pallet-avn-proxy = { version = "0.12.0", default-features = false, path = "../av
 
 [features]
 migrate = []
-default = ["std"]
+default = ["std", "pallet-session/historical"]
 std = [
 	"serde",
 	"codec/std",

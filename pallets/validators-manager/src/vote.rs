@@ -106,8 +106,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber>
     }
 }
 
-/************************ Functions that run in an offchain worker context
- * ************************ */
+/* ************ Functions that run in an offchain worker context ************ */
 
 pub fn create_vote_lock_name<T: Config>(
     action_id: &ActionId<T::AccountId>,
