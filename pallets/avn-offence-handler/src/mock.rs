@@ -40,7 +40,7 @@ frame_support::construct_runtime!(
 pub type ValidatorId = <TestRuntime as session::Config>::ValidatorId;
 
 impl Config for TestRuntime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type Enforcer = Self;
     type WeightInfo = ();
 }
@@ -78,7 +78,7 @@ impl session::Config for TestRuntime {
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (AVN,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = u64;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
@@ -94,8 +94,8 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -103,7 +103,7 @@ impl system::Config for TestRuntime {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;

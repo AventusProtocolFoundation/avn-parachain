@@ -471,7 +471,7 @@ mod submit_candidate_for_tier1 {
                 assert_eq!(EthereumTransactions::event_count(), 0);
 
                 assert_ok!(call_submit_candidate_for_tier1(expected_candidate, context.from));
-                let event = mock::Event::EthereumTransactions(
+                let event = mock::RuntimeEvent::EthereumTransactions(
                     crate::Event::<TestRuntime>::TransactionReadyToSend {
                         transaction_id: context.tx_id,
                         sender: context.from,
@@ -509,7 +509,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
     }
 
     fn call_set_eth_tx_hash_for_dispatched_tx(
-        origin: Origin,
+        origin: RuntimeOrigin,
         tx_id: TransactionId,
         submitter: AccountId,
         eth_tx_hash: EthereumTransactionHash,
@@ -569,7 +569,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
                     context.hash
                 ));
 
-                let event = mock::Event::EthereumTransactions(
+                let event = mock::RuntimeEvent::EthereumTransactions(
                     crate::Event::<TestRuntime>::EthereumTransactionHashAdded {
                         transaction_id: context.tx_id,
                         transaction_hash: context.hash,
@@ -600,7 +600,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
                 // untouched
                 assert_noop!(
                     call_set_eth_tx_hash_for_dispatched_tx(
-                        Origin::signed(Default::default()),
+                        RuntimeOrigin::signed(Default::default()),
                         context.tx_id,
                         context.submitter,
                         context.hash,
@@ -1264,7 +1264,7 @@ mod unreserve_transaction_tests {
                 );
                 assert_noop!(
                     EthereumTransactions::unreserve_transaction(
-                        Origin::signed(Default::default()),
+                        RuntimeOrigin::signed(Default::default()),
                         context.transaction_type.clone()
                     ),
                     BadOrigin

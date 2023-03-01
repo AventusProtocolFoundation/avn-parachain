@@ -149,7 +149,7 @@ mod register_validator {
                 assert_eq!(
                     true,
                     System::events().iter().any(|a| a.event ==
-                        mock::Event::ValidatorManager(
+                        mock::RuntimeEvent::ValidatorManager(
                             crate::Event::<TestRuntime>::ValidatorRegistered {
                                 validator_id: context.new_validator_id,
                                 eth_key: context.validator_eth_public_key.clone()
@@ -160,7 +160,7 @@ mod register_validator {
                 assert_eq!(
                     false,
                     System::events().iter().any(|a| a.event ==
-                        mock::Event::ValidatorManager(
+                        mock::RuntimeEvent::ValidatorManager(
                             crate::Event::<TestRuntime>::ValidatorActivationStarted {
                                 validator_id: context.new_validator_id
                             }
@@ -205,7 +205,7 @@ mod register_validator {
                 assert_eq!(
                     true,
                     System::events().iter().any(|a| a.event ==
-                        mock::Event::ValidatorManager(
+                        mock::RuntimeEvent::ValidatorManager(
                             crate::Event::<TestRuntime>::ValidatorActivationStarted {
                                 validator_id: context.new_validator_id
                             }
@@ -256,7 +256,7 @@ mod remove_validator_public {
 
             //Event emitted as expected
             assert!(System::events().iter().any(|a| a.event ==
-                mock::Event::ValidatorManager(
+                mock::RuntimeEvent::ValidatorManager(
                     crate::Event::<TestRuntime>::ValidatorDeregistered {
                         validator_id: context.new_validator_id
                     }
@@ -318,7 +318,7 @@ mod remove_validator_public {
             let num_events = System::events().len();
             assert_noop!(
                 ValidatorManager::remove_validator(
-                    Origin::signed(validator_id_3()),
+                    RuntimeOrigin::signed(validator_id_3()),
                     validator_id_3()
                 ),
                 BadOrigin
@@ -484,13 +484,14 @@ mod remove_slashed_validator {
                     .is_some()
             );
 
-            let event =
-                mock::Event::ValidatorManager(crate::Event::<TestRuntime>::ValidatorSlashed {
+            let event = mock::RuntimeEvent::ValidatorManager(
+                crate::Event::<TestRuntime>::ValidatorSlashed {
                     action_id: ActionId {
                         action_account_id: offender_validator_id,
                         ingress_counter,
                     },
-                });
+                },
+            );
             assert_eq!(true, ValidatorManager::event_emitted(&event));
 
             // It takes 2 session for validators to be updated

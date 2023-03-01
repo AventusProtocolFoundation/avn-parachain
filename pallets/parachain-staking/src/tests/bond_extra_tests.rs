@@ -6,9 +6,9 @@ use crate::{
     assert_event_emitted, assert_last_event, encode_signed_bond_extra_params,
     encode_signed_candidate_bond_extra_params,
     mock::{
-        build_proof, inner_call_failed_event_emitted, sign, AccountId, AvnProxy, Call as MockCall,
-        Event as MetaEvent, ExtBuilder, MinNominationPerCollator, Origin, ParachainStaking,
-        Signature, Staker, Test, TestAccount,
+        build_proof, inner_call_failed_event_emitted, sign, AccountId, AvnProxy, ExtBuilder,
+        MinNominationPerCollator, ParachainStaking, RuntimeCall as MockCall,
+        RuntimeEvent as MetaEvent, RuntimeOrigin as Origin, Signature, Staker, Test, TestAccount,
     },
     Config, Error, Event, Proof,
 };
@@ -27,7 +27,7 @@ mod proxy_signed_bond_extra {
         staker: &Staker,
         sender_nonce: u64,
         extra_amount: u128,
-    ) -> Box<<Test as Config>::Call> {
+    ) -> Box<<Test as Config>::RuntimeCall> {
         let proof = create_proof_for_signed_bond_extra(sender_nonce, staker, &extra_amount);
 
         return Box::new(MockCall::ParachainStaking(super::super::Call::<Test>::signed_bond_extra {
@@ -39,7 +39,7 @@ mod proxy_signed_bond_extra {
     fn create_call_for_bond_extra_from_proof(
         proof: Proof<Signature, AccountId>,
         extra_amount: u128,
-    ) -> Box<<Test as Config>::Call> {
+    ) -> Box<<Test as Config>::RuntimeCall> {
         return Box::new(MockCall::ParachainStaking(super::super::Call::<Test>::signed_bond_extra {
             proof,
             extra_amount,
@@ -482,7 +482,7 @@ mod proxy_signed_candidate_bond_extra {
         staker: &Staker,
         sender_nonce: u64,
         extra_amount: u128,
-    ) -> Box<<Test as Config>::Call> {
+    ) -> Box<<Test as Config>::RuntimeCall> {
         let proof =
             create_proof_for_signed_candidate_bond_extra(sender_nonce, staker, &extra_amount);
 
@@ -494,7 +494,7 @@ mod proxy_signed_candidate_bond_extra {
     fn create_call_for_candidate_bond_extra_from_proof(
         proof: Proof<Signature, AccountId>,
         extra_amount: u128,
-    ) -> Box<<Test as Config>::Call> {
+    ) -> Box<<Test as Config>::RuntimeCall> {
         return Box::new(MockCall::ParachainStaking(
             super::super::Call::<Test>::signed_candidate_bond_extra { proof, extra_amount },
         ))

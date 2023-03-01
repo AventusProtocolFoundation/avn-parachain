@@ -74,7 +74,7 @@ const MOCK_T2_PUBLIC_KEY_BYTES: [u8; 32] = [
     151, 4, 182,
 ];
 
-pub type Extrinsic = TestXt<Call, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
 pub type ValidatorId = <TestRuntime as session::Config>::ValidatorId;
 pub type FullIdentification = AccountId;
@@ -191,7 +191,7 @@ impl ValidatorManager {
         });
     }
 
-    pub fn event_emitted(event: &Event) -> bool {
+    pub fn event_emitted(event: &RuntimeEvent) -> bool {
         return System::events().iter().any(|a| a.event == *event)
     }
 
@@ -205,9 +205,12 @@ impl ValidatorManager {
             .any(|e| Self::event_matches_offence_type(&e.event, offence_type.clone()))
     }
 
-    pub fn event_matches_offence_type(event: &Event, this_type: ValidatorOffenceType) -> bool {
+    pub fn event_matches_offence_type(
+        event: &RuntimeEvent,
+        this_type: ValidatorOffenceType,
+    ) -> bool {
         return matches!(event,
-            Event::ValidatorManager(
+            RuntimeEvent::ValidatorManager(
                 crate::Event::<TestRuntime>::OffenceReported{ offence_type, offenders: _ }
             )
             if this_type == *offence_type
@@ -267,7 +270,7 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ProcessedEventsChecker = Self;
     type VotingPeriod = VotingPeriod;
     type AccountToBytesConvert = AVN;
@@ -279,9 +282,9 @@ impl Config for TestRuntime {
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
 where
-    Call: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
 }
 
@@ -294,8 +297,8 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -303,7 +306,7 @@ impl system::Config for TestRuntime {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -333,7 +336,7 @@ impl balances::Config for TestRuntime {
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
     type Balance = u128;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
@@ -398,6 +401,9 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         });
         return Ok(value)
     }
+    // #[cfg(feature = "runtime-benchmarks")]
+    // fn set_transaction_id(candidate_type: &EthTransactionType, id: TransactionId) {
+    // }
 }
 
 impl session::Config for TestRuntime {
@@ -405,7 +411,7 @@ impl session::Config for TestRuntime {
     type Keys = UintAuthorityId;
     type ShouldEndSession = ParachainStaking;
     type SessionHandler = (AVN,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = ParachainStaking;
@@ -431,8 +437,8 @@ parameter_types! {
 }
 
 impl parachain_staking::Config for TestRuntime {
-    type Call = Call;
-    type Event = Event;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type MinBlocksPerEra = MinBlocksPerEra;
     type RewardPaymentDelay = RewardPaymentDelay;

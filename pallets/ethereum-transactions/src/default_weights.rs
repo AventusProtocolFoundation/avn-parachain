@@ -63,14 +63,14 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthereumTransactions Nonce (r:0 w:1)
 	fn set_transaction_id() -> Weight {
-		(4_841_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(4_841_000))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: EthereumTransactions ReservedTransactions (r:1 w:2)
 	fn unreserve_transaction() -> Weight {
-		(12_201_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(12_201_000))
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumTransactions Repository (r:1 w:1)
@@ -78,16 +78,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `v` is `[1, 10]`.
 	/// The range of component `t` is `[1, 1000000]`.
 	fn set_eth_tx_hash_for_dispatched_tx(_v: u32, t: u32, ) -> Weight {
-		(1_046_680_000 as Weight)
+		(Weight::from_ref_time(1_046_680_000))
 			// Standard Error: 0
-			.saturating_add((25_000 as Weight).saturating_mul(t as Weight))
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(25_000).saturating_mul(t as u64))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: EthereumTransactions PublishRootContract (r:0 w:1)
 	fn set_publish_root_contract() -> Weight {
-		(5_140_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(5_140_000))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
 
@@ -95,14 +95,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: EthereumTransactions Nonce (r:0 w:1)
 	fn set_transaction_id() -> Weight {
-		(4_841_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(4_841_000))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: EthereumTransactions ReservedTransactions (r:1 w:2)
 	fn unreserve_transaction() -> Weight {
-		(12_201_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(12_201_000))
+			.saturating_add(RocksDbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumTransactions Repository (r:1 w:1)
@@ -110,15 +110,15 @@ impl WeightInfo for () {
 	/// The range of component `v` is `[1, 10]`.
 	/// The range of component `t` is `[1, 1000000]`.
 	fn set_eth_tx_hash_for_dispatched_tx(_v: u32, t: u32, ) -> Weight {
-		(1_046_680_000 as Weight)
+		(Weight::from_ref_time(1_046_680_000))
 			// Standard Error: 0
-			.saturating_add((25_000 as Weight).saturating_mul(t as Weight))
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(25_000).saturating_mul(t as u64))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: EthereumTransactions PublishRootContract (r:0 w:1)
 	fn set_publish_root_contract() -> Weight {
-		(5_140_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(5_140_000))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

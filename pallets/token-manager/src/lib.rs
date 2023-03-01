@@ -21,10 +21,9 @@
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use frame_support::{
-    dispatch::{DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo},
     ensure, log,
     traits::{Currency, ExistenceRequirement, Get, Imbalance, IsSubType, WithdrawReasons},
-    weights::GetDispatchInfo,
     PalletId, Parameter,
 };
 use frame_system::ensure_signed;
@@ -84,6 +83,8 @@ pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operat
 pub const OPEN_BYTES_TAG: &'static [u8] = b"<Bytes>";
 pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
 
+pub use pallet::*;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -94,13 +95,13 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + avn::Config {
         /// The overarching event type.
-        type Event: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The overarching call type.
-        type Call: Parameter
-            + Dispatchable<Origin = <Self as frame_system::Config>::Origin>
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>
             + GetDispatchInfo;
@@ -265,8 +266,20 @@ pub mod pallet {
         /// a sender. As a general rule, every function that can be proxied should follow
         /// this convention:
         /// - its first argument (after origin) should be a public verification key and a signature
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(call.get_dispatch_info().weight))]
-        pub fn proxy(origin: OriginFor<T>, call: Box<<T as Config>::Call>) -> DispatchResult {
+
+        // #[pallet::weight(<T as
+        // pallet::Config>::WeightInfo::proxy_with_non_avt_token().
+        // saturating_add(frame_support::dispatch::GetDispatchInfo::get_dispatch_info(&*call).
+        // weight))] #[pallet::weight(<T as
+        // pallet::Config>::WeightInfo::proxy_with_non_avt_token().
+        // saturating_add(frame_support::dispatch::GetDispatchInfo::get_dispatch_info(*call).
+        // weight))] #[pallet::weight(0)]
+        pub fn proxy(
+            origin: OriginFor<T>,
+            call: Box<<T as Config>::RuntimeCall>,
+        ) -> DispatchResult {
             let relayer = ensure_signed(origin)?;
 
             let proof = Self::get_proof(&*call)?;
@@ -281,6 +294,7 @@ pub mod pallet {
         }
 
         /// Transfer an amount of token with token_id from sender to receiver with a proof
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_transfer())]
         pub fn signed_transfer(
             origin: OriginFor<T>,
@@ -321,6 +335,7 @@ pub mod pallet {
 
         /// Lower an amount of token from tier2 to tier1
         #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token().max(<T as pallet::Config>::WeightInfo::lower_non_avt_token()))]
+        #[pallet::call_index(2)]
         pub fn lower(
             origin: OriginFor<T>,
             from: T::AccountId,
@@ -356,6 +371,7 @@ pub mod pallet {
 
         /// Lower an amount of token from tier2 to tier1 by a relayer
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token().max(<T as pallet::Config>::WeightInfo::signed_lower_non_avt_token()))]
+        #[pallet::call_index(3)]
         pub fn signed_lower(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -407,6 +423,7 @@ pub mod pallet {
 
         /// Transfer AVT from the treasury account. The origin must be root.
         // TODO: benchmark me
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::transfer_from_treasury())]
         pub fn transfer_from_treasury(
             origin: OriginFor<T>,
@@ -637,7 +654,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_encoded_call_param(
-        call: &<T as Config>::Call,
+        call: &<T as Config>::RuntimeCall,
     ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
@@ -761,7 +778,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
     type AccountId = T::AccountId;
     type Signature = <T as Config>::Signature;
     type Error = Error<T>;
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn get_proof(
         call: &Self::Call,
@@ -780,7 +797,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
 }
 
 impl<T: Config> InnerCallValidator for Pallet<T> {
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {

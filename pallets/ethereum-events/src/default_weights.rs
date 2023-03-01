@@ -76,13 +76,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `u` is `[1, 5]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn add_validator_log(u: u32, e: u32, ) -> Weight {
-		(32_987_000 as Weight)
+		(Weight::from_ref_time(32_987_000))
 			// Standard Error: 33_000
-			.saturating_add((136_000 as Weight).saturating_mul(u as Weight))
+			.saturating_add(Weight::from_ref_time(136_000).saturating_mul(u as u64))
 			// Standard Error: 33_000
-			.saturating_add((363_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(363_000).saturating_mul(e as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: EthereumEvents ProcessedEvents (r:1 w:0)
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
@@ -92,13 +92,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `u` is `[1, 5]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn add_lift_log(u: u32, e: u32, ) -> Weight {
-		(32_887_000 as Weight)
+		(Weight::from_ref_time(32_887_000))
 			// Standard Error: 27_000
-			.saturating_add((117_000 as Weight).saturating_mul(u as Weight))
+			.saturating_add(Weight::from_ref_time(117_000).saturating_mul(u as u64))
 			// Standard Error: 27_000
-			.saturating_add((412_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(412_000).saturating_mul(e as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: EthereumEvents ProcessedEvents (r:1 w:0)
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
@@ -107,13 +107,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `u` is `[1, 5]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn add_ethereum_log(u: u32, e: u32, ) -> Weight {
-		(29_753_000 as Weight)
+		(Weight::from_ref_time(29_753_000))
 			// Standard Error: 35_000
-			.saturating_add((170_000 as Weight).saturating_mul(u as Weight))
+			.saturating_add(Weight::from_ref_time(170_000).saturating_mul(u as u64))
 			// Standard Error: 35_000
-			.saturating_add((389_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(389_000).saturating_mul(e as u64))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: EthereumEvents ProxyNonces (r:1 w:1)
 	// Storage: EthereumEvents ProcessedEvents (r:1 w:0)
@@ -123,23 +123,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `u` is `[1, 5]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn signed_add_ethereum_log(u: u32, e: u32, ) -> Weight {
-		(108_641_000 as Weight)
+		(Weight::from_ref_time(108_641_000))
 			// Standard Error: 64_000
-			.saturating_add((214_000 as Weight).saturating_mul(u as Weight))
+			.saturating_add(Weight::from_ref_time(214_000).saturating_mul(u as u64))
 			// Standard Error: 64_000
-			.saturating_add((540_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+			.saturating_add(Weight::from_ref_time(540_000).saturating_mul(e as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: EthereumEvents NftT1Contracts (r:0 w:1)
 	fn set_ethereum_contract_map_storage() -> Weight {
-		(5_520_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(5_520_000))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: EthereumEvents ValidatorManagerContractAddress (r:0 w:1)
 	fn set_ethereum_contract_storage() -> Weight {
-		(4_920_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(4_920_000))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
@@ -149,13 +149,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `v` is `[1, 10]`.
 	/// The range of component `u` is `[1, 5]`.
 	fn submit_checkevent_result(v: u32, u: u32, ) -> Weight {
-		(36_690_000 as Weight)
+		(Weight::from_ref_time(36_690_000) )
 			// Standard Error: 39_000
-			.saturating_add((339_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(339_000).saturating_mul(v as u64))
 			// Standard Error: 101_000
-			.saturating_add((245_000 as Weight).saturating_mul(u as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(245_000).saturating_mul(u as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:1)
@@ -172,13 +172,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `v` is `[1, 10]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn process_event_with_successful_challenge(v: u32, e: u32, ) -> Weight {
-		(90_694_000 as Weight)
+		(Weight::from_ref_time(90_694_000))
 			// Standard Error: 48_000
-			.saturating_add((492_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(492_000).saturating_mul(v as u64))
 			// Standard Error: 122_000
-			.saturating_add((1_352_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(1_352_000).saturating_mul(e as u64))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:1)
@@ -195,13 +195,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `v` is `[1, 10]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn process_event_without_successful_challenge(v: u32, e: u32, ) -> Weight {
-		(89_650_000 as Weight)
+		(Weight::from_ref_time(89_650_000))
 			// Standard Error: 48_000
-			.saturating_add((225_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(225_000).saturating_mul(v as u64))
 			// Standard Error: 121_000
-			.saturating_add((1_423_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(1_423_000).saturating_mul(e as u64))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
@@ -210,18 +210,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `e` is `[1, 5]`.
 	/// The range of component `c` is `[1, 10]`.
 	fn challenge_event(v: u32, e: u32, _c: u32, ) -> Weight {
-		(33_830_000 as Weight)
+		(Weight::from_ref_time(33_830_000))
 			// Standard Error: 44_000
-			.saturating_add((188_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(188_000).saturating_mul(v as u64))
 			// Standard Error: 87_000
-			.saturating_add((370_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(370_000).saturating_mul(e as u64))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: EthereumEvents EventChallengePeriod (r:0 w:1)
 	fn set_event_challenge_period() -> Weight {
-		(15_192_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(15_192_000))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
 
@@ -235,13 +235,13 @@ impl WeightInfo for () {
 	/// The range of component `u` is `[1, 5]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn add_validator_log(u: u32, e: u32, ) -> Weight {
-		(32_987_000 as Weight)
+		(Weight::from_ref_time(32_987_000))
 			// Standard Error: 33_000
-			.saturating_add((136_000 as Weight).saturating_mul(u as Weight))
+			.saturating_add(Weight::from_ref_time(136_000).saturating_mul(u as u64))
 			// Standard Error: 33_000
-			.saturating_add((363_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(363_000).saturating_mul(e as u64))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: EthereumEvents ProcessedEvents (r:1 w:0)
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
@@ -251,13 +251,13 @@ impl WeightInfo for () {
 	/// The range of component `u` is `[1, 5]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn add_lift_log(u: u32, e: u32, ) -> Weight {
-		(32_887_000 as Weight)
+		(Weight::from_ref_time(32_887_000))
 			// Standard Error: 27_000
-			.saturating_add((117_000 as Weight).saturating_mul(u as Weight))
+			.saturating_add(Weight::from_ref_time(117_000).saturating_mul(u as u64))
 			// Standard Error: 27_000
-			.saturating_add((412_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(412_000).saturating_mul(e as u64))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: EthereumEvents ProcessedEvents (r:1 w:0)
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
@@ -266,13 +266,13 @@ impl WeightInfo for () {
 	/// The range of component `u` is `[1, 5]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn add_ethereum_log(u: u32, e: u32, ) -> Weight {
-		(29_753_000 as Weight)
+		(Weight::from_ref_time(29_753_000))
 			// Standard Error: 35_000
-			.saturating_add((170_000 as Weight).saturating_mul(u as Weight))
+			.saturating_add(Weight::from_ref_time(170_000).saturating_mul(u as u64))
 			// Standard Error: 35_000
-			.saturating_add((389_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(389_000).saturating_mul(e as u64))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: EthereumEvents ProxyNonces (r:1 w:1)
 	// Storage: EthereumEvents ProcessedEvents (r:1 w:0)
@@ -282,23 +282,23 @@ impl WeightInfo for () {
 	/// The range of component `u` is `[1, 5]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn signed_add_ethereum_log(u: u32, e: u32, ) -> Weight {
-		(108_641_000 as Weight)
+		(Weight::from_ref_time(108_641_000))
 			// Standard Error: 64_000
-			.saturating_add((214_000 as Weight).saturating_mul(u as Weight))
+			.saturating_add(Weight::from_ref_time(214_000).saturating_mul(u as u64))
 			// Standard Error: 64_000
-			.saturating_add((540_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+			.saturating_add(Weight::from_ref_time(540_000).saturating_mul(e as u64))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: EthereumEvents NftT1Contracts (r:0 w:1)
 	fn set_ethereum_contract_map_storage() -> Weight {
-		(5_520_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(5_520_000))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: EthereumEvents ValidatorManagerContractAddress (r:0 w:1)
 	fn set_ethereum_contract_storage() -> Weight {
-		(4_920_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(4_920_000))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
@@ -308,13 +308,13 @@ impl WeightInfo for () {
 	/// The range of component `v` is `[1, 10]`.
 	/// The range of component `u` is `[1, 5]`.
 	fn submit_checkevent_result(v: u32, u: u32, ) -> Weight {
-		(36_690_000 as Weight)
+		(Weight::from_ref_time(36_690_000))
 			// Standard Error: 39_000
-			.saturating_add((339_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(339_000)).saturating_mul(v as u64)
 			// Standard Error: 101_000
-			.saturating_add((245_000 as Weight).saturating_mul(u as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(245_000)).saturating_mul(u as u64)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:1)
@@ -331,13 +331,13 @@ impl WeightInfo for () {
 	/// The range of component `v` is `[1, 10]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn process_event_with_successful_challenge(v: u32, e: u32, ) -> Weight {
-		(90_694_000 as Weight)
+		(Weight::from_ref_time(90_694_000))
 			// Standard Error: 48_000
-			.saturating_add((492_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(492_000).saturating_mul(v as u64))
 			// Standard Error: 122_000
-			.saturating_add((1_352_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(1_352_000).saturating_mul(e as u64))
+			.saturating_add(RocksDbWeight::get().reads(11))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:1)
@@ -354,13 +354,13 @@ impl WeightInfo for () {
 	/// The range of component `v` is `[1, 10]`.
 	/// The range of component `e` is `[1, 5]`.
 	fn process_event_without_successful_challenge(v: u32, e: u32, ) -> Weight {
-		(89_650_000 as Weight)
+		(Weight::from_ref_time(89_650_000))
 			// Standard Error: 48_000
-			.saturating_add((225_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(225_000 ).saturating_mul(v as u64))
 			// Standard Error: 121_000
-			.saturating_add((1_423_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(1_423_000 ).saturating_mul(e as u64))
+			.saturating_add(RocksDbWeight::get().reads(11 ))
+			.saturating_add(RocksDbWeight::get().writes(6 ))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
@@ -369,17 +369,17 @@ impl WeightInfo for () {
 	/// The range of component `e` is `[1, 5]`.
 	/// The range of component `c` is `[1, 10]`.
 	fn challenge_event(v: u32, e: u32, _c: u32, ) -> Weight {
-		(33_830_000 as Weight)
+		(Weight::from_ref_time(33_830_000))
 			// Standard Error: 44_000
-			.saturating_add((188_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(188_000).saturating_mul(v as u64))
 			// Standard Error: 87_000
-			.saturating_add((370_000 as Weight).saturating_mul(e as Weight))
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(370_000).saturating_mul(e as u64))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: EthereumEvents EventChallengePeriod (r:0 w:1)
 	fn set_event_challenge_period() -> Weight {
-		(15_192_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(15_192_000))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

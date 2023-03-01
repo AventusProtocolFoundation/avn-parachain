@@ -36,7 +36,6 @@ pub type Signature = sr25519::Signature;
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Hashing = <TestRuntime as system::Config>::Hashing;
-//pub type SystemCall = frame_system::Call<TestRuntime>;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -54,8 +53,8 @@ frame_support::construct_runtime!(
 );
 
 impl Config for TestRuntime {
-    type Event = mock::Event;
-    type Call = Call;
+    type RuntimeEvent = mock::RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type ProcessedEventsChecker = Self;
     type Public = AccountId;
     type Signature = Signature;
@@ -71,8 +70,8 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -80,7 +79,7 @@ impl system::Config for TestRuntime {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;

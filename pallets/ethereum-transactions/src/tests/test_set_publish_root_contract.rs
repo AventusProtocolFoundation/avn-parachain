@@ -10,7 +10,7 @@ mod test_set_publish_root_contract {
     use super::*;
 
     struct Context {
-        origin: Origin,
+        origin: RuntimeOrigin,
         new_contract_address: H160,
     }
 
@@ -70,8 +70,10 @@ mod test_set_publish_root_contract {
         fn origin_is_not_root() {
             let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
             ext.execute_with(|| {
-                let context: Context =
-                    Context { origin: Origin::signed(Default::default()), ..Default::default() };
+                let context: Context = Context {
+                    origin: RuntimeOrigin::signed(Default::default()),
+                    ..Default::default()
+                };
 
                 assert_noop!(context.dispatch_set_publish_root_contract(), BadOrigin);
                 assert_ne!(

@@ -33,7 +33,7 @@ use std::{cell::RefCell, convert::From, sync::Arc};
 pub const APPROVE_ROOT: bool = true;
 pub const REJECT_ROOT: bool = false;
 
-pub type Extrinsic = TestXt<Call, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 pub type AccountId = <TestRuntime as system::Config>::AccountId;
 pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
@@ -137,7 +137,7 @@ impl Summary {
         <TotalIngresses<TestRuntime>>::put(ingress_counter);
     }
 
-    pub fn emitted_event(event: &Event) -> bool {
+    pub fn emitted_event(event: &RuntimeEvent) -> bool {
         return System::events().iter().any(|a| a.event == *event)
     }
 
@@ -147,9 +147,9 @@ impl Summary {
             .any(|e| Self::event_matches_offence_type(&e.event, offence_type.clone()))
     }
 
-    pub fn event_matches_offence_type(event: &Event, this_type: SummaryOffenceType) -> bool {
+    pub fn event_matches_offence_type(event: &RuntimeEvent, this_type: SummaryOffenceType) -> bool {
         return matches!(event,
-            mock::Event::Summary(
+            mock::RuntimeEvent::Summary(
                 crate::Event::<TestRuntime>::SummaryOffenceReported{ offence_type, .. }
             )
             if this_type == *offence_type
@@ -281,7 +281,7 @@ thread_local! {
 }
 
 impl Config for TestRuntime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
     type CandidateTransactionSubmitter = Self;
@@ -293,9 +293,9 @@ impl Config for TestRuntime {
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
 where
-    Call: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
 }
 
@@ -308,8 +308,8 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -317,7 +317,7 @@ impl system::Config for TestRuntime {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -427,7 +427,7 @@ impl session::Config for TestRuntime {
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (AVN,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = u64;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;

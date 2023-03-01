@@ -45,7 +45,7 @@ impl Config for TestRuntime {
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const ChallengePeriod: u64 = 2;
@@ -56,16 +56,16 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
+    type RuntimeOrigin = RuntimeOrigin;
     type Index = u64;
     type BlockNumber = u64;
-    type Call = Call;
+    type RuntimeCall = RuntimeCall;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = ();
+    type RuntimeEvent = ();
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -105,7 +105,7 @@ impl session::Config for TestRuntime {
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (AVN,);
-    type Event = ();
+    type RuntimeEvent = ();
     type ValidatorId = u64;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
