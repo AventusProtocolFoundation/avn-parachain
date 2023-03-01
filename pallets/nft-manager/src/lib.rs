@@ -23,10 +23,11 @@ use core::convert::TryInto;
 use frame_support::{
     dispatch::{
         DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, Dispatchable,
+        PostDispatchInfo,
     },
     ensure, log,
     traits::{Get, IsSubType},
-    weights::{PostDispatchInfo, Weight},
+    weights::Weight,
     Parameter,
 };
 use frame_system::ensure_signed;
@@ -87,12 +88,12 @@ pub mod pallet {
     // Public interface of this pallet
     #[pallet::config]
     pub trait Config: frame_system::Config + avn::Config {
-        type Event: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        type Call: Parameter
-            + Dispatchable<Origin = <Self as frame_system::Config>::Origin>
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
 
@@ -315,6 +316,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Mint a single NFT
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::mint_single_nft(MAX_NUMBER_OF_ROYALTIES))]
         pub fn mint_single_nft(
             origin: OriginFor<T>,
@@ -351,6 +353,7 @@ pub mod pallet {
         }
 
         /// Mint a single NFT signed by nft owner
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_mint_single_nft(MAX_NUMBER_OF_ROYALTIES))]
         pub fn signed_mint_single_nft(
             origin: OriginFor<T>,
@@ -400,6 +403,7 @@ pub mod pallet {
         }
 
         /// List an nft open for sale
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::list_nft_open_for_sale())]
         pub fn list_nft_open_for_sale(
             origin: OriginFor<T>,
@@ -414,6 +418,7 @@ pub mod pallet {
         }
 
         /// List an nft open for sale by a relayer
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_list_nft_open_for_sale())]
         pub fn signed_list_nft_open_for_sale(
             origin: OriginFor<T>,
@@ -438,6 +443,7 @@ pub mod pallet {
         }
 
         /// Transfer a nft open for sale on fiat market to a new owner by a relayer
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_transfer_fiat_nft())]
         pub fn signed_transfer_fiat_nft(
             origin: OriginFor<T>,
@@ -478,6 +484,7 @@ pub mod pallet {
         }
 
         /// Cancel a nft open for sale on fiat market by a relayer
+        #[pallet::call_index(5)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_cancel_list_fiat_nft())]
         pub fn signed_cancel_list_fiat_nft(
             origin: OriginFor<T>,
@@ -512,13 +519,14 @@ pub mod pallet {
         ///
         /// As a general rule, every function that can be proxied should follow this convention:
         /// - its first argument (after origin) should be a public verification key and a signature
+        #[pallet::call_index(6)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_signed_list_nft_open_for_sale()
             .max(<T as pallet::Config>::WeightInfo::proxy_signed_mint_single_nft(MAX_NUMBER_OF_ROYALTIES))
             .max(<T as pallet::Config>::WeightInfo::proxy_signed_transfer_fiat_nft())
             .max(<T as pallet::Config>::WeightInfo::proxy_signed_cancel_list_fiat_nft()))]
         pub fn proxy(
             origin: OriginFor<T>,
-            call: Box<<T as Config>::Call>,
+            call: Box<<T as Config>::RuntimeCall>,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
@@ -536,6 +544,7 @@ pub mod pallet {
         }
 
         /// Creates a new batch
+        #[pallet::call_index(7)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_signed_create_batch(MAX_NUMBER_OF_ROYALTIES))]
         pub fn signed_create_batch(
             origin: OriginFor<T>,
@@ -594,6 +603,7 @@ pub mod pallet {
         }
 
         /// Mints an nft that belongs to a batch
+        #[pallet::call_index(8)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_signed_mint_batch_nft())]
         pub fn signed_mint_batch_nft(
             origin: OriginFor<T>,
@@ -630,6 +640,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(9)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_signed_list_batch_for_sale())]
         pub fn signed_list_batch_for_sale(
             origin: OriginFor<T>,
@@ -674,6 +685,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(10)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_signed_end_batch_sale())]
         pub fn signed_end_batch_sale(
             origin: OriginFor<T>,
@@ -719,7 +731,7 @@ pub mod pallet {
                 return migrations::migrate_to_batch_nft::<T>()
             }
 
-            return 0
+            return Weight::from_ref_time(0)
         }
     }
 }
@@ -973,7 +985,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_dispatch_result_with_post_info(
-        call: Box<<T as Config>::Call>,
+        call: Box<<T as Config>::RuntimeCall>,
     ) -> DispatchResultWithPostInfo {
         match call.is_sub_type() {
             Some(call) => {
@@ -1056,7 +1068,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_encoded_call_param(
-        call: &<T as Config>::Call,
+        call: &<T as Config>::RuntimeCall,
     ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
@@ -1177,7 +1189,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
     type AccountId = T::AccountId;
     type Signature = <T as Config>::Signature;
     type Error = Error<T>;
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn get_proof(
         call: &Self::Call,
@@ -1202,7 +1214,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
 }
 
 impl<T: Config> InnerCallValidator for Pallet<T> {
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {

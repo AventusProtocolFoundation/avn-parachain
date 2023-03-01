@@ -17,13 +17,13 @@
 #![cfg(test)]
 use super::*;
 use crate::{
-    mock::{AccountId, Call as MockCall, *},
+    mock::{AccountId, RuntimeCall as MockCall, RuntimeOrigin as Origin, *},
     Call,
 };
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
-use mock::Event;
+use mock::RuntimeEvent as Event;
 use sp_core::{sr25519::Pair, H256, U256};
 
 fn build_proof(
@@ -82,7 +82,7 @@ impl Context {
         <NftManager as Store>::NftOpenForSale::insert(&self.nft_id, NftSaleType::Fiat);
     }
 
-    fn create_signed_transfer_fiat_nft_call(&self) -> Box<<TestRuntime as Config>::Call> {
+    fn create_signed_transfer_fiat_nft_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let proof = self.create_signed_transfer_fiat_nft_proof();
 
         return Box::new(MockCall::NftManager(
@@ -118,7 +118,10 @@ impl Context {
         })
     }
 
-    fn call_dispatched_event_emitted(&self, call: &Box<<TestRuntime as Config>::Call>) -> bool {
+    fn call_dispatched_event_emitted(
+        &self,
+        call: &Box<<TestRuntime as Config>::RuntimeCall>,
+    ) -> bool {
         let relayer = TestAccount::new([2u8; 32]);
         return System::events().iter().any(|a| {
             a.event ==

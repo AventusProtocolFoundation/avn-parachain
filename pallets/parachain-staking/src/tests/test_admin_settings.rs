@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::mock::{
-    Event as MetaEvent, ExtBuilder, MinNominationPerCollator, Origin, ParachainStaking, Test,
-    TestAccount,
+    ExtBuilder, MinNominationPerCollator, ParachainStaking, RuntimeEvent as MetaEvent,
+    RuntimeOrigin as Origin, Test, TestAccount,
 };
 use crate::{
     assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event, MinCollatorStake,

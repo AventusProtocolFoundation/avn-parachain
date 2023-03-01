@@ -36,7 +36,7 @@ pub const SIGNED_EXECUTE_CANDIDATE_UNBOND_CONTEXT: &'static [u8] =
     b"parachain authorization for executing candidate unbond operation";
 
 pub fn get_encoded_call_param<T: Config>(
-    call: &<T as Config>::Call,
+    call: &<T as Config>::RuntimeCall,
 ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
     let call = match call.is_sub_type() {
         Some(call) => call,
@@ -239,7 +239,7 @@ pub fn verify_signature<T: Config>(
 }
 
 impl<T: Config> InnerCallValidator for ParachainStaking<T> {
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = get_encoded_call_param::<T>(call) {

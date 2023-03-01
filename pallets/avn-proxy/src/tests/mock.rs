@@ -38,8 +38,8 @@ frame_support::construct_runtime!(
 );
 
 impl Config for TestRuntime {
-    type Event = mock::Event;
-    type Call = Call;
+    type RuntimeEvent = mock::RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = AccountId;
     type Signature = Signature;
@@ -68,8 +68,8 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -77,7 +77,7 @@ impl system::Config for TestRuntime {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -99,7 +99,7 @@ impl pallet_balances::Config for TestRuntime {
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
     type Balance = u128;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
@@ -107,8 +107,8 @@ impl pallet_balances::Config for TestRuntime {
 }
 
 impl pallet_nft_manager::Config for TestRuntime {
-    type Event = Event;
-    type Call = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type ProcessedEventsChecker = ();
     type Public = AccountId;
     type Signature = Signature;
@@ -133,15 +133,15 @@ impl Default for TestAvnProxyConfig {
     }
 }
 
-impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
-    fn get_proof(call: &Call) -> Option<Proof<Signature, AccountId>> {
+impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
+    fn get_proof(call: &RuntimeCall) -> Option<Proof<Signature, AccountId>> {
         match call {
-            Call::System(system::Call::remark { remark: _msg }) => {
+            RuntimeCall::System(system::Call::remark { remark: _msg }) => {
                 let context: ProxyContext = Default::default();
                 return Some(context.get_proof())
             },
 
-            Call::NftManager(pallet_nft_manager::Call::signed_mint_single_nft {
+            RuntimeCall::NftManager(pallet_nft_manager::Call::signed_mint_single_nft {
                 proof,
                 unique_external_ref: _,
                 royalties: _,
@@ -153,12 +153,12 @@ impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
 }
 
 impl InnerCallValidator for TestAvnProxyConfig {
-    type Call = Call;
+    type Call = RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         match **call {
-            Call::System(..) => return true,
-            Call::NftManager(..) =>
+            RuntimeCall::System(..) => return true,
+            RuntimeCall::NftManager(..) =>
                 return pallet_nft_manager::Pallet::<TestRuntime>::signature_is_valid(call),
             _ => false,
         }
@@ -260,20 +260,20 @@ impl ProxyContext {
         }
     }
 
-    pub fn create_valid_inner_call(&self) -> Box<<TestRuntime as Config>::Call> {
-        return Box::new(Call::System(SystemCall::remark { remark: vec![] }))
+    pub fn create_valid_inner_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
+        return Box::new(RuntimeCall::System(SystemCall::remark { remark: vec![] }))
     }
 
-    pub fn create_invalid_inner_call(&self) -> Box<<TestRuntime as Config>::Call> {
+    pub fn create_invalid_inner_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let invalid_receiver = TestAccount::new([8u8; 32]);
-        return Box::new(Call::Balances(BalancesCall::transfer {
+        return Box::new(RuntimeCall::Balances(BalancesCall::transfer {
             dest: invalid_receiver.account_id(),
             value: Default::default(),
         }))
     }
 
-    pub fn create_proxy_call(&self) -> Box<<TestRuntime as Config>::Call> {
-        return Box::new(Call::AvnProxy(AvnProxyCall::proxy {
+    pub fn create_proxy_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
+        return Box::new(RuntimeCall::AvnProxy(AvnProxyCall::proxy {
             call: self.create_valid_inner_call(),
             payment_info: None,
         }))
@@ -286,7 +286,7 @@ pub fn proxy_event_emitted(
 ) -> bool {
     return System::events().iter().any(|a| {
         a.event ==
-            Event::AvnProxy(crate::Event::<TestRuntime>::CallDispatched {
+            RuntimeEvent::AvnProxy(crate::Event::<TestRuntime>::CallDispatched {
                 relayer,
                 hash: call_hash,
             })
@@ -298,7 +298,11 @@ pub fn inner_call_failed_event_emitted(
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
     return System::events().iter().any(|a| match a.event {
-        Event::AvnProxy(crate::Event::<TestRuntime>::InnerCallFailed { relayer, hash, .. }) =>
+        RuntimeEvent::AvnProxy(crate::Event::<TestRuntime>::InnerCallFailed {
+            relayer,
+            hash,
+            ..
+        }) =>
             if relayer == call_relayer && call_hash == hash {
                 return true
             } else {
@@ -329,7 +333,7 @@ pub const SIGNED_MINT_SINGLE_NFT_CONTEXT: &'static [u8] =
 
 pub fn create_signed_mint_single_nft_call(
     context: &ProxyContext,
-) -> Box<<TestRuntime as Config>::Call> {
+) -> Box<<TestRuntime as Config>::RuntimeCall> {
     let single_nft_data: SingleNftContext = Default::default();
     let proof = get_mint_single_nft_proxy_proof(context, &single_nft_data);
 
@@ -339,8 +343,8 @@ pub fn create_signed_mint_single_nft_call(
 pub fn get_signed_mint_single_nft_call(
     single_nft_data: &SingleNftContext,
     proof: &Proof<Signature, AccountId>,
-) -> Box<<TestRuntime as Config>::Call> {
-    return Box::new(crate::mock::Call::NftManager(NftManagerCall::signed_mint_single_nft {
+) -> Box<<TestRuntime as Config>::RuntimeCall> {
+    return Box::new(crate::mock::RuntimeCall::NftManager(NftManagerCall::signed_mint_single_nft {
         proof: proof.clone(),
         unique_external_ref: single_nft_data.unique_external_ref.clone(),
         royalties: single_nft_data.royalties.clone(),
@@ -379,6 +383,6 @@ pub fn single_nft_minted_events_count() -> usize {
     System::events()
         .into_iter()
         .map(|r| r.event)
-        .filter_map(|e| if let Event::NftManager(inner) = e { Some(inner) } else { None })
+        .filter_map(|e| if let RuntimeEvent::NftManager(inner) = e { Some(inner) } else { None })
         .count()
 }

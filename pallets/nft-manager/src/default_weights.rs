@@ -79,9 +79,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: NftManager NftInfos (r:0 w:1)
 	/// The range of component `r` is `[1, 5]`.
 	fn mint_single_nft(_r: u32, ) -> Weight {
-		(43_962_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+		(Weight::from_ref_time(43_962_000))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: NftManager UsedExternalReferences (r:1 w:1)
 	// Storage: NftManager NextSingleNftUniqueId (r:1 w:1)
@@ -91,40 +91,40 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: NftManager NftInfos (r:0 w:1)
 	/// The range of component `r` is `[1, 5]`.
 	fn signed_mint_single_nft(r: u32, ) -> Weight {
-		(119_551_000 as Weight)
+		(Weight::from_ref_time(119_551_000))
 			// Standard Error: 107_000
-			.saturating_add((197_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(197_000).saturating_mul(r as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	fn list_nft_open_for_sale() -> Weight {
-		(28_861_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(28_861_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	fn signed_list_nft_open_for_sale() -> Weight {
-		(106_103_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(106_103_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager OwnedNfts (r:2 w:2)
 	fn signed_transfer_fiat_nft() -> Weight {
-		(122_213_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		(Weight::from_ref_time(122_213_000))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	// Storage: NftManager Nfts (r:1 w:1)
 	fn signed_cancel_list_fiat_nft() -> Weight {
-		(114_953_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(114_953_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: NftManager UsedExternalReferences (r:1 w:1)
 	// Storage: NftManager NextSingleNftUniqueId (r:1 w:1)
@@ -134,33 +134,33 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: NftManager NftInfos (r:0 w:1)
 	/// The range of component `r` is `[1, 5]`.
 	fn proxy_signed_mint_single_nft(r: u32, ) -> Weight {
-		(128_067_000 as Weight)
+		(Weight::from_ref_time(128_067_000))
 			// Standard Error: 135_000
-			.saturating_add((601_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(601_000).saturating_mul(r as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	fn proxy_signed_list_nft_open_for_sale() -> Weight {
-		(115_453_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(115_453_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager OwnedNfts (r:2 w:2)
 	fn proxy_signed_transfer_fiat_nft() -> Weight {
-		(132_334_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		(Weight::from_ref_time(132_334_000))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	// Storage: NftManager Nfts (r:1 w:1)
 	fn proxy_signed_cancel_list_fiat_nft() -> Weight {
-		(122_423_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(122_423_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: NftManager BatchNonces (r:1 w:1)
 	// Storage: NftManager NextSingleNftUniqueId (r:1 w:1)
@@ -169,11 +169,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: NftManager NftInfos (r:0 w:1)
 	/// The range of component `r` is `[1, 5]`.
 	fn proxy_signed_create_batch(r: u32, ) -> Weight {
-		(122_325_000 as Weight)
+		(Weight::from_ref_time(122_325_000))
 			// Standard Error: 137_000
-			.saturating_add((687_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
+			.saturating_add(Weight::from_ref_time(687_000).saturating_mul(r as u64))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(5))
 	}
 	// Storage: NftManager BatchInfoId (r:1 w:0)
 	// Storage: NftManager BatchOpenForSale (r:1 w:0)
@@ -183,9 +183,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager OwnedNfts (r:1 w:1)
 	fn proxy_signed_mint_batch_nft() -> Weight {
-		(152_674_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
+		(Weight::from_ref_time(152_674_000))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	// Storage: NftManager BatchInfoId (r:1 w:0)
 	// Storage: NftManager BatchNonces (r:1 w:1)
@@ -193,18 +193,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: NftManager NftBatches (r:1 w:0)
 	// Storage: NftManager BatchOpenForSale (r:1 w:1)
 	fn proxy_signed_list_batch_for_sale() -> Weight {
-		(129_444_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(129_444_000))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: NftManager BatchInfoId (r:1 w:0)
 	// Storage: NftManager BatchOpenForSale (r:1 w:1)
 	// Storage: NftManager BatchNonces (r:1 w:1)
 	// Storage: NftManager NftInfos (r:1 w:0)
 	fn proxy_signed_end_batch_sale() -> Weight {
-		(131_444_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(131_444_000))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }
 
@@ -218,9 +218,9 @@ impl WeightInfo for () {
 	// Storage: NftManager NftInfos (r:0 w:1)
 	/// The range of component `r` is `[1, 5]`.
 	fn mint_single_nft(_r: u32, ) -> Weight {
-		(43_962_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+		(Weight::from_ref_time(43_962_000))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: NftManager UsedExternalReferences (r:1 w:1)
 	// Storage: NftManager NextSingleNftUniqueId (r:1 w:1)
@@ -230,40 +230,40 @@ impl WeightInfo for () {
 	// Storage: NftManager NftInfos (r:0 w:1)
 	/// The range of component `r` is `[1, 5]`.
 	fn signed_mint_single_nft(r: u32, ) -> Weight {
-		(119_551_000 as Weight)
+		(Weight::from_ref_time(119_551_000))
 			// Standard Error: 107_000
-			.saturating_add((197_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(197_000).saturating_mul(r as u64))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	fn list_nft_open_for_sale() -> Weight {
-		(28_861_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(28_861_000))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	fn signed_list_nft_open_for_sale() -> Weight {
-		(106_103_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(106_103_000))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager OwnedNfts (r:2 w:2)
 	fn signed_transfer_fiat_nft() -> Weight {
-		(122_213_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
+		(Weight::from_ref_time(122_213_000))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(4))
 	}
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	// Storage: NftManager Nfts (r:1 w:1)
 	fn signed_cancel_list_fiat_nft() -> Weight {
-		(114_953_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(114_953_000))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: NftManager UsedExternalReferences (r:1 w:1)
 	// Storage: NftManager NextSingleNftUniqueId (r:1 w:1)
@@ -273,33 +273,33 @@ impl WeightInfo for () {
 	// Storage: NftManager NftInfos (r:0 w:1)
 	/// The range of component `r` is `[1, 5]`.
 	fn proxy_signed_mint_single_nft(r: u32, ) -> Weight {
-		(128_067_000 as Weight)
+		(Weight::from_ref_time(128_067_000))
 			// Standard Error: 135_000
-			.saturating_add((601_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(601_000).saturating_mul(r as u64))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	fn proxy_signed_list_nft_open_for_sale() -> Weight {
-		(115_453_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(115_453_000))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager OwnedNfts (r:2 w:2)
 	fn proxy_signed_transfer_fiat_nft() -> Weight {
-		(132_334_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
+		(Weight::from_ref_time(132_334_000))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(4))
 	}
 	// Storage: NftManager NftOpenForSale (r:1 w:1)
 	// Storage: NftManager Nfts (r:1 w:1)
 	fn proxy_signed_cancel_list_fiat_nft() -> Weight {
-		(122_423_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(122_423_000))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: NftManager BatchNonces (r:1 w:1)
 	// Storage: NftManager NextSingleNftUniqueId (r:1 w:1)
@@ -308,11 +308,11 @@ impl WeightInfo for () {
 	// Storage: NftManager NftInfos (r:0 w:1)
 	/// The range of component `r` is `[1, 5]`.
 	fn proxy_signed_create_batch(r: u32, ) -> Weight {
-		(122_325_000 as Weight)
+		(Weight::from_ref_time(122_325_000))
 			// Standard Error: 137_000
-			.saturating_add((687_000 as Weight).saturating_mul(r as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
+			.saturating_add(Weight::from_ref_time(687_000).saturating_mul(r as u64))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(5))
 	}
 	// Storage: NftManager BatchInfoId (r:1 w:0)
 	// Storage: NftManager BatchOpenForSale (r:1 w:0)
@@ -322,9 +322,9 @@ impl WeightInfo for () {
 	// Storage: NftManager Nfts (r:1 w:1)
 	// Storage: NftManager OwnedNfts (r:1 w:1)
 	fn proxy_signed_mint_batch_nft() -> Weight {
-		(152_674_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
+		(Weight::from_ref_time(152_674_000))
+			.saturating_add(RocksDbWeight::get().reads(7))
+			.saturating_add(RocksDbWeight::get().writes(4))
 	}
 	// Storage: NftManager BatchInfoId (r:1 w:0)
 	// Storage: NftManager BatchNonces (r:1 w:1)
@@ -332,17 +332,17 @@ impl WeightInfo for () {
 	// Storage: NftManager NftBatches (r:1 w:0)
 	// Storage: NftManager BatchOpenForSale (r:1 w:1)
 	fn proxy_signed_list_batch_for_sale() -> Weight {
-		(129_444_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(129_444_000))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: NftManager BatchInfoId (r:1 w:0)
 	// Storage: NftManager BatchOpenForSale (r:1 w:1)
 	// Storage: NftManager BatchNonces (r:1 w:1)
 	// Storage: NftManager NftInfos (r:1 w:0)
 	fn proxy_signed_end_batch_sale() -> Weight {
-		(131_444_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(131_444_000))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 }

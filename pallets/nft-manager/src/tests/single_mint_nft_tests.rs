@@ -16,13 +16,12 @@
 
 use super::*;
 use crate::{
-    mock::{AccountId, *},
+    mock::{AccountId, RuntimeEvent as Event, RuntimeOrigin as Origin, *},
     nft_data::ROYALTY_RATE_DENOMINATOR,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use mock::Event;
 use sp_runtime::traits::BadOrigin;
 
 mod mint_single_nft {

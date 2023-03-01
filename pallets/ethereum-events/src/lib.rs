@@ -159,10 +159,10 @@ pub mod pallet {
         + avn::Config
         + pallet_session::historical::Config
     {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        type Call: Parameter
-            + Dispatchable<Origin = <Self as frame_system::Config>::Origin>
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
 
@@ -419,6 +419,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// This extrinsic is being deprecated. Use add_ethereum_log
         // We need to maintain this till SYS-888 is resolved. After that it can be removed.
+        #[pallet::call_index(0)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_validator_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -433,6 +434,7 @@ pub mod pallet {
 
         /// This extrinsic is being deprecated. Use add_ethereum_log
         // We need to maintain this till SYS-888 is resolved. After that it can be removed.
+        #[pallet::call_index(1)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_lift_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -445,6 +447,7 @@ pub mod pallet {
             return Self::add_event(ValidEvents::Lifted, tx_hash, account_id)
         }
 
+        #[pallet::call_index(2)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkevent_result(
             MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
             MAX_NUMBER_OF_UNCHECKED_EVENTS
@@ -497,6 +500,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(3)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::process_event_with_successful_challenge(
                 MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
                 MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -613,6 +617,7 @@ pub mod pallet {
             Ok(Some(final_weight).into())
         }
 
+        #[pallet::call_index(4)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::challenge_event(
             MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
@@ -676,6 +681,7 @@ pub mod pallet {
         }
 
         /// Submits an ethereum transaction hash into the chain
+        #[pallet::call_index(5)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_ethereum_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -693,6 +699,7 @@ pub mod pallet {
         }
 
         // # </weight>
+        #[pallet::call_index(6)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::signed_add_ethereum_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -726,6 +733,7 @@ pub mod pallet {
         }
 
         /// Sets the address for ethereum contracts
+        #[pallet::call_index(7)]
         #[pallet::weight(
             <T as pallet::Config>::WeightInfo::set_ethereum_contract_map_storage().max(<T as Config>::WeightInfo::set_ethereum_contract_storage()
         ))]
@@ -748,6 +756,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(8)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_event_challenge_period())]
         pub fn set_event_challenge_period(
             origin: OriginFor<T>,
@@ -810,7 +819,7 @@ pub mod pallet {
                 return migrations::migrate_to_multi_nft_contract::<T>()
             }
 
-            return 0
+            return Weight::from_ref_time(0)
         }
     }
 
@@ -1612,7 +1621,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_encoded_call_param(
-        call: &<T as Config>::Call,
+        call: &<T as Config>::RuntimeCall,
     ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
@@ -1623,12 +1632,12 @@ impl<T: Config> Pallet<T> {
             Call::signed_add_ethereum_log { proof, event_type, tx_hash } => {
                 let sender_nonce = Self::proxy_nonce(&proof.signer);
                 let encoded_data = Self::encode_signed_add_ethereum_log_params(
-                    proof,
-                    event_type,
-                    tx_hash,
+                    &proof,
+                    &event_type,
+                    &tx_hash,
                     sender_nonce,
                 );
-                return Some((proof, encoded_data))
+                return Some((&proof, encoded_data))
             },
 
             _ => return None,
@@ -1649,7 +1658,7 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
 }
 
 impl<T: Config> InnerCallValidator for Pallet<T> {
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {

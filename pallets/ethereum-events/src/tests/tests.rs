@@ -2,7 +2,10 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, *};
+use crate::{
+    mock::{RuntimeCall as Call, *},
+    *,
+};
 use codec::Decode;
 use frame_support::{assert_ok, unsigned::ValidateUnsigned};
 use sp_avn_common::event_types::{EthEventId, ValidEvents};

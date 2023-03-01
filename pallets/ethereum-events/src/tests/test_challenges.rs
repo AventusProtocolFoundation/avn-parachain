@@ -736,7 +736,7 @@ fn test_challenge_valid_challenge_invalid_result() {
         assert_eq!(EthereumEvents::challenges(challenge.event_id.clone()).len(), 1);
 
         assert!(System::events().iter().any(|a| a.event ==
-            mock::Event::EthereumEvents(crate::Event::<TestRuntime>::EventChallenged {
+            mock::RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EventChallenged {
                 eth_event_id: challenge.event_id.clone(),
                 challenger: validator.account_id,
                 challenge_reason: ChallengeReason::IncorrectResult
@@ -772,7 +772,7 @@ fn test_challenge_valid_challenge_invalid_event_data() {
         assert_eq!(EthereumEvents::challenges(challenge.event_id.clone()).len(), 1);
 
         assert!(System::events().iter().any(|a| a.event ==
-            mock::Event::EthereumEvents(crate::Event::<TestRuntime>::EventChallenged {
+            mock::RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EventChallenged {
                 eth_event_id: challenge.event_id.clone(),
                 challenger: validator.account_id,
                 challenge_reason: ChallengeReason::IncorrectEventData
