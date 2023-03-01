@@ -84,9 +84,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking TopNominations (r:0 w:1)
 	// Storage: AvnOffenceHandler ReportedOffenders (r:0 w:1)
 	fn add_collator() -> Weight {
-		(109_557_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(14 as Weight))
-			.saturating_add(T::DbWeight::get().writes(14 as Weight))
+		Weight::from_ref_time(109_557_000)
+			.saturating_add(T::DbWeight::get().reads(14))
+			.saturating_add(T::DbWeight::get().writes(14))
 	}
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
@@ -100,11 +100,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthereumTransactions Nonce (r:1 w:1)
 	/// The range of component `v` is `[3, 10]`.
 	fn remove_validator(v: u32, ) -> Weight {
-		(78_427_000 as Weight)
+		Weight::from_ref_time(78_427_000)
 			// Standard Error: 54_000
-			.saturating_add((3_752_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(10 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+			.saturating_add(Weight::from_ref_time(3_752_000).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(10))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	// Storage: ValidatorsManager ValidatorActions (r:2 w:1)
 	// Storage: Avn Validators (r:1 w:0)
@@ -117,11 +117,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthereumTransactions DispatchedAvnTxIds (r:1 w:1)
 	/// The range of component `v` is `[3, 10]`.
 	fn approve_action_with_end_voting(v: u32, ) -> Weight {
-		(202_157_000 as Weight)
+		Weight::from_ref_time(202_157_000)
 			// Standard Error: 172_000
-			.saturating_add((5_229_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(10 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(5_229_000).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(10))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: ValidatorsManager ValidatorActions (r:2 w:0)
 	// Storage: Avn Validators (r:1 w:0)
@@ -131,11 +131,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn approve_action_without_end_voting(v: u32, ) -> Weight {
-		(132_775_000 as Weight)
+		Weight::from_ref_time(132_775_000)
 			// Standard Error: 173_000
-			.saturating_add((4_706_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(4_706_000).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: ValidatorsManager VotesRepository (r:1 w:1)
@@ -143,11 +143,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn reject_action_with_end_voting(v: u32, ) -> Weight {
-		(79_068_000 as Weight)
+		Weight::from_ref_time(79_068_000)
 			// Standard Error: 80_000
-			.saturating_add((3_719_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(3_719_000).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: ValidatorsManager VotesRepository (r:1 w:1)
@@ -155,11 +155,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn reject_action_without_end_voting(v: u32, ) -> Weight {
-		(54_662_000 as Weight)
+		Weight::from_ref_time(54_662_000)
 			// Standard Error: 248_000
-			.saturating_add((3_278_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(3_278_000).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: ValidatorsManager VotesRepository (r:1 w:0)
 	// Storage: ValidatorsManager PendingApprovals (r:1 w:1)
@@ -177,13 +177,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnOffenceHandler ReportedOffenders (r:1 w:0)
 	/// The range of component `o` is `[1, 2]`.
 	fn end_voting_period_with_rejected_valid_actions(o: u32, ) -> Weight {
-		(156_901_000 as Weight)
+		Weight::from_ref_time(156_901_000)
 			// Standard Error: 1_757_000
-			.saturating_add((14_042_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(T::DbWeight::get().reads(12 as Weight))
-			.saturating_add(T::DbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(14_042_000).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().writes(7))
+			.saturating_add(T::DbWeight::get().writes(1).saturating_mul(o as u64))
 	}
 	// Storage: ValidatorsManager VotesRepository (r:1 w:0)
 	// Storage: ValidatorsManager PendingApprovals (r:1 w:1)
@@ -196,13 +196,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnOffenceHandler ReportedOffenders (r:1 w:0)
 	/// The range of component `o` is `[1, 2]`.
 	fn end_voting_period_with_approved_invalid_actions(o: u32, ) -> Weight {
-		(108_271_000 as Weight)
+		Weight::from_ref_time(108_271_000)
 			// Standard Error: 2_002_000
-			.saturating_add((11_908_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(11_908_000).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(1).saturating_mul(o as u64))
 	}
 }
 
@@ -227,9 +227,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking TopNominations (r:0 w:1)
 	// Storage: AvnOffenceHandler ReportedOffenders (r:0 w:1)
 	fn add_collator() -> Weight {
-		(109_557_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(14 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(14 as Weight))
+		Weight::from_ref_time(109_557_000)
+			.saturating_add(RocksDbWeight::get().reads(14))
+			.saturating_add(RocksDbWeight::get().writes(14))
 	}
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
@@ -243,11 +243,11 @@ impl WeightInfo for () {
 	// Storage: EthereumTransactions Nonce (r:1 w:1)
 	/// The range of component `v` is `[3, 10]`.
 	fn remove_validator(v: u32, ) -> Weight {
-		(78_427_000 as Weight)
+		Weight::from_ref_time(78_427_000)
 			// Standard Error: 54_000
-			.saturating_add((3_752_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(10 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
+			.saturating_add(Weight::from_ref_time(3_752_000).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(10))
+			.saturating_add(RocksDbWeight::get().writes(7))
 	}
 	// Storage: ValidatorsManager ValidatorActions (r:2 w:1)
 	// Storage: Avn Validators (r:1 w:0)
@@ -260,11 +260,11 @@ impl WeightInfo for () {
 	// Storage: EthereumTransactions DispatchedAvnTxIds (r:1 w:1)
 	/// The range of component `v` is `[3, 10]`.
 	fn approve_action_with_end_voting(v: u32, ) -> Weight {
-		(202_157_000 as Weight)
+		Weight::from_ref_time(202_157_000)
 			// Standard Error: 172_000
-			.saturating_add((5_229_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(10 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(5_229_000).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(10))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: ValidatorsManager ValidatorActions (r:2 w:0)
 	// Storage: Avn Validators (r:1 w:0)
@@ -274,11 +274,11 @@ impl WeightInfo for () {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn approve_action_without_end_voting(v: u32, ) -> Weight {
-		(132_775_000 as Weight)
+		Weight::from_ref_time(132_775_000)
 			// Standard Error: 173_000
-			.saturating_add((4_706_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(4_706_000).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(7))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: ValidatorsManager VotesRepository (r:1 w:1)
@@ -286,11 +286,11 @@ impl WeightInfo for () {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn reject_action_with_end_voting(v: u32, ) -> Weight {
-		(79_068_000 as Weight)
+		Weight::from_ref_time(79_068_000)
 			// Standard Error: 80_000
-			.saturating_add((3_719_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(3_719_000).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: ValidatorsManager VotesRepository (r:1 w:1)
@@ -298,11 +298,11 @@ impl WeightInfo for () {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn reject_action_without_end_voting(v: u32, ) -> Weight {
-		(54_662_000 as Weight)
+		Weight::from_ref_time(54_662_000)
 			// Standard Error: 248_000
-			.saturating_add((3_278_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(3_278_000).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: ValidatorsManager VotesRepository (r:1 w:0)
 	// Storage: ValidatorsManager PendingApprovals (r:1 w:1)
@@ -320,13 +320,13 @@ impl WeightInfo for () {
 	// Storage: AvnOffenceHandler ReportedOffenders (r:1 w:0)
 	/// The range of component `o` is `[1, 2]`.
 	fn end_voting_period_with_rejected_valid_actions(o: u32, ) -> Weight {
-		(156_901_000 as Weight)
+		Weight::from_ref_time(156_901_000)
 			// Standard Error: 1_757_000
-			.saturating_add((14_042_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(RocksDbWeight::get().reads(12 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(14_042_000).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().reads(12))
+			.saturating_add(RocksDbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().writes(7))
+			.saturating_add(RocksDbWeight::get().writes(1).saturating_mul(o as u64))
 	}
 	// Storage: ValidatorsManager VotesRepository (r:1 w:0)
 	// Storage: ValidatorsManager PendingApprovals (r:1 w:1)
@@ -339,12 +339,12 @@ impl WeightInfo for () {
 	// Storage: AvnOffenceHandler ReportedOffenders (r:1 w:0)
 	/// The range of component `o` is `[1, 2]`.
 	fn end_voting_period_with_approved_invalid_actions(o: u32, ) -> Weight {
-		(108_271_000 as Weight)
+		Weight::from_ref_time(108_271_000)
 			// Standard Error: 2_002_000
-			.saturating_add((11_908_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(11_908_000).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().reads(7))
+			.saturating_add(RocksDbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().writes(3))
+			.saturating_add(RocksDbWeight::get().writes(1).saturating_mul(o as u64))
 	}
 }

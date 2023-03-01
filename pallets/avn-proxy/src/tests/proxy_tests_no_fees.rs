@@ -22,7 +22,7 @@ mod proxy_without_fees {
 
                 assert_eq!(false, proxy_event_emitted(context.relayer.account_id(), call_hash));
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     inner_call,
                     None
                 ));
@@ -39,7 +39,7 @@ mod proxy_without_fees {
 
                 assert_eq!(false, single_nft_minted_events_emitted());
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     inner_call,
                     None
                 ));
@@ -56,7 +56,7 @@ mod proxy_without_fees {
 
                 assert_eq!(false, single_nft_minted_events_emitted());
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     inner_call,
                     None
                 ));
@@ -67,7 +67,7 @@ mod proxy_without_fees {
                 let call_hash = Hashing::hash_of(&inner_call_with_duplicate_external_ref);
 
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     inner_call_with_duplicate_external_ref,
                     None
                 ));
@@ -106,7 +106,7 @@ mod proxy_without_fees {
 
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         invalid_inner_call,
                         None
                     ),
@@ -129,7 +129,7 @@ mod proxy_without_fees {
 
                 assert_eq!(false, proxy_event_emitted(context.relayer.account_id(), call_hash));
                 assert_noop!(
-                    AvnProxy::proxy(Origin::signed(invalid_relayer), inner_call, None),
+                    AvnProxy::proxy(RuntimeOrigin::signed(invalid_relayer), inner_call, None),
                     Error::<TestRuntime>::UnauthorizedProxyTransaction
                 );
             })
@@ -145,7 +145,7 @@ mod proxy_without_fees {
 
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         invalid_inner_call,
                         None
                     ),

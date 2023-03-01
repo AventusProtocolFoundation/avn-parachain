@@ -95,7 +95,7 @@ mod approve_root {
                 assert_eq!(Summary::get_vote(context.root_id).nays.is_empty(), true);
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VoteAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VoteAdded {
                         voter: context.validator.account_id,
                         root_id: context.root_id,
                         agree_vote: true
@@ -139,7 +139,7 @@ mod approve_root {
                 );
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VoteAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VoteAdded {
                         voter: second_validator.account_id,
                         root_id: context.root_id,
                         agree_vote: true
@@ -180,7 +180,7 @@ mod approve_root {
                 assert_eq!(Summary::get_vote(context.root_id).nays.is_empty(), true);
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VoteAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VoteAdded {
                         voter: second_validator.account_id,
                         root_id: context.root_id,
                         agree_vote: true
@@ -226,7 +226,7 @@ mod approve_root {
                 );
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VoteAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VoteAdded {
                         voter: third_validator.account_id,
                         root_id: context.root_id,
                         agree_vote: true
@@ -252,7 +252,7 @@ mod approve_root {
 
                 assert_noop!(
                     Summary::approve_root(
-                        Origin::signed(Default::default()),
+                        RuntimeOrigin::signed(Default::default()),
                         context.root_id,
                         context.validator,
                         context.approval_signature,
@@ -462,7 +462,7 @@ mod reject_root {
                 );
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VoteAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VoteAdded {
                         voter: context.validator.account_id,
                         root_id: context.root_id,
                         agree_vote: false
@@ -502,7 +502,7 @@ mod reject_root {
                 );
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VoteAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VoteAdded {
                         voter: second_validator.account_id,
                         root_id: context.root_id,
                         agree_vote: false
@@ -539,7 +539,7 @@ mod reject_root {
                 );
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VoteAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VoteAdded {
                         voter: second_validator.account_id,
                         root_id: context.root_id,
                         agree_vote: false
@@ -581,7 +581,7 @@ mod reject_root {
                 );
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VoteAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VoteAdded {
                         voter: third_validator.account_id,
                         root_id: context.root_id,
                         agree_vote: false
@@ -607,7 +607,7 @@ mod reject_root {
 
                 assert_noop!(
                     Summary::reject_root(
-                        Origin::signed(Default::default()),
+                        RuntimeOrigin::signed(Default::default()),
                         context.root_id,
                         context.validator,
                         context.record_summary_calculation_signature
@@ -868,7 +868,7 @@ mod cast_votes_if_required {
 
             assert_eq!(
                 tx.call,
-                mock::Call::Summary(crate::Call::approve_root {
+                mock::RuntimeCall::Summary(crate::Call::approve_root {
                     root_id: context.root_id,
                     validator: second_validator.clone(),
                     approval_signature: context.approval_signature.clone(),
@@ -912,7 +912,7 @@ mod cast_votes_if_required {
 
             assert_eq!(
                 tx.call,
-                mock::Call::Summary(crate::Call::reject_root {
+                mock::RuntimeCall::Summary(crate::Call::reject_root {
                     root_id: context.root_id,
                     validator: second_validator.clone(),
                     signature: get_signature_for_reject_cast_vote(
@@ -960,14 +960,16 @@ mod end_voting_period {
                 assert_eq!(Summary::last_summary_slot(), Summary::current_slot());
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::SummaryRootValidated {
-                        block_range: context.root_id.range,
-                        root_hash: context.root_hash_h256,
-                        ingress_counter: context.root_id.ingress_counter
-                    })));
+                    mock::RuntimeEvent::Summary(
+                        crate::Event::<TestRuntime>::SummaryRootValidated {
+                            block_range: context.root_id.range,
+                            root_hash: context.root_hash_h256,
+                            ingress_counter: context.root_id.ingress_counter
+                        }
+                    )));
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VotingEnded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VotingEnded {
                         root_id: context.root_id,
                         vote_approved: true
                     })));
@@ -1002,7 +1004,7 @@ mod end_voting_period {
                 assert_eq!(Summary::last_summary_slot(), previous_slot);
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::VotingEnded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VotingEnded {
                         root_id: context.root_id,
                         vote_approved: false
                     })));
@@ -1025,7 +1027,7 @@ mod end_voting_period {
 
                 assert_noop!(
                     Summary::end_voting_period(
-                        Origin::signed(Default::default()),
+                        RuntimeOrigin::signed(Default::default()),
                         context.root_id,
                         context.validator.clone(),
                         context.record_summary_calculation_signature.clone(),

@@ -11,7 +11,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-pub type Extrinsic = TestXt<Call, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -34,8 +34,8 @@ parameter_types! {
     pub const ReportLatency: u64 = 1000;
 }
 
-impl Config for TestRuntime {
-    type Event = Event;
+impl avn_finality_tracker::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type CacheAge = CacheAge;
     type SubmissionInterval = SubmissionInterval;
     type ReportLatency = ReportLatency;
@@ -51,8 +51,8 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -60,7 +60,7 @@ impl system::Config for TestRuntime {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -83,9 +83,9 @@ impl avn::Config for TestRuntime {
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
 where
-    Call: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
 }
 

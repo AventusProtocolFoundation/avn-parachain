@@ -9,11 +9,10 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::DispatchResultWithPostInfo,
+    dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
     ensure,
+    pallet_prelude::ValueQuery,
     traits::{Currency, ExistenceRequirement, IsSubType},
-    weights::{GetDispatchInfo, PostDispatchInfo},
-    Parameter,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_avn_common::{InnerCallValidator, Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG};
@@ -23,7 +22,6 @@ pub use pallet::*;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Dispatchable, Hash, IdentifyAccount, Member, Verify},
-    DispatchResult,
 };
 use sp_std::prelude::*;
 
@@ -32,19 +30,22 @@ pub const PAYMENT_AUTH_CONTEXT: &'static [u8] = b"authorization for proxy paymen
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::{pallet_prelude::*, Blake2_128Concat};
+    use frame_support::{
+        pallet_prelude::{DispatchResult, *},
+        Blake2_128Concat,
+    };
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
         /// The overarching event type.
-        type Event: From<Event<Self>>
-            + Into<<Self as system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The overarching call type
-        type Call: Parameter
-            + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
             + GetDispatchInfo
             + From<frame_system::Call<Self>>
             + IsSubType<Call<Self>>;
@@ -68,8 +69,8 @@ pub mod pallet {
             + Ord
             + PartialOrd
             + Default
-            + ProvableProxy<<Self as Config>::Call, Self::Signature, Self::AccountId>
-            + InnerCallValidator<Call = <Self as Config>::Call>;
+            + ProvableProxy<<Self as Config>::RuntimeCall, Self::Signature, Self::AccountId>
+            + InnerCallValidator<Call = <Self as Config>::RuntimeCall>;
 
         type WeightInfo: WeightInfo;
     }
@@ -101,14 +102,16 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::charge_fee().saturating_add(call.get_dispatch_info().weight).saturating_add(50_000))]
+        #[pallet::call_index(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::charge_fee().saturating_add(call.get_dispatch_info().weight).saturating_add(Weight::from_ref_time(50_000)))]
         pub fn proxy(
             origin: OriginFor<T>,
-            call: Box<<T as Config>::Call>,
+            call: Box<<T as Config>::RuntimeCall>,
             payment_info: Option<Box<PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>>>,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
-            let mut final_weight = call.get_dispatch_info().weight.saturating_add(50_000);
+            let mut final_weight =
+                call.get_dispatch_info().weight.saturating_add(Weight::from_ref_time(50_000));
 
             let proof = <T as Config>::ProxyConfig::get_proof(&call)
                 .ok_or(Error::<T>::TransactionNotSupported)?;
@@ -117,7 +120,7 @@ pub mod pallet {
             if let Some(payment_info) = payment_info {
                 final_weight = T::WeightInfo::charge_fee()
                     .saturating_add(call.get_dispatch_info().weight)
-                    .saturating_add(50_000);
+                    .saturating_add(Weight::from_ref_time(50_000));
                 // If the inner call signature does not validate, exit without charging the sender a
                 // fee
                 Self::validate_inner_call_signature(&call)?;
@@ -125,7 +128,8 @@ pub mod pallet {
             }
 
             let call_hash: T::Hash = T::Hashing::hash_of(&call);
-            let sender: T::Origin = frame_system::RawOrigin::Signed(proof.signer.clone()).into();
+            let sender: T::RuntimeOrigin =
+                frame_system::RawOrigin::Signed(proof.signer.clone()).into();
 
             let dispatch_result = call.dispatch(sender).map(|_| ()).map_err(|e| e.error);
             match dispatch_result {
@@ -143,14 +147,14 @@ pub mod pallet {
 
             Ok(Some(final_weight).into())
         }
-    }
+    }    
 }
 
-pub type BalanceOf<T> =
-    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type BalanceOf<T> =
+        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 impl<T: Config> Pallet<T> {
-    fn validate_inner_call_signature(call: &Box<<T as Config>::Call>) -> DispatchResult {
+    fn validate_inner_call_signature(call: &Box<<T as Config>::RuntimeCall>) -> DispatchResult {
         let inner_call_sig_valid = <T as Config>::ProxyConfig::signature_is_valid(call);
         if inner_call_sig_valid == false {
             return Err(Error::<T>::UnauthorizedProxyTransaction)?
@@ -173,21 +177,23 @@ impl<T: Config> Pallet<T> {
         )
             .encode();
 
-        // TODO: centralise wrapped payload signature verification logic in primitives if possible.
+        // TODO: centralise wrapped payload signature verification logic in primitives if
+        // possible.
         let wrapped_encoded_payload: Vec<u8> =
             [OPEN_BYTES_TAG, encoded_payload.as_slice(), CLOSE_BYTES_TAG].concat();
         match payment_info.signature.verify(&*wrapped_encoded_payload, &payment_info.payer) {
             true => Ok(()),
-            false =>
-                match payment_info.signature.verify(encoded_payload.as_slice(), &payment_info.payer)
-                {
-                    true => Ok(()),
-                    false => Err(<Error<T>>::UnauthorizedFee.into()),
-                },
+            false => match payment_info
+                .signature
+                .verify(encoded_payload.as_slice(), &payment_info.payer)
+            {
+                true => Ok(()),
+                false => Err(<Error<T>>::UnauthorizedFee.into()),
+            },
         }
     }
 
-    fn charge_fee(
+    pub(crate) fn charge_fee(
         proof: &Proof<T::Signature, T::AccountId>,
         payment_info: PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
     ) -> DispatchResult {

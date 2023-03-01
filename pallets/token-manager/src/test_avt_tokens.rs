@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 use crate::{
-    mock::{Balances, Event, *},
+    mock::{Balances, RuntimeEvent, *},
     *,
 };
 use frame_support::{assert_noop, assert_ok};
@@ -43,7 +43,7 @@ fn avn_test_lift_to_zero_balance_account_should_succeed() {
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), AMOUNT_123_TOKEN);
 
         assert!(System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
                 recipient: mock_data.receiver_account_id,
                 amount: AMOUNT_123_TOKEN,
                 eth_tx_hash: mock_event.event_id.transaction_hash
@@ -70,7 +70,7 @@ fn avn_test_lift_to_non_zero_balance_account_should_succeed() {
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), new_balance);
 
         assert!(System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
                 recipient: mock_data.receiver_account_id,
                 amount: AMOUNT_123_TOKEN,
                 eth_tx_hash: mock_event.event_id.transaction_hash
@@ -96,7 +96,7 @@ fn avn_test_lift_max_balance_to_zero_balance_account_should_succeed() {
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), u128_max_amount);
 
         assert!(System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
                 recipient: mock_data.receiver_account_id,
                 amount: u128_max_amount,
                 eth_tx_hash: mock_event.event_id.transaction_hash
@@ -122,7 +122,7 @@ fn avn_test_lift_max_balance_to_non_zero_balance_account_should_return_deposit_f
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), balance_before);
 
         assert!(!System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
                 recipient: mock_data.receiver_account_id,
                 amount: u128_max_amount,
                 eth_tx_hash: mock_event.event_id.transaction_hash
@@ -144,7 +144,7 @@ fn avn_test_lower_all_avt_token_succeed() {
         let amount = from_account_balance_before;
 
         assert_ok!(TokenManager::lower(
-            Origin::signed(from_account_id),
+            RuntimeOrigin::signed(from_account_id),
             from_account_id,
             AVT_TOKEN_CONTRACT,
             amount,
@@ -152,7 +152,7 @@ fn avn_test_lower_all_avt_token_succeed() {
         ));
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                 token_id: AVT_TOKEN_CONTRACT,
                 sender: from_account_id,
                 recipient: to_account_id,
@@ -176,7 +176,7 @@ fn avn_test_lower_some_avt_token_succeed() {
         let amount = from_account_balance_before / 2;
 
         assert_ok!(TokenManager::lower(
-            Origin::signed(from_account_id),
+            RuntimeOrigin::signed(from_account_id),
             from_account_id,
             AVT_TOKEN_CONTRACT,
             amount,
@@ -184,7 +184,7 @@ fn avn_test_lower_some_avt_token_succeed() {
         ));
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                 token_id: AVT_TOKEN_CONTRACT,
                 sender: from_account_id,
                 recipient: to_account_id,
@@ -208,7 +208,7 @@ fn avn_test_lower_avt_token_should_fail_when_sender_does_not_have_enough_avt_tok
 
         assert_noop!(
             TokenManager::lower(
-                Origin::signed(from_account_id),
+                RuntimeOrigin::signed(from_account_id),
                 from_account_id,
                 AVT_TOKEN_CONTRACT,
                 amount,
@@ -235,7 +235,7 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         let t1_recipient = H160(hex!("0000000000000000000000000000000000000001"));
 
         assert_ok!(TokenManager::lower(
-            Origin::signed(from_account_id),
+            RuntimeOrigin::signed(from_account_id),
             from_account_id,
             AVT_TOKEN_CONTRACT,
             amount,
@@ -243,7 +243,7 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         ));
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                 token_id: AVT_TOKEN_CONTRACT,
                 sender: from_account_id,
                 recipient: to_account_id,
@@ -257,7 +257,7 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         from_account_balance_before = Balances::free_balance(from_account_id);
 
         assert_ok!(TokenManager::lower(
-            Origin::signed(from_account_id),
+            RuntimeOrigin::signed(from_account_id),
             from_account_id,
             AVT_TOKEN_CONTRACT,
             amount,
@@ -265,7 +265,7 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         ));
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                 token_id: AVT_TOKEN_CONTRACT,
                 sender: from_account_id,
                 recipient: to_account_id,

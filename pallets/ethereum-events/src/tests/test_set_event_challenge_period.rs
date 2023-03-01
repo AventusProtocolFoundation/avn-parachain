@@ -1,7 +1,10 @@
 // Copyright 2021 Aventus (UK) Ltd.
 #![cfg(test)]
 
-use crate::{mock::*, *};
+use crate::{
+    mock::{RuntimeEvent as Event, *},
+    *,
+};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::traits::BadOrigin;
@@ -10,7 +13,7 @@ mod test_set_event_challenge_period {
     use super::*;
 
     struct Context {
-        origin: Origin,
+        origin: RuntimeOrigin,
         new_event_challenge_period: BlockNumber,
     }
 
@@ -86,7 +89,7 @@ mod test_set_event_challenge_period {
             let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
             ext.execute_with(|| {
                 let context: Context =
-                    Context { origin: Origin::signed(account_id_0()), ..Default::default() };
+                    Context { origin: RuntimeOrigin::signed(account_id_0()), ..Default::default() };
 
                 assert_noop!(context.dispatch_set_event_challenge_period(), BadOrigin);
 

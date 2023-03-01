@@ -15,11 +15,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::mock::{AccountId, *};
+use crate::mock::{AccountId, RuntimeEvent as Event, RuntimeOrigin as Origin, *};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use mock::Event;
 use sp_runtime::traits::BadOrigin;
 
 mod open_for_sale {

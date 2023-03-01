@@ -40,13 +40,13 @@ type SignerId = app_sr25519::Public;
 
 pub const AVT_TOKEN_CONTRACT: H160 = H160(hex!("dB1Cff52f66195f0a5Bd3db91137db98cfc54AE6"));
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     assert_last_nth_event::<T>(generic_event, 1);
 }
 
-fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::Event, n: u32) {
+fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::RuntimeEvent, n: u32) {
     let events = frame_system::Pallet::<T>::events();
-    let system_event: <T as frame_system::Config>::Event = generic_event.into();
+    let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
     // compare to the last event record
     let EventRecord { event, .. } = &events[events.len().saturating_sub(n as usize)];
     assert_eq!(event, &system_event);
@@ -86,7 +86,7 @@ impl<T: Config> Transfer<T> {
         return self
     }
 
-    fn generate_signed_transfer_call(&self, signature: &[u8]) -> <T as Config>::Call {
+    fn generate_signed_transfer_call(&self, signature: &[u8]) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> = self.get_proof(&self.relayer, signature);
         return Call::signed_transfer {
             proof,
@@ -183,8 +183,8 @@ benchmarks! {
         let signature = &hex!("a6350211fcdf1d7f0c79bf0a9c296de17449ca88a899f0cd19a70b07513fc107b7d34249dba71d4761ceeec2ed6bc1305defeb96418e6869e6b6199ed0de558e");
         let token_id = H160(hex!("1414141414141414141414141414141414141414"));
         let transfer: Transfer<T> = Transfer::new(token_id).setup();
-        let call: <T as Config>::Call = transfer.generate_signed_transfer_call(signature);
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = transfer.generate_signed_transfer_call(signature);
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
     }: proxy(RawOrigin::<T::AccountId>::Signed(transfer.relayer.clone()), boxed_call)
     verify {

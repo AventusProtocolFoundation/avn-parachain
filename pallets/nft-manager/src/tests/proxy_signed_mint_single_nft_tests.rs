@@ -17,14 +17,13 @@
 #![cfg(test)]
 use super::*;
 use crate::{
-    mock::{AccountId, Call as MockCall, *},
+    mock::{AccountId, RuntimeCall as MockCall, RuntimeEvent as Event, RuntimeOrigin as Origin, *},
     Call,
 };
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use mock::Event;
 use sp_core::sr25519::Pair;
 
 fn build_proof(
@@ -87,7 +86,7 @@ impl Context {
         <UsedExternalReferences<TestRuntime>>::remove(&self.unique_external_ref);
     }
 
-    fn create_signed_mint_single_nft_call(&self) -> Box<<TestRuntime as Config>::Call> {
+    fn create_signed_mint_single_nft_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let proof = self.create_signed_mint_single_nft_proof();
 
         return Box::new(MockCall::NftManager(super::Call::<TestRuntime>::signed_mint_single_nft {
@@ -120,7 +119,10 @@ impl Context {
         })
     }
 
-    fn call_dispatched_event_emitted(&self, call: &Box<<TestRuntime as Config>::Call>) -> bool {
+    fn call_dispatched_event_emitted(
+        &self,
+        call: &Box<<TestRuntime as Config>::RuntimeCall>,
+    ) -> bool {
         let relayer = TestAccount::new([2u8; 32]);
         return System::events().iter().any(|a| {
             a.event ==

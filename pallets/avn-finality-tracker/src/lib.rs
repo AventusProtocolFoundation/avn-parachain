@@ -47,6 +47,7 @@ const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
 pub type AVN<T> = avn::Pallet<T>;
 
 #[cfg(test)]
+#[path = "mock.rs"]
 mod mock;
 
 mod benchmarking;
@@ -65,9 +66,9 @@ pub mod pallet {
         SendTransactionTypes<Call<Self>> + frame_system::Config + avn::Config
     {
         /// Overarching event type
-        type Event: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::Event>
-            + Into<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>;
         /// The number of block we can keep the calculated finalised block, before recalculating it
         /// again.
         type CacheAge: Get<Self::BlockNumber>;
@@ -131,6 +132,7 @@ pub mod pallet {
         #[pallet::weight(
             <T as pallet::Config>::WeightInfo::submit_latest_finalised_block_number(MAX_VALIDATOR_ACCOUNT_IDS)
         )]
+        #[pallet::call_index(0)]
         pub fn submit_latest_finalised_block_number(
             origin: OriginFor<T>,
             new_finalised_block_number: T::BlockNumber,
@@ -216,12 +218,26 @@ pub mod pallet {
                 return InvalidTransaction::Call.into()
             }
         }
+    }    
+}
+
+#[derive(
+    Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen,
+)]
+pub struct SubmissionData<BlockNumber: Member + AtLeast32Bit> {
+    pub finalised_block: BlockNumber,
+    pub submitted_at_block: BlockNumber,
+}
+
+impl<BlockNumber: Member + AtLeast32Bit> SubmissionData<BlockNumber> {
+    pub fn new(finalised_block: BlockNumber, submitted_at_block: BlockNumber) -> Self {
+        return SubmissionData::<BlockNumber> { finalised_block, submitted_at_block }
     }
 }
 
 impl<T: Config> Pallet<T> {
-    /// This function will only update the finalised block if there are 2/3rd or more submissions
-    /// from distinct validators
+    /// This function will only update the finalised block if there are 2/3rd or more
+    /// submissions from distinct validators
     pub fn update_latest_finalised_block_if_required() {
         let quorum = AVN::<T>::calculate_two_third_quorum();
         let current_block_number = <frame_system::Pallet<T>>::block_number();
@@ -246,8 +262,10 @@ impl<T: Config> Pallet<T> {
                 });
             }
 
-            // check if there is something wrong with submissions in general and notify via an event
-            if current_block_number - last_finalised_block_submission > T::ReportLatency::get() {
+            // check if there is something wrong with submissions in general and notify via an
+            // event
+            if current_block_number - last_finalised_block_submission > T::ReportLatency::get()
+            {
                 Self::deposit_event(Event::<T>::FinalisedBlockUpdateStalled {
                     block: last_finalised_block_submission,
                 });
@@ -298,7 +316,8 @@ impl<T: Config> Pallet<T> {
     fn is_submission_valid(
         submitter: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
     ) -> bool {
-        let has_submitted_before = SubmittedBlockNumbers::<T>::contains_key(&submitter.account_id);
+        let has_submitted_before =
+            SubmittedBlockNumbers::<T>::contains_key(&submitter.account_id);
 
         if has_submitted_before {
             let last_submission = Self::submissions(&submitter.account_id).submitted_at_block;
@@ -329,9 +348,9 @@ impl<T: Config> Pallet<T> {
             return
         }
 
-        // send a transaction on chain with the latest finalised block data. We shouldn't have any
-        // sig re-use issue here because new block number must be > current finalised block
-        // number
+        // send a transaction on chain with the latest finalised block data. We shouldn't have
+        // any sig re-use issue here because new block number must be > current
+        // finalised block number
         let signature = this_validator
             .key
             .sign(&(UPDATE_FINALISED_BLOCK_NUMBER_CONTEXT, calculated_finalised_block).encode())
@@ -451,17 +470,5 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> FinalisedBlockChecker<T::BlockNumber> for Pallet<T> {
     fn is_finalised(block_number: T::BlockNumber) -> bool {
         return Self::latest_finalised_block_number() >= block_number
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct SubmissionData<BlockNumber: Member + AtLeast32Bit> {
-    pub finalised_block: BlockNumber,
-    pub submitted_at_block: BlockNumber,
-}
-
-impl<BlockNumber: Member + AtLeast32Bit> SubmissionData<BlockNumber> {
-    fn new(finalised_block: BlockNumber, submitted_at_block: BlockNumber) -> Self {
-        return SubmissionData::<BlockNumber> { finalised_block, submitted_at_block }
     }
 }
