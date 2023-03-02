@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use super::Config;
-use crate::{Era, ForceNewEra, Pallet as ParachainStaking};
+// use super::Config;
+use crate::{Era, Config, ForceNewEra, Pallet as ParachainStaking};
 use frame_support::{
     pallet_prelude::Weight,
     traits::{EstimateNextSessionRotation, Get},

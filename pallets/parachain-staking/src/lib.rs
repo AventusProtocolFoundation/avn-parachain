@@ -2273,10 +2273,9 @@ pub mod pallet {
             //TODO: can we ignore this?
         }
     }
-}
-
-impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
-    fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
-        return Self::payout_collators(amount, growth_period)
+    impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
+        fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
+            return Self::payout_collators(amount, growth_period)
+        }
     }
 }

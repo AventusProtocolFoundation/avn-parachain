@@ -11,8 +11,7 @@ use sp_avn_common::{InnerCallValidator, Proof};
 use sp_runtime::traits::{StaticLookup, Verify};
 use sp_std::prelude::*;
 
-use super::*;
-use crate::Pallet as ParachainStaking;
+use crate::{Config, Call, Pallet as ParachainStaking, BalanceOf, DispatchResultWithPostInfo,NominatorState,CandidateInfo, Error, Total, Nominator, Bond, Event, BondAdjust};
 
 pub const SIGNED_NOMINATOR_CONTEXT: &'static [u8] =
     b"parachain authorization for nominate operation";
@@ -36,7 +35,7 @@ pub const SIGNED_EXECUTE_CANDIDATE_UNBOND_CONTEXT: &'static [u8] =
     b"parachain authorization for executing candidate unbond operation";
 
 pub fn get_encoded_call_param<T: Config>(
-    call: &<T as Config>::Call,
+    call: &<T as Call,
 ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
     let call = match call.is_sub_type() {
         Some(call) => call,
@@ -55,7 +54,7 @@ pub fn get_encoded_call_param<T: Config>(
 
             return Some((proof, encoded_data))
         },
-        Call::signed_bond_extra { proof, extra_amount } => {
+        ParachainStaking::Call::signed_bond_extra { proof, extra_amount } => {
             let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
             let encoded_data = encode_signed_bond_extra_params::<T>(
                 proof.relayer.clone(),
@@ -65,7 +64,7 @@ pub fn get_encoded_call_param<T: Config>(
 
             return Some((proof, encoded_data))
         },
-        Call::signed_candidate_bond_extra { proof, extra_amount } => {
+        ParachainStaking::Call::signed_candidate_bond_extra { proof, extra_amount } => {
             let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
             let encoded_data = encode_signed_candidate_bond_extra_params::<T>(
                 proof.relayer.clone(),

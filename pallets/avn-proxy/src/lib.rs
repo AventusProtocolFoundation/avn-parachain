@@ -7,7 +7,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, Error};
 use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     ensure,
@@ -15,7 +15,7 @@ use frame_support::{
     weights::{GetDispatchInfo, PostDispatchInfo},
     Parameter,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::{self as system, ensure_signed, Config, Pallet};
 use sp_avn_common::{InnerCallValidator, Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG};
 
 use core::convert::TryInto;
@@ -28,6 +28,11 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 pub const PAYMENT_AUTH_CONTEXT: &'static [u8] = b"authorization for proxy payment";
+#[pallet::storage]
+#[pallet::getter(fn payment_nonces)]
+/// An account nonce that represents the number of payments from this account
+/// It is shared for all proxy transactions performed by that account
+pub type PaymentNonces<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -108,7 +113,8 @@ pub mod pallet {
             payment_info: Option<Box<PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>>>,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
-            let mut final_weight = call.get_dispatch_info().weight.saturating_add(Weight::from_ref_time(50_000));
+            let mut final_weight =
+                call.get_dispatch_info().weight.saturating_add(Weight::from_ref_time(50_000));
 
             let proof = <T as Config>::ProxyConfig::get_proof(&call)
                 .ok_or(Error::<T>::TransactionNotSupported)?;

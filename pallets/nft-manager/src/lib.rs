@@ -724,6 +724,8 @@ pub mod pallet {
     }
 }
 
+use crate::{Config, Pallet, Call, Event, Error, Nfts, NftOpenForSale, NextInfoId, NextSingleNftUniqueId, NftInfos, UsedExternalReferences, OwnedNfts, pallet};
+
 impl<T: Config> Pallet<T> {
     fn validate_mint_single_nft_request(
         unique_external_ref: &Vec<u8>,

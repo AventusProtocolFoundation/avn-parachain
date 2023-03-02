@@ -62,7 +62,10 @@ use crate::event_parser::{
 };
 
 pub type AVN<T> = avn::Pallet<T>;
-pub use pallet::*;
+pub use crate::pallet::{
+    Call, Config, Error, Event, NftT1Contracts, Pallet, ProcessedEvents, TotalIngresses,
+    UncheckedEvents,
+};
 
 const VALIDATED_EVENT_LOCAL_STORAGE: &'static [u8; 28] = b"eth_events::validated_events";
 

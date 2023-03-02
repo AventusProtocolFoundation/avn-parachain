@@ -240,7 +240,8 @@ impl WeightToFeeT for WeightToFee {
     type Balance = u128;
 
     fn weight_to_fee(weight: &Weight) -> Self::Balance {
-        Self::Balance::saturated_from(weight.ref_time()).saturating_mul(WEIGHT_TO_FEE.with(|v| *v.borrow()))
+        Self::Balance::saturated_from(weight.ref_time())
+            .saturating_mul(WEIGHT_TO_FEE.with(|v| *v.borrow()))
     }
 }
 

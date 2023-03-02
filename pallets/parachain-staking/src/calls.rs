@@ -1,4 +1,5 @@
-use crate::*;
+use crate::{Config, Pallet, BalanceOf, DispatchResultWithPostInfo,NominatorState,CandidateInfo, Error, Total, Nominator, Bond, Event, BondAdjust};
+frame_support::ensure;
 
 impl<T: Config> Pallet<T> {
     pub fn call_nominate(

@@ -429,6 +429,7 @@ pub mod pallet {
         }
     }
 }
+use crate::{Error, Balances, pallet, Nonces, Event, Call, Config, Pallet};
 
 impl<T: Config> Pallet<T> {
     fn settle_transfer(

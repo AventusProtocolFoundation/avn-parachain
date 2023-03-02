@@ -18,7 +18,7 @@ pub enum EthereumLogOffenceType {
     IncorrectValidationResultSubmitted,
     ChallengeAttemptedOnValidResult,
 }
-use crate::Event;
+use crate::*;
 
 #[derive(PartialEq, Clone, Debug, Encode, Decode)]
 pub struct InvalidEthereumLogOffence<Offender> {
