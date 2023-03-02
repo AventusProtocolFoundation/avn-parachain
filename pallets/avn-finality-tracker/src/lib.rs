@@ -65,9 +65,9 @@ pub mod pallet {
         SendTransactionTypes<Call<Self>> + frame_system::Config + avn::Config
     {
         /// Overarching event type
-        type Event: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::Event>
-            + Into<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>;
         /// The number of block we can keep the calculated finalised block, before recalculating it
         /// again.
         type CacheAge: Get<Self::BlockNumber>;

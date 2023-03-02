@@ -100,9 +100,9 @@ pub mod pallet {
     pub trait Config:
         SendTransactionTypes<Call<Self>> + frame_system::Config + avn::Config
     {
-        type Event: From<Event<Self>>
-            + Into<<Self as system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         type Call: From<Call<Self>>;
 

@@ -162,10 +162,10 @@ pub mod pallet {
         + avn::Config
         + pallet_session::historical::Config
     {
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         type Call: Parameter
-            + Dispatchable<Origin = <Self as frame_system::Config>::Origin>
+            + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
 

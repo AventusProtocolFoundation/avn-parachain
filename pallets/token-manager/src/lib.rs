@@ -94,13 +94,13 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + avn::Config {
         /// The overarching event type.
-        type Event: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The overarching call type.
         type Call: Parameter
-            + Dispatchable<Origin = <Self as frame_system::Config>::Origin>
+            + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>
             + GetDispatchInfo;
@@ -429,7 +429,7 @@ pub mod pallet {
         }
     }
 }
-use crate::{Error, Balances, pallet, Nonces, Event, Call, Config, Pallet};
+use crate::{Error, Balances, Nonces, Event, Call, Config, Pallet};
 
 impl<T: Config> Pallet<T> {
     fn settle_transfer(

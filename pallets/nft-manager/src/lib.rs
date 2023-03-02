@@ -87,12 +87,12 @@ pub mod pallet {
     // Public interface of this pallet
     #[pallet::config]
     pub trait Config: frame_system::Config + avn::Config {
-        type Event: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         type Call: Parameter
-            + Dispatchable<Origin = <Self as frame_system::Config>::Origin>
+            + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
 
@@ -724,7 +724,7 @@ pub mod pallet {
     }
 }
 
-use crate::{Config, Pallet, Call, Event, Error, Nfts, NftOpenForSale, NextInfoId, NextSingleNftUniqueId, NftInfos, UsedExternalReferences, OwnedNfts, pallet};
+use crate::{Config, Pallet, Call, Event, Error, Nfts, NftOpenForSale, NextInfoId, NextSingleNftUniqueId, NftInfos, UsedExternalReferences, OwnedNfts};
 
 impl<T: Config> Pallet<T> {
     fn validate_mint_single_nft_request(

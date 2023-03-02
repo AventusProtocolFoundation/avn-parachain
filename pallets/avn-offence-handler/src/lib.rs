@@ -38,9 +38,9 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + session::historical::Config {
         /// The overarching event type.
-        type Event: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A trait responsible for punishing malicious validators
         type Enforcer: Enforcer<<Self as session::Config>::ValidatorId>;
