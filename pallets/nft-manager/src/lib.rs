@@ -719,7 +719,7 @@ pub mod pallet {
                 return migrations::migrate_to_batch_nft::<T>()
             }
 
-            return 0
+            return Weight::from_ref_time(0)
         }
     }
 }

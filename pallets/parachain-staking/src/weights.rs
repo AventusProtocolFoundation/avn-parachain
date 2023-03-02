@@ -99,16 +99,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking TotalSelected (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
 	fn set_total_selected() -> Weight {
-		(20_382_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(20_382_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking Era (r:1 w:1)
 	// Storage: ParachainStaking TotalSelected (r:1 w:0)
 	fn set_blocks_per_era() -> Weight {
-		(21_171_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(21_171_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:0)
@@ -122,11 +122,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking TopNominations (r:0 w:1)
 	/// The range of component `x` is `[3, 100]`.
 	fn join_candidates(x: u32, ) -> Weight {
-		(73_382_000 as Weight)
+		(Weight::from_ref_time(73_382_000))
 			// Standard Error: 12_000
-			.saturating_add((274_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+			.saturating_add(Weight::from_ref_time(274_000).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -134,11 +134,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	/// The range of component `x` is `[3, 100]`.
 	fn schedule_leave_candidates(x: u32, ) -> Weight {
-		(46_301_000 as Weight)
+		(Weight::from_ref_time(46_301_000))
 			// Standard Error: 11_000
-			.saturating_add((202_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(202_000).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -151,37 +151,37 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Total (r:1 w:1)
 	/// The range of component `x` is `[2, 350]`.
 	fn execute_leave_candidates(x: u32, ) -> Weight {
-		(0 as Weight)
+		(Weight::from_ref_time(0))
 			// Standard Error: 127_000
-			.saturating_add((37_830_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().reads((3 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes((3 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(37_830_000).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().reads(3).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(T::DbWeight::get().writes(3).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	/// The range of component `x` is `[3, 100]`.
 	fn cancel_leave_candidates(x: u32, ) -> Weight {
-		(31_562_000 as Weight)
+		(Weight::from_ref_time(31_562_000))
 			// Standard Error: 1_000
-			.saturating_add((631_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(631_000).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn go_offline() -> Weight {
-		(29_513_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(29_513_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn go_online() -> Weight {
-		(28_972_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(28_972_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
@@ -189,9 +189,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Balances Locks (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn candidate_bond_extra() -> Weight {
-		(50_264_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
+		(Weight::from_ref_time(50_264_000))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(5))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
@@ -200,18 +200,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Balances Locks (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn signed_candidate_bond_extra() -> Weight {
-		(136_192_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+		(Weight::from_ref_time(136_192_000))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking MinCollatorStake (r:1 w:0)
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn schedule_candidate_unbond() -> Weight {
-		(32_723_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		(Weight::from_ref_time(32_723_000))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
@@ -219,9 +219,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn signed_schedule_candidate_unbond() -> Weight {
-		(116_171_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(116_171_000))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -230,9 +230,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn execute_candidate_unbond() -> Weight {
-		(50_555_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
+		(Weight::from_ref_time(50_555_000))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(5))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
@@ -242,15 +242,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn signed_execute_candidate_unbond() -> Weight {
-		(137_013_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+		Weight::from_ref_time(137_013_000)
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	fn cancel_candidate_unbond() -> Weight {
-		(20_362_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(20_362_000)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: System Account (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -262,13 +262,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `x` is `[3, 100]`.
 	/// The range of component `y` is `[2, 300]`.
 	fn nominate(x: u32, y: u32, ) -> Weight {
-		(100_434_000 as Weight)
+		Weight::from_ref_time(100_434_000)
 			// Standard Error: 10_000
-			.saturating_add((143_000 as Weight).saturating_mul(x as Weight))
+			.saturating_add(Weight::from_ref_time(143_000).saturating_mul(x as u64))
 			// Standard Error: 3_000
-			.saturating_add((75_000 as Weight).saturating_mul(y as Weight))
-			.saturating_add(T::DbWeight::get().reads(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+			.saturating_add(Weight::from_ref_time(75_000).saturating_mul(y as u64))
+			.saturating_add(T::DbWeight::get().reads(7))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking MinTotalNominatorStake (r:1 w:0)
@@ -282,22 +282,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `x` is `[3, 100]`.
 	/// The range of component `y` is `[2, 300]`.
 	fn signed_nominate(x: u32, _y: u32, ) -> Weight {
-		(51_970_000 as Weight)
+		Weight::from_ref_time(51_970_000)
 			// Standard Error: 85_000
-			.saturating_add((51_628_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().reads((2 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(T::DbWeight::get().writes(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(51_628_000).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().reads(2).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().writes(4))
+			.saturating_add(T::DbWeight::get().writes(2).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn schedule_leave_nominators() -> Weight {
-		(35_411_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(35_411_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -305,9 +305,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn signed_schedule_leave_nominators() -> Weight {
-		(120_005_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(120_005_000)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -320,13 +320,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:1 w:1)
 	/// The range of component `x` is `[2, 100]`.
 	fn execute_leave_nominators(x: u32, ) -> Weight {
-		(0 as Weight)
+		Weight::from_ref_time(0)
 			// Standard Error: 35_000
-			.saturating_add((31_843_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().reads((3 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes((3 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(31_843_000).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().reads(3).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().writes(2))
+			.saturating_add(T::DbWeight::get().writes(3).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -340,29 +340,29 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: System Account (r:1 w:1)
 	/// The range of component `x` is `[2, 100]`.
 	fn signed_execute_leave_nominators(x: u32, ) -> Weight {
-		(26_623_000 as Weight)
+		Weight::from_ref_time(26_623_000)
 			// Standard Error: 39_000
-			.saturating_add((32_743_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().reads((3 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes((3 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(32_743_000).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().reads(3).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().writes(3))
+			.saturating_add(T::DbWeight::get().writes(3).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn cancel_leave_nominators() -> Weight {
-		(33_202_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(33_202_000)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn schedule_revoke_nomination() -> Weight {
-		(35_303_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(35_303_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -370,9 +370,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn signed_schedule_revoke_nomination() -> Weight {
-		(120_027_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(120_027_000)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:0)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -383,9 +383,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn bond_extra() -> Weight {
-		(68_604_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(68_604_000)
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
@@ -397,9 +397,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn signed_bond_extra() -> Weight {
-		(167_640_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(9 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(167_640_000)
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(8))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
@@ -407,9 +407,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn schedule_nominator_unbond() -> Weight {
-		(36_722_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(36_722_000)
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -418,9 +418,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn signed_schedule_nominator_unbond() -> Weight {
-		(125_557_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(125_557_000)
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
@@ -432,9 +432,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn execute_revoke_nomination() -> Weight {
-		(79_565_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(9 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(79_565_000)
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(8))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
@@ -447,9 +447,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn execute_nominator_unbond() -> Weight {
-		(71_344_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(10 as Weight))
-			.saturating_add(T::DbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(71_344_000)
+			.saturating_add(T::DbWeight::get().reads(10))
+			.saturating_add(T::DbWeight::get().writes(8))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -463,23 +463,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn signed_execute_nominator_unbond() -> Weight {
-		(165_410_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().writes(9 as Weight))
+		Weight::from_ref_time(165_410_000)
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().writes(9))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn cancel_revoke_nomination() -> Weight {
-		(25_982_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(25_982_000)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn cancel_nominator_unbond() -> Weight {
-		(31_192_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(31_192_000)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking Era (r:1 w:1)
 	// Storage: ParachainStaking Points (r:1 w:0)
@@ -502,14 +502,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `x` is `[8, 20]`.
 	/// The range of component `y` is `[0, 30000]`.
 	fn era_transition_on_initialize(x: u32, y: u32, ) -> Weight {
-		(0 as Weight)
+		Weight::from_ref_time(0)
 			// Standard Error: 27_446_000
-			.saturating_add((218_962_000 as Weight).saturating_mul(x as Weight))
+			.saturating_add(Weight::from_ref_time(218_962_000).saturating_mul(x as u64))
 			// Standard Error: 8_000
-			.saturating_add((176_000 as Weight).saturating_mul(y as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().reads((11 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(T::DbWeight::get().writes((8 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(176_000).saturating_mul(y as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().reads(11).saturating_mul(x as u64))
+			.saturating_add(T::DbWeight::get().writes(8).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking DelayedPayouts (r:1 w:0)
 	// Storage: ParachainStaking Points (r:1 w:0)
@@ -519,18 +519,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking LockedEraPayout (r:1 w:1)
 	/// The range of component `y` is `[0, 300]`.
 	fn pay_one_collator_reward(y: u32, ) -> Weight {
-		(35_569_000 as Weight)
+		Weight::from_ref_time(35_569_000)
 			// Standard Error: 8_000
-			.saturating_add((21_733_000 as Weight).saturating_mul(y as Weight))
-			.saturating_add(T::DbWeight::get().reads(8 as Weight))
-			.saturating_add(T::DbWeight::get().reads((1 as Weight).saturating_mul(y as Weight)))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(y as Weight)))
+			.saturating_add(Weight::from_ref_time(21_733_000).saturating_mul(y as u64))
+			.saturating_add(T::DbWeight::get().reads(8))
+			.saturating_add(T::DbWeight::get().reads(1).saturating_mul(y as u64))
+			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(T::DbWeight::get().writes(1).saturating_mul(y as u64))
 	}
 	// Storage: ParachainStaking Era (r:1 w:0)
 	fn base_on_initialize() -> Weight {
-		(3_370_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
+		Weight::from_ref_time(3_370_000)
+			.saturating_add(T::DbWeight::get().reads(1 as u64))
 	}
 	// Storage: ParachainStaking CandidatePool (r:1 w:0)
 	// Storage: ParachainStaking TotalSelected (r:1 w:0)
@@ -541,23 +541,23 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: ParachainStaking SelectedCandidates (r:0 w:1)
 	// Storage: ParachainStaking AtStake (r:0 w:20)
 	fn select_top_candidates() -> Weight {
-		(402_370_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(63 as Weight))
-			.saturating_add(T::DbWeight::get().writes(21 as Weight))
+		Weight::from_ref_time(402_370_000)
+			.saturating_add(T::DbWeight::get().reads(63))
+			.saturating_add(T::DbWeight::get().writes(21))
 	}
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking AwardedPts (r:1 w:1)
 	// Storage: ParachainStaking Points (r:1 w:1)
 	// Storage: System BlockWeight (r:1 w:1)
 	fn note_author() -> Weight {
-		(14_810_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(14_810_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking Delay (r:0 w:1)
 	fn set_admin_setting() -> Weight {
-		(16_170_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(16_170_000)
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
 
@@ -566,16 +566,16 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking TotalSelected (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
 	fn set_total_selected() -> Weight {
-		(20_382_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(20_382_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking Era (r:1 w:1)
 	// Storage: ParachainStaking TotalSelected (r:1 w:0)
 	fn set_blocks_per_era() -> Weight {
-		(21_171_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(21_171_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:0)
@@ -589,11 +589,11 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking TopNominations (r:0 w:1)
 	/// The range of component `x` is `[3, 100]`.
 	fn join_candidates(x: u32, ) -> Weight {
-		(73_382_000 as Weight)
+		Weight::from_ref_time(73_382_000)
 			// Standard Error: 12_000
-			.saturating_add((274_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
+			.saturating_add(Weight::from_ref_time(274_000).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().reads(8))
+			.saturating_add(RocksDbWeight::get().writes(7))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -601,11 +601,11 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	/// The range of component `x` is `[3, 100]`.
 	fn schedule_leave_candidates(x: u32, ) -> Weight {
-		(46_301_000 as Weight)
+		Weight::from_ref_time(46_301_000)
 			// Standard Error: 11_000
-			.saturating_add((202_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(202_000).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -618,37 +618,37 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Total (r:1 w:1)
 	/// The range of component `x` is `[2, 350]`.
 	fn execute_leave_candidates(x: u32, ) -> Weight {
-		(0 as Weight)
+		Weight::from_ref_time(0)
 			// Standard Error: 127_000
-			.saturating_add((37_830_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((3 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((3 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(37_830_000).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().reads(3).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().writes(4))
+			.saturating_add(RocksDbWeight::get().writes(3).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	/// The range of component `x` is `[3, 100]`.
 	fn cancel_leave_candidates(x: u32, ) -> Weight {
-		(31_562_000 as Weight)
+		Weight::from_ref_time(31_562_000)
 			// Standard Error: 1_000
-			.saturating_add((631_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(631_000).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn go_offline() -> Weight {
-		(29_513_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(29_513_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn go_online() -> Weight {
-		(28_972_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(28_972_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
@@ -656,9 +656,9 @@ impl WeightInfo for () {
 	// Storage: Balances Locks (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn candidate_bond_extra() -> Weight {
-		(50_264_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
+		Weight::from_ref_time(50_264_000)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(5))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
@@ -667,18 +667,18 @@ impl WeightInfo for () {
 	// Storage: Balances Locks (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn signed_candidate_bond_extra() -> Weight {
-		(136_192_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+		Weight::from_ref_time(136_192_000)
+			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking MinCollatorStake (r:1 w:0)
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn schedule_candidate_unbond() -> Weight {
-		(32_723_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(32_723_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
@@ -686,9 +686,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn signed_schedule_candidate_unbond() -> Weight {
-		(116_171_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(116_171_000)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -697,9 +697,9 @@ impl WeightInfo for () {
 	// Storage: System Account (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn execute_candidate_unbond() -> Weight {
-		(50_555_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
+		Weight::from_ref_time(50_555_000)
+			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().writes(5))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
@@ -709,15 +709,15 @@ impl WeightInfo for () {
 	// Storage: System Account (r:1 w:1)
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	fn signed_execute_candidate_unbond() -> Weight {
-		(137_013_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+		Weight::from_ref_time(137_013_000)
+			.saturating_add(RocksDbWeight::get().reads(7))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: ParachainStaking CandidateInfo (r:1 w:1)
 	fn cancel_candidate_unbond() -> Weight {
-		(20_362_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(20_362_000)
+			.saturating_add(RocksDbWeight::get().reads(1))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: System Account (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -729,13 +729,13 @@ impl WeightInfo for () {
 	/// The range of component `x` is `[3, 100]`.
 	/// The range of component `y` is `[2, 300]`.
 	fn nominate(x: u32, y: u32, ) -> Weight {
-		(100_434_000 as Weight)
+		Weight::from_ref_time(100_434_000)
 			// Standard Error: 10_000
-			.saturating_add((143_000 as Weight).saturating_mul(x as Weight))
+			.saturating_add(Weight::from_ref_time(143_000).saturating_mul(x as u64))
 			// Standard Error: 3_000
-			.saturating_add((75_000 as Weight).saturating_mul(y as Weight))
-			.saturating_add(RocksDbWeight::get().reads(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
+			.saturating_add(Weight::from_ref_time(75_000).saturating_mul(y as u64))
+			.saturating_add(RocksDbWeight::get().reads(7))
+			.saturating_add(RocksDbWeight::get().writes(7))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking MinTotalNominatorStake (r:1 w:0)
@@ -749,22 +749,22 @@ impl WeightInfo for () {
 	/// The range of component `x` is `[3, 100]`.
 	/// The range of component `y` is `[2, 300]`.
 	fn signed_nominate(x: u32, _y: u32, ) -> Weight {
-		(51_970_000 as Weight)
+		Weight::from_ref_time(51_970_000)
 			// Standard Error: 85_000
-			.saturating_add((51_628_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((2 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((2 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(51_628_000).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().reads(2).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().writes(4))
+			.saturating_add(RocksDbWeight::get().writes(2).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn schedule_leave_nominators() -> Weight {
-		(35_411_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(35_411_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -772,9 +772,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn signed_schedule_leave_nominators() -> Weight {
-		(120_005_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(120_005_000)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -787,13 +787,13 @@ impl WeightInfo for () {
 	// Storage: System Account (r:1 w:1)
 	/// The range of component `x` is `[2, 100]`.
 	fn execute_leave_nominators(x: u32, ) -> Weight {
-		(0 as Weight)
+		Weight::from_ref_time(0)
 			// Standard Error: 35_000
-			.saturating_add((31_843_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((3 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((3 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(31_843_000).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().reads(3).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().writes(2))
+			.saturating_add(RocksDbWeight::get().writes(3).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -807,29 +807,29 @@ impl WeightInfo for () {
 	// Storage: System Account (r:1 w:1)
 	/// The range of component `x` is `[2, 100]`.
 	fn signed_execute_leave_nominators(x: u32, ) -> Weight {
-		(26_623_000 as Weight)
+		Weight::from_ref_time(26_623_000)
 			// Standard Error: 39_000
-			.saturating_add((32_743_000 as Weight).saturating_mul(x as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((3 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((3 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(32_743_000).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().reads(3).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().writes(3))
+			.saturating_add(RocksDbWeight::get().writes(3).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn cancel_leave_nominators() -> Weight {
-		(33_202_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(33_202_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn schedule_revoke_nomination() -> Weight {
-		(35_303_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(35_303_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -837,9 +837,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn signed_schedule_revoke_nomination() -> Weight {
-		(120_027_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(120_027_000)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:0)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -850,9 +850,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn bond_extra() -> Weight {
-		(68_604_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(68_604_000)
+			.saturating_add(RocksDbWeight::get().reads(8))
+			.saturating_add(RocksDbWeight::get().writes(7))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
@@ -864,9 +864,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn signed_bond_extra() -> Weight {
-		(167_640_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(167_640_000)
+			.saturating_add(RocksDbWeight::get().reads(9))
+			.saturating_add(RocksDbWeight::get().writes(8))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
@@ -874,9 +874,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn schedule_nominator_unbond() -> Weight {
-		(36_722_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(36_722_000)
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
@@ -885,9 +885,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking Delay (r:1 w:0)
 	fn signed_schedule_nominator_unbond() -> Weight {
-		(125_557_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(125_557_000)
+			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
@@ -899,9 +899,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn execute_revoke_nomination() -> Weight {
-		(79_565_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(9 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(79_565_000)
+			.saturating_add(RocksDbWeight::get().reads(9))
+			.saturating_add(RocksDbWeight::get().writes(8))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
@@ -914,9 +914,9 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn execute_nominator_unbond() -> Weight {
-		(71_344_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(10 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(8 as Weight))
+		Weight::from_ref_time(71_344_000)
+			.saturating_add(RocksDbWeight::get().reads(10))
+			.saturating_add(RocksDbWeight::get().writes(8))
 	}
 	// Storage: ParachainStaking ProxyNonces (r:1 w:1)
 	// Storage: ParachainStaking Era (r:1 w:0)
@@ -930,23 +930,23 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking CandidatePool (r:1 w:1)
 	// Storage: ParachainStaking Total (r:1 w:1)
 	fn signed_execute_nominator_unbond() -> Weight {
-		(165_410_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(9 as Weight))
+		Weight::from_ref_time(165_410_000)
+			.saturating_add(RocksDbWeight::get().reads(11))
+			.saturating_add(RocksDbWeight::get().writes(9))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn cancel_revoke_nomination() -> Weight {
-		(25_982_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(25_982_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking NominatorState (r:1 w:1)
 	// Storage: ParachainStaking NominationScheduledRequests (r:1 w:1)
 	fn cancel_nominator_unbond() -> Weight {
-		(31_192_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(31_192_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: ParachainStaking Era (r:1 w:1)
 	// Storage: ParachainStaking Points (r:1 w:0)
@@ -969,14 +969,14 @@ impl WeightInfo for () {
 	/// The range of component `x` is `[8, 20]`.
 	/// The range of component `y` is `[0, 30000]`.
 	fn era_transition_on_initialize(x: u32, y: u32, ) -> Weight {
-		(0 as Weight)
+		Weight::from_ref_time(0)
 			// Standard Error: 27_446_000
-			.saturating_add((218_962_000 as Weight).saturating_mul(x as Weight))
+			.saturating_add(Weight::from_ref_time(218_962_000).saturating_mul(x as u64))
 			// Standard Error: 8_000
-			.saturating_add((176_000 as Weight).saturating_mul(y as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((11 as Weight).saturating_mul(x as Weight)))
-			.saturating_add(RocksDbWeight::get().writes((8 as Weight).saturating_mul(x as Weight)))
+			.saturating_add(Weight::from_ref_time(176_000).saturating_mul(y as u64))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().reads(11).saturating_mul(x as u64))
+			.saturating_add(RocksDbWeight::get().writes(8).saturating_mul(x as u64))
 	}
 	// Storage: ParachainStaking DelayedPayouts (r:1 w:0)
 	// Storage: ParachainStaking Points (r:1 w:0)
@@ -986,18 +986,18 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking LockedEraPayout (r:1 w:1)
 	/// The range of component `y` is `[0, 300]`.
 	fn pay_one_collator_reward(y: u32, ) -> Weight {
-		(35_569_000 as Weight)
+		Weight::from_ref_time(35_569_000)
 			// Standard Error: 8_000
-			.saturating_add((21_733_000 as Weight).saturating_mul(y as Weight))
-			.saturating_add(RocksDbWeight::get().reads(8 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((1 as Weight).saturating_mul(y as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(y as Weight)))
+			.saturating_add(Weight::from_ref_time(21_733_000).saturating_mul(y as u64))
+			.saturating_add(RocksDbWeight::get().reads(8))
+			.saturating_add(RocksDbWeight::get().reads(1).saturating_mul(y as u64))
+			.saturating_add(RocksDbWeight::get().writes(5))
+			.saturating_add(RocksDbWeight::get().writes(1).saturating_mul(y as u64))
 	}
 	// Storage: ParachainStaking Era (r:1 w:0)
 	fn base_on_initialize() -> Weight {
-		(3_370_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
+		Weight::from_ref_time(3_370_000)
+			.saturating_add(RocksDbWeight::get().reads(1))
 	}
 	// Storage: ParachainStaking CandidatePool (r:1 w:0)
 	// Storage: ParachainStaking TotalSelected (r:1 w:0)
@@ -1008,22 +1008,22 @@ impl WeightInfo for () {
 	// Storage: ParachainStaking SelectedCandidates (r:0 w:1)
 	// Storage: ParachainStaking AtStake (r:0 w:20)
 	fn select_top_candidates() -> Weight {
-		(402_370_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(63 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(21 as Weight))
+		Weight::from_ref_time(402_370_000)
+			.saturating_add(RocksDbWeight::get().reads(63))
+			.saturating_add(RocksDbWeight::get().writes(21))
 	}
 	// Storage: ParachainStaking Era (r:1 w:0)
 	// Storage: ParachainStaking AwardedPts (r:1 w:1)
 	// Storage: ParachainStaking Points (r:1 w:1)
 	// Storage: System BlockWeight (r:1 w:1)
 	fn note_author() -> Weight {
-		(14_810_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(14_810_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: ParachainStaking Delay (r:0 w:1)
 	fn set_admin_setting() -> Weight {
-		(16_170_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+		Weight::from_ref_time(16_170_000)
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

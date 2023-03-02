@@ -108,7 +108,7 @@ impl<T: Config> OnOffenceHandler<T::AccountId, IdentificationTuple<T>, Weight> f
         _session: SessionIndex,
         _disable_strategy: DisableStrategy,
     ) -> Weight {
-        let mut consumed_weight: Weight = 0;
+        let mut consumed_weight: Weight = Weight::from_ref_time(0);
         let mut add_db_reads_writes = |reads, writes| {
             consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         };

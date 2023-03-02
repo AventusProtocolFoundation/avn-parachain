@@ -110,16 +110,16 @@ impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {
 pub const BASE_FEE: u64 = 12;
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-const MAX_BLOCK_WEIGHT: Weight = 1024;
+const MAX_BLOCK_WEIGHT: Weight = Weight::from_ref_time(1024);
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     // Creating custom runtime block weights similar with substrate/frame/system/src/mock.rs
     pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(1024, NORMAL_DISPATCH_RATIO);
     pub RuntimeBlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
-        .base_block(10)
+        .base_block(Weight::from_ref_time(10))
         .for_class(DispatchClass::all(), |weights| {
-            weights.base_extrinsic = BASE_FEE;
+            weights.base_extrinsic = Weight::from_ref_time(BASE_FEE);
         })
         .for_class(DispatchClass::Normal, |weights| {
             weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT);
@@ -240,7 +240,7 @@ impl WeightToFeeT for WeightToFee {
     type Balance = u128;
 
     fn weight_to_fee(weight: &Weight) -> Self::Balance {
-        Self::Balance::saturated_from(*weight).saturating_mul(WEIGHT_TO_FEE.with(|v| *v.borrow()))
+        Self::Balance::saturated_from(weight.ref_time()).saturating_mul(WEIGHT_TO_FEE.with(|v| *v.borrow()))
     }
 }
 
@@ -248,7 +248,7 @@ impl WeightToFeeT for TransactionByteFee {
     type Balance = u128;
 
     fn weight_to_fee(weight: &Weight) -> Self::Balance {
-        Self::Balance::saturated_from(*weight)
+        Self::Balance::saturated_from(weight.ref_time())
             .saturating_mul(TRANSACTION_BYTE_FEE.with(|v| *v.borrow()))
     }
 }

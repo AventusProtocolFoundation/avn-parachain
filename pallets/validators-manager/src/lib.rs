@@ -292,7 +292,7 @@ pub mod pallet {
                     .or_else(|| Some(Weight::zero()))
                     .expect("Has default value")
                     .saturating_add(T::DbWeight::get().reads_writes(0, 2))
-                    .saturating_add(40_000_000),
+                    .saturating_add(Weight::from_ref_time(40_000_000)),
             )
             .into())
         }
@@ -330,7 +330,7 @@ pub mod pallet {
                     .actual_weight
                     .or_else(|| Some(Weight::zero()))
                     .expect("Has default value")
-                    .saturating_add(40_000_000),
+                    .saturating_add(Weight::from_ref_time(40_000_000)),
             )
             .into())
         }

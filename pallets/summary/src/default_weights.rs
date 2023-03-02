@@ -71,8 +71,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Summary VotingPeriod (r:0 w:1)
 	// Storage: Summary SchedulePeriod (r:0 w:1)
 	fn set_periods() -> Weight {
-		(16_781_000 as Weight)
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(16_781_000)
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: Summary TotalIngresses (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
@@ -87,11 +87,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `v` is `[3, 10]`.
 	/// The range of component `r` is `[1, 2]`.
 	fn record_summary_calculation(v: u32, _r: u32, ) -> Weight {
-		(62_440_000 as Weight)
+		Weight::from_ref_time(62_440_000)
 			// Standard Error: 38_000
-			.saturating_add((242_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(10 as Weight))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(242_000).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(10))
+			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: Summary Roots (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
@@ -111,15 +111,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `v` is `[3, 10]`.
 	/// The range of component `o` is `[1, 2]`.
 	fn approve_root_with_end_voting(v: u32, o: u32, ) -> Weight {
-		(202_079_000 as Weight)
+		Weight::from_ref_time(202_079_000)
 			// Standard Error: 268_000
-			.saturating_add((1_240_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(1_240_000).saturating_mul(v as u64))
 			// Standard Error: 2_224_000
-			.saturating_add((19_374_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(19_374_000).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().writes(7))
+			.saturating_add(T::DbWeight::get().writes(2).saturating_mul(o as u64))
 	}
 	// Storage: Summary Roots (r:1 w:0)
 	// Storage: Avn Validators (r:1 w:0)
@@ -129,11 +129,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn approve_root_without_end_voting(v: u32, ) -> Weight {
-		(124_198_000 as Weight)
+		Weight::from_ref_time(124_198_000)
 			// Standard Error: 67_000
-			.saturating_add((508_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(508_000).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: Summary VotesRepository (r:1 w:1)
@@ -149,15 +149,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// The range of component `v` is `[3, 10]`.
 	/// The range of component `o` is `[1, 2]`.
 	fn reject_root_with_end_voting(v: u32, o: u32, ) -> Weight {
-		(146_663_000 as Weight)
+		Weight::from_ref_time(146_663_000)
 			// Standard Error: 126_000
-			.saturating_add((1_208_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(1_208_000).saturating_mul(v as u64))
 			// Standard Error: 1_049_000
-			.saturating_add((20_910_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(20_910_000).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().writes(6))
+			.saturating_add(T::DbWeight::get().writes(2).saturating_mul(o as u64))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: Summary VotesRepository (r:1 w:1)
@@ -166,11 +166,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn reject_root_without_end_voting(v: u32, ) -> Weight {
-		(53_317_000 as Weight)
+		Weight::from_ref_time(53_317_000)
 			// Standard Error: 18_000
-			.saturating_add((146_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(146_000).saturating_mul(v as u64))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Summary VotesRepository (r:1 w:0)
 	// Storage: Summary Roots (r:1 w:1)
@@ -188,13 +188,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Summary NextBlockToProcess (r:0 w:1)
 	/// The range of component `o` is `[1, 2]`.
 	fn end_voting_period_with_rejected_valid_votes(o: u32, ) -> Weight {
-		(92_154_000 as Weight)
+		Weight::from_ref_time(92_154_000)
 			// Standard Error: 617_000
-			.saturating_add((15_202_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(T::DbWeight::get().reads(10 as Weight))
-			.saturating_add(T::DbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(T::DbWeight::get().writes(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(15_202_000).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().reads(10))
+			.saturating_add(T::DbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().writes(6))
+			.saturating_add(T::DbWeight::get().writes(2).saturating_mul(o as u64))
 	}
 	// Storage: Summary VotesRepository (r:1 w:0)
 	// Storage: Summary Roots (r:1 w:0)
@@ -209,13 +209,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnOffenceHandler SlashingEnabled (r:1 w:0)
 	/// The range of component `o` is `[1, 2]`.
 	fn end_voting_period_with_approved_invalid_votes(o: u32, ) -> Weight {
-		(117_661_000 as Weight)
+		Weight::from_ref_time(117_661_000)
 			// Standard Error: 1_307_000
-			.saturating_add((17_536_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(T::DbWeight::get().reads(11 as Weight))
-			.saturating_add(T::DbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(T::DbWeight::get().writes(5 as Weight))
-			.saturating_add(T::DbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(17_536_000).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(T::DbWeight::get().writes(5))
+			.saturating_add(T::DbWeight::get().writes(2).saturating_mul(o as u64))
 	}
 	// Storage: Summary NextSlotAtBlock (r:1 w:1)
 	// Storage: Summary CurrentSlotsValidator (r:1 w:1)
@@ -230,9 +230,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnOffenceHandler SlashingEnabled (r:1 w:0)
 	// Storage: Summary SchedulePeriod (r:1 w:0)
 	fn advance_slot_with_offence() -> Weight {
-		(93_875_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(12 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(93_875_000)
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 	// Storage: Summary NextSlotAtBlock (r:1 w:1)
 	// Storage: Summary CurrentSlotsValidator (r:1 w:1)
@@ -241,9 +241,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: Summary SchedulePeriod (r:1 w:0)
 	fn advance_slot_without_offence() -> Weight {
-		(38_122_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(6 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(38_122_000)
+			.saturating_add(T::DbWeight::get().reads(6))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: Summary CurrentSlot (r:1 w:1)
 	// Storage: Summary CurrentSlotsValidator (r:1 w:1)
@@ -258,9 +258,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Summary SlotOfLastPublishedSummary (r:1 w:0)
 	// Storage: Summary SchedulePeriod (r:1 w:0)
 	fn add_challenge() -> Weight {
-		(103_435_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(12 as Weight))
-			.saturating_add(T::DbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(103_435_000)
+			.saturating_add(T::DbWeight::get().reads(12))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
 }
 
@@ -269,8 +269,8 @@ impl WeightInfo for () {
 	// Storage: Summary VotingPeriod (r:0 w:1)
 	// Storage: Summary SchedulePeriod (r:0 w:1)
 	fn set_periods() -> Weight {
-		(16_781_000 as Weight)
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(16_781_000)
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: Summary TotalIngresses (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
@@ -285,11 +285,11 @@ impl WeightInfo for () {
 	/// The range of component `v` is `[3, 10]`.
 	/// The range of component `r` is `[1, 2]`.
 	fn record_summary_calculation(v: u32, _r: u32, ) -> Weight {
-		(62_440_000 as Weight)
+		Weight::from_ref_time(62_440_000)
 			// Standard Error: 38_000
-			.saturating_add((242_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(10 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
+			.saturating_add(Weight::from_ref_time(242_000).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(10))
+			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: Summary Roots (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
@@ -309,15 +309,15 @@ impl WeightInfo for () {
 	/// The range of component `v` is `[3, 10]`.
 	/// The range of component `o` is `[1, 2]`.
 	fn approve_root_with_end_voting(v: u32, o: u32, ) -> Weight {
-		(202_079_000 as Weight)
+		Weight::from_ref_time(202_079_000)
 			// Standard Error: 268_000
-			.saturating_add((1_240_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(1_240_000).saturating_mul(v as u64))
 			// Standard Error: 2_224_000
-			.saturating_add((19_374_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(19_374_000).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().reads(11))
+			.saturating_add(RocksDbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().writes(7))
+			.saturating_add(RocksDbWeight::get().writes(2).saturating_mul(o as u64))
 	}
 	// Storage: Summary Roots (r:1 w:0)
 	// Storage: Avn Validators (r:1 w:0)
@@ -327,11 +327,11 @@ impl WeightInfo for () {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn approve_root_without_end_voting(v: u32, ) -> Weight {
-		(124_198_000 as Weight)
+		Weight::from_ref_time(124_198_000)
 			// Standard Error: 67_000
-			.saturating_add((508_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(508_000).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: Summary VotesRepository (r:1 w:1)
@@ -347,15 +347,15 @@ impl WeightInfo for () {
 	/// The range of component `v` is `[3, 10]`.
 	/// The range of component `o` is `[1, 2]`.
 	fn reject_root_with_end_voting(v: u32, o: u32, ) -> Weight {
-		(146_663_000 as Weight)
+		Weight::from_ref_time(146_663_000)
 			// Standard Error: 126_000
-			.saturating_add((1_208_000 as Weight).saturating_mul(v as Weight))
+			.saturating_add(Weight::from_ref_time(1_208_000).saturating_mul(v as u64))
 			// Standard Error: 1_049_000
-			.saturating_add((20_910_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(20_910_000).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().reads(11))
+			.saturating_add(RocksDbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().writes(6))
+			.saturating_add(RocksDbWeight::get().writes(2).saturating_mul(o as u64))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: Summary VotesRepository (r:1 w:1)
@@ -364,11 +364,11 @@ impl WeightInfo for () {
 	// Storage: AvnFinalityTracker LatestFinalisedBlock (r:1 w:0)
 	/// The range of component `v` is `[3, 10]`.
 	fn reject_root_without_end_voting(v: u32, ) -> Weight {
-		(53_317_000 as Weight)
+		Weight::from_ref_time(53_317_000)
 			// Standard Error: 18_000
-			.saturating_add((146_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+			.saturating_add(Weight::from_ref_time(146_000).saturating_mul(v as u64))
+			.saturating_add(RocksDbWeight::get().reads(5))
+			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Summary VotesRepository (r:1 w:0)
 	// Storage: Summary Roots (r:1 w:1)
@@ -386,13 +386,13 @@ impl WeightInfo for () {
 	// Storage: Summary NextBlockToProcess (r:0 w:1)
 	/// The range of component `o` is `[1, 2]`.
 	fn end_voting_period_with_rejected_valid_votes(o: u32, ) -> Weight {
-		(92_154_000 as Weight)
+		Weight::from_ref_time(92_154_000)
 			// Standard Error: 617_000
-			.saturating_add((15_202_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(RocksDbWeight::get().reads(10 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(15_202_000).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().reads(10))
+			.saturating_add(RocksDbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().writes(6))
+			.saturating_add(RocksDbWeight::get().writes(2).saturating_mul(o as u64))
 	}
 	// Storage: Summary VotesRepository (r:1 w:0)
 	// Storage: Summary Roots (r:1 w:0)
@@ -407,13 +407,13 @@ impl WeightInfo for () {
 	// Storage: AvnOffenceHandler SlashingEnabled (r:1 w:0)
 	/// The range of component `o` is `[1, 2]`.
 	fn end_voting_period_with_approved_invalid_votes(o: u32, ) -> Weight {
-		(117_661_000 as Weight)
+		Weight::from_ref_time(117_661_000)
 			// Standard Error: 1_307_000
-			.saturating_add((17_536_000 as Weight).saturating_mul(o as Weight))
-			.saturating_add(RocksDbWeight::get().reads(11 as Weight))
-			.saturating_add(RocksDbWeight::get().reads((2 as Weight).saturating_mul(o as Weight)))
-			.saturating_add(RocksDbWeight::get().writes(5 as Weight))
-			.saturating_add(RocksDbWeight::get().writes((2 as Weight).saturating_mul(o as Weight)))
+			.saturating_add(Weight::from_ref_time(17_536_000).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().reads(11))
+			.saturating_add(RocksDbWeight::get().reads(2).saturating_mul(o as u64))
+			.saturating_add(RocksDbWeight::get().writes(5))
+			.saturating_add(RocksDbWeight::get().writes(2).saturating_mul(o as u64))
 	}
 	// Storage: Summary NextSlotAtBlock (r:1 w:1)
 	// Storage: Summary CurrentSlotsValidator (r:1 w:1)
@@ -428,9 +428,9 @@ impl WeightInfo for () {
 	// Storage: AvnOffenceHandler SlashingEnabled (r:1 w:0)
 	// Storage: Summary SchedulePeriod (r:1 w:0)
 	fn advance_slot_with_offence() -> Weight {
-		(93_875_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(12 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(93_875_000)
+			.saturating_add(RocksDbWeight::get().reads(12))
+			.saturating_add(RocksDbWeight::get().writes(7))
 	}
 	// Storage: Summary NextSlotAtBlock (r:1 w:1)
 	// Storage: Summary CurrentSlotsValidator (r:1 w:1)
@@ -439,9 +439,9 @@ impl WeightInfo for () {
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: Summary SchedulePeriod (r:1 w:0)
 	fn advance_slot_without_offence() -> Weight {
-		(38_122_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(6 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(38_122_000)
+			.saturating_add(RocksDbWeight::get().reads(6))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: Summary CurrentSlot (r:1 w:1)
 	// Storage: Summary CurrentSlotsValidator (r:1 w:1)
@@ -456,8 +456,8 @@ impl WeightInfo for () {
 	// Storage: Summary SlotOfLastPublishedSummary (r:1 w:0)
 	// Storage: Summary SchedulePeriod (r:1 w:0)
 	fn add_challenge() -> Weight {
-		(103_435_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(12 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(7 as Weight))
+		Weight::from_ref_time(103_435_000)
+			.saturating_add(RocksDbWeight::get().reads(12))
+			.saturating_add(RocksDbWeight::get().writes(7))
 	}
 }

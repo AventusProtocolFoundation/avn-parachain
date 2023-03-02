@@ -23,6 +23,7 @@ use crate::{
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use hex_literal::hex;
+use pallet_parachain_staking::Weight;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use sp_core::{sr25519, Pair};
 use sp_runtime::{
@@ -70,7 +71,7 @@ fn pay_gas_and_proxy_call(
         ChargeTransactionPayment::from(0), // we do not pay any tip
         relayer,
         outer_call,
-        &info_from_weight(1),
+        &info_from_weight(Weight::from_ref_time(1)),
         TX_LEN,
     )
     .map_err(|e| <&'static str>::from(e))?;
@@ -90,7 +91,7 @@ fn pay_gas_and_call_lower_directly(
         ChargeTransactionPayment::from(0),
         sender,
         call,
-        &info_from_weight(1),
+        &info_from_weight(Weight::from_ref_time(1)),
         TX_LEN,
     )
     .map_err(|e| <&'static str>::from(e))?;

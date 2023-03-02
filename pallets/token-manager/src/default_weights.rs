@@ -68,59 +68,59 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn proxy_with_non_avt_token() -> Weight {
-		(121_496_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(121_496_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: TokenManager Nonces (r:1 w:1)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn signed_transfer() -> Weight {
-		(112_427_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(112_427_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: TokenManager LowerAccountId (r:1 w:0)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: System Account (r:1 w:1)
 	// Storage: TokenManager Nonces (r:1 w:1)
 	fn lower_avt_token() -> Weight {
-		(45_483_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(45_483_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: TokenManager LowerAccountId (r:1 w:0)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:1 w:1)
 	// Storage: TokenManager Nonces (r:1 w:1)
 	fn lower_non_avt_token() -> Weight {
-		(33_882_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(33_882_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: TokenManager Nonces (r:1 w:1)
 	// Storage: TokenManager LowerAccountId (r:1 w:0)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: System Account (r:1 w:1)
 	fn signed_lower_avt_token() -> Weight {
-		(120_897_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(120_897_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: TokenManager Nonces (r:1 w:1)
 	// Storage: TokenManager LowerAccountId (r:1 w:0)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:1 w:1)
 	fn signed_lower_non_avt_token() -> Weight {
-		(110_426_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(110_426_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	// Storage: System Account (r:2 w:2)
 	fn transfer_from_treasury() -> Weight {
-		(44_672_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(44_672_000)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }
 
@@ -130,58 +130,58 @@ impl WeightInfo for () {
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn proxy_with_non_avt_token() -> Weight {
-		(121_496_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(121_496_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: TokenManager Nonces (r:1 w:1)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn signed_transfer() -> Weight {
-		(112_427_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
+		Weight::from_ref_time(112_427_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: TokenManager LowerAccountId (r:1 w:0)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: System Account (r:1 w:1)
 	// Storage: TokenManager Nonces (r:1 w:1)
 	fn lower_avt_token() -> Weight {
-		(45_483_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(45_483_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: TokenManager LowerAccountId (r:1 w:0)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:1 w:1)
 	// Storage: TokenManager Nonces (r:1 w:1)
 	fn lower_non_avt_token() -> Weight {
-		(33_882_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(33_882_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: TokenManager Nonces (r:1 w:1)
 	// Storage: TokenManager LowerAccountId (r:1 w:0)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: System Account (r:1 w:1)
 	fn signed_lower_avt_token() -> Weight {
-		(120_897_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(120_897_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: TokenManager Nonces (r:1 w:1)
 	// Storage: TokenManager LowerAccountId (r:1 w:0)
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:1 w:1)
 	fn signed_lower_non_avt_token() -> Weight {
-		(110_426_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(110_426_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 	// Storage: System Account (r:2 w:2)
 	fn transfer_from_treasury() -> Weight {
-		(44_672_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		Weight::from_ref_time(44_672_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 }

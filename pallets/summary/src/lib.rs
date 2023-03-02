@@ -665,7 +665,7 @@ pub mod pallet {
                 ));
             }
 
-            return T::DbWeight::get().writes(weight_write_counter as Weight)
+            return T::DbWeight::get().writes(weight_write_counter as u64)
         }
     }
 

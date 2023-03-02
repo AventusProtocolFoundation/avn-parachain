@@ -1730,7 +1730,7 @@ pub mod pallet {
 
             // don't underflow uint
             if now < delay {
-                return 0u64.into()
+                return Weight::from_ref_time(0u64).into()
             }
 
             let paid_for_era = now.saturating_sub(delay);
@@ -1745,7 +1745,7 @@ pub mod pallet {
                 }
                 result.1 // weight consumed by pay_one_collator_reward
             } else {
-                0u64.into()
+                Weight::from_ref_time(0u64).into()
             }
         }
 
@@ -1767,7 +1767,7 @@ pub mod pallet {
                 // 2. we called pay_one_collator_reward when we were actually done with deferred
                 //    payouts
                 log::warn!("pay_one_collator_reward called with no <Points<T>> for the era!");
-                return (None, 0u64.into())
+                return (None, Weight::from_ref_time(0u64).into())
             }
 
             let reward_pot_account_id = Self::compute_reward_pot_account_id();
@@ -1824,7 +1824,7 @@ pub mod pallet {
             } else {
                 // Note that we don't clean up storage here; it is cleaned up in
                 // handle_delayed_payouts()
-                (None, 0u64.into())
+                (None, Weight::from_ref_time(0u64).into())
             }
         }
 
