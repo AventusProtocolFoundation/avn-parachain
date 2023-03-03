@@ -2,7 +2,10 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, *};
+use crate::{
+    mock::{RuntimeEvent as Event, RuntimeOrigin as Origin, *},
+    *,
+};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
@@ -263,7 +266,7 @@ mod test_add_ethereum_log {
     use super::*;
 
     struct Context {
-        origin: Origin,
+        origin: RuntimeOrigin,
         tx_hash: H256,
         nft_event_type: ValidEvents,
         current_block: BlockNumber,
@@ -274,7 +277,7 @@ mod test_add_ethereum_log {
     impl Default for Context {
         fn default() -> Self {
             Context {
-                origin: Origin::signed(account_id_0()),
+                origin: RuntimeOrigin::signed(account_id_0()),
                 tx_hash: H256::from([5u8; 32]),
                 nft_event_type: ValidEvents::NftMint,
                 current_block: 1,

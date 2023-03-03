@@ -11,7 +11,7 @@ mod test_set_ethereum_contract {
     use super::*;
 
     struct Context {
-        origin: Origin,
+        origin: RuntimeOrigin,
         new_contract_address: H160,
         ethereum_contract: EthereumContracts,
     }
@@ -132,7 +132,7 @@ mod test_set_ethereum_contract {
             let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
             ext.execute_with(|| {
                 let context: Context =
-                    Context { origin: Origin::signed(account_id_0()), ..Default::default() };
+                    Context { origin: RuntimeOrigin::signed(account_id_0()), ..Default::default() };
 
                 assert_noop!(context.dispatch_set_ethereum_contract(), BadOrigin);
                 assert_ne!(
