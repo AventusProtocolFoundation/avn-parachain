@@ -17,14 +17,14 @@
 #![cfg(test)]
 use super::*;
 use crate::{
-    mock::{AccountId, Call as MockCall, *},
+    mock::{AccountId, RuntimeCall as MockCall, *},
     Call,
 };
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use mock::Event;
+use mock::{RuntimeEvent as Event, RuntimeOrigin as Origin};
 use sp_core::sr25519::Pair;
 
 fn build_proof(

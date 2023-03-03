@@ -17,7 +17,7 @@
 #![cfg(test)]
 use super::*;
 use crate::{
-    mock::{AccountId, Call as MockCall, Event, *},
+    mock::{AccountId, RuntimeCall as MockCall, RuntimeEvent as Event, RuntimeOrigin as Origin, *},
     Call,
 };
 use codec::Encode;

@@ -17,14 +17,13 @@
 #![cfg(test)]
 use super::*;
 use crate::{
-    mock::{AccountId, Call as MockCall, *},
+    mock::{AccountId, RuntimeCall as MockCall, RuntimeEvent as Event, RuntimeOrigin as Origin, *},
     Call,
 };
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use mock::Event;
 use sp_core::sr25519::Pair;
 
 const DEFAULT_NONCE: u64 = 0;

@@ -15,10 +15,9 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::mock::{AccountId, *};
+use crate::mock::{AccountId, RuntimeEvent as Event, *};
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
-use mock::Event;
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
 use sp_core::H256;
 
