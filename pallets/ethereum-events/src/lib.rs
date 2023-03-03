@@ -422,6 +422,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// This extrinsic is being deprecated. Use add_ethereum_log
         // We need to maintain this till SYS-888 is resolved. After that it can be removed.
+        #[pallet::call_index(0)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_validator_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -436,6 +437,7 @@ pub mod pallet {
 
         /// This extrinsic is being deprecated. Use add_ethereum_log
         // We need to maintain this till SYS-888 is resolved. After that it can be removed.
+        #[pallet::call_index(1)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_lift_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -448,6 +450,7 @@ pub mod pallet {
             return Self::add_event(ValidEvents::Lifted, tx_hash, account_id)
         }
 
+        #[pallet::call_index(2)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkevent_result(
             MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
             MAX_NUMBER_OF_UNCHECKED_EVENTS
@@ -500,6 +503,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(3)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::process_event_with_successful_challenge(
                 MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
                 MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -616,6 +620,7 @@ pub mod pallet {
             Ok(Some(final_weight).into())
         }
 
+        #[pallet::call_index(4)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::challenge_event(
             MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
@@ -679,6 +684,7 @@ pub mod pallet {
         }
 
         /// Submits an ethereum transaction hash into the chain
+        #[pallet::call_index(5)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_ethereum_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -696,6 +702,7 @@ pub mod pallet {
         }
 
         // # </weight>
+        #[pallet::call_index(6)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::signed_add_ethereum_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
@@ -729,6 +736,7 @@ pub mod pallet {
         }
 
         /// Sets the address for ethereum contracts
+        #[pallet::call_index(7)]
         #[pallet::weight(
             <T as pallet::Config>::WeightInfo::set_ethereum_contract_map_storage().max(<T as Config>::WeightInfo::set_ethereum_contract_storage()
         ))]
@@ -751,6 +759,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(8)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_event_challenge_period())]
         pub fn set_event_challenge_period(
             origin: OriginFor<T>,
