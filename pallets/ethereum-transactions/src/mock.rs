@@ -64,8 +64,8 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type Event = Event;
-    type Call = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type Call = RuntimeCall;
     type AccountToBytesConvert = U64To32BytesConverter;
     type ValidatorManagerContractAddress = TestValidatorManagerContractAddress;
     type WeightInfo = ();
@@ -84,8 +84,8 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -93,7 +93,7 @@ impl system::Config for TestRuntime {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -106,13 +106,13 @@ impl system::Config for TestRuntime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-pub type Extrinsic = TestXt<Call, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
 where
-    Call: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
 }
 
@@ -150,7 +150,7 @@ impl session::Config for TestRuntime {
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (AVN,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = u64;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
@@ -212,7 +212,7 @@ impl EthereumTransactions {
     // TODO [TYPE: test refactoring][PRI: medium]: move this to a centralized pallet of test
     // utilities, when we do that refactoring, and apply it to all emitted system event
     // assertions.
-    pub fn event_emitted(event: &Event) -> bool {
+    pub fn event_emitted(event: &RuntimeEvent) -> bool {
         return System::events().iter().any(|a| a.event == *event)
     }
 
