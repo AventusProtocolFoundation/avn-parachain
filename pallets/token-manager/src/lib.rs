@@ -265,11 +265,11 @@ pub mod pallet {
         /// a sender. As a general rule, every function that can be proxied should follow
         /// this convention:
         /// - its first argument (after origin) should be a public verification key and a signature
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(call.get_dispatch_info().weight))]
-        pub fn proxy(origin: OriginFor<T>, call: Box<<T as Config>::Call>) -> DispatchResult {
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(frame_support::weights::GetDispatchInfo::get_dispatch_info(call).weight))]
+        pub fn proxy(origin: OriginFor<T>, call:<T as Config>::Call) -> DispatchResult {
             let relayer = ensure_signed(origin)?;
 
-            let proof = Self::get_proof(&*call)?;
+            let proof = Self::get_proof(&call)?;
             ensure!(relayer == proof.relayer, Error::<T>::UnauthorizedProxyTransaction);
 
             let call_hash: T::Hash = T::Hashing::hash_of(&call);
