@@ -47,6 +47,7 @@ const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
 pub type AVN<T> = avn::Pallet<T>;
 
 #[cfg(test)]
+#[path = "mock.rs"]
 mod mock;
 
 mod benchmarking;
@@ -131,6 +132,7 @@ pub mod pallet {
         #[pallet::weight(
             <T as pallet::Config>::WeightInfo::submit_latest_finalised_block_number(MAX_VALIDATOR_ACCOUNT_IDS)
         )]
+        #[pallet::call_index(0)]
         pub fn submit_latest_finalised_block_number(
             origin: OriginFor<T>,
             new_finalised_block_number: T::BlockNumber,

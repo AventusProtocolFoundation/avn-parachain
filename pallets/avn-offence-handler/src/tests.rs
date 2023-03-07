@@ -103,13 +103,13 @@ mod on_offence {
                         DisableStrategy::Never,
                     );
 
-                    assert!(event_emitted(&mock::Event::AvnOffenceHandler(crate::Event::<
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(crate::Event::<
                         TestRuntime,
                     >::ReportedOffence {
                         offender: VALIDATOR_ID_1
                     })));
 
-                    assert!(event_emitted(&mock::Event::AvnOffenceHandler(crate::Event::<
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(crate::Event::<
                         TestRuntime,
                     >::ReportedOffence {
                         offender: VALIDATOR_ID_2
@@ -174,13 +174,13 @@ mod on_offence {
                         DisableStrategy::Never,
                     );
 
-                    assert!(event_emitted(&mock::Event::AvnOffenceHandler(crate::Event::<
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(crate::Event::<
                         TestRuntime,
                     >::ReportedOffence {
                         offender: VALIDATOR_ID_1
                     })));
 
-                    assert!(event_emitted(&mock::Event::AvnOffenceHandler(crate::Event::<
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(crate::Event::<
                         TestRuntime,
                     >::ReportedOffence {
                         offender: VALIDATOR_ID_2
@@ -222,7 +222,7 @@ mod on_offence {
                 // action is successful or not
                 assert_eq!(
                     true,
-                    event_emitted(&mock::Event::AvnOffenceHandler(
+                    event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(
                         crate::Event::<TestRuntime>::ReportedOffence {
                             offender: VALIDATOR_ID_CAN_CAUSE_SLASH_ERROR
                         }
@@ -262,13 +262,13 @@ mod on_offence {
                 // action is successful or not
                 assert_eq!(
                     true,
-                    event_emitted(&mock::Event::AvnOffenceHandler(
+                    event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(
                         crate::Event::<TestRuntime>::ReportedOffence { offender: VALIDATOR_ID_1 }
                     ))
                 );
                 assert_eq!(
                     true,
-                    event_emitted(&mock::Event::AvnOffenceHandler(
+                    event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(
                         crate::Event::<TestRuntime>::ReportedOffence {
                             offender: VALIDATOR_ID_CAN_CAUSE_SLASH_ERROR
                         }
@@ -279,6 +279,6 @@ mod on_offence {
     }
 }
 
-pub fn event_emitted(event: &mock::Event) -> bool {
+pub fn event_emitted(event: &mock::RuntimeEvent) -> bool {
     return System::events().iter().any(|a| a.event == *event)
 }

@@ -365,6 +365,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight( <T as pallet::Config>::WeightInfo::set_periods())]
+        #[pallet::call_index(0)]
         pub fn set_periods(
             origin: OriginFor<T>,
             schedule_period_in_blocks: T::BlockNumber,
@@ -394,6 +395,7 @@ pub mod pallet {
             MAX_VALIDATOR_ACCOUNT_IDS,
             MAX_NUMBER_OF_ROOT_DATA_PER_RANGE
         ))]
+        #[pallet::call_index(1)]
         pub fn record_summary_calculation(
             origin: OriginFor<T>,
             new_block_number: T::BlockNumber,
@@ -467,6 +469,7 @@ pub mod pallet {
         #[pallet::weight( <T as pallet::Config>::WeightInfo::approve_root_with_end_voting(MAX_VALIDATOR_ACCOUNT_IDS, MAX_OFFENDERS).max(
             <T as Config>::WeightInfo::approve_root_without_end_voting(MAX_VALIDATOR_ACCOUNT_IDS)
         ))]
+        #[pallet::call_index(2)]
         pub fn approve_root(
             origin: OriginFor<T>,
             root_id: RootId<T::BlockNumber>,
@@ -508,6 +511,7 @@ pub mod pallet {
         #[pallet::weight( <T as pallet::Config>::WeightInfo::reject_root_with_end_voting(MAX_VALIDATOR_ACCOUNT_IDS, MAX_OFFENDERS).max(
             <T as Config>::WeightInfo::reject_root_without_end_voting(MAX_VALIDATOR_ACCOUNT_IDS)
         ))]
+        #[pallet::call_index(3)]
         pub fn reject_root(
             origin: OriginFor<T>,
             root_id: RootId<T::BlockNumber>,
@@ -530,6 +534,7 @@ pub mod pallet {
         #[pallet::weight( <T as pallet::Config>::WeightInfo::end_voting_period_with_rejected_valid_votes(MAX_OFFENDERS).max(
             <T as Config>::WeightInfo::end_voting_period_with_approved_invalid_votes(MAX_OFFENDERS)
         ))]
+        #[pallet::call_index(4)]
         pub fn end_voting_period(
             origin: OriginFor<T>,
             root_id: RootId<T::BlockNumber>,
@@ -548,6 +553,7 @@ pub mod pallet {
         #[pallet::weight( <T as pallet::Config>::WeightInfo::advance_slot_with_offence().max(
             <T as Config>::WeightInfo::advance_slot_without_offence()
         ))]
+        #[pallet::call_index(5)]
         pub fn advance_slot(
             origin: OriginFor<T>,
             validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
@@ -562,6 +568,7 @@ pub mod pallet {
         }
 
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_challenge())]
+        #[pallet::call_index(6)]
         pub fn add_challenge(
             origin: OriginFor<T>,
             challenge: SummaryChallenge<T::AccountId>,

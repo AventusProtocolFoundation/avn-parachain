@@ -1,6 +1,5 @@
-use crate::{Config, Pallet, BalanceOf, DispatchResultWithPostInfo,NominatorState,CandidateInfo, Error, Total, Nominator, Bond, Event, BondAdjust};
-frame_support::ensure;
-
+use frame_support::ensure;
+use crate::*;
 impl<T: Config> Pallet<T> {
     pub fn call_nominate(
         nominator: &T::AccountId,

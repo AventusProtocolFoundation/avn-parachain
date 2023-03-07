@@ -18,7 +18,7 @@ use crate::{
     keccak_256, BatchInfoId, BatchOpenForSale, Config, Decode, DispatchResult, Encode, Error,
     EthEventId, Event, Nft, NftBatchId, NftBatches, NftEndBatchListingData, NftInfo, NftInfoId,
     NftInfos, NftSaleType, NftUniqueId, Nfts, Pallet, ProcessedEventsChecker, Proof, Royalty,
-    BATCH_ID_CONTEXT, BATCH_NFT_ID_CONTEXT, H160, U256,
+    BATCH_ID_CONTEXT, BATCH_NFT_ID_CONTEXT, H160, U256, Vec
 };
 use frame_support::{dispatch::DispatchError, ensure};
 use sp_avn_common::event_types::NftMintData;

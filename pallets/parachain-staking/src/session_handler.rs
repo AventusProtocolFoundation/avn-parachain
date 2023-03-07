@@ -5,7 +5,7 @@ use crate::{Era, Config, ForceNewEra, Pallet as ParachainStaking};
 use frame_support::{
     pallet_prelude::Weight,
     traits::{EstimateNextSessionRotation, Get},
-    weights::DispatchClass,
+    dispatch::DispatchClass
 };
 use pallet_session::{self as session, ShouldEndSession};
 use sp_runtime::{traits::Saturating, Permill};

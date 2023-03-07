@@ -16,7 +16,6 @@ use frame_support::{
     traits::{Get, OnRuntimeUpgrade},
     weights::Weight,
 };
-use sp_runtime::traits::Zero;
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -79,7 +78,7 @@ pub fn enable_staking<T: Config>() -> Weight {
         candidate_count = candidate_count.saturating_add(1u32);
 
         if let Err(error) = <Pallet<T>>::join_candidates(
-            T::Origin::from(Some(validator.account_id).into()),
+            T::RuntimeOrigin::from(Some(validator.account_id).into()),
             initial_min_collator_stake_balance,
             candidate_count,
         ) {

@@ -82,9 +82,9 @@ pub mod pallet {
         + pallet_session::historical::Config
     {
         /// Overarching event type
-        type Event: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// A trait that allows to subscribe to notifications triggered when ethereum event
         /// processes an event
         type ProcessedEventsChecker: ProcessedEventsChecker;
@@ -273,7 +273,7 @@ pub mod pallet {
                 .or_else(|| Some(parachain_staking::Pallet::<T>::min_collator_stake()))
                 .expect("has default value");
             let register_as_candidate_weight = parachain_staking::Pallet::<T>::join_candidates(
-                <T as frame_system::Config>::Origin::from(RawOrigin::Signed(
+                <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
                     collator_account_id.clone(),
                 )),
                 bond,
@@ -309,7 +309,7 @@ pub mod pallet {
             let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
             let resign_as_candidate_weight =
                 parachain_staking::Pallet::<T>::schedule_leave_candidates(
-                    <T as frame_system::Config>::Origin::from(RawOrigin::Signed(
+                    <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
                         collator_account_id.clone(),
                     )),
                     candidate_count,
@@ -878,7 +878,7 @@ impl<T: Config> Pallet<T> {
         // Remove collator from parachain_staking pallet
         let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
         parachain_staking::Pallet::<T>::schedule_leave_candidates(
-            <T as frame_system::Config>::Origin::from(RawOrigin::Signed(slashed_validator.clone())),
+            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(slashed_validator.clone())),
             candidate_count,
         )
         .map_err(|e| {
@@ -991,7 +991,7 @@ impl<T: Config> Pallet<T> {
         let staking_state = staking_state.expect("Checked for none already");
 
         let result = parachain_staking::Pallet::<T>::execute_leave_candidates(
-            <T as frame_system::Config>::Origin::from(RawOrigin::Signed(action_account_id.clone())),
+            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(action_account_id.clone())),
             action_account_id.clone(),
             staking_state.nomination_count,
         );

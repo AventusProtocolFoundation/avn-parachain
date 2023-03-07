@@ -2,7 +2,7 @@
 
 #![cfg(test)]
 
-use crate::{self as avn_finality_tracker, *};
+use crate::{self as avn_finality_tracker,*};
 use frame_support::parameter_types;
 use frame_system as system;
 use sp_core::H256;
@@ -24,7 +24,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         AVN: pallet_avn::{Pallet, Storage},
-        AvnFinalityTracker: avn_finality_tracker::{Pallet, Call, Storage, Event<T>},
+        AvnFinalityTracker: avn_finality_tracker::{Pallet, Config, Call, Storage, Event<T>},
     }
 );
 
@@ -35,7 +35,7 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
+    type Event = RuntimeEvent;
     type CacheAge = CacheAge;
     type SubmissionInterval = SubmissionInterval;
     type ReportLatency = ReportLatency;
@@ -83,7 +83,7 @@ impl avn::Config for TestRuntime {
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
 where
-    RuntimeCall: From<LocalCall>,
+RuntimeCall: From<LocalCall>,
 {
     type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;

@@ -25,7 +25,8 @@ use frame_support::{
         ConstU8, Currency, Everything, FindAuthor, GenesisBuild, Imbalance, LockIdentifier,
         OnFinalize, OnInitialize, OnUnbalanced, ValidatorRegistration,
     },
-    weights::{DispatchClass, DispatchInfo, PostDispatchInfo, Weight, WeightToFee as WeightToFeeT},
+    dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
+    weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
 };
 use frame_system::limits;
@@ -133,16 +134,16 @@ parameter_types! {
 impl frame_system::Config for Test {
     type BaseCallFilter = Everything;
     type DbWeight = ();
-    type Origin = Origin;
+    type RuntimeOrigin = RuntimeOrigin;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = Call;
+    type RuntimeCall = RuntimeCall;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -164,7 +165,7 @@ impl pallet_balances::Config for Test {
     type ReserveIdentifier = [u8; 4];
     type MaxLocks = ();
     type Balance = Balance;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
@@ -208,8 +209,8 @@ impl ValidatorRegistration<AccountId> for IsRegistered {
 }
 
 impl Config for Test {
-    type Call = Call;
-    type Event = Event;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type RewardPaymentDelay = RewardPaymentDelay;
     type MinBlocksPerEra = MinBlocksPerEra;
@@ -259,7 +260,7 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<Test>> for DealWithFees {
 }
 
 impl pallet_transaction_payment::Config for Test {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
     type LengthToFee = TransactionByteFee;
     type WeightToFee = WeightToFee;
@@ -297,7 +298,7 @@ impl session::Config for Test {
     type Keys = UintAuthorityId;
     type ShouldEndSession = ParachainStaking;
     type SessionHandler = (AVN,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = ParachainStaking;
@@ -305,8 +306,8 @@ impl session::Config for Test {
 }
 
 impl avn_proxy::Config for Test {
-    type Event = Event;
-    type Call = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type Call = RuntimeCall;
     type Currency = Balances;
     type Public = AccountId;
     type Signature = Signature;
@@ -324,10 +325,10 @@ impl Default for TestAvnProxyConfig {
     }
 }
 
-impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
-    fn get_proof(call: &Call) -> Option<Proof<Signature, AccountId>> {
+impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
+    fn get_proof(call: &RuntimeCall) -> Option<Proof<Signature, AccountId>> {
         match call {
-            Call::System(frame_system::Call::remark { remark: _msg }) => {
+            RuntimeCall::System(frame_system::Call::remark { remark: _msg }) => {
                 let signer_account = TestAccount::new(985);
                 return Some(Proof {
                     signer: signer_account.account_id(),
@@ -336,49 +337,49 @@ impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
                 })
             },
 
-            Call::ParachainStaking(pallet_parachain_staking::Call::signed_nominate {
+            RuntimeCall::ParachainStaking(pallet_parachain_staking::Call::signed_nominate {
                 proof,
                 targets: _,
                 amount: _,
             }) => return Some(proof.clone()),
-            Call::ParachainStaking(pallet_parachain_staking::Call::signed_bond_extra {
+            RuntimeCall::ParachainStaking(pallet_parachain_staking::Call::signed_bond_extra {
                 proof,
                 extra_amount: _,
             }) => return Some(proof.clone()),
-            Call::ParachainStaking(
+            RuntimeCall::ParachainStaking(
                 pallet_parachain_staking::Call::signed_candidate_bond_extra {
                     proof,
                     extra_amount: _,
                 },
             ) => return Some(proof.clone()),
-            Call::ParachainStaking(
+            RuntimeCall::ParachainStaking(
                 pallet_parachain_staking::Call::signed_schedule_candidate_unbond { proof, less: _ },
             ) => return Some(proof.clone()),
-            Call::ParachainStaking(
+            RuntimeCall::ParachainStaking(
                 pallet_parachain_staking::Call::signed_schedule_nominator_unbond { proof, less: _ },
             ) => return Some(proof.clone()),
-            Call::ParachainStaking(
+            RuntimeCall::ParachainStaking(
                 pallet_parachain_staking::Call::signed_schedule_revoke_nomination {
                     proof,
                     collator: _,
                 },
             ) => return Some(proof.clone()),
-            Call::ParachainStaking(
+            RuntimeCall::ParachainStaking(
                 pallet_parachain_staking::Call::signed_schedule_leave_nominators { proof },
             ) => return Some(proof.clone()),
-            Call::ParachainStaking(
+            RuntimeCall::ParachainStaking(
                 pallet_parachain_staking::Call::signed_execute_leave_nominators {
                     proof,
                     nominator: _,
                 },
             ) => return Some(proof.clone()),
-            Call::ParachainStaking(
+            RuntimeCall::ParachainStaking(
                 pallet_parachain_staking::Call::signed_execute_nomination_request {
                     proof,
                     nominator: _,
                 },
             ) => return Some(proof.clone()),
-            Call::ParachainStaking(
+            RuntimeCall::ParachainStaking(
                 pallet_parachain_staking::Call::signed_execute_candidate_unbond {
                     proof,
                     candidate: _,
@@ -391,12 +392,12 @@ impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
 }
 
 impl InnerCallValidator for TestAvnProxyConfig {
-    type Call = Call;
+    type Call = RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         match **call {
-            Call::System(..) => return true,
-            Call::ParachainStaking(..) => return ParachainStaking::signature_is_valid(call),
+            RuntimeCall::System(..) => return true,
+            RuntimeCall::ParachainStaking(..) => return ParachainStaking::signature_is_valid(call),
             _ => false,
         }
     }
@@ -404,7 +405,7 @@ impl InnerCallValidator for TestAvnProxyConfig {
 
 pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bool {
     return System::events().iter().any(|a| match a.event {
-        Event::AvnProxy(avn_proxy::Event::<Test>::InnerCallFailed { dispatch_error, .. }) =>
+        RuntimeEvent::AvnProxy(avn_proxy::Event::<Test>::InnerCallFailed { dispatch_error, .. }) =>
             if dispatch_error == call_dispatch_error {
                 return true
             } else {
@@ -565,7 +566,7 @@ pub(crate) fn roll_to_era_end(era: u64) -> u64 {
     roll_to(block)
 }
 
-pub(crate) fn last_event() -> Event {
+pub(crate) fn last_event() -> RuntimeEvent {
     System::events().pop().expect("Event expected").event
 }
 
@@ -578,7 +579,7 @@ pub(crate) fn events() -> Vec<pallet::Event<Test>> {
     System::events()
         .into_iter()
         .map(|r| r.event)
-        .filter_map(|e| if let Event::ParachainStaking(inner) = e { Some(inner) } else { None })
+        .filter_map(|e| if let RuntimeEvent::ParachainStaking(inner) = e { Some(inner) } else { None })
         .collect::<Vec<_>>()
 }
 
@@ -713,7 +714,7 @@ pub(crate) fn pay_gas_for_transaction(sender: &AccountId, tip: u128) {
     let pre = ChargeTransactionPayment::<Test>::from(tip)
         .pre_dispatch(
             sender,
-            &Call::System(frame_system::Call::remark { remark: vec![] }),
+            &RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
             &DispatchInfo { weight: Weight::from_ref_time(1), ..Default::default() },
             TX_LEN,
         )

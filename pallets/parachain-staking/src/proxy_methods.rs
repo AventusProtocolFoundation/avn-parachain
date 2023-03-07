@@ -11,7 +11,8 @@ use sp_avn_common::{InnerCallValidator, Proof};
 use sp_runtime::traits::{StaticLookup, Verify};
 use sp_std::prelude::*;
 
-use crate::{Config, Call, Pallet as ParachainStaking, BalanceOf, DispatchResultWithPostInfo,NominatorState,CandidateInfo, Error, Total, Nominator, Bond, Event, BondAdjust};
+use super::*;
+use crate::Pallet as ParachainStaking;
 
 pub const SIGNED_NOMINATOR_CONTEXT: &'static [u8] =
     b"parachain authorization for nominate operation";
@@ -35,7 +36,7 @@ pub const SIGNED_EXECUTE_CANDIDATE_UNBOND_CONTEXT: &'static [u8] =
     b"parachain authorization for executing candidate unbond operation";
 
 pub fn get_encoded_call_param<T: Config>(
-    call: &<T as Call,
+    call: &<T as Config>::RuntimeCall,
 ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
     let call = match call.is_sub_type() {
         Some(call) => call,
@@ -54,7 +55,7 @@ pub fn get_encoded_call_param<T: Config>(
 
             return Some((proof, encoded_data))
         },
-        ParachainStaking::Call::signed_bond_extra { proof, extra_amount } => {
+        Call::signed_bond_extra { proof, extra_amount } => {
             let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
             let encoded_data = encode_signed_bond_extra_params::<T>(
                 proof.relayer.clone(),
@@ -64,7 +65,7 @@ pub fn get_encoded_call_param<T: Config>(
 
             return Some((proof, encoded_data))
         },
-        ParachainStaking::Call::signed_candidate_bond_extra { proof, extra_amount } => {
+        Call::signed_candidate_bond_extra { proof, extra_amount } => {
             let sender_nonce = ParachainStaking::<T>::proxy_nonce(&proof.signer);
             let encoded_data = encode_signed_candidate_bond_extra_params::<T>(
                 proof.relayer.clone(),
@@ -238,7 +239,7 @@ pub fn verify_signature<T: Config>(
 }
 
 impl<T: Config> InnerCallValidator for ParachainStaking<T> {
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = get_encoded_call_param::<T>(call) {

@@ -5,8 +5,8 @@
 use crate::{
     assert_event_emitted, assert_last_event, encode_signed_nominate_params,
     mock::{
-        build_proof, inner_call_failed_event_emitted, sign, AccountId, AvnProxy, Call as MockCall,
-        Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Signature, Staker, Test,
+        build_proof, inner_call_failed_event_emitted, sign, AccountId, AvnProxy, RuntimeCall as MockCall,
+        RuntimeEvent as MetaEvent, ExtBuilder, RuntimeOrigin as Origin, ParachainStaking, Signature, Staker, Test,
         TestAccount,
     },
     Config, Error, Event, NominatorAdded, Proof, StaticLookup,
@@ -27,7 +27,7 @@ mod proxy_signed_nominate {
         sender_nonce: u64,
         targets: Vec<<<Test as system::Config>::Lookup as StaticLookup>::Source>,
         amount: u128,
-    ) -> Box<<Test as Config>::Call> {
+    ) -> Box<<Test as Config>::RuntimeCall> {
         let proof = create_proof_for_signed_nominate(sender_nonce, staker, &targets, &amount);
 
         return Box::new(MockCall::ParachainStaking(super::super::Call::<Test>::signed_nominate {
@@ -41,7 +41,7 @@ mod proxy_signed_nominate {
         proof: Proof<Signature, AccountId>,
         targets: Vec<<<Test as system::Config>::Lookup as StaticLookup>::Source>,
         amount: u128,
-    ) -> Box<<Test as Config>::Call> {
+    ) -> Box<<Test as Config>::RuntimeCall> {
         return Box::new(MockCall::ParachainStaking(super::super::Call::<Test>::signed_nominate {
             proof,
             targets,

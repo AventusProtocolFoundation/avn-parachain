@@ -25,7 +25,7 @@ use crate::{
     assert_tail_eq,
     mock::{
         roll_one_block, roll_to, roll_to_era_begin, roll_to_era_end, set_author, set_reward_pot,
-        AccountId, Balances, Event as MetaEvent, ExtBuilder, Origin, ParachainStaking, Test,
+        AccountId, Balances, RuntimeEvent as MetaEvent, ExtBuilder, RuntimeOrigin as Origin, ParachainStaking, Test,
         TestAccount,
     },
     nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},

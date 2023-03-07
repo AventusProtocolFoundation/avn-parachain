@@ -82,6 +82,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::configure_slashing())]
+        #[pallet::call_index(0)]
         pub fn configure_slashing(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let _sender = ensure_root(origin)?;
             <SlashingEnabled<T>>::put(enabled);
