@@ -35,7 +35,7 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type Event = RuntimeEvent;
+    type RuntimeEvent = RuntimeEvent;
     type CacheAge = CacheAge;
     type SubmissionInterval = SubmissionInterval;
     type ReportLatency = ReportLatency;

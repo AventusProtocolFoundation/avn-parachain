@@ -871,7 +871,7 @@ pub mod pallet {
             return Ok(root_hash)
         }
     
-        fn create_root_lock_name(block_number: T::BlockNumber) -> OcwLock::PersistentId {
+        pub fn create_root_lock_name(block_number: T::BlockNumber) -> OcwLock::PersistentId {
             let mut name = b"create_summary::".to_vec();
             name.extend_from_slice(&mut block_number.encode());
             name
@@ -918,7 +918,7 @@ pub mod pallet {
             return OcwOperationExpiration::Custom(lock_expiration_in_blocks)
         }
     
-        fn advance_slot_if_required(
+        pub fn advance_slot_if_required(
             block_number: T::BlockNumber,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) {
@@ -943,7 +943,7 @@ pub mod pallet {
         }
     
         // called from OCW - no storage changes allowed here
-        fn process_summary_if_required(
+        pub fn process_summary_if_required(
             block_number: T::BlockNumber,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) {
@@ -1050,7 +1050,7 @@ pub mod pallet {
         }
     
         // called from OCW - no storage changes allowed here
-        fn process_summary(
+        pub fn process_summary(
             last_block_in_range: T::BlockNumber,
             validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) -> DispatchResult {
@@ -1121,7 +1121,7 @@ pub mod pallet {
             Ok(())
         }
     
-        fn get_target_block() -> Result<T::BlockNumber, Error<T>> {
+        pub fn get_target_block() -> Result<T::BlockNumber, Error<T>> {
             let end_block_number = safe_add_block_numbers::<T::BlockNumber>(
                 Self::get_next_block_to_process(),
                 Self::schedule_period(),

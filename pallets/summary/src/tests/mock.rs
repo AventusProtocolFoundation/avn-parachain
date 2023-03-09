@@ -149,7 +149,7 @@ impl Summary {
 
     pub fn event_matches_offence_type(event: &RuntimeEvent, this_type: SummaryOffenceType) -> bool {
         return matches!(event,
-            mock::Event::Summary(
+            mock::RuntimeEvent::Summary(
                 crate::Event::<TestRuntime>::SummaryOffenceReported{ offence_type, .. }
             )
             if this_type == *offence_type

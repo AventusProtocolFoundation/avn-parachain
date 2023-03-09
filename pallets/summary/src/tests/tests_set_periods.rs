@@ -10,7 +10,7 @@ mod test_set_periods {
     use super::*;
 
     struct Context {
-        origin: Origin,
+        origin: RuntimeOrigin,
         schedule_period: BlockNumber,
         new_schedule_period: BlockNumber,
         voting_period: BlockNumber,
@@ -105,7 +105,7 @@ mod test_set_periods {
                     .as_externality();
                 ext.execute_with(|| {
                     let context: Context = Context {
-                        origin: Origin::signed(Default::default()),
+                        origin: RuntimeOrigin::signed(Default::default()),
                         ..Default::default()
                     };
 
@@ -161,7 +161,7 @@ mod test_set_periods {
                     .as_externality();
                 ext.execute_with(|| {
                     let context: Context = Context {
-                        origin: Origin::signed(Default::default()),
+                        origin: RuntimeOrigin::signed(Default::default()),
                         ..Default::default()
                     };
 

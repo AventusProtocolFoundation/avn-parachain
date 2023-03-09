@@ -17,7 +17,7 @@
 #![cfg(test)]
 use crate::{
     self as token_manager,
-    mock::{Balances, Call as MockCall, Event, *},
+    mock::{Balances, RuntimeCall as MockCall, RuntimeEvent, *},
     Call, *,
 };
 use codec::Encode;
@@ -63,8 +63,8 @@ fn default_t1_recipient() -> H160 {
 
 fn pay_gas_and_proxy_call(
     relayer: &AccountId,
-    outer_call: &<TestRuntime as frame_system::Config>::Call,
-    inner_call: Box<<TestRuntime as Config>::Call>,
+    outer_call: &<TestRuntime as frame_system::Config>::RuntimeCall,
+    inner_call: Box<<TestRuntime as Config>::RuntimeCall>,
 ) -> DispatchResult {
     // See: /primitives/runtime/src/traits.rs for more details
     <ChargeTransactionPayment<TestRuntime> as SignedExtension>::pre_dispatch(
@@ -76,7 +76,7 @@ fn pay_gas_and_proxy_call(
     )
     .map_err(|e| <&'static str>::from(e))?;
 
-    return TokenManager::proxy(Origin::signed(*relayer), inner_call)
+    return TokenManager::proxy(RuntimeOrigin::signed(*relayer), *inner_call)
 }
 
 fn pay_gas_and_call_lower_directly(
@@ -85,7 +85,7 @@ fn pay_gas_and_call_lower_directly(
     amount: <TestRuntime as Config>::TokenBalance,
     t1_recipient: H160,
     proof: Proof<Signature, AccountId>,
-    call: &<TestRuntime as frame_system::Config>::Call,
+    call: &<TestRuntime as frame_system::Config>::RuntimeCall,
 ) -> DispatchResultWithPostInfo {
     <ChargeTransactionPayment<TestRuntime> as SignedExtension>::pre_dispatch(
         ChargeTransactionPayment::from(0),
@@ -97,7 +97,7 @@ fn pay_gas_and_call_lower_directly(
     .map_err(|e| <&'static str>::from(e))?;
 
     return TokenManager::signed_lower(
-        Origin::signed(*sender),
+        RuntimeOrigin::signed(*sender),
         proof,
         *sender,
         token_id,
@@ -175,19 +175,19 @@ fn create_proof_for_signed_lower(
     return build_proof(from, relayer, signature)
 }
 
-fn check_proxy_lower_default_call_succeed(call: Box<<TestRuntime as Config>::Call>) {
+fn check_proxy_lower_default_call_succeed(call: Box<<TestRuntime as Config>::RuntimeCall>) {
     let call_hash = Hashing::hash_of(&call);
 
-    assert_ok!(TokenManager::proxy(Origin::signed(default_relayer()), call));
+    assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(default_relayer()), *call));
     assert_eq!(System::events().len(), 2);
     assert!(System::events().iter().any(|a| a.event ==
-        Event::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
+        RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
             relayer: default_relayer(),
             call_hash
         })));
 
     assert!(System::events().iter().any(|a| a.event ==
-        Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+        RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
             token_id: NON_AVT_TOKEN_ID,
             sender: default_sender(),
             recipient: default_receiver_account_id(),
@@ -239,7 +239,7 @@ mod proxy_signed_lower {
                         t1_recipient,
                     }));
 
-                assert_ok!(TokenManager::proxy(Origin::signed(relayer), call.clone()));
+                assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), *call.clone()));
 
                 assert_eq!(
                     <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
@@ -267,11 +267,11 @@ mod proxy_signed_lower {
                     }));
 
                 assert_eq!(System::events().len(), 0);
-                assert_ok!(TokenManager::proxy(Origin::signed(relayer), call.clone()));
+                assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), *call.clone()));
 
                 let call_hash = Hashing::hash_of(&call);
                 assert!(System::events().iter().any(|a| a.event ==
-                    Event::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
+                    RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
                         relayer,
                         call_hash
                     })));
@@ -280,7 +280,7 @@ mod proxy_signed_lower {
                 // that lower was called. In this case we will check that the
                 // Lowered signal was emitted.
                 assert!(System::events().iter().any(|a| a.event ==
-                    Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+                    RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                         token_id: NON_AVT_TOKEN_ID,
                         sender,
                         recipient: recipient_account_id,
@@ -310,7 +310,7 @@ mod proxy_signed_lower {
             let call_hash = Hashing::hash_of(&call);
 
             assert_eq!(System::events().len(), 0);
-            assert_ok!(TokenManager::proxy(Origin::signed(relayer), call));
+            assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), *call));
 
             assert_eq!(
                 <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
@@ -318,12 +318,12 @@ mod proxy_signed_lower {
             );
 
             assert!(System::events().iter().any(|a| a.event ==
-                Event::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
+                RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
                     relayer,
                     call_hash
                 })));
             assert!(System::events().iter().any(|a| a.event ==
-                Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+                RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                     token_id: NON_AVT_TOKEN_ID,
                     sender,
                     recipient: recipient_account_id,
@@ -357,7 +357,7 @@ mod proxy_signed_lower {
                     ));
 
                     assert_err!(
-                        TokenManager::proxy(Origin::signed(relayer), call),
+                        TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
                         Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                     );
 
@@ -388,7 +388,7 @@ mod proxy_signed_lower {
 
                 assert_eq!(System::events().len(), 0);
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), call),
+                    TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                 );
 
@@ -435,7 +435,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), call),
+                    TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                 );
                 assert_eq!(System::events().len(), 0);
@@ -483,7 +483,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), call),
+                    TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
                     Error::<TestRuntime>::SenderNotValid
                 );
                 assert_eq!(System::events().len(), 0);
@@ -523,7 +523,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), call.clone()),
+                    TokenManager::proxy(RuntimeOrigin::signed(relayer), *call.clone()),
                     Error::<TestRuntime>::UnauthorizedProxyTransaction
                 );
                 assert_eq!(System::events().len(), 0);
@@ -570,7 +570,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), call),
+                    TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                 );
                 assert_eq!(System::events().len(), 0);
@@ -621,7 +621,7 @@ mod proxy_signed_lower {
                         t1_recipient,
                     }));
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), call),
+                    TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                 );
 
@@ -663,7 +663,7 @@ mod signed_lower {
                 let proof = create_proof_for_signed_lower_with_nonce(NON_ZERO_NONCE);
 
                 assert_ok!(TokenManager::signed_lower(
-                    Origin::signed(sender),
+                    RuntimeOrigin::signed(sender),
                     proof,
                     sender,
                     NON_AVT_TOKEN_ID,
@@ -689,7 +689,7 @@ mod signed_lower {
                 assert_eq!(System::events().len(), 0);
 
                 assert_ok!(TokenManager::signed_lower(
-                    Origin::signed(sender),
+                    RuntimeOrigin::signed(sender),
                     proof,
                     sender,
                     NON_AVT_TOKEN_ID,
@@ -698,7 +698,7 @@ mod signed_lower {
                 ));
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+                    RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                         token_id: NON_AVT_TOKEN_ID,
                         sender,
                         recipient: recipient_account_id,
@@ -784,7 +784,7 @@ mod fees {
                         t1_recipient,
                     }));
                 let outer_call = &MockCall::TokenManager(token_manager::Call::proxy {
-                    call: inner_call.clone(),
+                    call: *inner_call.clone(),
                 });
 
                 // Pay fees and submit the transaction
@@ -793,13 +793,13 @@ mod fees {
                 // Check the effects of the transaction
                 let call_hash = Hashing::hash_of(&inner_call);
                 assert!(System::events().iter().any(|a| a.event ==
-                    Event::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
+                    RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
                         relayer,
                         call_hash
                     })));
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+                    RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                         token_id: NON_AVT_TOKEN_ID,
                         sender,
                         recipient: recipient_account_id,
@@ -869,7 +869,7 @@ mod fees {
                     DEFAULT_AMOUNT
                 );
                 assert!(System::events().iter().any(|a| a.event ==
-                    Event::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
+                    RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
                         token_id: NON_AVT_TOKEN_ID,
                         sender,
                         recipient: recipient_account_id,
@@ -910,7 +910,7 @@ mod fees {
                         t1_recipient,
                     }));
                 let outer_call = &MockCall::TokenManager(token_manager::Call::proxy {
-                    call: inner_call.clone(),
+                    call: *inner_call.clone(),
                 });
 
                 // Pay fees and submit the transaction.
@@ -1019,7 +1019,7 @@ mod wrapped_signature_verification {
                         t1_recipient,
                     }));
 
-                assert_ok!(TokenManager::proxy(Origin::signed(relayer), call.clone()));
+                assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), *call.clone()));
 
                 assert_eq!(<TokenManager as Store>::Balances::get((token, sender)), amount);
             });

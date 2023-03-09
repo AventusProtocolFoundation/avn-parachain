@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 use crate::{
-    mock::{Balances, Event, *},
+    mock::{Balances, RuntimeEvent, *},
     *,
 };
 use frame_support::{assert_noop, assert_ok};
@@ -55,13 +55,13 @@ fn avn_test_lift_ignored_when_event_type_does_not_match() {
         );
 
         assert!(!System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
                 recipient: mock_data.receiver_account_id,
                 amount: AMOUNT_123_TOKEN,
                 eth_tx_hash: mock_event.event_id.transaction_hash
             })));
         assert!(!System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::TokenLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLifted {
                 token_id: NON_AVT_TOKEN_ID,
                 recipient: mock_data.receiver_account_id,
                 token_balance: mock_data.token_balance_123_tokens,
@@ -98,13 +98,13 @@ fn avn_test_lift_zero_amount_should_fail() {
 
         let token_balance_zero_tokens = MockData::get_token_balance(zero_amount);
         assert!(!System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
                 recipient: mock_data.receiver_account_id,
                 amount: zero_amount,
                 eth_tx_hash: mock_event.event_id.transaction_hash
             })));
         assert!(!System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::TokenLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLifted {
                 token_id: NON_AVT_TOKEN_ID,
                 recipient: mock_data.receiver_account_id,
                 token_balance: token_balance_zero_tokens,
@@ -141,13 +141,13 @@ fn avn_test_lift_should_fail_when_event_is_not_in_processed_events() {
         );
 
         assert!(!System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
                 recipient: mock_data.receiver_account_id,
                 amount: AMOUNT_123_TOKEN,
                 eth_tx_hash: mock_event.event_id.transaction_hash
             })));
         assert!(!System::events().iter().any(|a| a.event ==
-            Event::TokenManager(crate::Event::<TestRuntime>::TokenLifted {
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLifted {
                 token_id: NON_AVT_TOKEN_ID,
                 recipient: mock_data.receiver_account_id,
                 token_balance: mock_data.token_balance_123_tokens,
@@ -186,7 +186,7 @@ fn avn_test_lower_should_fail_when_sender_does_not_own_from_account() {
 
         assert_noop!(
             TokenManager::lower(
-                Origin::signed(sender),
+                RuntimeOrigin::signed(sender),
                 from_account_id,
                 NON_AVT_TOKEN_ID,
                 100,
@@ -206,7 +206,7 @@ fn avn_test_lower_should_fail_when_amount_is_zero() {
 
         assert_noop!(
             TokenManager::lower(
-                Origin::signed(from_account_id),
+                RuntimeOrigin::signed(from_account_id),
                 from_account_id,
                 NON_AVT_TOKEN_ID,
                 0,

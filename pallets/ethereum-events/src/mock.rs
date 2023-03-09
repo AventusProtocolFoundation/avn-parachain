@@ -53,7 +53,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         AVN: pallet_avn::{Pallet, Storage},
         AvnProxy: pallet_avn_proxy::{Pallet, Call, Storage, Event<T>},
-        EthereumEvents: pallet_ethereum_events::{Pallet, Call, Storage, Event<T>, Config<T>},
+        EthereumEvents: pallet_ethereum_events::{Pallet, Storage, Event<T>, Config<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
     }
 );
@@ -113,7 +113,7 @@ pub mod crypto {
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 impl Config for TestRuntime {
-    type Call = RuntimeCall;
+    type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
     type ProcessedEventHandler = Self;
     type MinEthBlockConfirmation = MinEthBlockConfirmation;

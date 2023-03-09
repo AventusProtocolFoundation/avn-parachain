@@ -131,7 +131,7 @@ pub fn take_transaction_from_pool(pool_state: &Arc<RwLock<PoolState>>) -> crate:
     let tx = Extrinsic::decode(&mut &*tx).unwrap();
     assert_eq!(tx.signature, None);
     match tx.call {
-        mock::Call::Summary(inner_tx) => inner_tx,
+        mock::RuntimeCall::Summary(inner_tx) => inner_tx,
         _ => unreachable!(),
     }
 }
@@ -255,7 +255,7 @@ mod challenge_slot_if_required {
                 let new_slot_start = Summary::block_number_for_next_slot();
 
                 let slot_advanced_event =
-                    mock::Event::Summary(crate::Event::<TestRuntime>::SlotAdvanced {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SlotAdvanced {
                         advanced_by: validator.account_id,
                         new_slot: new_slot_number,
                         slot_validator: new_validator,
@@ -284,7 +284,7 @@ mod challenge_slot_if_required {
                 assert_ok!(call_add_challenge(challenge.clone(), &validator, signature));
 
                 let add_challenge_event =
-                    mock::Event::Summary(crate::Event::<TestRuntime>::ChallengeAdded {
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::ChallengeAdded {
                         challenge_reason: challenge.challenge_reason.clone(),
                         challenger: challenge.challenger,
                         challengee: challenge.challengee,
@@ -524,7 +524,7 @@ mod signature_in {
                 let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                 match tx.call {
-                    mock::Call::Summary(inner_tx) => {
+                    mock::RuntimeCall::Summary(inner_tx) => {
                         assert_ok!(Summary::validate_unsigned(TransactionSource::Local, &inner_tx));
                     },
                     _ => unreachable!(),
@@ -554,7 +554,7 @@ mod signature_in {
                 let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                 match tx.call {
-                    mock::Call::Summary(crate::Call::add_challenge {
+                    mock::RuntimeCall::Summary(crate::Call::add_challenge {
                         challenge,
                         validator,
                         signature,
@@ -599,7 +599,7 @@ mod signature_in {
                     let non_validator = get_non_validator();
 
                     match tx.call {
-                        mock::Call::Summary(crate::Call::add_challenge {
+                        mock::RuntimeCall::Summary(crate::Call::add_challenge {
                             challenge,
                             validator: _,
                             signature,
@@ -641,7 +641,7 @@ mod signature_in {
                     let bad_context = "bad context";
 
                     match tx.call {
-                        mock::Call::Summary(crate::Call::add_challenge {
+                        mock::RuntimeCall::Summary(crate::Call::add_challenge {
                             challenge,
                             validator,
                             signature,

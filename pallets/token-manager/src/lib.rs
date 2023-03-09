@@ -24,7 +24,7 @@ use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo},
     ensure, log,
     traits::{Currency, ExistenceRequirement, Get, Imbalance, IsSubType, WithdrawReasons},
-    weights::GetDispatchInfo,
+    dispatch::GetDispatchInfo,
     PalletId, Parameter,
 };
 use frame_system::ensure_signed;
@@ -99,7 +99,7 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The overarching call type.
-        type Call: Parameter
+        type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>
@@ -265,8 +265,8 @@ pub mod pallet {
         /// a sender. As a general rule, every function that can be proxied should follow
         /// this convention:
         /// - its first argument (after origin) should be a public verification key and a signature
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(frame_support::weights::GetDispatchInfo::get_dispatch_info(call).weight))]
-        pub fn proxy(origin: OriginFor<T>, call:<T as Config>::Call) -> DispatchResult {
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(frame_support::dispatch::GetDispatchInfo::get_dispatch_info(call).weight))]
+        pub fn proxy(origin: OriginFor<T>, call:<T as Config>::RuntimeCall) -> DispatchResult {
             let relayer = ensure_signed(origin)?;
 
             let proof = Self::get_proof(&call)?;
@@ -638,7 +638,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_encoded_call_param(
-        call: &<T as Config>::Call,
+        call: &<T as Config>::RuntimeCall,
     ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
@@ -762,7 +762,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
     type AccountId = T::AccountId;
     type Signature = <T as Config>::Signature;
     type Error = Error<T>;
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn get_proof(
         call: &Self::Call,
@@ -781,7 +781,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
 }
 
 impl<T: Config> InnerCallValidator for Pallet<T> {
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {

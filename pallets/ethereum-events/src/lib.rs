@@ -161,7 +161,7 @@ pub mod pallet {
     {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        type Call: Parameter
+        type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
@@ -527,7 +527,7 @@ pub mod pallet {
 
             let event_index = Self::get_pending_event_index(&event_id)?;
             // Not using the passed in `checked` to be sure the details have not been changed
-            let (validated, _ingress_counter, _) = &Self::events_pending_challenge()[event_index];
+            let (validated, _ingress_counter, _) = &Self::events_pending_challenge()[event_index].clone();
 
             ensure!(
                 <frame_system::Pallet<T>>::block_number() >
@@ -1621,7 +1621,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_encoded_call_param(
-        call: &<T as Config>::Call,
+        call: &<T as Config>::RuntimeCall,
     ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
@@ -1658,7 +1658,7 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
 }
 
 impl<T: Config> InnerCallValidator for Pallet<T> {
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {

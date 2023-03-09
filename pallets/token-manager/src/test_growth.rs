@@ -16,7 +16,7 @@
 
 #![cfg(test)]
 use crate::{
-    mock::{Balances, Event, *},
+    mock::{Balances, RuntimeEvent, *},
     EventData::LogAvtGrowthLifted,
     *,
 };
@@ -67,7 +67,7 @@ mod lifted_growth_processed_correctly {
 
             // Check expected event has been emitted
             assert!(System::events().iter().any(|a| a.event ==
-                Event::TokenManager(crate::Event::<TestRuntime>::AVTGrowthLifted {
+                RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTGrowthLifted {
                     treasury_share: expected_treasury_share,
                     collators_share: lifted_amount - expected_treasury_share,
                     eth_tx_hash: growth_eth_event.event_id.transaction_hash
@@ -99,7 +99,7 @@ mod lifted_growth_processed_correctly {
 
             // Check expected event has been emitted
             assert!(System::events().iter().any(|a| a.event ==
-                Event::TokenManager(crate::Event::<TestRuntime>::AVTGrowthLifted {
+                RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTGrowthLifted {
                     treasury_share: expected_treasury_share,
                     collators_share: lifted_amount - expected_treasury_share,
                     eth_tx_hash: growth_eth_event.event_id.transaction_hash
@@ -249,7 +249,7 @@ mod transfering_from_treasury_works {
 
             let transfer_amount = new_treasury_balance - 1;
             assert_ok!(TokenManager::transfer_from_treasury(
-                Origin::root(),
+                RuntimeOrigin::root(),
                 recipient,
                 transfer_amount
             ));
@@ -262,7 +262,7 @@ mod transfering_from_treasury_works {
 
             // Check expected event has been emitted
             assert!(System::events().iter().any(|a| a.event ==
-                Event::TokenManager(crate::Event::<TestRuntime>::AvtTransferredFromTreasury {
+                RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AvtTransferredFromTreasury {
                     recipient,
                     amount: transfer_amount,
                 })));
@@ -312,7 +312,7 @@ mod transfering_from_treasury_fails {
 
             assert_noop!(
                 TokenManager::transfer_from_treasury(
-                    Origin::signed(recipient),
+                    RuntimeOrigin::signed(recipient),
                     recipient,
                     treasury_balance - 1
                 ),
@@ -336,7 +336,7 @@ mod transfering_from_treasury_fails {
 
             assert_noop!(
                 TokenManager::transfer_from_treasury(
-                    Origin::root(),
+                    RuntimeOrigin::root(),
                     recipient,
                     treasury_balance + 1
                 ),

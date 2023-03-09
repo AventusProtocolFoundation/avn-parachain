@@ -2,7 +2,7 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, system};
+use crate::{mock::*, *, system};
 use codec::alloc::sync::Arc;
 use frame_support::{assert_noop, assert_ok};
 use parking_lot::RwLock;
@@ -109,7 +109,7 @@ mod advance_slot {
             let tx = Extrinsic::decode(&mut &*tx).unwrap();
             assert_eq!(tx.signature, None);
             match tx.call {
-                mock::Call::Summary(inner_tx) => inner_tx,
+                mock::RuntimeCall::Summary(inner_tx) => inner_tx,
                 _ => unreachable!(),
             }
         }
@@ -336,7 +336,7 @@ mod advance_slot {
                 let new_validator = Summary::slot_validator().unwrap();
                 let new_slot_start = Summary::block_number_for_next_slot();
 
-                let event = mock::Event::Summary(crate::Event::<TestRuntime>::SlotAdvanced {
+                let event = mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SlotAdvanced {
                     advanced_by: validator.account_id,
                     new_slot: new_slot_number,
                     slot_validator: new_validator,
@@ -396,7 +396,7 @@ mod advance_slot {
 
                 assert_noop!(
                     Summary::advance_slot(
-                        Origin::signed(Default::default()),
+                        RuntimeOrigin::signed(Default::default()),
                         validator.clone(),
                         signature
                     ),
@@ -549,7 +549,7 @@ mod signature_in {
                 let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                 match tx.call {
-                    mock::Call::Summary(inner_tx) => {
+                    mock::RuntimeCall::Summary(inner_tx) => {
                         assert_ok!(Summary::validate_unsigned(TransactionSource::Local, &inner_tx));
                     },
                     _ => unreachable!(),
@@ -580,7 +580,7 @@ mod signature_in {
                 let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                 match tx.call {
-                    mock::Call::Summary(crate::Call::advance_slot { validator, signature }) => {
+                    mock::RuntimeCall::Summary(crate::Call::advance_slot { validator, signature }) => {
                         let data = &(ADVANCE_SLOT_CONTEXT, context.slot_number);
 
                         let signature_is_valid = data.using_encoded(|encoded_data| {
@@ -620,7 +620,7 @@ mod signature_in {
                     let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                     match tx.call {
-                        mock::Call::Summary(crate::Call::advance_slot {
+                        mock::RuntimeCall::Summary(crate::Call::advance_slot {
                             validator: _,
                             signature,
                         }) => {
@@ -660,7 +660,7 @@ mod signature_in {
                     let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                     match tx.call {
-                        mock::Call::Summary(crate::Call::advance_slot { validator, signature }) => {
+                        mock::RuntimeCall::Summary(crate::Call::advance_slot { validator, signature }) => {
                             let data = &("WRONG CONTEXT", context.slot_number);
 
                             let signature_is_valid = data.using_encoded(|encoded_data| {
@@ -697,7 +697,7 @@ mod signature_in {
                     let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                     match tx.call {
-                        mock::Call::Summary(crate::Call::advance_slot { validator, signature }) => {
+                        mock::RuntimeCall::Summary(crate::Call::advance_slot { validator, signature }) => {
                             let data = &(ADVANCE_SLOT_CONTEXT, context.slot_number + 1);
 
                             let signature_is_valid = data.using_encoded(|encoded_data| {
@@ -798,7 +798,7 @@ mod cases_for_no_summary_created_offences {
 
                     assert_ok!(call_advance_slot(&validator, signature));
 
-                    let offence_event = mock::Event::Summary(
+                    let offence_event = mock::RuntimeEvent::Summary(
                         crate::Event::<TestRuntime>::SummaryNotPublishedOffence {
                             challengee: validator.account_id,
                             void_slot: context.slot_number,
@@ -812,7 +812,7 @@ mod cases_for_no_summary_created_offences {
                         vec![Summary::create_mock_identification_tuple(validator.account_id)];
 
                     let offence_reported_event =
-                        mock::Event::Summary(crate::Event::<TestRuntime>::SummaryOffenceReported {
+                        mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SummaryOffenceReported {
                             offence_type: SummaryOffenceType::NoSummaryCreated,
                             offenders,
                         });
@@ -823,7 +823,7 @@ mod cases_for_no_summary_created_offences {
                     let new_slot_start = Summary::block_number_for_next_slot();
 
                     let slot_advanced_event =
-                        mock::Event::Summary(crate::Event::<TestRuntime>::SlotAdvanced {
+                        mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SlotAdvanced {
                             advanced_by: validator.account_id,
                             new_slot: new_slot_number,
                             slot_validator: new_validator,
@@ -946,7 +946,7 @@ mod cases_for_no_summary_created_offences {
 
                     assert_ok!(call_advance_slot(&validator, signature));
 
-                    let event = mock::Event::Summary(
+                    let event = mock::RuntimeEvent::Summary(
                         crate::Event::<TestRuntime>::SummaryNotPublishedOffence {
                             challengee: validator.account_id,
                             void_slot: context.slot_number,
@@ -1242,8 +1242,8 @@ mod cases_for_no_summary_created_offences {
     }
 }
 
-fn event_is_a_not_published_offence(e: &mock::Event) -> bool {
-    if let mock::Event::Summary(crate::Event::<TestRuntime>::SummaryNotPublishedOffence {
+fn event_is_a_not_published_offence(e: &mock::RuntimeEvent) -> bool {
+    if let mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SummaryNotPublishedOffence {
         ..
     }) = &e
     {

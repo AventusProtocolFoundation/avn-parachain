@@ -19,7 +19,8 @@ use crate::{self as token_manager};
 use frame_support::{
     parameter_types,
     traits::{ConstU8, GenesisBuild},
-    weights::{DispatchClass, DispatchInfo, Weight, WeightToFee as WeightToFeeT},
+    weights::{ Weight, WeightToFee as WeightToFeeT},
+    dispatch::{DispatchClass, DispatchInfo,},
     PalletId,
 };
 use frame_system::{self as system, limits};
@@ -81,8 +82,8 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type Event = Event;
-    type Call = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type ProcessedEventsChecker = Self;
     type TokenId = sp_core::H160;
@@ -139,16 +140,16 @@ impl system::Config for TestRuntime {
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = BlockLength;
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
-    type Lookup = IdentityLookup<Self::AccountId>;
+    type Lookup = IdentityLookup<AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -169,7 +170,7 @@ impl pallet_balances::Config for TestRuntime {
     type MaxLocks = ();
     type Balance = u128;
     type DustRemoval = ();
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type MaxReserves = ();
@@ -182,7 +183,7 @@ parameter_types! {
     pub static TransactionByteFee: u128 = 0u128;
 }
 impl pallet_transaction_payment::Config for TestRuntime {
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
     type LengthToFee = TransactionByteFee;
     type WeightToFee = WeightToFee;
@@ -195,7 +196,7 @@ impl session::Config for TestRuntime {
     type Keys = UintAuthorityId;
     type ShouldEndSession = ParachainStaking;
     type SessionHandler = (AVN,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = ParachainStaking;
@@ -216,8 +217,8 @@ parameter_types! {
 }
 
 impl parachain_staking::Config for TestRuntime {
-    type Call = Call;
-    type Event = Event;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type MinBlocksPerEra = MinBlocksPerEra;
     type RewardPaymentDelay = RewardPaymentDelay;
