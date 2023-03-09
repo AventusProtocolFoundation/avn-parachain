@@ -527,7 +527,7 @@ pub mod pallet {
 
             let event_index = Self::get_pending_event_index(&event_id)?;
             // Not using the passed in `checked` to be sure the details have not been changed
-            let (validated, _ingress_counter, _) = &Self::events_pending_challenge()[event_index].clone();
+            let (validated, _ingress_counter, _) = &Self::events_pending_challenge()[event_index];
 
             ensure!(
                 <frame_system::Pallet<T>>::block_number() >
@@ -1632,12 +1632,12 @@ impl<T: Config> Pallet<T> {
             Call::signed_add_ethereum_log { proof, event_type, tx_hash } => {
                 let sender_nonce = Self::proxy_nonce(&proof.signer);
                 let encoded_data = Self::encode_signed_add_ethereum_log_params(
-                    proof,
-                    event_type,
-                    tx_hash,
+                    &proof,
+                    &event_type,
+                    &tx_hash,
                     sender_nonce,
                 );
-                return Some((proof, encoded_data))
+                return Some((&proof, encoded_data))
             },
 
             _ => return None,

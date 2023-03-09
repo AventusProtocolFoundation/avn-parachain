@@ -81,7 +81,7 @@ parameter_types! {
     pub static TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
 }
 
-impl Config for TestRuntime {
+impl token_manager::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
@@ -569,7 +569,7 @@ impl MockData {
         let amount =
             <BalanceOf<TestRuntime> as TryFrom<u128>>::try_from(amount).expect("amount is valid");
         let imbalance: PositiveImbalanceOf<TestRuntime> =
-            <mock::TestRuntime as Config>::Currency::deposit_creating(&account_id, amount);
+            <mock::TestRuntime as token_manager::Config>::Currency::deposit_creating(&account_id, amount);
         if imbalance.peek() == BalanceOf::<TestRuntime>::zero() {
             return false
         }

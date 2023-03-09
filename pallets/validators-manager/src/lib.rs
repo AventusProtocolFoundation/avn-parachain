@@ -17,7 +17,7 @@ use frame_system::{self as system, ensure_none, offchain::SendTransactionTypes, 
 use pallet_session::{self as session, Config as SessionConfig};
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::{Convert, Member, Zero},
+    traits::{Convert, Member},
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity},
     DispatchError,
 };
@@ -242,6 +242,7 @@ pub mod pallet {
         /// This will call the `join_candidates` method in the parachain_staking pallet.
         /// [transactional]: this makes `add_validator` behave like an ethereum transaction (atomic tx). No need to use VFWL.
         /// see here for more info: https://github.com/paritytech/substrate/issues/10806
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::add_collator())]
         #[transactional]
         pub fn add_collator(
@@ -297,6 +298,7 @@ pub mod pallet {
             .into())
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_validator(MAX_VALIDATOR_ACCOUNT_IDS))]
         #[transactional]
         pub fn remove_validator(
@@ -335,6 +337,7 @@ pub mod pallet {
             .into())
         }
 
+        #[pallet::call_index(2)]
         #[pallet::weight( <T as Config>::WeightInfo::approve_action_with_end_voting(MAX_VALIDATOR_ACCOUNT_IDS))]
         pub fn approve_validator_action(
             origin: OriginFor<T>,
@@ -374,6 +377,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(3)]
         #[pallet::weight( <T as Config>::WeightInfo::reject_action_with_end_voting(MAX_VALIDATOR_ACCOUNT_IDS))]
         pub fn reject_validator_action(
             origin: OriginFor<T>,
@@ -396,6 +400,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(4)]
         #[pallet::weight( <T as Config>::WeightInfo::end_voting_period_with_rejected_valid_actions(MAX_OFFENDERS)
             .max(<T as Config>::WeightInfo::end_voting_period_with_approved_invalid_actions(MAX_OFFENDERS)))]
         pub fn end_voting_period(

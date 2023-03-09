@@ -35,7 +35,7 @@ mod test_add_validator_log {
                 1
             )));
 
-            let event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+            let event = RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                 eth_event_id: validator_event.clone(),
                 added_by: account_id_0(),
                 t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
@@ -101,7 +101,7 @@ mod test_add_validator_log {
                     create_two_successive_events(account_id_0());
 
                 let event =
-                    Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                    RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                         eth_event_id: validator_event_1.clone(),
                         added_by: account_id_0(),
                         t1_contract_address:
@@ -113,7 +113,7 @@ mod test_add_validator_log {
                 assert!(EthereumEvents::event_emitted(&event));
 
                 let event =
-                    Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                    RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                         eth_event_id: validator_event_2.clone(),
                         added_by: account_id_0(),
                         t1_contract_address:
@@ -202,7 +202,7 @@ mod test_add_lift_log {
                 1
             )));
 
-            let event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+            let event = RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                 eth_event_id: lift_event.clone(),
                 added_by: account_id_0(),
                 t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
@@ -339,12 +339,12 @@ mod test_add_ethereum_log {
 
             let event;
             if context.nft_event_type.is_nft_event() {
-                event = Event::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
+                event = RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
                     eth_event_id: ethereum_event.clone(),
                     account_id: account_id_0(),
                 });
             } else {
-                event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                event = RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                     eth_event_id: ethereum_event.clone(),
                     added_by: account_id_0(),
                     t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
@@ -463,14 +463,14 @@ mod test_add_ethereum_log {
                 );
 
                 let event =
-                    Event::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
+                    RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
                         eth_event_id: validator_event_1.clone(),
                         account_id: account_id_0(),
                     });
                 assert!(EthereumEvents::event_emitted(&event));
 
                 let event =
-                    Event::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
+                    RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
                         eth_event_id: validator_event_2.clone(),
                         account_id: account_id_0(),
                     });
@@ -556,7 +556,7 @@ mod add_event {
             )));
             // Check that the event is deposited with correct data
 
-            let event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+            let event = RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                 eth_event_id: lift_event.clone(),
                 added_by: account_id,
                 t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
@@ -592,7 +592,7 @@ mod add_event {
                 1
             )));
             // Check that the event is deposited with correct data
-            let event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+            let event = RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                 eth_event_id: validator_event.clone(),
                 added_by: account_id,
                 t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
