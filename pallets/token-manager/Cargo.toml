@@ -27,6 +27,7 @@ frame-system = { default-features = false, git = "https://github.com/paritytech/
 # Optional imports for benchmarking
 serde = { version = "1.0.137", optional = true }
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }
+sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
@@ -48,6 +49,7 @@ std = [
 	"frame-system/std",
 	"sp-avn-common/std",
 	"pallet-avn/std",
+	"sp-application-crypto/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
