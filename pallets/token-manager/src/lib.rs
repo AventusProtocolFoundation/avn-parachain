@@ -60,23 +60,23 @@ pub use default_weights::WeightInfo;
 #[cfg(test)]
 mod mock;
 
-// #[cfg(test)]
-// mod test_proxying_signed_transfer;
+#[cfg(test)]
+mod test_proxying_signed_transfer;
 
 #[cfg(test)]
 mod test_proxying_signed_lower;
 
-// #[cfg(test)]
-// mod test_common_cases;
+#[cfg(test)]
+mod test_common_cases;
 
-// #[cfg(test)]
-// mod test_avt_tokens;
+#[cfg(test)]
+mod test_avt_tokens;
 
-// #[cfg(test)]
-// mod test_non_avt_tokens;
+#[cfg(test)]
+mod test_non_avt_tokens;
 
-// #[cfg(test)]
-// mod test_growth;
+#[cfg(test)]
+mod test_growth;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
