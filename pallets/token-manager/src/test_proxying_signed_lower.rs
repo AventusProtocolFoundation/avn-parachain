@@ -76,7 +76,7 @@ fn pay_gas_and_proxy_call(
     )
     .map_err(|e| <&'static str>::from(e))?;
 
-    return TokenManager::proxy(RuntimeOrigin::signed(*relayer), *inner_call)
+    return TokenManager::proxy(RuntimeOrigin::signed(*relayer), inner_call)
 }
 
 fn pay_gas_and_call_lower_directly(
@@ -178,7 +178,7 @@ fn create_proof_for_signed_lower(
 fn check_proxy_lower_default_call_succeed(call: Box<<TestRuntime as Config>::RuntimeCall>) {
     let call_hash = Hashing::hash_of(&call);
 
-    assert_ok!(TokenManager::proxy(Origin::signed(default_relayer()), *call));
+    assert_ok!(TokenManager::proxy(Origin::signed(default_relayer()), call));
     assert_eq!(System::events().len(), 2);
     assert!(System::events().iter().any(|a| a.event ==
         Event::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
@@ -239,7 +239,7 @@ mod proxy_signed_lower {
                         t1_recipient,
                     }));
 
-                assert_ok!(TokenManager::proxy(Origin::signed(relayer), *call.clone()));
+                assert_ok!(TokenManager::proxy(Origin::signed(relayer), call.clone()));
 
                 assert_eq!(
                     <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
@@ -267,7 +267,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_eq!(System::events().len(), 0);
-                assert_ok!(TokenManager::proxy(Origin::signed(relayer), *call.clone()));
+                assert_ok!(TokenManager::proxy(Origin::signed(relayer), call.clone()));
 
                 let call_hash = Hashing::hash_of(&call);
                 assert!(System::events().iter().any(|a| a.event ==
@@ -310,7 +310,7 @@ mod proxy_signed_lower {
             let call_hash = Hashing::hash_of(&call);
 
             assert_eq!(System::events().len(), 0);
-            assert_ok!(TokenManager::proxy(Origin::signed(relayer), *call));
+            assert_ok!(TokenManager::proxy(Origin::signed(relayer), call));
 
             assert_eq!(
                 <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
@@ -357,7 +357,7 @@ mod proxy_signed_lower {
                     ));
 
                     assert_err!(
-                        TokenManager::proxy(Origin::signed(relayer), *call),
+                        TokenManager::proxy(Origin::signed(relayer), call),
                         Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                     );
 
@@ -388,7 +388,7 @@ mod proxy_signed_lower {
 
                 assert_eq!(System::events().len(), 0);
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), *call),
+                    TokenManager::proxy(Origin::signed(relayer), call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                 );
 
@@ -435,7 +435,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), *call),
+                    TokenManager::proxy(Origin::signed(relayer), call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                 );
                 assert_eq!(System::events().len(), 0);
@@ -483,7 +483,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), *call),
+                    TokenManager::proxy(Origin::signed(relayer), call),
                     Error::<TestRuntime>::SenderNotValid
                 );
                 assert_eq!(System::events().len(), 0);
@@ -523,7 +523,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), *call.clone()),
+                    TokenManager::proxy(Origin::signed(relayer), call.clone()),
                     Error::<TestRuntime>::UnauthorizedProxyTransaction
                 );
                 assert_eq!(System::events().len(), 0);
@@ -570,7 +570,7 @@ mod proxy_signed_lower {
                     }));
 
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), *call),
+                    TokenManager::proxy(Origin::signed(relayer), call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                 );
                 assert_eq!(System::events().len(), 0);
@@ -621,7 +621,7 @@ mod proxy_signed_lower {
                         t1_recipient,
                     }));
                 assert_err!(
-                    TokenManager::proxy(Origin::signed(relayer), *call),
+                    TokenManager::proxy(Origin::signed(relayer), call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
                 );
 
@@ -784,7 +784,7 @@ mod fees {
                         t1_recipient,
                     }));
                 let outer_call = &MockCall::TokenManager(token_manager::Call::proxy {
-                    call: *inner_call.clone(),
+                    call: inner_call.clone(),
                 });
 
                 // Pay fees and submit the transaction
@@ -910,7 +910,7 @@ mod fees {
                         t1_recipient,
                     }));
                 let outer_call = &MockCall::TokenManager(token_manager::Call::proxy {
-                    call: *inner_call.clone(),
+                    call: inner_call.clone(),
                 });
 
                 // Pay fees and submit the transaction.
@@ -1019,7 +1019,7 @@ mod wrapped_signature_verification {
                         t1_recipient,
                     }));
 
-                assert_ok!(TokenManager::proxy(Origin::signed(relayer), *call.clone()));
+                assert_ok!(TokenManager::proxy(Origin::signed(relayer), call.clone()));
 
                 assert_eq!(<TokenManager as Store>::Balances::get((token, sender)), amount);
             });
