@@ -2,7 +2,7 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, *, system};
+use crate::{mock::*, system};
 use codec::alloc::sync::Arc;
 use frame_support::{assert_noop, assert_ok};
 use parking_lot::RwLock;
