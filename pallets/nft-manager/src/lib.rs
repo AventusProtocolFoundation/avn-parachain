@@ -92,7 +92,7 @@ pub mod pallet {
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        type Call: Parameter
+        type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
