@@ -39,7 +39,7 @@ frame_support::construct_runtime!(
 
 impl Config for TestRuntime {
     type RuntimeEvent = mock::RuntimeEvent;
-    type Call = RuntimeCall;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = AccountId;
     type Signature = Signature;
@@ -260,11 +260,11 @@ impl ProxyContext {
         }
     }
 
-    pub fn create_valid_inner_call(&self) -> Box<<TestRuntime as Config>::Call> {
+    pub fn create_valid_inner_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         return Box::new(RuntimeCall::System(SystemCall::remark { remark: vec![] }))
     }
 
-    pub fn create_invalid_inner_call(&self) -> Box<<TestRuntime as Config>::Call> {
+    pub fn create_invalid_inner_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let invalid_receiver = TestAccount::new([8u8; 32]);
         return Box::new(RuntimeCall::Balances(BalancesCall::transfer {
             dest: invalid_receiver.account_id(),
@@ -272,7 +272,7 @@ impl ProxyContext {
         }))
     }
 
-    pub fn create_proxy_call(&self) -> Box<<TestRuntime as Config>::Call> {
+    pub fn create_proxy_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         return Box::new(RuntimeCall::AvnProxy(AvnProxyCall::proxy {
             call: self.create_valid_inner_call(),
             payment_info: None,
@@ -333,7 +333,7 @@ pub const SIGNED_MINT_SINGLE_NFT_CONTEXT: &'static [u8] =
 
 pub fn create_signed_mint_single_nft_call(
     context: &ProxyContext,
-) -> Box<<TestRuntime as Config>::Call> {
+) -> Box<<TestRuntime as Config>::RuntimeCall> {
     let single_nft_data: SingleNftContext = Default::default();
     let proof = get_mint_single_nft_proxy_proof(context, &single_nft_data);
 
@@ -343,7 +343,7 @@ pub fn create_signed_mint_single_nft_call(
 pub fn get_signed_mint_single_nft_call(
     single_nft_data: &SingleNftContext,
     proof: &Proof<Signature, AccountId>,
-) -> Box<<TestRuntime as Config>::Call> {
+) -> Box<<TestRuntime as Config>::RuntimeCall> {
     return Box::new(crate::mock::RuntimeCall::NftManager(NftManagerCall::signed_mint_single_nft {
         proof: proof.clone(),
         unique_external_ref: single_nft_data.unique_external_ref.clone(),

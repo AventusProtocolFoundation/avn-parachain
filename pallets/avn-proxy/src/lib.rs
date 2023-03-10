@@ -44,7 +44,7 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The overarching call type
-        type Call: Parameter
+        type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
             + GetDispatchInfo
             + From<frame_system::Call<Self>>
@@ -69,8 +69,8 @@ pub mod pallet {
             + Ord
             + PartialOrd
             + Default
-            + ProvableProxy<<Self as Config>::Call, Self::Signature, Self::AccountId>
-            + InnerCallValidator<Call = <Self as Config>::Call>;
+            + ProvableProxy<<Self as Config>::RuntimeCall, Self::Signature, Self::AccountId>
+            + InnerCallValidator<Call = <Self as Config>::RuntimeCall>;
 
         type WeightInfo: WeightInfo;
     }
@@ -106,7 +106,7 @@ pub mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::charge_fee().saturating_add(call.get_dispatch_info().weight).saturating_add(Weight::from_ref_time(50_000)))]
         pub fn proxy(
             origin: OriginFor<T>,
-            call: Box<<T as Config>::Call>,
+            call: Box<<T as Config>::RuntimeCall>,
             payment_info: Option<Box<PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>>>,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
@@ -153,7 +153,7 @@ pub mod pallet {
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
     impl<T: Config> Pallet<T> {
-        fn validate_inner_call_signature(call: &Box<<T as Config>::Call>) -> DispatchResult {
+        fn validate_inner_call_signature(call: &Box<<T as Config>::RuntimeCall>) -> DispatchResult {
             let inner_call_sig_valid = <T as Config>::ProxyConfig::signature_is_valid(call);
             if inner_call_sig_valid == false {
                 return Err(Error::<T>::UnauthorizedProxyTransaction)?

@@ -307,7 +307,7 @@ impl session::Config for Test {
 
 impl avn_proxy::Config for Test {
     type RuntimeEvent = RuntimeEvent;
-    type Call = RuntimeCall;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = AccountId;
     type Signature = Signature;

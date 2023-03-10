@@ -65,7 +65,7 @@ parameter_types! {
 
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-    type Call = RuntimeCall;
+    type RuntimeCall = RuntimeCall;
     type AccountToBytesConvert = U64To32BytesConverter;
     type ValidatorManagerContractAddress = TestValidatorManagerContractAddress;
     type WeightInfo = ();

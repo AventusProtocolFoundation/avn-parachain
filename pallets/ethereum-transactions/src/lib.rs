@@ -104,7 +104,7 @@ pub mod pallet {
             + Into<<Self as system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        type Call: From<Call<Self>>;
+        type RuntimeCall: From<Call<Self>>;
 
         type AccountToBytesConvert: AccountToBytesConverter<Self::AccountId>;
 
