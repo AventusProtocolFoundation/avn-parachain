@@ -70,7 +70,7 @@ fn pay_gas_and_proxy_call(
     )
     .map_err(|e| <&'static str>::from(e))?;
 
-    return TokenManager::proxy(RuntimeOrigin::signed(*relayer), *inner_call)
+    return TokenManager::proxy(RuntimeOrigin::signed(*relayer), inner_call)
 }
 
 fn pay_gas_and_call_transfer_directly(
@@ -174,7 +174,7 @@ fn create_proof_for_signed_transfer(
 fn check_proxy_transfer_default_call_succeed(call: Box<<TestRuntime as Config>::RuntimeCall>) {
     let call_hash = Hashing::hash_of(&call);
 
-    assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(default_relayer()), *call));
+    assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(default_relayer()), call));
     assert_eq!(System::events().len(), 2);
     assert!(System::events().iter().any(|a| a.event ==
         RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
@@ -212,7 +212,7 @@ fn avn_test_proxy_signed_transfer_succeeds() {
         let call_hash = Hashing::hash_of(&call);
 
         assert_eq!(System::events().len(), 0);
-        assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), *call));
+        assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call));
 
         assert_eq!(
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
@@ -280,7 +280,7 @@ fn avt_proxy_signed_transfer_succeeds() {
         let call_hash = Hashing::hash_of(&call);
 
         assert_eq!(System::events().len(), 0);
-        assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), *call));
+        assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call));
 
         // Show that we have transferred not created or removed avt from the system
         assert_eq!(init_total_avt_issuance, Balances::total_issuance());
@@ -426,7 +426,7 @@ fn avn_test_proxy_signed_transfer_succeeds_with_nonce_zero() {
         let call_hash = Hashing::hash_of(&call);
 
         assert_eq!(System::events().len(), 0);
-        assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), *call));
+        assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call));
 
         assert_eq!(
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
@@ -476,7 +476,7 @@ fn avn_test_proxy_signed_transfer_fails_for_mismatching_proof_nonce() {
                 }));
 
             assert_err!(
-                TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
+                TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
                 Error::<TestRuntime>::UnauthorizedSignedTransferTransaction
             );
 
@@ -509,7 +509,7 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_amount() {
 
         assert_eq!(System::events().len(), 0);
         assert_err!(
-            TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
+            TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
             Error::<TestRuntime>::UnauthorizedSignedTransferTransaction
         );
 
@@ -558,7 +558,7 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_keys() {
             }));
 
         assert_err!(
-            TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
+            TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
             Error::<TestRuntime>::UnauthorizedSignedTransferTransaction
         );
         assert_eq!(System::events().len(), 0);
@@ -609,7 +609,7 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_sender() {
             }));
 
         assert_err!(
-            TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
+            TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
             Error::<TestRuntime>::SenderNotValid
         );
         assert_eq!(System::events().len(), 0);
@@ -650,7 +650,7 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_relayer() {
             }));
 
         assert_err!(
-            TokenManager::proxy(RuntimeOrigin::signed(relayer), *call.clone()),
+            TokenManager::proxy(RuntimeOrigin::signed(relayer), call.clone()),
             Error::<TestRuntime>::UnauthorizedProxyTransaction
         );
         assert_eq!(System::events().len(), 0);
@@ -701,7 +701,7 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_recipient() 
             }));
 
         assert_err!(
-            TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
+            TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
             Error::<TestRuntime>::UnauthorizedSignedTransferTransaction
         );
         assert_eq!(System::events().len(), 0);
@@ -752,7 +752,7 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_token_id() {
             }));
 
         assert_err!(
-            TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
+            TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
             Error::<TestRuntime>::UnauthorizedSignedTransferTransaction
         );
         assert_eq!(System::events().len(), 0);
@@ -805,7 +805,7 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_context() {
                 amount: DEFAULT_AMOUNT,
             }));
         assert_err!(
-            TokenManager::proxy(RuntimeOrigin::signed(relayer), *call),
+            TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
             Error::<TestRuntime>::UnauthorizedSignedTransferTransaction
         );
 
@@ -831,7 +831,7 @@ fn avn_test_unsupported_proxy_call() {
     ext.execute_with(|| {
         let call = Box::new(mock::RuntimeCall::System(frame_system::Call::remark { remark: vec![] }));
         assert_noop!(
-            TokenManager::proxy(RuntimeOrigin::signed(default_sender()), *call),
+            TokenManager::proxy(RuntimeOrigin::signed(default_sender()), call),
             Error::<TestRuntime>::TransactionNotSupported
         );
     });
@@ -908,7 +908,7 @@ fn avn_test_proxy_gas_costs_paid_correctly() {
                 amount: DEFAULT_AMOUNT,
             }));
         let outer_call =
-            &mock::RuntimeCall::TokenManager(token_manager::Call::proxy { call: *inner_call.clone() });
+            &mock::RuntimeCall::TokenManager(token_manager::Call::proxy { call: inner_call.clone() });
 
         // Pay fees and submit the transaction
         assert_ok!(pay_gas_and_proxy_call(&relayer, outer_call, inner_call.clone()));
@@ -1039,7 +1039,7 @@ fn avn_test_proxy_insufficient_avt() {
                 amount: DEFAULT_AMOUNT,
             }));
         let outer_call =
-            &mock::RuntimeCall::TokenManager(token_manager::Call::proxy { call: *inner_call.clone() });
+            &mock::RuntimeCall::TokenManager(token_manager::Call::proxy { call: inner_call.clone() });
 
         // Pay fees and submit the transaction.
         // Gas fee for this tx is (BASE_FEE + TX_LEN): 12 + 1 = 13 AVT
