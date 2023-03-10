@@ -526,7 +526,7 @@ pub mod pallet {
             .max(<T as pallet::Config>::WeightInfo::proxy_signed_cancel_list_fiat_nft()))]
         pub fn proxy(
             origin: OriginFor<T>,
-            call: Box<<T as Config>::Call>,
+            call: Box<<T as Config>::RuntimeCall>,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
 
@@ -985,7 +985,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_dispatch_result_with_post_info(
-        call: Box<<T as Config>::Call>,
+        call: Box<<T as Config>::RuntimeCall>,
     ) -> DispatchResultWithPostInfo {
         match call.is_sub_type() {
             Some(call) => {
@@ -1068,7 +1068,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_encoded_call_param(
-        call: &<T as Config>::Call,
+        call: &<T as Config>::RuntimeCall,
     ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
@@ -1189,7 +1189,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
     type AccountId = T::AccountId;
     type Signature = <T as Config>::Signature;
     type Error = Error<T>;
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn get_proof(
         call: &Self::Call,
@@ -1214,7 +1214,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
 }
 
 impl<T: Config> InnerCallValidator for Pallet<T> {
-    type Call = <T as Config>::Call;
+    type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {

@@ -86,7 +86,7 @@ impl Context {
         <UsedExternalReferences<TestRuntime>>::remove(&self.unique_external_ref);
     }
 
-    fn create_signed_mint_single_nft_call(&self) -> Box<<TestRuntime as Config>::Call> {
+    fn create_signed_mint_single_nft_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let proof = self.create_signed_mint_single_nft_proof();
 
         return Box::new(MockCall::NftManager(super::Call::<TestRuntime>::signed_mint_single_nft {
@@ -119,7 +119,7 @@ impl Context {
         })
     }
 
-    fn call_dispatched_event_emitted(&self, call: &Box<<TestRuntime as Config>::Call>) -> bool {
+    fn call_dispatched_event_emitted(&self, call: &Box<<TestRuntime as Config>::RuntimeCall>) -> bool {
         let relayer = TestAccount::new([2u8; 32]);
         return System::events().iter().any(|a| {
             a.event ==

@@ -108,7 +108,7 @@ impl pallet_balances::Config for TestRuntime {
 
 impl pallet_nft_manager::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-    type Call = RuntimeCall;
+    type RuntimeCall = RuntimeCall;
     type ProcessedEventsChecker = ();
     type Public = AccountId;
     type Signature = Signature;
