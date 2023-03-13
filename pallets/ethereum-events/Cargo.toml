@@ -43,6 +43,7 @@ pallet-avn-proxy = { version = "0.12.0", default-features = false, path = "../av
 migrate = []
 default = ["std", "pallet-session/historical"]
 std = [
+	"frame-benchmarking?/std",
 	"serde",
 	"codec/std",
 	"sp-std/std",
@@ -58,7 +59,7 @@ std = [
 	"sp-avn-common/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking",
+    "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
 ]

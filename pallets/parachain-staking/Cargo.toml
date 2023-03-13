@@ -37,7 +37,7 @@ pallet-avn-proxy = { version = "0.12.0", default-features = false, path = "../av
 [features]
 default = [ "std" ]
 std = [
-	"frame-benchmarking/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"parity-scale-codec/std",

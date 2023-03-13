@@ -17,3 +17,21 @@ We welcome contributions but before you devote quite a bit of time to contributi
 Read our contribution guide [HERE](./CONTRIBUTING.adoc).
 
 Note: This repository is managed frequently so you do not need to email/contact us to notify us of your submission.
+
+## Building and testing the pallets
+
+To build and test a pallet, navigate to the directory of the pallet in your project by running the following command:
+```sh
+cd pallets/<pallet_name>/
+```
+Once you're in the pallet directory, use cargo to build and test the pallet by running the following commands:
+```sh
+# Build the pallet
+cargo build
+
+# Run the unit and integration tests
+cargo test
+
+# Test the benchmark tests
+cargo test --features runtime-benchmarks
+```

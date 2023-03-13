@@ -23,11 +23,11 @@ sp-std = { default-features = false, git = "https://github.com/paritytech/substr
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 
 # Optional imports for benchmarking
 serde = { version = "1.0.137", optional = true }
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }
-sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 
 [dev-dependencies]
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
@@ -41,6 +41,7 @@ pallet-session = { features = ["historical"], git = "https://github.com/parityte
 [features]
 default = ["std"]
 std = [
+	"frame-benchmarking?/std",
 	"serde",
 	"codec/std",
 	"sp-std/std",
@@ -52,7 +53,7 @@ std = [
 	"sp-application-crypto/std",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking",
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 ]

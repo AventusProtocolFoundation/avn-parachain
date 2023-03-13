@@ -149,7 +149,7 @@ pub mod pallet {
         }
     }
 
-    type BalanceOf<T> =
+    pub(crate) type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
     impl<T: Config> Pallet<T> {
@@ -192,7 +192,7 @@ pub mod pallet {
             }
         }
 
-        fn charge_fee(
+        pub(crate) fn charge_fee(
             proof: &Proof<T::Signature, T::AccountId>,
             payment_info: PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
         ) -> DispatchResult {
