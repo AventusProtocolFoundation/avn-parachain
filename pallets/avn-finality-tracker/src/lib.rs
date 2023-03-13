@@ -467,7 +467,7 @@ pub mod pallet {
     }
 
     impl<BlockNumber: Member + AtLeast32Bit> SubmissionData<BlockNumber> {
-        fn new(finalised_block: BlockNumber, submitted_at_block: BlockNumber) -> Self {
+        pub fn new(finalised_block: BlockNumber, submitted_at_block: BlockNumber) -> Self {
             return SubmissionData::<BlockNumber> { finalised_block, submitted_at_block }
         }
     }
