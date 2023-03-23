@@ -120,7 +120,7 @@ pub mod pallet {
     };
     pub use frame_system::pallet_prelude::*;
     pub use pallet_avn::{CollatorPayoutDustHandler, ProcessedEventsChecker, OnGrowthLiftedHandler};
-    pub use sp_avn_common::Proof;
+    pub use sp_avn_common::{Proof, verify_signature};
     pub use sp_runtime::{
         traits::{
             AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Dispatchable, IdentifyAccount,
@@ -1027,7 +1027,7 @@ pub mod pallet {
                 collator_nonce,
             );
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedCandidateBondExtraTransaction
             );
 
@@ -1082,7 +1082,7 @@ pub mod pallet {
             );
 
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedExecuteCandidateUnbondTransaction
             );
 
@@ -1125,7 +1125,7 @@ pub mod pallet {
             );
 
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedCandidateUnbondTransaction
             );
 
@@ -1185,7 +1185,7 @@ pub mod pallet {
                 nominator_nonce,
             );
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedNominateTransaction
             );
 
@@ -1223,7 +1223,7 @@ pub mod pallet {
                 nominator_nonce,
             );
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedScheduleLeaveNominatorsTransaction
             );
 
@@ -1268,7 +1268,7 @@ pub mod pallet {
             );
 
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
             );
 
@@ -1327,7 +1327,7 @@ pub mod pallet {
                 nominator_nonce,
             );
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedRemoveBondTransaction
             );
 
@@ -1369,7 +1369,7 @@ pub mod pallet {
                 nominator_nonce,
             );
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedBondExtraTransaction
             );
 
@@ -1442,7 +1442,7 @@ pub mod pallet {
                 nominator_nonce,
             );
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedUnbondTransaction
             );
 
@@ -1508,7 +1508,7 @@ pub mod pallet {
             );
 
             ensure!(
-                verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedExecuteNominationRequestTransaction
             );
 

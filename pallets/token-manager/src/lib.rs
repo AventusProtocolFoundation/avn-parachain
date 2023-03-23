@@ -33,7 +33,7 @@ use pallet_avn::{
 };
 use sp_avn_common::{
     event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
-    CallDecoder, InnerCallValidator, Proof,
+    CallDecoder, InnerCallValidator, Proof, verify_signature
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -80,8 +80,6 @@ mod test_growth;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
-pub const OPEN_BYTES_TAG: &'static [u8] = b"<Bytes>";
-pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
 
 pub use pallet::*;
 
@@ -311,7 +309,7 @@ pub mod pallet {
             );
 
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedTransferTransaction
             );
 
@@ -388,7 +386,7 @@ pub mod pallet {
             );
 
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
                 Error::<T>::UnauthorizedSignedLowerTransaction
             );
 
@@ -591,21 +589,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn verify_signature(
-        proof: &Proof<T::Signature, T::AccountId>,
-        signed_payload: &[u8],
-    ) -> Result<(), Error<T>> {
-        let wrapped_signed_payload: Vec<u8> =
-            [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
-        match proof.signature.verify(&*wrapped_signed_payload, &proof.signer) {
-            true => Ok(()),
-            false => match proof.signature.verify(signed_payload, &proof.signer) {
-                true => Ok(()),
-                false => Err(<Error<T>>::UnauthorizedTransaction.into()),
-            },
-        }
-    }
-
     fn encode_signed_transfer_params(
         proof: &Proof<T::Signature, T::AccountId>,
         from: &T::AccountId,
@@ -794,7 +777,7 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {
-            return Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok()
+            return verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok()
         }
 
         return false
