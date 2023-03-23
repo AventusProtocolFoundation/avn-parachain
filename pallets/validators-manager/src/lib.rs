@@ -883,7 +883,9 @@ impl<T: Config> Pallet<T> {
         // Remove collator from parachain_staking pallet
         let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
         parachain_staking::Pallet::<T>::schedule_leave_candidates(
-            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(slashed_validator.clone())),
+            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
+                slashed_validator.clone(),
+            )),
             candidate_count,
         )
         .map_err(|e| {
@@ -996,7 +998,9 @@ impl<T: Config> Pallet<T> {
         let staking_state = staking_state.expect("Checked for none already");
 
         let result = parachain_staking::Pallet::<T>::execute_leave_candidates(
-            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(action_account_id.clone())),
+            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
+                action_account_id.clone(),
+            )),
             action_account_id.clone(),
             staking_state.nomination_count,
         );

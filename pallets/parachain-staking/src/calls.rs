@@ -1,5 +1,6 @@
 use frame_support::ensure;
 use crate::*;
+use frame_support::ensure;
 impl<T: Config> Pallet<T> {
     pub fn call_nominate(
         nominator: &T::AccountId,

@@ -8,8 +8,8 @@ use crate::{
     encode_signed_schedule_revoke_nomination_params,
     mock::{
         build_proof, inner_call_failed_event_emitted, roll_to, roll_to_era_begin, sign, AccountId,
-        AvnProxy, Balances, RuntimeCall as MockCall, RuntimeEvent as MetaEvent, ExtBuilder, RuntimeOrigin,
-        ParachainStaking, Signature, Staker, Test, TestAccount,
+        AvnProxy, Balances, ExtBuilder, ParachainStaking, RuntimeCall as MockCall,
+        RuntimeEvent as MetaEvent, RuntimeOrigin, Signature, Staker, Test, TestAccount,
     },
     Config, Error, Event, Proof,
 };
@@ -421,7 +421,11 @@ mod proxy_signed_execute_revoke_all_nomination {
         let leave_nominators_call =
             create_call_for_signed_schedule_leave_nominators(&staker, nonce);
 
-        assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(staker.relayer), leave_nominators_call, None));
+        assert_ok!(AvnProxy::proxy(
+            RuntimeOrigin::signed(staker.relayer),
+            leave_nominators_call,
+            None
+        ));
 
         return ParachainStaking::proxy_nonce(staker.account_id)
     }
@@ -804,7 +808,9 @@ fn nominator_not_allowed_revoke_if_already_leaving() {
         .with_nominations(vec![(account_id_2, account_id, 10), (account_id_2, account_id_3, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(RuntimeOrigin::signed(account_id_2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(RuntimeOrigin::signed(
+                account_id_2
+            )));
             assert_noop!(
                 ParachainStaking::schedule_revoke_nomination(
                     RuntimeOrigin::signed(account_id_2),
@@ -821,7 +827,10 @@ fn cannot_revoke_nomination_if_not_nominator() {
     let account_id_2 = to_acc_id(2u64);
     ExtBuilder::default().build().execute_with(|| {
         assert_noop!(
-            ParachainStaking::schedule_revoke_nomination(RuntimeOrigin::signed(account_id_2), account_id),
+            ParachainStaking::schedule_revoke_nomination(
+                RuntimeOrigin::signed(account_id_2),
+                account_id
+            ),
             Error::<Test>::NominatorDNE
         );
     });
@@ -930,7 +939,9 @@ fn cannot_execute_revoke_nomination_below_min_nominator_stake() {
                 RuntimeOrigin::signed(account_id_2),
                 account_id
             ));
-            assert_ok!(ParachainStaking::schedule_leave_nominators(RuntimeOrigin::signed(account_id_2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(RuntimeOrigin::signed(
+                account_id_2
+            )));
             roll_to(20);
             assert_ok!(ParachainStaking::execute_leave_nominators(
                 RuntimeOrigin::signed(account_id_2),
@@ -1199,7 +1210,10 @@ fn can_execute_revoke_nomination_for_leaving_candidate() {
         .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(RuntimeOrigin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                RuntimeOrigin::signed(account_id),
+                1
+            ));
             assert_ok!(ParachainStaking::schedule_revoke_nomination(
                 RuntimeOrigin::signed(account_id_2),
                 account_id
@@ -1224,7 +1238,10 @@ fn can_execute_leave_candidates_if_revoking_candidate() {
         .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(RuntimeOrigin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                RuntimeOrigin::signed(account_id),
+                1
+            ));
             assert_ok!(ParachainStaking::schedule_revoke_nomination(
                 RuntimeOrigin::signed(account_id_2),
                 account_id

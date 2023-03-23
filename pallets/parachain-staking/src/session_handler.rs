@@ -1,11 +1,11 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // use super::Config;
-use crate::{Era, Config, ForceNewEra, Pallet as ParachainStaking};
+use crate::{Config, Era, ForceNewEra, Pallet as ParachainStaking};
 use frame_support::{
+    dispatch::DispatchClass,
     pallet_prelude::Weight,
     traits::{EstimateNextSessionRotation, Get},
-    dispatch::DispatchClass
 };
 use pallet_session::{self as session, ShouldEndSession};
 use sp_runtime::{traits::Saturating, Permill};

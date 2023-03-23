@@ -2,7 +2,10 @@
 
 #![cfg(test)]
 
-use crate::{mock::{Summary,*}, system};
+use crate::{
+    mock::{Summary, *},
+    system,
+};
 use codec::alloc::sync::Arc;
 use frame_support::assert_noop;
 use pallet_avn::vote::VotingSessionData;
@@ -951,12 +954,14 @@ pub mod record_summary_calculation {
                 assert!(record_summary_calculation_is_ok(&context));
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SummaryCalculated {
-                        from: context.next_block_to_process,
-                        to: context.last_block_in_range,
-                        root_hash: context.root_hash_h256,
-                        submitter: context.validator.account_id
-                    })));
+                    mock::RuntimeEvent::Summary(
+                        crate::Event::<TestRuntime>::SummaryCalculated {
+                            from: context.next_block_to_process,
+                            to: context.last_block_in_range,
+                            root_hash: context.root_hash_h256,
+                            submitter: context.validator.account_id
+                        }
+                    )));
             });
         }
     }

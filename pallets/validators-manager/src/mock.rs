@@ -205,7 +205,10 @@ impl ValidatorManager {
             .any(|e| Self::event_matches_offence_type(&e.event, offence_type.clone()))
     }
 
-    pub fn event_matches_offence_type(event: &RuntimeEvent, this_type: ValidatorOffenceType) -> bool {
+    pub fn event_matches_offence_type(
+        event: &RuntimeEvent,
+        this_type: ValidatorOffenceType,
+    ) -> bool {
         return matches!(event,
             RuntimeEvent::ValidatorManager(
                 crate::Event::<TestRuntime>::OffenceReported{ offence_type, offenders: _ }
@@ -279,7 +282,7 @@ impl Config for TestRuntime {
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
 where
-RuntimeCall: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
     type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
@@ -398,9 +401,9 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         });
         return Ok(value)
     }
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(candidate_type: &EthTransactionType, id: TransactionId) {
-    }
+    // #[cfg(feature = "runtime-benchmarks")]
+    // fn set_transaction_id(candidate_type: &EthTransactionType, id: TransactionId) {
+    // }
 }
 
 impl session::Config for TestRuntime {

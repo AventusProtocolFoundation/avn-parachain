@@ -2,8 +2,8 @@ use crate::{
     assert_event_emitted,
     mock::{
         get_default_block_per_era, roll_one_block, roll_to_era_begin, set_author, set_reward_pot,
-        AccountId, Balances, ErasPerGrowthPeriod, ExtBuilder, RuntimeOrigin, ParachainStaking,
-        RewardPaymentDelay, System, Test, TestAccount,
+        AccountId, Balances, ErasPerGrowthPeriod, ExtBuilder, ParachainStaking, RewardPaymentDelay,
+        RuntimeOrigin, System, Test, TestAccount,
     },
     BalanceOf, CollatorScore, EraIndex, Error, Event, Growth, GrowthInfo, GrowthPeriod,
     GrowthPeriodInfo, ProcessedGrowthPeriods,
@@ -57,8 +57,14 @@ fn increase_collator_nomination(
     collator_2: AccountId,
     increase_amount: u128,
 ) {
-    assert_ok!(ParachainStaking::candidate_bond_extra(RuntimeOrigin::signed(collator_1), increase_amount));
-    assert_ok!(ParachainStaking::candidate_bond_extra(RuntimeOrigin::signed(collator_2), increase_amount));
+    assert_ok!(ParachainStaking::candidate_bond_extra(
+        RuntimeOrigin::signed(collator_1),
+        increase_amount
+    ));
+    assert_ok!(ParachainStaking::candidate_bond_extra(
+        RuntimeOrigin::signed(collator_2),
+        increase_amount
+    ));
 }
 
 fn get_expected_block_number(growth_index: u64) -> u64 {

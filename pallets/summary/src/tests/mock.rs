@@ -293,7 +293,7 @@ impl Config for TestRuntime {
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
 where
-RuntimeCall: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
     type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
@@ -373,7 +373,7 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
     #[cfg(feature = "runtime-benchmarks")]
     fn set_transaction_id(candidate_type: &EthTransactionType, id: TransactionId) {
     }
-   
+
 }
 
 /*********************** Add validators support ********************** */

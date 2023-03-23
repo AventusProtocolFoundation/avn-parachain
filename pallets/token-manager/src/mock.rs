@@ -17,10 +17,10 @@
 use super::*;
 use crate::{self as token_manager};
 use frame_support::{
+    dispatch::{DispatchClass, DispatchInfo},
     parameter_types,
     traits::{ConstU8, GenesisBuild},
-    weights::{ Weight, WeightToFee as WeightToFeeT},
-    dispatch::{DispatchClass, DispatchInfo,},
+    weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
 };
 use frame_system::{self as system, limits};
@@ -111,7 +111,7 @@ impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {
 pub const BASE_FEE: u64 = 12;
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-const MAX_BLOCK_WEIGHT: Weight = Weight::from_ref_time(1024);
+const MAX_BLOCK_WEIGHT: Weight = Weight::from_ref_time(1024).set_proof_size(u64::MAX);
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -569,7 +569,10 @@ impl MockData {
         let amount =
             <BalanceOf<TestRuntime> as TryFrom<u128>>::try_from(amount).expect("amount is valid");
         let imbalance: PositiveImbalanceOf<TestRuntime> =
-            <mock::TestRuntime as token_manager::Config>::Currency::deposit_creating(&account_id, amount);
+            <mock::TestRuntime as token_manager::Config>::Currency::deposit_creating(
+                &account_id,
+                amount,
+            );
         if imbalance.peek() == BalanceOf::<TestRuntime>::zero() {
             return false
         }

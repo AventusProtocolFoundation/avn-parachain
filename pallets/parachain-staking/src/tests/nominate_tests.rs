@@ -5,9 +5,9 @@
 use crate::{
     assert_event_emitted, assert_last_event, encode_signed_nominate_params,
     mock::{
-        build_proof, inner_call_failed_event_emitted, sign, AccountId, AvnProxy, RuntimeCall as MockCall,
-        RuntimeEvent as MetaEvent, ExtBuilder, RuntimeOrigin as Origin, ParachainStaking, Signature, Staker, Test,
-        TestAccount,
+        build_proof, inner_call_failed_event_emitted, sign, AccountId, AvnProxy, ExtBuilder,
+        ParachainStaking, RuntimeCall as MockCall, RuntimeEvent as MetaEvent,
+        RuntimeOrigin as Origin, Signature, Staker, Test, TestAccount,
     },
     Config, Error, Event, NominatorAdded, Proof, StaticLookup,
 };

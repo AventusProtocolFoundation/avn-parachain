@@ -17,8 +17,8 @@
 //! Scheduled requests functionality for nominators
 
 use crate::{
-    BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event,
-    MinTotalNominatorStake, NominationScheduledRequests, NominatorState, Pallet, Total, Nominator,
+    BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event, MinTotalNominatorStake,
+    NominationScheduledRequests, Nominator, NominatorState, Pallet, Total,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get, RuntimeDebug};
 use parity_scale_codec::{Decode, Encode};

@@ -484,13 +484,14 @@ mod remove_slashed_validator {
                     .is_some()
             );
 
-            let event =
-                mock::RuntimeEvent::ValidatorManager(crate::Event::<TestRuntime>::ValidatorSlashed {
+            let event = mock::RuntimeEvent::ValidatorManager(
+                crate::Event::<TestRuntime>::ValidatorSlashed {
                     action_id: ActionId {
                         action_account_id: offender_validator_id,
                         ingress_counter,
                     },
-                });
+                },
+            );
             assert_eq!(true, ValidatorManager::event_emitted(&event));
 
             // It takes 2 session for validators to be updated

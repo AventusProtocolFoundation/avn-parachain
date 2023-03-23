@@ -468,7 +468,11 @@ impl<T: Config> MintBatchNft<T> {
         }
     }
 
-    fn generate_signed_mint_batch_nft(&self, batch_id: U256, index: u64) -> <T as Config>::RuntimeCall {
+    fn generate_signed_mint_batch_nft(
+        &self,
+        batch_id: U256,
+        index: u64,
+    ) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.nft_owner.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_mint_batch_nft {

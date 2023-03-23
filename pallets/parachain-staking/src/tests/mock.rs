@@ -20,12 +20,13 @@ use crate::{
     pallet, AwardedPts, Config, Points, Proof, TypeInfo, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
-    assert_ok, construct_runtime, parameter_types,
+    assert_ok, construct_runtime,
+    dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
+    parameter_types,
     traits::{
         ConstU8, Currency, Everything, FindAuthor, GenesisBuild, Imbalance, LockIdentifier,
         OnFinalize, OnInitialize, OnUnbalanced, ValidatorRegistration,
     },
-    dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
     weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
 };
@@ -196,7 +197,7 @@ parameter_types! {
     pub const MaxTopNominationsPerCandidate: u32 = 4;
     pub const MaxBottomNominationsPerCandidate: u32 = 4;
     pub const MaxNominationsPerNominator: u32 = 10;
-    pub const MinNominationPerCollator: u128 = 3;
+    pub const MinNominationPerCollator: u128 = 1;
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
 }
@@ -272,7 +273,8 @@ impl WeightToFeeT for WeightToFee {
     type Balance = u128;
 
     fn weight_to_fee(weight: &Weight) -> Self::Balance {
-        Self::Balance::saturated_from(weight.ref_time()).saturating_mul(WEIGHT_TO_FEE.with(|v| *v.borrow()))
+        Self::Balance::saturated_from(weight.ref_time())
+            .saturating_mul(WEIGHT_TO_FEE.with(|v| *v.borrow()))
     }
 }
 
@@ -405,7 +407,10 @@ impl InnerCallValidator for TestAvnProxyConfig {
 
 pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bool {
     return System::events().iter().any(|a| match a.event {
-        RuntimeEvent::AvnProxy(avn_proxy::Event::<Test>::InnerCallFailed { dispatch_error, .. }) =>
+        RuntimeEvent::AvnProxy(avn_proxy::Event::<Test>::InnerCallFailed {
+            dispatch_error,
+            ..
+        }) =>
             if dispatch_error == call_dispatch_error {
                 return true
             } else {
@@ -579,7 +584,9 @@ pub(crate) fn events() -> Vec<pallet::Event<Test>> {
     System::events()
         .into_iter()
         .map(|r| r.event)
-        .filter_map(|e| if let RuntimeEvent::ParachainStaking(inner) = e { Some(inner) } else { None })
+        .filter_map(
+            |e| if let RuntimeEvent::ParachainStaking(inner) = e { Some(inner) } else { None },
+        )
         .collect::<Vec<_>>()
 }
 

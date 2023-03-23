@@ -100,7 +100,10 @@ impl Default for CreateBatchContext {
 }
 
 impl CreateBatchContext {
-    fn create_signed_create_batch_call(&self, nonce: u64) -> Box<<TestRuntime as Config>::RuntimeCall> {
+    fn create_signed_create_batch_call(
+        &self,
+        nonce: u64,
+    ) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let proof = self.create_signed_create_batch_proof(nonce);
 
         return Box::new(MockCall::NftManager(super::Call::<TestRuntime>::signed_create_batch {

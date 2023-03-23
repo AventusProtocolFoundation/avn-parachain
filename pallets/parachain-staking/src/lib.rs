@@ -109,17 +109,18 @@ pub mod pallet {
         WeightInfo,
     };
     pub use frame_support::{
+        dispatch::{GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
         traits::{
             tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance, IsSubType,
             LockIdentifier, LockableCurrency, ReservableCurrency, ValidatorRegistration,
         },
-        transactional,
-        dispatch::{PostDispatchInfo,GetDispatchInfo},
-        PalletId,
+        transactional, PalletId,
     };
     pub use frame_system::pallet_prelude::*;
-    pub use pallet_avn::{CollatorPayoutDustHandler, ProcessedEventsChecker, OnGrowthLiftedHandler};
+    pub use pallet_avn::{
+        CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
+    };
     pub use sp_avn_common::{Proof, verify_signature};
     pub use sp_runtime::{
         traits::{

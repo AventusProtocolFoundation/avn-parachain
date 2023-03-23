@@ -201,14 +201,15 @@ fn avn_test_proxy_signed_transfer_succeeds() {
         setup(&sender, NON_ZERO_NONCE);
         let proof = create_proof_for_signed_transfer_with_nonce(NON_ZERO_NONCE);
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof,
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
         let call_hash = Hashing::hash_of(&call);
 
         assert_eq!(System::events().len(), 0);
@@ -269,14 +270,15 @@ fn avt_proxy_signed_transfer_succeeds() {
             &key_pair_for_account_with_100_avt(),
         );
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof,
                 from: sender,
                 to: recipient,
                 token_id: AVT_TOKEN_CONTRACT,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
         let call_hash = Hashing::hash_of(&call);
 
         assert_eq!(System::events().len(), 0);
@@ -415,14 +417,15 @@ fn avn_test_proxy_signed_transfer_succeeds_with_nonce_zero() {
         default_setup();
         let proof = create_default_proof_for_signed_transfer();
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof,
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
         let call_hash = Hashing::hash_of(&call);
 
         assert_eq!(System::events().len(), 0);
@@ -466,14 +469,15 @@ fn avn_test_proxy_signed_transfer_fails_for_mismatching_proof_nonce() {
 
         for bad_nonce in bad_nonces.iter() {
             let proof = create_proof_for_signed_transfer_with_nonce(*bad_nonce);
-            let call =
-                Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+            let call = Box::new(mock::RuntimeCall::TokenManager(
+                super::Call::<TestRuntime>::signed_transfer {
                     proof,
                     from: sender,
                     to: recipient,
                     token_id: NON_AVT_TOKEN_ID,
                     amount: DEFAULT_AMOUNT,
-                }));
+                },
+            ));
 
             assert_err!(
                 TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
@@ -498,14 +502,15 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_amount() {
         default_setup();
         let proof = create_default_proof_for_signed_transfer();
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: proof.clone(),
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: mismatching_amount,
-            }));
+            },
+        ));
 
         assert_eq!(System::events().len(), 0);
         assert_err!(
@@ -548,14 +553,15 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_keys() {
             &other_sender_keys,
         );
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: mismatching_proof,
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
 
         assert_err!(
             TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
@@ -599,14 +605,15 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_sender() {
             &sender_keys,
         );
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: mismatching_proof,
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
 
         assert_err!(
             TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
@@ -640,14 +647,15 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_relayer() {
 
         default_setup();
         let mismatching_proof = create_proof_for_signed_transfer_with_relayer(&other_relayer);
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: mismatching_proof,
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
 
         assert_err!(
             TokenManager::proxy(RuntimeOrigin::signed(relayer), call.clone()),
@@ -691,14 +699,15 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_recipient() 
             &sender_keys,
         );
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: mismatching_proof,
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
 
         assert_err!(
             TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
@@ -742,14 +751,15 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_token_id() {
             &sender_keys,
         );
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: mismatching_proof,
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
 
         assert_err!(
             TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
@@ -796,14 +806,15 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_context() {
 
         let mismatching_proof = Proof { signer: sender, relayer, signature: alternative_signature };
 
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: mismatching_proof,
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
         assert_err!(
             TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
             Error::<TestRuntime>::UnauthorizedSignedTransferTransaction
@@ -829,7 +840,8 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_context() {
 fn avn_test_unsupported_proxy_call() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
-        let call = Box::new(mock::RuntimeCall::System(frame_system::Call::remark { remark: vec![] }));
+        let call =
+            Box::new(mock::RuntimeCall::System(frame_system::Call::remark { remark: vec![] }));
         assert_noop!(
             TokenManager::proxy(RuntimeOrigin::signed(default_sender()), call),
             Error::<TestRuntime>::TransactionNotSupported
@@ -847,14 +859,15 @@ fn avn_test_get_proof_succeeds_for_valid_cases() {
         let recipient = default_receiver();
 
         let proof = create_default_proof_for_signed_transfer();
-        let call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: proof.clone(),
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
+            },
+        ));
 
         let result = TokenManager::get_proof(&call);
         assert!(result.is_ok());
@@ -899,16 +912,18 @@ fn avn_test_proxy_gas_costs_paid_correctly() {
         assert_eq!(<TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)), 0);
 
         // Prepare the calls
-        let inner_call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let inner_call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: proof.clone(),
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
-        let outer_call =
-            &mock::RuntimeCall::TokenManager(token_manager::Call::proxy { call: inner_call.clone() });
+            },
+        ));
+        let outer_call = &mock::RuntimeCall::TokenManager(token_manager::Call::proxy {
+            call: inner_call.clone(),
+        });
 
         // Pay fees and submit the transaction
         assert_ok!(pay_gas_and_proxy_call(&relayer, outer_call, inner_call.clone()));
@@ -1030,16 +1045,18 @@ fn avn_test_proxy_insufficient_avt() {
         );
 
         // Prepare the calls
-        let inner_call =
-            Box::new(mock::RuntimeCall::TokenManager(super::Call::<TestRuntime>::signed_transfer {
+        let inner_call = Box::new(mock::RuntimeCall::TokenManager(
+            super::Call::<TestRuntime>::signed_transfer {
                 proof: proof.clone(),
                 from: sender,
                 to: recipient,
                 token_id: NON_AVT_TOKEN_ID,
                 amount: DEFAULT_AMOUNT,
-            }));
-        let outer_call =
-            &mock::RuntimeCall::TokenManager(token_manager::Call::proxy { call: inner_call.clone() });
+            },
+        ));
+        let outer_call = &mock::RuntimeCall::TokenManager(token_manager::Call::proxy {
+            call: inner_call.clone(),
+        });
 
         // Pay fees and submit the transaction.
         // Gas fee for this tx is (BASE_FEE + TX_LEN): 12 + 1 = 13 AVT

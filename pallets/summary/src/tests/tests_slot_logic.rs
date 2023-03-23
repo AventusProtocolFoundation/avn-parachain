@@ -336,12 +336,13 @@ mod advance_slot {
                 let new_validator = Summary::slot_validator().unwrap();
                 let new_slot_start = Summary::block_number_for_next_slot();
 
-                let event = mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SlotAdvanced {
-                    advanced_by: validator.account_id,
-                    new_slot: new_slot_number,
-                    slot_validator: new_validator,
-                    slot_end: new_slot_start,
-                });
+                let event =
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SlotAdvanced {
+                        advanced_by: validator.account_id,
+                        new_slot: new_slot_number,
+                        slot_validator: new_validator,
+                        slot_end: new_slot_start,
+                    });
 
                 assert!(Summary::emitted_event(&event));
             });
@@ -580,7 +581,10 @@ mod signature_in {
                 let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                 match tx.call {
-                    mock::RuntimeCall::Summary(crate::Call::advance_slot { validator, signature }) => {
+                    mock::RuntimeCall::Summary(crate::Call::advance_slot {
+                        validator,
+                        signature,
+                    }) => {
                         let data = &(ADVANCE_SLOT_CONTEXT, context.slot_number);
 
                         let signature_is_valid = data.using_encoded(|encoded_data| {
@@ -660,7 +664,10 @@ mod signature_in {
                     let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                     match tx.call {
-                        mock::RuntimeCall::Summary(crate::Call::advance_slot { validator, signature }) => {
+                        mock::RuntimeCall::Summary(crate::Call::advance_slot {
+                            validator,
+                            signature,
+                        }) => {
                             let data = &("WRONG CONTEXT", context.slot_number);
 
                             let signature_is_valid = data.using_encoded(|encoded_data| {
@@ -697,7 +704,10 @@ mod signature_in {
                     let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
                     match tx.call {
-                        mock::RuntimeCall::Summary(crate::Call::advance_slot { validator, signature }) => {
+                        mock::RuntimeCall::Summary(crate::Call::advance_slot {
+                            validator,
+                            signature,
+                        }) => {
                             let data = &(ADVANCE_SLOT_CONTEXT, context.slot_number + 1);
 
                             let signature_is_valid = data.using_encoded(|encoded_data| {
@@ -811,11 +821,12 @@ mod cases_for_no_summary_created_offences {
                     let offenders =
                         vec![Summary::create_mock_identification_tuple(validator.account_id)];
 
-                    let offence_reported_event =
-                        mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SummaryOffenceReported {
+                    let offence_reported_event = mock::RuntimeEvent::Summary(
+                        crate::Event::<TestRuntime>::SummaryOffenceReported {
                             offence_type: SummaryOffenceType::NoSummaryCreated,
                             offenders,
-                        });
+                        },
+                    );
                     assert_eq!(true, Summary::emitted_event(&offence_reported_event));
 
                     let new_slot_number = Summary::current_slot();

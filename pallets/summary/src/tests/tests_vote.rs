@@ -960,11 +960,13 @@ mod end_voting_period {
                 assert_eq!(Summary::last_summary_slot(), Summary::current_slot());
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::SummaryRootValidated {
-                        block_range: context.root_id.range,
-                        root_hash: context.root_hash_h256,
-                        ingress_counter: context.root_id.ingress_counter
-                    })));
+                    mock::RuntimeEvent::Summary(
+                        crate::Event::<TestRuntime>::SummaryRootValidated {
+                            block_range: context.root_id.range,
+                            root_hash: context.root_hash_h256,
+                            ingress_counter: context.root_id.ingress_counter
+                        }
+                    )));
 
                 assert!(System::events().iter().any(|a| a.event ==
                     mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VotingEnded {

@@ -8,8 +8,8 @@ use crate::{
     encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_nominator_unbond_params,
     mock::{
         build_proof, inner_call_failed_event_emitted, roll_to, roll_to_era_begin, sign, AccountId,
-        AvnProxy, RuntimeCall as MockCall, RuntimeEvent as MetaEvent, ExtBuilder, MinNominationPerCollator,
-        RuntimeOrigin, ParachainStaking, Signature, Staker, System, Test, TestAccount,
+        AvnProxy, ExtBuilder, MinNominationPerCollator, ParachainStaking, RuntimeCall as MockCall,
+        RuntimeEvent as MetaEvent, RuntimeOrigin, Signature, Staker, System, Test, TestAccount,
     },
     Bond, Config, Error, Event, NominationAction, Proof, ScheduledRequest,
 };
@@ -189,7 +189,11 @@ mod proxy_signed_schedule_nominator_unbond {
                     nonce,
                     AMOUNT_TO_UNBOND.with(|v| *v.borrow()),
                 );
-                assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(staker.relayer), unbond_call, None));
+                assert_ok!(AvnProxy::proxy(
+                    RuntimeOrigin::signed(staker.relayer),
+                    unbond_call,
+                    None
+                ));
 
                 assert!(unbond_event_emitted(Staker::default().account_id));
 
@@ -273,7 +277,11 @@ mod proxy_signed_schedule_nominator_unbond {
                         amount_to_withdraw,
                     );
 
-                    assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(staker.relayer), unbond_call, None));
+                    assert_ok!(AvnProxy::proxy(
+                        RuntimeOrigin::signed(staker.relayer),
+                        unbond_call,
+                        None
+                    ));
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
@@ -316,7 +324,11 @@ mod proxy_signed_schedule_nominator_unbond {
                         proof,
                         bad_amount_to_withdraw,
                     );
-                    assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(staker.relayer), unbond_call, None));
+                    assert_ok!(AvnProxy::proxy(
+                        RuntimeOrigin::signed(staker.relayer),
+                        unbond_call,
+                        None
+                    ));
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
@@ -359,7 +371,11 @@ mod proxy_signed_schedule_nominator_unbond {
                         bad_amount_to_unbond,
                     );
 
-                    assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(staker.relayer), unbond_call, None));
+                    assert_ok!(AvnProxy::proxy(
+                        RuntimeOrigin::signed(staker.relayer),
+                        unbond_call,
+                        None
+                    ));
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
@@ -400,11 +416,16 @@ mod proxy_signed_schedule_nominator_unbond {
                         nonce,
                         bad_amount_to_unbond,
                     );
-
-                    assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(staker.relayer), unbond_call, None));
+                    assert_ok!(AvnProxy::proxy(
+                        RuntimeOrigin::signed(staker.relayer),
+                        unbond_call,
+                        None
+                    ));
                     assert_eq!(
                         true,
-                        inner_call_failed_event_emitted(Error::<Test>::NominationBelowMin.into())
+                        inner_call_failed_event_emitted(
+                            Error::<Test>::NominatorBondBelowMin.into()
+                        )
                     );
                 });
         }
@@ -930,7 +951,11 @@ mod signed_execute_candidate_unbond {
         let candidate_unbond_call =
             create_call_for_signed_schedule_candidate_unbond(candidate, nonce, *amount);
 
-        assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(candidate.relayer), candidate_unbond_call, None));
+        assert_ok!(AvnProxy::proxy(
+            RuntimeOrigin::signed(candidate.relayer),
+            candidate_unbond_call,
+            None
+        ));
 
         // return updated nonce
         return ParachainStaking::proxy_nonce(candidate.account_id)
@@ -1186,7 +1211,9 @@ fn nominator_not_allowed_to_unbond_if_leaving() {
         .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_nominators(RuntimeOrigin::signed(account_id_2)));
+            assert_ok!(ParachainStaking::schedule_leave_nominators(RuntimeOrigin::signed(
+                account_id_2
+            )));
             assert_noop!(
                 ParachainStaking::schedule_nominator_unbond(
                     RuntimeOrigin::signed(account_id_2),
@@ -1340,9 +1367,9 @@ fn cannot_nominator_unbond_below_min_nomination() {
                 ParachainStaking::schedule_nominator_unbond(
                     RuntimeOrigin::signed(account_id_2),
                     account_id,
-                    8
+                    10
                 ),
-                Error::<Test>::NominationBelowMin
+                Error::<Test>::NominatorBondBelowMin
             );
         });
 }
@@ -1357,7 +1384,10 @@ fn schedule_candidate_unbond_event_emits_correctly() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(
+                RuntimeOrigin::signed(account_id),
+                10
+            ));
             assert_last_event!(MetaEvent::ParachainStaking(Event::CandidateBondLessRequested {
                 candidate: account_id,
                 amount_to_decrease: 10,
@@ -1374,7 +1404,10 @@ fn cannot_schedule_candidate_unbond_if_request_exists() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 5));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(
+                RuntimeOrigin::signed(account_id),
+                5
+            ));
             assert_noop!(
                 ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 5),
                 Error::<Test>::PendingCandidateRequestAlreadyExists
@@ -1415,8 +1448,14 @@ fn can_schedule_candidate_unbond_if_leaving_candidates() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(RuntimeOrigin::signed(account_id), 1));
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 10));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                RuntimeOrigin::signed(account_id),
+                1
+            ));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(
+                RuntimeOrigin::signed(account_id),
+                10
+            ));
         });
 }
 
@@ -1428,7 +1467,10 @@ fn cannot_schedule_candidate_unbond_if_exited_candidates() {
         .with_candidates(vec![(account_id, 30)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(RuntimeOrigin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                RuntimeOrigin::signed(account_id),
+                1
+            ));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_leave_candidates(
                 RuntimeOrigin::signed(account_id),
@@ -1451,7 +1493,10 @@ fn execute_candidate_unbond_emits_correct_event() {
         .with_candidates(vec![(account_id, 50)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 30));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(
+                RuntimeOrigin::signed(account_id),
+                30
+            ));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 RuntimeOrigin::signed(account_id),
@@ -1474,7 +1519,10 @@ fn execute_candidate_unbond_unreserves_balance() {
         .build()
         .execute_with(|| {
             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 0);
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(
+                RuntimeOrigin::signed(account_id),
+                10
+            ));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 RuntimeOrigin::signed(account_id),
@@ -1493,7 +1541,10 @@ fn execute_candidate_unbond_decreases_total() {
         .build()
         .execute_with(|| {
             let mut total = ParachainStaking::total();
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(
+                RuntimeOrigin::signed(account_id),
+                10
+            ));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 RuntimeOrigin::signed(account_id),
@@ -1515,7 +1566,10 @@ fn execute_candidate_unbond_updates_candidate_state() {
             let candidate_state =
                 ParachainStaking::candidate_info(account_id).expect("updated => exists");
             assert_eq!(candidate_state.bond, 30);
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(
+                RuntimeOrigin::signed(account_id),
+                10
+            ));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 RuntimeOrigin::signed(account_id),
@@ -1537,7 +1591,10 @@ fn execute_candidate_unbond_updates_candidate_pool() {
         .execute_with(|| {
             assert_eq!(ParachainStaking::candidate_pool().0[0].owner, account_id);
             assert_eq!(ParachainStaking::candidate_pool().0[0].amount, 30);
-            assert_ok!(ParachainStaking::schedule_candidate_unbond(RuntimeOrigin::signed(account_id), 10));
+            assert_ok!(ParachainStaking::schedule_candidate_unbond(
+                RuntimeOrigin::signed(account_id),
+                10
+            ));
             roll_to(10);
             assert_ok!(ParachainStaking::execute_candidate_unbond(
                 RuntimeOrigin::signed(account_id),
@@ -1844,7 +1901,10 @@ fn can_execute_nominator_unbond_for_leaving_candidate() {
         .with_nominations(vec![(account_id_2, account_id, 15)])
         .build()
         .execute_with(|| {
-            assert_ok!(ParachainStaking::schedule_leave_candidates(RuntimeOrigin::signed(account_id), 1));
+            assert_ok!(ParachainStaking::schedule_leave_candidates(
+                RuntimeOrigin::signed(account_id),
+                1
+            ));
             assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 RuntimeOrigin::signed(account_id_2),
                 account_id,

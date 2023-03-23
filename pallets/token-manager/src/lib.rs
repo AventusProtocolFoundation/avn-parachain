@@ -83,6 +83,8 @@ pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operat
 
 pub use pallet::*;
 
+pub use pallet::*;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -267,10 +269,17 @@ pub mod pallet {
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(call.get_dispatch_info().weight))]
 
-        // #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(frame_support::dispatch::GetDispatchInfo::get_dispatch_info(&*call).weight))]
-        // #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy_with_non_avt_token().saturating_add(frame_support::dispatch::GetDispatchInfo::get_dispatch_info(*call).weight))]
-        // #[pallet::weight(0)]
-        pub fn proxy(origin: OriginFor<T>, call: Box<<T as Config>::RuntimeCall>) -> DispatchResult {
+        // #[pallet::weight(<T as
+        // pallet::Config>::WeightInfo::proxy_with_non_avt_token().
+        // saturating_add(frame_support::dispatch::GetDispatchInfo::get_dispatch_info(&*call).
+        // weight))] #[pallet::weight(<T as
+        // pallet::Config>::WeightInfo::proxy_with_non_avt_token().
+        // saturating_add(frame_support::dispatch::GetDispatchInfo::get_dispatch_info(*call).
+        // weight))] #[pallet::weight(0)]
+        pub fn proxy(
+            origin: OriginFor<T>,
+            call: Box<<T as Config>::RuntimeCall>,
+        ) -> DispatchResult {
             let relayer = ensure_signed(origin)?;
 
             let proof = Self::get_proof(&*call)?;
