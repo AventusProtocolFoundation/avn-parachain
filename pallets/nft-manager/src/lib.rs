@@ -37,7 +37,7 @@ use sp_avn_common::{
         EthEvent, EthEventId, EventData, NftCancelListingData, NftEndBatchListingData,
         NftTransferToData, ProcessedEventHandler,
     },
-    CallDecoder, InnerCallValidator, Proof,
+    verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
 use sp_core::{H160, H256, U256};
 use sp_io::hashing::keccak_256;
@@ -373,7 +373,8 @@ pub mod pallet {
                 &t1_authority,
             );
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedMintSingleNftTransaction
             );
 
@@ -432,7 +433,8 @@ pub mod pallet {
 
             let signed_payload = Self::encode_list_nft_for_sale_params(&proof, &nft_id, &market)?;
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedLiftNftOpenForSaleTransaction
             );
 
@@ -463,7 +465,8 @@ pub mod pallet {
             let signed_payload =
                 Self::encode_transfer_fiat_nft_params(&proof, &nft_id, &t2_transfer_to_public_key)?;
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedTransferFiatNftTransaction
             );
 
@@ -498,7 +501,8 @@ pub mod pallet {
             let nft = Self::try_get_nft(&nft_id)?;
             let signed_payload = Self::encode_cancel_list_fiat_nft_params(&proof, &nft_id)?;
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedCancelListFiatNftTransaction
             );
 
@@ -569,7 +573,8 @@ pub mod pallet {
                 &sender_nonce,
             );
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedCreateBatchTransaction
             );
 
@@ -631,7 +636,8 @@ pub mod pallet {
                 &owner,
             );
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedMintBatchNftTransaction
             );
 
@@ -670,7 +676,8 @@ pub mod pallet {
             let signed_payload =
                 encode_list_batch_for_sale_params::<T>(&proof, &batch_id, &market, &sender_nonce);
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedListBatchForSaleTransaction
             );
 
@@ -708,7 +715,8 @@ pub mod pallet {
             let signed_payload =
                 encode_end_batch_sale_params::<T>(&proof, &batch_id, &sender_nonce);
             ensure!(
-                Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedEndBatchSaleTransaction
             );
 
@@ -974,16 +982,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn verify_signature(
-        proof: &Proof<T::Signature, T::AccountId>,
-        signed_payload: &[u8],
-    ) -> Result<(), Error<T>> {
-        match proof.signature.verify(signed_payload, &proof.signer) {
-            true => Ok(()),
-            false => Err(<Error<T>>::UnauthorizedTransaction.into()),
-        }
-    }
-
     fn get_dispatch_result_with_post_info(
         call: Box<<T as Config>::RuntimeCall>,
     ) -> DispatchResultWithPostInfo {
@@ -1218,7 +1216,11 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {
-            return Self::verify_signature(&proof, &signed_payload.as_slice()).is_ok()
+            return verify_signature::<T::Signature, T::AccountId>(
+                &proof,
+                &signed_payload.as_slice(),
+            )
+            .is_ok()
         }
 
         return false

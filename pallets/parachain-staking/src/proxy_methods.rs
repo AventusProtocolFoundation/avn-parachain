@@ -7,8 +7,8 @@ use alloc::string::String;
 
 use frame_support::traits::IsSubType;
 use parity_scale_codec::Encode;
-use sp_avn_common::{InnerCallValidator, Proof};
-use sp_runtime::traits::{StaticLookup, Verify};
+use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
+use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;
 
 use super::*;
@@ -228,22 +228,16 @@ pub fn encode_signed_execute_candidate_unbond_params<T: Config>(
     return (SIGNED_EXECUTE_CANDIDATE_UNBOND_CONTEXT, relayer, candidate, sender_nonce).encode()
 }
 
-pub fn verify_signature<T: Config>(
-    proof: &Proof<T::Signature, T::AccountId>,
-    signed_payload: &[u8],
-) -> Result<(), Error<T>> {
-    match proof.signature.verify(signed_payload, &proof.signer) {
-        true => Ok(()),
-        false => Err(<Error<T>>::UnauthorizedProxyTransaction.into()),
-    }
-}
-
 impl<T: Config> InnerCallValidator for ParachainStaking<T> {
     type Call = <T as Config>::RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = get_encoded_call_param::<T>(call) {
-            return verify_signature::<T>(&proof, &signed_payload.as_slice()).is_ok()
+            return verify_signature::<T::Signature, T::AccountId>(
+                &proof,
+                &signed_payload.as_slice(),
+            )
+            .is_ok()
         }
 
         return false

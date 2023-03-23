@@ -944,13 +944,11 @@ pub mod pallet {
                 block_number >= Self::block_number_for_next_slot()
             {
                 let result = Self::dispatch_advance_slot(this_validator);
-
                 if let Err(e) = result {
                     log::warn!("💔️ Error starting a new summary creation slot: {:?}", e);
                 }
             }
         }
-
         // called from OCW - no storage changes allowed here
         pub fn process_summary_if_required(
             block_number: T::BlockNumber,
