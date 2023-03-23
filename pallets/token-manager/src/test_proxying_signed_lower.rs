@@ -30,6 +30,7 @@ use sp_runtime::{
     traits::{Hash, SignedExtension},
     transaction_validity::InvalidTransaction,
 };
+use sp_avn_common::verify_signature;
 
 type AccountId = <TestRuntime as frame_system::Config>::AccountId;
 type Hashing = <TestRuntime as frame_system::Config>::Hashing;
@@ -1008,7 +1009,7 @@ mod wrapped_signature_verification {
                 let signature = Signature::from_slice(&hex!("28030730e54df409e7ed3a45ef5f775383f1e1d1563b86b0fc7784d3b6e55802d03c3f46d29f699a3500c5dcab80ea9e3b4f81ccbb3d35e7f31cba5a9a1e2682")).unwrap(); //sign(&keys, &data_to_sign.encode());
                 let proof = build_proof(&sender, &relayer, signature);
 
-                assert_ok!(TokenManager::verify_signature(&proof, &data_to_sign.encode()));
+                assert_ok!(verify_signature::<Signature, AccountId>(&proof, &data_to_sign.encode()));
 
                 let call =
                     Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::signed_lower {

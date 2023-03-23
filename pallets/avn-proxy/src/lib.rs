@@ -191,6 +191,7 @@ impl<T: Config> Pallet<T> {
                 false => Err(<Error<T>>::UnauthorizedFee.into()),
             },
         }
+    }
 
     pub(crate) fn charge_fee(
         proof: &Proof<T::Signature, T::AccountId>,

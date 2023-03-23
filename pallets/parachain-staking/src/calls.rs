@@ -1,4 +1,3 @@
-use frame_support::ensure;
 use crate::*;
 use frame_support::ensure;
 impl<T: Config> Pallet<T> {

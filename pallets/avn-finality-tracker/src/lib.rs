@@ -233,6 +233,7 @@ impl<BlockNumber: Member + AtLeast32Bit> SubmissionData<BlockNumber> {
     pub fn new(finalised_block: BlockNumber, submitted_at_block: BlockNumber) -> Self {
         return SubmissionData::<BlockNumber> { finalised_block, submitted_at_block }
     }
+}
 
 impl<T: Config> Pallet<T> {
     /// This function will only update the finalised block if there are 2/3rd or more
@@ -270,46 +271,47 @@ impl<T: Config> Pallet<T> {
                 });
             }
         }
+    }
 
-        /// This method assumes all validation (such as quorum) has passed before being called.
-        fn calculate_finalised_block(quorum: u32) -> T::BlockNumber {
-            let mut block_candidates = vec![];
-            let mut removed_validators = vec![];
+    /// This method assumes all validation (such as quorum) has passed before being called.
+    fn calculate_finalised_block(quorum: u32) -> T::BlockNumber {
+        let mut block_candidates = vec![];
+        let mut removed_validators = vec![];
 
-            for (validator_account_id, submission) in <SubmittedBlockNumbers<T>>::iter() {
-                let validator_is_active = AVN::<T>::is_validator(&validator_account_id);
+        for (validator_account_id, submission) in <SubmittedBlockNumbers<T>>::iter() {
+            let validator_is_active = AVN::<T>::is_validator(&validator_account_id);
 
-                if submission.finalised_block > <T as frame_system::Config>::BlockNumber::zero() &&
-                    validator_is_active
-                {
-                    block_candidates.push(submission.finalised_block);
-                }
-
-                // Keep track and remove any inactive validators
-                if !validator_is_active {
-                    removed_validators.push(validator_account_id);
-                }
+            if submission.finalised_block > <T as frame_system::Config>::BlockNumber::zero() &&
+                validator_is_active
+            {
+                block_candidates.push(submission.finalised_block);
             }
 
-            removed_validators
-                .iter()
-                .for_each(|val| SubmittedBlockNumbers::<T>::remove(&val));
-
-            block_candidates.sort();
-            let can_be_ignored = block_candidates.len().saturating_sub(quorum as usize);
-            return block_candidates[can_be_ignored]
-        }
-
-        fn record_submission(
-            submitter: &T::AccountId,
-            submission_data: SubmissionData<T::BlockNumber>,
-        ) {
-            if SubmittedBlockNumbers::<T>::contains_key(submitter) {
-                SubmittedBlockNumbers::<T>::mutate(submitter, |data| *data = submission_data);
-            } else {
-                SubmittedBlockNumbers::<T>::insert(submitter, submission_data);
+            // Keep track and remove any inactive validators
+            if !validator_is_active {
+                removed_validators.push(validator_account_id);
             }
         }
+
+        removed_validators
+            .iter()
+            .for_each(|val| SubmittedBlockNumbers::<T>::remove(&val));
+
+        block_candidates.sort();
+        let can_be_ignored = block_candidates.len().saturating_sub(quorum as usize);
+        return block_candidates[can_be_ignored]
+    }
+
+    fn record_submission(
+        submitter: &T::AccountId,
+        submission_data: SubmissionData<T::BlockNumber>,
+    ) {
+        if SubmittedBlockNumbers::<T>::contains_key(submitter) {
+            SubmittedBlockNumbers::<T>::mutate(submitter, |data| *data = submission_data);
+        } else {
+            SubmittedBlockNumbers::<T>::insert(submitter, submission_data);
+        }
+    }
 
     fn is_submission_valid(
         submitter: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
@@ -317,42 +319,34 @@ impl<T: Config> Pallet<T> {
         let has_submitted_before =
             SubmittedBlockNumbers::<T>::contains_key(&submitter.account_id);
 
-            if has_submitted_before {
-                let last_submission = Self::submissions(&submitter.account_id).submitted_at_block;
-                return <frame_system::Pallet<T>>::block_number() >
-                    last_submission + T::SubmissionInterval::get()
-            }
-
-            return true
+        if has_submitted_before {
+            let last_submission = Self::submissions(&submitter.account_id).submitted_at_block;
+            return <frame_system::Pallet<T>>::block_number() >
+                last_submission + T::SubmissionInterval::get()
         }
 
-        // Called from OCW, no storage changes allowed
-        fn submit_finalised_block_if_required(
-            this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
-            if Self::can_submit_finalised_block(this_validator) == false {
-                return
-            }
+        return true
+    }
 
-            let finalised_block_result = Self::get_finalised_block_from_external_service();
-            if let Err(ref e) = finalised_block_result {
-                log::error!("💔 Error getting finalised block from external service: {:?}", e);
-                return
-            }
-            let calculated_finalised_block = finalised_block_result.expect("checked for errors");
+    // Called from OCW, no storage changes allowed
+    fn submit_finalised_block_if_required(
+        this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+    ) {
+        if Self::can_submit_finalised_block(this_validator) == false {
+            return
+        }
 
-            if calculated_finalised_block <= Self::latest_finalised_block_number() {
-                // Only submit if the calculated value is greater than the current value
-                return
-            }
+        let finalised_block_result = Self::get_finalised_block_from_external_service();
+        if let Err(ref e) = finalised_block_result {
+            log::error!("💔 Error getting finalised block from external service: {:?}", e);
+            return
+        }
+        let calculated_finalised_block = finalised_block_result.expect("checked for errors");
 
-            // send a transaction on chain with the latest finalised block data. We shouldn't have
-            // any sig re-use issue here because new block number must be > current
-            // finalised block number
-            let signature = this_validator
-                .key
-                .sign(&(UPDATE_FINALISED_BLOCK_NUMBER_CONTEXT, calculated_finalised_block).encode())
-                .ok_or(Error::<T>::ErrorSigning);
+        if calculated_finalised_block <= Self::latest_finalised_block_number() {
+            // Only submit if the calculated value is greater than the current value
+            return
+        }
 
         // send a transaction on chain with the latest finalised block data. We shouldn't have
         // any sig re-use issue here because new block number must be > current
@@ -367,115 +361,114 @@ impl<T: Config> Pallet<T> {
             return
         }
 
-            let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-                Call::submit_latest_finalised_block_number {
-                    new_finalised_block_number: calculated_finalised_block,
-                    validator: this_validator.clone(),
-                    signature: signature.expect("checked for errors"),
-                }
-                .into(),
-            )
-            .map_err(|_| Error::<T>::ErrorSubmittingTransaction);
-
-            if let Err(e) = result {
-                log::error!("💔 Error sending transaction to submit finalised block: {:?}", e);
-                return
+        let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+            Call::submit_latest_finalised_block_number {
+                new_finalised_block_number: calculated_finalised_block,
+                validator: this_validator.clone(),
+                signature: signature.expect("checked for errors"),
             }
+            .into(),
+        )
+        .map_err(|_| Error::<T>::ErrorSubmittingTransaction);
 
-            Self::set_last_finalised_block_submission_in_local_storage(calculated_finalised_block);
+        if let Err(e) = result {
+            log::error!("💔 Error sending transaction to submit finalised block: {:?}", e);
+            return
         }
 
-        // Called from OCW, no storage changes allowed
-        fn can_submit_finalised_block(
-            this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) -> bool {
-            let has_submitted_before =
-                SubmittedBlockNumbers::<T>::contains_key(&this_validator.account_id);
-
-            if has_submitted_before {
-                let last_submission_in_state =
-                    Self::submissions(&this_validator.account_id).submitted_at_block;
-                let last_submission_in_local_storage =
-                    Self::get_last_finalised_block_submission_from_local_storage();
-                let last_submission =
-                    cmp::max(last_submission_in_state, last_submission_in_local_storage);
-
-                return <frame_system::Pallet<T>>::block_number() >
-                    last_submission + T::SubmissionInterval::get()
-            }
-
-            return true
-        }
-
-        // Called from OCW, no storage changes allowed
-        fn get_finalised_block_from_external_service() -> Result<T::BlockNumber, Error<T>> {
-            let response = AVN::<T>::get_data_from_service(FINALISED_BLOCK_END_POINT.to_string())
-                .map_err(|_| Error::<T>::ErrorGettingDataFromService)?;
-
-            let finalised_block_bytes =
-                hex::decode(&response).map_err(|_| Error::<T>::InvalidResponseType)?;
-            let finalised_block = u32::decode(&mut &finalised_block_bytes[..])
-                .map_err(|_| Error::<T>::ErrorDecodingResponse)?;
-            let latest_finalised_block_number = T::BlockNumber::from(finalised_block);
-
-            return Ok(latest_finalised_block_number)
-        }
-
-        fn get_persistent_local_storage_name() -> OcwLock::PersistentId {
-            return b"last_finalised_block_submission::".to_vec()
-        }
-
-        // TODO: Try to move to offchain_worker_storage_locks
-        // Called from an OCW, no state changes allowed
-        fn get_last_finalised_block_submission_from_local_storage() -> T::BlockNumber {
-            let local_storage_key = Self::get_persistent_local_storage_name();
-            let stored_value = StorageValueRef::persistent(&local_storage_key).get();
-            let last_finalised_block_submission = match stored_value {
-                // If the value is found
-                Ok(Some(block)) => block,
-                // In every other case return 0.
-                _ => <T as frame_system::Config>::BlockNumber::zero(),
-            };
-
-            return last_finalised_block_submission
-        }
-
-        // TODO: Try to move to offchain_worker_storage_locks
-        // Called from an OCW, no state changes allowed
-        fn set_last_finalised_block_submission_in_local_storage(last_submission: T::BlockNumber) {
-            const INVALID_VALUE: () = ();
-
-            let local_storage_key = Self::get_persistent_local_storage_name();
-            let val = StorageValueRef::persistent(&local_storage_key);
-            let result =
-                val.mutate(|last_run: Result<Option<T::BlockNumber>, StorageRetrievalError>| {
-                    match last_run {
-                        Ok(Some(block)) if block >= last_submission => Err(INVALID_VALUE),
-                        _ => Ok(last_submission),
-                    }
-                });
-
-            match result {
-                Err(MutateStorageError::ValueFunctionFailed(INVALID_VALUE)) => {
-                    log::warn!(
-                        "Attempt to update local storage with invalid value {:?}",
-                        last_submission
-                    );
-                },
-                Err(MutateStorageError::ConcurrentModification(_)) => {
-                    log::error!(
-                        "💔 Error updating local storage with latest submission: {:?}",
-                        last_submission
-                    );
-                },
-                _ => {},
-            }
-        }
+        Self::set_last_finalised_block_submission_in_local_storage(calculated_finalised_block);
     }
 
-    impl<T: Config> FinalisedBlockChecker<T::BlockNumber> for Pallet<T> {
-        fn is_finalised(block_number: T::BlockNumber) -> bool {
-            return Self::latest_finalised_block_number() >= block_number
+    // Called from OCW, no storage changes allowed
+    fn can_submit_finalised_block(
+        this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+    ) -> bool {
+        let has_submitted_before =
+            SubmittedBlockNumbers::<T>::contains_key(&this_validator.account_id);
+
+        if has_submitted_before {
+            let last_submission_in_state =
+                Self::submissions(&this_validator.account_id).submitted_at_block;
+            let last_submission_in_local_storage =
+                Self::get_last_finalised_block_submission_from_local_storage();
+            let last_submission =
+                cmp::max(last_submission_in_state, last_submission_in_local_storage);
+
+            return <frame_system::Pallet<T>>::block_number() >
+                last_submission + T::SubmissionInterval::get()
         }
+
+        return true
+    }
+
+    // Called from OCW, no storage changes allowed
+    fn get_finalised_block_from_external_service() -> Result<T::BlockNumber, Error<T>> {
+        let response = AVN::<T>::get_data_from_service(FINALISED_BLOCK_END_POINT.to_string())
+            .map_err(|_| Error::<T>::ErrorGettingDataFromService)?;
+
+        let finalised_block_bytes =
+            hex::decode(&response).map_err(|_| Error::<T>::InvalidResponseType)?;
+        let finalised_block = u32::decode(&mut &finalised_block_bytes[..])
+            .map_err(|_| Error::<T>::ErrorDecodingResponse)?;
+        let latest_finalised_block_number = T::BlockNumber::from(finalised_block);
+
+        return Ok(latest_finalised_block_number)
+    }
+
+    fn get_persistent_local_storage_name() -> OcwLock::PersistentId {
+        return b"last_finalised_block_submission::".to_vec()
+    }
+
+    // TODO: Try to move to offchain_worker_storage_locks
+    // Called from an OCW, no state changes allowed
+    fn get_last_finalised_block_submission_from_local_storage() -> T::BlockNumber {
+        let local_storage_key = Self::get_persistent_local_storage_name();
+        let stored_value = StorageValueRef::persistent(&local_storage_key).get();
+        let last_finalised_block_submission = match stored_value {
+            // If the value is found
+            Ok(Some(block)) => block,
+            // In every other case return 0.
+            _ => <T as frame_system::Config>::BlockNumber::zero(),
+        };
+
+        return last_finalised_block_submission
+    }
+
+    // TODO: Try to move to offchain_worker_storage_locks
+    // Called from an OCW, no state changes allowed
+    fn set_last_finalised_block_submission_in_local_storage(last_submission: T::BlockNumber) {
+        const INVALID_VALUE: () = ();
+
+        let local_storage_key = Self::get_persistent_local_storage_name();
+        let val = StorageValueRef::persistent(&local_storage_key);
+        let result =
+            val.mutate(|last_run: Result<Option<T::BlockNumber>, StorageRetrievalError>| {
+                match last_run {
+                    Ok(Some(block)) if block >= last_submission => Err(INVALID_VALUE),
+                    _ => Ok(last_submission),
+                }
+            });
+
+        match result {
+            Err(MutateStorageError::ValueFunctionFailed(INVALID_VALUE)) => {
+                log::warn!(
+                    "Attempt to update local storage with invalid value {:?}",
+                    last_submission
+                );
+            },
+            Err(MutateStorageError::ConcurrentModification(_)) => {
+                log::error!(
+                    "💔 Error updating local storage with latest submission: {:?}",
+                    last_submission
+                );
+            },
+            _ => {},
+        }
+    }
+}
+
+impl<T: Config> FinalisedBlockChecker<T::BlockNumber> for Pallet<T> {
+    fn is_finalised(block_number: T::BlockNumber) -> bool {
+        return Self::latest_finalised_block_number() >= block_number
     }
 }
