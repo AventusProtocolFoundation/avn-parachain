@@ -10,7 +10,7 @@ use sp_core::{crypto::KeyTypeId, ecdsa, H160};
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::{AtLeast32Bit, Dispatchable, Member, Verify, IdentifyAccount},
+    traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify},
 };
 use sp_std::{boxed::Box, vec::Vec};
 

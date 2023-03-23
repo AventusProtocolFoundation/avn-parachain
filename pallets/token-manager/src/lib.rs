@@ -33,7 +33,7 @@ use pallet_avn::{
 };
 use sp_avn_common::{
     event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
-    CallDecoder, InnerCallValidator, Proof, verify_signature
+    verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -310,7 +310,8 @@ pub mod pallet {
             );
 
             ensure!(
-                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedTransferTransaction
             );
 
@@ -387,7 +388,8 @@ pub mod pallet {
             );
 
             ensure!(
-                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedLowerTransaction
             );
 
@@ -778,7 +780,11 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {
-            return verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok()
+            return verify_signature::<T::Signature, T::AccountId>(
+                &proof,
+                &signed_payload.as_slice(),
+            )
+            .is_ok()
         }
 
         return false

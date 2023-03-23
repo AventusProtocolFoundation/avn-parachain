@@ -7,8 +7,8 @@ use alloc::string::String;
 
 use frame_support::traits::IsSubType;
 use parity_scale_codec::Encode;
-use sp_avn_common::{InnerCallValidator, Proof, verify_signature};
-use sp_runtime::traits::{StaticLookup};
+use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
+use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;
 
 use super::*;
@@ -233,7 +233,11 @@ impl<T: Config> InnerCallValidator for ParachainStaking<T> {
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = get_encoded_call_param::<T>(call) {
-            return verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok()
+            return verify_signature::<T::Signature, T::AccountId>(
+                &proof,
+                &signed_payload.as_slice(),
+            )
+            .is_ok()
         }
 
         return false

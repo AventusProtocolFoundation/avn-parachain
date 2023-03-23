@@ -1368,7 +1368,6 @@ pub mod pallet {
     }
 }
 
-
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct RootId<BlockNumber: AtLeast32Bit> {
     pub range: RootRange<BlockNumber>,
