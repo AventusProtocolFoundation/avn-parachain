@@ -92,8 +92,6 @@ mod test_staking_pot;
 mod tests;
 
 use frame_support::pallet;
-use pallet_avn::OnGrowthLiftedHandler;
-use sp_runtime::DispatchResult;
 pub use weights::WeightInfo;
 
 pub use nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest};
@@ -111,17 +109,18 @@ pub mod pallet {
         WeightInfo,
     };
     pub use frame_support::{
+        dispatch::{GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
         traits::{
             tokens::WithdrawReasons, Currency, ExistenceRequirement, Get, Imbalance, IsSubType,
             LockIdentifier, LockableCurrency, ReservableCurrency, ValidatorRegistration,
         },
-        transactional,
-        weights::{GetDispatchInfo, PostDispatchInfo},
-        PalletId,
+        transactional, PalletId,
     };
     pub use frame_system::pallet_prelude::*;
-    pub use pallet_avn::{CollatorPayoutDustHandler, ProcessedEventsChecker};
+    pub use pallet_avn::{
+        CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
+    };
     pub use sp_avn_common::Proof;
     pub use sp_runtime::{
         traits::{
@@ -153,13 +152,13 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_session::Config + pallet_avn::Config {
         /// The overarching call type.
-        type Call: Parameter
-            + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
             + GetDispatchInfo
             + From<frame_system::Call<Self>>
             + IsSubType<Call<Self>>;
         /// Overarching event type
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The currency type
         type Currency: Currency<Self::AccountId>
             + ReservableCurrency<Self::AccountId>
@@ -185,7 +184,7 @@ pub mod pallet {
         /// Minimum stake, per collator, that must be maintained by an account that is nominating
         #[pallet::constant]
         type MinNominationPerCollator: Get<BalanceOf<Self>>;
-        /// Number of eras to wait before we process a new growth period
+        /// Number of eras to MinNominationPerCollator before we process a new growth period
         type ErasPerGrowthPeriod: Get<GrowthPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
         type RewardPotId: Get<PalletId>;
@@ -643,7 +642,7 @@ pub mod pallet {
                 );
                 candidate_count = candidate_count.saturating_add(1u32);
                 if let Err(error) = <Pallet<T>>::join_candidates(
-                    T::Origin::from(Some(candidate.clone()).into()),
+                    T::RuntimeOrigin::from(Some(candidate.clone()).into()),
                     balance,
                     candidate_count,
                 ) {
@@ -665,7 +664,7 @@ pub mod pallet {
                 let dd_count =
                     if let Some(x) = del_nomination_count.get(nominator) { *x } else { 0u32 };
                 if let Err(error) = <Pallet<T>>::nominate(
-                    T::Origin::from(Some(nominator.clone()).into()),
+                    T::RuntimeOrigin::from(Some(nominator.clone()).into()),
                     target.clone(),
                     balance,
                     cd_count,
@@ -733,6 +732,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::set_total_selected())]
         /// Set the total number of collator candidates selected per era
         /// - changes are not applied until the start of the next era
+        #[pallet::call_index(0)]
         pub fn set_total_selected(origin: OriginFor<T>, new: u32) -> DispatchResultWithPostInfo {
             frame_system::ensure_root(origin)?;
             ensure!(new >= T::MinSelectedCandidates::get(), Error::<T>::CannotSetBelowMin);
@@ -751,6 +751,7 @@ pub mod pallet {
         /// Set blocks per era
         /// - if called with `new` less than length of current era, will transition immediately
         /// in the next block
+        #[pallet::call_index(1)]
         pub fn set_blocks_per_era(origin: OriginFor<T>, new: u32) -> DispatchResultWithPostInfo {
             frame_system::ensure_root(origin)?;
             ensure!(new >= T::MinBlocksPerEra::get(), Error::<T>::CannotSetBelowMin);
@@ -775,6 +776,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::join_candidates(*candidate_count))]
         /// Join the set of collator candidates
+        #[pallet::call_index(2)]
         pub fn join_candidates(
             origin: OriginFor<T>,
             bond: BalanceOf<T>,
@@ -825,6 +827,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::schedule_leave_candidates(*candidate_count))]
         /// Request to leave the set of candidates. If successful, the account is immediately
         /// removed from the candidate pool to prevent selection as a collator.
+        #[pallet::call_index(3)]
         pub fn schedule_leave_candidates(
             origin: OriginFor<T>,
             candidate_count: u32,
@@ -853,6 +856,7 @@ pub mod pallet {
 			<T as Config>::WeightInfo::execute_leave_candidates(*candidate_nomination_count)
 		)]
         /// Execute leave candidates request
+        #[pallet::call_index(4)]
         pub fn execute_leave_candidates(
             origin: OriginFor<T>,
             candidate: T::AccountId,
@@ -932,6 +936,7 @@ pub mod pallet {
         /// Cancel open request to leave candidates
         /// - only callable by collator account
         /// - result upon successful call is the candidate is active in the candidate pool
+        #[pallet::call_index(5)]
         pub fn cancel_leave_candidates(
             origin: OriginFor<T>,
             candidate_count: u32,
@@ -957,6 +962,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::go_offline())]
         /// Temporarily leave the set of collator candidates without unbonding
+        #[pallet::call_index(6)]
         pub fn go_offline(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let collator = ensure_signed(origin)?;
             let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
@@ -973,6 +979,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::go_online())]
         /// Rejoin the set of collator candidates if previously had called `go_offline`
+        #[pallet::call_index(7)]
         pub fn go_online(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let collator = ensure_signed(origin)?;
             let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
@@ -992,6 +999,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::candidate_bond_extra())]
         /// Increase collator candidate self bond by `more`
+        #[pallet::call_index(8)]
         pub fn candidate_bond_extra(
             origin: OriginFor<T>,
             more: BalanceOf<T>,
@@ -1003,6 +1011,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::signed_candidate_bond_extra())]
         #[transactional]
         /// Increase collator candidate self bond by `more`
+        #[pallet::call_index(9)]
         pub fn signed_candidate_bond_extra(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1033,6 +1042,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::schedule_candidate_unbond())]
         /// Request by collator candidate to decrease self bond by `less`
+        #[pallet::call_index(10)]
         pub fn schedule_candidate_unbond(
             origin: OriginFor<T>,
             less: BalanceOf<T>,
@@ -1043,6 +1053,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::execute_candidate_unbond())]
         /// Execute pending request to adjust the collator candidate self bond
+        #[pallet::call_index(11)]
         pub fn execute_candidate_unbond(
             origin: OriginFor<T>,
             candidate: T::AccountId,
@@ -1054,6 +1065,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::signed_execute_candidate_unbond())]
         #[transactional]
         /// Execute pending request to adjust the collator candidate self bond
+        #[pallet::call_index(12)]
         pub fn signed_execute_candidate_unbond(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1084,6 +1096,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::cancel_candidate_unbond())]
         /// Cancel pending request to adjust the collator candidate self bond
+        #[pallet::call_index(13)]
         pub fn cancel_candidate_unbond(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let collator = ensure_signed(origin)?;
             let mut state = <CandidateInfo<T>>::get(&collator).ok_or(Error::<T>::CandidateDNE)?;
@@ -1095,6 +1108,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::signed_schedule_candidate_unbond())]
         #[transactional]
         /// Signed request by collator candidate to decrease self bond by `less`
+        #[pallet::call_index(14)]
         pub fn signed_schedule_candidate_unbond(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1131,6 +1145,7 @@ pub mod pallet {
 		)]
         /// If caller is not a nominator and not a collator, then join the set of nominators
         /// If caller is a nominator, then makes nomination to change their nomination state
+        #[pallet::call_index(15)]
         pub fn nominate(
             origin: OriginFor<T>,
             candidate: T::AccountId,
@@ -1153,6 +1168,7 @@ pub mod pallet {
             T::MaxNominationsPerNominator::get(), T::MaxTopNominationsPerCandidate::get())
         )]
         #[transactional]
+        #[pallet::call_index(16)]
         pub fn signed_nominate(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1185,6 +1201,7 @@ pub mod pallet {
         /// allowed to exit via a [NominationAction::Revoke] towards all existing nominations.
         /// Success forbids future nomination requests until the request is invoked or cancelled.
         #[pallet::weight(<T as Config>::WeightInfo::schedule_leave_nominators())]
+        #[pallet::call_index(17)]
         pub fn schedule_leave_nominators(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             Self::nominator_schedule_revoke_all(nominator)
@@ -1192,6 +1209,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::signed_schedule_leave_nominators())]
         #[transactional]
+        #[pallet::call_index(18)]
         pub fn signed_schedule_leave_nominators(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1219,6 +1237,7 @@ pub mod pallet {
 
         /// Execute the right to exit the set of nominators and revoke all ongoing nominations.
         #[pallet::weight(<T as Config>::WeightInfo::execute_leave_nominators(*nomination_count))]
+        #[pallet::call_index(19)]
         pub fn execute_leave_nominators(
             origin: OriginFor<T>,
             nominator: T::AccountId,
@@ -1232,6 +1251,7 @@ pub mod pallet {
         /// Any account can call this extrinsic
         #[pallet::weight(<T as Config>::WeightInfo::signed_execute_leave_nominators(T::MaxNominationsPerNominator::get()))]
         #[transactional]
+        #[pallet::call_index(20)]
         pub fn signed_execute_leave_nominators(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1269,6 +1289,7 @@ pub mod pallet {
         /// Cancel a pending request to exit the set of nominators. Success clears the pending exit
         /// request (thereby resetting the delay upon another `leave_nominators` call).
         #[pallet::weight(<T as Config>::WeightInfo::cancel_leave_nominators())]
+        #[pallet::call_index(21)]
         pub fn cancel_leave_nominators(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             Self::nominator_cancel_scheduled_revoke_all(nominator)
@@ -1277,6 +1298,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::schedule_revoke_nomination())]
         /// Request to revoke an existing nomination. If successful, the nomination is scheduled
         /// to be allowed to be revoked via the `execute_nomination_request` extrinsic.
+        #[pallet::call_index(22)]
         pub fn schedule_revoke_nomination(
             origin: OriginFor<T>,
             collator: T::AccountId,
@@ -1290,6 +1312,7 @@ pub mod pallet {
         /// Signed request to revoke an existing nomination. If successful, the nomination is
         /// scheduled to be allowed to be revoked via the `execute_nomination_request`
         /// extrinsic.
+        #[pallet::call_index(23)]
         pub fn signed_schedule_revoke_nomination(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1318,6 +1341,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::bond_extra())]
         /// Bond more for nominators wrt a specific collator candidate.
+        #[pallet::call_index(24)]
         pub fn bond_extra(
             origin: OriginFor<T>,
             candidate: T::AccountId,
@@ -1330,6 +1354,7 @@ pub mod pallet {
         /// Bond a maximum of 'extra_amount' amount.
         #[pallet::weight(<T as Config>::WeightInfo::signed_bond_extra())]
         #[transactional]
+        #[pallet::call_index(25)]
         pub fn signed_bond_extra(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1389,6 +1414,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::schedule_nominator_unbond())]
         /// Request bond less for nominators wrt a specific collator candidate.
+        #[pallet::call_index(26)]
         pub fn schedule_nominator_unbond(
             origin: OriginFor<T>,
             candidate: T::AccountId,
@@ -1400,6 +1426,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::signed_schedule_nominator_unbond())]
         #[transactional]
+        #[pallet::call_index(27)]
         pub fn signed_schedule_nominator_unbond(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1451,6 +1478,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::execute_nominator_unbond())]
         /// Execute pending request to change an existing nomination
+        #[pallet::call_index(28)]
         pub fn execute_nomination_request(
             origin: OriginFor<T>,
             nominator: T::AccountId,
@@ -1463,6 +1491,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::signed_execute_nominator_unbond())]
         #[transactional]
         /// Execute pending request to change an existing nomination
+        #[pallet::call_index(29)]
         pub fn signed_execute_nomination_request(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -1507,6 +1536,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::cancel_nominator_unbond())]
         /// Cancel request to change an existing nomination.
+        #[pallet::call_index(30)]
         pub fn cancel_nomination_request(
             origin: OriginFor<T>,
             candidate: T::AccountId,
@@ -1519,6 +1549,7 @@ pub mod pallet {
         #[pallet::weight(
 			T::DbWeight::get().reads_writes(2 * candidates.len() as u64, candidates.len() as u64)
 		)]
+        #[pallet::call_index(31)]
         pub fn hotfix_remove_nomination_requests_exited_candidates(
             origin: OriginFor<T>,
             candidates: Vec<T::AccountId>,
@@ -1545,6 +1576,7 @@ pub mod pallet {
 
         // TODO: Benchmark me
         #[pallet::weight(<T as Config>::WeightInfo::set_admin_setting())]
+        #[pallet::call_index(32)]
         pub fn set_admin_setting(
             origin: OriginFor<T>,
             value: AdminSettings<BalanceOf<T>>,
@@ -1730,7 +1762,7 @@ pub mod pallet {
 
             // don't underflow uint
             if now < delay {
-                return 0u64.into()
+                return Weight::from_ref_time(0u64).into()
             }
 
             let paid_for_era = now.saturating_sub(delay);
@@ -1745,7 +1777,7 @@ pub mod pallet {
                 }
                 result.1 // weight consumed by pay_one_collator_reward
             } else {
-                0u64.into()
+                Weight::from_ref_time(0u64).into()
             }
         }
 
@@ -1767,7 +1799,7 @@ pub mod pallet {
                 // 2. we called pay_one_collator_reward when we were actually done with deferred
                 //    payouts
                 log::warn!("pay_one_collator_reward called with no <Points<T>> for the era!");
-                return (None, 0u64.into())
+                return (None, Weight::from_ref_time(0u64).into())
             }
 
             let reward_pot_account_id = Self::compute_reward_pot_account_id();
@@ -1824,7 +1856,7 @@ pub mod pallet {
             } else {
                 // Note that we don't clean up storage here; it is cleaned up in
                 // handle_delayed_payouts()
-                (None, 0u64.into())
+                (None, Weight::from_ref_time(0u64).into())
             }
         }
 
@@ -2273,10 +2305,9 @@ pub mod pallet {
             //TODO: can we ignore this?
         }
     }
-}
-
-impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
-    fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
-        return Self::payout_collators(amount, growth_period)
+    impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
+        fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
+            return Self::payout_collators(amount, growth_period)
+        }
     }
 }

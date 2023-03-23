@@ -35,13 +35,13 @@ use alloc::string::{String, ToString};
 
 const MNEMONIC: &str = "kiss mule sheriff twice make bike twice improve rate quote draw enough";
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     assert_last_nth_event::<T>(generic_event, 1);
 }
 
-fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::Event, n: u32) {
+fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::RuntimeEvent, n: u32) {
     let events = frame_system::Pallet::<T>::events();
-    let system_event: <T as frame_system::Config>::Event = generic_event.into();
+    let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
     // compare to the last event record
     let EventRecord { event, .. } = &events[events.len().saturating_sub(n as usize)];
     assert_eq!(event, &system_event);
@@ -145,7 +145,7 @@ impl<T: Config> MintSingleNft<T> {
         return self
     }
 
-    fn generate_signed_mint_single_nft(&self) -> <T as Config>::Call {
+    fn generate_signed_mint_single_nft(&self) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.nft_owner.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_mint_single_nft {
@@ -199,7 +199,7 @@ impl<T: Config> ListNftOpenForSale<T> {
         return self
     }
 
-    fn generate_signed_list_nft_open_for_sale_call(&self) -> <T as Config>::Call {
+    fn generate_signed_list_nft_open_for_sale_call(&self) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.nft_owner.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_list_nft_open_for_sale {
@@ -269,7 +269,7 @@ impl<T: Config> TransferFiatNft<T> {
         return self
     }
 
-    fn generate_signed_transfer_fiat_nft_call(&self) -> <T as Config>::Call {
+    fn generate_signed_transfer_fiat_nft_call(&self) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.nft_owner.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_transfer_fiat_nft {
@@ -326,7 +326,7 @@ impl<T: Config> CancelListFiatNft<T> {
         return self
     }
 
-    fn generate_signed_cancel_list_fiat_nft_call(&self) -> <T as Config>::Call {
+    fn generate_signed_cancel_list_fiat_nft_call(&self) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.nft_owner.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_cancel_list_fiat_nft { proof, nft_id: self.nft_id }.into()
@@ -384,7 +384,7 @@ impl<T: Config> CreateBatch<T> {
         royalties
     }
 
-    fn generate_signed_create_batch(&self) -> <T as Config>::Call {
+    fn generate_signed_create_batch(&self) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.creator_account_id.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_create_batch {
@@ -468,7 +468,11 @@ impl<T: Config> MintBatchNft<T> {
         }
     }
 
-    fn generate_signed_mint_batch_nft(&self, batch_id: U256, index: u64) -> <T as Config>::Call {
+    fn generate_signed_mint_batch_nft(
+        &self,
+        batch_id: U256,
+        index: u64,
+    ) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.nft_owner.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_mint_batch_nft {
@@ -515,7 +519,7 @@ impl<T: Config> ListBatch<T> {
         }
     }
 
-    fn generate_signed_list_batch(&self) -> <T as Config>::Call {
+    fn generate_signed_list_batch(&self) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.creator_account_id.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_list_batch_for_sale {
@@ -562,7 +566,7 @@ impl<T: Config> EndBatchSale<T> {
         }
     }
 
-    fn generate_signed_end_batch_sale(&self) -> <T as Config>::Call {
+    fn generate_signed_end_batch_sale(&self) -> <T as Config>::RuntimeCall {
         let proof: Proof<T::Signature, T::AccountId> =
             get_proof::<T>(self.creator_account_id.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_end_batch_sale { proof, batch_id: self.batch_id }.into()
@@ -733,8 +737,8 @@ benchmarks! {
     proxy_signed_mint_single_nft {
         let r in 1 .. MAX_NUMBER_OF_ROYALTIES;
         let mint_nft: MintSingleNft<T> = MintSingleNft::new(r).setup();
-        let call: <T as Config>::Call = mint_nft.generate_signed_mint_single_nft();
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = mint_nft.generate_signed_mint_single_nft();
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
     }: proxy(RawOrigin::<T::AccountId>::Signed(mint_nft.relayer.clone()), boxed_call)
     verify {
@@ -761,8 +765,8 @@ benchmarks! {
     proxy_signed_list_nft_open_for_sale {
         let open_for_sale: ListNftOpenForSale<T> = ListNftOpenForSale::new().setup();
         let original_nonce = Nfts::<T>::get(open_for_sale.nft_id).unwrap().nonce;
-        let call: <T as Config>::Call = open_for_sale.generate_signed_list_nft_open_for_sale_call();
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = open_for_sale.generate_signed_list_nft_open_for_sale_call();
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
     }: proxy(RawOrigin::<T::AccountId>::Signed(open_for_sale.relayer.clone()), boxed_call)
     verify {
@@ -775,8 +779,8 @@ benchmarks! {
     proxy_signed_transfer_fiat_nft {
         let transfer_fiat_nft: TransferFiatNft<T> = TransferFiatNft::new().setup();
         let original_nonce = Nfts::<T>::get(transfer_fiat_nft.nft_id).unwrap().nonce;
-        let call: <T as Config>::Call = transfer_fiat_nft.generate_signed_transfer_fiat_nft_call();
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = transfer_fiat_nft.generate_signed_transfer_fiat_nft_call();
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
     }: proxy(RawOrigin::<T::AccountId>::Signed(transfer_fiat_nft.relayer.clone()), boxed_call)
     verify {
@@ -796,8 +800,8 @@ benchmarks! {
     proxy_signed_cancel_list_fiat_nft {
         let cancel_list_fiat_nft: CancelListFiatNft<T> = CancelListFiatNft::new().setup();
         let original_nonce = Nfts::<T>::get(cancel_list_fiat_nft.nft_id).unwrap().nonce;
-        let call: <T as Config>::Call = cancel_list_fiat_nft.generate_signed_cancel_list_fiat_nft_call();
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = cancel_list_fiat_nft.generate_signed_cancel_list_fiat_nft_call();
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
     }: proxy(RawOrigin::<T::AccountId>::Signed(cancel_list_fiat_nft.relayer.clone()), boxed_call)
     verify {
@@ -815,8 +819,8 @@ benchmarks! {
     proxy_signed_create_batch {
         let r in 1 .. MAX_NUMBER_OF_ROYALTIES;
         let batch: CreateBatch<T> = CreateBatch::new(r);
-        let call: <T as Config>::Call = batch.generate_signed_create_batch();
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = batch.generate_signed_create_batch();
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
         let expected_batch_id = generate_batch_id::<T>(<NextSingleNftUniqueId<T>>::get());
     }: proxy(RawOrigin::<T::AccountId>::Signed(batch.relayer.clone()), boxed_call)
@@ -840,8 +844,8 @@ benchmarks! {
     proxy_signed_mint_batch_nft {
         let index = 0u64;
         let context: MintBatchNft<T> = MintBatchNft::new();
-        let call: <T as Config>::Call = context.generate_signed_mint_batch_nft(context.batch_id, index);
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = context.generate_signed_mint_batch_nft(context.batch_id, index);
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
     }: proxy(RawOrigin::<T::AccountId>::Signed(context.relayer.clone()), boxed_call)
     verify {
@@ -865,8 +869,8 @@ benchmarks! {
 
     proxy_signed_list_batch_for_sale {
         let context: ListBatch<T> = ListBatch::new();
-        let call: <T as Config>::Call = context.generate_signed_list_batch();
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = context.generate_signed_list_batch();
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
     }: proxy(RawOrigin::<T::AccountId>::Signed(context.relayer.clone()), boxed_call)
     verify {
@@ -880,8 +884,8 @@ benchmarks! {
 
     proxy_signed_end_batch_sale {
         let context: EndBatchSale<T> = EndBatchSale::new();
-        let call: <T as Config>::Call = context.generate_signed_end_batch_sale();
-        let boxed_call: Box<<T as Config>::Call> = Box::new(call);
+        let call: <T as Config>::RuntimeCall = context.generate_signed_end_batch_sale();
+        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
         let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
     }: proxy(RawOrigin::<T::AccountId>::Signed(context.relayer.clone()), boxed_call)
     verify {

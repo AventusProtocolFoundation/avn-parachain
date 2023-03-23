@@ -2,7 +2,10 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, system};
+use crate::{
+    mock::{Summary, *},
+    system,
+};
 use codec::alloc::sync::Arc;
 use frame_support::assert_noop;
 use pallet_avn::vote::VotingSessionData;
@@ -29,7 +32,7 @@ fn get_unsigned_record_summary_calculation_call_from_chain(
     let tx = Extrinsic::decode(&mut &*tx).unwrap();
     assert_eq!(tx.signature, None);
     match tx.call {
-        mock::Call::Summary(inner_tx) => inner_tx,
+        mock::RuntimeCall::Summary(inner_tx) => inner_tx,
         _ => unreachable!(),
     }
 }
@@ -546,7 +549,7 @@ mod process_summary {
 
             assert_eq!(
                 tx.call,
-                mock::Call::Summary(crate::Call::record_summary_calculation {
+                mock::RuntimeCall::Summary(crate::Call::record_summary_calculation {
                     new_block_number: context.last_block_in_range,
                     root_hash: context.root_hash_h256,
                     ingress_counter: expected_ingress_counter,
@@ -951,12 +954,14 @@ pub mod record_summary_calculation {
                 assert!(record_summary_calculation_is_ok(&context));
 
                 assert!(System::events().iter().any(|a| a.event ==
-                    mock::Event::Summary(crate::Event::<TestRuntime>::SummaryCalculated {
-                        from: context.next_block_to_process,
-                        to: context.last_block_in_range,
-                        root_hash: context.root_hash_h256,
-                        submitter: context.validator.account_id
-                    })));
+                    mock::RuntimeEvent::Summary(
+                        crate::Event::<TestRuntime>::SummaryCalculated {
+                            from: context.next_block_to_process,
+                            to: context.last_block_in_range,
+                            root_hash: context.root_hash_h256,
+                            submitter: context.validator.account_id
+                        }
+                    )));
             });
         }
     }
@@ -979,7 +984,7 @@ pub mod record_summary_calculation {
 
                 assert_noop!(
                     Summary::record_summary_calculation(
-                        Origin::signed(Default::default()),
+                        RuntimeOrigin::signed(Default::default()),
                         context.last_block_in_range,
                         context.root_hash_h256,
                         context.root_id.ingress_counter,
@@ -1377,7 +1382,7 @@ mod if_process_summary_is_called_a_second_time {
         assert_eq!(Summary::last_summary_slot(), Summary::current_slot());
 
         assert!(System::events().iter().any(|a| a.event ==
-            mock::Event::Summary(crate::Event::<TestRuntime>::VotingEnded {
+            mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VotingEnded {
                 root_id: context.root_id,
                 vote_approved: true
             })));
@@ -1393,7 +1398,7 @@ mod if_process_summary_is_called_a_second_time {
         assert_eq!(Summary::last_summary_slot(), previous_summary_slot_before_voting);
 
         assert!(System::events().iter().any(|a| a.event ==
-            mock::Event::Summary(crate::Event::<TestRuntime>::VotingEnded {
+            mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VotingEnded {
                 root_id: context.root_id,
                 vote_approved: false
             })));

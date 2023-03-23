@@ -18,7 +18,7 @@ pub enum EthereumLogOffenceType {
     IncorrectValidationResultSubmitted,
     ChallengeAttemptedOnValidResult,
 }
-use crate::Event;
+use crate::*;
 
 #[derive(PartialEq, Clone, Debug, Encode, Decode)]
 pub struct InvalidEthereumLogOffence<Offender> {
@@ -53,7 +53,7 @@ impl<Offender: Clone> Offence<Offender> for InvalidEthereumLogOffence<Offender> 
         self.session_index
     }
 
-    fn slash_fraction(_offenders: u32, _validator_set_count: u32) -> Perbill {
+    fn slash_fraction(&self, _offenders_count: u32) -> Perbill {
         // We don't implement fraction slashes at the moment.
         Perbill::from_percent(100)
     }

@@ -146,7 +146,7 @@ fn check_event_and_submit_result(
                 let tx = Extrinsic::decode(&mut &*tx).unwrap();
                 assert_eq!(tx.signature, None);
                 match tx.call {
-                    mock::Call::EthereumEvents(crate::Call::submit_checkevent_result {
+                    mock::RuntimeCall::EthereumEvents(crate::Call::submit_checkevent_result {
                         result: check_result,
                         ingress_counter: call_counter,
                         signature: _,
@@ -210,7 +210,7 @@ fn test_check_event_and_submit_result_not_found() {
         let tx = Extrinsic::decode(&mut &*tx).unwrap();
         assert_eq!(tx.signature, None);
         match tx.call {
-            mock::Call::EthereumEvents(crate::Call::submit_checkevent_result {
+            mock::RuntimeCall::EthereumEvents(crate::Call::submit_checkevent_result {
                 result,
                 ingress_counter: call_counter,
                 signature: _,
@@ -273,7 +273,7 @@ fn test_send_event_ok() {
 
         assert_eq!(
             tx.call,
-            mock::Call::EthereumEvents(crate::Call::process_event {
+            mock::RuntimeCall::EthereumEvents(crate::Call::process_event {
                 event_id: event_result.event.event_id,
                 ingress_counter: DEFAULT_INGRESS_COUNTER,
                 validator,
@@ -362,7 +362,7 @@ fn test_validate_event_ok() {
 
         assert_eq!(
             tx.call,
-            mock::Call::EthereumEvents(Call::challenge_event {
+            mock::RuntimeCall::EthereumEvents(Call::challenge_event {
                 challenge: expected_challenge,
                 ingress_counter: DEFAULT_INGRESS_COUNTER,
                 signature: expected_signature,

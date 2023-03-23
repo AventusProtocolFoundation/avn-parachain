@@ -38,9 +38,9 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + session::historical::Config {
         /// The overarching event type.
-        type Event: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A trait responsible for punishing malicious validators
         type Enforcer: Enforcer<<Self as session::Config>::ValidatorId>;
@@ -82,6 +82,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::configure_slashing())]
+        #[pallet::call_index(0)]
         pub fn configure_slashing(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let _sender = ensure_root(origin)?;
             <SlashingEnabled<T>>::put(enabled);
@@ -108,7 +109,7 @@ impl<T: Config> OnOffenceHandler<T::AccountId, IdentificationTuple<T>, Weight> f
         _session: SessionIndex,
         _disable_strategy: DisableStrategy,
     ) -> Weight {
-        let mut consumed_weight: Weight = 0;
+        let mut consumed_weight: Weight = Weight::from_ref_time(0);
         let mut add_db_reads_writes = |reads, writes| {
             consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         };

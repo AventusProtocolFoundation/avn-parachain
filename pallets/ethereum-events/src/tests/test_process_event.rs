@@ -1,7 +1,10 @@
 #![cfg(test)]
 
 use super::test_offchain_worker::MockData;
-use crate::{mock::*, *};
+use crate::{
+    mock::{RuntimeEvent as Event, *},
+    *,
+};
 use frame_support::{assert_ok, pallet_prelude::DispatchResultWithPostInfo};
 use frame_system::RawOrigin;
 use sp_core::hash::H256;

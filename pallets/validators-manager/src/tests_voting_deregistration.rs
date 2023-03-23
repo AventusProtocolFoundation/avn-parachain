@@ -138,7 +138,7 @@ fn vote_added_event_is_emitted_successfully(
 ) -> bool {
     System::events().iter().any(|a| {
         a.event ==
-            mock::Event::ValidatorManager(crate::Event::<TestRuntime>::VoteAdded {
+            mock::RuntimeEvent::ValidatorManager(crate::Event::<TestRuntime>::VoteAdded {
                 voter_id: *voter_account_id,
                 action_id: *action_id,
                 approve: is_approve,
@@ -303,7 +303,7 @@ mod approve_vote {
 
                 assert_noop!(
                     ValidatorManager::approve_validator_action(
-                        Origin::signed(validator_id_3()),
+                        RuntimeOrigin::signed(validator_id_3()),
                         context.action_id,
                         context.validator,
                         approval_signature,
@@ -595,7 +595,7 @@ mod reject_vote {
 
                 assert_noop!(
                     ValidatorManager::reject_validator_action(
-                        Origin::signed(validator_id_3()),
+                        RuntimeOrigin::signed(validator_id_3()),
                         context.action_id,
                         context.validator,
                         context.record_deregister_validator_calculation_signature
@@ -844,7 +844,7 @@ mod end_voting_period {
 
                     assert_ok!(end_voting_period(&context));
                     assert!(System::events().iter().any(|a| a.event ==
-                        mock::Event::ValidatorManager(
+                        mock::RuntimeEvent::ValidatorManager(
                             crate::Event::<TestRuntime>::VotingEnded {
                                 action_id: context.action_id,
                                 vote_approved: true
@@ -897,7 +897,7 @@ mod end_voting_period {
 
                     assert_ok!(end_voting_period(&context));
                     assert!(System::events().iter().any(|a| a.event ==
-                        mock::Event::ValidatorManager(
+                        mock::RuntimeEvent::ValidatorManager(
                             crate::Event::<TestRuntime>::VotingEnded {
                                 action_id: context.action_id,
                                 vote_approved: false
@@ -922,7 +922,7 @@ mod end_voting_period {
 
                 assert_noop!(
                     ValidatorManager::end_voting_period(
-                        Origin::signed(validator_id_3()),
+                        RuntimeOrigin::signed(validator_id_3()),
                         context.action_id.clone(),
                         context.validator.clone(),
                         context.record_deregister_validator_calculation_signature.clone(),

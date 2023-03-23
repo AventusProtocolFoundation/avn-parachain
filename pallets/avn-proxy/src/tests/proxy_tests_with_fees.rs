@@ -79,7 +79,7 @@ mod charging_fees {
 
                 assert_eq!(false, single_nft_minted_events_emitted());
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     inner_call,
                     payment_authorisation
                 ));
@@ -120,7 +120,7 @@ mod charging_fees {
 
                 // Dispatch fails
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     inner_call,
                     payment_authorisation
                 ));
@@ -174,7 +174,7 @@ mod charging_fees {
 
                 assert_eq!(false, single_nft_minted_events_emitted());
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     inner_call,
                     payment_authorisation
                 ));
@@ -223,7 +223,7 @@ mod charging_fees {
 
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         inner_call,
                         Some(Box::new(payment_authorisation))
                     ),
@@ -257,7 +257,7 @@ mod charging_fees {
 
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         inner_call,
                         Some(Box::new(payment_authorisation))
                     ),
@@ -289,7 +289,7 @@ mod charging_fees {
 
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         inner_call,
                         Some(Box::new(payment_authorisation))
                     ),
@@ -322,7 +322,7 @@ mod charging_fees {
 
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         inner_call,
                         Some(Box::new(payment_authorisation))
                     ),
@@ -350,7 +350,7 @@ mod charging_fees {
                 let mut relayer_balance = Balances::free_balance(context.relayer.account_id());
 
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     inner_call.clone(),
                     payment_authorisation.clone()
                 ));
@@ -375,7 +375,7 @@ mod charging_fees {
                 // Replay the same fee signature
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         inner_call,
                         payment_authorisation
                     ),
@@ -409,7 +409,7 @@ mod charging_fees {
 
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         inner_call,
                         payment_authorisation
                     ),
@@ -455,7 +455,7 @@ mod charging_fees {
                 // Mismatching inner call proof and payment authorisation
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         original_inner_call.clone(),
                         Some(Box::new(new_payment_authorisation))
                     ),
@@ -465,7 +465,7 @@ mod charging_fees {
                 // Mismatching inner call proof and payment authorisation
                 assert_noop!(
                     AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
+                        RuntimeOrigin::signed(context.relayer.account_id()),
                         new_inner_call,
                         Some(Box::new(original_payment_authorisation.clone()))
                     ),
@@ -478,7 +478,7 @@ mod charging_fees {
 
                 //Now show that the original proof and original payment authorisation are valid
                 assert_ok!(AvnProxy::proxy(
-                    Origin::signed(context.relayer.account_id()),
+                    RuntimeOrigin::signed(context.relayer.account_id()),
                     original_inner_call,
                     Some(Box::new(original_payment_authorisation))
                 ));

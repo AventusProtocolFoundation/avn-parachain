@@ -2,7 +2,10 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, *};
+use crate::{
+    mock::{RuntimeOrigin, *},
+    *,
+};
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
@@ -20,7 +23,10 @@ mod test_add_validator_log {
 
             assert_eq!(EthereumEvents::ingress_counter(), FIRST_INGRESS_COUNTER - 1);
 
-            assert_ok!(EthereumEvents::add_validator_log(Origin::signed(account_id_0()), tx_hash));
+            assert_ok!(EthereumEvents::add_validator_log(
+                RuntimeOrigin::signed(account_id_0()),
+                tx_hash
+            ));
             let validator_event = EthEventId {
                 signature: ValidEvents::AddedValidator.signature(),
                 transaction_hash: tx_hash,
@@ -32,14 +38,15 @@ mod test_add_validator_log {
                 1
             )));
 
-            let event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
-                eth_event_id: validator_event.clone(),
-                added_by: account_id_0(),
-                t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                    &ValidEvents::AddedValidator,
-                )
-                .unwrap(),
-            });
+            let event =
+                RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                    eth_event_id: validator_event.clone(),
+                    added_by: account_id_0(),
+                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
+                        &ValidEvents::AddedValidator,
+                    )
+                    .unwrap(),
+                });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());
         });
@@ -52,13 +59,16 @@ mod test_add_validator_log {
             let tx_hash: H256 = H256::from([1u8; 32]);
             let second_tx_hash: H256 = H256::from([2u8; 32]);
 
-            assert_ok!(EthereumEvents::add_validator_log(Origin::signed(signer), tx_hash));
+            assert_ok!(EthereumEvents::add_validator_log(RuntimeOrigin::signed(signer), tx_hash));
             let validator_event_1 = EthEventId {
                 signature: ValidEvents::AddedValidator.signature(),
                 transaction_hash: tx_hash,
             };
 
-            assert_ok!(EthereumEvents::add_validator_log(Origin::signed(signer), second_tx_hash));
+            assert_ok!(EthereumEvents::add_validator_log(
+                RuntimeOrigin::signed(signer),
+                second_tx_hash
+            ));
             let validator_event_2 = EthEventId {
                 signature: ValidEvents::AddedValidator.signature(),
                 transaction_hash: second_tx_hash,
@@ -98,7 +108,7 @@ mod test_add_validator_log {
                     create_two_successive_events(account_id_0());
 
                 let event =
-                    Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                    RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                         eth_event_id: validator_event_1.clone(),
                         added_by: account_id_0(),
                         t1_contract_address:
@@ -110,7 +120,7 @@ mod test_add_validator_log {
                 assert!(EthereumEvents::event_emitted(&event));
 
                 let event =
-                    Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                    RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                         eth_event_id: validator_event_2.clone(),
                         added_by: account_id_0(),
                         t1_contract_address:
@@ -132,7 +142,10 @@ mod test_add_validator_log {
         ext.execute_with(|| {
             let tx_hash_invalid: H256 = H256::zero();
             assert_noop!(
-                EthereumEvents::add_validator_log(Origin::signed(account_id_0()), tx_hash_invalid),
+                EthereumEvents::add_validator_log(
+                    RuntimeOrigin::signed(account_id_0()),
+                    tx_hash_invalid
+                ),
                 Error::<TestRuntime>::MalformedHash
             );
             // Ensure no events were emitted in avn
@@ -155,7 +168,7 @@ mod test_add_validator_log {
             );
 
             assert_noop!(
-                EthereumEvents::add_validator_log(Origin::signed(account_id_0()), tx_hash),
+                EthereumEvents::add_validator_log(RuntimeOrigin::signed(account_id_0()), tx_hash),
                 Error::<TestRuntime>::DuplicateEvent
             );
             // Ensure no events were emitted in avn
@@ -187,7 +200,10 @@ mod test_add_lift_log {
         let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
         ext.execute_with(|| {
             let tx_hash: H256 = H256::random();
-            assert_ok!(EthereumEvents::add_lift_log(Origin::signed(account_id_0()), tx_hash));
+            assert_ok!(EthereumEvents::add_lift_log(
+                RuntimeOrigin::signed(account_id_0()),
+                tx_hash
+            ));
             let lift_event = EthEventId {
                 signature: ValidEvents::Lifted.signature(),
                 transaction_hash: tx_hash,
@@ -199,14 +215,15 @@ mod test_add_lift_log {
                 1
             )));
 
-            let event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
-                eth_event_id: lift_event.clone(),
-                added_by: account_id_0(),
-                t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                    &ValidEvents::Lifted,
-                )
-                .unwrap(),
-            });
+            let event =
+                RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                    eth_event_id: lift_event.clone(),
+                    added_by: account_id_0(),
+                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
+                        &ValidEvents::Lifted,
+                    )
+                    .unwrap(),
+                });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());
         });
@@ -218,7 +235,10 @@ mod test_add_lift_log {
         ext.execute_with(|| {
             let tx_hash_invalid: H256 = H256::zero();
             assert_noop!(
-                EthereumEvents::add_lift_log(Origin::signed(account_id_0()), tx_hash_invalid),
+                EthereumEvents::add_lift_log(
+                    RuntimeOrigin::signed(account_id_0()),
+                    tx_hash_invalid
+                ),
                 Error::<TestRuntime>::MalformedHash
             );
             // Ensure no events were emitted in avn
@@ -239,7 +259,7 @@ mod test_add_lift_log {
                 DEFAULT_INGRESS_COUNTER,
             );
             assert_noop!(
-                EthereumEvents::add_lift_log(Origin::signed(account_id_0()), tx_hash),
+                EthereumEvents::add_lift_log(RuntimeOrigin::signed(account_id_0()), tx_hash),
                 Error::<TestRuntime>::DuplicateEvent
             );
             // Ensure no events were emitted in avn
@@ -263,7 +283,7 @@ mod test_add_ethereum_log {
     use super::*;
 
     struct Context {
-        origin: Origin,
+        origin: RuntimeOrigin,
         tx_hash: H256,
         nft_event_type: ValidEvents,
         current_block: BlockNumber,
@@ -274,7 +294,7 @@ mod test_add_ethereum_log {
     impl Default for Context {
         fn default() -> Self {
             Context {
-                origin: Origin::signed(account_id_0()),
+                origin: RuntimeOrigin::signed(account_id_0()),
                 tx_hash: H256::from([5u8; 32]),
                 nft_event_type: ValidEvents::NftMint,
                 current_block: 1,
@@ -336,19 +356,23 @@ mod test_add_ethereum_log {
 
             let event;
             if context.nft_event_type.is_nft_event() {
-                event = Event::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
-                    eth_event_id: ethereum_event.clone(),
-                    account_id: account_id_0(),
-                });
+                event = RuntimeEvent::EthereumEvents(
+                    crate::Event::<TestRuntime>::NftEthereumEventAdded {
+                        eth_event_id: ethereum_event.clone(),
+                        account_id: account_id_0(),
+                    },
+                );
             } else {
-                event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
-                    eth_event_id: ethereum_event.clone(),
-                    added_by: account_id_0(),
-                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                        &context.nft_event_type,
-                    )
-                    .unwrap(),
-                });
+                event =
+                    RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                        eth_event_id: ethereum_event.clone(),
+                        added_by: account_id_0(),
+                        t1_contract_address:
+                            EthereumEvents::get_contract_address_for_non_nft_event(
+                                &context.nft_event_type,
+                            )
+                            .unwrap(),
+                    });
             }
 
             assert!(EthereumEvents::event_emitted(&event));
@@ -401,7 +425,7 @@ mod test_add_ethereum_log {
             let second_tx_hash: H256 = H256::from([2u8; 32]);
 
             assert_ok!(EthereumEvents::add_ethereum_log(
-                Origin::signed(signer),
+                RuntimeOrigin::signed(signer),
                 first_event_type.clone(),
                 first_tx_hash
             ));
@@ -411,7 +435,7 @@ mod test_add_ethereum_log {
             };
 
             assert_ok!(EthereumEvents::add_ethereum_log(
-                Origin::signed(signer),
+                RuntimeOrigin::signed(signer),
                 second_event_type.clone(),
                 second_tx_hash
             ));
@@ -459,18 +483,20 @@ mod test_add_ethereum_log {
                     ValidEvents::NftCancelListing,
                 );
 
-                let event =
-                    Event::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
+                let event = RuntimeEvent::EthereumEvents(
+                    crate::Event::<TestRuntime>::NftEthereumEventAdded {
                         eth_event_id: validator_event_1.clone(),
                         account_id: account_id_0(),
-                    });
+                    },
+                );
                 assert!(EthereumEvents::event_emitted(&event));
 
-                let event =
-                    Event::EthereumEvents(crate::Event::<TestRuntime>::NftEthereumEventAdded {
+                let event = RuntimeEvent::EthereumEvents(
+                    crate::Event::<TestRuntime>::NftEthereumEventAdded {
                         eth_event_id: validator_event_2.clone(),
                         account_id: account_id_0(),
-                    });
+                    },
+                );
                 assert!(EthereumEvents::event_emitted(&event));
 
                 assert_eq!(2, System::events().len());
@@ -553,14 +579,15 @@ mod add_event {
             )));
             // Check that the event is deposited with correct data
 
-            let event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
-                eth_event_id: lift_event.clone(),
-                added_by: account_id,
-                t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                    &ValidEvents::Lifted,
-                )
-                .unwrap(),
-            });
+            let event =
+                RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                    eth_event_id: lift_event.clone(),
+                    added_by: account_id,
+                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
+                        &ValidEvents::Lifted,
+                    )
+                    .unwrap(),
+                });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());
         });
@@ -589,14 +616,15 @@ mod add_event {
                 1
             )));
             // Check that the event is deposited with correct data
-            let event = Event::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
-                eth_event_id: validator_event.clone(),
-                added_by: account_id,
-                t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                    &ValidEvents::AddedValidator,
-                )
-                .unwrap(),
-            });
+            let event =
+                RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
+                    eth_event_id: validator_event.clone(),
+                    added_by: account_id,
+                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
+                        &ValidEvents::AddedValidator,
+                    )
+                    .unwrap(),
+                });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());
         });
