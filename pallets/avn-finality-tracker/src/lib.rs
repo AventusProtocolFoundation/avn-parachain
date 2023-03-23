@@ -313,8 +313,7 @@ impl<T: Config> Pallet<T> {
     fn is_submission_valid(
         submitter: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
     ) -> bool {
-        let has_submitted_before =
-            SubmittedBlockNumbers::<T>::contains_key(&submitter.account_id);
+        let has_submitted_before = SubmittedBlockNumbers::<T>::contains_key(&submitter.account_id);
 
         if has_submitted_before {
             let last_submission = Self::submissions(&submitter.account_id).submitted_at_block;
