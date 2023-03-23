@@ -44,7 +44,7 @@ use sp_avn_common::{
         NftEndBatchListingData, NftMintData, NftTransferToData, ProcessedEventHandler, ValidEvents,
         Validator,
     },
-    IngressCounter, InnerCallValidator, Proof, verify_signature
+    verify_signature, IngressCounter, InnerCallValidator, Proof,
 };
 
 use pallet_session::historical::IdentificationTuple;
@@ -722,7 +722,8 @@ pub mod pallet {
                 sender_nonce,
             );
             ensure!(
-                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok(),
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
                 Error::<T>::UnauthorizedSignedAddEthereumLogTransaction
             );
 
@@ -1652,7 +1653,11 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {
-            return verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice()).is_ok()
+            return verify_signature::<T::Signature, T::AccountId>(
+                &proof,
+                &signed_payload.as_slice(),
+            )
+            .is_ok()
         }
 
         return false
