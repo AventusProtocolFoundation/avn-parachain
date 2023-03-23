@@ -221,9 +221,7 @@ pub mod pallet {
     }
 }
 
-#[derive(
-    Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen,
-)]
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct SubmissionData<BlockNumber: Member + AtLeast32Bit> {
     pub finalised_block: BlockNumber,
     pub submitted_at_block: BlockNumber,
@@ -264,8 +262,7 @@ impl<T: Config> Pallet<T> {
 
             // check if there is something wrong with submissions in general and notify via an
             // event
-            if current_block_number - last_finalised_block_submission > T::ReportLatency::get()
-            {
+            if current_block_number - last_finalised_block_submission > T::ReportLatency::get() {
                 Self::deposit_event(Event::<T>::FinalisedBlockUpdateStalled {
                     block: last_finalised_block_submission,
                 });

@@ -83,6 +83,8 @@ pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operat
 
 pub use pallet::*;
 
+pub use pallet::*;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;

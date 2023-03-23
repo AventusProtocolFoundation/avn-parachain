@@ -151,7 +151,7 @@ pub mod pallet {
 }
 
 pub(crate) type BalanceOf<T> =
-        <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 impl<T: Config> Pallet<T> {
     fn validate_inner_call_signature(call: &Box<<T as Config>::RuntimeCall>) -> DispatchResult {
