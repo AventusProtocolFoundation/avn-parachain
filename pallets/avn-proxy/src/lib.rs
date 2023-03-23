@@ -31,7 +31,7 @@ pub const PAYMENT_AUTH_CONTEXT: &'static [u8] = b"authorization for proxy paymen
 pub mod pallet {
     use super::*;
     use frame_support::{
-        pallet_prelude::{DispatchResult, *},
+        pallet_prelude::*,
         Blake2_128Concat,
     };
     use frame_system::pallet_prelude::*;
