@@ -9,7 +9,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
     ensure,
     pallet_prelude::ValueQuery,
     traits::{Currency, ExistenceRequirement, IsSubType},
@@ -148,73 +148,72 @@ pub mod pallet {
             Ok(Some(final_weight).into())
         }
     }
+}
 
-    pub(crate) type BalanceOf<T> =
+pub(crate) type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-    impl<T: Config> Pallet<T> {
-        fn validate_inner_call_signature(call: &Box<<T as Config>::RuntimeCall>) -> DispatchResult {
-            let inner_call_sig_valid = <T as Config>::ProxyConfig::signature_is_valid(call);
-            if inner_call_sig_valid == false {
-                return Err(Error::<T>::UnauthorizedProxyTransaction)?
-            }
+impl<T: Config> Pallet<T> {
+    fn validate_inner_call_signature(call: &Box<<T as Config>::RuntimeCall>) -> DispatchResult {
+        let inner_call_sig_valid = <T as Config>::ProxyConfig::signature_is_valid(call);
+        if inner_call_sig_valid == false {
+            return Err(Error::<T>::UnauthorizedProxyTransaction)?
+        }
 
             Ok(())
         }
 
-        fn verify_payment_authorisation_signature(
-            proof: &Proof<T::Signature, T::AccountId>,
-            payment_info: &PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
-            payment_nonce: u64,
-        ) -> Result<(), Error<T>> {
-            let encoded_payload = (
-                PAYMENT_AUTH_CONTEXT,
-                &proof,
-                &payment_info.recipient,
-                &payment_info.amount,
-                payment_nonce,
-            )
-                .encode();
+    fn verify_payment_authorisation_signature(
+        proof: &Proof<T::Signature, T::AccountId>,
+        payment_info: &PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
+        payment_nonce: u64,
+    ) -> Result<(), Error<T>> {
+        let encoded_payload = (
+            PAYMENT_AUTH_CONTEXT,
+            &proof,
+            &payment_info.recipient,
+            &payment_info.amount,
+            payment_nonce,
+        )
+            .encode();
 
-            // TODO: centralise wrapped payload signature verification logic in primitives if
-            // possible.
-            let wrapped_encoded_payload: Vec<u8> =
-                [OPEN_BYTES_TAG, encoded_payload.as_slice(), CLOSE_BYTES_TAG].concat();
-            match payment_info.signature.verify(&*wrapped_encoded_payload, &payment_info.payer) {
+        // TODO: centralise wrapped payload signature verification logic in primitives if
+        // possible.
+        let wrapped_encoded_payload: Vec<u8> =
+            [OPEN_BYTES_TAG, encoded_payload.as_slice(), CLOSE_BYTES_TAG].concat();
+        match payment_info.signature.verify(&*wrapped_encoded_payload, &payment_info.payer) {
+            true => Ok(()),
+            false => match payment_info
+                .signature
+                .verify(encoded_payload.as_slice(), &payment_info.payer)
+            {
                 true => Ok(()),
-                false => match payment_info
-                    .signature
-                    .verify(encoded_payload.as_slice(), &payment_info.payer)
-                {
-                    true => Ok(()),
-                    false => Err(<Error<T>>::UnauthorizedFee.into()),
-                },
-            }
+                false => Err(<Error<T>>::UnauthorizedFee.into()),
+            },
         }
 
-        pub(crate) fn charge_fee(
-            proof: &Proof<T::Signature, T::AccountId>,
-            payment_info: PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
-        ) -> DispatchResult {
-            let payment_nonce = Self::payment_nonces(&payment_info.payer);
-            ensure!(
-                Self::verify_payment_authorisation_signature(proof, &payment_info, payment_nonce)
-                    .is_ok(),
-                Error::<T>::UnauthorizedFee
-            );
+    pub(crate) fn charge_fee(
+        proof: &Proof<T::Signature, T::AccountId>,
+        payment_info: PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
+    ) -> DispatchResult {
+        let payment_nonce = Self::payment_nonces(&payment_info.payer);
+        ensure!(
+            Self::verify_payment_authorisation_signature(proof, &payment_info, payment_nonce)
+                .is_ok(),
+            Error::<T>::UnauthorizedFee
+        );
 
-            T::Currency::transfer(
-                &payment_info.payer,
-                &payment_info.recipient,
-                payment_info.amount,
-                ExistenceRequirement::KeepAlive,
-            )?;
+        T::Currency::transfer(
+            &payment_info.payer,
+            &payment_info.recipient,
+            payment_info.amount,
+            ExistenceRequirement::KeepAlive,
+        )?;
 
-            // Only increment the nonce if the charge goes through
-            <PaymentNonces<T>>::mutate(&payment_info.payer, |n| *n += 1);
+        // Only increment the nonce if the charge goes through
+        <PaymentNonces<T>>::mutate(&payment_info.payer, |n| *n += 1);
 
-            Ok(())
-        }
+        Ok(())
     }
 }
 

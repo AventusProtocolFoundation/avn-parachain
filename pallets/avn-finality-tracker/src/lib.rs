@@ -219,42 +219,55 @@ pub mod pallet {
             }
         }
     }
+}
 
-    impl<T: Config> Pallet<T> {
-        /// This function will only update the finalised block if there are 2/3rd or more
-        /// submissions from distinct validators
-        pub fn update_latest_finalised_block_if_required() {
-            let quorum = AVN::<T>::calculate_two_third_quorum();
-            let current_block_number = <frame_system::Pallet<T>>::block_number();
-            let last_finalised_block_submission = Self::last_finalised_block_submission();
+#[derive(
+    Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen,
+)]
+pub struct SubmissionData<BlockNumber: Member + AtLeast32Bit> {
+    pub finalised_block: BlockNumber,
+    pub submitted_at_block: BlockNumber,
+}
 
-            let quorum_is_reached = SubmittedBlockNumbers::<T>::iter().count() as u32 >= quorum;
-            let block_is_stale =
-                current_block_number > Self::last_finalised_block_update() + T::CacheAge::get();
-            let new_submissions_available =
-                last_finalised_block_submission > Self::last_finalised_block_update();
+impl<BlockNumber: Member + AtLeast32Bit> SubmissionData<BlockNumber> {
+    pub fn new(finalised_block: BlockNumber, submitted_at_block: BlockNumber) -> Self {
+        return SubmissionData::<BlockNumber> { finalised_block, submitted_at_block }
+    }
 
-            let can_update = quorum_is_reached && block_is_stale && new_submissions_available;
+impl<T: Config> Pallet<T> {
+    /// This function will only update the finalised block if there are 2/3rd or more
+    /// submissions from distinct validators
+    pub fn update_latest_finalised_block_if_required() {
+        let quorum = AVN::<T>::calculate_two_third_quorum();
+        let current_block_number = <frame_system::Pallet<T>>::block_number();
+        let last_finalised_block_submission = Self::last_finalised_block_submission();
 
-            if can_update {
-                let calculated_finalised_block = Self::calculate_finalised_block(quorum);
+        let quorum_is_reached = SubmittedBlockNumbers::<T>::iter().count() as u32 >= quorum;
+        let block_is_stale =
+            current_block_number > Self::last_finalised_block_update() + T::CacheAge::get();
+        let new_submissions_available =
+            last_finalised_block_submission > Self::last_finalised_block_update();
 
-                if calculated_finalised_block > Self::latest_finalised_block_number() {
-                    LastFinalisedBlockUpdate::<T>::put(current_block_number);
-                    LatestFinalisedBlock::<T>::put(calculated_finalised_block);
-                    Self::deposit_event(Event::<T>::FinalisedBlockUpdated {
-                        block: calculated_finalised_block,
-                    });
-                }
+        let can_update = quorum_is_reached && block_is_stale && new_submissions_available;
 
-                // check if there is something wrong with submissions in general and notify via an
-                // event
-                if current_block_number - last_finalised_block_submission > T::ReportLatency::get()
-                {
-                    Self::deposit_event(Event::<T>::FinalisedBlockUpdateStalled {
-                        block: last_finalised_block_submission,
-                    });
-                }
+        if can_update {
+            let calculated_finalised_block = Self::calculate_finalised_block(quorum);
+
+            if calculated_finalised_block > Self::latest_finalised_block_number() {
+                LastFinalisedBlockUpdate::<T>::put(current_block_number);
+                LatestFinalisedBlock::<T>::put(calculated_finalised_block);
+                Self::deposit_event(Event::<T>::FinalisedBlockUpdated {
+                    block: calculated_finalised_block,
+                });
+            }
+
+            // check if there is something wrong with submissions in general and notify via an
+            // event
+            if current_block_number - last_finalised_block_submission > T::ReportLatency::get()
+            {
+                Self::deposit_event(Event::<T>::FinalisedBlockUpdateStalled {
+                    block: last_finalised_block_submission,
+                });
             }
         }
 
@@ -298,11 +311,11 @@ pub mod pallet {
             }
         }
 
-        fn is_submission_valid(
-            submitter: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) -> bool {
-            let has_submitted_before =
-                SubmittedBlockNumbers::<T>::contains_key(&submitter.account_id);
+    fn is_submission_valid(
+        submitter: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+    ) -> bool {
+        let has_submitted_before =
+            SubmittedBlockNumbers::<T>::contains_key(&submitter.account_id);
 
             if has_submitted_before {
                 let last_submission = Self::submissions(&submitter.account_id).submitted_at_block;
@@ -341,10 +354,18 @@ pub mod pallet {
                 .sign(&(UPDATE_FINALISED_BLOCK_NUMBER_CONTEXT, calculated_finalised_block).encode())
                 .ok_or(Error::<T>::ErrorSigning);
 
-            if let Err(ref e) = signature {
-                log::error!("💔 Error signing `submit finalised block` tranaction: {:?}", e);
-                return
-            }
+        // send a transaction on chain with the latest finalised block data. We shouldn't have
+        // any sig re-use issue here because new block number must be > current
+        // finalised block number
+        let signature = this_validator
+            .key
+            .sign(&(UPDATE_FINALISED_BLOCK_NUMBER_CONTEXT, calculated_finalised_block).encode())
+            .ok_or(Error::<T>::ErrorSigning);
+
+        if let Err(ref e) = signature {
+            log::error!("💔 Error signing `submit finalised block` tranaction: {:?}", e);
+            return
+        }
 
             let result = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
                 Call::submit_latest_finalised_block_number {
@@ -455,20 +476,6 @@ pub mod pallet {
     impl<T: Config> FinalisedBlockChecker<T::BlockNumber> for Pallet<T> {
         fn is_finalised(block_number: T::BlockNumber) -> bool {
             return Self::latest_finalised_block_number() >= block_number
-        }
-    }
-
-    #[derive(
-        Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen,
-    )]
-    pub struct SubmissionData<BlockNumber: Member + AtLeast32Bit> {
-        pub finalised_block: BlockNumber,
-        pub submitted_at_block: BlockNumber,
-    }
-
-    impl<BlockNumber: Member + AtLeast32Bit> SubmissionData<BlockNumber> {
-        pub fn new(finalised_block: BlockNumber, submitted_at_block: BlockNumber) -> Self {
-            return SubmissionData::<BlockNumber> { finalised_block, submitted_at_block }
         }
     }
 }

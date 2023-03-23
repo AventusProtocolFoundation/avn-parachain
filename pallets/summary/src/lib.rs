@@ -1078,6 +1078,7 @@ pub mod pallet {
             validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) -> DispatchResult {
             let ingress_counter = Self::get_ingress_counter() + 1; // default value in storage is 0, so first root_hash has counter 1
+
             let signature = validator
                 .key
                 .sign(
@@ -1090,6 +1091,7 @@ pub mod pallet {
                         .encode(),
                 )
                 .ok_or(Error::<T>::ErrorSigning)?;
+
             log::trace!(
                 target: "avn",
                 "🖊️  Worker records summary calculation: {:?} last processed block {:?} ingress: {:?}]",
@@ -1097,6 +1099,7 @@ pub mod pallet {
                 &last_processed_block_number,
                 &ingress_counter
             );
+
             SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
                 Call::record_summary_calculation {
                     new_block_number: last_processed_block_number,
@@ -1148,6 +1151,7 @@ pub mod pallet {
                 log::error!("❌ Root hash is not valid: {:?}", response);
                 return Err(Error::<T>::InvalidRootHashLength)?
             }
+
             let root_hash = core::str::from_utf8(&response);
             if let Err(e) = root_hash {
                 log::error!("❌ Error converting root hash bytes to string: {:?}", e);
@@ -1186,6 +1190,7 @@ pub mod pallet {
                             root_data.added_by.ok_or(Error::<T>::CurrentSlotValidatorNotFound)?,
                             voting_session.state()?.confirmations,
                         );
+
                     if let Err(result) = result {
                         log::error!("❌ Error Submitting Tx: {:?}", result);
                         Err(result)?
@@ -1198,6 +1203,7 @@ pub mod pallet {
                     // In either case, we should not slash anyone.
                 }
                 // If we get here, then we did not get an error when submitting to T1.
+
                 create_and_report_summary_offence::<T>(
                     &reporter,
                     &vote.nays,
@@ -1213,6 +1219,7 @@ pub mod pallet {
                     root.is_validated = true
                 });
                 <SlotOfLastPublishedSummary<T>>::put(Self::current_slot());
+
                 Self::deposit_event(Event::<T>::SummaryRootValidated {
                     root_hash: root_data.root_hash,
                     ingress_counter: root_id.ingress_counter,
@@ -1220,6 +1227,7 @@ pub mod pallet {
                 });
             } else {
                 // We didn't get enough votes to approve this root
+
                 let root_creator =
                     root_data.added_by.ok_or(Error::<T>::CurrentSlotValidatorNotFound)?;
                 create_and_report_summary_offence::<T>(
@@ -1227,6 +1235,7 @@ pub mod pallet {
                     &vec![root_creator],
                     SummaryOffenceType::CreatedInvalidRoot,
                 );
+
                 create_and_report_summary_offence::<T>(
                     &reporter,
                     &vote.ayes,
@@ -1263,6 +1272,7 @@ pub mod pallet {
             return vote.has_outcome() ||
                 <system::Pallet<T>>::block_number() >= vote.end_of_voting_period
         }
+
         fn record_summary_validate_unsigned(
             _source: TransactionSource,
             call: &Call<T>,
@@ -1281,11 +1291,13 @@ pub mod pallet {
                 {
                     return InvalidTransaction::Custom(ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY).into()
                 }
+
                 let signed_data =
                     &(UPDATE_BLOCK_NUMBER_CONTEXT, root_hash, ingress_counter, new_block_number);
                 if !AVN::<T>::signature_is_valid(signed_data, &validator, signature) {
                     return InvalidTransaction::BadProof.into()
                 };
+
                 return ValidTransaction::with_tag_prefix("Summary")
                     .priority(TransactionPriority::max_value())
                     .and_provides(vec![
@@ -1320,6 +1332,7 @@ pub mod pallet {
                 if !AVN::<T>::signature_is_valid(signed_data, &validator, signature) {
                     return InvalidTransaction::BadProof.into()
                 };
+
                 return ValidTransaction::with_tag_prefix("Summary")
                     .priority(TransactionPriority::max_value())
                     .and_provides(vec![(ADVANCE_SLOT_CONTEXT, current_slot).encode()])
@@ -1349,6 +1362,7 @@ pub mod pallet {
             if <Roots<T>>::contains_key(root_id.range, root_id.ingress_counter) {
                 return Ok(<Roots<T>>::get(root_id.range, root_id.ingress_counter))
             }
+
             Err(Error::<T>::RootDataNotFound)?
         }
     }
