@@ -44,11 +44,8 @@ jobs:
       - name: Linting check
         run: cargo fmt --all --check
 
-      - name: Check code
-        run: cargo check --locked --release
-
-      - name: Test Code
-        run: cargo test
+      - name: Check code & Test Code
+        run: cargo check --locked --release & cargo test & wait
 
       #- name: benchmark test Code
       #  run: cargo test --features runtime-benchmarks -- benchmarks
