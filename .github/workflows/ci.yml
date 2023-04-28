@@ -40,27 +40,7 @@ jobs:
             ~/.cargo/git/db/
           key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-common
-          
-      - name: Set up cargo cache - release
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            target/
-          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-release          
-
-      - name: Set up cargo cache - debug
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            target/
-          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-debug   
+            ${{ runner.os }}-cargo-common        
 
       - name: Linting check
         run: cargo fmt --all --check
