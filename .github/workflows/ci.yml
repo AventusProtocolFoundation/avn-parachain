@@ -29,7 +29,7 @@ jobs:
           override: true
           default: true
 
-      - name: Set up cargo cache
+      - name: Set up cargo cache - common
         uses: actions/cache@v3
         continue-on-error: false
         with:
@@ -38,8 +38,26 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Set up cargo cache - debug
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Set up cargo cache - release
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}                     
+
+      - name: Linting check
+        run: cargo fmt --all --check
 
   check:
     name: Check code
@@ -49,19 +67,12 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Restore cargo cache
+      - name: Restore cargo cache - release
         uses: actions/cache@v3
         with:
           path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Linting check
-        run: cargo fmt --all --check
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}    
 
       - name: Check code
         run: cargo check --locked --release
@@ -74,19 +85,21 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      - name: Restore cargo cache
+      - name: Restore cargo cache - common
         uses: actions/cache@v3
         with:
-          path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Linting check
-        run: cargo fmt --all --check
+      - name: Restore cargo cache - debug
+        uses: actions/cache@v3
+        with:
+          path: |
+            target/
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}        
 
       - name: Test Code
         run: cargo test
