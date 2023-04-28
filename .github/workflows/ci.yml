@@ -44,8 +44,46 @@ jobs:
       - name: Linting check
         run: cargo fmt --all --check
 
-      - name: Check code & Test Code
-        run: cargo check --locked --release & cargo test & wait
+  check:
+    name: Check code
+    runs-on: avn-runner    
+    needs: ci
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
 
-      #- name: benchmark test Code
-      #  run: cargo test --features runtime-benchmarks -- benchmarks
+      - name: Restore cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check code
+        run: cargo check --locked --release
+
+  test:
+    name: Test Code
+    runs-on: avn-runner    
+    needs: ci
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Restore cargo cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Test Code
+        run: cargo test
