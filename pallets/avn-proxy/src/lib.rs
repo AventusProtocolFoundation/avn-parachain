@@ -118,13 +118,29 @@ pub mod pallet {
                 final_weight = T::WeightInfo::charge_fee()
                     .saturating_add(call.get_dispatch_info().weight)
                     .saturating_add(50_000);
-                // If the inner call signature does not validate, exit without charging the sender a
-                // fee
-                Self::validate_inner_call_signature(&call)?;
-                Self::charge_fee(&proof, *payment_info)?;
+
+                    // Always try to charge a fee, regardless of the outcome of execution.
+                    // If the payment signature is not valid, the nonce is not incremented and the transaction is rejected
+                    // This allows to keep the payment nonce in memory when sending multiple transactions back to back.
+                    Self::charge_fee(&proof, *payment_info)?;
             }
 
+            // No errors are allowed past this point, otherwise we will undo the payment.
             let call_hash: T::Hash = T::Hashing::hash_of(&call);
+
+            // If the inner call signature does not validate, there is no need to dispatch the tx so return early.
+            let inner_call_validation_result = Self::validate_inner_call_signature(&call);
+            if let Err(err) = inner_call_validation_result {
+                Self::deposit_event(Event::<T>::InnerCallFailed {
+                    relayer,
+                    hash: call_hash,
+                    dispatch_error: err,
+                });
+
+                // Return an OK even if the signature is bad. The `InnerCallFailed` event will inform the caller about the failure
+                return Ok(Some(final_weight).into());
+            }
+
             let sender: T::Origin = frame_system::RawOrigin::Signed(proof.signer.clone()).into();
 
             let dispatch_result = call.dispatch(sender).map(|_| ()).map_err(|e| e.error);
@@ -205,7 +221,6 @@ impl<T: Config> Pallet<T> {
             ExistenceRequirement::KeepAlive,
         )?;
 
-        // Only increment the nonce if the charge goes through
         <PaymentNonces<T>>::mutate(&payment_info.payer, |n| *n += 1);
 
         Ok(())
