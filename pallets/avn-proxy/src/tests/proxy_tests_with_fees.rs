@@ -197,6 +197,50 @@ mod charging_fees {
                 );
             })
         }
+
+        #[test]
+        fn invalid_inner_call_proof_is_given() {
+            let mut ext = ExtBuilder::build_default().with_balances().as_externality();
+            ext.execute_with(|| {
+                let context: ProxyContext = Default::default();
+                let single_nft_data: SingleNftContext = Default::default();
+                let mut proxy_proof = get_mint_single_nft_proxy_proof(&context, &single_nft_data);
+
+                // make the proxy proof invalid
+                proxy_proof.signer = context.relayer.account_id();
+
+                let inner_call = get_signed_mint_single_nft_call(&single_nft_data, &proxy_proof);
+                let payment_authorisation =
+                    create_default_payment_authorisation(&context, proxy_proof);
+
+                let signer_balance = Balances::free_balance(context.signer.account_id());
+                let signer_nonce = AvnProxy::payment_nonces(context.signer.account_id());
+                let relayer_balance = Balances::free_balance(context.relayer.account_id());
+
+                assert_ok!(
+                    AvnProxy::proxy(
+                        Origin::signed(context.relayer.account_id()),
+                        inner_call,
+                        Some(Box::new(payment_authorisation))
+                    )
+                );
+
+                // Check that fee has been paid by the signer
+                assert_eq!(
+                    signer_balance - ONE_AVT,
+                    Balances::free_balance(context.signer.account_id())
+                );
+                assert_eq!(
+                    relayer_balance + ONE_AVT,
+                    Balances::free_balance(context.relayer.account_id())
+                );
+
+                // Check that payment nonce has increased
+                assert_eq!(AvnProxy::payment_nonces(context.signer.account_id()), signer_nonce + 1);
+
+
+            })
+        }
     }
 
     mod fails_when {
@@ -294,39 +338,6 @@ mod charging_fees {
                         Some(Box::new(payment_authorisation))
                     ),
                     Error::<TestRuntime>::UnauthorizedFee
-                );
-
-                // Check that a fee has not been paid
-                assert_eq!(signer_balance, Balances::free_balance(context.signer.account_id()));
-                assert_eq!(relayer_balance, Balances::free_balance(context.relayer.account_id()));
-            })
-        }
-
-        #[test]
-        fn invalid_inner_call_proof_given() {
-            let mut ext = ExtBuilder::build_default().with_balances().as_externality();
-            ext.execute_with(|| {
-                let context: ProxyContext = Default::default();
-                let single_nft_data: SingleNftContext = Default::default();
-                let mut proxy_proof = get_mint_single_nft_proxy_proof(&context, &single_nft_data);
-
-                // make the proxy proof invalid
-                proxy_proof.signer = context.relayer.account_id();
-
-                let inner_call = get_signed_mint_single_nft_call(&single_nft_data, &proxy_proof);
-                let payment_authorisation =
-                    create_default_payment_authorisation(&context, proxy_proof);
-
-                let signer_balance = Balances::free_balance(context.signer.account_id());
-                let relayer_balance = Balances::free_balance(context.relayer.account_id());
-
-                assert_noop!(
-                    AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
-                        inner_call,
-                        Some(Box::new(payment_authorisation))
-                    ),
-                    Error::<TestRuntime>::UnauthorizedProxyTransaction
                 );
 
                 // Check that a fee has not been paid
