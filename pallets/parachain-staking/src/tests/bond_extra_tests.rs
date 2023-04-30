@@ -12,9 +12,9 @@ use crate::{
     },
     Config, Error, Event, Proof,
 };
-
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
+use pallet_avn_proxy::Error as avn_proxy_error;
 
 fn to_acc_id(id: u64) -> AccountId {
     return TestAccount::new(id).account_id()
@@ -298,7 +298,7 @@ mod proxy_signed_bond_extra {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedBondExtraTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -380,7 +380,7 @@ mod proxy_signed_bond_extra {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedBondExtraTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -661,7 +661,7 @@ mod proxy_signed_candidate_bond_extra {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedCandidateBondExtraTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -705,7 +705,7 @@ mod proxy_signed_candidate_bond_extra {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedCandidateBondExtraTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });

@@ -15,6 +15,7 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
+use pallet_avn_proxy::Error as avn_proxy_error;
 use sp_runtime::traits::Zero;
 use std::cell::RefCell;
 
@@ -402,8 +403,7 @@ mod proxy_signed_schedule_leave_nominators {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedScheduleLeaveNominatorsTransaction
-                                .into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -617,8 +617,7 @@ mod proxy_signed_execute_revoke_all_nomination {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
-                                .into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -723,8 +722,7 @@ mod proxy_signed_execute_revoke_all_nomination {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedExecuteLeaveNominatorsTransaction
-                                .into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
