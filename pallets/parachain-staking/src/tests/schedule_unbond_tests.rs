@@ -15,6 +15,7 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
+use pallet_avn_proxy::Error as avn_proxy_error;
 use std::cell::RefCell;
 
 thread_local! {
@@ -285,7 +286,7 @@ mod proxy_signed_schedule_nominator_unbond {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedUnbondTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -332,7 +333,7 @@ mod proxy_signed_schedule_nominator_unbond {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedUnbondTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -595,7 +596,7 @@ mod proxy_signed_schedule_collator_unbond {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -636,7 +637,7 @@ mod proxy_signed_schedule_collator_unbond {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedCandidateUnbondTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -891,8 +892,7 @@ mod signed_execute_nomination_request {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedExecuteNominationRequestTransaction
-                                .into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
