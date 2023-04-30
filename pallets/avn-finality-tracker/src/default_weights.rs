@@ -64,11 +64,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnFinalityTracker LastFinalisedBlockSubmission (r:0 w:1)
 	/// The range of component `v` is `[3, 10]`.
 	fn submit_latest_finalised_block_number(v: u32, ) -> Weight {
-		(19_069_000 as Weight)
+		(Weight::from_ref_time(19_069_000))
 			// Standard Error: 18_000
-			.saturating_add((118_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(118_000)).saturating_mul(v as u64)
+			.saturating_add(T::DbWeight::get().reads(3))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }
 
@@ -80,10 +80,10 @@ impl WeightInfo for () {
 	// Storage: AvnFinalityTracker LastFinalisedBlockSubmission (r:0 w:1)
 	/// The range of component `v` is `[3, 10]`.
 	fn submit_latest_finalised_block_number(v: u32, ) -> Weight {
-		(19_069_000 as Weight)
+		(Weight::from_ref_time(19_069_000))
 			// Standard Error: 18_000
-			.saturating_add((118_000 as Weight).saturating_mul(v as Weight))
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+			.saturating_add(Weight::from_ref_time(118_000)).saturating_mul(v as u64)
+			.saturating_add(RocksDbWeight::get().reads(3))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 }

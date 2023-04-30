@@ -97,13 +97,13 @@ fn generate_signature<T: pallet_avn::Config>(
     return signature
 }
 
-fn assert_last_event<T: Config>(generic_event: <T as Config>::Event) {
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
     assert_last_nth_event::<T>(generic_event, 1);
 }
 
-fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::Event, n: u32) {
+fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::RuntimeEvent, n: u32) {
     let events = frame_system::Pallet::<T>::events();
-    let system_event: <T as frame_system::Config>::Event = generic_event.into();
+    let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
     // compare to the last event record
     let EventRecord { event, .. } = &events[events.len().saturating_sub(n as usize)];
     assert_eq!(event, &system_event);

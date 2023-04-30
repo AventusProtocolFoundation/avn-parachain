@@ -17,14 +17,14 @@
 #![cfg(test)]
 use super::*;
 use crate::{
-    mock::{AccountId, Call as MockCall, *},
+    mock::{AccountId, RuntimeCall as MockCall, *},
     Call,
 };
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use mock::Event;
+use mock::{RuntimeEvent as Event, RuntimeOrigin as Origin};
 use sp_core::sr25519::Pair;
 
 fn build_proof(
@@ -100,7 +100,10 @@ impl Default for CreateBatchContext {
 }
 
 impl CreateBatchContext {
-    fn create_signed_create_batch_call(&self, nonce: u64) -> Box<<TestRuntime as Config>::Call> {
+    fn create_signed_create_batch_call(
+        &self,
+        nonce: u64,
+    ) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let proof = self.create_signed_create_batch_proof(nonce);
 
         return Box::new(MockCall::NftManager(super::Call::<TestRuntime>::signed_create_batch {
@@ -519,7 +522,7 @@ impl MintBatchNftContext {
         &self,
         batch_id: U256,
         index: u64,
-    ) -> Box<<TestRuntime as Config>::Call> {
+    ) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let proof = self.create_signed_mint_batch_nft_proof(batch_id, index);
 
         return Box::new(MockCall::NftManager(super::Call::<TestRuntime>::signed_mint_batch_nft {
@@ -1129,7 +1132,7 @@ impl OpenForSaleContext {
         &self,
         batch_id: U256,
         nonce: u64,
-    ) -> Box<<TestRuntime as Config>::Call> {
+    ) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let proof = self.create_signed_list_batch_for_sale_proof(batch_id, nonce);
 
         return Box::new(MockCall::NftManager(
@@ -1565,7 +1568,7 @@ impl EndBatchSaleContext {
         &self,
         batch_id: U256,
         nonce: u64,
-    ) -> Box<<TestRuntime as Config>::Call> {
+    ) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let proof = self.create_signed_end_batch_sale_proof(batch_id, nonce);
 
         return Box::new(MockCall::NftManager(super::Call::<TestRuntime>::signed_end_batch_sale {

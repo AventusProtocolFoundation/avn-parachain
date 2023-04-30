@@ -16,7 +16,6 @@ use frame_support::{
     traits::{Get, OnRuntimeUpgrade},
     weights::Weight,
 };
-use sp_runtime::traits::Zero;
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -29,7 +28,7 @@ pub fn enable_staking<T: Config>() -> Weight {
     let initial_growth_period_index = 0u32;
     let current_block_number = frame_system::Pallet::<T>::block_number();
 
-    let mut consumed_weight: Weight = 0;
+    let mut consumed_weight: Weight = Weight::from_ref_time(0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
@@ -63,12 +62,12 @@ pub fn enable_staking<T: Config>() -> Weight {
     let mut candidate_count = 0u32;
 
     //Reads: [validators]
-    add_weight(1, 0, 0);
+    add_weight(1, 0, Weight::from_ref_time(0));
 
     // Initialize the candidates
     for validator in pallet_avn::Pallet::<T>::validators() {
         //Reads: [get_collator_stakable_free_balance]
-        add_weight(1, 0, 0);
+        add_weight(1, 0, Weight::from_ref_time(0));
 
         assert!(
             <Pallet<T>>::get_collator_stakable_free_balance(&validator.account_id) >=
@@ -79,7 +78,7 @@ pub fn enable_staking<T: Config>() -> Weight {
         candidate_count = candidate_count.saturating_add(1u32);
 
         if let Err(error) = <Pallet<T>>::join_candidates(
-            T::Origin::from(Some(validator.account_id).into()),
+            T::RuntimeOrigin::from(Some(validator.account_id).into()),
             initial_min_collator_stake_balance,
             candidate_count,
         ) {
@@ -96,12 +95,12 @@ pub fn enable_staking<T: Config>() -> Weight {
     assert!(initial_delay > 0, "Delay must be greater than 0.");
 
     //Write: [Delay]
-    add_weight(0, 1, 0);
+    add_weight(0, 1, Weight::from_ref_time(0));
     <Delay<T>>::put(initial_delay);
 
     // Set min staking values
     //Write: [MinCollatorStake, MinTotalNominatorStake, TotalSelected]
-    add_weight(0, 3, 0);
+    add_weight(0, 3, Weight::from_ref_time(0));
     <MinCollatorStake<T>>::put(initial_min_collator_stake_balance);
     <MinTotalNominatorStake<T>>::put(to_balance(initial_min_user_stake).expect("Asserted"));
     <TotalSelected<T>>::put(T::MinSelectedCandidates::get());
@@ -116,7 +115,7 @@ pub fn enable_staking<T: Config>() -> Weight {
         EraInfo::new(intial_era_index, current_block_number.into(), intial_blocks_per_era);
 
     //Write: [Era, Staked, Growth]
-    add_weight(0, 3, 0);
+    add_weight(0, 3, Weight::from_ref_time(0));
     // Set the first era info.
     <Era<T>>::put(era);
     // Snapshot total stake
@@ -132,13 +131,13 @@ pub fn enable_staking<T: Config>() -> Weight {
     });
 
     //Write: [STORAGE_VERSION]
-    add_weight(0, 1, 0);
+    add_weight(0, 1, Weight::from_ref_time(0));
     STORAGE_VERSION.put::<Pallet<T>>();
 
     log::info!("✅ Migration completed successfully");
 
     // add a bit extra as safety margin for computation
-    return consumed_weight + 25_000_000_000
+    return consumed_weight + Weight::from_ref_time(25_000_000_000)
 }
 
 /// Migration to enable staking pallet

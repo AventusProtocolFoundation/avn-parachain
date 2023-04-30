@@ -18,7 +18,7 @@ use super::*;
 use crate::mock::{AccountId, *};
 use frame_support::{assert_noop, assert_ok};
 use hex_literal::hex;
-use mock::Event;
+use mock::RuntimeEvent as Event;
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
 use sp_core::H256;
 

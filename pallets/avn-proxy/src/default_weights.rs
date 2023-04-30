@@ -61,9 +61,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnProxy PaymentNonces (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
 	fn charge_fee() -> Weight {
-		(114_288_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(2 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(114_288_000))
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 }
 
@@ -72,8 +72,8 @@ impl WeightInfo for () {
 	// Storage: AvnProxy PaymentNonces (r:1 w:1)
 	// Storage: System Account (r:1 w:1)
 	fn charge_fee() -> Weight {
-		(114_288_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
+		(Weight::from_ref_time(14_288_000))
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 }

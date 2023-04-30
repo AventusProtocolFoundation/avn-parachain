@@ -10,7 +10,7 @@ use sp_core::{crypto::KeyTypeId, ecdsa, H160};
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::{AtLeast32Bit, Dispatchable, Member},
+    traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify},
 };
 use sp_std::{boxed::Box, vec::Vec};
 
@@ -142,4 +142,19 @@ pub fn hash_with_ethereum_prefix(hex_message: String) -> Result<[u8; 32], ECDSAV
     let hashed_message = keccak_256(&message_bytes);
     prefixed_message.append(&mut hashed_message.to_vec());
     Ok(keccak_256(&prefixed_message))
+}
+
+pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member>(
+    proof: &Proof<Signature, <<Signature as Verify>::Signer as IdentifyAccount>::AccountId>,
+    signed_payload: &[u8],
+) -> Result<(), ()> {
+    let wrapped_signed_payload: Vec<u8> =
+        [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
+    match proof.signature.verify(&*wrapped_signed_payload, &proof.signer) {
+        true => Ok(()),
+        false => match proof.signature.verify(signed_payload, &proof.signer) {
+            true => Ok(()),
+            false => Err(()),
+        },
+    }
 }

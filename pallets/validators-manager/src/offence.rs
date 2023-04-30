@@ -54,7 +54,7 @@ impl<Offender: Clone> Offence<Offender> for ValidatorOffence<Offender> {
         self.session_index
     }
 
-    fn slash_fraction(_offenders: u32, _validator_set_count: u32) -> Perbill {
+    fn slash_fraction(&self, _offenders: u32) -> Perbill {
         // We don't implement fraction slashes at the moment.
         Perbill::from_percent(100)
     }

@@ -96,10 +96,6 @@ impl TestAccount {
     }
 }
 
-pub fn sign(signer: &sr25519::Pair, message_to_sign: &[u8]) -> Signature {
-    return Signature::from(signer.sign(message_to_sign))
-}
-
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"dumy");
 
 pub const GOOD_STATUS: &str = "0x1";
@@ -114,11 +110,11 @@ pub mod crypto {
     app_crypto!(sr25519, KEY_TYPE);
 }
 
-pub type Extrinsic = TestXt<Call, ()>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 impl Config for TestRuntime {
-    type Call = Call;
-    type Event = Event;
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
     type ProcessedEventHandler = Self;
     type MinEthBlockConfirmation = MinEthBlockConfirmation;
     type ReportInvalidEthereumLog = OffenceHandler;
@@ -129,15 +125,15 @@ impl Config for TestRuntime {
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
 where
-    Call: From<LocalCall>,
+    RuntimeCall: From<LocalCall>,
 {
-    type OverarchingCall = Call;
+    type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
 }
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MinEthBlockConfirmation: u64 = 2;
@@ -148,8 +144,8 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
-    type Origin = Origin;
-    type Call = Call;
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -157,7 +153,7 @@ impl system::Config for TestRuntime {
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
@@ -210,7 +206,7 @@ impl session::Config for TestRuntime {
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (AVN,);
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
@@ -224,7 +220,7 @@ parameter_types! {
 impl pallet_balances::Config for TestRuntime {
     type Balance = u128;
     type DustRemoval = ();
-    type Event = Event;
+    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type MaxLocks = ();
@@ -423,14 +419,14 @@ impl EthereumEvents {
         return AVN::get_validator_for_current_node()
     }
 
-    pub fn event_emitted(event: &Event) -> bool {
+    pub fn event_emitted(event: &RuntimeEvent) -> bool {
         return System::events().iter().any(|a| a.event == *event)
     }
 }
 
 impl pallet_avn_proxy::Config for TestRuntime {
-    type Event = Event;
-    type Call = Call;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = AccountId;
     type Signature = Signature;
@@ -447,25 +443,27 @@ impl Default for TestAvnProxyConfig {
     }
 }
 
-impl ProvableProxy<Call, Signature, AccountId> for TestAvnProxyConfig {
-    fn get_proof(call: &Call) -> Option<Proof<Signature, AccountId>> {
+impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
+    fn get_proof(call: &RuntimeCall) -> Option<Proof<Signature, AccountId>> {
         match call {
-            Call::EthereumEvents(pallet_ethereum_events::Call::signed_add_ethereum_log {
-                proof,
-                event_type: _,
-                tx_hash: _,
-            }) => return Some(proof.clone()),
+            RuntimeCall::EthereumEvents(
+                pallet_ethereum_events::Call::signed_add_ethereum_log {
+                    proof,
+                    event_type: _,
+                    tx_hash: _,
+                },
+            ) => return Some(proof.clone()),
             _ => None,
         }
     }
 }
 
 impl InnerCallValidator for TestAvnProxyConfig {
-    type Call = Call;
+    type Call = RuntimeCall;
 
     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
         match **call {
-            Call::EthereumEvents(..) => return EthereumEvents::signature_is_valid(call),
+            RuntimeCall::EthereumEvents(..) => return EthereumEvents::signature_is_valid(call),
             _ => false,
         }
     }

@@ -100,11 +100,11 @@ pub mod pallet {
     pub trait Config:
         SendTransactionTypes<Call<Self>> + frame_system::Config + avn::Config
     {
-        type Event: From<Event<Self>>
-            + Into<<Self as system::Config>::Event>
-            + IsType<<Self as frame_system::Config>::Event>;
+        type RuntimeEvent: From<Event<Self>>
+            + Into<<Self as system::Config>::RuntimeEvent>
+            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-        type Call: From<Call<Self>>;
+        type RuntimeCall: From<Call<Self>>;
 
         type AccountToBytesConvert: AccountToBytesConverter<Self::AccountId>;
 
@@ -221,6 +221,7 @@ pub mod pallet {
         // finalized, and possible in a state where our governance is centralized.
         // Suggestion: We can wrap it in a build configuration flag for conditional compilation, eg
         // "allow-sudo-shortcuts"
+        #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_transaction_id())]
         pub fn set_transaction_id(
             origin: OriginFor<T>,
@@ -231,6 +232,7 @@ pub mod pallet {
             Ok(())
         }
 
+        #[pallet::call_index(1)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_eth_tx_hash_for_dispatched_tx(MAX_VALIDATORS, MAX_TXS_PER_ACCOUNT))]
         pub fn set_eth_tx_hash_for_dispatched_tx(
             origin: OriginFor<T>,
@@ -273,6 +275,7 @@ pub mod pallet {
         // See SYS-870 & SYS-855 for more information
         /// Removes a reservation for a transaction that was created with reserve_transaction_id
         /// Only sudo should call this to repair a network.
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::unreserve_transaction())]
         pub fn unreserve_transaction(
             origin: OriginFor<T>,
@@ -291,6 +294,7 @@ pub mod pallet {
         }
 
         /// Sets the address for ethereum contracts
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_publish_root_contract())]
         pub fn set_publish_root_contract(
             origin: OriginFor<T>,
