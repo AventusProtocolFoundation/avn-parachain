@@ -217,13 +217,11 @@ mod charging_fees {
                 let signer_nonce = AvnProxy::payment_nonces(context.signer.account_id());
                 let relayer_balance = Balances::free_balance(context.relayer.account_id());
 
-                assert_ok!(
-                    AvnProxy::proxy(
-                        Origin::signed(context.relayer.account_id()),
-                        inner_call,
-                        Some(Box::new(payment_authorisation))
-                    )
-                );
+                assert_ok!(AvnProxy::proxy(
+                    Origin::signed(context.relayer.account_id()),
+                    inner_call,
+                    Some(Box::new(payment_authorisation))
+                ));
 
                 // Check that fee has been paid by the signer
                 assert_eq!(
@@ -237,8 +235,6 @@ mod charging_fees {
 
                 // Check that payment nonce has increased
                 assert_eq!(AvnProxy::payment_nonces(context.signer.account_id()), signer_nonce + 1);
-
-
             })
         }
     }
