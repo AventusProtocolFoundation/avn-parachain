@@ -13,6 +13,7 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::{self as system, RawOrigin};
+use pallet_avn_proxy::Error as avn_proxy_error;
 use sp_runtime::traits::Zero;
 
 fn to_acc_id(id: u64) -> AccountId {
@@ -290,7 +291,7 @@ mod proxy_signed_nominate {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedNominateTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
@@ -373,7 +374,7 @@ mod proxy_signed_nominate {
                     assert_eq!(
                         true,
                         inner_call_failed_event_emitted(
-                            Error::<Test>::UnauthorizedSignedNominateTransaction.into()
+                            avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
                         )
                     );
                 });
