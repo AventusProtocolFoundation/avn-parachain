@@ -29,7 +29,7 @@ jobs:
           override: true
           default: true
 
-      - name: Set up cargo cache
+      - name: Set up cargo cache - common
         uses: actions/cache@v3
         continue-on-error: false
         with:
@@ -38,17 +38,63 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-common        
 
       - name: Linting check
         run: cargo fmt --all --check
 
+  check:
+    name: Check code
+    runs-on: avn-runner    
+    needs: ci
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+      - name: Restore cargo cache - common
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+      - name: Restore cargo cache - release
+        uses: actions/cache@v3
+        with:
+          path: |
+            target/
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}    
+
       - name: Check code
         run: cargo check --locked --release
 
+  test:
+    name: Test Code
+    runs-on: avn-runner    
+    needs: ci
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Restore cargo cache - common
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Restore cargo cache - debug
+        uses: actions/cache@v3
+        with:
+          path: |
+            target/
+          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}      
+
       - name: Test Code
         run: cargo test
-
-      #- name: benchmark test Code
-      #  run: cargo test --features runtime-benchmarks -- benchmarks
