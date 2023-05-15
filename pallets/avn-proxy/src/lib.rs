@@ -243,6 +243,10 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    pub fn is_known_sender(address: &T::AccountId) -> bool {
+        return <KnownSenders<T>>::contains_key(address)
+    }
 }
 
 pub trait ProvableProxy<Call, Signature: scale_info::TypeInfo, AccountId>:
@@ -258,6 +262,8 @@ pub struct PaymentInfo<AccountId, Balance, Signature: TypeInfo> {
     pub amount: Balance,
     pub signature: Signature,
 }
+
+
 
 #[cfg(test)]
 #[path = "tests/mock.rs"]
