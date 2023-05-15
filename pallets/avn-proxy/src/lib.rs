@@ -244,7 +244,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn is_known_sender(address: T::AccountId) -> bool {
+    pub fn is_known_sender(address: &<T as frame_system::Config>::AccountId) -> bool {
         return <KnownSenders<T>>::contains_key(address)
     }
 }
