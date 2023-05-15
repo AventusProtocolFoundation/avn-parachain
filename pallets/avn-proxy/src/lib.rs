@@ -97,6 +97,11 @@ pub mod pallet {
     pub type PaymentNonces<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn known_senders)]
+    /// A map of known senders
+    pub type KnownSenders<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
@@ -162,6 +167,14 @@ pub mod pallet {
             }
 
             Ok(Some(final_weight).into())
+        }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(0)]
+        pub fn set_known_sender(origin: OriginFor<T>, known_sender: T::AccountId) -> DispatchResult {
+            frame_system::ensure_root(origin)?;
+            <KnownSenders<T>>::insert(known_sender, true);
+            Ok(())
         }
     }
 }
