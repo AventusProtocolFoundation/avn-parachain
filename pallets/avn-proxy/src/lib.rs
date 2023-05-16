@@ -77,7 +77,7 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::generate_deposit(pub fn deposit_event)]
     pub enum Event<T: Config> {
         CallDispatched { relayer: T::AccountId, hash: T::Hash },
         InnerCallFailed { relayer: T::AccountId, hash: T::Hash, dispatch_error: DispatchError },
