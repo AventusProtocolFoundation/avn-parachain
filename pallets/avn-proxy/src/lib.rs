@@ -81,6 +81,9 @@ pub mod pallet {
     pub enum Event<T: Config> {
         CallDispatched { relayer: T::AccountId, hash: T::Hash },
         InnerCallFailed { relayer: T::AccountId, hash: T::Hash, dispatch_error: DispatchError },
+		/// A transaction fee has been adjusted to `adjustment` for `who`
+		AdjustedTransactionFeePaid { who: T::AccountId, adjustment: BalanceOf<T>},
+
     }
 
     #[pallet::error]
