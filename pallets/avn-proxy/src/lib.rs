@@ -250,6 +250,10 @@ impl<T: Config> Pallet<T> {
     pub fn is_known_sender(address: &<T as frame_system::Config>::AccountId) -> bool {
         return <KnownSenders<T>>::contains_key(address)
     }
+
+    pub fn emit_transaction_fee_event(who: T::AccountId, adjustment: BalanceOf<T>) {
+        Self::deposit_event(Event::<T>::AdjustedTransactionFeePaid {who, adjustment});
+    }
 }
 
 pub trait ProvableProxy<Call, Signature: scale_info::TypeInfo, AccountId>:
