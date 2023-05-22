@@ -1,9 +1,10 @@
 use crate::{Config, BalanceOf, Error};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::{ Perbill, scale_info::TypeInfo, traits::Zero };
 use sp_std::{marker::PhantomData};
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
 pub enum FeeType<T: Config> {
     FixedFee(FixedFeeConfig<T>),
     PercentageFee(PercentageFeeConfig<T>),
@@ -16,13 +17,20 @@ impl<T: Config> Default for FeeType<T> {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub enum FeeConfig<T: Config> {
     FixedFee(FixedFeeConfig<T>),
     PercentageFee(PercentageFeeConfig<T>),
     TimeBased(TimeBasedConfig<T>),
     TransactionBased(TransactionBasedConfig<T>),
     Unknown,
+}
+
+impl<T: Config> Default for FeeConfig<T> {
+    fn default() -> Self {
+        FeeConfig::Unknown
+    }
 }
 
 impl<T: Config> FeeConfig<T> {
@@ -57,14 +65,8 @@ impl<T: Config> FeeConfig<T> {
     }
 }
 
-
-impl<T: Config> Default for FeeConfig<T> {
-    fn default() -> Self {
-        FeeConfig::Unknown
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
 pub struct FixedFeeConfig<T: Config> {
     pub fee: BalanceOf<T>,
 }
@@ -89,7 +91,8 @@ impl<T: Config> FixedFeeConfig<T> {
 }
 
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
 pub struct PercentageFeeConfig<T: Config> {
     pub percentage: u32,
     _marker: PhantomData<T>
@@ -115,7 +118,8 @@ impl<T: Config> PercentageFeeConfig<T> {
 }
 
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct TimeBasedConfig<T: Config> {
     pub end_block_number: T::BlockNumber,
     pub fee_type: FeeType<T>,
@@ -141,7 +145,8 @@ impl<T: Config> TimeBasedConfig<T> {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
 pub struct TransactionBasedConfig<T: Config> {
     pub account: T::AccountId,
     pub end_count: T::Index,
