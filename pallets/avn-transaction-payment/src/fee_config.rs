@@ -3,7 +3,6 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::{ Perbill, scale_info::TypeInfo, traits::Zero };
 use sp_std::{marker::PhantomData};
 use sp_core::RuntimeDebug;
-use sp_std::fmt::Debug;
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, Debug, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
