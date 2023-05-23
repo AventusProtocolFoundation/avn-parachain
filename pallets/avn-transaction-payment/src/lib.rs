@@ -80,7 +80,7 @@ pub mod pallet {
         #[pallet::weight(0)]
         pub fn set_known_sender(origin: OriginFor<T>, known_sender: T::AccountId, fee_config: FeeConfig<T>) -> DispatchResult {
             frame_system::ensure_root(origin)?;
-            //<KnownSenders<T>>::insert(known_sender, true);
+            <KnownSenders<T>>::insert(known_sender, fee_config);
             Ok(())
         }
     }

@@ -57,8 +57,12 @@ impl<T: Config> Debug for FeeConfig<T> {
             Self::TimeBased(c) => {
                 write!(f, "Time based fee[{}, {:?}, {:?}]", c.duration, c.end_block_number, c.fee_type)
             },
-            Self::TransactionBased(c) => {write!(f, "Hello")},
-            Self::Unknown => {write!(f, "Hello")},
+            Self::TransactionBased(c) => {
+                write!(f, "Transaction based fee[{:?}, {:?}, {}, {:?}]", c.account, c.count, c.end_count, c.fee_type)
+            },
+            Self::Unknown => {
+                write!(f, "Fee config unknown")
+            },
         }
     }
 }
