@@ -121,8 +121,12 @@ impl<T: Config> PercentageFeeConfig<T> {
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub struct TimeBasedConfig<T: Config> {
-    pub end_block_number: T::BlockNumber,
     pub fee_type: FeeType<T>,
+
+    // How many blocks (in block number) this config will be active for.
+    pub duration: u32,
+    // The last block number. CurrentBlock + duration.
+    pub end_block_number: T::BlockNumber,
 }
 
 impl<T: Config> TimeBasedConfig<T> {
@@ -149,8 +153,12 @@ impl<T: Config> TimeBasedConfig<T> {
 #[scale_info(skip_type_params(T))]
 pub struct TransactionBasedConfig<T: Config> {
     pub account: T::AccountId,
-    pub end_count: T::Index,
     pub fee_type: FeeType<T>,
+
+    // How many transactions this will apply for
+    pub count: u32,
+    // What is the end index (nonce). CurrentIndex + count
+    pub end_count: T::Index,
 }
 
 impl<T: Config> TransactionBasedConfig<T> {
