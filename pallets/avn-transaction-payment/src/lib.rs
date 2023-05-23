@@ -157,16 +157,18 @@ where
 		if let Some(paid) = already_withdrawn {
             // Calculate how much refund we should return
             let mut discounted_corrected_fee: Self::Balance = corrected_fee;
+            let fee_config = <KnownSenders<T>>::get(who);
 
             let is_known_sender = Pallet::<T>::is_known_sender(who);
             if is_known_sender {
-                let fee_config = <KnownSenders<T>>::get(who);
-                if let Ok( adjusted_fee ) = fee_config.get_fee(corrected_fee){
+                let network_fee_only = corrected_fee.saturating_sub(tip);
+                if let Ok( adjusted_fee ) = fee_config.get_fee(network_fee_only) {
                     discounted_corrected_fee = adjusted_fee;
                 } else {
                     log::error!(":broken_heart: Error: Failed to apply the adjustment fee for known sender: {:?}", who);
                 }
             }
+
             let refund_amount = paid.peek().saturating_sub(discounted_corrected_fee);
 
 			// refund to the the account that paid the fees. If this fails, the
@@ -183,7 +185,8 @@ where
 			let (tip, fee) = adjusted_paid.split(tip);
 			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
 
-            if is_known_sender {
+            //Only deposit event if we are applying an adjustment
+            if is_known_sender && fee_config.is_active() {
                 Pallet::<T>::deposit_event(Event::<T>::AdjustedTransactionFeePaid { who: who.clone(), adjustment: discounted_corrected_fee});
             }
 		}
