@@ -8,6 +8,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
+    log,
     dispatch::{DispatchResult,GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::ValueQuery,
     traits::{Currency, Imbalance, OnUnbalanced},
@@ -154,19 +155,19 @@ where
 		already_withdrawn: Self::LiquidityInfo,
 	) -> Result<(), TransactionValidityError> {
 		if let Some(paid) = already_withdrawn {
-
-
             // Calculate how much refund we should return
             let mut discounted_corrected_fee: Self::Balance = corrected_fee;
 
             let is_known_sender = Pallet::<T>::is_known_sender(who);
             if is_known_sender {
-                let discount = Perbill::from_percent(50);
-                discounted_corrected_fee = discount * corrected_fee;
+                let fee_config = <KnownSenders<T>>::get(who);
+                if let Ok( adjusted_fee ) = fee_config.get_fee(corrected_fee){
+                    discounted_corrected_fee = adjusted_fee;
+                } else {
+                    log::error!(":broken_heart: Error: Failed to apply the adjustment fee for known sender: {:?}", who);
+                }
             }
-
             let refund_amount = paid.peek().saturating_sub(discounted_corrected_fee);
-
 
 			// refund to the the account that paid the fees. If this fails, the
 			// account might have dropped below the existential balance. In
