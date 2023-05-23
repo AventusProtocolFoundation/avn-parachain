@@ -72,15 +72,15 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn known_senders)]
     /// A map of known senders
-    pub type KnownSenders<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
+    pub type KnownSenders<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, FeeConfig<T>, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(0)]
-        pub fn set_known_sender(origin: OriginFor<T>, known_sender: T::AccountId) -> DispatchResult {
+        pub fn set_known_sender(origin: OriginFor<T>, known_sender: T::AccountId, fee_config: FeeConfig<T>) -> DispatchResult {
             frame_system::ensure_root(origin)?;
-            <KnownSenders<T>>::insert(known_sender, true);
+            //<KnownSenders<T>>::insert(known_sender, true);
             Ok(())
         }
     }

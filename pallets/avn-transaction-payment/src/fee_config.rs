@@ -2,13 +2,31 @@ use crate::{Config, BalanceOf, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::{ Perbill, scale_info::TypeInfo, traits::Zero };
 use sp_std::{marker::PhantomData};
+use sp_core::RuntimeDebug;
+use sp_std::fmt::Debug;
 
-#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub enum FeeType<T: Config> {
     FixedFee(FixedFeeConfig<T>),
     PercentageFee(PercentageFeeConfig<T>),
     Unknown,
+}
+
+impl<T: Config> Debug for FeeType<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+        match self {
+			Self::FixedFee(c) => {
+                write!(f, "Fixed fee[{:?}]", c.fee)
+            },
+            Self::PercentageFee(c) => {
+                write!(f, "Percentage fee[{}]", c.percentage)
+            },
+            Self::Unknown => {
+                write!(f, "Unknwon fee type")
+            },
+        }
+    }
 }
 
 impl<T: Config> Default for FeeType<T> {
@@ -17,7 +35,7 @@ impl<T: Config> Default for FeeType<T> {
     }
 }
 
-#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub enum FeeConfig<T: Config> {
     FixedFee(FixedFeeConfig<T>),
@@ -25,6 +43,24 @@ pub enum FeeConfig<T: Config> {
     TimeBased(TimeBasedConfig<T>),
     TransactionBased(TransactionBasedConfig<T>),
     Unknown,
+}
+
+impl<T: Config> Debug for FeeConfig<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+        match self {
+			Self::FixedFee(c) => {
+                write!(f, "Fixed fee[{:?}]", c.fee)
+            },
+            Self::PercentageFee(c) => {
+                write!(f, "Percentage fee[{}]", c.percentage)
+            },
+            Self::TimeBased(c) => {
+                write!(f, "Time based fee[{}, {:?}, {:?}]", c.duration, c.end_block_number, c.fee_type)
+            },
+            Self::TransactionBased(c) => {write!(f, "Hello")},
+            Self::Unknown => {write!(f, "Hello")},
+        }
+    }
 }
 
 impl<T: Config> Default for FeeConfig<T> {
