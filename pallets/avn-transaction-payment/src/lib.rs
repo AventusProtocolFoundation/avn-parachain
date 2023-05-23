@@ -1,29 +1,29 @@
 //! # Avn transaction payment
 // Copyright 2023 Aventus Network Services (UK) Ltd.
 
-//! This is a wrapper pallet for  transaction payment that allows the customisation of chain fees based
-//! on the business logic of this pallet
+//! This is a wrapper pallet for  transaction payment that allows the customisation of chain fees
+//! based on the business logic of this pallet
 //! assumption about where the transaction is coming from.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
+    dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo},
     log,
-    dispatch::{DispatchResult,GetDispatchInfo, PostDispatchInfo},
     pallet_prelude::ValueQuery,
     traits::{Currency, Imbalance, OnUnbalanced},
     unsigned::TransactionValidityError,
 };
 use frame_system::{self as system};
 
-use core::convert::{TryInto};
+use core::convert::TryInto;
 pub use pallet::*;
 use sp_runtime::{
-    traits::{ DispatchInfoOf, PostDispatchInfoOf, Saturating, Dispatchable },
-	transaction_validity::InvalidTransaction, Perbill
+    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating},
+    transaction_validity::InvalidTransaction,
 };
 
-use pallet_transaction_payment::{OnChargeTransaction, CurrencyAdapter};
+use pallet_transaction_payment::{CurrencyAdapter, OnChargeTransaction};
 use sp_std::{marker::PhantomData, prelude::*};
 
 pub mod fee_config;
@@ -61,27 +61,48 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub fn deposit_event)]
     pub enum Event<T: Config> {
-		/// A transaction fee has been adjusted by `adjustment`, for `who`
-		AdjustedTransactionFeePaid { who: T::AccountId, adjustment: BalanceOf<T>},
+        /// A transaction fee has been adjusted by `adjustment`, for `who`
+        AdjustedTransactionFeePaid { who: T::AccountId, adjustment: BalanceOf<T> },
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        InvalidFeeType
+        InvalidFeeConfig,
+        InvalidFeeType,
+        KnownSenderMustMatchAccount,
     }
 
     #[pallet::storage]
     #[pallet::getter(fn known_senders)]
     /// A map of known senders
-    pub type KnownSenders<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, FeeConfig<T>, ValueQuery>;
+    pub type KnownSenders<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, FeeConfig<T>, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(0)]
-        pub fn set_known_sender(origin: OriginFor<T>, known_sender: T::AccountId, fee_config: FeeConfig<T>) -> DispatchResult {
+        pub fn set_known_sender(
+            origin: OriginFor<T>,
+            known_sender: T::AccountId,
+            mut fee_config: FeeConfig<T>,
+        ) -> DispatchResult {
             frame_system::ensure_root(origin)?;
+
+            ensure!(fee_config.is_valid() == false, Error::<T>::InvalidFeeConfig);
+
+            match fee_config {
+                FeeConfig::TimeBased(ref mut c) =>
+                    c.set_end_block_number(<frame_system::Pallet<T>>::block_number())?,
+                FeeConfig::TransactionBased(ref mut c) => c.set_fields(
+                    <frame_system::Pallet<T>>::account(&known_sender).nonce,
+                    known_sender.clone(),
+                ),
+                _ => {},
+            }
+
             <KnownSenders<T>>::insert(known_sender, fee_config);
+
             Ok(())
         }
     }
@@ -96,6 +117,31 @@ type NegativeImbalanceOf<C, T> =
 impl<T: Config> Pallet<T> {
     pub fn is_known_sender(address: &<T as frame_system::Config>::AccountId) -> bool {
         return <KnownSenders<T>>::contains_key(address)
+    }
+
+    pub fn calculate_refund_amount(
+        fee_payer: &T::AccountId,
+        corrected_fee: BalanceOf<T>,
+        tip: BalanceOf<T>,
+    ) -> (bool, BalanceOf<T>) {
+        // Calculate how much refund we should return
+        let fee_config = <KnownSenders<T>>::get(fee_payer);
+        // calling is_active does work so cache it here
+        let has_active_config = fee_config.is_active();
+
+        let mut adjusted_fee = corrected_fee;
+
+        if has_active_config {
+            let network_fee_only = corrected_fee.saturating_sub(tip);
+            if let Ok(fee) = fee_config.get_fee(network_fee_only) {
+                adjusted_fee = fee;
+            } else {
+                log::error!("💔 Failed to apply the adjustment fee for known sender: {:?}, adjustment config: {:?}",
+                fee_payer, fee_config);
+            }
+        }
+
+        return (has_active_config, adjusted_fee)
     }
 }
 
@@ -113,85 +159,79 @@ pub struct AvnCurrencyAdapter<C, OU>(PhantomData<(C, OU)>);
 /// then tip.
 impl<T, C, OU> OnChargeTransaction<T> for AvnCurrencyAdapter<C, OU>
 where
-	T: Config + pallet::Config<Currency = C>,
-	C: Currency<<T as frame_system::Config>::AccountId>,
-	C::PositiveImbalance: Imbalance<
-		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-		Opposite = C::NegativeImbalance,
-	>,
-	C::NegativeImbalance: Imbalance<
-		<C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
-		Opposite = C::PositiveImbalance,
-	>,
-	OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
+    T: Config + pallet::Config<Currency = C>,
+    C: Currency<<T as frame_system::Config>::AccountId>,
+    C::PositiveImbalance: Imbalance<
+        <C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+        Opposite = C::NegativeImbalance,
+    >,
+    C::NegativeImbalance: Imbalance<
+        <C as Currency<<T as frame_system::Config>::AccountId>>::Balance,
+        Opposite = C::PositiveImbalance,
+    >,
+    OU: OnUnbalanced<NegativeImbalanceOf<C, T>>,
 {
-	type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
-	type Balance = <C as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    type LiquidityInfo = Option<NegativeImbalanceOf<C, T>>;
+    type Balance = <C as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-	/// Withdraw the predicted fee from the transaction origin.
-	///
-	/// Note: The `fee` already includes the `tip`.
-	fn withdraw_fee(
-		who: &<T as frame_system::Config>::AccountId,
-		_call: &<T as frame_system::Config>::RuntimeCall,
-		_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-		fee: Self::Balance,
-		tip: Self::Balance,
-	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
-        return <CurrencyAdapter::<C, OU> as OnChargeTransaction<T>>::withdraw_fee(who, _call, _info, fee, tip);
-	}
+    /// Withdraw the predicted fee from the transaction origin.
+    ///
+    /// Note: The `fee` already includes the `tip`.
+    fn withdraw_fee(
+        who: &<T as frame_system::Config>::AccountId,
+        _call: &<T as frame_system::Config>::RuntimeCall,
+        _info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+        fee: Self::Balance,
+        tip: Self::Balance,
+    ) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+        return <CurrencyAdapter<C, OU> as OnChargeTransaction<T>>::withdraw_fee(
+            who, _call, _info, fee, tip,
+        )
+    }
 
-	/// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.
-	/// Since the predicted fee might have been too high, parts of the fee may
-	/// be refunded.
-	///
-	/// Note: The `corrected_fee` already includes the `tip`.
-	fn correct_and_deposit_fee(
-		who: &<T as frame_system::Config>::AccountId,
-		_dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-		_post_info: &PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
-		corrected_fee: Self::Balance,
-		tip: Self::Balance,
-		already_withdrawn: Self::LiquidityInfo,
-	) -> Result<(), TransactionValidityError> {
-		if let Some(paid) = already_withdrawn {
+    /// Hand the fee and the tip over to the `[OnUnbalanced]` implementation.
+    /// Since the predicted fee might have been too high, parts of the fee may
+    /// be refunded.
+    ///
+    /// Note: The `corrected_fee` already includes the `tip`.
+    fn correct_and_deposit_fee(
+        who: &<T as frame_system::Config>::AccountId,
+        _dispatch_info: &DispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+        _post_info: &PostDispatchInfoOf<<T as frame_system::Config>::RuntimeCall>,
+        corrected_fee: Self::Balance,
+        tip: Self::Balance,
+        already_withdrawn: Self::LiquidityInfo,
+    ) -> Result<(), TransactionValidityError> {
+        if let Some(paid) = already_withdrawn {
             // Calculate how much refund we should return
-            let mut discounted_corrected_fee: Self::Balance = corrected_fee;
-            let fee_config = <KnownSenders<T>>::get(who);
+            let (has_active_adjustment, adjusted_fee) =
+                Pallet::<T>::calculate_refund_amount(who, corrected_fee, tip);
+            let refund_amount = paid.peek().saturating_sub(adjusted_fee);
 
-            let is_known_sender = Pallet::<T>::is_known_sender(who);
-            if is_known_sender {
-                let network_fee_only = corrected_fee.saturating_sub(tip);
-                if let Ok( adjusted_fee ) = fee_config.get_fee(network_fee_only) {
-                    discounted_corrected_fee = adjusted_fee;
-                } else {
-                    log::error!(":broken_heart: Error: Failed to apply the adjustment fee for known sender: {:?}", who);
-                }
-            }
-
-            let refund_amount = paid.peek().saturating_sub(discounted_corrected_fee);
-
-			// refund to the the account that paid the fees. If this fails, the
-			// account might have dropped below the existential balance. In
-			// that case we don't refund anything.
-			let refund_imbalance = C::deposit_into_existing(who, refund_amount)
-				.unwrap_or_else(|_| C::PositiveImbalance::zero());
-			// merge the imbalance caused by paying the fees and refunding parts of it again.
-			let adjusted_paid = paid
-				.offset(refund_imbalance)
-				.same()
-				.map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
-			// Call someone else to handle the imbalance (fee and tip separately)
-			let (tip, fee) = adjusted_paid.split(tip);
-			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
+            // refund to the the account that paid the fees. If this fails, the
+            // account might have dropped below the existential balance. In
+            // that case we don't refund anything.
+            let refund_imbalance = C::deposit_into_existing(who, refund_amount)
+                .unwrap_or_else(|_| C::PositiveImbalance::zero());
+            // merge the imbalance caused by paying the fees and refunding parts of it again.
+            let adjusted_paid = paid
+                .offset(refund_imbalance)
+                .same()
+                .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+            // Call someone else to handle the imbalance (fee and tip separately)
+            let (tip, fee) = adjusted_paid.split(tip);
+            OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
 
             //Only deposit event if we are applying an adjustment
-            if is_known_sender && fee_config.is_active() {
-                Pallet::<T>::deposit_event(Event::<T>::AdjustedTransactionFeePaid { who: who.clone(), adjustment: discounted_corrected_fee});
+            if has_active_adjustment {
+                Pallet::<T>::deposit_event(Event::<T>::AdjustedTransactionFeePaid {
+                    who: who.clone(),
+                    adjustment: adjusted_fee,
+                });
             }
-		}
-		Ok(())
-	}
+        }
+        Ok(())
+    }
 }
 
 // #[cfg(test)]
