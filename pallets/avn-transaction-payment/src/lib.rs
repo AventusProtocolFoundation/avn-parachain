@@ -253,13 +253,13 @@ where
     }
 }
 
-// #[cfg(test)]
-// #[path = "tests/mock.rs"]
-// mod mock;
+#[cfg(test)]
+#[path = "tests/mock.rs"]
+mod mock;
 
-// #[cfg(test)]
-// #[path = "tests/proxy_tests_no_fees.rs"]
-// pub mod proxy_tests_no_fees;
+#[cfg(test)]
+#[path = "tests/flexi_fee_tests.rs"]
+pub mod flexi_fee_tests;
 
 // #[cfg(test)]
 // #[path = "tests/proxy_tests_with_fees.rs"]
