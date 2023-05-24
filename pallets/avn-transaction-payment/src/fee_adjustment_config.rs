@@ -138,13 +138,13 @@ impl<T: Config> FeeAdjustmentConfig<T> {
 }
 
 // This is needed to have a named parameter when serialising these types in a UI (like PolkadotJS)
-#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub struct Duration<T: Config> {
     pub duration: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub struct NumberOfTransactions<T: Config> {
     pub number_of_transactions: T::Index,
