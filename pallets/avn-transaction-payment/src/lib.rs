@@ -119,7 +119,7 @@ pub mod pallet {
                 }
             }
 
-            ensure!(fee_adjustment_config.is_valid() == false, Error::<T>::InvalidFeeConfig);
+            ensure!(fee_adjustment_config.is_valid() == true, Error::<T>::InvalidFeeConfig);
             <KnownSenders<T>>::insert(known_sender, fee_adjustment_config);
 
             Ok(())
