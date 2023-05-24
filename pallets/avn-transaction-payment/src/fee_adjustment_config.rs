@@ -11,6 +11,24 @@ pub enum FeeType<T: Config> {
     Unknown,
 }
 
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub enum AdjustmentType<T: Config> {
+    TimeBased(T::BlockNumber),
+    TransactionBased(T::Index),
+    Unknown,
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub enum FeeAdjustmentConfig<T: Config> {
+    FixedFee(FixedFeeConfig<T>),
+    PercentageFee(PercentageFeeConfig<T>),
+    TimeBased(TimeBasedConfig<T>),
+    TransactionBased(TransactionBasedConfig<T>),
+    Unknown,
+}
+
 impl<T: Config> Debug for FeeType<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         match self {
@@ -27,20 +45,20 @@ impl<T: Config> Debug for FeeType<T> {
     }
 }
 
-impl<T: Config> Default for FeeType<T> {
-    fn default() -> Self {
-        FeeType::Unknown
+impl<T: Config> Debug for AdjustmentType<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+        match self {
+            Self::TimeBased(c) => {
+                write!(f, "Time based fee[{:?}", c)
+            },
+            Self::TransactionBased(c) => {
+                write!(f, "Transaction based fee[{:?}", c)
+            },
+            Self::Unknown => {
+                write!(f, "Unknwon adjustment type")
+            },
+        }
     }
-}
-
-#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
-pub enum FeeAdjustmentConfig<T: Config> {
-    FixedFee(FixedFeeConfig<T>),
-    PercentageFee(PercentageFeeConfig<T>),
-    TimeBased(TimeBasedConfig<T>),
-    TransactionBased(TransactionBasedConfig<T>),
-    Unknown,
 }
 
 impl<T: Config> Debug for FeeAdjustmentConfig<T> {
@@ -53,23 +71,31 @@ impl<T: Config> Debug for FeeAdjustmentConfig<T> {
                 write!(f, "Percentage fee[{}]", c.percentage)
             },
             Self::TimeBased(c) => {
-                write!(
-                    f,
-                    "Time based fee[{:?}, {:?}, {:?}]",
-                    c.duration, c.end_block_number, c.fee_type
-                )
+                write!(f, "Time based fee[{:?}, {:?}]", c.end_block_number, c.fee_type)
             },
             Self::TransactionBased(c) => {
                 write!(
                     f,
-                    "Transaction based fee[{:?}, {:?}, {:?}, {:?}]",
-                    c.account, c.count, c.end_count, c.fee_type
+                    "Transaction based fee[{:?}, {:?}, {:?}]",
+                    c.account, c.end_count, c.fee_type
                 )
             },
             Self::Unknown => {
                 write!(f, "Fee config unknown")
             },
         }
+    }
+}
+
+impl<T: Config> Default for FeeType<T> {
+    fn default() -> Self {
+        FeeType::Unknown
+    }
+}
+
+impl<T: Config> Default for AdjustmentType<T> {
+    fn default() -> Self {
+        AdjustmentType::Unknown
     }
 }
 
@@ -167,10 +193,6 @@ impl<T: Config> PercentageFeeConfig<T> {
 #[scale_info(skip_type_params(T))]
 pub struct TimeBasedConfig<T: Config> {
     pub fee_type: FeeType<T>,
-
-    // How many blocks (in block number) this config will be active for.
-    pub duration: T::BlockNumber,
-    // The last block number. CurrentBlock + duration.
     end_block_number: T::BlockNumber,
 }
 
@@ -192,8 +214,9 @@ impl<T: Config> TimeBasedConfig<T> {
         return Ok(original_fee)
     }
 
-    pub fn set_end_block_number(&mut self, now: T::BlockNumber){
-        self.end_block_number = now.saturating_add(self.duration);
+    pub fn new(fee_type: FeeType<T>, duration: T::BlockNumber) -> Self {
+        let end_block_number = <frame_system::Pallet<T>>::block_number().saturating_add(duration);
+        return TimeBasedConfig::<T> { fee_type, end_block_number }
     }
 }
 
@@ -201,12 +224,8 @@ impl<T: Config> TimeBasedConfig<T> {
 #[scale_info(skip_type_params(T))]
 pub struct TransactionBasedConfig<T: Config> {
     pub fee_type: FeeType<T>,
-
-    // How many transactions this will apply for
-    pub count: T::Index,
-    // What is the end index (nonce). CurrentIndex + count
-    end_count: T::Index,
     account: T::AccountId,
+    end_count: T::Index,
 }
 
 impl<T: Config> TransactionBasedConfig<T> {
@@ -227,9 +246,22 @@ impl<T: Config> TransactionBasedConfig<T> {
         return Ok(original_fee)
     }
 
-    pub fn set_fields(&mut self, current_nonce: T::Index, account: T::AccountId) {
-        self.account = account;
-        self.end_count = current_nonce.saturating_add(self.count);
+    pub fn new(fee_type: FeeType<T>, account: T::AccountId, count: T::Index) -> Self {
+        let end_count = <frame_system::Pallet<T>>::account(&account).nonce.saturating_add(count);
+        return TransactionBasedConfig::<T> { fee_type, account, end_count }
+    }
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct AdjustmentInput<T: Config> {
+    pub fee_type: FeeType<T>,
+    pub adjustment_type: Option<AdjustmentType<T>>,
+}
+
+impl<T: Config> Debug for AdjustmentInput<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+        write!(f, "Adjustment type: {:?}, Fee type: {:?}", self.adjustment_type, self.fee_type)
     }
 }
 
@@ -239,9 +271,7 @@ fn calculate_fee<T: Config>(
 ) -> Result<BalanceOf<T>, Error<T>> {
     return match fee_type {
         FeeType::FixedFee(f) => Ok(f.fee),
-        FeeType::PercentageFee(p) => {
-            return Ok(Perbill::from_percent(p.percentage) * original_fee)
-        },
+        FeeType::PercentageFee(p) => return Ok(Perbill::from_percent(p.percentage) * original_fee),
         _ => Err(Error::InvalidFeeType),
     }
 }

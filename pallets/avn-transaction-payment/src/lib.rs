@@ -27,7 +27,10 @@ use pallet_transaction_payment::{CurrencyAdapter, OnChargeTransaction};
 use sp_std::{marker::PhantomData, prelude::*};
 
 pub mod fee_adjustment_config;
-use fee_adjustment_config::*;
+use fee_adjustment_config::{
+    AdjustmentType::{TimeBased, TransactionBased},
+    *,
+};
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -85,22 +88,38 @@ pub mod pallet {
         pub fn set_known_sender(
             origin: OriginFor<T>,
             known_sender: T::AccountId,
-            mut fee_adjustment_config: FeeAdjustmentConfig<T>,
+            config: AdjustmentInput<T>,
         ) -> DispatchResult {
             frame_system::ensure_root(origin)?;
 
-            ensure!(fee_adjustment_config.is_valid() == false, Error::<T>::InvalidFeeConfig);
-
-            match fee_adjustment_config {
-                FeeAdjustmentConfig::TimeBased(ref mut c) =>
-                    c.set_end_block_number(<frame_system::Pallet<T>>::block_number()),
-                FeeAdjustmentConfig::TransactionBased(ref mut c) => c.set_fields(
-                    <frame_system::Pallet<T>>::account(&known_sender).nonce,
-                    known_sender.clone(),
-                ),
-                _ => {},
+            let mut fee_adjustment_config: FeeAdjustmentConfig<T> = Default::default();
+            if let Some(adjustment_type) = config.adjustment_type {
+                match adjustment_type {
+                    TimeBased(b) => {
+                        fee_adjustment_config = FeeAdjustmentConfig::TimeBased(
+                            TimeBasedConfig::new(config.fee_type, b),
+                        );
+                    },
+                    TransactionBased(i) => {
+                        fee_adjustment_config = FeeAdjustmentConfig::TransactionBased(
+                            TransactionBasedConfig::new(config.fee_type, known_sender.clone(), i),
+                        );
+                    },
+                    _ => {},
+                }
+            } else {
+                match config.fee_type {
+                    FeeType::FixedFee(f) => {
+                        fee_adjustment_config = FeeAdjustmentConfig::FixedFee(f);
+                    },
+                    FeeType::PercentageFee(p) => {
+                        fee_adjustment_config = FeeAdjustmentConfig::PercentageFee(p);
+                    },
+                    _ => {},
+                }
             }
 
+            ensure!(fee_adjustment_config.is_valid() == false, Error::<T>::InvalidFeeConfig);
             <KnownSenders<T>>::insert(known_sender, fee_adjustment_config);
 
             Ok(())
