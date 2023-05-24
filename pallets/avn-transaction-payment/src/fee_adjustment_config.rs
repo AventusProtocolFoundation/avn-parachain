@@ -11,11 +11,14 @@ pub enum FeeType<T: Config> {
     Unknown,
 }
 
+pub type Duration<T> = <T as frame_system::Config>::BlockNumber;
+pub type NumberOfTransactions<T> = <T as frame_system::Config>::Index;
+
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub enum AdjustmentType<T: Config> {
-    TimeBased(T::BlockNumber),
-    TransactionBased(T::Index),
+    TimeBased(Duration<T>),
+    TransactionBased(NumberOfTransactions<T>),
     Unknown,
 }
 
