@@ -171,7 +171,6 @@ pub struct TimeBasedConfig<T: Config> {
     // How many blocks (in block number) this config will be active for.
     pub duration: T::BlockNumber,
     // The last block number. CurrentBlock + duration.
-    #[codec(skip)]
     end_block_number: T::BlockNumber,
 }
 
@@ -206,7 +205,6 @@ pub struct TransactionBasedConfig<T: Config> {
     // How many transactions this will apply for
     pub count: T::Index,
     // What is the end index (nonce). CurrentIndex + count
-    #[codec(skip)]
     end_count: T::Index,
     account: T::AccountId,
 }
