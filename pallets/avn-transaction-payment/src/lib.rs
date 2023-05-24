@@ -93,8 +93,8 @@ pub mod pallet {
             frame_system::ensure_root(origin)?;
 
             let mut fee_adjustment_config: FeeAdjustmentConfig<T> = Default::default();
-            if let Some(adjustment_type) = config.adjustment_type {
-                match adjustment_type {
+            if config.adjustment_type != AdjustmentType::None {
+                match config.adjustment_type {
                     TimeBased(b) => {
                         fee_adjustment_config = FeeAdjustmentConfig::TimeBased(
                             TimeBasedConfig::new(config.fee_type, b.duration),
