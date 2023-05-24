@@ -11,8 +11,13 @@ pub enum FeeType<T: Config> {
     Unknown,
 }
 
-pub type Duration<T> = <T as frame_system::Config>::BlockNumber;
-pub type NumberOfTransactions<T> = <T as frame_system::Config>::Index;
+// This is needed to have a named parameter when serialising these types in a UI (like PolkadotJS)
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct Duration<T: Config>(pub T::BlockNumber);
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct NumberOfTransactions<T: Config>(pub T::Index);
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
@@ -52,10 +57,10 @@ impl<T: Config> Debug for AdjustmentType<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         match self {
             Self::TimeBased(c) => {
-                write!(f, "Time based fee[{:?}", c)
+                write!(f, "Time based fee[{:?}", c.0)
             },
             Self::TransactionBased(c) => {
-                write!(f, "Transaction based fee[{:?}", c)
+                write!(f, "Transaction based fee[{:?}", c.0)
             },
             Self::Unknown => {
                 write!(f, "Unknwon adjustment type")
