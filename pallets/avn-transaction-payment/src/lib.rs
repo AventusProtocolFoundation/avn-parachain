@@ -97,12 +97,12 @@ pub mod pallet {
                 match adjustment_type {
                     TimeBased(b) => {
                         fee_adjustment_config = FeeAdjustmentConfig::TimeBased(
-                            TimeBasedConfig::new(config.fee_type, b.0),
+                            TimeBasedConfig::new(config.fee_type, b.duration),
                         );
                     },
                     TransactionBased(i) => {
                         fee_adjustment_config = FeeAdjustmentConfig::TransactionBased(
-                            TransactionBasedConfig::new(config.fee_type, known_sender.clone(), i.0),
+                            TransactionBasedConfig::new(config.fee_type, known_sender.clone(), i.number_of_transactions),
                         );
                     },
                     _ => {},

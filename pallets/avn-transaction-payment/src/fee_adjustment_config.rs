@@ -11,14 +11,6 @@ pub enum FeeType<T: Config> {
     Unknown,
 }
 
-// This is needed to have a named parameter when serialising these types in a UI (like PolkadotJS)
-#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
-#[scale_info(skip_type_params(T))]
-pub struct Duration<T: Config>(pub T::BlockNumber);
-#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
-#[scale_info(skip_type_params(T))]
-pub struct NumberOfTransactions<T: Config>(pub T::Index);
-
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub enum AdjustmentType<T: Config> {
@@ -57,10 +49,10 @@ impl<T: Config> Debug for AdjustmentType<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         match self {
             Self::TimeBased(c) => {
-                write!(f, "Time based fee[{:?}", c.0)
+                write!(f, "Time based fee[{:?}", c.duration)
             },
             Self::TransactionBased(c) => {
-                write!(f, "Transaction based fee[{:?}", c.0)
+                write!(f, "Transaction based fee[{:?}", c.number_of_transactions)
             },
             Self::Unknown => {
                 write!(f, "Unknwon adjustment type")
@@ -143,6 +135,19 @@ impl<T: Config> FeeAdjustmentConfig<T> {
             FeeAdjustmentConfig::Unknown => Ok(original_fee),
         }
     }
+}
+
+// This is needed to have a named parameter when serialising these types in a UI (like PolkadotJS)
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct Duration<T: Config> {
+    pub duration: T::BlockNumber,
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct NumberOfTransactions<T: Config> {
+    pub number_of_transactions: T::Index,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
