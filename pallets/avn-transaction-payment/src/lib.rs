@@ -26,8 +26,8 @@ use sp_runtime::{
 use pallet_transaction_payment::{CurrencyAdapter, OnChargeTransaction};
 use sp_std::{marker::PhantomData, prelude::*};
 
-pub mod fee_config;
-use fee_config::*;
+pub mod fee_adjustment_config;
+use fee_adjustment_config::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -76,7 +76,7 @@ pub mod pallet {
     #[pallet::getter(fn known_senders)]
     /// A map of known senders
     pub type KnownSenders<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, FeeConfig<T>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, T::AccountId, FeeAdjustmentConfig<T>, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -85,23 +85,23 @@ pub mod pallet {
         pub fn set_known_sender(
             origin: OriginFor<T>,
             known_sender: T::AccountId,
-            mut fee_config: FeeConfig<T>,
+            mut fee_adjustment_config: FeeAdjustmentConfig<T>,
         ) -> DispatchResult {
             frame_system::ensure_root(origin)?;
 
-            ensure!(fee_config.is_valid() == false, Error::<T>::InvalidFeeConfig);
+            ensure!(fee_adjustment_config.is_valid() == false, Error::<T>::InvalidFeeConfig);
 
-            match fee_config {
-                FeeConfig::TimeBased(ref mut c) =>
+            match fee_adjustment_config {
+                FeeAdjustmentConfig::TimeBased(ref mut c) =>
                     c.set_end_block_number(<frame_system::Pallet<T>>::block_number()),
-                FeeConfig::TransactionBased(ref mut c) => c.set_fields(
+                FeeAdjustmentConfig::TransactionBased(ref mut c) => c.set_fields(
                     <frame_system::Pallet<T>>::account(&known_sender).nonce,
                     known_sender.clone(),
                 ),
                 _ => {},
             }
 
-            <KnownSenders<T>>::insert(known_sender, fee_config);
+            <KnownSenders<T>>::insert(known_sender, fee_adjustment_config);
 
             Ok(())
         }
@@ -125,19 +125,19 @@ impl<T: Config> Pallet<T> {
         tip: BalanceOf<T>,
     ) -> (bool, BalanceOf<T>) {
         // Calculate how much refund we should return
-        let fee_config = <KnownSenders<T>>::get(fee_payer);
+        let fee_adjustment_config = <KnownSenders<T>>::get(fee_payer);
         // calling is_active does work so cache it here
-        let has_active_config = fee_config.is_active();
+        let has_active_config = fee_adjustment_config.is_active();
 
         let mut adjusted_fee = corrected_fee;
 
         if has_active_config {
             let network_fee_only = corrected_fee.saturating_sub(tip);
-            if let Ok(fee) = fee_config.get_fee(network_fee_only) {
+            if let Ok(fee) = fee_adjustment_config.get_fee(network_fee_only) {
                 adjusted_fee = fee;
             } else {
                 log::error!("💔 Failed to apply the adjustment fee for known sender: {:?}, adjustment config: {:?}",
-                fee_payer, fee_config);
+                fee_payer, fee_adjustment_config);
             }
         }
 

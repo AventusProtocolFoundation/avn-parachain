@@ -35,7 +35,7 @@ impl<T: Config> Default for FeeType<T> {
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
-pub enum FeeConfig<T: Config> {
+pub enum FeeAdjustmentConfig<T: Config> {
     FixedFee(FixedFeeConfig<T>),
     PercentageFee(PercentageFeeConfig<T>),
     TimeBased(TimeBasedConfig<T>),
@@ -43,7 +43,7 @@ pub enum FeeConfig<T: Config> {
     Unknown,
 }
 
-impl<T: Config> Debug for FeeConfig<T> {
+impl<T: Config> Debug for FeeAdjustmentConfig<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         match self {
             Self::FixedFee(c) => {
@@ -73,40 +73,40 @@ impl<T: Config> Debug for FeeConfig<T> {
     }
 }
 
-impl<T: Config> Default for FeeConfig<T> {
+impl<T: Config> Default for FeeAdjustmentConfig<T> {
     fn default() -> Self {
-        FeeConfig::Unknown
+        FeeAdjustmentConfig::Unknown
     }
 }
 
-impl<T: Config> FeeConfig<T> {
+impl<T: Config> FeeAdjustmentConfig<T> {
     pub fn is_valid(&self) -> bool {
         return match self {
-            FeeConfig::FixedFee(c) => c.is_valid(),
-            FeeConfig::PercentageFee(c) => c.is_valid(),
-            FeeConfig::TimeBased(c) => c.is_valid(),
-            FeeConfig::TransactionBased(c) => c.is_valid(),
-            FeeConfig::Unknown => false,
+            FeeAdjustmentConfig::FixedFee(c) => c.is_valid(),
+            FeeAdjustmentConfig::PercentageFee(c) => c.is_valid(),
+            FeeAdjustmentConfig::TimeBased(c) => c.is_valid(),
+            FeeAdjustmentConfig::TransactionBased(c) => c.is_valid(),
+            FeeAdjustmentConfig::Unknown => false,
         }
     }
 
     pub fn is_active(&self) -> bool {
         return match self {
-            FeeConfig::FixedFee(_) => true,
-            FeeConfig::PercentageFee(_) => true,
-            FeeConfig::TimeBased(c) => c.is_active(),
-            FeeConfig::TransactionBased(c) => c.is_active(),
-            FeeConfig::Unknown => false,
+            FeeAdjustmentConfig::FixedFee(_) => true,
+            FeeAdjustmentConfig::PercentageFee(_) => true,
+            FeeAdjustmentConfig::TimeBased(c) => c.is_active(),
+            FeeAdjustmentConfig::TransactionBased(c) => c.is_active(),
+            FeeAdjustmentConfig::Unknown => false,
         }
     }
 
     pub fn get_fee(&self, original_fee: BalanceOf<T>) -> Result<BalanceOf<T>, Error<T>> {
         return match self {
-            FeeConfig::FixedFee(c) => c.get_fee(original_fee),
-            FeeConfig::PercentageFee(c) => c.get_fee(original_fee),
-            FeeConfig::TimeBased(c) => c.get_fee(original_fee),
-            FeeConfig::TransactionBased(c) => c.get_fee(original_fee),
-            FeeConfig::Unknown => Ok(original_fee),
+            FeeAdjustmentConfig::FixedFee(c) => c.get_fee(original_fee),
+            FeeAdjustmentConfig::PercentageFee(c) => c.get_fee(original_fee),
+            FeeAdjustmentConfig::TimeBased(c) => c.get_fee(original_fee),
+            FeeAdjustmentConfig::TransactionBased(c) => c.get_fee(original_fee),
+            FeeAdjustmentConfig::Unknown => Ok(original_fee),
         }
     }
 }
