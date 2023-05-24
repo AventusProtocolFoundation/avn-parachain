@@ -8,19 +8,17 @@
 
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
-    traits::{Currency},
+    traits::Currency,
 };
 use frame_system::{self as system};
 
 use core::convert::TryInto;
-use sp_runtime::{
-    traits::{Dispatchable},
-};
+use sp_runtime::traits::Dispatchable;
 
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::{pallet_prelude::*};
+    use frame_support::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
@@ -45,11 +43,9 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub fn deposit_event)]
-    pub enum Event<T: Config> {
-    }
+    pub enum Event<T: Config> {}
     #[pallet::error]
-    pub enum Error<T> {
-    }
+    pub enum Error<T> {}
     #[pallet::call]
-    impl<T: Config> Pallet<T> { }
+    impl<T: Config> Pallet<T> {}
 }
