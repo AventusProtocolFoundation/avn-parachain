@@ -140,6 +140,7 @@ impl<T: Config> FixedFeeConfig<T> {
 #[scale_info(skip_type_params(T))]
 pub struct PercentageFeeConfig<T: Config> {
     pub percentage: u32,
+    #[codec(skip)]
     _marker: PhantomData<T>,
 }
 
@@ -170,6 +171,7 @@ pub struct TimeBasedConfig<T: Config> {
     // How many blocks (in block number) this config will be active for.
     pub duration: T::BlockNumber,
     // The last block number. CurrentBlock + duration.
+    #[codec(skip)]
     end_block_number: T::BlockNumber,
 }
 
@@ -191,9 +193,8 @@ impl<T: Config> TimeBasedConfig<T> {
         return Ok(original_fee)
     }
 
-    pub fn set_end_block_number(&mut self, now: T::BlockNumber) -> Result<(), Error<T>> {
+    pub fn set_end_block_number(&mut self, now: T::BlockNumber){
         self.end_block_number = now.saturating_add(self.duration);
-        Ok(())
     }
 }
 
@@ -205,6 +206,7 @@ pub struct TransactionBasedConfig<T: Config> {
     // How many transactions this will apply for
     pub count: T::Index,
     // What is the end index (nonce). CurrentIndex + count
+    #[codec(skip)]
     end_count: T::Index,
     account: T::AccountId,
 }

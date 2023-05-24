@@ -93,7 +93,7 @@ pub mod pallet {
 
             match fee_config {
                 FeeConfig::TimeBased(ref mut c) =>
-                    c.set_end_block_number(<frame_system::Pallet<T>>::block_number())?,
+                    c.set_end_block_number(<frame_system::Pallet<T>>::block_number()),
                 FeeConfig::TransactionBased(ref mut c) => c.set_fields(
                     <frame_system::Pallet<T>>::account(&known_sender).nonce,
                     known_sender.clone(),
