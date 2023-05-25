@@ -265,6 +265,7 @@ impl<T: Config> TransactionBasedConfig<T> {
     }
 }
 
+// This is used to define the user input when specifying a fee adjustment config
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub struct AdjustmentInput<T: Config> {
