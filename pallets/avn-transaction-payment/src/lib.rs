@@ -45,8 +45,12 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub fn deposit_event)]
     pub enum Event<T: Config> {}
+
     #[pallet::error]
-    pub enum Error<T> {}
+    pub enum Error<T> {
+        InvalidFeeType,
+    }
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {}
 }
