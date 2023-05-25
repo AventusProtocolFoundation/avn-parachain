@@ -16,10 +16,13 @@ use core::convert::TryInto;
 pub use pallet::*;
 use sp_runtime::traits::Dispatchable;
 
+pub mod fee_adjustment_config;
+use fee_adjustment_config::*;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
+    use frame_support::{pallet_prelude::*, Blake2_128Concat};
+    use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
@@ -47,6 +50,11 @@ pub mod pallet {
     pub enum Event<T: Config> {}
     #[pallet::error]
     pub enum Error<T> {}
+    #[pallet::storage]
+    #[pallet::getter(fn known_senders)]
+    /// A map of known senders
+    pub type KnownSenders<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, FeeAdjustmentConfig<T>, ValueQuery>;
     #[pallet::call]
     impl<T: Config> Pallet<T> {}
 }
