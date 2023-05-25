@@ -143,7 +143,7 @@ pub mod pallet {
             let sender_exists = <KnownSenders<T>>::contains_key(&known_sender);
             <KnownSenders<T>>::insert(&known_sender, &fee_adjustment_config);
 
-            if sender_exists {
+            if !sender_exists {
                 Self::deposit_event(Event::<T>::KnownSenderAdded {
                     known_sender,
                     adjustment: fee_adjustment_config,
