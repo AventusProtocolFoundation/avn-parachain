@@ -74,16 +74,8 @@ fn lydia_test_register_existing_validator() {
 
 #[test]
 fn test_decompress_eth_public_key() {
-    // "021f21d300f707014f718f41c969c054936b7a105a478da74d37ec75fa0f831f87"
-    let compressed_key = ecdsa::Public::from_raw(hex!(
-        "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
-    ));
-    // "1f21d300f707014f718f41c969c054936b7a105a478da74d37ec75fa0f831f872aeb02d6af6c098e3d523cdcca8e82c13672ff083b94f4a8fc3d265a3369db20"
-    let expected_decompressed_key = H512::from_slice(
-        hex!(
-            "407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57162f3d20faa2b513964472d2f8d4b585330c565a5696e1829a537bb2856c0dbc"
-        ).as_slice()
-    );
+    let compressed_key = mock::compressed_key();
+    let expected_decompressed_key = mock::expected_decompressed_key();
 
     let decompressed_key = ValidatorManager::decompress_eth_public_key(compressed_key);
 
