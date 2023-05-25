@@ -48,8 +48,12 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub fn deposit_event)]
     pub enum Event<T: Config> {}
+
     #[pallet::error]
-    pub enum Error<T> {}
+    pub enum Error<T> {
+        InvalidFeeType,
+    }
+
     #[pallet::storage]
     #[pallet::getter(fn known_senders)]
     /// A map of known senders
@@ -58,5 +62,6 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {}
 }
+
 pub(crate) type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
