@@ -1,7 +1,7 @@
 use crate::{BalanceOf, Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::{scale_info::TypeInfo, traits::Zero, Perbill, Saturating};
-use sp_std::{fmt::Debug};
+use sp_std::{fmt::Debug, marker::PhantomData};
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
@@ -16,6 +16,7 @@ pub enum FeeAdjustmentConfig<T: Config> {
     FixedFee(FixedFeeConfig<T>),
     PercentageFee(PercentageFeeConfig<T>),
     TimeBased(TimeBasedConfig<T>),
+    TransactionBased(TransactionBasedConfig<T>),
     None,
 }
 
@@ -46,6 +47,13 @@ impl<T: Config> Debug for FeeAdjustmentConfig<T> {
             Self::TimeBased(c) => {
                 write!(f, "Time based fee[{:?}, {:?}]", c.end_block_number, c.fee_type)
             },
+            Self::TransactionBased(c) => {
+                write!(
+                    f,
+                    "Transaction based fee[{:?}, {:?}, {:?}]",
+                    c.account, c.end_count, c.fee_type
+                )
+            },
             Self::None => {
                 write!(f, "Fee config unknown")
             },
@@ -70,6 +78,7 @@ impl<T: Config> FeeAdjustmentConfig<T> {
             FeeAdjustmentConfig::FixedFee(c) => c.is_valid(),
             FeeAdjustmentConfig::PercentageFee(c) => c.is_valid(),
             FeeAdjustmentConfig::TimeBased(c) => c.is_valid(),
+            FeeAdjustmentConfig::TransactionBased(c) => c.is_valid(),
             FeeAdjustmentConfig::None => false,
         }
     }
@@ -79,6 +88,7 @@ impl<T: Config> FeeAdjustmentConfig<T> {
             FeeAdjustmentConfig::FixedFee(_) => true,
             FeeAdjustmentConfig::PercentageFee(_) => true,
             FeeAdjustmentConfig::TimeBased(c) => c.is_active(),
+            FeeAdjustmentConfig::TransactionBased(c) => c.is_active(),
             FeeAdjustmentConfig::None => false,
         }
     }
@@ -88,6 +98,7 @@ impl<T: Config> FeeAdjustmentConfig<T> {
             FeeAdjustmentConfig::FixedFee(c) => c.get_fee(original_fee),
             FeeAdjustmentConfig::PercentageFee(c) => c.get_fee(original_fee),
             FeeAdjustmentConfig::TimeBased(c) => c.get_fee(original_fee),
+            FeeAdjustmentConfig::TransactionBased(c) => c.get_fee(original_fee),
             FeeAdjustmentConfig::None => Ok(original_fee),
         }
     }
@@ -176,6 +187,37 @@ impl<T: Config> TimeBasedConfig<T> {
     }
 }
 
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[scale_info(skip_type_params(T))]
+pub struct TransactionBasedConfig<T: Config> {
+    pub fee_type: FeeType<T>,
+    account: T::AccountId,
+    end_count: T::Index,
+}
+
+impl<T: Config> TransactionBasedConfig<T> {
+    pub fn is_valid(&self) -> bool {
+        return !self.end_count.is_zero() && self.fee_type != FeeType::None
+    }
+
+    pub fn is_active(&self) -> bool {
+        return self.end_count >= <frame_system::Pallet<T>>::account(&self.account).nonce
+    }
+
+    pub fn get_fee(&self, original_fee: BalanceOf<T>) -> Result<BalanceOf<T>, Error<T>> {
+        if self.is_active() {
+            return calculate_fee::<T>(original_fee, &self.fee_type)
+        }
+
+        // There is no adjutment to make so return the original fee
+        return Ok(original_fee)
+    }
+
+    pub fn new(fee_type: FeeType<T>, account: T::AccountId, count: T::Index) -> Self {
+        let end_count = <frame_system::Pallet<T>>::account(&account).nonce.saturating_add(count);
+        return TransactionBasedConfig::<T> { fee_type, account, end_count }
+    }
+}
 
 fn calculate_fee<T: Config>(
     original_fee: BalanceOf<T>,
