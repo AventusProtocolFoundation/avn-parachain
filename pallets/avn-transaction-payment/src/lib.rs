@@ -8,6 +8,7 @@
 
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
+    log,
     traits::{Currency, Imbalance, OnUnbalanced},
     unsigned::TransactionValidityError,
 };
@@ -72,6 +73,11 @@ pub mod pallet {
         // An existing known sender has been removed
         KnownSenderRemoved {
             known_sender: T::AccountId,
+        },
+        /// An adjusted transaction fee of `fee` has been paid by `who`
+        AdjustedTransactionFeePaid {
+            who: T::AccountId,
+            fee: BalanceOf<T>,
         },
     }
 
@@ -177,6 +183,35 @@ pub(crate) type BalanceOf<T> =
 type NegativeImbalanceOf<C, T> =
     <C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
+impl<T: Config> Pallet<T> {
+    pub fn calculate_refund_amount(
+        fee_payer: &T::AccountId,
+        corrected_fee: BalanceOf<T>,
+        tip: BalanceOf<T>,
+    ) -> (bool, BalanceOf<T>) {
+        // Calculate how much refund we should return
+        let fee_adjustment_config = <KnownSenders<T>>::get(fee_payer);
+        // calling is_active does some computation so cache it here
+        let has_active_config = fee_adjustment_config.is_active();
+
+        let mut adjusted_fee = corrected_fee;
+
+        if has_active_config {
+            let network_fee_only = corrected_fee.saturating_sub(tip);
+            if let Ok(fee) = fee_adjustment_config.get_fee(network_fee_only) {
+                adjusted_fee = fee;
+            } else {
+                log::error!("💔 Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}",
+                fee_payer, fee_adjustment_config);
+
+                return (false, adjusted_fee)
+            }
+        }
+
+        return (has_active_config, adjusted_fee)
+    }
+}
+
 /// Implements the transaction payment for a pallet implementing the `Currency`
 /// trait (eg. the pallet_balances) using an unbalance handler (implementing
 /// `OnUnbalanced`).
@@ -236,7 +271,9 @@ where
     ) -> Result<(), TransactionValidityError> {
         if let Some(paid) = already_withdrawn {
             // Calculate how much refund we should return
-            let refund_amount = paid.peek().saturating_sub(corrected_fee);
+            let (has_active_adjustment, adjusted_fee) =
+                Pallet::<T>::calculate_refund_amount(who, corrected_fee, tip);
+            let refund_amount = paid.peek().saturating_sub(adjusted_fee);
 
             // refund to the the account that paid the fees. If this fails, the
             // account might have dropped below the existential balance. In
@@ -251,6 +288,14 @@ where
             // Call someone else to handle the imbalance (fee and tip separately)
             let (tip, fee) = adjusted_paid.split(tip);
             OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
+
+            //Only deposit event if we are applying an adjustment
+            if has_active_adjustment {
+                Pallet::<T>::deposit_event(Event::<T>::AdjustedTransactionFeePaid {
+                    who: who.clone(),
+                    fee: adjusted_fee,
+                });
+            }
         }
         Ok(())
     }
