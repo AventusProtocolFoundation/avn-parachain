@@ -13,6 +13,7 @@ use frame_support::{
 use frame_system::{self as system};
 
 use core::convert::TryInto;
+pub use pallet::*;
 use sp_runtime::traits::Dispatchable;
 
 #[frame_support::pallet]
@@ -49,3 +50,5 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {}
 }
+pub(crate) type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
