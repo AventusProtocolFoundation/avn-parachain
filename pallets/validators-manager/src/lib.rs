@@ -31,7 +31,7 @@ use pallet_avn::{
         process_reject_vote, reject_vote_validate_unsigned, VotingSessionData,
         VotingSessionManager, APPROVE_VOTE, REJECT_VOTE,
     },
-    AccountToBytesConverter, DisabledValidatorChecker, Enforcer, Error as avn_error,
+    AccountToBytesConverter, DisabledValidatorChecker, Error as avn_error,
     EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
     ValidatorRegistrationNotifier,
 };
@@ -301,6 +301,7 @@ pub mod pallet {
         #[transactional]
         pub fn remove_validator(
             origin: OriginFor<T>,
+            collator_eth_public_key: ecdsa::Public,
             collator_account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
@@ -318,7 +319,7 @@ pub mod pallet {
             // TODO [TYPE: security][PRI: low][CRITICAL][JIRA: 66]: ensure that we have
             // authorization from the whole of T2? This is part of the package to
             // implement validator removals, slashing and the economics around that
-            Self::remove_resigned_validator(&collator_account_id)?;
+            Self::remove_resigned_validator(collator_eth_public_key, &collator_account_id)?;
 
             Self::deposit_event(Event::<T>::ValidatorDeregistered {
                 validator_id: collator_account_id,
@@ -345,10 +346,12 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
             ensure_none(origin)?;
-
+            println!("HELP 1 !!!");
             let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&action_id)?;
+            println!("{:?}, {:?}, {:?}", eth_encoded_data, &validator, &approval_signature);
             if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
             {
+                println!("inside the if !!!!");
                 create_and_report_validators_offence::<T>(
                     &validator.account_id,
                     &vec![validator.account_id.clone()],
@@ -609,12 +612,14 @@ impl<T: Config> Pallet<T> {
         action_id: &ActionId<T::AccountId>,
     ) -> Result<String, DispatchError> {
         let validators_action_data = Self::try_get_validators_action_data(action_id)?;
+        println!("HELP 7 !!!! {:?}", &validators_action_data.reserved_eth_transaction);
         let eth_description = EthAbiHelper::generate_ethereum_description_for_signature_request(
             &T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator),
             &validators_action_data.reserved_eth_transaction,
             validators_action_data.eth_transaction_id,
         )
         .map_err(|_| Error::<T>::ErrorGeneratingEthDescription)?;
+        println!("HELp 8 !!! {:?}", eth_description);
 
         Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
     }
@@ -873,53 +878,14 @@ impl<T: Config> Pallet<T> {
             !disabled_validators.iter().any(|v| v == deregistered_validator)
     }
 
-    fn remove_slashed_validator(
-        slashed_validator_id: &<T as SessionConfig>::ValidatorId,
+    fn remove_resigned_validator(
+        t1_eth_public_key: ecdsa::Public,
+        resigned_validator: &T::AccountId,
     ) -> DispatchResult {
-        let slashed_validator =
-            &T::AccountToBytesConvert::try_from_any(slashed_validator_id.encode())?;
-
-        if !AVN::<T>::is_validator(slashed_validator) {
-            return Err(Error::<T>::SlashedValidatorIsNotFound)?
-        }
-
-        // Remove collator from parachain_staking pallet
-        let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
-        parachain_staking::Pallet::<T>::schedule_leave_candidates(
-            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
-                slashed_validator.clone(),
-            )),
-            candidate_count,
-        )
-        .map_err(|e| {
-            log::error!("💔 Error removing slashed validator: {:?}", e);
-            Error::<T>::ErrorRemovingAccountFromCollators
-        })?;
-
-        let candidate_tx = EthTransactionType::SlashValidator(SlashValidatorData::new(
-            T::AccountToBytesConvert::into_bytes(slashed_validator),
-        ));
-
-        let ingress_counter = Self::get_ingress_counter() + 1;
-        Self::remove(
-            slashed_validator,
-            ingress_counter,
-            ValidatorsActionType::Slashed,
-            candidate_tx,
-        )?;
-        AVN::<T>::remove_validator_from_active_list(slashed_validator);
-
-        Self::remove_ethereum_public_key_if_required(&slashed_validator);
-
-        Self::deposit_event(Event::<T>::ValidatorSlashed {
-            action_id: ActionId { action_account_id: slashed_validator.clone(), ingress_counter },
-        });
-
-        return Ok(())
-    }
-
-    fn remove_resigned_validator(resigned_validator: &T::AccountId) -> DispatchResult {
+        let decompressed_eth_public_key =
+            Self::decompress_eth_public_key(t1_eth_public_key).unwrap();
         let candidate_tx = EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+            decompressed_eth_public_key,
             T::AccountToBytesConvert::into_bytes(resigned_validator),
         ));
         let ingress_counter = Self::get_ingress_counter() + 1;
@@ -1157,13 +1123,5 @@ impl<T: Config> EthereumPublicKeyChecker<T::AccountId> for Pallet<T> {
 impl<T: Config> DisabledValidatorChecker<T::AccountId> for Pallet<T> {
     fn is_disabled(validator_account_id: &T::AccountId) -> bool {
         return Self::has_active_slash(validator_account_id)
-    }
-}
-
-impl<T: Config> Enforcer<<T as session::Config>::ValidatorId> for Pallet<T> {
-    fn slash_validator(
-        slashed_validator_id: &<T as session::Config>::ValidatorId,
-    ) -> DispatchResult {
-        return Self::remove_slashed_validator(slashed_validator_id)
     }
 }

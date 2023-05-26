@@ -3,7 +3,10 @@
 use super::mock::*;
 use crate::{ethereum_transaction::*, system::RawOrigin, *};
 use frame_support::{assert_err, assert_noop, assert_ok};
-use sp_core::offchain::testing::{OffchainState, PendingRequest};
+use sp_core::{
+    offchain::testing::{OffchainState, PendingRequest},
+    H512,
+};
 use sp_runtime::{testing::TestSignature, traits::BadOrigin};
 use std::convert::TryInto;
 
@@ -70,11 +73,13 @@ fn generate_deregister_validator_mock_data_with_signatures() -> EthTransactionCa
 fn generate_deregister_validator_mock_data_with_sender() -> (EthSignatures, EthTransactionCandidate)
 {
     let sigs = EthSignatures::new();
+    let t1_public_key = [5u8; 64];
     let t2_public_key = [4u8; 32];
     let candidate_transaction = EthTransactionCandidate::new(
         EthereumTransactions::get_unique_transaction_identifier(),
         Some(to_32_bytes(&SELECTED_SENDER_ACCOUNT_ID)),
         EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+            H512::from(t1_public_key.clone()),
             t2_public_key.clone(),
         )),
         DEFAULT_QUORUM,

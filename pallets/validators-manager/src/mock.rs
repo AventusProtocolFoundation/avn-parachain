@@ -366,23 +366,24 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         submitter: AccountId,
         _signatures: Vec<ecdsa::Signature>,
     ) -> DispatchResult {
+        let collator_eth_public_key = ecdsa::Public::from_raw(hex!(
+            "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
+        ));
+        let decompressed_collator_eth_public_key =
+            ValidatorManager::decompress_eth_public_key(collator_eth_public_key).unwrap();
         let validator_t2_pub_key_used_in_unit_tests: [u8; 32] =
             <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(&validator_id_3());
         let validator_t2_pub_key_used_in_benchmarks: [u8; 32] = MOCK_T2_PUBLIC_KEY_BYTES;
-        let candidate_pub_key: [u8; 32] =
-            <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(
-                &get_registered_validator_id(),
-            );
 
         if submitter == get_registered_validator_id() ||
             candidate_type ==
-                EthTransactionType::SlashValidator(SlashValidatorData::new(candidate_pub_key)) ||
-            candidate_type ==
                 EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+                    decompressed_collator_eth_public_key,
                     validator_t2_pub_key_used_in_unit_tests,
                 )) ||
             candidate_type ==
                 EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+                    decompressed_collator_eth_public_key,
                     validator_t2_pub_key_used_in_benchmarks,
                 ))
         {

@@ -242,8 +242,8 @@ impl<T: Config> Pallet<T> {
         if !Self::is_validator(&validator.account_id) {
             return false
         }
-
         let recovered_public_key = recover_public_key_from_ecdsa_signature(signature.clone(), data);
+        println!("HELP 4 !!! {:?}", recovered_public_key);
         if recovered_public_key.is_err() {
             return false
         }
@@ -251,7 +251,10 @@ impl<T: Config> Pallet<T> {
         match T::EthereumPublicKeyChecker::get_validator_for_eth_public_key(
             &recovered_public_key.expect("Checked for error"),
         ) {
-            Some(maybe_validator) => maybe_validator == validator.account_id,
+            Some(maybe_validator) => {
+                println!("HELP 6 !!! {:?}", maybe_validator);
+                return maybe_validator == validator.account_id
+            },
             _ => false,
         }
     }

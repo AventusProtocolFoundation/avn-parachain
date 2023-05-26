@@ -3,6 +3,7 @@
 use crate::{mock::*, *};
 use codec::alloc::sync::Arc;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use hex_literal::hex;
 use pallet_avn::Error as AvNError;
 use parking_lot::RwLock;
 use sp_core::offchain::testing::{OffchainState, PoolState};
@@ -27,6 +28,7 @@ struct Context<'a> {
 fn setup_context(offchain_state: &Arc<RwLock<OffchainState>>) -> Context {
     let validator = get_validator(validator_id_1());
     let deregistered_validator = get_validator(validator_id_3());
+    println!(":{:?}", deregistered_validator);
 
     Context {
         action_id: ActionId::new(deregistered_validator.account_id, DEFAULT_INGRESS_COUNTER),
@@ -79,7 +81,13 @@ fn setup_ext_builder() -> (TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock
 }
 
 fn setup_voting_session(action_id: &ActionId<AccountId>) {
+    let collator_eth_public_key = ecdsa::Public::from_raw(hex!(
+        "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
+    ));
+    let decompressed_collator_eth_public_key =
+        ValidatorManager::decompress_eth_public_key(collator_eth_public_key).unwrap();
     let candidate_tx = EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+        decompressed_collator_eth_public_key,
         <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(
             &action_id.action_account_id,
         ),
@@ -99,24 +107,26 @@ fn approve_validator_action(
 ) -> DispatchResult {
     let eth_compatible_data =
         ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id).unwrap();
-
+    println!("HELLO !!!!");
     mock_response_of_get_ecdsa_signature(
         &mut context.offchain_state.write(),
         eth_compatible_data,
         Some(hex::encode([1; 65].to_vec()).as_bytes().to_vec()),
     );
-
+    println!("HELLO 2 !!!!");
     let (_, approval_signature) =
         ValidatorManager::sign_validators_action_for_ethereum(&context.action_id).unwrap();
     set_mock_recovered_account_id(validator.account_id);
-
-    ValidatorManager::approve_validator_action(
+    println!("HELLO 3 !!!! {:?}", approval_signature);
+    let result = ValidatorManager::approve_validator_action(
         RawOrigin::None.into(),
         context.action_id,
         validator.clone(),
         approval_signature,
         context.record_deregister_validator_calculation_signature.clone(),
-    )
+    );
+    println!("HELLO 4 !!!! {:?}", result);
+    return result
 }
 
 fn reject_validator_action(
