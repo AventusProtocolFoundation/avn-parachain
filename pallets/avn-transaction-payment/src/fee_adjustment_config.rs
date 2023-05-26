@@ -106,7 +106,7 @@ impl<T: Config> PercentageFeeConfig<T> {
             return Ok(Perbill::from_percent(self.percentage) * original_fee)
         }
 
-        // There is no adjutment to make so return the original fee
+        // There is no adjustment to make so return the original fee
         return Ok(original_fee)
     }
 }
