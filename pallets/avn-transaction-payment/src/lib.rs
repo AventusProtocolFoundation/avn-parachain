@@ -303,9 +303,9 @@ where
     }
 }
 
-// #[cfg(test)]
-// #[path = "tests/mock.rs"]
-// mod mock;
+ #[cfg(test)]
+ #[path = "mock.rs"]
+ mod mock;
 
 // #[cfg(test)]
 // #[path = "tests/proxy_tests_no_fees.rs"]
@@ -318,4 +318,4 @@ where
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
-// mod benchmarking;
+mod benchmarking;
