@@ -255,7 +255,7 @@ impl<T: Config> TransactionBasedConfig<T> {
             return calculate_fee::<T>(original_fee, &self.fee_type)
         }
 
-        // There is no adjutment to make so return the original fee
+        // There is no adjustment to make so return the original fee
         return Ok(original_fee)
     }
 
