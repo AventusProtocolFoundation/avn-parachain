@@ -127,7 +127,6 @@ pub mod pallet {
         ErrorConvertingAccountIdToValidatorId,
         SlashedValidatorIsNotFound,
         ValidatorNotFound,
-        InvalidPublicKey,
         /// The ethereum public key of this validator alredy exists
         ValidatorEthKeyAlreadyExists,
         ErrorRemovingAccountFromCollators,
@@ -249,21 +248,25 @@ pub mod pallet {
         pub fn add_collator(
             origin: OriginFor<T>,
             collator_account_id: T::AccountId,
-            collator_eth_public_key: ecdsa::Public,
+            validator_eth_public_key: ecdsa::Public,
             deposit: Option<BalanceOf<T>>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let validator_account_ids =
                 Self::validator_account_ids().or_else(|| Some(vec![])).expect("empty vec");
             ensure!(validator_account_ids.len() > 0, Error::<T>::NoValidators);
+            ensure!(
+                !<EthereumPublicKeys<T>>::contains_key(&validator_eth_public_key),
+                Error::<T>::ValidatorEthKeyAlreadyExists
+            );
 
             ensure!(
                 !validator_account_ids.contains(&collator_account_id),
                 Error::<T>::ValidatorAlreadyExists
             );
             ensure!(
-                !<EthereumPublicKeys<T>>::contains_key(&collator_eth_public_key),
-                Error::<T>::ValidatorEthKeyAlreadyExists
+                !<EthereumPublicKeys<T>>::contains_key(&validator_eth_public_key),
+                Error::<T>::ValidatorAlreadyExists
             );
 
             let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
@@ -278,10 +281,10 @@ pub mod pallet {
                 candidate_count,
             )?;
 
-            Self::register_validator(&collator_account_id, &collator_eth_public_key)?;
+            Self::register_validator(&collator_account_id, &validator_eth_public_key)?;
 
             <ValidatorAccountIds<T>>::append(collator_account_id.clone());
-            <EthereumPublicKeys<T>>::insert(collator_eth_public_key, collator_account_id);
+            <EthereumPublicKeys<T>>::insert(validator_eth_public_key, collator_account_id);
 
             // TODO: benchmark `register_validator` and add to the weight
             return Ok(Some(
@@ -700,29 +703,10 @@ impl<T: Config> Pallet<T> {
             <system::Pallet<T>>::block_number() >= vote.end_of_voting_period
     }
 
-    fn decompress_eth_public_key(
-        compressed_eth_public_key: ecdsa::Public,
-    ) -> Result<H512, secp256k1::Error> {
-        let decompressed = secp256k1::PublicKey::parse_slice(
-            &compressed_eth_public_key.0,
-            Some(secp256k1::PublicKeyFormat::Compressed),
-        );
-        match decompressed {
-            Ok(public_key) => {
-                let decompressed = public_key.serialize();
-                let mut m = [0u8; 64];
-                m.copy_from_slice(&decompressed[1..65]);
-                Ok(H512::from_slice(&m))
-            },
-            Err(err) => Err(err),
-        }
-    }
-
     /// Helper function to help us fail early if any of the data we need is not available for the
     /// registration & activation
     fn prepare_registration_data(
-        collator_eth_id: &ecdsa::Public,
-        collator_id: &T::AccountId,
+        validator_id: &T::AccountId,
     ) -> Result<
         (
             <T as pallet_session::Config>::ValidatorId,
@@ -732,22 +716,18 @@ impl<T: Config> Pallet<T> {
         ),
         DispatchError,
     > {
-        let new_collator_id = <T as SessionConfig>::ValidatorIdOf::convert(collator_id.clone())
+        let new_validator_id = <T as SessionConfig>::ValidatorIdOf::convert(validator_id.clone())
             .ok_or(Error::<T>::ErrorConvertingAccountIdToValidatorId)?;
-        let decompressed_collator_eth_id = Self::decompress_eth_public_key(*collator_eth_id)
-            .map_err(|_| Error::<T>::InvalidPublicKey)?;
         let eth_tx_sender =
             AVN::<T>::calculate_primary_validator(<system::Pallet<T>>::block_number())
                 .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
-        let eth_transaction_type =
-            EthTransactionType::ActivateValidator(ActivateValidatorData::new(
-                decompressed_collator_eth_id,
-                T::AccountToBytesConvert::into_bytes(&collator_id),
-            ));
+        let eth_transaction_type = EthTransactionType::ActivateValidator(
+            ActivateValidatorData::new(T::AccountToBytesConvert::into_bytes(&validator_id)),
+        );
         let tx_id =
             T::CandidateTransactionSubmitter::reserve_transaction_id(&eth_transaction_type)?;
 
-        Ok((new_collator_id, eth_tx_sender, eth_transaction_type, tx_id))
+        Ok((new_validator_id, eth_tx_sender, eth_transaction_type, tx_id))
     }
 
     fn start_activation_for_registered_validator(
@@ -777,7 +757,7 @@ impl<T: Config> Pallet<T> {
         eth_public_key: &ecdsa::Public,
     ) -> DispatchResult {
         let (new_validator_id, eth_tx_sender, eth_transaction_type, tx_id) =
-            Self::prepare_registration_data(eth_public_key, collator_account_id)?;
+            Self::prepare_registration_data(collator_account_id)?;
 
         Self::start_activation_for_registered_validator(
             collator_account_id,
