@@ -51,6 +51,8 @@ pub mod pallet {
 
         /// Currency type for processing fee payment
         type Currency: Currency<Self::AccountId>;
+
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -98,7 +100,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_known_sender())]
         pub fn set_known_sender(
             origin: OriginFor<T>,
             known_sender: T::AccountId,
@@ -141,7 +143,7 @@ pub mod pallet {
             let sender_exists = <KnownSenders<T>>::contains_key(&known_sender);
             <KnownSenders<T>>::insert(&known_sender, &fee_adjustment_config);
 
-            if sender_exists {
+            if !sender_exists {
                 Self::deposit_event(Event::<T>::KnownSenderAdded {
                     known_sender,
                     adjustment: fee_adjustment_config,
@@ -157,7 +159,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::remove_known_sender())]
         pub fn remove_known_sender(
             origin: OriginFor<T>,
             known_sender: T::AccountId,
@@ -300,3 +302,7 @@ where
         Ok(())
     }
 }
+pub mod default_weights;
+pub use default_weights::WeightInfo;
+
+mod benchmarking;
