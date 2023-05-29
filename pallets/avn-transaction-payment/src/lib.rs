@@ -53,9 +53,19 @@ pub mod pallet {
     #[pallet::generate_deposit(pub fn deposit_event)]
     pub enum Event<T: Config> {
         /// A new known sender has been added
-        KnownSenderAdded { known_sender: T::AccountId, adjustment: FeeAdjustmentConfig<T> },
+        KnownSenderAdded {
+            known_sender: T::AccountId,
+            adjustment: FeeAdjustmentConfig<T>,
+        },
         /// Adjustments have been updated for an existing known sender
-        KnownSenderUpdated { known_sender: T::AccountId, adjustment: FeeAdjustmentConfig<T> },
+        KnownSenderUpdated {
+            known_sender: T::AccountId,
+            adjustment: FeeAdjustmentConfig<T>,
+        },
+        // An existing known sender has been removed
+        KnownSenderRemoved {
+            known_sender: T::AccountId,
+        },
     }
 
     #[pallet::error]
@@ -63,6 +73,7 @@ pub mod pallet {
         InvalidFeeConfig,
         InvalidFeeType,
         KnownSenderMustMatchAccount,
+        KnownSenderMissing,
     }
 
     #[pallet::storage]
@@ -128,6 +139,25 @@ pub mod pallet {
                     adjustment: fee_adjustment_config,
                 });
             }
+
+            Ok(())
+        }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(0)]
+        pub fn remove_known_sender(
+            origin: OriginFor<T>,
+            known_sender: T::AccountId,
+        ) -> DispatchResult {
+            frame_system::ensure_root(origin)?;
+
+            ensure!(
+                <KnownSenders<T>>::contains_key(&known_sender) == true,
+                Error::<T>::KnownSenderMissing
+            );
+
+            <KnownSenders<T>>::remove(&known_sender);
+            Self::deposit_event(Event::<T>::KnownSenderRemoved { known_sender });
 
             Ok(())
         }
