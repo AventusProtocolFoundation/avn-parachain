@@ -1,6 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::EthTransaction;
-use sp_core::{ecdsa, H160, H256, U256};
+use sp_core::{ecdsa, H160, H256, H512, U256};
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -121,26 +121,30 @@ impl SlashValidatorData {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
 pub struct ActivateValidatorData {
+    pub t1_public_key: H512,
     pub t2_public_key: [u8; 32],
 }
 
 impl ActivateValidatorData {
-    pub fn new(t2_public_key: [u8; 32]) -> ActivateValidatorData {
-        ActivateValidatorData { t2_public_key }
+    pub fn new(t1_public_key: H512, t2_public_key: [u8; 32]) -> ActivateValidatorData {
+        ActivateValidatorData { t1_public_key, t2_public_key }
     }
 
     pub fn to_abi(&self) -> EthTransactionDescription {
         EthTransactionDescription {
             function_call: Function {
-                name: String::from("activateValidator"),
-                inputs: vec![Param {
-                    name: String::from("_targetT2PublicKey"),
-                    kind: ParamType::FixedBytes(32),
-                }],
+                name: String::from("registerValidator"),
+                inputs: vec![
+                    Param { name: String::from("_t1PublicKey"), kind: ParamType::Bytes },
+                    Param { name: String::from("_t2PublicKey"), kind: ParamType::FixedBytes(32) },
+                ],
                 outputs: Vec::<Param>::new(),
                 constant: false,
             },
-            call_values: vec![Token::FixedBytes(self.t2_public_key.to_vec())],
+            call_values: vec![
+                Token::Bytes(self.t1_public_key.to_fixed_bytes().to_vec()),
+                Token::FixedBytes(self.t2_public_key.to_vec()),
+            ],
         }
     }
 }
