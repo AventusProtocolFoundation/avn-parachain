@@ -59,6 +59,7 @@ pub mod pallet {
     /// A map of known senders
     pub type KnownSenders<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, FeeAdjustmentConfig<T>, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {}
 }

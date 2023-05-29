@@ -10,6 +10,15 @@ pub enum FeeType<T: Config> {
     PercentageFee(PercentageFeeConfig<T>),
     None,
 }
+
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub enum AdjustmentType<T: Config> {
+    TimeBased(Duration<T>),
+    TransactionBased(NumberOfTransactions<T>),
+    None,
+}
+
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo)]
 #[scale_info(skip_type_params(T))]
 pub enum FeeAdjustmentConfig<T: Config> {
@@ -35,6 +44,23 @@ impl<T: Config> Debug for FeeType<T> {
         }
     }
 }
+
+impl<T: Config> Debug for AdjustmentType<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+        match self {
+            Self::TimeBased(c) => {
+                write!(f, "Time based fee[{:?}", c.duration)
+            },
+            Self::TransactionBased(c) => {
+                write!(f, "Transaction based fee[{:?}", c.number_of_transactions)
+            },
+            Self::None => {
+                write!(f, "Unknwon adjustment type")
+            },
+        }
+    }
+}
+
 impl<T: Config> Debug for FeeAdjustmentConfig<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         match self {
@@ -66,6 +92,13 @@ impl<T: Config> Default for FeeType<T> {
         FeeType::None
     }
 }
+
+impl<T: Config> Default for AdjustmentType<T> {
+    fn default() -> Self {
+        AdjustmentType::None
+    }
+}
+
 impl<T: Config> Default for FeeAdjustmentConfig<T> {
     fn default() -> Self {
         FeeAdjustmentConfig::None
@@ -102,6 +135,19 @@ impl<T: Config> FeeAdjustmentConfig<T> {
             FeeAdjustmentConfig::None => Ok(original_fee),
         }
     }
+}
+
+// This is needed to have a named parameter when serialising these types in a UI (like PolkadotJS)
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct Duration<T: Config> {
+    pub duration: T::BlockNumber,
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct NumberOfTransactions<T: Config> {
+    pub number_of_transactions: T::Index,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
@@ -216,6 +262,20 @@ impl<T: Config> TransactionBasedConfig<T> {
     pub fn new(fee_type: FeeType<T>, account: T::AccountId, count: T::Index) -> Self {
         let end_count = <frame_system::Pallet<T>>::account(&account).nonce.saturating_add(count);
         return TransactionBasedConfig::<T> { fee_type, account, end_count }
+    }
+}
+
+// This is used to define the user input when specifying a fee adjustment config
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct AdjustmentInput<T: Config> {
+    pub fee_type: FeeType<T>,
+    pub adjustment_type: AdjustmentType<T>,
+}
+
+impl<T: Config> Debug for AdjustmentInput<T> {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+        write!(f, "Adjustment type: {:?}, Fee type: {:?}", self.adjustment_type, self.fee_type)
     }
 }
 
