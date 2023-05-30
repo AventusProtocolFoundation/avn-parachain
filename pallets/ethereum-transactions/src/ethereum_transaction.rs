@@ -40,7 +40,7 @@ impl EthTransactionType {
             EthTransactionType::DeregisterValidator(d) => Ok(d.to_abi()),
             EthTransactionType::SlashValidator(d) => Ok(d.to_abi()),
             EthTransactionType::ActivateCollator(d) => Ok(d.to_abi()),
-            EthTransactionType::ActivateValidator(d) => Err(EthAbiError::InvalidData),
+            EthTransactionType::ActivateValidator(_d) => Err(EthAbiError::InvalidData),
             _ => Err(EthAbiError::InvalidData),
         }
     }
