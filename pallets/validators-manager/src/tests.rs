@@ -688,7 +688,6 @@ mod add_validator {
             let context = &AddValidatorContext::default();
 
             set_session_keys(&context.collator);
-            println!("HELP !!! {:?}", &context.collator_eth_public_key);
             assert_ok!(register_validator(&context.collator, &context.collator_eth_public_key));
 
             assert_eq!(
