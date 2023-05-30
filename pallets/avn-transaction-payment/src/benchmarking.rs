@@ -4,9 +4,9 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, account};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::{EventRecord, RawOrigin};
-use sp_runtime::{ traits::Bounded };
+use sp_runtime::traits::Bounded;
 
 use crate::Pallet as AvnTransactionPayment;
 
@@ -19,9 +19,8 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 fn add_known_sender<T: Config>(known_sender: &T::AccountId) {
-    let adjustment_config = FeeAdjustmentConfig::FixedFee(FixedFeeConfig {
-        fee: BalanceOf::<T>::max_value(),
-    });
+    let adjustment_config =
+        FeeAdjustmentConfig::FixedFee(FixedFeeConfig { fee: BalanceOf::<T>::max_value() });
     <KnownSenders<T>>::insert(known_sender, adjustment_config);
 }
 
