@@ -37,14 +37,14 @@ use pallet_avn::{
 };
 use pallet_ethereum_transactions::{
     ethereum_transaction::{
-        ActivateCollatorData, ActivateValidatorData, DeregisterValidatorData, EthAbiHelper,
-        EthTransactionType, SlashValidatorData, TransactionId,
+        ActivateCollatorData, DeregisterValidatorData, EthAbiHelper, EthTransactionType,
+        SlashValidatorData, TransactionId,
     },
     CandidateTransactionSubmitter,
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
-    calculate_two_third_quorum, decompress_eth_public_key, event_types::Validator,
+    calculate_two_third_quorum, eth_key_actions::decompress_eth_public_key, event_types::Validator,
     safe_add_block_numbers, IngressCounter,
 };
 use sp_core::{ecdsa, H512};

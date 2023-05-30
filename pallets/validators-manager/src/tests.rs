@@ -8,7 +8,6 @@ use frame_support::{
 };
 use hex_literal::hex;
 use pallet_parachain_staking::Error as ParachainStakingError;
-use sp_core::crypto::UncheckedFrom;
 use sp_io::crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed};
 use sp_runtime::{
     testing::{TestSignature, UintAuthorityId},

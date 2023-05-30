@@ -670,18 +670,6 @@ impl ExtBuilder {
     }
 }
 
-pub fn compressed_key() -> Public {
-    Public::from_raw(hex!("02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"))
-}
-
-pub fn expected_decompressed_key() -> H512 {
-    H512::from_slice(
-        hex!(
-            "407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57162f3d20faa2b513964472d2f8d4b585330c565a5696e1829a537bb2856c0dbc"
-        ).as_slice()
-    )
-}
-
 pub struct MockData {
     pub event: EthEvent,
     pub validator_data: AddedValidatorData,
