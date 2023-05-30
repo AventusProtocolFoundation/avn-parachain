@@ -1802,15 +1802,10 @@ dependencies = [
 name = "pallet-avn-transaction-payment"
 version = "0.1.0"
 dependencies = [
- "enumflags2",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "hex-literal",
- "pallet-avn",
  "pallet-balances",
- "pallet-parachain-staking",
- "pallet-session",
  "pallet-transaction-payment",
  "parity-scale-codec",
  "scale-info",
@@ -1819,7 +1814,6 @@ dependencies = [
  "sp-avn-common",
  "sp-core",
  "sp-io",
- "sp-keystore",
  "sp-runtime",
  "sp-std",
  "substrate-test-utils",

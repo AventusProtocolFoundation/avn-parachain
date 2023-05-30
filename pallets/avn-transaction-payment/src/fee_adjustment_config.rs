@@ -8,15 +8,15 @@ use sp_std::{fmt::Debug, marker::PhantomData};
 pub enum FeeType<T: Config> {
     FixedFee(FixedFeeConfig<T>),
     PercentageFee(PercentageFeeConfig<T>),
-    Unknown,
+    None,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub enum AdjustmentType<T: Config> {
-    TimeBased(T::BlockNumber),
-    TransactionBased(T::Index),
-    Unknown,
+    TimeBased(Duration<T>),
+    TransactionBased(NumberOfTransactions<T>),
+    None,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo)]
@@ -26,7 +26,7 @@ pub enum FeeAdjustmentConfig<T: Config> {
     PercentageFee(PercentageFeeConfig<T>),
     TimeBased(TimeBasedConfig<T>),
     TransactionBased(TransactionBasedConfig<T>),
-    Unknown,
+    None,
 }
 
 impl<T: Config> Debug for FeeType<T> {
@@ -38,7 +38,7 @@ impl<T: Config> Debug for FeeType<T> {
             Self::PercentageFee(c) => {
                 write!(f, "Percentage fee[{}]", c.percentage)
             },
-            Self::Unknown => {
+            Self::None => {
                 write!(f, "Unknwon fee type")
             },
         }
@@ -49,12 +49,12 @@ impl<T: Config> Debug for AdjustmentType<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         match self {
             Self::TimeBased(c) => {
-                write!(f, "Time based fee[{:?}", c)
+                write!(f, "Time based fee[{:?}", c.duration)
             },
             Self::TransactionBased(c) => {
-                write!(f, "Transaction based fee[{:?}", c)
+                write!(f, "Transaction based fee[{:?}", c.number_of_transactions)
             },
-            Self::Unknown => {
+            Self::None => {
                 write!(f, "Unknwon adjustment type")
             },
         }
@@ -80,7 +80,7 @@ impl<T: Config> Debug for FeeAdjustmentConfig<T> {
                     c.account, c.end_count, c.fee_type
                 )
             },
-            Self::Unknown => {
+            Self::None => {
                 write!(f, "Fee config unknown")
             },
         }
@@ -89,19 +89,19 @@ impl<T: Config> Debug for FeeAdjustmentConfig<T> {
 
 impl<T: Config> Default for FeeType<T> {
     fn default() -> Self {
-        FeeType::Unknown
+        FeeType::None
     }
 }
 
 impl<T: Config> Default for AdjustmentType<T> {
     fn default() -> Self {
-        AdjustmentType::Unknown
+        AdjustmentType::None
     }
 }
 
 impl<T: Config> Default for FeeAdjustmentConfig<T> {
     fn default() -> Self {
-        FeeAdjustmentConfig::Unknown
+        FeeAdjustmentConfig::None
     }
 }
 
@@ -112,7 +112,7 @@ impl<T: Config> FeeAdjustmentConfig<T> {
             FeeAdjustmentConfig::PercentageFee(c) => c.is_valid(),
             FeeAdjustmentConfig::TimeBased(c) => c.is_valid(),
             FeeAdjustmentConfig::TransactionBased(c) => c.is_valid(),
-            FeeAdjustmentConfig::Unknown => false,
+            FeeAdjustmentConfig::None => false,
         }
     }
 
@@ -122,7 +122,7 @@ impl<T: Config> FeeAdjustmentConfig<T> {
             FeeAdjustmentConfig::PercentageFee(_) => true,
             FeeAdjustmentConfig::TimeBased(c) => c.is_active(),
             FeeAdjustmentConfig::TransactionBased(c) => c.is_active(),
-            FeeAdjustmentConfig::Unknown => false,
+            FeeAdjustmentConfig::None => false,
         }
     }
 
@@ -132,9 +132,22 @@ impl<T: Config> FeeAdjustmentConfig<T> {
             FeeAdjustmentConfig::PercentageFee(c) => c.get_fee(original_fee),
             FeeAdjustmentConfig::TimeBased(c) => c.get_fee(original_fee),
             FeeAdjustmentConfig::TransactionBased(c) => c.get_fee(original_fee),
-            FeeAdjustmentConfig::Unknown => Ok(original_fee),
+            FeeAdjustmentConfig::None => Ok(original_fee),
         }
     }
+}
+
+// This is needed to have a named parameter when serialising these types in a UI (like PolkadotJS)
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct Duration<T: Config> {
+    pub duration: T::BlockNumber,
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
+#[scale_info(skip_type_params(T))]
+pub struct NumberOfTransactions<T: Config> {
+    pub number_of_transactions: T::Index,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
@@ -198,7 +211,7 @@ pub struct TimeBasedConfig<T: Config> {
 
 impl<T: Config> TimeBasedConfig<T> {
     pub fn is_valid(&self) -> bool {
-        return !self.end_block_number.is_zero() && self.fee_type != FeeType::Unknown
+        return !self.end_block_number.is_zero() && self.fee_type != FeeType::None
     }
 
     pub fn is_active(&self) -> bool {
@@ -230,7 +243,7 @@ pub struct TransactionBasedConfig<T: Config> {
 
 impl<T: Config> TransactionBasedConfig<T> {
     pub fn is_valid(&self) -> bool {
-        return !self.end_count.is_zero() && self.fee_type != FeeType::Unknown
+        return !self.end_count.is_zero() && self.fee_type != FeeType::None
     }
 
     pub fn is_active(&self) -> bool {
@@ -242,7 +255,7 @@ impl<T: Config> TransactionBasedConfig<T> {
             return calculate_fee::<T>(original_fee, &self.fee_type)
         }
 
-        // There is no adjutment to make so return the original fee
+        // There is no adjustment to make so return the original fee
         return Ok(original_fee)
     }
 
@@ -252,11 +265,12 @@ impl<T: Config> TransactionBasedConfig<T> {
     }
 }
 
+// This is used to define the user input when specifying a fee adjustment config
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub struct AdjustmentInput<T: Config> {
     pub fee_type: FeeType<T>,
-    pub adjustment_type: Option<AdjustmentType<T>>,
+    pub adjustment_type: AdjustmentType<T>,
 }
 
 impl<T: Config> Debug for AdjustmentInput<T> {

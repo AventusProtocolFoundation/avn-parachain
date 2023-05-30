@@ -1,14 +1,13 @@
 //! # Avn transaction payment
 // Copyright 2023 Aventus Network Services (UK) Ltd.
 
-//! This is a wrapper pallet for  transaction payment that allows the customisation of chain fees
-//! based on the business logic of this pallet
-//! assumption about where the transaction is coming from.
+//! This is a wrapper pallet for transaction payment that allows the customisation of chain fees
+//! based on defined adjustment configuration and a sender.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo},
+    dispatch::{GetDispatchInfo, PostDispatchInfo},
     log,
     pallet_prelude::ValueQuery,
     traits::{Currency, Imbalance, OnUnbalanced},
@@ -64,8 +63,25 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub fn deposit_event)]
     pub enum Event<T: Config> {
-        /// A transaction fee has been adjusted by `adjustment`, for `who`
-        AdjustedTransactionFeePaid { who: T::AccountId, adjustment: BalanceOf<T> },
+        /// A new known sender has been added
+        KnownSenderAdded {
+            known_sender: T::AccountId,
+            adjustment: FeeAdjustmentConfig<T>,
+        },
+        /// Adjustments have been updated for an existing known sender
+        KnownSenderUpdated {
+            known_sender: T::AccountId,
+            adjustment: FeeAdjustmentConfig<T>,
+        },
+        // An existing known sender has been removed
+        KnownSenderRemoved {
+            known_sender: T::AccountId,
+        },
+        /// An adjusted transaction fee of `fee` has been paid by `who`
+        AdjustedTransactionFeePaid {
+            who: T::AccountId,
+            fee: BalanceOf<T>,
+        },
     }
 
     #[pallet::error]
@@ -73,6 +89,7 @@ pub mod pallet {
         InvalidFeeConfig,
         InvalidFeeType,
         KnownSenderMustMatchAccount,
+        KnownSenderMissing,
     }
 
     #[pallet::storage]
@@ -93,17 +110,20 @@ pub mod pallet {
             frame_system::ensure_root(origin)?;
 
             let mut fee_adjustment_config: FeeAdjustmentConfig<T> = Default::default();
-            if let Some(adjustment_type) = config.adjustment_type {
-                match adjustment_type {
+            if config.adjustment_type != AdjustmentType::None {
+                match config.adjustment_type {
                     TimeBased(b) => {
                         fee_adjustment_config = FeeAdjustmentConfig::TimeBased(
-                            TimeBasedConfig::new(config.fee_type, b),
+                            TimeBasedConfig::new(config.fee_type, b.duration),
                         );
                     },
                     TransactionBased(i) => {
-                        fee_adjustment_config = FeeAdjustmentConfig::TransactionBased(
-                            TransactionBasedConfig::new(config.fee_type, known_sender.clone(), i),
-                        );
+                        fee_adjustment_config =
+                            FeeAdjustmentConfig::TransactionBased(TransactionBasedConfig::new(
+                                config.fee_type,
+                                known_sender.clone(),
+                                i.number_of_transactions,
+                            ));
                     },
                     _ => {},
                 }
@@ -120,7 +140,40 @@ pub mod pallet {
             }
 
             ensure!(fee_adjustment_config.is_valid() == true, Error::<T>::InvalidFeeConfig);
-            <KnownSenders<T>>::insert(known_sender, fee_adjustment_config);
+
+            let sender_exists = <KnownSenders<T>>::contains_key(&known_sender);
+            <KnownSenders<T>>::insert(&known_sender, &fee_adjustment_config);
+
+            if !sender_exists {
+                Self::deposit_event(Event::<T>::KnownSenderAdded {
+                    known_sender,
+                    adjustment: fee_adjustment_config,
+                });
+            } else {
+                Self::deposit_event(Event::<T>::KnownSenderUpdated {
+                    known_sender,
+                    adjustment: fee_adjustment_config,
+                });
+            }
+
+            Ok(())
+        }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(0)]
+        pub fn remove_known_sender(
+            origin: OriginFor<T>,
+            known_sender: T::AccountId,
+        ) -> DispatchResult {
+            frame_system::ensure_root(origin)?;
+
+            ensure!(
+                <KnownSenders<T>>::contains_key(&known_sender) == true,
+                Error::<T>::KnownSenderMissing
+            );
+
+            <KnownSenders<T>>::remove(&known_sender);
+            Self::deposit_event(Event::<T>::KnownSenderRemoved { known_sender });
 
             Ok(())
         }
@@ -134,10 +187,6 @@ type NegativeImbalanceOf<C, T> =
     <C as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 impl<T: Config> Pallet<T> {
-    pub fn is_known_sender(address: &<T as frame_system::Config>::AccountId) -> bool {
-        return <KnownSenders<T>>::contains_key(address)
-    }
-
     pub fn calculate_refund_amount(
         fee_payer: &T::AccountId,
         corrected_fee: BalanceOf<T>,
@@ -145,7 +194,7 @@ impl<T: Config> Pallet<T> {
     ) -> (bool, BalanceOf<T>) {
         // Calculate how much refund we should return
         let fee_adjustment_config = <KnownSenders<T>>::get(fee_payer);
-        // calling is_active does work so cache it here
+        // calling is_active does some computation so cache it here
         let has_active_config = fee_adjustment_config.is_active();
 
         let mut adjusted_fee = corrected_fee;
@@ -155,8 +204,10 @@ impl<T: Config> Pallet<T> {
             if let Ok(fee) = fee_adjustment_config.get_fee(network_fee_only) {
                 adjusted_fee = fee;
             } else {
-                log::error!("💔 Failed to apply the adjustment fee for known sender: {:?}, adjustment config: {:?}",
+                log::error!("💔 Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}",
                 fee_payer, fee_adjustment_config);
+
+                return (false, adjusted_fee)
             }
         }
 
@@ -227,7 +278,7 @@ where
                 Pallet::<T>::calculate_refund_amount(who, corrected_fee, tip);
             let refund_amount = paid.peek().saturating_sub(adjusted_fee);
 
-            // refund to the the account that paid the fees. If this fails, the
+            // refund to the account that paid the fees. If this fails, the
             // account might have dropped below the existential balance. In
             // that case we don't refund anything.
             let refund_imbalance = C::deposit_into_existing(who, refund_amount)
@@ -245,7 +296,7 @@ where
             if has_active_adjustment {
                 Pallet::<T>::deposit_event(Event::<T>::AdjustedTransactionFeePaid {
                     who: who.clone(),
-                    adjustment: adjusted_fee,
+                    fee: adjusted_fee,
                 });
             }
         }
@@ -258,14 +309,8 @@ where
 mod mock;
 
 #[cfg(test)]
-#[path = "tests/flexi_fee_tests.rs"]
-pub mod flexi_fee_tests;
-
-// #[cfg(test)]
-// #[path = "tests/proxy_tests_with_fees.rs"]
-// pub mod proxy_tests_with_fees;
+#[path = "tests/set_known_sender_tests.rs"]
+pub mod set_known_sender_tests;
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
-
-// mod benchmarking;
