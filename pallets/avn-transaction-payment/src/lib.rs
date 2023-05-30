@@ -302,6 +302,11 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/mock.rs"]
+mod mock;
+
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 

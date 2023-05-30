@@ -180,7 +180,7 @@ impl<T: Config> FixedFeeConfig<T> {
 pub struct PercentageFeeConfig<T: Config> {
     pub percentage: u32,
     #[codec(skip)]
-    _marker: PhantomData<T>,
+    pub _marker: PhantomData<T>,
 }
 
 impl<T: Config> PercentageFeeConfig<T> {
