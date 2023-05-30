@@ -300,3 +300,7 @@ where
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[path = "tests/set_known_sender_tests.rs"]
+pub mod set_known_sender_tests;
