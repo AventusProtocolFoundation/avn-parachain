@@ -9,7 +9,6 @@
 use frame_support::{
     dispatch::{GetDispatchInfo, PostDispatchInfo},
     log,
-    pallet_prelude::ValueQuery,
     traits::{Currency, Imbalance, OnUnbalanced},
     unsigned::TransactionValidityError,
 };
