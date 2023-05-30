@@ -22,7 +22,6 @@ use frame_support::{
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
 
-
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
