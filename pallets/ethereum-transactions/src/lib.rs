@@ -449,7 +449,6 @@ impl<T: Config> Pallet<T> {
         return match transaction_type {
             EthTransactionType::PublishRoot(_) => Some(Self::get_publish_root_contract()),
             EthTransactionType::DeregisterValidator(_) |
-            EthTransactionType::SlashValidator(_) |
             EthTransactionType::ActivateValidator(_) |
             EthTransactionType::ActivateCollator(_) =>
                 Some(T::ValidatorManagerContractAddress::get()),
