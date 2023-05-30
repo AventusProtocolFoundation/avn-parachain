@@ -18,6 +18,9 @@ pub enum EthTransactionType {
     PublishRoot(PublishRootData),
     DeregisterValidator(DeregisterValidatorData),
     SlashValidator(SlashValidatorData),
+    #[deprecated(
+        note = "Parachains use collators so this is deprecated. use only `ActivateCollator` instead"
+    )]
     ActivateValidator(ActivateValidatorData),
     Invalid,
     Discarded(TransactionId),
@@ -36,8 +39,8 @@ impl EthTransactionType {
             EthTransactionType::PublishRoot(d) => Ok(d.to_abi()),
             EthTransactionType::DeregisterValidator(d) => Ok(d.to_abi()),
             EthTransactionType::SlashValidator(d) => Ok(d.to_abi()),
-            EthTransactionType::ActivateValidator(d) => Ok(d.to_abi()),
             EthTransactionType::ActivateCollator(d) => Ok(d.to_abi()),
+            EthTransactionType::ActivateValidator(_d) => Err(EthAbiError::InvalidData),
             _ => Err(EthAbiError::InvalidData),
         }
     }
@@ -129,21 +132,6 @@ pub struct ActivateValidatorData {
 impl ActivateValidatorData {
     pub fn new(t2_public_key: [u8; 32]) -> ActivateValidatorData {
         ActivateValidatorData { t2_public_key }
-    }
-
-    pub fn to_abi(&self) -> EthTransactionDescription {
-        EthTransactionDescription {
-            function_call: Function {
-                name: String::from("activateValidator"),
-                inputs: vec![Param {
-                    name: String::from("_targetT2PublicKey"),
-                    kind: ParamType::FixedBytes(32),
-                }],
-                outputs: Vec::<Param>::new(),
-                constant: false,
-            },
-            call_values: vec![Token::FixedBytes(self.t2_public_key.to_vec())],
-        }
     }
 }
 

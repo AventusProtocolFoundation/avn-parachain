@@ -43,4 +43,6 @@ std = [
 	"sp-io/std",
 	"sp-runtime/std",
 	"log",
+	"libsecp256k1/std",
+	"sha3/std"
 ]

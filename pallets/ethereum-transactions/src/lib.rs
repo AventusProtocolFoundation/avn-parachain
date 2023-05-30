@@ -448,12 +448,9 @@ impl<T: Config> Pallet<T> {
     fn get_contract_address(transaction_type: &EthTransactionType) -> Option<H160> {
         return match transaction_type {
             EthTransactionType::PublishRoot(_) => Some(Self::get_publish_root_contract()),
-            EthTransactionType::DeregisterValidator(_) =>
-                Some(T::ValidatorManagerContractAddress::get()),
-            EthTransactionType::SlashValidator(_) =>
-                Some(T::ValidatorManagerContractAddress::get()),
-            EthTransactionType::ActivateValidator(_) =>
-                Some(T::ValidatorManagerContractAddress::get()),
+            EthTransactionType::DeregisterValidator(_) |
+            EthTransactionType::SlashValidator(_) |
+            EthTransactionType::ActivateValidator(_) |
             EthTransactionType::ActivateCollator(_) =>
                 Some(T::ValidatorManagerContractAddress::get()),
             _ => None,

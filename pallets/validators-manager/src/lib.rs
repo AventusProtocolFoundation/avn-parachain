@@ -704,7 +704,7 @@ impl<T: Config> Pallet<T> {
     /// Helper function to help us fail early if any of the data we need is not available for the
     /// registration & activation
     fn prepare_registration_data(
-        collator_eth_id: &ecdsa::Public,
+        collator_eth_public_key: &ecdsa::Public,
         collator_id: &T::AccountId,
     ) -> Result<
         (
@@ -717,13 +717,14 @@ impl<T: Config> Pallet<T> {
     > {
         let new_collator_id = <T as SessionConfig>::ValidatorIdOf::convert(collator_id.clone())
             .ok_or(Error::<T>::ErrorConvertingAccountIdToValidatorId)?;
-        let decompressed_collator_eth_id = decompress_eth_public_key(*collator_eth_id)
-            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+        let decompressed_collator_eth_public_key =
+            decompress_eth_public_key(*collator_eth_public_key)
+                .map_err(|_| Error::<T>::InvalidPublicKey)?;
         let eth_tx_sender =
             AVN::<T>::calculate_primary_validator(<system::Pallet<T>>::block_number())
                 .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
         let eth_transaction_type = EthTransactionType::ActivateCollator(ActivateCollatorData::new(
-            decompressed_collator_eth_id,
+            decompressed_collator_eth_public_key,
             T::AccountToBytesConvert::into_bytes(&collator_id),
         ));
         let tx_id =
