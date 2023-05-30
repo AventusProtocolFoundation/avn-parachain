@@ -77,13 +77,10 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::event]
-    #[pallet::generate_deposit(pub fn deposit_event)]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         CallDispatched { relayer: T::AccountId, hash: T::Hash },
         InnerCallFailed { relayer: T::AccountId, hash: T::Hash, dispatch_error: DispatchError },
-		/// A transaction fee has been adjusted to `adjustment` for `who`
-		AdjustedTransactionFeePaid { who: T::AccountId, adjustment: BalanceOf<T>},
-
     }
 
     #[pallet::error]
@@ -99,11 +96,6 @@ pub mod pallet {
     /// It is shared for all proxy transactions performed by that account
     pub type PaymentNonces<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn known_senders)]
-    /// A map of known senders
-    pub type KnownSenders<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -170,14 +162,6 @@ pub mod pallet {
             }
 
             Ok(Some(final_weight).into())
-        }
-
-        #[pallet::call_index(1)]
-        #[pallet::weight(0)]
-        pub fn set_known_sender(origin: OriginFor<T>, known_sender: T::AccountId) -> DispatchResult {
-            frame_system::ensure_root(origin)?;
-            <KnownSenders<T>>::insert(known_sender, true);
-            Ok(())
         }
     }
 }
@@ -246,14 +230,6 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
-
-    pub fn is_known_sender(address: &<T as frame_system::Config>::AccountId) -> bool {
-        return <KnownSenders<T>>::contains_key(address)
-    }
-
-    pub fn emit_transaction_fee_event(who: T::AccountId, adjustment: BalanceOf<T>) {
-        Self::deposit_event(Event::<T>::AdjustedTransactionFeePaid {who, adjustment});
-    }
 }
 
 pub trait ProvableProxy<Call, Signature: scale_info::TypeInfo, AccountId>:
@@ -269,8 +245,6 @@ pub struct PaymentInfo<AccountId, Balance, Signature: TypeInfo> {
     pub amount: Balance,
     pub signature: Signature,
 }
-
-
 
 #[cfg(test)]
 #[path = "tests/mock.rs"]
