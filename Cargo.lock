@@ -1805,6 +1805,7 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hex-literal",
  "pallet-balances",
  "pallet-transaction-payment",
  "parity-scale-codec",
