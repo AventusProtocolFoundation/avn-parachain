@@ -670,11 +670,24 @@ impl ExtBuilder {
     }
 }
 
+pub fn compressed_key() -> Public {
+    Public::from_raw(hex!("02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"))
+}
+
+pub fn expected_decompressed_key() -> H512 {
+    H512::from_slice(
+        hex!(
+            "407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57162f3d20faa2b513964472d2f8d4b585330c565a5696e1829a537bb2856c0dbc"
+        ).as_slice()
+    )
+}
+
 pub struct MockData {
     pub event: EthEvent,
     pub validator_data: AddedValidatorData,
     pub new_validator_id: AccountId,
     pub validator_eth_public_key: ecdsa::Public,
+    pub collator_eth_public_key: ecdsa::Public,
 }
 
 impl MockData {
@@ -686,6 +699,9 @@ impl MockData {
         let data = Some(LogDataHelper::get_validator_data(REGISTERING_VALIDATOR_TIER1_ID));
         let topics = MockData::get_validator_token_topics();
         let validator_data = AddedValidatorData::parse_bytes(data.clone(), topics.clone()).unwrap();
+        let collator_eth_public_key = ecdsa::Public::from_raw(hex!(
+            "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
+        ));
         let new_validator_id =
             TestAccount::from_bytes(validator_data.t2_address.clone().as_bytes()).account_id();
         Balances::make_free_balance_be(&new_validator_id, 100000);
@@ -699,6 +715,7 @@ impl MockData {
             validator_eth_public_key: ValidatorManager::compress_eth_public_key(
                 validator_data.eth_public_key,
             ),
+            collator_eth_public_key,
         }
     }
 

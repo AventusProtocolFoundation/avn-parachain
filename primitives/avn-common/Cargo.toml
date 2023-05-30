@@ -26,6 +26,9 @@ sp-io = { default-features = false, git = "https://github.com/paritytech/substra
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
 log = { version = "0.4.8", optional = true, features = ["std"] }
 
+libsecp256k1 = { version = "0.3.2", default-features = false, features = ["hmac"] }
+sha3 = { version = "0.8", default-features = false }
+
 [dev-dependencies]
 byte-slice-cast = "1.2.1"
 sha3 = {version = "0.8.2", default-features = false }

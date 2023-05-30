@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{crypto::KeyTypeId, ecdsa, H160};
+use sp_core::{crypto::KeyTypeId, ecdsa, H160, H512};
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -19,6 +19,7 @@ pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
 
 #[path = "tests/helpers.rs"]
 pub mod avn_tests_helpers;
+pub mod eth_key_actions;
 pub mod event_types;
 pub mod offchain_worker_storage_lock;
 

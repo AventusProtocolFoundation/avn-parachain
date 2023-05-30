@@ -454,6 +454,8 @@ impl<T: Config> Pallet<T> {
                 Some(T::ValidatorManagerContractAddress::get()),
             EthTransactionType::ActivateValidator(_) =>
                 Some(T::ValidatorManagerContractAddress::get()),
+            EthTransactionType::ActivateCollator(_) =>
+                Some(T::ValidatorManagerContractAddress::get()),
             _ => None,
         }
     }
