@@ -1,23 +1,20 @@
 use crate as pallet_avn_transaction_payment;
-use frame_support::{
-    weights::{Weight, WeightToFee as WeightToFeeT},
-	traits::{ConstU16, ConstU64}
-};
-use sp_runtime::SaturatedConversion;
-use sp_runtime::{
-	testing::Header,
-	traits::{BlakeTwo256, IdentityLookup, Verify},
-};
-use sp_core::{sr25519, H256, Pair};
 use codec::{Decode, Encode};
+use frame_support::{
+    traits::{ConstU16, ConstU64},
+    weights::{Weight, WeightToFee as WeightToFeeT},
+};
+use sp_core::{sr25519, Pair, H256};
+use sp_runtime::{
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup, Verify},
+    SaturatedConversion,
+};
 
 use pallet_transaction_payment::CurrencyAdapter;
 
 use super::*;
-use frame_support::{
-    parameter_types,
-    traits::{ConstU8},
-};
+use frame_support::{parameter_types, traits::ConstU8};
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
@@ -27,54 +24,53 @@ type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 
-
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-	pub enum TestRuntime where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		// System: frame_system,
+    pub enum TestRuntime where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        // System: frame_system,
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-		TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
-		AvnTransactionPayment: pallet_avn_transaction_payment::{Pallet, Call, Storage, Event<T>},
-	}
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
+        AvnTransactionPayment: pallet_avn_transaction_payment::{Pallet, Call, Storage, Event<T>},
+    }
 );
 
 impl frame_system::Config for TestRuntime {
-	type BaseCallFilter = frame_support::traits::Everything;
-	type BlockWeights = ();
-	type BlockLength = ();
-	type DbWeight = ();
-	type RuntimeOrigin = RuntimeOrigin;
-	type RuntimeCall = RuntimeCall;
-	type Index = u64;
-	type BlockNumber = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = AccountId;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type RuntimeEvent = RuntimeEvent;
-	type BlockHashCount = ConstU64<250>;
-	type Version = ();
-	type PalletInfo = PalletInfo;
-	type AccountData = pallet_balances::AccountData<u128>;
-	type OnNewAccount = ();
-	type OnKilledAccount = ();
-	type SystemWeightInfo = ();
-	type SS58Prefix = ConstU16<42>;
-	type OnSetCode = ();
-	type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type BaseCallFilter = frame_support::traits::Everything;
+    type BlockWeights = ();
+    type BlockLength = ();
+    type DbWeight = ();
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeCall = RuntimeCall;
+    type Index = u64;
+    type BlockNumber = u64;
+    type Hash = H256;
+    type Hashing = BlakeTwo256;
+    type AccountId = AccountId;
+    type Lookup = IdentityLookup<Self::AccountId>;
+    type Header = Header;
+    type RuntimeEvent = RuntimeEvent;
+    type BlockHashCount = ConstU64<250>;
+    type Version = ();
+    type PalletInfo = PalletInfo;
+    type AccountData = pallet_balances::AccountData<u128>;
+    type OnNewAccount = ();
+    type OnKilledAccount = ();
+    type SystemWeightInfo = ();
+    type SS58Prefix = ConstU16<42>;
+    type OnSetCode = ();
+    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_avn_transaction_payment::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
-	type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<TestRuntime>;
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<TestRuntime>;
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -154,5 +150,8 @@ impl TestAccount {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-	frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap().into()
+    frame_system::GenesisConfig::default()
+        .build_storage::<TestRuntime>()
+        .unwrap()
+        .into()
 }
