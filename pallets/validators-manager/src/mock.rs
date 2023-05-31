@@ -41,22 +41,34 @@ use parking_lot::RwLock;
 use std::cell::RefCell;
 
 pub fn validator_id_1() -> AccountId {
-    TestAccount::new([1u8; 32]).account_id()
+    let secret_seed = "6568fa0ddc49e55d4f184e211713ef4c64f3c9435a8a2dc70e908bb327577b72";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
 pub fn validator_id_2() -> AccountId {
-    TestAccount::new([2u8; 32]).account_id()
+    let secret_seed = "d326fc6143e0b09122fbd1350b74caa3765ee1206cb2d22acfeebe2474b63057";
+    let seed = hex_to_u8_array(&secret_seed[2..]);
+    TestAccount::new(seed).account_id()
 }
 pub fn validator_id_3() -> AccountId {
-    TestAccount::new([3u8; 32]).account_id()
+    let secret_seed = "5e112910b8b41226074bbdbf9db5e716b011cc504d694fb87af121016bf49a4f";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
 pub fn validator_id_4() -> AccountId {
-    TestAccount::new([4u8; 32]).account_id()
+    let secret_seed = "743334962f9a5b6c31fabce09424458916edb27d280ca857e4f27058dd1248a3";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
 pub fn validator_id_5() -> AccountId {
-    TestAccount::new([5u8; 32]).account_id()
+    let secret_seed = "1a2e735c84b3f0dfb7637b0c434340770db86ad102a584a340d7c4826bb8f0c1";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
 pub fn non_validator_id() -> AccountId {
-    TestAccount::new([100u8; 32]).account_id()
+    let secret_seed = "8a63af5fa9ef6c5ff4920990c01787ad0401d2d026defc4049f73fc88252feca";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
 pub fn sender() -> AccountId {
     validator_id_3()
@@ -73,6 +85,15 @@ const MOCK_T2_PUBLIC_KEY_BYTES: [u8; 32] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 209, 170, 222, 173,
     151, 4, 182,
 ];
+
+fn hex_to_u8_array(hex: &str) -> [u8; 32] {
+    let mut bytes = [0u8; 32];
+    let hex_len = hex.len() / 2;
+    for i in 0..hex_len {
+        bytes[i] = u8::from_str_radix(&hex[i * 2..(i + 1) * 2], 16).expect("Decoding failed");
+    }
+    bytes
+}
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
@@ -370,19 +391,19 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
             "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
         ));
         let decompressed_collator_eth_public_key =
-            ValidatorManager::decompress_eth_public_key(collator_eth_public_key).unwrap();
+            decompress_eth_public_key(collator_eth_public_key).unwrap();
         let validator_t2_pub_key_used_in_unit_tests: [u8; 32] =
             <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(&validator_id_3());
         let validator_t2_pub_key_used_in_benchmarks: [u8; 32] = MOCK_T2_PUBLIC_KEY_BYTES;
 
         if submitter == get_registered_validator_id() ||
             candidate_type ==
-                EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+                EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
                     decompressed_collator_eth_public_key,
                     validator_t2_pub_key_used_in_unit_tests,
                 )) ||
             candidate_type ==
-                EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+                EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
                     decompressed_collator_eth_public_key,
                     validator_t2_pub_key_used_in_benchmarks,
                 ))

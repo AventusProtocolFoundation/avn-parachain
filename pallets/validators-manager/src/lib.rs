@@ -37,8 +37,8 @@ use pallet_avn::{
 };
 use pallet_ethereum_transactions::{
     ethereum_transaction::{
-        ActivateCollatorData, DeregisterValidatorData, EthAbiHelper, EthTransactionType,
-        SlashValidatorData, TransactionId,
+        ActivateCollatorData, DeregisterCollatorData, EthAbiHelper, EthTransactionType,
+        TransactionId,
     },
     CandidateTransactionSubmitter,
 };
@@ -346,12 +346,9 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
             ensure_none(origin)?;
-            println!("HELP 1 !!!");
             let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&action_id)?;
-            println!("{:?}, {:?}, {:?}", eth_encoded_data, &validator, &approval_signature);
             if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
             {
-                println!("inside the if !!!!");
                 create_and_report_validators_offence::<T>(
                     &validator.account_id,
                     &vec![validator.account_id.clone()],
@@ -612,15 +609,12 @@ impl<T: Config> Pallet<T> {
         action_id: &ActionId<T::AccountId>,
     ) -> Result<String, DispatchError> {
         let validators_action_data = Self::try_get_validators_action_data(action_id)?;
-        println!("HELP 7 !!!! {:?}", &validators_action_data.reserved_eth_transaction);
         let eth_description = EthAbiHelper::generate_ethereum_description_for_signature_request(
             &T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator),
             &validators_action_data.reserved_eth_transaction,
             validators_action_data.eth_transaction_id,
         )
         .map_err(|_| Error::<T>::ErrorGeneratingEthDescription)?;
-        println!("HELp 8 !!! {:?}", eth_description);
-
         Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
     }
 
@@ -882,9 +876,8 @@ impl<T: Config> Pallet<T> {
         t1_eth_public_key: ecdsa::Public,
         resigned_validator: &T::AccountId,
     ) -> DispatchResult {
-        let decompressed_eth_public_key =
-            Self::decompress_eth_public_key(t1_eth_public_key).unwrap();
-        let candidate_tx = EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+        let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key).unwrap();
+        let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
             decompressed_eth_public_key,
             T::AccountToBytesConvert::into_bytes(resigned_validator),
         ));

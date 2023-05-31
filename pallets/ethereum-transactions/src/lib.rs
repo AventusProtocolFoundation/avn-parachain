@@ -450,7 +450,8 @@ impl<T: Config> Pallet<T> {
             EthTransactionType::PublishRoot(_) => Some(Self::get_publish_root_contract()),
             EthTransactionType::DeregisterValidator(_) |
             EthTransactionType::ActivateValidator(_) |
-            EthTransactionType::ActivateCollator(_) =>
+            EthTransactionType::ActivateCollator(_) |
+            EthTransactionType::DeregisterCollator(_) =>
                 Some(T::ValidatorManagerContractAddress::get()),
             _ => None,
         }

@@ -78,7 +78,7 @@ fn generate_deregister_validator_mock_data_with_sender() -> (EthSignatures, EthT
     let candidate_transaction = EthTransactionCandidate::new(
         EthereumTransactions::get_unique_transaction_identifier(),
         Some(to_32_bytes(&SELECTED_SENDER_ACCOUNT_ID)),
-        EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+        EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
             H512::from(t1_public_key.clone()),
             t2_public_key.clone(),
         )),

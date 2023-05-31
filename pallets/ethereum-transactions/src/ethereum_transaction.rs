@@ -16,6 +16,9 @@ use ethabi::{Error as EthAbiError, Function, Param, ParamType, Token};
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
 pub enum EthTransactionType {
     PublishRoot(PublishRootData),
+    #[deprecated(
+        note = "Parachains use collators so this is deprecated. use only `DeregisterCollator` instead"
+    )]
     DeregisterValidator(DeregisterValidatorData),
     SlashValidator(SlashValidatorData),
     #[deprecated(
@@ -25,13 +28,14 @@ pub enum EthTransactionType {
     Invalid,
     Discarded(TransactionId),
     ActivateCollator(ActivateCollatorData),
+    DeregisterCollator(DeregisterCollatorData),
 }
 
 impl Default for EthTransactionType {
     fn default() -> Self {
         EthTransactionType::Invalid
     }
-}_t2TransactionId
+}
 
 impl EthTransactionType {
     pub fn to_abi(&self) -> Result<EthTransactionDescription, ethabi::Error> {
@@ -39,8 +43,8 @@ impl EthTransactionType {
             EthTransactionType::PublishRoot(d) => Ok(d.to_abi()),
             EthTransactionType::DeregisterValidator(d) => Ok(d.to_abi()),
             // EthTransactionType::SlashValidator(d) => Ok(d.to_abi()),
-            EthTransactionType::ActivateValidator(d) => Ok(d.to_abi()),
             EthTransactionType::ActivateCollator(d) => Ok(d.to_abi()),
+            EthTransactionType::DeregisterCollator(d) => Ok(d.to_abi()),
             EthTransactionType::ActivateValidator(_d) => Err(EthAbiError::InvalidData),
             _ => Err(EthAbiError::InvalidData),
         }
@@ -75,13 +79,39 @@ impl PublishRootData {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
 pub struct DeregisterValidatorData {
-    pub t1_public_key: H512,
     pub t2_public_key: [u8; 32],
 }
 
 impl DeregisterValidatorData {
-    pub fn new(t1_public_key: H512, t2_public_key: [u8; 32]) -> DeregisterValidatorData {
-        DeregisterValidatorData { t1_public_key, t2_public_key }
+    pub fn new(t2_public_key: [u8; 32]) -> DeregisterValidatorData {
+        DeregisterValidatorData { t2_public_key }
+    }
+
+    pub fn to_abi(&self) -> EthTransactionDescription {
+        EthTransactionDescription {
+            function_call: Function {
+                name: String::from("deregisterValidator"),
+                inputs: vec![Param {
+                    name: String::from("_targetT2PublicKey"),
+                    kind: ParamType::FixedBytes(32),
+                }],
+                outputs: Vec::<Param>::new(),
+                constant: false,
+            },
+            call_values: vec![Token::FixedBytes(self.t2_public_key.to_vec())],
+        }
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
+pub struct DeregisterCollatorData {
+    pub t1_public_key: H512,
+    pub t2_public_key: [u8; 32],
+}
+
+impl DeregisterCollatorData {
+    pub fn new(t1_public_key: H512, t2_public_key: [u8; 32]) -> DeregisterCollatorData {
+        DeregisterCollatorData { t1_public_key, t2_public_key }
     }
 
     pub fn to_abi(&self) -> EthTransactionDescription {
@@ -90,20 +120,20 @@ impl DeregisterValidatorData {
                 name: String::from("deregisterValidator"),
                 inputs: vec![
                     Param {
-                        name: String::from("_targetT1PublicKey"),
-                        kind: ParamType::FixedBytes(64),
-                    },
-                    Param {
                         name: String::from("_targetT2PublicKey"),
                         kind: ParamType::FixedBytes(32),
+                    },
+                    Param {
+                        name: String::from("_targetT1PublicKey"),
+                        kind: ParamType::FixedBytes(64),
                     },
                 ],
                 outputs: Vec::<Param>::new(),
                 constant: false,
             },
             call_values: vec![
-                Token::Bytes(self.t1_public_key.to_fixed_bytes().to_vec()),
                 Token::FixedBytes(self.t2_public_key.to_vec()),
+                Token::Bytes(self.t1_public_key.to_fixed_bytes().to_vec()),
             ],
         }
     }
@@ -312,9 +342,7 @@ impl EthAbiHelper {
     }
 
     pub fn generate_eth_abi_encoding_for_params_only(call: &EthTransactionDescription) -> Vec<u8> {
-        let result = ethabi::encode(&call.call_values);
-        println!("HELP 9 !!!! {:?}", result);
-        return result
+        ethabi::encode(&call.call_values)
     }
 
     pub fn generate_ethereum_transaction_abi(

@@ -15,8 +15,8 @@ pub fn generate_publish_root_data(root_hash: [u8; 32]) -> PublishRootData {
 fn generate_deregister_validator_data(
     t1_public_key: H512,
     t2_public_key: [u8; 32],
-) -> DeregisterValidatorData {
-    DeregisterValidatorData { t1_public_key, t2_public_key }
+) -> DeregisterCollatorData {
+    DeregisterCollatorData { t1_public_key, t2_public_key }
 }
 
 fn generate_publish_root_eth_txn_desc(root_hash: [u8; 32]) -> EthTransactionDescription {
@@ -41,15 +41,15 @@ fn generate_deregister_validator_eth_txn_desc(
         function_call: Function {
             name: String::from("deregisterValidator"),
             inputs: vec![
-                Param { name: String::from("_targetT1PublicKey"), kind: ParamType::FixedBytes(64) },
                 Param { name: String::from("_targetT2PublicKey"), kind: ParamType::FixedBytes(32) },
+                Param { name: String::from("_targetT1PublicKey"), kind: ParamType::FixedBytes(64) },
             ],
             outputs: Vec::<Param>::new(),
             constant: false,
         },
         call_values: vec![
-            Token::Bytes(t1_public_key.to_fixed_bytes().to_vec()),
             Token::FixedBytes(t2_public_key.to_vec()),
+            Token::Bytes(t1_public_key.to_fixed_bytes().to_vec()),
         ],
     }
 }
@@ -66,7 +66,7 @@ mod eth_transaction_type {
         t1_public_key: H512,
         t2_public_key: [u8; 32],
     ) -> EthTransactionType {
-        EthTransactionType::DeregisterValidator(generate_deregister_validator_data(
+        EthTransactionType::DeregisterCollator(generate_deregister_validator_data(
             t1_public_key,
             t2_public_key,
         ))
@@ -153,7 +153,7 @@ mod deregister_validator_data {
             generate_deregister_validator_data(H512::from(T1_PUBLIC_KEY), T2_PUBLIC_KEY);
 
         assert_eq!(
-            DeregisterValidatorData::new(H512::from(T1_PUBLIC_KEY), T2_PUBLIC_KEY),
+            DeregisterCollatorData::new(H512::from(T1_PUBLIC_KEY), T2_PUBLIC_KEY),
             expected_deregister_validator_data
         );
     }
