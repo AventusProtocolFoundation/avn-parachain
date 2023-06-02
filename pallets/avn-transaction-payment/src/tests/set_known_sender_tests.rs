@@ -186,3 +186,56 @@ mod set_known_senders {
         }
     }
 }
+
+mod remove_known_senders {
+    use super::*;
+
+    mod succeeds_when {
+        use super::*;
+
+        #[test]
+        fn call_is_set_with_correct_information() {
+            new_test_ext().execute_with(|| {
+                let account_1 = to_acc_id(1u64);
+
+                let config = AdjustmentInput::<TestRuntime> {
+                    fee_type: FeeType::PercentageFee(PercentageFeeConfig {
+                        percentage: 10,
+                        _marker: sp_std::marker::PhantomData::<TestRuntime>,
+                    }),
+                    adjustment_type: AdjustmentType::None,
+                };
+
+                assert_ok!(AvnTransactionPayment::set_known_sender(
+                    RuntimeOrigin::root(),
+                    account_1,
+                    config,
+                ));
+
+                assert_ok!(AvnTransactionPayment::remove_known_sender(
+                    RuntimeOrigin::root(),
+                    account_1
+                ));
+            })
+        }
+    }
+
+    mod fails_when {
+        use super::*;
+
+        #[test]
+        fn call_is_set_with_an_unknown_sender() {
+            new_test_ext().execute_with(|| {
+                let account_1 = to_acc_id(1u64);
+
+                assert_noop!(
+                    AvnTransactionPayment::remove_known_sender(
+                        RuntimeOrigin::root(),
+                        account_1
+                    ),
+                    Error::<TestRuntime>::KnownSenderMissing
+                );
+            })
+        }
+    }
+}
