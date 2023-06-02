@@ -229,10 +229,7 @@ mod remove_known_senders {
                 let account_1 = to_acc_id(1u64);
 
                 assert_noop!(
-                    AvnTransactionPayment::remove_known_sender(
-                        RuntimeOrigin::root(),
-                        account_1
-                    ),
+                    AvnTransactionPayment::remove_known_sender(RuntimeOrigin::root(), account_1),
                     Error::<TestRuntime>::KnownSenderMissing
                 );
             })
