@@ -97,7 +97,7 @@ mod set_known_senders {
         use super::*;
 
         #[test]
-        fn call_is_set_with_bad_pertencage_fee() {
+        fn call_is_set_with_zero_pertencage_fee() {
             new_test_ext().execute_with(|| {
                 let account_1 = to_acc_id(1u64);
 
@@ -121,7 +121,7 @@ mod set_known_senders {
         }
 
         #[test]
-        fn call_is_set_with_bad_fixed_fee() {
+        fn call_is_set_with_zero_fixed_fee() {
             new_test_ext().execute_with(|| {
                 let account_1 = to_acc_id(1u64);
 
@@ -142,7 +142,7 @@ mod set_known_senders {
         }
 
         #[test]
-        fn call_is_set_with_bad_transaction_based_adjustment_type() {
+        fn call_is_set_with_number_of_transactions_set_to_zero() {
             new_test_ext().execute_with(|| {
                 let account_1 = to_acc_id(1u64);
 
@@ -165,7 +165,7 @@ mod set_known_senders {
         }
 
         #[test]
-        fn call_is_set_with_bad_time_based_adjustment_type() {
+        fn call_is_set_with_duration_set_to_zero() {
             new_test_ext().execute_with(|| {
                 let account_1 = to_acc_id(1u64);
 
