@@ -131,7 +131,7 @@ fn is_not_own_activation<T: Config>(
     if let Some(action_data) =
         <ValidatorsManager<T> as Store>::ValidatorActions::get(account_id, ingress_counter)
     {
-        if let EthTransactionType::ActivateValidator(activation_data) =
+        if let EthTransactionType::ActivateCollator(activation_data) =
             action_data.reserved_eth_transaction
         {
             return activation_data.t2_public_key !=
