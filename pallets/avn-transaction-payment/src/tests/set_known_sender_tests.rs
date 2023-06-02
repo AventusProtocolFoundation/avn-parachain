@@ -16,7 +16,7 @@ mod set_known_senders {
         use super::*;
 
         #[test]
-        fn call_is_set_with_correct_pertencage_fee() {
+        fn call_is_set_with_correct_percentage_fee() {
             new_test_ext().execute_with(|| {
                 let account_1 = to_acc_id(1u64);
 
@@ -97,7 +97,7 @@ mod set_known_senders {
         use super::*;
 
         #[test]
-        fn call_is_set_with_zero_pertencage_fee() {
+        fn call_is_set_with_zero_percentage_fee() {
             new_test_ext().execute_with(|| {
                 let account_1 = to_acc_id(1u64);
 
