@@ -15,6 +15,7 @@ use alloc::string::{String, ToString};
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, transactional};
 use frame_system::{self as system, ensure_none, offchain::SendTransactionTypes, RawOrigin};
 use pallet_session::{self as session, Config as SessionConfig};
+use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Convert, Member},
@@ -601,7 +602,8 @@ impl<T: Config> Pallet<T> {
     pub fn sign_validators_action_for_ethereum(
         action_id: &ActionId<T::AccountId>,
     ) -> Result<(String, ecdsa::Signature), DispatchError> {
-        let data = Self::convert_data_to_eth_compatible_encoding(action_id)?;
+        let data =
+            Self::convert_data_to_eth_compatible_encoding_for_collator_registration(action_id)?;
         return Ok((data.clone(), AVN::<T>::request_ecdsa_signature_from_external_service(&data)?))
     }
 
@@ -617,6 +619,25 @@ impl<T: Config> Pallet<T> {
         .map_err(|_| Error::<T>::ErrorGeneratingEthDescription)?;
 
         Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
+    }
+
+    pub fn convert_data_to_eth_compatible_encoding_for_collator_registration(
+        action_id: &ActionId<T::AccountId>,
+    ) -> Result<String, DispatchError> {
+        let validators_action_data = Self::try_get_validators_action_data(action_id)?;
+        let eth_description = EthAbiHelper::generate_ethereum_description_for_signature_request(
+            &T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator),
+            &validators_action_data.reserved_eth_transaction,
+            validators_action_data.eth_transaction_id,
+        )
+        .map_err(|_| Error::<T>::ErrorGeneratingEthDescription)?;
+
+        // TODO(ivan): EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)
+        Ok(hex::encode(keccak_256(
+            EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description).as_slice(),
+        )))
+        // Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&
+        // eth_description)))
     }
 
     fn try_get_validators_action_data(
