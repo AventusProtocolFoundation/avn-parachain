@@ -1,6 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::EthTransaction;
-use sp_core::{ecdsa, H160, H256, U256};
+use sp_core::{ecdsa, H160, H256, H512, U256};
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -18,9 +18,13 @@ pub enum EthTransactionType {
     PublishRoot(PublishRootData),
     DeregisterValidator(DeregisterValidatorData),
     SlashValidator(SlashValidatorData),
+    #[deprecated(
+        note = "Parachains use collators so this is deprecated. use only `ActivateCollator` instead"
+    )]
     ActivateValidator(ActivateValidatorData),
     Invalid,
     Discarded(TransactionId),
+    ActivateCollator(ActivateCollatorData),
 }
 
 impl Default for EthTransactionType {
@@ -35,7 +39,8 @@ impl EthTransactionType {
             EthTransactionType::PublishRoot(d) => Ok(d.to_abi()),
             EthTransactionType::DeregisterValidator(d) => Ok(d.to_abi()),
             EthTransactionType::SlashValidator(d) => Ok(d.to_abi()),
-            EthTransactionType::ActivateValidator(d) => Ok(d.to_abi()),
+            EthTransactionType::ActivateCollator(d) => Ok(d.to_abi()),
+            EthTransactionType::ActivateValidator(_d) => Err(EthAbiError::InvalidData),
             _ => Err(EthAbiError::InvalidData),
         }
     }
@@ -128,19 +133,37 @@ impl ActivateValidatorData {
     pub fn new(t2_public_key: [u8; 32]) -> ActivateValidatorData {
         ActivateValidatorData { t2_public_key }
     }
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
+pub struct ActivateCollatorData {
+    pub t1_public_key: H512,
+    pub t2_public_key: [u8; 32],
+}
+
+impl ActivateCollatorData {
+    pub fn new(t1_public_key: H512, t2_public_key: [u8; 32]) -> ActivateCollatorData {
+        ActivateCollatorData { t1_public_key, t2_public_key }
+    }
 
     pub fn to_abi(&self) -> EthTransactionDescription {
         EthTransactionDescription {
             function_call: Function {
-                name: String::from("activateValidator"),
-                inputs: vec![Param {
-                    name: String::from("_targetT2PublicKey"),
-                    kind: ParamType::FixedBytes(32),
-                }],
+                name: String::from("registerValidator"),
+                inputs: vec![
+                    Param { name: String::from("_targetT1PublicKey"), kind: ParamType::Bytes },
+                    Param {
+                        name: String::from("_targetT2PublicKey"),
+                        kind: ParamType::FixedBytes(32),
+                    },
+                ],
                 outputs: Vec::<Param>::new(),
                 constant: false,
             },
-            call_values: vec![Token::FixedBytes(self.t2_public_key.to_vec())],
+            call_values: vec![
+                Token::Bytes(self.t1_public_key.to_fixed_bytes().to_vec()),
+                Token::FixedBytes(self.t2_public_key.to_vec()),
+            ],
         }
     }
 }
