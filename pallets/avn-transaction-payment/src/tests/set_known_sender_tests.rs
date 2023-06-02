@@ -1,19 +1,9 @@
 use super::*;
-use crate::{
-    mock::{
-        TestAccount,
-        AccountId,
-        new_test_ext,
-        TestRuntime,
-        AvnTransactionPayment,
-        RuntimeOrigin
-    },
+use crate::mock::{
+    new_test_ext, AccountId, AvnTransactionPayment, RuntimeOrigin, TestAccount, TestRuntime,
 };
 
-use frame_support::{
-    assert_ok,
-    assert_noop
-};
+use frame_support::{assert_noop, assert_ok};
 
 fn to_acc_id(id: u64) -> AccountId {
     return TestAccount::new(id).account_id()
@@ -33,7 +23,7 @@ mod set_known_senders {
                 let config = AdjustmentInput::<TestRuntime> {
                     fee_type: FeeType::PercentageFee(PercentageFeeConfig {
                         percentage: 10,
-                        _marker: sp_std::marker::PhantomData::<TestRuntime>
+                        _marker: sp_std::marker::PhantomData::<TestRuntime>,
                     }),
                     adjustment_type: AdjustmentType::None,
                 };
@@ -52,9 +42,7 @@ mod set_known_senders {
                 let account_1 = to_acc_id(1u64);
 
                 let config = AdjustmentInput::<TestRuntime> {
-                    fee_type: FeeType::FixedFee(FixedFeeConfig {
-                        fee: 10
-                    }),
+                    fee_type: FeeType::FixedFee(FixedFeeConfig { fee: 10 }),
                     adjustment_type: AdjustmentType::None,
                 };
 
@@ -63,7 +51,7 @@ mod set_known_senders {
                     account_1,
                     config,
                 ));
-             })
+            })
         }
 
         #[test]
@@ -72,11 +60,9 @@ mod set_known_senders {
                 let account_1 = to_acc_id(1u64);
 
                 let config = AdjustmentInput::<TestRuntime> {
-                    fee_type: FeeType::FixedFee(FixedFeeConfig {
-                        fee: 1
-                    }),
+                    fee_type: FeeType::FixedFee(FixedFeeConfig { fee: 1 }),
                     adjustment_type: AdjustmentType::TransactionBased(NumberOfTransactions {
-                        number_of_transactions: 5
+                        number_of_transactions: 5,
                     }),
                 };
 
@@ -85,7 +71,7 @@ mod set_known_senders {
                     account_1,
                     config,
                 ));
-             })
+            })
         }
 
         #[test]
@@ -94,12 +80,8 @@ mod set_known_senders {
                 let account_1 = to_acc_id(1u64);
 
                 let config = AdjustmentInput::<TestRuntime> {
-                    fee_type: FeeType::FixedFee(FixedFeeConfig {
-                        fee: 1
-                    }),
-                    adjustment_type: AdjustmentType::TimeBased(Duration {
-                        duration: 1
-                    }),
+                    fee_type: FeeType::FixedFee(FixedFeeConfig { fee: 1 }),
+                    adjustment_type: AdjustmentType::TimeBased(Duration { duration: 1 }),
                 };
 
                 assert_ok!(AvnTransactionPayment::set_known_sender(
@@ -107,7 +89,7 @@ mod set_known_senders {
                     account_1,
                     config,
                 ));
-             })
+            })
         }
     }
 
@@ -122,18 +104,20 @@ mod set_known_senders {
                 let config = AdjustmentInput::<TestRuntime> {
                     fee_type: FeeType::PercentageFee(PercentageFeeConfig {
                         percentage: 0,
-                        _marker: sp_std::marker::PhantomData::<TestRuntime>
+                        _marker: sp_std::marker::PhantomData::<TestRuntime>,
                     }),
                     adjustment_type: AdjustmentType::None,
                 };
 
-                assert_noop!(AvnTransactionPayment::set_known_sender(
-                    RuntimeOrigin::root(),
-                    account_1,
-                    config,
-                ),
-                Error::<TestRuntime>::InvalidFeeConfig);
-             })
+                assert_noop!(
+                    AvnTransactionPayment::set_known_sender(
+                        RuntimeOrigin::root(),
+                        account_1,
+                        config,
+                    ),
+                    Error::<TestRuntime>::InvalidFeeConfig
+                );
+            })
         }
 
         #[test]
@@ -142,19 +126,19 @@ mod set_known_senders {
                 let account_1 = to_acc_id(1u64);
 
                 let config = AdjustmentInput::<TestRuntime> {
-                    fee_type: FeeType::FixedFee(FixedFeeConfig {
-                        fee: 0
-                    }),
+                    fee_type: FeeType::FixedFee(FixedFeeConfig { fee: 0 }),
                     adjustment_type: AdjustmentType::None,
                 };
 
-                assert_noop!(AvnTransactionPayment::set_known_sender(
-                    RuntimeOrigin::root(),
-                    account_1,
-                    config,
-                ),
-                Error::<TestRuntime>::InvalidFeeConfig);
-             })
+                assert_noop!(
+                    AvnTransactionPayment::set_known_sender(
+                        RuntimeOrigin::root(),
+                        account_1,
+                        config,
+                    ),
+                    Error::<TestRuntime>::InvalidFeeConfig
+                );
+            })
         }
 
         #[test]
@@ -163,21 +147,21 @@ mod set_known_senders {
                 let account_1 = to_acc_id(1u64);
 
                 let config = AdjustmentInput::<TestRuntime> {
-                    fee_type: FeeType::FixedFee(FixedFeeConfig {
-                        fee: 1
-                    }),
+                    fee_type: FeeType::FixedFee(FixedFeeConfig { fee: 1 }),
                     adjustment_type: AdjustmentType::TransactionBased(NumberOfTransactions {
-                        number_of_transactions: 0
+                        number_of_transactions: 0,
                     }),
                 };
 
-                assert_noop!(AvnTransactionPayment::set_known_sender(
-                    RuntimeOrigin::root(),
-                    account_1,
-                    config,
-                ),
-                Error::<TestRuntime>::InvalidFeeConfig);
-             })
+                assert_noop!(
+                    AvnTransactionPayment::set_known_sender(
+                        RuntimeOrigin::root(),
+                        account_1,
+                        config,
+                    ),
+                    Error::<TestRuntime>::InvalidFeeConfig
+                );
+            })
         }
 
         #[test]
@@ -186,21 +170,19 @@ mod set_known_senders {
                 let account_1 = to_acc_id(1u64);
 
                 let config = AdjustmentInput::<TestRuntime> {
-                    fee_type: FeeType::FixedFee(FixedFeeConfig {
-                        fee: 1
-                    }),
-                    adjustment_type: AdjustmentType::TimeBased(Duration {
-                        duration: 0
-                    }),
+                    fee_type: FeeType::FixedFee(FixedFeeConfig { fee: 1 }),
+                    adjustment_type: AdjustmentType::TimeBased(Duration { duration: 0 }),
                 };
 
-                assert_noop!(AvnTransactionPayment::set_known_sender(
-                    RuntimeOrigin::root(),
-                    account_1,
-                    config,
-                ),
-                Error::<TestRuntime>::InvalidFeeConfig);
-             })
+                assert_noop!(
+                    AvnTransactionPayment::set_known_sender(
+                        RuntimeOrigin::root(),
+                        account_1,
+                        config,
+                    ),
+                    Error::<TestRuntime>::InvalidFeeConfig
+                );
+            })
         }
     }
 }
