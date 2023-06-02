@@ -303,6 +303,7 @@ where
     }
 }
 
+#[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;
 
