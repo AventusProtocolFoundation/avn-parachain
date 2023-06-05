@@ -206,6 +206,8 @@ impl<T: Config> Pallet<T> {
         let mut url = String::from("eth/sign/");
         url.push_str(data_to_sign);
 
+        info!(target: "avn-service", "avn-service sign request (ecdsa) for data {:?}", data_to_sign);
+
         let ecdsa_signature_utf8 = Self::get_data_from_service(url)?;
         let ecdsa_signature_bytes = core::str::from_utf8(&ecdsa_signature_utf8)
             .map_err(|_| Error::<T>::ErrorConvertingUtf8)?;

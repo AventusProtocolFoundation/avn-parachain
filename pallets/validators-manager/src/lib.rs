@@ -347,7 +347,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_none(origin)?;
 
-            let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&action_id)?;
+            let eth_encoded_data =
+                Self::convert_collator_registration_action_to_confirmation_signing_data(
+                    &action_id, false,
+                )?;
             if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
             {
                 create_and_report_validators_offence::<T>(
@@ -474,7 +477,10 @@ pub mod pallet {
                 }
 
                 let voting_session = Self::get_voting_session(action_id);
-                let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(action_id)
+                let eth_encoded_data =
+                    Self::convert_collator_registration_action_to_confirmation_signing_data(
+                        action_id, false,
+                    )
                     .map_err(|_| {
                         InvalidTransaction::Custom(ERROR_CODE_INVALID_DEREGISTERED_VALIDATOR)
                     })?;
@@ -588,6 +594,7 @@ const NAME: &'static [u8; 17] = b"validatorsManager";
 
 // Error codes returned by validate unsigned methods
 const ERROR_CODE_INVALID_DEREGISTERED_VALIDATOR: u8 = 10;
+const PACKED_ARGUMENTS_SIZE: usize = 96;
 
 pub type AVN<T> = avn::Pallet<T>;
 
@@ -602,11 +609,13 @@ impl<T: Config> Pallet<T> {
     pub fn sign_validators_action_for_ethereum(
         action_id: &ActionId<T::AccountId>,
     ) -> Result<(String, ecdsa::Signature), DispatchError> {
-        let data =
-            Self::convert_data_to_eth_compatible_encoding_for_collator_registration(action_id)?;
+        let data = Self::convert_collator_registration_action_to_confirmation_signing_data(
+            action_id, true,
+        )?;
         return Ok((data.clone(), AVN::<T>::request_ecdsa_signature_from_external_service(&data)?))
     }
 
+    // TODO delete me.
     pub fn convert_data_to_eth_compatible_encoding(
         action_id: &ActionId<T::AccountId>,
     ) -> Result<String, DispatchError> {
@@ -621,23 +630,56 @@ impl<T: Config> Pallet<T> {
         Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
     }
 
-    pub fn convert_data_to_eth_compatible_encoding_for_collator_registration(
+    /// This function generates the data needed to generate a confirmation for registering a new
+    /// collator. The implementation must match this schema:
+    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L344-L345
+    pub fn convert_collator_registration_action_to_confirmation_signing_data(
         action_id: &ActionId<T::AccountId>,
+        enable_data_logs: bool,
     ) -> Result<String, DispatchError> {
         let validators_action_data = Self::try_get_validators_action_data(action_id)?;
-        let eth_description = EthAbiHelper::generate_ethereum_description_for_signature_request(
-            &T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator),
-            &validators_action_data.reserved_eth_transaction,
-            validators_action_data.eth_transaction_id,
-        )
-        .map_err(|_| Error::<T>::ErrorGeneratingEthDescription)?;
+        let mut activate_collator_params_concat: [u8; PACKED_ARGUMENTS_SIZE] = [0u8; 96];
 
-        // TODO(ivan): EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)
-        Ok(hex::encode(keccak_256(
-            EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description).as_slice(),
-        )))
-        // Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&
-        // eth_description)))
+        let activate_collator_params = match validators_action_data.reserved_eth_transaction {
+            EthTransactionType::ActivateCollator(ref d) => d,
+            _ => Err(Error::<T>::ErrorGeneratingEthDescription)?,
+        };
+
+        activate_collator_params_concat[0..64]
+            .copy_from_slice(&activate_collator_params.t1_public_key.as_bytes()[0..64]);
+        activate_collator_params_concat[64..96]
+            .copy_from_slice(&activate_collator_params.t2_public_key[0..32]);
+
+        let activate_collator_hash = keccak_256(&activate_collator_params_concat);
+
+        let sender =
+            T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator);
+
+        // Now treat this as an bytes32 parameter and generate signing abi.
+        let hex_encoded_confirmation_data =
+            hex::encode(EthAbiHelper::generate_confirmation_data_for_compacted_calls(
+                &activate_collator_hash,
+                validators_action_data.eth_transaction_id,
+                &sender,
+            ));
+
+        if enable_data_logs {
+            log::info!(
+                "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
+                    &validators_action_data.reserved_eth_transaction,
+                    hex::encode(activate_collator_params_concat),
+                    hex::encode(activate_collator_hash)
+            );
+            log::info!(
+                "📩 Data used for abi encode: (hash: {:?}, tx_id: {:?}, from: {:?}). Output: {:?}",
+                activate_collator_hash,
+                validators_action_data.eth_transaction_id,
+                &sender,
+                &hex_encoded_confirmation_data
+            );
+        }
+
+        return Ok(hex_encoded_confirmation_data)
     }
 
     fn try_get_validators_action_data(

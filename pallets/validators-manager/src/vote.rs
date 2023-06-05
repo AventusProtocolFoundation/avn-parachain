@@ -159,6 +159,11 @@ pub fn cast_votes_if_required<T: Config>(
                 ActionId::new(action_validator_id, ingress_counter)
             })
             .collect();
+    log::debug!(
+        "📨 Actions to vote upon {:?}, from {:?}",
+        pending_actions_ids.len(),
+        <ValidatorsManager<T> as Store>::PendingApprovals::iter().count()
+    );
 
     // try to send 1 of MAX_VOTING_SESSIONS_RETURNED votes
     for action_id in pending_actions_ids {
@@ -249,6 +254,16 @@ fn action_can_be_voted_on<T: Config>(
     // time the vote gets mined. It may be outside the voting window and get rejected.
     let voting_session = ValidatorsManager::<T>::get_voting_session(action_id);
     let voting_session_data = voting_session.state();
+    log::debug!(
+        "📨 voting_session data: {:#?} - voting_session_data are OK: {:?} \
+        - voting session active: {:?} - voting session is valid: {:?} - vote already in pool: {:?}",
+        voting_session_data,
+        voting_session_data.is_ok(),
+        voting_session.is_active(),
+        voting_session.is_valid(),
+        is_vote_in_transaction_pool::<T>(action_id)
+    );
+
     return voting_session_data.is_ok() &&
         !voting_session_data.expect("voting session data is ok").has_voted(voter) &&
         voting_session.is_active() &&
