@@ -668,7 +668,7 @@ impl<T: Config> Pallet<T> {
 
         // Now treat this as an bytes32 parameter and generate signing abi.
         let hex_encoded_confirmation_data =
-            hex::encode(EthAbiHelper::generate_confirmation_data_for_compacted_calls(
+            hex::encode(EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
                 &activate_collator_hash,
                 validators_action_data.eth_transaction_id,
                 &sender,

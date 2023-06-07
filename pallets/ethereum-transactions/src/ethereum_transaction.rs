@@ -342,13 +342,13 @@ impl EthAbiHelper {
         ethabi::encode(&call.call_values)
     }
 
-    pub fn generate_confirmation_data_for_compacted_calls(
-        keccak_256_hash: &[u8; 32],
+    pub fn generate_ethereum_abi_data_for_signature_request(
+        hash_data: &[u8; 32],
         transaction_id: TransactionId,
         from: &[u8; 32],
     ) -> Vec<u8> {
         let call_values: Vec<Token> = vec![
-            Token::FixedBytes(keccak_256_hash.to_vec()),
+            Token::FixedBytes(hash_data.to_vec()),
             Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into()),
             Token::FixedBytes(from.to_vec()),
         ];
