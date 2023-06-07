@@ -40,7 +40,6 @@ impl EthTransactionType {
             EthTransactionType::DeregisterValidator(d) => Ok(d.to_abi()),
             EthTransactionType::SlashValidator(d) => Ok(d.to_abi()),
             EthTransactionType::ActivateCollator(d) => Ok(d.to_abi()),
-            EthTransactionType::ActivateValidator(_d) => Err(EthAbiError::InvalidData),
             _ => Err(EthAbiError::InvalidData),
         }
     }
@@ -323,6 +322,19 @@ impl EthAbiHelper {
 
     pub fn generate_eth_abi_encoding_for_params_only(call: &EthTransactionDescription) -> Vec<u8> {
         return ethabi::encode(&call.call_values)
+    }
+
+    pub fn generate_confirmation_data_for_compacted_calls(
+        keccak_256_hash: &[u8; 32],
+        transaction_id: TransactionId,
+        from: &[u8; 32],
+    ) -> Vec<u8> {
+        let call_values: Vec<Token> = vec![
+            Token::FixedBytes(keccak_256_hash.to_vec()),
+            Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into()),
+            Token::FixedBytes(from.to_vec()),
+        ];
+        return ethabi::encode(&call_values)
     }
 
     pub fn generate_ethereum_transaction_abi(
