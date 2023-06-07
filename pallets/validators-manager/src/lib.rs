@@ -348,7 +348,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_none(origin)?;
 
-            let eth_encoded_data = Self::abi_encode_collator_registration_data(&action_id, false)?;
+            let eth_encoded_data = Self::abi_encode_collator_action_data(&action_id)?;
             if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
             {
                 create_and_report_validators_offence::<T>(
@@ -476,9 +476,9 @@ pub mod pallet {
 
                 let voting_session = Self::get_voting_session(action_id);
                 let eth_encoded_data =
-                    Self::abi_encode_collator_registration_data(action_id, false).map_err(
-                        |_| InvalidTransaction::Custom(ERROR_CODE_INVALID_DEREGISTERED_VALIDATOR),
-                    )?;
+                    Self::abi_encode_collator_action_data(action_id).map_err(|_| {
+                        InvalidTransaction::Custom(ERROR_CODE_INVALID_DEREGISTERED_VALIDATOR)
+                    })?;
                 return approve_vote_validate_unsigned::<T>(
                     &voting_session,
                     validator,
@@ -604,7 +604,7 @@ impl<T: Config> Pallet<T> {
     pub fn sign_validators_action_for_ethereum(
         action_id: &ActionId<T::AccountId>,
     ) -> Result<(String, ecdsa::Signature), DispatchError> {
-        let data = Self::abi_encode_collator_registration_data(action_id, true)?;
+        let data = Self::abi_encode_collator_action_data(action_id)?;
         return Ok((data.clone(), AVN::<T>::request_ecdsa_signature_from_external_service(&data)?))
     }
 
@@ -622,10 +622,11 @@ impl<T: Config> Pallet<T> {
         Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
     }
 
-    fn concat_and_hash_activation_data(
-        activate_collator_data: &ActivateCollatorData,
-        enable_data_logs: bool,
-    ) -> [u8; 32] {
+    /// This function generates the compacted call data needed to generate a confirmation for
+    /// registering a new collator. The implementation must match this schema:
+    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L344-L345
+
+    fn concat_and_hash_activation_data(activate_collator_data: &ActivateCollatorData) -> [u8; 32] {
         let mut activate_collator_params_concat: [u8; PACKED_KEYS_SIZE] = [0u8; PACKED_KEYS_SIZE];
 
         activate_collator_params_concat[0..64]
@@ -635,33 +636,50 @@ impl<T: Config> Pallet<T> {
 
         let activate_collator_hash = keccak_256(&activate_collator_params_concat);
 
-        if enable_data_logs {
-            log::info!(
-                "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
-                    &activate_collator_data,
-                    hex::encode(activate_collator_params_concat),
-                    hex::encode(activate_collator_hash)
-            );
-        }
+        log::debug!(
+            "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
+                &activate_collator_data,
+                hex::encode(activate_collator_params_concat),
+                hex::encode(activate_collator_hash)
+        );
         return activate_collator_hash
     }
 
-    /// This function generates the data needed to generate a confirmation for registering a
-    /// newactivate_collator_params_concat collator. The implementation must match this schema:
-    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L344-L345
-    pub fn abi_encode_collator_registration_data(
+    /// This function generates the compacted call data needed to generate a confirmation for
+    /// deregistering a new collator. The implementation must match this schema:
+    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L390-L391
+    fn concat_and_hash_deregistration_data(
+        deregister_collator_data: &DeregisterCollatorData,
+    ) -> [u8; 32] {
+        let mut deregister_collator_params_concat: [u8; PACKED_KEYS_SIZE] = [0u8; PACKED_KEYS_SIZE];
+
+        deregister_collator_params_concat[0..32]
+            .copy_from_slice(&deregister_collator_data.t2_public_key[0..32]);
+        deregister_collator_params_concat[32..PACKED_KEYS_SIZE]
+            .copy_from_slice(&deregister_collator_data.t1_public_key.as_bytes()[0..64]);
+
+        let deregister_collator_hash = keccak_256(&deregister_collator_params_concat);
+
+        log::debug!(
+            "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
+                &deregister_collator_data,
+                hex::encode(deregister_collator_params_concat),
+                hex::encode(deregister_collator_hash)
+        );
+        return deregister_collator_hash
+    }
+
+    pub fn abi_encode_collator_action_data(
         action_id: &ActionId<T::AccountId>,
-        enable_data_logs: bool,
     ) -> Result<String, DispatchError> {
         let validators_action_data = Self::try_get_validators_action_data(action_id)?;
 
-        let activate_collator_params = match validators_action_data.reserved_eth_transaction {
-            EthTransactionType::ActivateCollator(ref d) => d,
+        let action_parameters_concat_hash = match validators_action_data.reserved_eth_transaction {
+            EthTransactionType::ActivateCollator(ref d) => Self::concat_and_hash_activation_data(d),
+            EthTransactionType::DeregisterCollator(ref d) =>
+                Self::concat_and_hash_deregistration_data(d),
             _ => Err(Error::<T>::ErrorGeneratingEthDescription)?,
         };
-
-        let activate_collator_hash =
-            Self::concat_and_hash_activation_data(activate_collator_params, true);
 
         let sender =
             T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator);
@@ -669,20 +687,18 @@ impl<T: Config> Pallet<T> {
         // Now treat this as an bytes32 parameter and generate signing abi.
         let hex_encoded_confirmation_data =
             hex::encode(EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
-                &activate_collator_hash,
+                &action_parameters_concat_hash,
                 validators_action_data.eth_transaction_id,
                 &sender,
             ));
 
-        if enable_data_logs {
-            log::info!(
-                "📩 Data used for abi encode: (hex-encoded hash: {:?}, tx_id: {:?}, hex-encoded sender: {:?}). Output: {:?}",
-                hex::encode(activate_collator_hash),
-                validators_action_data.eth_transaction_id,
-                hex::encode(&sender),
-                &hex_encoded_confirmation_data
-            );
-        }
+        log::debug!(
+            "📩 Data used for abi encode: (hex-encoded hash: {:?}, tx_id: {:?}, hex-encoded sender: {:?}). Output: {:?}",
+            hex::encode(action_parameters_concat_hash),
+            validators_action_data.eth_transaction_id,
+            hex::encode(&sender),
+            &hex_encoded_confirmation_data
+        );
 
         return Ok(hex_encoded_confirmation_data)
     }
