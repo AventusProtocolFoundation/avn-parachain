@@ -3,7 +3,6 @@
 use crate::{mock::*, *};
 use codec::alloc::sync::Arc;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use hex_literal::hex;
 use pallet_avn::Error as AvNError;
 use parking_lot::RwLock;
 use sp_core::offchain::testing::{OffchainState, PoolState};
@@ -80,13 +79,7 @@ fn setup_ext_builder() -> (TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock
 }
 
 fn setup_voting_session(action_id: &ActionId<AccountId>) {
-    let collator_eth_public_key = ecdsa::Public::from_raw(hex!(
-        "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
-    ));
-    let decompressed_collator_eth_public_key =
-        decompress_eth_public_key(collator_eth_public_key).unwrap();
-    let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
-        decompressed_collator_eth_public_key,
+    let candidate_tx = EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
         <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(
             &action_id.action_account_id,
         ),
@@ -106,15 +99,18 @@ fn approve_validator_action(
 ) -> DispatchResult {
     let eth_compatible_data =
         ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id).unwrap();
+
     mock_response_of_get_ecdsa_signature(
         &mut context.offchain_state.write(),
         eth_compatible_data,
         Some(hex::encode([1; 65].to_vec()).as_bytes().to_vec()),
     );
+
     let (_, approval_signature) =
         ValidatorManager::sign_validators_action_for_ethereum(&context.action_id).unwrap();
     set_mock_recovered_account_id(validator.account_id);
-    return ValidatorManager::approve_validator_action(
+
+    ValidatorManager::approve_validator_action(
         RawOrigin::None.into(),
         context.action_id,
         validator.clone(),
@@ -669,6 +665,7 @@ mod reject_vote {
             ext.execute_with(|| {
                 let context = setup_context(&offchain_state);
                 setup_voting_session(&context.action_id);
+
                 assert_ok!(approve_validator_action(&context.validator, &context));
 
                 assert_noop!(
