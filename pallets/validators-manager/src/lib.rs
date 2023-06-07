@@ -962,7 +962,7 @@ impl<T: Config> Pallet<T> {
             Some(eth_public_key) => eth_public_key,
             _ => Err(Error::<T>::ValidatorNotFound)?,
         };
-        let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key).unwrap();
+        let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
         let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
             decompressed_eth_public_key,
             T::AccountToBytesConvert::into_bytes(resigned_validator),
