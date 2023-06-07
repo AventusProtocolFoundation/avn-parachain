@@ -41,7 +41,6 @@ impl EthTransactionType {
     pub fn to_abi(&self) -> Result<EthTransactionDescription, ethabi::Error> {
         match self {
             EthTransactionType::PublishRoot(d) => Ok(d.to_abi()),
-            EthTransactionType::DeregisterValidator(d) => Ok(d.to_abi()),
             EthTransactionType::ActivateCollator(d) => Ok(d.to_abi()),
             EthTransactionType::DeregisterCollator(d) => Ok(d.to_abi()),
             _ => Err(EthAbiError::InvalidData),
