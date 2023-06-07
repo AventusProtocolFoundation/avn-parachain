@@ -32,7 +32,7 @@ use pallet_avn::{
         process_reject_vote, reject_vote_validate_unsigned, VotingSessionData,
         VotingSessionManager, APPROVE_VOTE, REJECT_VOTE,
     },
-    AccountToBytesConverter, DisabledValidatorChecker, Error as avn_error,
+    AccountToBytesConverter, DisabledValidatorChecker, Enforcer, Error as avn_error,
     EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
     ValidatorRegistrationNotifier,
 };
@@ -302,7 +302,6 @@ pub mod pallet {
         #[transactional]
         pub fn remove_validator(
             origin: OriginFor<T>,
-            collator_eth_public_key: ecdsa::Public,
             collator_account_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
@@ -320,13 +319,13 @@ pub mod pallet {
             // TODO [TYPE: security][PRI: low][CRITICAL][JIRA: 66]: ensure that we have
             // authorization from the whole of T2? This is part of the package to
             // implement validator removals, slashing and the economics around that
-            Self::remove_resigned_validator(collator_eth_public_key, &collator_account_id)?;
+            Self::remove_deregistered_validator(&collator_account_id)?;
 
             Self::deposit_event(Event::<T>::ValidatorDeregistered {
                 validator_id: collator_account_id,
             });
 
-            // TODO: benchmark `remove_resigned_validator` and add to the weight
+            // TODO: benchmark `remove_deregistered_validator` and add to the weight
             return Ok(Some(
                 resign_as_candidate_weight
                     .actual_weight
@@ -957,10 +956,12 @@ impl<T: Config> Pallet<T> {
             !disabled_validators.iter().any(|v| v == deregistered_validator)
     }
 
-    fn remove_resigned_validator(
-        t1_eth_public_key: ecdsa::Public,
-        resigned_validator: &T::AccountId,
-    ) -> DispatchResult {
+    fn remove_deregistered_validator(resigned_validator: &T::AccountId) -> DispatchResult {
+        // Take key from map.
+        let t1_eth_public_key = match Self::get_ethereum_public_key_if_exists(resigned_validator) {
+            Some(eth_public_key) => eth_public_key,
+            _ => Err(Error::<T>::ValidatorNotFound)?,
+        };
         let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key).unwrap();
         let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
             decompressed_eth_public_key,
@@ -1201,5 +1202,15 @@ impl<T: Config> EthereumPublicKeyChecker<T::AccountId> for Pallet<T> {
 impl<T: Config> DisabledValidatorChecker<T::AccountId> for Pallet<T> {
     fn is_disabled(validator_account_id: &T::AccountId) -> bool {
         return Self::has_active_slash(validator_account_id)
+    }
+}
+
+impl<T: Config> Enforcer<<T as session::Config>::ValidatorId> for Pallet<T> {
+    fn slash_validator(
+        slashed_validator_id: &<T as session::Config>::ValidatorId,
+    ) -> DispatchResult {
+        let slashed_validator_account_id =
+            T::AccountToBytesConvert::try_from_any(slashed_validator_id.encode())?;
+        return Self::remove_deregistered_validator(&slashed_validator_account_id)
     }
 }
