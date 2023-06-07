@@ -254,7 +254,6 @@ mod remove_validator_public {
             //Remove the validator
             assert_ok!(ValidatorManager::remove_validator(
                 RawOrigin::Root.into(),
-                context.collator_eth_public_key,
                 context.new_validator_id
             ));
 
@@ -323,7 +322,6 @@ mod remove_validator_public {
             assert_noop!(
                 ValidatorManager::remove_validator(
                     RuntimeOrigin::signed(validator_id_3()),
-                    context.collator_eth_public_key,
                     validator_id_3()
                 ),
                 BadOrigin
@@ -346,7 +344,6 @@ mod remove_validator_public {
             assert_noop!(
                 ValidatorManager::remove_validator(
                     RawOrigin::None.into(),
-                    context.collator_eth_public_key,
                     context.new_validator_id
                 ),
                 BadOrigin
@@ -373,7 +370,6 @@ mod remove_validator_public {
             assert_noop!(
                 ValidatorManager::remove_validator(
                     RawOrigin::Root.into(),
-                    context.collator_eth_public_key,
                     validator_account_id
                 ),
                 ParachainStakingError::<TestRuntime>::CandidateDNE
