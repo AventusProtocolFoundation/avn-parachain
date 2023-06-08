@@ -7,7 +7,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    dispatch::{GetDispatchInfo, PostDispatchInfo},
+    dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo},
     log,
     traits::{Currency, Imbalance, OnUnbalanced},
     unsigned::TransactionValidityError,
