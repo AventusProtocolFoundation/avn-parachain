@@ -607,20 +607,6 @@ impl<T: Config> Pallet<T> {
         return Ok((data.clone(), AVN::<T>::request_ecdsa_signature_from_external_service(&data)?))
     }
 
-    // TODO delete me.
-    pub fn convert_data_to_eth_compatible_encoding(
-        action_id: &ActionId<T::AccountId>,
-    ) -> Result<String, DispatchError> {
-        let validators_action_data = Self::try_get_validators_action_data(action_id)?;
-        let eth_description = EthAbiHelper::generate_ethereum_description_for_signature_request(
-            &T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator),
-            &validators_action_data.reserved_eth_transaction,
-            validators_action_data.eth_transaction_id,
-        )
-        .map_err(|_| Error::<T>::ErrorGeneratingEthDescription)?;
-        Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
-    }
-
     /// This function generates the compacted call data needed to generate a confirmation for
     /// registering a new collator. The implementation must match this schema:
     /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L344-L345
