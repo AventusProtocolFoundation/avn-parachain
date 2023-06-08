@@ -210,7 +210,7 @@ impl<T: Config> Pallet<T> {
             adjusted_fee = fee;
         } else {
             log::error!(
-                "� Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}",
+                "💔 Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}",
                 fee_payer,
                 fee_adjustment_config
             );
