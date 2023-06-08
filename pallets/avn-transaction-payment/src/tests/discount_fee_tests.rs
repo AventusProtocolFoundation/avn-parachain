@@ -1,7 +1,7 @@
 use super::*;
 use crate::mock::{
-    new_test_ext, roll_one_block, AccountId, Balances, RuntimeCall, RuntimeOrigin, System,
-    TestAccount, TestRuntime, event_emitted, RuntimeEvent
+    event_emitted, new_test_ext, roll_one_block, AccountId, Balances, RuntimeCall, RuntimeEvent,
+    RuntimeOrigin, System, TestAccount, TestRuntime,
 };
 
 use frame_support::{dispatch::DispatchInfo, pallet_prelude::Weight};
@@ -63,11 +63,16 @@ pub(crate) fn fee_adjusted_event_emitted() -> bool {
     System::events()
         .into_iter()
         .map(|r| r.event)
-        .filter_map(
-            |e| if let RuntimeEvent::AvnTransactionPayment(inner) = e { Some(inner) } else { None },
-        )
+        .filter_map(|e| {
+            if let RuntimeEvent::AvnTransactionPayment(inner) = e {
+                Some(inner)
+            } else {
+                None
+            }
+        })
         .collect::<Vec<_>>()
-        .len() > 0
+        .len() >
+        0
 }
 
 /// Rolls desired block number of times.
@@ -139,10 +144,7 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
-                    assert_eq!(
-                        INITIAL_SENDER_BALANCE,
-                        Balances::free_balance(sender)
-                    );
+                    assert_eq!(INITIAL_SENDER_BALANCE, Balances::free_balance(sender));
 
                     assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
                         crate::Event::<TestRuntime>::AdjustedTransactionFeePaid {
@@ -214,10 +216,7 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
-                    assert_eq!(
-                        INITIAL_SENDER_BALANCE,
-                        Balances::free_balance(sender)
-                    );
+                    assert_eq!(INITIAL_SENDER_BALANCE, Balances::free_balance(sender));
 
                     assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
                         crate::Event::<TestRuntime>::AdjustedTransactionFeePaid {
