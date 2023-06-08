@@ -201,8 +201,12 @@ pub(crate) fn roll_one_block() -> u64 {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    frame_system::GenesisConfig::default()
-        .build_storage::<TestRuntime>()
-        .unwrap()
-        .into()
+    let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.execute_with(|| System::set_block_number(1));
+    ext
+}
+
+pub fn event_emitted(event: &RuntimeEvent) -> bool {
+    return System::events().iter().any(|a| a.event == *event)
 }
