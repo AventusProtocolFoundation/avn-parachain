@@ -1,7 +1,7 @@
 use super::*;
 use crate::mock::{
     new_test_ext, roll_one_block, AccountId, Balances, RuntimeCall, RuntimeOrigin, System,
-    TestAccount, TestRuntime,
+    TestAccount, TestRuntime, event_emitted, RuntimeEvent
 };
 
 use frame_support::{dispatch::DispatchInfo, pallet_prelude::Weight};
@@ -25,21 +25,22 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
     DispatchInfo { weight: w, ..Default::default() }
 }
 
-fn pay_gas_and_call_remark(sender: &AccountId) -> DispatchResult {
+fn pay_gas_and_call_remark(sender: &AccountId) {
     let pre = <ChargeTransactionPayment<TestRuntime> as SignedExtension>::pre_dispatch(
         ChargeTransactionPayment::from(0),
         sender,
         &RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
         &info_from_weight(Weight::from_ref_time(1)),
         TX_LEN,
-    )
-    .map_err(|e| <&'static str>::from(e))?;
+    );
 
-    System::remark(RuntimeOrigin::signed(*sender), vec![])
-        .map_err(|e| Error::<TestRuntime>::InvalidFeeConfig)?;
+    assert_ok!(&pre);
+
+    assert_ok!(System::remark(RuntimeOrigin::signed(*sender), vec![])
+        .map_err(|_e| Error::<TestRuntime>::InvalidFeeConfig));
 
     assert_ok!(ChargeTransactionPayment::<TestRuntime>::post_dispatch(
-        Some(pre),
+        Some(pre.expect("Checked for error")),
         &DispatchInfo { weight: Weight::from_ref_time(1), ..Default::default() },
         &PostDispatchInfo { actual_weight: None, pays_fee: Default::default() },
         TX_LEN,
@@ -47,7 +48,6 @@ fn pay_gas_and_call_remark(sender: &AccountId) -> DispatchResult {
     ));
 
     System::inc_account_nonce(sender);
-    Ok(())
 }
 
 fn set_initial_sender_balance(sender: &AccountId) {
@@ -59,15 +59,24 @@ fn get_percentage_fee_value(percentage_fee: u32) -> u32 {
     (BASE_FEE * percentage_fee) / 100
 }
 
-/// Rolls to the desired block. Returns the number of blocks played.
-pub(crate) fn roll_to_block(n: u64) -> u64 {
-    let mut num_blocks = 0;
+pub(crate) fn fee_adjusted_event_emitted() -> bool {
+    System::events()
+        .into_iter()
+        .map(|r| r.event)
+        .filter_map(
+            |e| if let RuntimeEvent::AvnTransactionPayment(inner) = e { Some(inner) } else { None },
+        )
+        .collect::<Vec<_>>()
+        .len() > 0
+}
+
+/// Rolls desired block number of times.
+pub(crate) fn roll_blocks(n: u64) {
     let mut block = System::block_number();
-    while block < n {
+    let target_block = block + n;
+    while block < target_block {
         block = roll_one_block();
-        num_blocks += 1;
     }
-    num_blocks
 }
 
 mod discount_tests {
@@ -100,6 +109,13 @@ mod discount_tests {
 
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(INITIAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
+
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                        crate::Event::<TestRuntime>::AdjustedTransactionFeePaid {
+                            who: sender,
+                            fee: FIXED_FEE,
+                        }
+                    )));
                 })
             }
 
@@ -124,9 +140,16 @@ mod discount_tests {
 
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE,
                         Balances::free_balance(sender)
                     );
+
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                        crate::Event::<TestRuntime>::AdjustedTransactionFeePaid {
+                            who: sender,
+                            fee: 0u128, // sender got 100% refund
+                        }
+                    )));
                 })
             }
 
@@ -152,21 +175,29 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
+
                     let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(percentage_value),
                         Balances::free_balance(sender)
                     );
+
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                        crate::Event::<TestRuntime>::AdjustedTransactionFeePaid {
+                            who: sender,
+                            fee: percentage_value as u128
+                        }
+                    )));
                 })
             }
 
             #[test]
-            fn and_percentage_fee_is_more_than_100() {
+            fn and_percentage_fee_is_100() {
                 new_test_ext().execute_with(|| {
                     let sender = to_acc_id(1u64);
                     set_initial_sender_balance(&sender);
 
-                    let high_percentage_fee = 101;
+                    let high_percentage_fee = 100;
                     let config = AdjustmentInput::<TestRuntime> {
                         fee_type: FeeType::PercentageFee(PercentageFeeConfig {
                             percentage: high_percentage_fee,
@@ -184,9 +215,16 @@ mod discount_tests {
 
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE,
                         Balances::free_balance(sender)
                     );
+
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                        crate::Event::<TestRuntime>::AdjustedTransactionFeePaid {
+                            who: sender,
+                            fee: 0u128
+                        }
+                    )));
                 })
             }
         }
@@ -219,12 +257,23 @@ mod discount_tests {
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(INITIAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
 
+                    assert_eq!(fee_adjusted_event_emitted(), true);
+                    assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                        crate::Event::<TestRuntime>::AdjustedTransactionFeePaid {
+                            who: sender,
+                            fee: FIXED_FEE,
+                        }
+                    )));
+
+                    <frame_system::Pallet<TestRuntime>>::reset_events();
+
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
+                    assert_eq!(fee_adjusted_event_emitted(), false);
                 })
             }
 
@@ -259,12 +308,15 @@ mod discount_tests {
                         Balances::free_balance(sender)
                     );
 
+                    <frame_system::Pallet<TestRuntime>>::reset_events();
+
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
+                    assert_eq!(fee_adjusted_event_emitted(), false);
                 })
             }
 
@@ -302,12 +354,15 @@ mod discount_tests {
                         Balances::free_balance(sender)
                     );
 
+                    <frame_system::Pallet<TestRuntime>>::reset_events();
+
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
+                    assert_eq!(fee_adjusted_event_emitted(), false);
                 })
             }
         }
@@ -340,12 +395,15 @@ mod discount_tests {
 
                     roll_one_block();
 
+                    <frame_system::Pallet<TestRuntime>>::reset_events();
+
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
+                    assert_eq!(fee_adjusted_event_emitted(), false);
                 })
             }
 
@@ -380,12 +438,15 @@ mod discount_tests {
 
                     roll_one_block();
 
+                    <frame_system::Pallet<TestRuntime>>::reset_events();
+
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
+                    assert_eq!(fee_adjusted_event_emitted(), false);
                 })
             }
 
@@ -417,12 +478,15 @@ mod discount_tests {
 
                     roll_one_block();
 
+                    <frame_system::Pallet<TestRuntime>>::reset_events();
+
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
+                    assert_eq!(fee_adjusted_event_emitted(), false);
                 })
             }
 
@@ -450,6 +514,7 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
+
                     let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(percentage_value),
@@ -458,12 +523,15 @@ mod discount_tests {
 
                     roll_one_block();
 
+                    <frame_system::Pallet<TestRuntime>>::reset_events();
+
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
+                    assert_eq!(fee_adjusted_event_emitted(), false);
                 })
             }
 
@@ -490,13 +558,16 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
+
                     let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
                     assert_eq!(
                         INITIAL_SENDER_BALANCE - u128::from(percentage_value),
                         Balances::free_balance(sender)
                     );
 
-                    roll_to_block(5);
+                    roll_blocks(5);
+
+                    <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
@@ -504,6 +575,7 @@ mod discount_tests {
                         INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
+                    assert_eq!(fee_adjusted_event_emitted(), false);
                 })
             }
         }
