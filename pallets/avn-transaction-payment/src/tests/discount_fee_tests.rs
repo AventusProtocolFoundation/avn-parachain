@@ -66,9 +66,8 @@ mod discount_tests {
         use super::*;
 
         mod call_is_set_without_adjustment_type {
-            use crate::mock::AvnTransactionPayment;
-
             use super::*;
+            use crate::mock::AvnTransactionPayment;
 
             #[test]
             fn and_valid_fixed_fee() {
@@ -182,9 +181,8 @@ mod discount_tests {
         }
 
         mod call_is_set_with_valid_transaction_based_adjustment_type {
-            use crate::mock::AvnTransactionPayment;
-
             use super::*;
+            use crate::mock::AvnTransactionPayment;
 
             #[test]
             fn and_valid_fixed_fee() {
@@ -304,9 +302,8 @@ mod discount_tests {
         }
 
         mod call_is_set_with_valid_block_based_adjustment_type {
-            use crate::mock::AvnTransactionPayment;
-
             use super::*;
+            use crate::mock::AvnTransactionPayment;
 
             #[test]
             fn and_valid_fixed_fee() {
