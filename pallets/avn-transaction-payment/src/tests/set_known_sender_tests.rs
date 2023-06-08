@@ -1,6 +1,7 @@
 use super::*;
 use crate::mock::{
-    new_test_ext, AccountId, AvnTransactionPayment, RuntimeOrigin, TestAccount, TestRuntime,
+    event_emitted, new_test_ext, AccountId, AvnTransactionPayment, RuntimeOrigin, TestAccount,
+    TestRuntime,
 };
 
 use frame_support::{assert_noop, assert_ok};
@@ -33,6 +34,18 @@ mod set_known_senders {
                     account_1,
                     config,
                 ));
+
+                assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                    crate::Event::<TestRuntime>::KnownSenderAdded {
+                        known_sender: account_1,
+                        adjustment: FeeAdjustmentConfig::<TestRuntime>::PercentageFee(
+                            PercentageFeeConfig {
+                                percentage: 10,
+                                _marker: sp_std::marker::PhantomData::<TestRuntime>,
+                            }
+                        )
+                    }
+                )));
             })
         }
 
@@ -51,6 +64,15 @@ mod set_known_senders {
                     account_1,
                     config,
                 ));
+
+                assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                    crate::Event::<TestRuntime>::KnownSenderAdded {
+                        known_sender: account_1,
+                        adjustment: FeeAdjustmentConfig::<TestRuntime>::FixedFee(FixedFeeConfig {
+                            fee: 10,
+                        })
+                    }
+                )));
             })
         }
 
@@ -71,6 +93,15 @@ mod set_known_senders {
                     account_1,
                     config,
                 ));
+
+                assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                    crate::Event::<TestRuntime>::KnownSenderAdded {
+                        known_sender: account_1,
+                        adjustment: FeeAdjustmentConfig::<TestRuntime>::TransactionBased(
+                            TransactionBasedConfig::new(config.fee_type, account_1, 5)
+                        )
+                    }
+                )));
             })
         }
 
@@ -89,6 +120,15 @@ mod set_known_senders {
                     account_1,
                     config,
                 ));
+
+                assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                    crate::Event::<TestRuntime>::KnownSenderAdded {
+                        known_sender: account_1,
+                        adjustment: FeeAdjustmentConfig::<TestRuntime>::TimeBased(
+                            TimeBasedConfig::new(config.fee_type, 1)
+                        )
+                    }
+                )));
             })
         }
     }
@@ -104,6 +144,30 @@ mod set_known_senders {
                 let config = AdjustmentInput::<TestRuntime> {
                     fee_type: FeeType::PercentageFee(PercentageFeeConfig {
                         percentage: 0,
+                        _marker: sp_std::marker::PhantomData::<TestRuntime>,
+                    }),
+                    adjustment_type: AdjustmentType::None,
+                };
+
+                assert_noop!(
+                    AvnTransactionPayment::set_known_sender(
+                        RuntimeOrigin::root(),
+                        account_1,
+                        config,
+                    ),
+                    Error::<TestRuntime>::InvalidFeeConfig
+                );
+            })
+        }
+
+        #[test]
+        fn call_is_set_with_percentage_fee_higher_than_100() {
+            new_test_ext().execute_with(|| {
+                let account_1 = to_acc_id(1u64);
+
+                let config = AdjustmentInput::<TestRuntime> {
+                    fee_type: FeeType::PercentageFee(PercentageFeeConfig {
+                        percentage: 101,
                         _marker: sp_std::marker::PhantomData::<TestRuntime>,
                     }),
                     adjustment_type: AdjustmentType::None,
@@ -211,11 +275,18 @@ mod remove_known_senders {
                     account_1,
                     config,
                 ));
+                assert_eq!(AvnTransactionPayment::is_known_sender(account_1), true);
 
                 assert_ok!(AvnTransactionPayment::remove_known_sender(
                     RuntimeOrigin::root(),
                     account_1
                 ));
+
+                assert_eq!(AvnTransactionPayment::is_known_sender(account_1), false);
+
+                assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
+                    crate::Event::<TestRuntime>::KnownSenderRemoved { known_sender: account_1 }
+                )));
             })
         }
     }
