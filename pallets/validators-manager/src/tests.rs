@@ -368,10 +368,7 @@ mod remove_validator_public {
             let num_events = System::events().len();
 
             assert_noop!(
-                ValidatorManager::remove_validator(
-                    RawOrigin::Root.into(),
-                    validator_account_id
-                ),
+                ValidatorManager::remove_validator(RawOrigin::Root.into(), validator_account_id),
                 ParachainStakingError::<TestRuntime>::CandidateDNE
             );
 

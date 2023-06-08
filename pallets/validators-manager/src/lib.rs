@@ -15,7 +15,6 @@ use alloc::string::{String, ToString};
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, transactional};
 use frame_system::{self as system, ensure_none, offchain::SendTransactionTypes, RawOrigin};
 use pallet_session::{self as session, Config as SessionConfig};
-use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Convert, Member},
@@ -57,6 +56,8 @@ use sp_staking::offence::ReportOffence;
 pub use pallet::*;
 pub mod vote;
 use crate::vote::*;
+pub mod confirmations;
+use crate::confirmations::*;
 pub mod offence;
 use crate::offence::{
     create_and_report_validators_offence, ValidatorOffence, ValidatorOffenceType,
@@ -588,7 +589,6 @@ const NAME: &'static [u8; 17] = b"validatorsManager";
 
 // Error codes returned by validate unsigned methods
 const ERROR_CODE_INVALID_DEREGISTERED_VALIDATOR: u8 = 10;
-const PACKED_KEYS_SIZE: usize = 96;
 
 pub type AVN<T> = avn::Pallet<T>;
 
@@ -621,62 +621,14 @@ impl<T: Config> Pallet<T> {
         Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
     }
 
-    /// This function generates the compacted call data needed to generate a confirmation for
-    /// registering a new collator. The implementation must match this schema:
-    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L344-L345
-
-    fn concat_and_hash_activation_data(activate_collator_data: &ActivateCollatorData) -> [u8; 32] {
-        let mut activate_collator_params_concat: [u8; PACKED_KEYS_SIZE] = [0u8; PACKED_KEYS_SIZE];
-
-        activate_collator_params_concat[0..64]
-            .copy_from_slice(&activate_collator_data.t1_public_key.as_bytes()[0..64]);
-        activate_collator_params_concat[64..PACKED_KEYS_SIZE]
-            .copy_from_slice(&activate_collator_data.t2_public_key[0..32]);
-
-        let activate_collator_hash = keccak_256(&activate_collator_params_concat);
-
-        log::debug!(
-            "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
-                &activate_collator_data,
-                hex::encode(activate_collator_params_concat),
-                hex::encode(activate_collator_hash)
-        );
-        return activate_collator_hash
-    }
-
-    /// This function generates the compacted call data needed to generate a confirmation for
-    /// deregistering a new collator. The implementation must match this schema:
-    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L390-L391
-    fn concat_and_hash_deregistration_data(
-        deregister_collator_data: &DeregisterCollatorData,
-    ) -> [u8; 32] {
-        let mut deregister_collator_params_concat: [u8; PACKED_KEYS_SIZE] = [0u8; PACKED_KEYS_SIZE];
-
-        deregister_collator_params_concat[0..32]
-            .copy_from_slice(&deregister_collator_data.t2_public_key[0..32]);
-        deregister_collator_params_concat[32..PACKED_KEYS_SIZE]
-            .copy_from_slice(&deregister_collator_data.t1_public_key.as_bytes()[0..64]);
-
-        let deregister_collator_hash = keccak_256(&deregister_collator_params_concat);
-
-        log::debug!(
-            "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
-                &deregister_collator_data,
-                hex::encode(deregister_collator_params_concat),
-                hex::encode(deregister_collator_hash)
-        );
-        return deregister_collator_hash
-    }
-
     pub fn abi_encode_collator_action_data(
         action_id: &ActionId<T::AccountId>,
     ) -> Result<String, DispatchError> {
         let validators_action_data = Self::try_get_validators_action_data(action_id)?;
 
         let action_parameters_concat_hash = match validators_action_data.reserved_eth_transaction {
-            EthTransactionType::ActivateCollator(ref d) => Self::concat_and_hash_activation_data(d),
-            EthTransactionType::DeregisterCollator(ref d) =>
-                Self::concat_and_hash_deregistration_data(d),
+            EthTransactionType::ActivateCollator(ref d) => concat_and_hash_activation_data(d),
+            EthTransactionType::DeregisterCollator(ref d) => concat_and_hash_deregistration_data(d),
             _ => Err(Error::<T>::ErrorGeneratingEthDescription)?,
         };
 
