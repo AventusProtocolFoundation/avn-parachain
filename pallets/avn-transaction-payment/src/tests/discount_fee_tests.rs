@@ -11,7 +11,7 @@ use sp_runtime::traits::SignedExtension;
 use frame_support::assert_ok;
 
 pub const TX_LEN: usize = 1;
-pub const INITAL_SENDER_BALANCE: u128 = 200;
+pub const INITIAL_SENDER_BALANCE: u128 = 200;
 pub const BASE_FEE: u32 = 14;
 pub const FIXED_FEE: u128 = 10;
 pub const PERCENTAGE_FEE: u32 = 50;
@@ -51,12 +51,23 @@ fn pay_gas_and_call_remark(sender: &AccountId) -> DispatchResult {
 }
 
 fn set_initial_sender_balance(sender: &AccountId) {
-    Balances::make_free_balance_be(&sender, INITAL_SENDER_BALANCE);
-    assert_eq!(INITAL_SENDER_BALANCE, Balances::free_balance(sender));
+    Balances::make_free_balance_be(&sender, INITIAL_SENDER_BALANCE);
+    assert_eq!(INITIAL_SENDER_BALANCE, Balances::free_balance(sender));
 }
 
 fn get_percentage_fee_value(percentage_fee: u32) -> u32 {
     (BASE_FEE * percentage_fee) / 100
+}
+
+/// Rolls to the desired block. Returns the number of blocks played.
+pub(crate) fn roll_to_block(n: u64) -> u64 {
+    let mut num_blocks = 0;
+    let mut block = System::block_number();
+    while block < n {
+        block = roll_one_block();
+        num_blocks += 1;
+    }
+    num_blocks
 }
 
 mod discount_tests {
@@ -88,7 +99,7 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
-                    assert_eq!(INITAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
+                    assert_eq!(INITIAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
                 })
             }
 
@@ -113,7 +124,7 @@ mod discount_tests {
 
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
@@ -143,7 +154,7 @@ mod discount_tests {
                     pay_gas_and_call_remark(&sender);
                     let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(percentage_value),
+                        INITIAL_SENDER_BALANCE - u128::from(percentage_value),
                         Balances::free_balance(sender)
                     );
                 })
@@ -173,7 +184,7 @@ mod discount_tests {
 
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
@@ -206,12 +217,12 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
-                    assert_eq!(INITAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
+                    assert_eq!(INITIAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
 
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
@@ -244,14 +255,14 @@ mod discount_tests {
                     pay_gas_and_call_remark(&sender);
                     let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(percentage_value),
+                        INITIAL_SENDER_BALANCE - u128::from(percentage_value),
                         Balances::free_balance(sender)
                     );
 
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
@@ -287,14 +298,14 @@ mod discount_tests {
                     pay_gas_and_call_remark(&sender);
                     let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(percentage_value),
+                        INITIAL_SENDER_BALANCE - u128::from(percentage_value),
                         Balances::free_balance(sender)
                     );
 
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
@@ -325,14 +336,14 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
-                    assert_eq!(INITAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
+                    assert_eq!(INITIAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
 
                     roll_one_block();
 
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
@@ -363,7 +374,7 @@ mod discount_tests {
                     pay_gas_and_call_remark(&sender);
                     let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(percentage_value),
+                        INITIAL_SENDER_BALANCE - u128::from(percentage_value),
                         Balances::free_balance(sender)
                     );
 
@@ -372,7 +383,7 @@ mod discount_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
@@ -398,18 +409,18 @@ mod discount_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
-                    assert_eq!(INITAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
+                    assert_eq!(INITIAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
 
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
-                    assert_eq!(INITAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
+                    assert_eq!(INITIAL_SENDER_BALANCE - FIXED_FEE, Balances::free_balance(sender));
 
                     roll_one_block();
 
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
@@ -441,7 +452,7 @@ mod discount_tests {
                     pay_gas_and_call_remark(&sender);
                     let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(percentage_value),
+                        INITIAL_SENDER_BALANCE - u128::from(percentage_value),
                         Balances::free_balance(sender)
                     );
 
@@ -450,7 +461,47 @@ mod discount_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender);
                     assert_eq!(
-                        INITAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
+                        Balances::free_balance(sender)
+                    );
+                })
+            }
+
+            #[test]
+            fn and_a_high_duration() {
+                new_test_ext().execute_with(|| {
+                    let sender = to_acc_id(1u64);
+                    set_initial_sender_balance(&sender);
+
+                    let duration = 5;
+                    let config = AdjustmentInput::<TestRuntime> {
+                        fee_type: FeeType::PercentageFee(PercentageFeeConfig {
+                            percentage: PERCENTAGE_FEE,
+                            _marker: sp_std::marker::PhantomData::<TestRuntime>,
+                        }),
+                        adjustment_type: AdjustmentType::TimeBased(Duration { duration }),
+                    };
+
+                    assert_ok!(AvnTransactionPayment::set_known_sender(
+                        RuntimeOrigin::root(),
+                        sender,
+                        config,
+                    ));
+                    assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
+
+                    pay_gas_and_call_remark(&sender);
+                    let percentage_value = get_percentage_fee_value(PERCENTAGE_FEE);
+                    assert_eq!(
+                        INITIAL_SENDER_BALANCE - u128::from(percentage_value),
+                        Balances::free_balance(sender)
+                    );
+
+                    roll_to_block(5);
+
+                    set_initial_sender_balance(&sender);
+                    pay_gas_and_call_remark(&sender);
+                    assert_eq!(
+                        INITIAL_SENDER_BALANCE - u128::from(BASE_FEE),
                         Balances::free_balance(sender)
                     );
                 })
