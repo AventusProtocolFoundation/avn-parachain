@@ -198,7 +198,8 @@ impl<T: Config> PercentageFeeConfig<T> {
                 // the fee should be 0 due to the 100% adjustment
                 return Ok(BalanceOf::<T>::zero())
             } else {
-                return Ok(original_fee.saturating_sub(Perbill::from_percent(self.percentage) * original_fee))
+                return Ok(original_fee
+                    .saturating_sub(Perbill::from_percent(self.percentage) * original_fee))
             }
         }
 
@@ -295,7 +296,10 @@ fn calculate_fee<T: Config>(
 ) -> Result<BalanceOf<T>, Error<T>> {
     return match fee_type {
         FeeType::FixedFee(f) => Ok(f.fee),
-        FeeType::PercentageFee(p) => return Ok(original_fee.saturating_sub(Perbill::from_percent(p.percentage) * original_fee)),
+        FeeType::PercentageFee(p) =>
+            return Ok(
+                original_fee.saturating_sub(Perbill::from_percent(p.percentage) * original_fee)
+            ),
         _ => Err(Error::InvalidFeeType),
     }
 }
