@@ -1,6 +1,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::EthTransaction;
 use sp_core::{ecdsa, H160, H256, H512, U256};
+use frame_support::{log};
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -46,7 +47,7 @@ impl EthTransactionType {
             EthTransactionType::DeregisterValidator(_) |
             EthTransactionType::SlashValidator(_) |
             EthTransactionType::ActivateValidator(_) => {
-                println!("*** Invalid EthTransactionType {:?} passed in.", {self});
+                log::error!("*** Invalid EthTransactionType {:?} passed in.", {self});
                 return Err(EthAbiError::InvalidData)
             },
             _ => Err(EthAbiError::InvalidData),
