@@ -144,12 +144,12 @@ mod adjustment_fee_tests {
                     assert_eq!(AvnTransactionPayment::is_known_sender(sender), true);
 
                     pay_gas_and_call_remark(&sender);
-                    assert_eq!(INITIAL_SENDER_BALANCE, Balances::free_balance(sender));
+                    assert_eq!(INITIAL_SENDER_BALANCE - u128::from(BASE_FEE), Balances::free_balance(sender));
 
                     assert!(event_emitted(&mock::RuntimeEvent::AvnTransactionPayment(
                         crate::Event::<TestRuntime>::AdjustedTransactionFeePaid {
                             who: sender,
-                            fee: 0u128, // sender got 100% refund
+                            fee: u128::from(BASE_FEE), // sender paid base fee
                         }
                     )));
                 })
