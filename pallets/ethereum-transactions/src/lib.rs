@@ -425,7 +425,7 @@ impl<T: Config> Pallet<T> {
 
             let eth_transaction = transaction.to_abi(ethereum_contract.expect("Checked for error"));
             if let Err(e) = eth_transaction {
-                log::error!("Error abi encoding: {:#?}", e);
+                log::error!("Error abi encoding: {:#?}, error: {:#?}", transaction, e);
                 return None
             }
 
