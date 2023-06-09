@@ -202,12 +202,10 @@ impl<T: Config> Pallet<T> {
             return (false, no_refund)
         }
 
-        let refund_amount;
-        let adjusted_fee;
         let network_fee_only = corrected_fee.saturating_sub(tip);
-
         if let Ok(fee) = fee_adjustment_config.get_fee(network_fee_only) {
-            adjusted_fee = fee;
+            let refund_amount = amount_paid.saturating_sub(fee);
+            return (has_active_config, refund_amount)
         } else {
             log::error!(
                 "💔 Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}",
@@ -216,15 +214,6 @@ impl<T: Config> Pallet<T> {
             );
             return (false, no_refund)
         }
-
-        if adjusted_fee >= *amount_paid {
-            // Refund everything paid
-            refund_amount = *amount_paid;
-        } else {
-            refund_amount = amount_paid.saturating_sub(adjusted_fee);
-        }
-
-        return (has_active_config, refund_amount)
     }
 }
 

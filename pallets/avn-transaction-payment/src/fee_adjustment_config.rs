@@ -194,7 +194,12 @@ impl<T: Config> PercentageFeeConfig<T> {
 
     pub fn get_fee(&self, original_fee: BalanceOf<T>) -> Result<BalanceOf<T>, Error<T>> {
         if self.is_active() {
-            return Ok(Perbill::from_percent(self.percentage) * original_fee)
+            if self.percentage == 100u32 {
+                // the fee should be 0 due to the 100% adjustment
+                return Ok(BalanceOf::<T>::zero())
+            } else {
+                return Ok(Perbill::from_percent(self.percentage) * original_fee)
+            }
         }
 
         // There is no adjutment to make so return the original fee
