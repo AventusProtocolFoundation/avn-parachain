@@ -17,7 +17,7 @@ use frame_system::{self as system};
 use core::convert::TryInto;
 pub use pallet::*;
 use sp_runtime::{
-    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating},
+    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating, Zero},
     transaction_validity::InvalidTransaction,
 };
 
@@ -188,6 +188,7 @@ type NegativeImbalanceOf<C, T> =
 impl<T: Config> Pallet<T> {
     pub fn calculate_refund_amount(
         fee_payer: &T::AccountId,
+        amount_paid: &BalanceOf<T>,
         corrected_fee: BalanceOf<T>,
         tip: BalanceOf<T>,
     ) -> (bool, BalanceOf<T>) {
@@ -195,22 +196,24 @@ impl<T: Config> Pallet<T> {
         let fee_adjustment_config = <KnownSenders<T>>::get(fee_payer);
         // calling is_active does some computation so cache it here
         let has_active_config = fee_adjustment_config.is_active();
+        let no_refund = BalanceOf::<T>::zero();
 
-        let mut adjusted_fee = corrected_fee;
-
-        if has_active_config {
-            let network_fee_only = corrected_fee.saturating_sub(tip);
-            if let Ok(fee) = fee_adjustment_config.get_fee(network_fee_only) {
-                adjusted_fee = fee;
-            } else {
-                log::error!("💔 Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}",
-                fee_payer, fee_adjustment_config);
-
-                return (false, adjusted_fee)
-            }
+        if !has_active_config {
+            return (false, no_refund)
         }
 
-        return (has_active_config, adjusted_fee)
+        let network_fee_only = corrected_fee.saturating_sub(tip);
+        if let Ok(fee) = fee_adjustment_config.get_fee(network_fee_only) {
+            let refund_amount = amount_paid.saturating_sub(fee);
+            return (has_active_config, refund_amount)
+        } else {
+            log::error!(
+                "💔 Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}",
+                fee_payer,
+                fee_adjustment_config
+            );
+            return (false, no_refund)
+        }
     }
 }
 
@@ -273,9 +276,9 @@ where
     ) -> Result<(), TransactionValidityError> {
         if let Some(paid) = already_withdrawn {
             // Calculate how much refund we should return
-            let (has_active_adjustment, adjusted_fee) =
-                Pallet::<T>::calculate_refund_amount(who, corrected_fee, tip);
-            let refund_amount = paid.peek().saturating_sub(adjusted_fee);
+            let amount_paid = paid.peek();
+            let (has_active_adjustment, refund_amount) =
+                Pallet::<T>::calculate_refund_amount(who, &amount_paid, corrected_fee, tip);
 
             // refund to the account that paid the fees. If this fails, the
             // account might have dropped below the existential balance. In
@@ -295,7 +298,7 @@ where
             if has_active_adjustment {
                 Pallet::<T>::deposit_event(Event::<T>::AdjustedTransactionFeePaid {
                     who: who.clone(),
-                    fee: adjusted_fee,
+                    fee: amount_paid.saturating_sub(refund_amount),
                 });
             }
         }

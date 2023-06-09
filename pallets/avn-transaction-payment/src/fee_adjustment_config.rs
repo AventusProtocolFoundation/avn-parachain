@@ -185,7 +185,7 @@ pub struct PercentageFeeConfig<T: Config> {
 
 impl<T: Config> PercentageFeeConfig<T> {
     pub fn is_valid(&self) -> bool {
-        return !self.percentage.is_zero()
+        return !self.percentage.is_zero() && self.percentage <= 100u32
     }
 
     pub fn is_active(&self) -> bool {
@@ -194,7 +194,13 @@ impl<T: Config> PercentageFeeConfig<T> {
 
     pub fn get_fee(&self, original_fee: BalanceOf<T>) -> Result<BalanceOf<T>, Error<T>> {
         if self.is_active() {
-            return Ok(Perbill::from_percent(self.percentage) * original_fee)
+            if self.percentage == 100u32 {
+                // the fee should be 0 due to the 100% adjustment
+                return Ok(BalanceOf::<T>::zero())
+            } else {
+                return Ok(original_fee
+                    .saturating_sub(Perbill::from_percent(self.percentage) * original_fee))
+            }
         }
 
         // There is no adjutment to make so return the original fee
@@ -228,6 +234,11 @@ impl<T: Config> TimeBasedConfig<T> {
     }
 
     pub fn new(fee_type: FeeType<T>, duration: T::BlockNumber) -> Self {
+        if duration == T::BlockNumber::zero() {
+            // This is not a valid value so set the end block number to 0
+            return TimeBasedConfig::<T> { fee_type, end_block_number: T::BlockNumber::zero() }
+        }
+
         let end_block_number = <frame_system::Pallet<T>>::block_number().saturating_add(duration);
         return TimeBasedConfig::<T> { fee_type, end_block_number }
     }
@@ -285,7 +296,10 @@ fn calculate_fee<T: Config>(
 ) -> Result<BalanceOf<T>, Error<T>> {
     return match fee_type {
         FeeType::FixedFee(f) => Ok(f.fee),
-        FeeType::PercentageFee(p) => return Ok(Perbill::from_percent(p.percentage) * original_fee),
+        FeeType::PercentageFee(p) =>
+            return Ok(
+                original_fee.saturating_sub(Perbill::from_percent(p.percentage) * original_fee)
+            ),
         _ => Err(Error::InvalidFeeType),
     }
 }
