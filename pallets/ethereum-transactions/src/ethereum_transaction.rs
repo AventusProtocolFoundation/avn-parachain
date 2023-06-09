@@ -46,11 +46,13 @@ impl EthTransactionType {
             EthTransactionType::DeregisterCollator(d) => Ok(d.to_abi()),
             EthTransactionType::DeregisterValidator(_) |
             EthTransactionType::SlashValidator(_) |
-            EthTransactionType::ActivateValidator(_) => {
+            EthTransactionType::ActivateValidator(_) |
+            EthTransactionType::Discarded(_) |
+            EthTransactionType::Invalid
+             => {
                 log::error!("*** Invalid EthTransactionType {:?} passed in.", {self});
                 return Err(EthAbiError::InvalidData)
-            },
-            _ => Err(EthAbiError::InvalidData),
+            }
         }
     }
 }
