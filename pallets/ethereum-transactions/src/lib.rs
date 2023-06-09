@@ -425,7 +425,7 @@ impl<T: Config> Pallet<T> {
 
             let eth_transaction = transaction.to_abi(ethereum_contract.expect("Checked for error"));
             if let Err(e) = eth_transaction {
-                log::error!("Error abi encoding: {:#?}", e);
+                log::error!("Error abi encoding: {:#?}, error: {:#?}", transaction, e);
                 return None
             }
 
@@ -448,9 +448,7 @@ impl<T: Config> Pallet<T> {
     fn get_contract_address(transaction_type: &EthTransactionType) -> Option<H160> {
         return match transaction_type {
             EthTransactionType::PublishRoot(_) => Some(Self::get_publish_root_contract()),
-            EthTransactionType::DeregisterValidator(_) |
-            EthTransactionType::SlashValidator(_) |
-            EthTransactionType::ActivateCollator(_) =>
+            EthTransactionType::ActivateCollator(_) | EthTransactionType::DeregisterCollator(_) =>
                 Some(T::ValidatorManagerContractAddress::get()),
             _ => None,
         }

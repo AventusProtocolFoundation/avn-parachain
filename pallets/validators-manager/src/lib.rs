@@ -38,8 +38,8 @@ use pallet_avn::{
 };
 use pallet_ethereum_transactions::{
     ethereum_transaction::{
-        ActivateCollatorData, DeregisterValidatorData, EthAbiHelper, EthTransactionType,
-        SlashValidatorData, TransactionId,
+        ActivateCollatorData, DeregisterCollatorData, EthAbiHelper, EthTransactionType,
+        TransactionId,
     },
     CandidateTransactionSubmitter,
 };
@@ -319,13 +319,13 @@ pub mod pallet {
             // TODO [TYPE: security][PRI: low][CRITICAL][JIRA: 66]: ensure that we have
             // authorization from the whole of T2? This is part of the package to
             // implement validator removals, slashing and the economics around that
-            Self::remove_resigned_validator(&collator_account_id)?;
+            Self::remove_deregistered_validator(&collator_account_id)?;
 
             Self::deposit_event(Event::<T>::ValidatorDeregistered {
                 validator_id: collator_account_id,
             });
 
-            // TODO: benchmark `remove_resigned_validator` and add to the weight
+            // TODO: benchmark `remove_deregistered_validator` and add to the weight
             return Ok(Some(
                 resign_as_candidate_weight
                     .actual_weight
@@ -347,7 +347,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_none(origin)?;
 
-            let eth_encoded_data = Self::abi_encode_collator_registration_data(&action_id, false)?;
+            let eth_encoded_data = Self::abi_encode_collator_action_data(&action_id)?;
             if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
             {
                 create_and_report_validators_offence::<T>(
@@ -475,9 +475,9 @@ pub mod pallet {
 
                 let voting_session = Self::get_voting_session(action_id);
                 let eth_encoded_data =
-                    Self::abi_encode_collator_registration_data(action_id, false).map_err(
-                        |_| InvalidTransaction::Custom(ERROR_CODE_INVALID_DEREGISTERED_VALIDATOR),
-                    )?;
+                    Self::abi_encode_collator_action_data(action_id).map_err(|_| {
+                        InvalidTransaction::Custom(ERROR_CODE_INVALID_DEREGISTERED_VALIDATOR)
+                    })?;
                 return approve_vote_validate_unsigned::<T>(
                     &voting_session,
                     validator,
@@ -603,7 +603,7 @@ impl<T: Config> Pallet<T> {
     pub fn sign_validators_action_for_ethereum(
         action_id: &ActionId<T::AccountId>,
     ) -> Result<(String, ecdsa::Signature), DispatchError> {
-        let data = Self::abi_encode_collator_registration_data(action_id, true)?;
+        let data = Self::abi_encode_collator_action_data(action_id)?;
         return Ok((data.clone(), AVN::<T>::request_ecdsa_signature_from_external_service(&data)?))
     }
 
@@ -618,14 +618,14 @@ impl<T: Config> Pallet<T> {
             validators_action_data.eth_transaction_id,
         )
         .map_err(|_| Error::<T>::ErrorGeneratingEthDescription)?;
-
         Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
     }
 
-    fn concat_and_hash_activation_data(
-        activate_collator_data: &ActivateCollatorData,
-        enable_data_logs: bool,
-    ) -> [u8; 32] {
+    /// This function generates the compacted call data needed to generate a confirmation for
+    /// registering a new collator. The implementation must match this schema:
+    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L344-L345
+
+    fn concat_and_hash_activation_data(activate_collator_data: &ActivateCollatorData) -> [u8; 32] {
         let mut activate_collator_params_concat: [u8; PACKED_KEYS_SIZE] = [0u8; PACKED_KEYS_SIZE];
 
         activate_collator_params_concat[0..64]
@@ -635,54 +635,69 @@ impl<T: Config> Pallet<T> {
 
         let activate_collator_hash = keccak_256(&activate_collator_params_concat);
 
-        if enable_data_logs {
-            log::info!(
-                "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
-                    &activate_collator_data,
-                    hex::encode(activate_collator_params_concat),
-                    hex::encode(activate_collator_hash)
-            );
-        }
+        log::debug!(
+            "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
+                &activate_collator_data,
+                hex::encode(activate_collator_params_concat),
+                hex::encode(activate_collator_hash)
+        );
         return activate_collator_hash
     }
 
-    /// This function generates the data needed to generate a confirmation for registering a
-    /// newactivate_collator_params_concat collator. The implementation must match this schema:
-    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L344-L345
-    pub fn abi_encode_collator_registration_data(
+    /// This function generates the compacted call data needed to generate a confirmation for
+    /// deregistering a new collator. The implementation must match this schema:
+    /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L390-L391
+    fn concat_and_hash_deregistration_data(
+        deregister_collator_data: &DeregisterCollatorData,
+    ) -> [u8; 32] {
+        let mut deregister_collator_params_concat: [u8; PACKED_KEYS_SIZE] = [0u8; PACKED_KEYS_SIZE];
+
+        deregister_collator_params_concat[0..32]
+            .copy_from_slice(&deregister_collator_data.t2_public_key[0..32]);
+        deregister_collator_params_concat[32..PACKED_KEYS_SIZE]
+            .copy_from_slice(&deregister_collator_data.t1_public_key.as_bytes()[0..64]);
+
+        let deregister_collator_hash = keccak_256(&deregister_collator_params_concat);
+
+        log::debug!(
+            "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
+                &deregister_collator_data,
+                hex::encode(deregister_collator_params_concat),
+                hex::encode(deregister_collator_hash)
+        );
+        return deregister_collator_hash
+    }
+
+    pub fn abi_encode_collator_action_data(
         action_id: &ActionId<T::AccountId>,
-        enable_data_logs: bool,
     ) -> Result<String, DispatchError> {
         let validators_action_data = Self::try_get_validators_action_data(action_id)?;
 
-        let activate_collator_params = match validators_action_data.reserved_eth_transaction {
-            EthTransactionType::ActivateCollator(ref d) => d,
+        let action_parameters_concat_hash = match validators_action_data.reserved_eth_transaction {
+            EthTransactionType::ActivateCollator(ref d) => Self::concat_and_hash_activation_data(d),
+            EthTransactionType::DeregisterCollator(ref d) =>
+                Self::concat_and_hash_deregistration_data(d),
             _ => Err(Error::<T>::ErrorGeneratingEthDescription)?,
         };
-
-        let activate_collator_hash =
-            Self::concat_and_hash_activation_data(activate_collator_params, true);
 
         let sender =
             T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator);
 
         // Now treat this as an bytes32 parameter and generate signing abi.
         let hex_encoded_confirmation_data =
-            hex::encode(EthAbiHelper::generate_confirmation_data_for_compacted_calls(
-                &activate_collator_hash,
+            hex::encode(EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
+                &action_parameters_concat_hash,
                 validators_action_data.eth_transaction_id,
                 &sender,
             ));
 
-        if enable_data_logs {
-            log::info!(
-                "📩 Data used for abi encode: (hex-encoded hash: {:?}, tx_id: {:?}, hex-encoded sender: {:?}). Output: {:?}",
-                hex::encode(activate_collator_hash),
-                validators_action_data.eth_transaction_id,
-                hex::encode(&sender),
-                &hex_encoded_confirmation_data
-            );
-        }
+        log::debug!(
+            "📩 Data used for abi encode: (hex-encoded hash: {:?}, tx_id: {:?}, hex-encoded sender: {:?}). Output: {:?}",
+            hex::encode(action_parameters_concat_hash),
+            validators_action_data.eth_transaction_id,
+            hex::encode(&sender),
+            &hex_encoded_confirmation_data
+        );
 
         return Ok(hex_encoded_confirmation_data)
     }
@@ -941,53 +956,16 @@ impl<T: Config> Pallet<T> {
             !disabled_validators.iter().any(|v| v == deregistered_validator)
     }
 
-    fn remove_slashed_validator(
-        slashed_validator_id: &<T as SessionConfig>::ValidatorId,
-    ) -> DispatchResult {
-        let slashed_validator =
-            &T::AccountToBytesConvert::try_from_any(slashed_validator_id.encode())?;
-
-        if !AVN::<T>::is_validator(slashed_validator) {
-            return Err(Error::<T>::SlashedValidatorIsNotFound)?
-        }
-
-        // Remove collator from parachain_staking pallet
-        let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
-        parachain_staking::Pallet::<T>::schedule_leave_candidates(
-            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
-                slashed_validator.clone(),
-            )),
-            candidate_count,
-        )
-        .map_err(|e| {
-            log::error!("💔 Error removing slashed validator: {:?}", e);
-            Error::<T>::ErrorRemovingAccountFromCollators
-        })?;
-
-        let candidate_tx = EthTransactionType::SlashValidator(SlashValidatorData::new(
-            T::AccountToBytesConvert::into_bytes(slashed_validator),
-        ));
-
-        let ingress_counter = Self::get_ingress_counter() + 1;
-        Self::remove(
-            slashed_validator,
-            ingress_counter,
-            ValidatorsActionType::Slashed,
-            candidate_tx,
-        )?;
-        AVN::<T>::remove_validator_from_active_list(slashed_validator);
-
-        Self::remove_ethereum_public_key_if_required(&slashed_validator);
-
-        Self::deposit_event(Event::<T>::ValidatorSlashed {
-            action_id: ActionId { action_account_id: slashed_validator.clone(), ingress_counter },
-        });
-
-        return Ok(())
-    }
-
-    fn remove_resigned_validator(resigned_validator: &T::AccountId) -> DispatchResult {
-        let candidate_tx = EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+    fn remove_deregistered_validator(resigned_validator: &T::AccountId) -> DispatchResult {
+        // Take key from map.
+        let t1_eth_public_key = match Self::get_ethereum_public_key_if_exists(resigned_validator) {
+            Some(eth_public_key) => eth_public_key,
+            _ => Err(Error::<T>::ValidatorNotFound)?,
+        };
+        let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
+            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+        let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
+            decompressed_eth_public_key,
             T::AccountToBytesConvert::into_bytes(resigned_validator),
         ));
         let ingress_counter = Self::get_ingress_counter() + 1;
@@ -1232,6 +1210,8 @@ impl<T: Config> Enforcer<<T as session::Config>::ValidatorId> for Pallet<T> {
     fn slash_validator(
         slashed_validator_id: &<T as session::Config>::ValidatorId,
     ) -> DispatchResult {
-        return Self::remove_slashed_validator(slashed_validator_id)
+        let slashed_validator_account_id =
+            T::AccountToBytesConvert::try_from_any(slashed_validator_id.encode())?;
+        return Self::remove_deregistered_validator(&slashed_validator_account_id)
     }
 }
