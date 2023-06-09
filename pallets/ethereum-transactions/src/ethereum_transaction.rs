@@ -127,7 +127,7 @@ impl DeregisterCollatorData {
                 inputs: vec![
                     Param {
                         name: String::from("t1PublicKey"),
-                        kind: ParamType::FixedBytes(64),
+                        kind: ParamType::Bytes,
                     },
                     Param {
                         name: String::from("t2PublicKey"),
