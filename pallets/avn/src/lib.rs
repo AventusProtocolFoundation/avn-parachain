@@ -244,7 +244,6 @@ impl<T: Config> Pallet<T> {
         if !Self::is_validator(&validator.account_id) {
             return false
         }
-
         let recovered_public_key = recover_public_key_from_ecdsa_signature(signature.clone(), data);
         if recovered_public_key.is_err() {
             return false
