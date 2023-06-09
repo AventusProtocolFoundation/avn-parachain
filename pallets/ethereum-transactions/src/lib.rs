@@ -306,6 +306,22 @@ pub mod pallet {
             <PublishRootContract<T>>::put(contract_address);
             Ok(())
         }
+
+        #[pallet::call_index(4)]
+        #[pallet::weight(0)]
+        pub fn reset_pending_ethereum_transaction(
+            origin: OriginFor<T>,
+            transaction_id: u64,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            if <Repository<T>>::contains_key(&transaction_id) {
+                <Repository<T>>::mutate(transaction_id, |tx| tx.eth_tx_hash = H256::from([1u8; 32]));
+            }
+
+            Ok(())
+        }
+
     }
 
     #[pallet::hooks]

@@ -207,7 +207,7 @@ pub struct EthTransactionCandidate {
     // value, then an error should be raised, logged and investigated To enforce this, we make
     // this a private field with set/get functions that will throw errors. Additionally since
     // we can't have a Option<H256> in Storage, we map H256::zero() with None in the get function.
-    eth_tx_hash: EthereumTransactionHash,
+    pub eth_tx_hash: EthereumTransactionHash,
 }
 
 impl EthTransactionCandidate {
