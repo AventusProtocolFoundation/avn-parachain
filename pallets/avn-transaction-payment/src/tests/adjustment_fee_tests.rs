@@ -84,7 +84,7 @@ pub(crate) fn roll_blocks(n: u64) {
     }
 }
 
-mod discount_tests {
+mod adjustment_fee_tests {
     use super::*;
 
     mod fees_are_paid_correctly_when {

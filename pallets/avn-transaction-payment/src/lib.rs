@@ -326,8 +326,8 @@ mod mock;
 pub mod set_known_sender_tests;
 
 #[cfg(test)]
-#[path = "tests/discount_fee_tests.rs"]
-pub mod discount_fee_tests;
+#[path = "tests/adjustment_fee_tests.rs"]
+pub mod adjustment_fee_tests;
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
