@@ -43,6 +43,12 @@ impl EthTransactionType {
             EthTransactionType::PublishRoot(d) => Ok(d.to_abi()),
             EthTransactionType::ActivateCollator(d) => Ok(d.to_abi()),
             EthTransactionType::DeregisterCollator(d) => Ok(d.to_abi()),
+            EthTransactionType::DeregisterValidator(_) |
+            EthTransactionType::SlashValidator(_) |
+            EthTransactionType::ActivateValidator(_) => {
+                println!("*** Invalid EthTransactionType {:?} passed in.", {self});
+                return Err(EthAbiError::InvalidData)
+            },
             _ => Err(EthAbiError::InvalidData),
         }
     }
