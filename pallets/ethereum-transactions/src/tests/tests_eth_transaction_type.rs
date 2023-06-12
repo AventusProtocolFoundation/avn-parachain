@@ -2,16 +2,21 @@
 
 use crate::ethereum_transaction::*;
 use ethabi::{Function, Param, ParamType, Token};
+use sp_core::H512;
 
 pub const ROOT_HASH: [u8; 32] = [3; 32];
 pub const T2_PUBLIC_KEY: [u8; 32] = [4; 32];
+pub const T1_PUBLIC_KEY: [u8; 64] = [5u8; 64];
 
 pub fn generate_publish_root_data(root_hash: [u8; 32]) -> PublishRootData {
     PublishRootData { root_hash }
 }
 
-fn generate_deregister_validator_data(t2_public_key: [u8; 32]) -> DeregisterValidatorData {
-    DeregisterValidatorData { t2_public_key }
+fn generate_deregister_validator_data(
+    t1_public_key: H512,
+    t2_public_key: [u8; 32],
+) -> DeregisterCollatorData {
+    DeregisterCollatorData { t1_public_key, t2_public_key }
 }
 
 fn generate_publish_root_eth_txn_desc(root_hash: [u8; 32]) -> EthTransactionDescription {
@@ -28,21 +33,24 @@ fn generate_publish_root_eth_txn_desc(root_hash: [u8; 32]) -> EthTransactionDesc
         call_values: vec![Token::FixedBytes(root_hash.to_vec())],
     }
 }
-
 fn generate_deregister_validator_eth_txn_desc(
+    t1_public_key: H512,
     t2_public_key: [u8; 32],
 ) -> EthTransactionDescription {
     EthTransactionDescription {
         function_call: Function {
             name: String::from("deregisterValidator"),
-            inputs: vec![Param {
-                name: String::from("_targetT2PublicKey"),
-                kind: ParamType::FixedBytes(32),
-            }],
+            inputs: vec![
+                Param { name: String::from("_targetT2PublicKey"), kind: ParamType::FixedBytes(32) },
+                Param { name: String::from("_targetT1PublicKey"), kind: ParamType::FixedBytes(64) },
+            ],
             outputs: Vec::<Param>::new(),
             constant: false,
         },
-        call_values: vec![Token::FixedBytes(t2_public_key.to_vec())],
+        call_values: vec![
+            Token::FixedBytes(t2_public_key.to_vec()),
+            Token::Bytes(t1_public_key.to_fixed_bytes().to_vec()),
+        ],
     }
 }
 
@@ -54,8 +62,14 @@ mod eth_transaction_type {
         EthTransactionType::PublishRoot(generate_publish_root_data(root_hash))
     }
 
-    fn generate_deregister_validator_eth_txn_type(t2_public_key: [u8; 32]) -> EthTransactionType {
-        EthTransactionType::DeregisterValidator(generate_deregister_validator_data(t2_public_key))
+    fn generate_deregister_validator_eth_txn_type(
+        t1_public_key: H512,
+        t2_public_key: [u8; 32],
+    ) -> EthTransactionType {
+        EthTransactionType::DeregisterCollator(generate_deregister_validator_data(
+            t1_public_key,
+            t2_public_key,
+        ))
     }
 
     fn generate_unsupported_eth_txn_type() -> EthTransactionType {
@@ -81,10 +95,14 @@ mod eth_transaction_type {
 
             #[test]
             fn txn_is_deregister_validator() {
-                let deregister_validator_eth_txn_type =
-                    generate_deregister_validator_eth_txn_type(T2_PUBLIC_KEY);
-                let deregister_validator_eth_txn_desc =
-                    generate_deregister_validator_eth_txn_desc(T2_PUBLIC_KEY);
+                let deregister_validator_eth_txn_type = generate_deregister_validator_eth_txn_type(
+                    H512::from(T1_PUBLIC_KEY),
+                    T2_PUBLIC_KEY,
+                );
+                let deregister_validator_eth_txn_desc = generate_deregister_validator_eth_txn_desc(
+                    H512::from(T1_PUBLIC_KEY),
+                    T2_PUBLIC_KEY,
+                );
 
                 let result = deregister_validator_eth_txn_type.to_abi();
 
@@ -131,16 +149,21 @@ mod deregister_validator_data {
 
     #[test]
     fn new_succeeds() {
-        let expected_deregister_validator_data = generate_deregister_validator_data(T2_PUBLIC_KEY);
+        let expected_deregister_validator_data =
+            generate_deregister_validator_data(H512::from(T1_PUBLIC_KEY), T2_PUBLIC_KEY);
 
-        assert_eq!(DeregisterValidatorData::new(T2_PUBLIC_KEY), expected_deregister_validator_data);
+        assert_eq!(
+            DeregisterCollatorData::new(H512::from(T1_PUBLIC_KEY), T2_PUBLIC_KEY),
+            expected_deregister_validator_data
+        );
     }
 
     #[test]
     fn to_abi_succeeds() {
-        let deregister_validator_data = generate_deregister_validator_data(T2_PUBLIC_KEY);
-        let expected_eth_transaction_desc =
-            generate_deregister_validator_eth_txn_desc(T2_PUBLIC_KEY);
+        let deregister_validator_data =
+            generate_deregister_validator_data(H512::from(T1_PUBLIC_KEY), T2_PUBLIC_KEY);
+        let expected_eth_transaction_desc: EthTransactionDescription =
+            generate_deregister_validator_eth_txn_desc(H512::from(T1_PUBLIC_KEY), T2_PUBLIC_KEY);
 
         assert_eq!(deregister_validator_data.to_abi(), expected_eth_transaction_desc);
     }
