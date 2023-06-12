@@ -3,6 +3,7 @@
 use crate::{mock::*, *};
 use codec::alloc::sync::Arc;
 use frame_support::{assert_err, assert_noop, assert_ok};
+use hex_literal::hex;
 use pallet_avn::Error as AvNError;
 use parking_lot::RwLock;
 use sp_core::offchain::testing::{OffchainState, PoolState};
@@ -130,20 +131,13 @@ fn approve_validator_action(
     let response = Some(create_valid_signed_respose(&validator.key, &eth_compatible_data));
     mock_response_of_get_ecdsa_signature(
         &mut context.offchain_state.write(),
-        eth_compatible_data,
         response,
-    );
-    let (_, approval_signature) =
         ValidatorManager::sign_validators_action_for_ethereum(&context.action_id).unwrap();
     return ValidatorManager::approve_validator_action(
         RawOrigin::None.into(),
         context.action_id,
         validator.clone(),
         approval_signature,
-        context.record_deregister_validator_calculation_signature.clone(),
-    )
-}
-
 fn reject_validator_action(
     validator: &Validator<UintAuthorityId, AccountId>,
     context: &Context,
@@ -316,12 +310,7 @@ mod approve_vote {
                     Some(hex::encode([1; 65].to_vec()).as_bytes().to_vec()),
                 );
 
-                let (_, approval_signature) =
                     ValidatorManager::sign_validators_action_for_ethereum(&context.action_id)
-                        .unwrap();
-
-                assert_noop!(
-                    ValidatorManager::approve_validator_action(
                         RuntimeOrigin::signed(validator_id_3()),
                         context.action_id,
                         context.validator,

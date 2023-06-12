@@ -40,25 +40,34 @@ use parking_lot::RwLock;
 use std::cell::RefCell;
 
 pub fn validator_id_1() -> AccountId {
-    TestAccount::new([1u8; 32]).account_id()
+    let secret_seed = "6568fa0ddc49e55d4f184e211713ef4c64f3c9435a8a2dc70e908bb327577b72";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
 
 pub fn validator_id_2() -> AccountId {
-    TestAccount::new([2u8; 32]).account_id()
+    let secret_seed = "d326fc6143e0b09122fbd1350b74caa3765ee1206cb2d22acfeebe2474b63057";
+    let seed = hex_to_u8_array(&secret_seed[2..]);
+    TestAccount::new(seed).account_id()
 }
 
 pub fn validator_id_3() -> AccountId {
-    TestAccount::new([3u8; 32]).account_id()
+    let secret_seed = "5e112910b8b41226074bbdbf9db5e716b011cc504d694fb87af121016bf49a4f";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
 
 pub fn validator_id_4() -> AccountId {
-    TestAccount::new([4u8; 32]).account_id()
+    let secret_seed = "743334962f9a5b6c31fabce09424458916edb27d280ca857e4f27058dd1248a3";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
 
 pub fn validator_id_5() -> AccountId {
-    TestAccount::new([5u8; 32]).account_id()
+    let secret_seed = "1a2e735c84b3f0dfb7637b0c434340770db86ad102a584a340d7c4826bb8f0c1";
+    let seed = hex_to_u8_array(secret_seed);
+    TestAccount::new(seed).account_id()
 }
-
 pub fn sender() -> AccountId {
     validator_id_3()
 }
