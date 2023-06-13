@@ -1,10 +1,8 @@
+use frame_support::log;
 use pallet_ethereum_transactions::ethereum_transaction::{
-    ActivateCollatorData, DeregisterCollatorData, EthAbiHelper, EthTransactionType, TransactionId,
+    ActivateCollatorData, DeregisterCollatorData,
 };
-use sp_core::H512;
 use sp_io::hashing::keccak_256;
-
-use frame_support::{dispatch::DispatchResult, log};
 
 const PACKED_KEYS_SIZE: usize = 96;
 
@@ -56,9 +54,9 @@ pub(crate) fn concat_and_hash_deregistration_data(
     return deregister_collator_hash
 }
 
-// Tests are
 #[test]
 fn collator_activation_hashed_params_are_valid() {
+    use sp_core::H512;
     let mut ferdie_t1_public_key_bytes: [u8; 64] = [0; 64];
 
     assert!(hex::decode_to_slice("1f21d300f707014f718f41c969c054936b7a105a478da74d37ec75fa0f831f872aeb02d6af6c098e3d523cdcca8e82c13672ff083b94f4a8fc3d265a3369db20", &mut ferdie_t1_public_key_bytes[..]).is_ok());
@@ -80,11 +78,11 @@ fn collator_activation_hashed_params_are_valid() {
         hex::encode(&hashed_keys),
         "fcde037cef635ab9da60f50efd8552403f7a7e6e58f1f1be3aba810ff99228ea"
     );
-
 }
 
 #[test]
 fn collator_deregistration_hashed_params_are_valid() {
+    use sp_core::H512;
     let mut ferdie_t1_public_key_bytes: [u8; 64] = [0; 64];
 
     assert!(hex::decode_to_slice("1f21d300f707014f718f41c969c054936b7a105a478da74d37ec75fa0f831f872aeb02d6af6c098e3d523cdcca8e82c13672ff083b94f4a8fc3d265a3369db20", &mut ferdie_t1_public_key_bytes[..]).is_ok());

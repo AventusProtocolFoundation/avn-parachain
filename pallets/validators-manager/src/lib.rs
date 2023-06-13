@@ -614,8 +614,7 @@ impl<T: Config> Pallet<T> {
 
         let action_parameters_concat_hash = match validators_action_data.reserved_eth_transaction {
             EthTransactionType::ActivateCollator(ref d) => concat_and_hash_activation_data(d),
-            EthTransactionType::DeregisterCollator(ref d) =>
-                concat_and_hash_deregistration_data(d),
+            EthTransactionType::DeregisterCollator(ref d) => concat_and_hash_deregistration_data(d),
             _ => Err(Error::<T>::ErrorGeneratingEthDescription)?,
         };
 
