@@ -105,7 +105,7 @@ fn approve_validator_action(
     context: &Context,
 ) -> DispatchResult {
     let eth_compatible_data =
-        ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id).unwrap();
+        ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
     mock_response_of_get_ecdsa_signature(
         &mut context.offchain_state.write(),
         eth_compatible_data,
@@ -292,8 +292,7 @@ mod approve_vote {
                 setup_voting_session(&context.action_id);
 
                 let eth_compatible_data =
-                    ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id)
-                        .unwrap();
+                    ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
 
                 mock_response_of_get_ecdsa_signature(
                     &mut context.offchain_state.write(),
@@ -327,8 +326,7 @@ mod approve_vote {
                 setup_voting_session(&context.action_id);
 
                 let eth_compatible_data =
-                    ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id)
-                        .unwrap();
+                    ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
 
                 mock_response_of_get_ecdsa_signature(
                     &mut context.offchain_state.write(),
@@ -422,8 +420,7 @@ mod approve_vote {
                 setup_voting_session(&context.action_id);
 
                 let eth_compatible_data =
-                    ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id)
-                        .unwrap();
+                    ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
 
                 mock_response_of_get_ecdsa_signature(
                     &mut context.offchain_state.write(),

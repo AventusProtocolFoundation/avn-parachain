@@ -607,20 +607,6 @@ impl<T: Config> Pallet<T> {
         return Ok((data.clone(), AVN::<T>::request_ecdsa_signature_from_external_service(&data)?))
     }
 
-    // TODO delete me.
-    pub fn convert_data_to_eth_compatible_encoding(
-        action_id: &ActionId<T::AccountId>,
-    ) -> Result<String, DispatchError> {
-        let validators_action_data = Self::try_get_validators_action_data(action_id)?;
-        let eth_description = EthAbiHelper::generate_ethereum_description_for_signature_request(
-            &T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator),
-            &validators_action_data.reserved_eth_transaction,
-            validators_action_data.eth_transaction_id,
-        )
-        .map_err(|_| Error::<T>::ErrorGeneratingEthDescription)?;
-        Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description)))
-    }
-
     pub fn abi_encode_collator_action_data(
         action_id: &ActionId<T::AccountId>,
     ) -> Result<String, DispatchError> {
@@ -628,7 +614,8 @@ impl<T: Config> Pallet<T> {
 
         let action_parameters_concat_hash = match validators_action_data.reserved_eth_transaction {
             EthTransactionType::ActivateCollator(ref d) => concat_and_hash_activation_data(d),
-            EthTransactionType::DeregisterCollator(ref d) => concat_and_hash_deregistration_data(d),
+            EthTransactionType::DeregisterCollator(ref d) =>
+                concat_and_hash_deregistration_data(d),
             _ => Err(Error::<T>::ErrorGeneratingEthDescription)?,
         };
 
