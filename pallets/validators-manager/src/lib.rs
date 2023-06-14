@@ -645,7 +645,7 @@ impl<T: Config> Pallet<T> {
 
         let deregister_collator_hash = keccak_256(&deregister_collator_params_concat);
 
-        log::debug!(
+        log::info!(
             "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
                 &deregister_collator_data,
                 hex::encode(deregister_collator_params_concat),
@@ -677,7 +677,7 @@ impl<T: Config> Pallet<T> {
                 &sender,
             ));
 
-        log::debug!(
+        log::info!(
             "📩 Data used for abi encode: (hex-encoded hash: {:?}, tx_id: {:?}, hex-encoded sender: {:?}). Output: {:?}",
             hex::encode(action_parameters_concat_hash),
             validators_action_data.eth_transaction_id,
