@@ -689,14 +689,16 @@ impl<T: Config> Pallet<T> {
                 amount: updated_amount,
                 eth_tx_hash: event_id.transaction_hash,
             });
+        } else {
+            Self::update_token_balance(
+                event_id.transaction_hash,
+                data.token_contract.into(),
+                recipient_account_id,
+                data.amount,
+            )?;
         }
 
-        return Self::update_token_balance(
-            event_id.transaction_hash,
-            data.token_contract.into(),
-            recipient_account_id,
-            data.amount,
-        )
+        return Ok(())
     }
 
     fn process_avt_growth_lift(event: &EthEvent, data: &AvtGrowthLiftedData) -> DispatchResult {
