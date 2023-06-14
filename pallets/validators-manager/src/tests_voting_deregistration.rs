@@ -3,7 +3,6 @@
 use crate::{mock::*, *};
 use codec::alloc::sync::Arc;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use hex_literal::hex;
 use pallet_avn::Error as AvNError;
 use parking_lot::RwLock;
 use sp_core::offchain::testing::{OffchainState, PoolState};
@@ -89,9 +88,7 @@ fn setup_ext_builder() -> (TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock
 }
 /// Setups a voting session to deregister collator 5. Sender is collator 3
 fn setup_voting_session(action_id: &ActionId<AccountId>) {
-    let collator_eth_public_key = ecdsa::Public::from_raw(hex!(
-        "0362c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"
-    ));
+    let collator_eth_public_key = ecdsa::Public::from_raw(COLLATOR_5_ETHEREUM_PUPLIC_KEY);
     let decompressed_collator_eth_public_key =
         decompress_eth_public_key(collator_eth_public_key).unwrap();
     let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
@@ -198,7 +195,7 @@ mod approve_vote {
 
             ext.execute_with(|| {
                 let context = setup_context(&offchain_state);
-                let second_validator = get_validator_by_index(1);
+                let second_validator = get_validator(CollatorId::Collator2);
 
                 setup_voting_session(&context.action_id);
 
@@ -301,12 +298,6 @@ mod approve_vote {
 
     mod fails_when {
         use super::*;
-
-        fn set_ecdsa_signature_verification_to_fail() {
-            ETH_PUBLIC_KEY_VALID.with(|pk| {
-                *pk.borrow_mut() = false;
-            });
-        }
 
         #[test]
         fn origin_is_signed() {
@@ -447,17 +438,17 @@ mod approve_vote {
                 let eth_compatible_data =
                     ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
 
+                let invalid_ecdsa_signature = hex::encode([1; 65].to_vec()).as_bytes().to_vec();
+
                 mock_response_of_get_ecdsa_signature(
                     &mut context.offchain_state.write(),
                     eth_compatible_data,
-                    Some(hex::encode([2; 65].to_vec()).as_bytes().to_vec()),
+                    Some(invalid_ecdsa_signature),
                 );
 
                 let (_, approval_signature) =
                     ValidatorManager::sign_validators_action_for_ethereum(&context.action_id)
                         .unwrap();
-
-                set_ecdsa_signature_verification_to_fail();
 
                 let result = ValidatorManager::approve_validator_action(
                     RawOrigin::None.into(),

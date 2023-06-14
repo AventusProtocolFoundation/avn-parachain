@@ -467,8 +467,6 @@ thread_local! {
 
     static MOCK_TX_ID: RefCell<TransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
 
-    pub static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
-
     pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
 }
 
@@ -494,33 +492,32 @@ impl ValidatorRegistrationNotifier<ValidatorId> for TestRuntime {
     fn on_validator_registration(_validator_id: &ValidatorId) {}
 }
 
+// Derived from [1u8;32] private key
+pub(crate) const COLLATOR_1_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f"];
+// Derived from [2u8;32] private key
+pub(crate) const COLLATOR_2_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"];
+// Derived from [3u8;32] private key
+
+pub(crate) const COLLATOR_3_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["02531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337"];
+// Derived from [4u8;32] private key
+
+pub(crate) const COLLATOR_4_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["03462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"];
+// Derived from [5u8;32] private key
+
+pub(crate) const COLLATOR_5_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["0362c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"];
+
 fn initial_validators_public_keys() -> Vec<ecdsa::Public> {
     return vec![
-        // Derived from [1u8;32] private key
-        Public::from_slice(&hex![
-            "031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f"
-        ])
-        .unwrap(),
-        // Derived from [2u8;32] private key
-        Public::from_slice(&hex![
-            "024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"
-        ])
-        .unwrap(),
-        // Derived from [3u8;32] private key
-        Public::from_slice(&hex![
-            "02531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337"
-        ])
-        .unwrap(),
-        // Derived from [4u8;32] private key
-        Public::from_slice(&hex![
-            "03462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"
-        ])
-        .unwrap(),
-        // Derived from [5u8;32] private key
-        Public::from_slice(&hex![
-            "0362c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"
-        ])
-        .unwrap(),
+        Public::from_slice(&COLLATOR_1_ETHEREUM_PUPLIC_KEY).unwrap(),
+        Public::from_slice(&COLLATOR_2_ETHEREUM_PUPLIC_KEY).unwrap(),
+        Public::from_slice(&COLLATOR_3_ETHEREUM_PUPLIC_KEY).unwrap(),
+        Public::from_slice(&COLLATOR_4_ETHEREUM_PUPLIC_KEY).unwrap(),
+        Public::from_slice(&COLLATOR_5_ETHEREUM_PUPLIC_KEY).unwrap(),
     ]
 }
 
