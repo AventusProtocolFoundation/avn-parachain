@@ -38,9 +38,15 @@ fn avn_test_lift_to_zero_balance_account_should_succeed() {
         let mock_event = &mock_data.avt_token_lift_event;
         insert_to_mock_processed_events(&mock_event.event_id);
 
+        // check that TokenManager.balance for AVT contract is 0
+        assert_eq!(TokenManager::balance((AVT_TOKEN_CONTRACT, mock_data.receiver_account_id)), 0);
+
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), 0);
         assert_ok!(TokenManager::lift(&mock_event));
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), AMOUNT_123_TOKEN);
+
+        // check that TokenManager.balance for AVT contract is still 0
+        assert_eq!(TokenManager::balance((AVT_TOKEN_CONTRACT, mock_data.receiver_account_id)), 0);
 
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
@@ -63,11 +69,17 @@ fn avn_test_lift_to_non_zero_balance_account_should_succeed() {
         let mock_event = &mock_data.avt_token_lift_event;
         insert_to_mock_processed_events(&mock_event.event_id);
 
+        // check that TokenManager.balance for AVT contract is 0
+        assert_eq!(TokenManager::balance((AVT_TOKEN_CONTRACT, mock_data.receiver_account_id)), 0);
+
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), AMOUNT_100_TOKEN);
         let new_balance = Balances::free_balance(mock_data.receiver_account_id) + AMOUNT_123_TOKEN;
 
         assert_ok!(TokenManager::lift(&mock_event));
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), new_balance);
+
+        // check that TokenManager.balance for AVT contract is still 0
+        assert_eq!(TokenManager::balance((AVT_TOKEN_CONTRACT, mock_data.receiver_account_id)), 0);
 
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLifted {
