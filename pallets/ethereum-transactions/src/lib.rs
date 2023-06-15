@@ -627,6 +627,7 @@ pub trait CandidateTransactionSubmitter<AccountId> {
     ) -> DispatchResult;
 
     /// Sets a transaction Id. This is only enabled for benchmarks
+    #[cfg(feature = "runtime-benchmarks")]
     fn set_transaction_id(candidate_type: &EthTransactionType, id: TransactionId);
 
     // TODO review if we need an interface to change the value of EthTransactionType that has
@@ -694,6 +695,7 @@ impl<T: Config> CandidateTransactionSubmitter<T::AccountId> for Pallet<T> {
         Ok(())
     }
 
+    #[cfg(feature = "runtime-benchmarks")]
     fn set_transaction_id(candidate_type: &EthTransactionType, id: TransactionId) {
         <ReservedTransactions<T>>::insert(candidate_type, id);
     }
