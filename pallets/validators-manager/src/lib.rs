@@ -629,7 +629,7 @@ impl<T: Config> Pallet<T> {
                 &sender,
             ));
 
-        log::debug!(
+        log::info!(
             "📩 Data used for abi encode: (hex-encoded hash: {:?}, tx_id: {:?}, hex-encoded sender: {:?}). Output: {:?}",
             hex::encode(action_parameters_concat_hash),
             validators_action_data.eth_transaction_id,

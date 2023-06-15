@@ -9,6 +9,7 @@ const PACKED_KEYS_SIZE: usize = 96;
 /// This function generates the compacted call data needed to generate a confirmation for
 /// registering a new collator. The implementation must match this schema:
 /// https://github.com/Aventus-Network-Services/avn-bridge/blob/v1.1.0/contracts/AVNBridge.sol#L344-L345
+
 pub(crate) fn concat_and_hash_activation_data(
     activate_collator_data: &ActivateCollatorData,
 ) -> [u8; 32] {
@@ -21,12 +22,12 @@ pub(crate) fn concat_and_hash_activation_data(
 
     let activate_collator_hash = keccak_256(&activate_collator_params_concat);
 
-    log::debug!(
-            "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
-                &activate_collator_data,
-                hex::encode(activate_collator_params_concat),
-                hex::encode(activate_collator_hash)
-        );
+    log::info!(
+        "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
+            &activate_collator_data,
+            hex::encode(activate_collator_params_concat),
+            hex::encode(activate_collator_hash)
+    );
     return activate_collator_hash
 }
 
@@ -45,12 +46,12 @@ pub(crate) fn concat_and_hash_deregistration_data(
 
     let deregister_collator_hash = keccak_256(&deregister_collator_params_concat);
 
-    log::debug!(
-            "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
-                &deregister_collator_data,
-                hex::encode(deregister_collator_params_concat),
-                hex::encode(deregister_collator_hash)
-        );
+    log::info!(
+        "🗜️ Creating packed hash for {:?} transaction: Concat params data (hex encoded): {:?} - keccak_256 hash (hex encoded): {:?}",
+            &deregister_collator_data,
+            hex::encode(deregister_collator_params_concat),
+            hex::encode(deregister_collator_hash)
+    );
     return deregister_collator_hash
 }
 
