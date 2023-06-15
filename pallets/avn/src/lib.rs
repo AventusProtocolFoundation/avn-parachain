@@ -252,8 +252,7 @@ impl<T: Config> Pallet<T> {
         match T::EthereumPublicKeyChecker::get_validator_for_eth_public_key(
             &recovered_public_key.expect("Checked for error"),
         ) {
-            Some(maybe_validator) => {
-                maybe_validator == validator.account_id},
+            Some(maybe_validator) => maybe_validator == validator.account_id,
             _ => false,
         }
     }
