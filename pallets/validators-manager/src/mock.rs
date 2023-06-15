@@ -43,24 +43,27 @@ use std::cell::RefCell;
 pub fn validator_id_1() -> AccountId {
     TestAccount::new([1u8; 32]).account_id()
 }
+
 pub fn validator_id_2() -> AccountId {
     TestAccount::new([2u8; 32]).account_id()
 }
+
 pub fn validator_id_3() -> AccountId {
     TestAccount::new([3u8; 32]).account_id()
 }
+
 pub fn validator_id_4() -> AccountId {
     TestAccount::new([4u8; 32]).account_id()
 }
+
 pub fn validator_id_5() -> AccountId {
     TestAccount::new([5u8; 32]).account_id()
 }
-pub fn non_validator_id() -> AccountId {
-    TestAccount::new([100u8; 32]).account_id()
-}
+
 pub fn sender() -> AccountId {
     validator_id_3()
 }
+
 pub fn genesis_config_initial_validators() -> [AccountId; 5] {
     [validator_id_1(), validator_id_2(), validator_id_3(), validator_id_4(), validator_id_5()]
 }
@@ -366,23 +369,24 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         submitter: AccountId,
         _signatures: Vec<ecdsa::Signature>,
     ) -> DispatchResult {
+        let collator_eth_public_key = ecdsa::Public::from_raw(hex!(
+            "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
+        ));
+        let decompressed_collator_eth_public_key =
+            decompress_eth_public_key(collator_eth_public_key).unwrap();
         let validator_t2_pub_key_used_in_unit_tests: [u8; 32] =
             <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(&validator_id_3());
         let validator_t2_pub_key_used_in_benchmarks: [u8; 32] = MOCK_T2_PUBLIC_KEY_BYTES;
-        let candidate_pub_key: [u8; 32] =
-            <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(
-                &get_registered_validator_id(),
-            );
 
         if submitter == get_registered_validator_id() ||
             candidate_type ==
-                EthTransactionType::SlashValidator(SlashValidatorData::new(candidate_pub_key)) ||
-            candidate_type ==
-                EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+                EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
+                    decompressed_collator_eth_public_key,
                     validator_t2_pub_key_used_in_unit_tests,
                 )) ||
             candidate_type ==
-                EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+                EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
+                    decompressed_collator_eth_public_key,
                     validator_t2_pub_key_used_in_benchmarks,
                 ))
         {
