@@ -116,10 +116,7 @@ impl DeregisterCollatorData {
             function_call: Function {
                 name: String::from("deregisterValidator"),
                 inputs: vec![
-                    Param {
-                        name: String::from("_targetT1PublicKey"),
-                        kind: ParamType::Bytes,
-                    },
+                    Param { name: String::from("_targetT1PublicKey"), kind: ParamType::Bytes },
                     Param {
                         name: String::from("_targetT2PublicKey"),
                         kind: ParamType::FixedBytes(32),
