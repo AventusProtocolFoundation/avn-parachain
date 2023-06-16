@@ -15,6 +15,7 @@ use hex_literal::hex;
 use pallet_avn::{self as avn};
 use pallet_parachain_staking::{Currency, Pallet as ParachainStaking};
 use pallet_session::Pallet as Session;
+use sp_avn_common::eth_key_actions::decompress_eth_public_key;
 use sp_core::ecdsa::Public;
 
 fn setup_validators<T: Config>(
@@ -100,7 +101,16 @@ fn setup_action_data<T: Config>(
     ingress_counter: IngressCounter,
 ) {
     let eth_transaction_id: TransactionId = 0;
-    let candidate_tx = EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+    let t1_eth_public_key =
+        match ValidatorManager::<T>::get_ethereum_public_key_if_exists(&action_account_id) {
+            Some(eth_public_key) => eth_public_key,
+            _ => Err(Error::<T>::ValidatorNotFound).unwrap(),
+        };
+    let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
+        .map_err(|_| Error::<T>::InvalidPublicKey)
+        .unwrap();
+    let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
+        decompressed_eth_public_key,
         <T as Config>::AccountToBytesConvert::into_bytes(&action_account_id),
     ));
 
