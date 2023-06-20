@@ -29,7 +29,8 @@ sp-io = { default-features = false, git = "https://github.com/paritytech/substra
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-staking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 hex-literal = { version = "0.3.4", default-features = false }
-
+libsecp256k1 = { version = "0.3.2", default-features = false, features = ["hmac"] }
+sha3 = { version = "0.8", default-features = false }
 #Staking
 pallet-parachain-staking = { version = "3.0.0", path = "../parachain-staking", default-features = false }
 
@@ -62,7 +63,8 @@ std = [
 	"pallet-avn/std",
 	"pallet-ethereum-transactions/std",
 	"pallet-avn-proxy/std",
-	"pallet-parachain-staking/std"
+	"pallet-parachain-staking/std",
+	"libsecp256k1/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",

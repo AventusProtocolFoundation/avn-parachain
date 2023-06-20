@@ -15,8 +15,10 @@ use hex_literal::hex;
 use pallet_avn::{self as avn};
 use pallet_parachain_staking::{Currency, Pallet as ParachainStaking};
 use pallet_session::Pallet as Session;
+use rand::rngs::OsRng;
+use secp256k1::{PublicKey, SecretKey};
 use sp_avn_common::eth_key_actions::decompress_eth_public_key;
-use sp_core::ecdsa::Public;
+use sp_core::{ecdsa::Public, H512};
 
 fn setup_validators<T: Config>(
     number_of_validator_account_ids: u32,
@@ -72,15 +74,21 @@ fn setup_action_voting<T: Config>(
 ) {
     let sender_index = validators.len() - (1 as usize);
     let sender: Validator<T::AuthorityId, T::AccountId> = validators[sender_index].clone();
+    println!("SENDER !!! {:?}", sender);
     let action_account_id: T::AccountId = validators[1].account_id.clone();
     let ingress_counter: IngressCounter = 1;
+
     let action_id: ActionId<T::AccountId> = ActionId::new(action_account_id, ingress_counter);
-    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("2b01699be62c1aabaf0dd85f956567ac495d4293323ee1eb79d827d705ff86c80bdd4a26af6f50544af9510e0c21082b94ecb8a8d48d74ee4ebda6605a96d77901")).unwrap().into();
+
+    // let (_, approval_signature) =
+    //     ValidatorManager::<T>::sign_validators_action_for_ethereum(&action_id).unwrap();
+    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("51d587d03cf8b5448aa72dd1bc8c6daa8bbea24ba5e284879b54ac462b81c61639b6044b400ee8ea582acc3b417946a8170d759a91ab63fbd2fe0dfc470449e11c")).unwrap().into();
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
     let quorum = setup_voting_session::<T>(&action_id);
 
+    // Dirived from [1u8;32] key
     let eth_public_key = Public::from_raw(
-        <[u8; 33]>::from_hex("032717041a29cee520bb901c406e2399974d4ad58cd3ee830848bd78fa089f1335")
+        <[u8; 33]>::from_hex("031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f")
             .unwrap(),
     );
 
@@ -253,11 +261,23 @@ fn set_session_keys<T: Config>(collator_id: &T::AccountId, index: u64) {
     .unwrap();
 }
 
+fn generate_random_eth_public_key<T: Config>() -> Public {
+    let mut rng = OsRng;
+
+    let secret_key = SecretKey::random(&mut rng);
+    let public_key = PublicKey::from_secret_key(&secret_key);
+
+    return ValidatorManager::<T>::compress_eth_public_key(H512::from_slice(
+        &public_key.serialize()[1..],
+    ))
+}
+
 fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64) {
     set_session_keys::<T>(collator_id, index);
 
-    let eth_public_key: ecdsa::Public =
-        ValidatorManager::<T>::compress_eth_public_key(H512::repeat_byte(index as u8));
+    let eth_public_key: ecdsa::Public = generate_random_eth_public_key::<T>();
+    // ValidatorManager::<T>::compress_eth_public_key(H512::repeat_byte(index as u8));
+    // generate_random_eth_public_key::<T>();
     <T as pallet_parachain_staking::Config>::Currency::make_free_balance_be(
         &collator_id,
         ParachainStaking::<T>::min_collator_stake() * 2u32.into(),
@@ -279,8 +299,7 @@ benchmarks! {
     add_collator {
         let candidate = account("collator_cadidate", 1, 1);
         <T as pallet_parachain_staking::Config>::Currency::make_free_balance_be(&candidate, ParachainStaking::<T>::min_collator_stake() * 2u32.into());
-        let eth_public_key: ecdsa::Public =
-            ValidatorManager::<T>::compress_eth_public_key(H512::repeat_byte(6u8));
+        let eth_public_key: ecdsa::Public = generate_random_eth_public_key::<T>();
         set_session_keys::<T>(&candidate, 20u64);
 
         assert_eq!(false, pallet_parachain_staking::CandidateInfo::<T>::contains_key(&candidate));
@@ -306,7 +325,6 @@ benchmarks! {
 
         let validators = setup_validators::<T>(v);
         let (sender, action_id, approval_signature, signature, quorum) = setup_action_voting::<T>(validators.clone());
-
         // Setup votes more than quorum to trigger end voting period
         let number_of_votes = quorum;
         setup_approval_votes::<T>(&AVN::<T>::validators(), &sender, number_of_votes, &action_id);
