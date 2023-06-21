@@ -71,7 +71,7 @@ runtime-benchmarks = [
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
     "pallet-ethereum-transactions/runtime-benchmarks",
-	"rand",
-	"libsecp256k1",
-	"sha3",
+    "rand",
+    "libsecp256k1",
+    "sha3",
 ]
