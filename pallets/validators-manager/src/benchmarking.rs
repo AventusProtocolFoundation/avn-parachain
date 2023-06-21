@@ -14,7 +14,6 @@ use hex_literal::hex;
 use pallet_avn::{self as avn};
 use pallet_parachain_staking::{Currency, Pallet as ParachainStaking};
 use pallet_session::Pallet as Session;
-use rand::rngs::OsRng;
 use secp256k1::{PublicKey, SecretKey};
 use sp_avn_common::eth_key_actions::decompress_eth_public_key;
 use sp_core::{ecdsa::Public, H512};
@@ -281,8 +280,9 @@ fn set_session_keys<T: Config>(collator_id: &T::AccountId, index: u64) {
     .unwrap();
 }
 
-fn generate_collator_eth_public_key_from_seed<T: Config>(_seed: u64) -> Public {
-    let mut rng = OsRng;
+fn generate_collator_eth_public_key_from_seed<T: Config>(seed: u64) -> Public {
+    use rand::SeedableRng;
+    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
     let secret_key = SecretKey::random(&mut rng);
     let public_key = PublicKey::from_secret_key(&secret_key);
 
