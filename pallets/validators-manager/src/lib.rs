@@ -349,12 +349,6 @@ pub mod pallet {
             ensure_none(origin)?;
 
             let eth_encoded_data = Self::abi_encode_collator_action_data(&action_id)?;
-
-            println!("APPROVE VALIDATOR ACTION 2 !!! {:?}", action_id);
-            println!("APPROVE VALIDATOR ACTION 3 !!! {:?}", validator);
-            println!("APPROVE VALIDATOR ACTION 4 !!! {:?}", approval_signature);
-            println!("APPROVE VALIDATOR ACTION 5 !!! {:?}", _signature);
-            println!("APPROVE VALIDATOR ACTION 6 !!! {:?}", eth_encoded_data);
             if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
             {
                 create_and_report_validators_offence::<T>(
@@ -634,15 +628,6 @@ impl<T: Config> Pallet<T> {
                 validators_action_data.eth_transaction_id,
                 &sender,
             ));
-
-        println!(
-            "hash {:?}, tx_id {:?}, sender {:?}",
-            hex::encode(action_parameters_concat_hash),
-            validators_action_data.eth_transaction_id,
-            hex::encode(sender)
-        );
-
-        println!("abi {:?}", hex::encode(sender));
 
         log::info!(
             "📩 Data used for abi encode: (hex-encoded hash: {:?}, tx_id: {:?}, hex-encoded sender: {:?}). Output: {:?}",

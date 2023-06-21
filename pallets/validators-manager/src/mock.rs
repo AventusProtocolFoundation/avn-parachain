@@ -374,7 +374,7 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         return Ok(value)
     }
     #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(candidate_type: &EthTransactionType, id: TransactionId) {}
+    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 impl session::Config for TestRuntime {
