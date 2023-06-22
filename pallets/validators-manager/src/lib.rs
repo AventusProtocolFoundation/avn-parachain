@@ -1151,8 +1151,7 @@ impl<T: Config> Enforcer<<T as session::Config>::ValidatorId> for Pallet<T> {
     fn slash_validator(
         slashed_validator_id: &<T as session::Config>::ValidatorId,
     ) -> DispatchResult {
-        let slashed_validator_account_id =
-            T::AccountToBytesConvert::try_from_any(slashed_validator_id.encode())?;
-        return Self::remove_deregistered_validator(&slashed_validator_account_id)
+        log::error!("❌ Error: Incomplete Slashing Implementation. An attempt was made to slash validator {:?}, but the slashing implementation is currently incomplete. This code path should not have been reached.", slashed_validator_id);
+        Ok(())
     }
 }
