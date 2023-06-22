@@ -258,7 +258,7 @@ impl<T: Config> TransactionBasedConfig<T> {
     }
 
     pub fn is_active(&self) -> bool {
-        return self.end_count > <frame_system::Pallet<T>>::account(&self.account).nonce
+        return self.end_count >= <frame_system::Pallet<T>>::account(&self.account).nonce
     }
 
     pub fn get_fee(&self, original_fee: BalanceOf<T>) -> Result<BalanceOf<T>, Error<T>> {
