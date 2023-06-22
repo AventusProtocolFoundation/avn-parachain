@@ -373,6 +373,8 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         });
         return Ok(value)
     }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 impl session::Config for TestRuntime {
@@ -395,7 +397,7 @@ impl pallet_session::historical::Config for TestRuntime {
 parameter_types! {
     pub const MinBlocksPerEra: u32 = 2;
     pub const DefaultBlocksPerEra: u32 = 2;
-    pub const MinSelectedCandidates: u32 = 10;
+    pub const MinSelectedCandidates: u32 = 20;
     pub const MaxTopNominationsPerCandidate: u32 = 4;
     pub const MaxBottomNominationsPerCandidate: u32 = 4;
     pub const MaxNominationsPerNominator: u32 = 4;
