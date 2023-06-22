@@ -36,6 +36,8 @@ fn pay_gas_and_call_remark(sender: &AccountId) {
 
     assert_ok!(&pre);
 
+    System::inc_account_nonce(sender); // please don't move this line
+
     assert_ok!(System::remark(RuntimeOrigin::signed(*sender), vec![])
         .map_err(|_e| Error::<TestRuntime>::InvalidFeeConfig));
 
@@ -46,8 +48,6 @@ fn pay_gas_and_call_remark(sender: &AccountId) {
         TX_LEN,
         &Ok(())
     ));
-
-    System::inc_account_nonce(sender);
 }
 
 fn set_initial_sender_balance(sender: &AccountId) {
