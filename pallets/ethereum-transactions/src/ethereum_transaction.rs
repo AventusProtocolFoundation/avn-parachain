@@ -17,12 +17,12 @@ use ethabi::{Error as EthAbiError, Function, Param, ParamType, Token};
 pub enum EthTransactionType {
     PublishRoot(PublishRootData),
     #[deprecated(
-        note = "Parachains use collators so this is deprecated. use only `DeregisterCollator` instead"
+        note = "Parachains use collators so this is deprecated. Use only `DeregisterCollator` instead"
     )]
     DeregisterValidator(DeregisterValidatorData),
     SlashValidator(SlashValidatorData),
     #[deprecated(
-        note = "Parachains use collators so this is deprecated. use only `ActivateCollator` instead"
+        note = "Parachains use collators so this is deprecated. Use only `ActivateCollator` instead"
     )]
     ActivateValidator(ActivateValidatorData),
     Invalid,
