@@ -17,6 +17,14 @@ const VOTING_PERIOD_END: u64 = 12;
 const QUORUM: u32 = 3;
 const DEFAULT_INGRESS_COUNTER: IngressCounter = 0;
 
+pub enum CollatorId {
+    Collator1 = 0,
+    Collator2 = 1,
+    Collator3 = 2,
+    Collator4 = 3,
+    Collator5 = 4,
+}
+
 struct Context<'a> {
     pub validator: Validator<UintAuthorityId, AccountId>,
     pub action_id: ActionId<AccountId>,
@@ -24,9 +32,10 @@ struct Context<'a> {
     pub offchain_state: &'a Arc<RwLock<OffchainState>>,
 }
 
+/// Setups context for validator 5 deregistration
 fn setup_context(offchain_state: &Arc<RwLock<OffchainState>>) -> Context {
-    let validator = get_validator(validator_id_1());
-    let deregistered_validator = get_validator(validator_id_3());
+    let validator = get_validator(CollatorId::Collator1);
+    let deregistered_validator = get_validator(CollatorId::Collator5);
 
     Context {
         action_id: ActionId::new(deregistered_validator.account_id, DEFAULT_INGRESS_COUNTER),
@@ -47,8 +56,8 @@ pub fn get_test_validators() -> Vec<AccountId> {
     return genesis_config_initial_validators().to_vec()
 }
 
-pub fn get_validator(account_id: AccountId) -> Validator<UintAuthorityId, AccountId> {
-    Validator { account_id, key: UintAuthorityId(1u64) }
+pub fn get_validator(id: CollatorId) -> Validator<UintAuthorityId, AccountId> {
+    get_validator_by_index(id as u32)
 }
 
 pub fn get_validator_by_index(index: u32) -> Validator<UintAuthorityId, AccountId> {
@@ -77,9 +86,13 @@ fn setup_ext_builder() -> (TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock
 
     (ext, pool_state, offchain_state)
 }
-
+/// Setups a voting session to deregister collator 5. Sender is collator 3
 fn setup_voting_session(action_id: &ActionId<AccountId>) {
-    let candidate_tx = EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+    let collator_eth_public_key = ecdsa::Public::from_raw(COLLATOR_5_ETHEREUM_PUPLIC_KEY);
+    let decompressed_collator_eth_public_key =
+        decompress_eth_public_key(collator_eth_public_key).unwrap();
+    let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
+        decompressed_collator_eth_public_key,
         <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(
             &action_id.action_account_id,
         ),
@@ -93,24 +106,36 @@ fn setup_voting_session(action_id: &ActionId<AccountId>) {
     assert_eq!(ValidatorManager::get_vote(action_id).nays.is_empty(), true);
 }
 
+// TODO use the private keys of the authorities to sign the _eth_compatible_data
+fn create_valid_signed_response(
+    validator_key: &UintAuthorityId,
+    _eth_compatible_data: &String,
+) -> Vec<u8> {
+    match validator_key {
+        UintAuthorityId(0) => "8bc08ed607b39b7ed1ad94101e4be739cc2b82d06f6eb207b88e02876184a0ae5900585d4fec11f0c5457b394b58015966a489088ae5febd8466f984ab08ae951b".as_bytes().to_vec(),
+        UintAuthorityId(1) => "4b29dda265818c90fefeafbd9d4ed831f45da9263888122919f8206e2fb364bc2641b4234f2b6f0ebbb953ed67c6c0a5aa34a8ad99a2cc54da6c0f274a05eb611b".as_bytes().to_vec(),
+        UintAuthorityId(2) => "ee4b56e0b932ee7edc5f2c8c6eb6688d0c54946f42f48f087105b98931c71d104d0b4858b7574612a60a975a9f62305ed3d96436a5b24378912bf5a39eee2b541b".as_bytes().to_vec(),
+        UintAuthorityId(3) => "183b1ed09a64537ca966fc63364d4d664630e2331c08b10a3d68bd0376023f882f12a64e37aae2eee8bb690361464b005ab989691adc15d9efae5ba0757d01b31c".as_bytes().to_vec(),
+        UintAuthorityId(4) => "589ec9e9e54d7eec01ab7246e53763bc1af7aa8e292e05b209fb6d40894935373b60a2177c932ec8a20bac9fac058f3117b8c6dca17798f64771ce3583f45f481b".as_bytes().to_vec(),
+        _ => hex::encode([10; 65].to_vec()).as_bytes().to_vec(),
+    }
+}
+
 fn approve_validator_action(
     validator: &Validator<UintAuthorityId, AccountId>,
     context: &Context,
 ) -> DispatchResult {
     let eth_compatible_data =
-        ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id).unwrap();
-
+        ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
+    let response = Some(create_valid_signed_response(&validator.key, &eth_compatible_data));
     mock_response_of_get_ecdsa_signature(
         &mut context.offchain_state.write(),
         eth_compatible_data,
-        Some(hex::encode([1; 65].to_vec()).as_bytes().to_vec()),
+        response,
     );
-
     let (_, approval_signature) =
         ValidatorManager::sign_validators_action_for_ethereum(&context.action_id).unwrap();
-    set_mock_recovered_account_id(validator.account_id);
-
-    ValidatorManager::approve_validator_action(
+    return ValidatorManager::approve_validator_action(
         RawOrigin::None.into(),
         context.action_id,
         validator.clone(),
@@ -170,7 +195,8 @@ mod approve_vote {
 
             ext.execute_with(|| {
                 let context = setup_context(&offchain_state);
-                let second_validator = get_validator(validator_id_2());
+                let second_validator = get_validator(CollatorId::Collator2);
+
                 setup_voting_session(&context.action_id);
 
                 assert_ok!(reject_validator_action(&context.validator, &context));
@@ -195,7 +221,7 @@ mod approve_vote {
 
             ext.execute_with(|| {
                 let context = setup_context(&offchain_state);
-                let second_validator = get_validator(validator_id_2());
+                let second_validator = get_validator(CollatorId::Collator2);
 
                 setup_voting_session(&context.action_id);
 
@@ -273,12 +299,6 @@ mod approve_vote {
     mod fails_when {
         use super::*;
 
-        fn set_ecdsa_signature_verification_to_fail() {
-            ETH_PUBLIC_KEY_VALID.with(|pk| {
-                *pk.borrow_mut() = false;
-            });
-        }
-
         #[test]
         fn origin_is_signed() {
             let (mut ext, _, offchain_state) = setup_ext_builder();
@@ -288,8 +308,7 @@ mod approve_vote {
                 setup_voting_session(&context.action_id);
 
                 let eth_compatible_data =
-                    ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id)
-                        .unwrap();
+                    ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
 
                 mock_response_of_get_ecdsa_signature(
                     &mut context.offchain_state.write(),
@@ -323,8 +342,7 @@ mod approve_vote {
                 setup_voting_session(&context.action_id);
 
                 let eth_compatible_data =
-                    ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id)
-                        .unwrap();
+                    ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
 
                 mock_response_of_get_ecdsa_signature(
                     &mut context.offchain_state.write(),
@@ -418,20 +436,19 @@ mod approve_vote {
                 setup_voting_session(&context.action_id);
 
                 let eth_compatible_data =
-                    ValidatorManager::convert_data_to_eth_compatible_encoding(&context.action_id)
-                        .unwrap();
+                    ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
+
+                let invalid_ecdsa_signature = hex::encode([1; 65].to_vec()).as_bytes().to_vec();
 
                 mock_response_of_get_ecdsa_signature(
                     &mut context.offchain_state.write(),
                     eth_compatible_data,
-                    Some(hex::encode([1; 65].to_vec()).as_bytes().to_vec()),
+                    Some(invalid_ecdsa_signature),
                 );
 
                 let (_, approval_signature) =
                     ValidatorManager::sign_validators_action_for_ethereum(&context.action_id)
                         .unwrap();
-
-                set_ecdsa_signature_verification_to_fail();
 
                 let result = ValidatorManager::approve_validator_action(
                     RawOrigin::None.into(),
@@ -482,7 +499,7 @@ mod reject_vote {
 
             ext.execute_with(|| {
                 let context = setup_context(&offchain_state);
-                let second_validator = get_validator(validator_id_2());
+                let second_validator = get_validator(CollatorId::Collator2);
                 setup_voting_session(&context.action_id);
 
                 assert_ok!(approve_validator_action(&context.validator, &context));
@@ -507,7 +524,7 @@ mod reject_vote {
 
             ext.execute_with(|| {
                 let context = setup_context(&offchain_state);
-                let second_validator = get_validator(validator_id_2());
+                let second_validator = get_validator(CollatorId::Collator2);
 
                 setup_voting_session(&context.action_id);
 
@@ -665,7 +682,6 @@ mod reject_vote {
             ext.execute_with(|| {
                 let context = setup_context(&offchain_state);
                 setup_voting_session(&context.action_id);
-
                 assert_ok!(approve_validator_action(&context.validator, &context));
 
                 assert_noop!(
@@ -686,14 +702,14 @@ mod multiple_successful_votes_imply {
 
         ext.execute_with(|| {
             let context = setup_context(&offchain_state);
-            let second_validator = get_validator(validator_id_2());
-            let third_validator = get_validator(validator_id_3());
+            let second_validator = get_validator(CollatorId::Collator2);
+            let fourth_validator = get_validator(CollatorId::Collator4);
 
             setup_voting_session(&context.action_id);
 
             assert_ok!(approve_validator_action(&context.validator, &context));
             assert_ok!(approve_validator_action(&second_validator, &context));
-            assert_ok!(reject_validator_action(&third_validator, &context));
+            assert_ok!(reject_validator_action(&fourth_validator, &context));
 
             // Approvals
             assert!(ValidatorManager::get_vote(&context.action_id)
@@ -706,7 +722,7 @@ mod multiple_successful_votes_imply {
             // Rejection
             assert!(!ValidatorManager::get_vote(&context.action_id)
                 .ayes
-                .contains(&third_validator.account_id));
+                .contains(&fourth_validator.account_id));
         });
     }
 
@@ -716,8 +732,8 @@ mod multiple_successful_votes_imply {
 
         ext.execute_with(|| {
             let context = setup_context(&offchain_state);
-            let second_validator = get_validator(validator_id_2());
-            let third_validator = get_validator(validator_id_3());
+            let second_validator = get_validator(CollatorId::Collator2);
+            let third_validator = get_validator(CollatorId::Collator3);
 
             setup_voting_session(&context.action_id);
 
@@ -746,8 +762,8 @@ mod multiple_successful_votes_imply {
 
         ext.execute_with(|| {
             let context = setup_context(&offchain_state);
-            let second_validator = get_validator(validator_id_2());
-            let third_validator = get_validator(validator_id_3());
+            let second_validator = get_validator(CollatorId::Collator2);
+            let third_validator = get_validator(CollatorId::Collator3);
 
             setup_voting_session(&context.action_id);
 
@@ -787,9 +803,9 @@ mod end_voting_period {
     }
 
     fn cast_votes_to_reach_quorum(action_id: &ActionId<AccountId>) {
-        let first_validator = get_validator(validator_id_1());
-        let second_validator = get_validator(validator_id_2());
-        let third_validator = get_validator(validator_id_3());
+        let first_validator = get_validator(CollatorId::Collator1);
+        let second_validator = get_validator(CollatorId::Collator2);
+        let third_validator = get_validator(CollatorId::Collator3);
         ValidatorManager::record_approve_vote(action_id, first_validator.account_id);
         ValidatorManager::record_approve_vote(action_id, second_validator.account_id);
         ValidatorManager::record_approve_vote(action_id, third_validator.account_id);
@@ -960,31 +976,6 @@ mod end_voting_period {
                 assert_noop!(
                     end_voting_period(&context),
                     Error::<TestRuntime>::ErrorEndingVotingPeriod
-                );
-            });
-        }
-
-        #[test]
-        fn submit_candidate_transaction_to_tier1_fails() {
-            let (mut ext, _, offchain_state) = setup_ext_builder();
-
-            ext.execute_with(|| {
-                let context = setup_context(&offchain_state);
-                let deregistration_id_2 = ActionId::new(
-                    get_validator(validator_id_2()).account_id,
-                    DEFAULT_INGRESS_COUNTER,
-                );
-                setup_voting_session(&deregistration_id_2);
-                cast_votes_to_reach_quorum(&deregistration_id_2);
-
-                assert_noop!(
-                    ValidatorManager::end_voting_period(
-                        RawOrigin::None.into(),
-                        deregistration_id_2,
-                        context.validator.clone(),
-                        context.record_deregister_validator_calculation_signature.clone(),
-                    ),
-                    Error::<TestRuntime>::ErrorSubmitCandidateTxnToTier1
                 );
             });
         }

@@ -10,97 +10,130 @@ use super::*;
 use crate::Pallet as ValidatorManager;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
-use hex::FromHex;
 use hex_literal::hex;
 use pallet_avn::{self as avn};
 use pallet_parachain_staking::{Currency, Pallet as ParachainStaking};
 use pallet_session::Pallet as Session;
-use sp_core::ecdsa::Public;
+use secp256k1::{PublicKey, SecretKey};
+use sp_avn_common::eth_key_actions::decompress_eth_public_key;
+use sp_core::{ecdsa::Public, H512};
 
-fn setup_validators<T: Config>(
-    number_of_validator_account_ids: u32,
-) -> Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>> {
-    let mnemonic: &str =
-        "basic anxiety marine match castle rival moral whisper insane away avoid bike";
-    let mut validators: Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>> =
-        Vec::new();
-    for i in 0..number_of_validator_account_ids {
-        let account = account("dummy_validator", i, i);
-        let key =
-            <T as avn::Config>::AuthorityId::generate_pair(Some(mnemonic.as_bytes().to_vec()));
-        validators.push(Validator::new(account, key));
-    }
+// Resigner keys derived from [6u8; 32] private key
+const RESIGNING_COLLATOR_PUBLIC_KEY_BYTES: [u8; 32] =
+    hex!["ea3021db7da7831e0d5ed7e60a8102d2d721bcca88adb03ee992f4dec3baee3e"];
+const RESIGNING_COLLATOR_ETHEREUM_PUBLIC_KEY: [u8; 33] =
+    hex!["03f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"];
 
-    // Setup sender account id and key
-    let sender_index = validators.len() - (1 as usize);
-    let sender: Validator<T::AuthorityId, T::AccountId> = validators[sender_index].clone();
-    let mut account_bytes: [u8; 32] = [0u8; 32];
-    account_bytes
-        .copy_from_slice(&hex!("b41f90b123b66c18f0f869f3b9ae8a09d118419f8736240fcc7b8256517cc233"));
-    let account_id = T::AccountId::decode(&mut &account_bytes.encode()[..]).unwrap();
-    validators[sender_index] = Validator::new(account_id, sender.key);
+// Vote sender keys derived from [7u8; 32] private key
+const VOTING_COLLATOR_PUBLIC_KEY_BYTES: [u8; 32] =
+    hex!["7c0f469d3bd340bae718203fa30ca071a5e37c751e891dbded837b213d45d91d"];
+const VOTING_COLLATOR_ETHEREUM_PUBLIC_KEY: [u8; 33] =
+    hex!["02989c0b76cb563971fdc9bef31ec06c3560f3249d6ee9e5d83c57625596e05f6f"];
 
-    // Setup resigner account id and key
-    let resigner: Validator<T::AuthorityId, T::AccountId> = validators[1].clone();
-    let mut resigner_account_bytes: [u8; 32] = [0u8; 32];
-    resigner_account_bytes
-        .copy_from_slice(&hex!("1ed1aadead9704b693af012a9f24e1f00dc7e2a0b4eb99f9e0bc0c35a8d20223"));
-    let resigner_account_id =
-        T::AccountId::decode(&mut &resigner_account_bytes.encode()[..]).unwrap();
-    validators[1] = Validator::new(resigner_account_id, resigner.key);
+const NEW_COLLATOR_ETHEREUM_PUBLIC_KEY: [u8; 33] =
+    hex!["03f171af36531200540b2badee5ed581b0a51f4e4a1a995025e149b9721b050074"];
 
-    // Setup validators in avn pallet
-    avn::Validators::<T>::put(validators.clone());
+const MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS: usize = 2;
 
-    validators
-        .iter()
-        .enumerate()
-        .for_each(|(i, v)| force_add_collator::<T>(&v.account_id, i as u64));
+fn generate_resigning_collator_account_details<T: Config>(
+) -> (T::AccountId, <T as pallet_avn::Config>::AuthorityId, Public) {
+    let authority_id =
+        <T as avn::Config>::AuthorityId::generate_pair(Some("//avn_resigner".as_bytes().to_vec()));
+    let eth_public_key = Public::from_raw(RESIGNING_COLLATOR_ETHEREUM_PUBLIC_KEY);
+    let account_id =
+        T::AccountId::decode(&mut RESIGNING_COLLATOR_PUBLIC_KEY_BYTES.as_slice()).unwrap();
 
-    return validators
+    (account_id, authority_id, eth_public_key)
 }
 
-fn setup_action_voting<T: Config>(
-    validators: Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>>,
-) -> (
+fn generate_sender_collator_account_details<T: Config>(
+) -> (T::AccountId, <T as pallet_avn::Config>::AuthorityId, Public) {
+    let authority_id =
+        <T as avn::Config>::AuthorityId::generate_pair(Some("//avn_sender".as_bytes().to_vec()));
+    let eth_public_key = Public::from_raw(VOTING_COLLATOR_ETHEREUM_PUBLIC_KEY);
+    let account_id =
+        T::AccountId::decode(&mut VOTING_COLLATOR_PUBLIC_KEY_BYTES.as_slice()).unwrap();
+
+    (account_id, authority_id, eth_public_key)
+}
+
+// Add additional collators, on top of genesis configuration
+fn setup_additional_validators<T: Config>(number_of_additional_validators: u32) {
+    assert!(number_of_additional_validators >= MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32);
+
+    let mut avn_validators: Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>> =
+        Vec::new();
+
+    let mut validators: Vec<(T::AccountId, Public)> = Vec::new();
+    let vote_sender_index = number_of_additional_validators - (1 as u32);
+
+    for i in 0..number_of_additional_validators {
+        let (account, avn_authority_id, eth_key) = match i {
+            0 => generate_resigning_collator_account_details::<T>(),
+            i if i == vote_sender_index => generate_sender_collator_account_details::<T>(),
+            _ => (
+                account("dummy_validator", i, i),
+                <T as avn::Config>::AuthorityId::generate_pair(None),
+                generate_collator_eth_public_key_from_seed::<T>(i as u64),
+            ),
+        };
+
+        avn_validators.push(Validator::new(account.clone(), avn_authority_id));
+        validators.push((account, eth_key));
+    }
+
+    // Setup validators in avn pallet
+    let mut new_avn_validators = avn::Validators::<T>::get();
+    new_avn_validators.append(&mut avn_validators);
+    avn::Validators::<T>::put(new_avn_validators);
+
+    validators.iter().enumerate().for_each(|(i, (account_id, eth_public_key))| {
+        force_add_collator::<T>(&account_id, i as u64, &eth_public_key)
+    });
+}
+
+fn setup_action_voting<T: Config>() -> (
     Validator<T::AuthorityId, T::AccountId>,
     ActionId<T::AccountId>,
     ecdsa::Signature,
     <T::AuthorityId as RuntimeAppPublic>::Signature,
     u32,
 ) {
-    let sender_index = validators.len() - (1 as usize);
-    let sender: Validator<T::AuthorityId, T::AccountId> = validators[sender_index].clone();
-    let action_account_id: T::AccountId = validators[1].account_id.clone();
+    let (vote_sender_account, vote_sender_avn_authority_id, _) =
+        generate_sender_collator_account_details::<T>();
+    let (action_account_id, _, _) = generate_resigning_collator_account_details::<T>();
+
     let ingress_counter: IngressCounter = 1;
-    let action_id: ActionId<T::AccountId> = ActionId::new(action_account_id, ingress_counter);
-    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("2b01699be62c1aabaf0dd85f956567ac495d4293323ee1eb79d827d705ff86c80bdd4a26af6f50544af9510e0c21082b94ecb8a8d48d74ee4ebda6605a96d77901")).unwrap().into();
+
+    let action_id: ActionId<T::AccountId> =
+        ActionId::new(action_account_id.clone(), ingress_counter);
+
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
     let quorum = setup_voting_session::<T>(&action_id);
+    // signed by sender private key [7u8; 32]
+    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("120898af9793fcbed12bf40c01a5adff6f310410276de344db50019f15c05d2c27254d2c14aa61692f00b398b6db582930764429a5f6fe37e371479d523e11571b")).unwrap().into();
 
-    let eth_public_key = Public::from_raw(
-        <[u8; 33]>::from_hex("032717041a29cee520bb901c406e2399974d4ad58cd3ee830848bd78fa089f1335")
-            .unwrap(),
-    );
-
-    EthereumPublicKeys::<T>::insert(eth_public_key.clone(), sender.account_id.clone());
-
-    setup_action_data::<T>(
-        sender.account_id.clone(),
-        action_id.action_account_id.clone(),
-        action_id.ingress_counter,
-    );
-
-    (sender, action_id, approval_signature, signature, quorum)
+    setup_resignation_action_data::<T>(vote_sender_account.clone(), action_id.ingress_counter);
+    // Action has been setup
+    (
+        Validator::new(vote_sender_account, vote_sender_avn_authority_id),
+        action_id,
+        approval_signature,
+        signature,
+        quorum,
+    )
 }
 
-fn setup_action_data<T: Config>(
-    sender: T::AccountId,
-    action_account_id: T::AccountId,
-    ingress_counter: IngressCounter,
-) {
+fn setup_resignation_action_data<T: Config>(sender: T::AccountId, ingress_counter: IngressCounter) {
+    let (action_account_id, _, t1_eth_public_key) =
+        generate_resigning_collator_account_details::<T>();
+
     let eth_transaction_id: TransactionId = 0;
-    let candidate_tx = EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
+    let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
+        .map_err(|_| Error::<T>::InvalidPublicKey)
+        .unwrap();
+    let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
+        decompressed_eth_public_key,
         <T as Config>::AccountToBytesConvert::into_bytes(&action_account_id),
     ));
 
@@ -168,7 +201,7 @@ fn setup_votes<T: Config>(
 ) {
     for i in 0..validators.len() {
         if i < (number_of_votes as usize) && validators[i].account_id != sender.account_id.clone() {
-            let approval_signature: ecdsa::Signature = generate_ecdsa_signature::<T>(i as u8);
+            let approval_signature: ecdsa::Signature = generate_mock_ecdsa_signature::<T>(i as u8);
             match is_approval {
                 true => VotesRepository::<T>::mutate(action_id, |vote| {
                     vote.ayes.push(validators[i].account_id.clone());
@@ -190,7 +223,7 @@ fn generate_signature<T: pallet_avn::Config>(
     return signature
 }
 
-fn generate_ecdsa_signature<T: pallet_avn::Config>(msg: u8) -> ecdsa::Signature {
+fn generate_mock_ecdsa_signature<T: pallet_avn::Config>(msg: u8) -> ecdsa::Signature {
     let signature_bytes: [u8; 65] = [msg; 65];
     return ecdsa::Signature::from_slice(&signature_bytes).unwrap().into()
 }
@@ -243,11 +276,19 @@ fn set_session_keys<T: Config>(collator_id: &T::AccountId, index: u64) {
     .unwrap();
 }
 
-fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64) {
-    set_session_keys::<T>(collator_id, index);
+fn generate_collator_eth_public_key_from_seed<T: Config>(seed: u64) -> Public {
+    use rand::SeedableRng;
+    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+    let secret_key = SecretKey::random(&mut rng);
+    let public_key = PublicKey::from_secret_key(&secret_key);
 
-    let eth_public_key: ecdsa::Public =
-        ValidatorManager::<T>::compress_eth_public_key(H512::repeat_byte(index as u8));
+    return ValidatorManager::<T>::compress_eth_public_key(H512::from_slice(
+        &public_key.serialize()[1..],
+    ))
+}
+
+fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64, eth_public_key: &Public) {
+    set_session_keys::<T>(collator_id, index);
     <T as pallet_parachain_staking::Config>::Currency::make_free_balance_be(
         &collator_id,
         ParachainStaking::<T>::min_collator_stake() * 2u32.into(),
@@ -255,7 +296,7 @@ fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64) {
     ValidatorManager::<T>::add_collator(
         RawOrigin::Root.into(),
         collator_id.clone(),
-        eth_public_key,
+        eth_public_key.clone(),
         None,
     )
     .unwrap();
@@ -267,10 +308,9 @@ fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64) {
 
 benchmarks! {
     add_collator {
-        let candidate = account("collator_cadidate", 1, 1);
+        let candidate = account("collator_candidate", 1, 1);
         <T as pallet_parachain_staking::Config>::Currency::make_free_balance_be(&candidate, ParachainStaking::<T>::min_collator_stake() * 2u32.into());
-        let eth_public_key: ecdsa::Public =
-            ValidatorManager::<T>::compress_eth_public_key(H512::repeat_byte(6u8));
+        let eth_public_key: ecdsa::Public = Public::from_raw(NEW_COLLATOR_ETHEREUM_PUBLIC_KEY);
         set_session_keys::<T>(&candidate, 20u64);
 
         assert_eq!(false, pallet_parachain_staking::CandidateInfo::<T>::contains_key(&candidate));
@@ -280,23 +320,23 @@ benchmarks! {
     }
 
     remove_validator {
-        let v in (DEFAULT_MINIMUM_VALIDATORS_COUNT as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
 
-        let validators = setup_validators::<T>(v);
-        let caller = validators[(v - 1) as usize].account_id.clone();
-    }: remove_validator(RawOrigin::Root, caller.clone())
+        setup_additional_validators::<T>(v);
+        let (caller_account, caller_id, _) = generate_sender_collator_account_details::<T>();
+        let caller = Validator::new(caller_account.clone(), caller_id.clone());
+
+    }: remove_validator(RawOrigin::Root, caller_account.clone())
     verify {
-        assert_eq!(ValidatorAccountIds::<T>::get().unwrap().iter().position(|validator_account_id| *validator_account_id == caller), None);
-        assert_last_event::<T>(Event::<T>::ValidatorDeregistered{ validator_id: caller.clone() }.into());
-        assert_eq!(true, ValidatorActions::<T>::contains_key(caller, <TotalIngresses<T>>::get()));
+        assert_eq!(ValidatorAccountIds::<T>::get().unwrap().iter().position(|validator_account_id| *validator_account_id == caller_account), None);
+        assert_last_event::<T>(Event::<T>::ValidatorDeregistered{ validator_id: caller_account.clone() }.into());
+        assert_eq!(true, ValidatorActions::<T>::contains_key(caller_account, <TotalIngresses<T>>::get()));
     }
 
     approve_action_with_end_voting {
-        let v in (DEFAULT_MINIMUM_VALIDATORS_COUNT as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
-
-        let validators = setup_validators::<T>(v);
-        let (sender, action_id, approval_signature, signature, quorum) = setup_action_voting::<T>(validators.clone());
-
+        let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
+        setup_additional_validators::<T>(v);
+        let (sender, action_id, approval_signature, signature, quorum) = setup_action_voting::<T>();
         // Setup votes more than quorum to trigger end voting period
         let number_of_votes = quorum;
         setup_approval_votes::<T>(&AVN::<T>::validators(), &sender, number_of_votes, &action_id);
@@ -322,9 +362,9 @@ benchmarks! {
     }
 
     approve_action_without_end_voting {
-        let v in (DEFAULT_MINIMUM_VALIDATORS_COUNT as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
-        let validators = setup_validators::<T>(v);
-        let (sender, action_id, approval_signature, signature, _) = setup_action_voting::<T>(validators);
+        let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
+        setup_additional_validators::<T>(v);
+        let (sender, action_id, approval_signature, signature, _) = setup_action_voting::<T>();
     }: approve_validator_action(RawOrigin::None, action_id.clone(), sender.clone(), approval_signature.clone(), signature)
     verify {
         // Approve vote is added
@@ -340,10 +380,10 @@ benchmarks! {
     }
 
     reject_action_with_end_voting {
-        let v in (DEFAULT_MINIMUM_VALIDATORS_COUNT as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
 
-        let validators = setup_validators::<T>(v);
-        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>(validators.clone());
+        setup_additional_validators::<T>(v);
+        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>();
 
         // Setup votes more than quorum to trigger end voting period
         let number_of_votes = quorum;
@@ -376,8 +416,8 @@ benchmarks! {
     reject_action_without_end_voting {
         let v in (DEFAULT_MINIMUM_VALIDATORS_COUNT as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
 
-        let validators = setup_validators::<T>(v);
-        let (sender, action_id, _, signature, _) = setup_action_voting::<T>(validators);
+        setup_additional_validators::<T>(v);
+        let (sender, action_id, _, signature, _) = setup_action_voting::<T>();
     }: reject_validator_action(RawOrigin::None, action_id.clone(), sender.clone(), signature)
     verify {
         // Reject vote is added
@@ -401,8 +441,8 @@ benchmarks! {
         let o in 1 .. MAX_OFFENDERS; // maximum num of offenders need to be less than one third of minimum validators so the benchmark won't panic
 
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let validators = setup_validators::<T>(number_of_validators);
-        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>(validators.clone());
+        setup_additional_validators::<T>(number_of_validators);
+        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>();
 
         let all_collators = AVN::<T>::validators();
 
@@ -436,8 +476,8 @@ benchmarks! {
         let o in 1 .. MAX_OFFENDERS; // maximum of offenders need to be less one third of minimum validators so the benchmark won't panic
 
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let validators = setup_validators::<T>(number_of_validators);
-        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>(validators.clone());
+        setup_additional_validators::<T>(number_of_validators);
+        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>();
 
         let all_collators = AVN::<T>::validators();
 

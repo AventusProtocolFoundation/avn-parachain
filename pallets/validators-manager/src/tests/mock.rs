@@ -7,7 +7,6 @@ use frame_support::{
     traits::{Currency, GenesisBuild, OnFinalize, OnInitialize},
     BasicExternalities, PalletId,
 };
-use hex::FromHex;
 use hex_literal::hex;
 use pallet_balances as balances;
 use pallet_parachain_staking::{self as parachain_staking};
@@ -43,36 +42,32 @@ use std::cell::RefCell;
 pub fn validator_id_1() -> AccountId {
     TestAccount::new([1u8; 32]).account_id()
 }
+
 pub fn validator_id_2() -> AccountId {
     TestAccount::new([2u8; 32]).account_id()
 }
+
 pub fn validator_id_3() -> AccountId {
     TestAccount::new([3u8; 32]).account_id()
 }
+
 pub fn validator_id_4() -> AccountId {
     TestAccount::new([4u8; 32]).account_id()
 }
+
 pub fn validator_id_5() -> AccountId {
     TestAccount::new([5u8; 32]).account_id()
 }
-pub fn non_validator_id() -> AccountId {
-    TestAccount::new([100u8; 32]).account_id()
-}
+
 pub fn sender() -> AccountId {
     validator_id_3()
 }
+
 pub fn genesis_config_initial_validators() -> [AccountId; 5] {
     [validator_id_1(), validator_id_2(), validator_id_3(), validator_id_4(), validator_id_5()]
 }
 pub const REGISTERING_VALIDATOR_TIER1_ID: u128 = 200;
 pub const EXISTENTIAL_DEPOSIT: u64 = 0;
-
-const MOCK_ETH_PUBLIC_KEY: &str =
-    "026f39ae48cacc934a04e0ee8b8e34d5d17ef4d85f93951c32ae15c91ea3b48a7d";
-const MOCK_T2_PUBLIC_KEY_BYTES: [u8; 32] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 209, 170, 222, 173,
-    151, 4, 182,
-];
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
@@ -361,35 +356,12 @@ parameter_types! {
 
 impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
     fn submit_candidate_transaction_to_tier1(
-        candidate_type: EthTransactionType,
+        _candidate_type: EthTransactionType,
         _tx_id: TransactionId,
-        submitter: AccountId,
+        _submitter: AccountId,
         _signatures: Vec<ecdsa::Signature>,
     ) -> DispatchResult {
-        let validator_t2_pub_key_used_in_unit_tests: [u8; 32] =
-            <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(&validator_id_3());
-        let validator_t2_pub_key_used_in_benchmarks: [u8; 32] = MOCK_T2_PUBLIC_KEY_BYTES;
-        let candidate_pub_key: [u8; 32] =
-            <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(
-                &get_registered_validator_id(),
-            );
-
-        if submitter == get_registered_validator_id() ||
-            candidate_type ==
-                EthTransactionType::SlashValidator(SlashValidatorData::new(candidate_pub_key)) ||
-            candidate_type ==
-                EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
-                    validator_t2_pub_key_used_in_unit_tests,
-                )) ||
-            candidate_type ==
-                EthTransactionType::DeregisterValidator(DeregisterValidatorData::new(
-                    validator_t2_pub_key_used_in_benchmarks,
-                ))
-        {
-            return Ok(())
-        }
-
-        Err(Error::<TestRuntime>::ErrorSubmitCandidateTxnToTier1.into())
+        Ok(())
     }
 
     fn reserve_transaction_id(
@@ -401,9 +373,8 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         });
         return Ok(value)
     }
-    // #[cfg(feature = "runtime-benchmarks")]
-    // fn set_transaction_id(candidate_type: &EthTransactionType, id: TransactionId) {
-    // }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 impl session::Config for TestRuntime {
@@ -426,7 +397,7 @@ impl pallet_session::historical::Config for TestRuntime {
 parameter_types! {
     pub const MinBlocksPerEra: u32 = 2;
     pub const DefaultBlocksPerEra: u32 = 2;
-    pub const MinSelectedCandidates: u32 = 10;
+    pub const MinSelectedCandidates: u32 = 20;
     pub const MaxTopNominationsPerCandidate: u32 = 4;
     pub const MaxBottomNominationsPerCandidate: u32 = 4;
     pub const MaxNominationsPerNominator: u32 = 4;
@@ -480,11 +451,6 @@ impl FinalisedBlockChecker<BlockNumber> for TestRuntime {
 type IdentificationTuple = (AccountId, AccountId);
 type Offence = crate::ValidatorOffence<IdentificationTuple>;
 
-pub fn get_registered_validator_id() -> AccountId {
-    let topic_receiver = &MockData::get_validator_token_topics()[3];
-    return TestAccount::from_bytes(topic_receiver.as_slice()).account_id()
-}
-
 pub const INITIAL_TRANSACTION_ID: TransactionId = 0;
 
 thread_local! {
@@ -499,8 +465,6 @@ thread_local! {
     ]));
 
     static MOCK_TX_ID: RefCell<TransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
-
-    pub static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
 
     pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
 }
@@ -519,43 +483,40 @@ impl EthereumPublicKeyChecker<AccountId> for TestRuntime {
         if !<ValidatorManager as Store>::EthereumPublicKeys::contains_key(eth_public_key) {
             return None
         }
-
         return Some(<ValidatorManager as Store>::EthereumPublicKeys::get(eth_public_key).unwrap())
     }
-}
-
-pub fn set_mock_recovered_account_id(account_id: AccountId) {
-    let eth_public_key =
-        sp_core::ecdsa::Public::from_raw(<[u8; 33]>::from_hex(MOCK_ETH_PUBLIC_KEY).unwrap());
-    <ValidatorManager as Store>::EthereumPublicKeys::insert(eth_public_key, account_id);
 }
 
 impl ValidatorRegistrationNotifier<ValidatorId> for TestRuntime {
     fn on_validator_registration(_validator_id: &ValidatorId) {}
 }
 
+// Derived from [1u8;32] private key
+pub(crate) const COLLATOR_1_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["031b84c5567b126440995d3ed5aaba0565d71e1834604819ff9c17f5e9d5dd078f"];
+// Derived from [2u8;32] private key
+pub(crate) const COLLATOR_2_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["024d4b6cd1361032ca9bd2aeb9d900aa4d45d9ead80ac9423374c451a7254d0766"];
+// Derived from [3u8;32] private key
+
+pub(crate) const COLLATOR_3_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["02531fe6068134503d2723133227c867ac8fa6c83c537e9a44c3c5bdbdcb1fe337"];
+// Derived from [4u8;32] private key
+
+pub(crate) const COLLATOR_4_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["03462779ad4aad39514614751a71085f2f10e1c7a593e4e030efb5b8721ce55b0b"];
+// Derived from [5u8;32] private key
+
+pub(crate) const COLLATOR_5_ETHEREUM_PUPLIC_KEY: [u8; 33] =
+    hex!["0362c0a046dacce86ddd0343c6d3c7c79c2208ba0d9c9cf24a6d046d21d21f90f7"];
+
 fn initial_validators_public_keys() -> Vec<ecdsa::Public> {
     return vec![
-        Public::from_slice(&hex![
-            "03471b4c1012dddf4d494c506a098c7b1b719b20bbb177b1174f2166f953c29503"
-        ])
-        .unwrap(),
-        Public::from_slice(&hex![
-            "0292a73ad9488b934fd04cb31a0f50634841f7105a5b4a8538e4bfa06aa477bed6"
-        ])
-        .unwrap(),
-        Public::from_slice(&hex![
-            "03c5527886d8e09ad1fededd3231f890685d2d5345385d54181269f80c8926ff8e"
-        ])
-        .unwrap(),
-        Public::from_slice(&hex![
-            "020e7593c534411f6f0e2fb91340751ada34ee5986f70b300443be17844416b28b"
-        ])
-        .unwrap(),
-        Public::from_slice(&hex![
-            "02fde5665a2cb42863fb312fb527f2b02110997fc6865df583ca4324be137b7894"
-        ])
-        .unwrap(),
+        Public::from_slice(&COLLATOR_1_ETHEREUM_PUPLIC_KEY).unwrap(),
+        Public::from_slice(&COLLATOR_2_ETHEREUM_PUPLIC_KEY).unwrap(),
+        Public::from_slice(&COLLATOR_3_ETHEREUM_PUPLIC_KEY).unwrap(),
+        Public::from_slice(&COLLATOR_4_ETHEREUM_PUPLIC_KEY).unwrap(),
+        Public::from_slice(&COLLATOR_5_ETHEREUM_PUPLIC_KEY).unwrap(),
     ]
 }
 
@@ -589,6 +550,7 @@ impl ExtBuilder {
         ext
     }
 
+    /// Setups a genesis configuration with 5 collators to the genesis state
     pub fn with_validators(mut self) -> Self {
         let validator_account_ids: &Vec<AccountId> =
             &VALIDATORS.with(|l| l.borrow().clone().unwrap());
@@ -675,6 +637,7 @@ pub struct MockData {
     pub validator_data: AddedValidatorData,
     pub new_validator_id: AccountId,
     pub validator_eth_public_key: ecdsa::Public,
+    pub collator_eth_public_key: ecdsa::Public,
 }
 
 impl MockData {
@@ -686,6 +649,9 @@ impl MockData {
         let data = Some(LogDataHelper::get_validator_data(REGISTERING_VALIDATOR_TIER1_ID));
         let topics = MockData::get_validator_token_topics();
         let validator_data = AddedValidatorData::parse_bytes(data.clone(), topics.clone()).unwrap();
+        let collator_eth_public_key = ecdsa::Public::from_raw(hex!(
+            "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
+        ));
         let new_validator_id =
             TestAccount::from_bytes(validator_data.t2_address.clone().as_bytes()).account_id();
         Balances::make_free_balance_be(&new_validator_id, 100000);
@@ -699,6 +665,7 @@ impl MockData {
             validator_eth_public_key: ValidatorManager::compress_eth_public_key(
                 validator_data.eth_public_key,
             ),
+            collator_eth_public_key,
         }
     }
 

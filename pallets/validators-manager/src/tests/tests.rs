@@ -8,23 +8,19 @@ use frame_support::{
 };
 use hex_literal::hex;
 use pallet_parachain_staking::Error as ParachainStakingError;
-use sp_core::crypto::UncheckedFrom;
 use sp_io::crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed};
-use sp_runtime::{
-    testing::{TestSignature, UintAuthorityId},
-    traits::BadOrigin,
-};
+use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 use substrate_test_utils::assert_eq_uvec;
 use system::RawOrigin;
 
 fn register_validator(
     collator_id: &AccountId,
-    eth_public_key: &ecdsa::Public,
+    collator_eth_public_key: &ecdsa::Public,
 ) -> DispatchResultWithPostInfo {
     return ValidatorManager::add_collator(
         RawOrigin::Root.into(),
         *collator_id,
-        *eth_public_key,
+        *collator_eth_public_key,
         None,
     )
 }
@@ -36,9 +32,12 @@ fn set_session_keys(collator_id: &AccountId) {
     );
 }
 
-fn force_add_collator(collator_id: &AccountId, eth_public_key: &ecdsa::Public) -> DispatchResult {
+fn force_add_collator(
+    collator_id: &AccountId,
+    collator_eth_public_key: &ecdsa::Public,
+) -> DispatchResult {
     set_session_keys(collator_id);
-    assert_ok!(register_validator(collator_id, eth_public_key));
+    assert_ok!(register_validator(collator_id, collator_eth_public_key));
 
     //Advance 2 session to add the collator to the session
     advance_session();
@@ -60,7 +59,7 @@ fn lydia_test_register_existing_validator() {
         set_session_keys(&mock_data.new_validator_id);
 
         assert_noop!(
-            register_validator(&mock_data.new_validator_id, &mock_data.validator_eth_public_key),
+            register_validator(&mock_data.new_validator_id, &mock_data.collator_eth_public_key),
             Error::<TestRuntime>::ValidatorAlreadyExists
         );
 
@@ -80,7 +79,7 @@ fn lydia_test_register_validator_with_no_validators() {
         set_session_keys(&mock_data.new_validator_id);
 
         assert_noop!(
-            register_validator(&mock_data.new_validator_id, &mock_data.validator_eth_public_key),
+            register_validator(&mock_data.new_validator_id, &mock_data.collator_eth_public_key),
             Error::<TestRuntime>::NoValidators
         );
 
@@ -107,7 +106,8 @@ mod register_validator {
     }
 
     fn find_validator_activation_action(data: &MockData, status: ValidatorsActionStatus) -> bool {
-        let expected_eth_tx = EthTransactionType::ActivateValidator(ActivateValidatorData::new(
+        let expected_eth_tx = EthTransactionType::ActivateCollator(ActivateCollatorData::new(
+            decompress_eth_public_key(data.collator_eth_public_key).unwrap(),
             <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(
                 &data.new_validator_id,
             ),
@@ -138,7 +138,7 @@ mod register_validator {
                 // Result OK
                 assert_ok!(register_validator(
                     &context.new_validator_id,
-                    &context.validator_eth_public_key
+                    &context.collator_eth_public_key
                 ));
                 // Upon completion validator has been added ValidatorAccountIds storage
                 assert!(ValidatorManager::validator_account_ids()
@@ -152,7 +152,7 @@ mod register_validator {
                         mock::RuntimeEvent::ValidatorManager(
                             crate::Event::<TestRuntime>::ValidatorRegistered {
                                 validator_id: context.new_validator_id,
-                                eth_key: context.validator_eth_public_key.clone()
+                                eth_key: context.collator_eth_public_key.clone()
                             }
                         ))
                 );
@@ -189,7 +189,7 @@ mod register_validator {
 
                 assert_ok!(register_validator(
                     &context.new_validator_id,
-                    &context.validator_eth_public_key
+                    &context.collator_eth_public_key
                 ));
 
                 // It takes 2 session for validators to be updated
@@ -229,7 +229,7 @@ mod remove_validator_public {
             let context = MockData::setup_valid();
             assert_ok!(force_add_collator(
                 &context.new_validator_id,
-                &context.validator_eth_public_key
+                &context.collator_eth_public_key
             ));
 
             //Prove this is an existing validator
@@ -312,7 +312,7 @@ mod remove_validator_public {
             let context = MockData::setup_valid();
             assert_ok!(force_add_collator(
                 &context.new_validator_id,
-                &context.validator_eth_public_key
+                &context.collator_eth_public_key
             ));
 
             let num_events = System::events().len();
@@ -334,7 +334,7 @@ mod remove_validator_public {
             let context = MockData::setup_valid();
             assert_ok!(force_add_collator(
                 &context.new_validator_id,
-                &context.validator_eth_public_key
+                &context.collator_eth_public_key
             ));
 
             let num_events = System::events().len();
@@ -357,7 +357,7 @@ mod remove_validator_public {
             let context = MockData::setup_valid();
             assert_ok!(force_add_collator(
                 &context.new_validator_id,
-                &context.validator_eth_public_key
+                &context.collator_eth_public_key
             ));
 
             let validator_account_id = TestAccount::new([0u8; 32]).account_id();
@@ -372,183 +372,6 @@ mod remove_validator_public {
             // Caller of remove function has to emit event if removal is successful.
             assert_eq!(System::events().len(), num_events);
             assert_eq!(ValidatorManager::validator_account_ids(), original_validators);
-        });
-    }
-}
-
-mod remove_slashed_validator {
-    use super::*;
-
-    pub fn get_validator(index: AccountId) -> Validator<UintAuthorityId, AccountId> {
-        Validator { account_id: index, key: UintAuthorityId(1) }
-    }
-
-    fn cast_votes_to_reach_quorum_and_end_vote(
-        deregistration_id: &ActionId<AccountId>,
-        validator: Validator<UintAuthorityId, AccountId>,
-        signature: TestSignature,
-    ) {
-        let first_validator = get_validator(validator_id_1());
-        let second_validator = get_validator(validator_id_2());
-        let third_validator = get_validator(validator_id_3());
-        let fourth_validator = get_validator(validator_id_4());
-        ValidatorManager::record_approve_vote(deregistration_id, first_validator.account_id);
-        ValidatorManager::record_approve_vote(deregistration_id, second_validator.account_id);
-        ValidatorManager::record_approve_vote(deregistration_id, third_validator.account_id);
-        ValidatorManager::record_approve_vote(deregistration_id, fourth_validator.account_id);
-        assert_ok!(ValidatorManager::end_voting_period(
-            RawOrigin::None.into(),
-            *deregistration_id,
-            validator,
-            signature
-        ));
-    }
-
-    fn slash_validator(offender_validator_id: AccountId) {
-        assert_ok!(ValidatorManager::remove_slashed_validator(&offender_validator_id));
-
-        let ingress_counter = <ValidatorManager as Store>::TotalIngresses::get();
-        let validator_account_ids =
-            ValidatorManager::validator_account_ids().expect("Should contain validators");
-        assert_eq!(false, validator_account_ids.contains(&offender_validator_id));
-        assert_eq!(
-            false,
-            ValidatorManager::get_ethereum_public_key_if_exists(&offender_validator_id).is_some()
-        );
-
-        // Advance by 2 sessions
-        advance_session();
-        advance_session();
-
-        let deregistration_data = <ValidatorManager as Store>::ValidatorActions::get(
-            offender_validator_id,
-            ingress_counter,
-        )
-        .unwrap();
-        assert_eq!(deregistration_data.status, ValidatorsActionStatus::Confirmed);
-
-        // Vote and approve the slashing
-        let deregistration_id = ActionId::new(offender_validator_id, ingress_counter);
-        let submitter = get_validator(validator_id_2());
-        let signature = submitter.key.sign(&(CAST_VOTE_CONTEXT).encode()).unwrap();
-        cast_votes_to_reach_quorum_and_end_vote(&deregistration_id, submitter, signature);
-
-        // Make sure the deregistration has been actioned
-        let deregistration_data = <ValidatorManager as Store>::ValidatorActions::get(
-            offender_validator_id,
-            ingress_counter,
-        )
-        .unwrap();
-        assert_eq!(deregistration_data.status, ValidatorsActionStatus::Actioned);
-    }
-
-    #[test]
-    fn valid_case() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-        ext.execute_with(|| {
-            let context = MockData::setup_valid();
-            assert_ok!(force_add_collator(
-                &context.new_validator_id,
-                &context.validator_eth_public_key
-            ));
-
-            let offender_validator_id = context.new_validator_id;
-
-            let mut validator_account_ids =
-                ValidatorManager::validator_account_ids().expect("Should contain validators");
-            assert_eq!(true, validator_account_ids.contains(&offender_validator_id));
-            assert_eq!(
-                true,
-                ValidatorManager::get_ethereum_public_key_if_exists(&offender_validator_id)
-                    .is_some()
-            );
-
-            assert_ok!(ValidatorManager::remove_slashed_validator(&offender_validator_id));
-
-            let ingress_counter = <ValidatorManager as Store>::TotalIngresses::get();
-
-            assert_eq!(
-                true,
-                <ValidatorManager as Store>::ValidatorActions::contains_key(
-                    offender_validator_id,
-                    ingress_counter
-                )
-            );
-
-            validator_account_ids =
-                ValidatorManager::validator_account_ids().expect("Should contain validators");
-            assert_eq!(false, validator_account_ids.contains(&offender_validator_id));
-            assert_eq!(
-                false,
-                ValidatorManager::get_ethereum_public_key_if_exists(&offender_validator_id)
-                    .is_some()
-            );
-
-            let event = mock::RuntimeEvent::ValidatorManager(
-                crate::Event::<TestRuntime>::ValidatorSlashed {
-                    action_id: ActionId {
-                        action_account_id: offender_validator_id,
-                        ingress_counter,
-                    },
-                },
-            );
-            assert_eq!(true, ValidatorManager::event_emitted(&event));
-
-            // It takes 2 session for validators to be updated
-            advance_session();
-            advance_session();
-
-            assert!(
-                <ValidatorManager as Store>::ValidatorActions::get(
-                    offender_validator_id,
-                    ingress_counter
-                )
-                .unwrap()
-                .status ==
-                    ValidatorsActionStatus::Confirmed
-            );
-        });
-    }
-
-    #[test]
-    fn succeeds_when_slashed_validator_registers_again() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-        ext.execute_with(|| {
-            let mock_data = MockData::setup_valid();
-
-            //Initial registration succeeds
-            assert_ok!(force_add_collator(
-                &mock_data.new_validator_id,
-                &mock_data.validator_eth_public_key
-            ));
-
-            // Slash the validator and remove them
-            slash_validator(mock_data.new_validator_id);
-
-            // Register the validator again, after it has been slashed and removed
-            assert_ok!(force_add_collator(
-                &mock_data.new_validator_id,
-                &mock_data.validator_eth_public_key
-            ));
-
-            // advance by 2 sessions to activate the validator
-            advance_session();
-            advance_session();
-
-            // Slash the validator and remove them again
-            slash_validator(mock_data.new_validator_id);
-        });
-    }
-
-    #[test]
-    fn non_validator() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-        ext.execute_with(|| {
-            let offender_validator_id = non_validator_id();
-            assert_noop!(
-                ValidatorManager::remove_slashed_validator(&offender_validator_id),
-                Error::<TestRuntime>::SlashedValidatorIsNotFound
-            );
         });
     }
 }
@@ -661,7 +484,7 @@ mod add_validator {
 
     struct AddValidatorContext {
         collator: AccountId,
-        validator_eth_public_key: ecdsa::Public,
+        collator_eth_public_key: ecdsa::Public,
     }
 
     impl Default for AddValidatorContext {
@@ -671,7 +494,9 @@ mod add_validator {
 
             AddValidatorContext {
                 collator,
-                validator_eth_public_key: ecdsa::Public::unchecked_from([0; 33]),
+                collator_eth_public_key: ecdsa::Public::from_raw(hex!(
+                    "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
+                )),
             }
         }
     }
@@ -683,7 +508,7 @@ mod add_validator {
             let context = &AddValidatorContext::default();
 
             set_session_keys(&context.collator);
-            assert_ok!(register_validator(&context.collator, &context.validator_eth_public_key));
+            assert_ok!(register_validator(&context.collator, &context.collator_eth_public_key));
 
             assert_eq!(
                 true,
@@ -691,7 +516,7 @@ mod add_validator {
             );
             assert_eq!(
                 ValidatorManager::get_validator_by_eth_public_key(
-                    context.validator_eth_public_key.clone()
+                    context.collator_eth_public_key.clone()
                 )
                 .unwrap(),
                 context.collator
@@ -713,7 +538,7 @@ mod add_validator {
                     ValidatorManager::add_collator(
                         RawOrigin::None.into(),
                         context.collator,
-                        context.validator_eth_public_key,
+                        context.collator_eth_public_key,
                         None
                     ),
                     BadOrigin
@@ -731,7 +556,7 @@ mod add_validator {
 
                 set_session_keys(&context.collator);
                 assert_noop!(
-                    register_validator(&context.collator, &context.validator_eth_public_key),
+                    register_validator(&context.collator, &context.collator_eth_public_key),
                     Error::<TestRuntime>::NoValidators
                 );
             });
@@ -745,12 +570,12 @@ mod add_validator {
 
                 set_session_keys(&context.collator);
                 <<ValidatorManager as Store>::EthereumPublicKeys>::insert(
-                    context.validator_eth_public_key.clone(),
+                    context.collator_eth_public_key.clone(),
                     context.collator,
                 );
 
                 assert_noop!(
-                    register_validator(&context.collator, &context.validator_eth_public_key),
+                    register_validator(&context.collator, &context.collator_eth_public_key),
                     Error::<TestRuntime>::ValidatorEthKeyAlreadyExists
                 );
             });
@@ -766,7 +591,7 @@ mod add_validator {
                 <<ValidatorManager as Store>::ValidatorAccountIds>::append(&context.collator);
 
                 assert_noop!(
-                    register_validator(&context.collator, &context.validator_eth_public_key),
+                    register_validator(&context.collator, &context.collator_eth_public_key),
                     Error::<TestRuntime>::ValidatorAlreadyExists
                 );
             });
