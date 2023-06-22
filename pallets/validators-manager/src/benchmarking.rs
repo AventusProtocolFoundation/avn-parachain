@@ -16,15 +16,15 @@ use pallet_parachain_staking::{Currency, Pallet as ParachainStaking};
 use pallet_session::Pallet as Session;
 use secp256k1::{PublicKey, SecretKey};
 use sp_avn_common::eth_key_actions::decompress_eth_public_key;
-use sp_core::{ecdsa::Public, sr25519, Pair, H512};
+use sp_core::{ecdsa::Public, H512};
 
-const RESIGNING_COLLATOR_PRIVATE_KEY: [u8; 32] = [6u8; 32];
+// Resigner keys derived from [6u8; 32] private key
 const RESIGNING_COLLATOR_PUBLIC_KEY_BYTES: [u8; 32] =
     hex!["ea3021db7da7831e0d5ed7e60a8102d2d721bcca88adb03ee992f4dec3baee3e"];
 const RESIGNING_COLLATOR_ETHEREUM_PUBLIC_KEY: [u8; 33] =
     hex!["03f006a18d5653c4edf5391ff23a61f03ff83d237e880ee61187fa9f379a028e0a"];
 
-const VOTING_COLLATOR_PRIVATE_KEY: [u8; 32] = [7u8; 32];
+// Vote sender keys derived from [7u8; 32] private key
 const VOTING_COLLATOR_PUBLIC_KEY_BYTES: [u8; 32] =
     hex!["7c0f469d3bd340bae718203fa30ca071a5e37c751e891dbded837b213d45d91d"];
 const VOTING_COLLATOR_ETHEREUM_PUBLIC_KEY: [u8; 33] =
@@ -40,10 +40,8 @@ fn generate_resigning_collator_account_details<T: Config>(
     let authority_id =
         <T as avn::Config>::AuthorityId::generate_pair(Some("//avn_resigner".as_bytes().to_vec()));
     let eth_public_key = Public::from_raw(RESIGNING_COLLATOR_ETHEREUM_PUBLIC_KEY);
-    let account_bytes = sr25519::Pair::from_seed(&RESIGNING_COLLATOR_PRIVATE_KEY).public().to_vec();
-    assert_eq!(account_bytes.as_slice(), RESIGNING_COLLATOR_PUBLIC_KEY_BYTES.as_slice());
-
-    let account_id = T::AccountId::decode(&mut account_bytes.as_slice()).unwrap();
+    let account_id =
+        T::AccountId::decode(&mut RESIGNING_COLLATOR_PUBLIC_KEY_BYTES.as_slice()).unwrap();
 
     (account_id, authority_id, eth_public_key)
 }
@@ -53,10 +51,8 @@ fn generate_sender_collator_account_details<T: Config>(
     let authority_id =
         <T as avn::Config>::AuthorityId::generate_pair(Some("//avn_sender".as_bytes().to_vec()));
     let eth_public_key = Public::from_raw(VOTING_COLLATOR_ETHEREUM_PUBLIC_KEY);
-    let account_bytes = sr25519::Pair::from_seed(&VOTING_COLLATOR_PRIVATE_KEY).public().to_vec();
-    assert_eq!(account_bytes.as_slice(), VOTING_COLLATOR_PUBLIC_KEY_BYTES.as_slice());
-
-    let account_id = T::AccountId::decode(&mut account_bytes.as_slice()).unwrap();
+    let account_id =
+        T::AccountId::decode(&mut VOTING_COLLATOR_PUBLIC_KEY_BYTES.as_slice()).unwrap();
 
     (account_id, authority_id, eth_public_key)
 }
@@ -77,9 +73,7 @@ fn setup_additional_validators<T: Config>(number_of_additional_validators: u32) 
             i if i == vote_sender_index => generate_sender_collator_account_details::<T>(),
             _ => (
                 account("dummy_validator", i, i),
-                <T as avn::Config>::AuthorityId::generate_pair(Some(
-                    format!("//avn_key_{:?}", i).as_bytes().to_vec(),
-                )),
+                <T as avn::Config>::AuthorityId::generate_pair(None),
                 generate_collator_eth_public_key_from_seed::<T>(i as u64),
             ),
         };
