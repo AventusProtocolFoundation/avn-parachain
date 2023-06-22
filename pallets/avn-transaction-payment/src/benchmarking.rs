@@ -64,6 +64,6 @@ benchmarks! {
 
 impl_benchmark_test_suite!(
     Pallet,
-    crate::mock::ExtBuilder::build_default().as_externality(),
+    crate::mock::new_test_ext(),
     crate::mock::TestRuntime,
 );
