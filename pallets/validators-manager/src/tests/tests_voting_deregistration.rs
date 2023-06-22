@@ -107,7 +107,7 @@ fn setup_voting_session(action_id: &ActionId<AccountId>) {
 }
 
 // TODO use the private keys of the authorities to sign the _eth_compatible_data
-fn create_valid_signed_respose(
+fn create_valid_signed_response(
     validator_key: &UintAuthorityId,
     _eth_compatible_data: &String,
 ) -> Vec<u8> {
@@ -127,7 +127,7 @@ fn approve_validator_action(
 ) -> DispatchResult {
     let eth_compatible_data =
         ValidatorManager::abi_encode_collator_action_data(&context.action_id).unwrap();
-    let response = Some(create_valid_signed_respose(&validator.key, &eth_compatible_data));
+    let response = Some(create_valid_signed_response(&validator.key, &eth_compatible_data));
     mock_response_of_get_ecdsa_signature(
         &mut context.offchain_state.write(),
         eth_compatible_data,

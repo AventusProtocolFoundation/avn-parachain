@@ -565,12 +565,15 @@ impl<AccountId: Member> ValidatorsActionData<AccountId> {
 }
 
 #[cfg(test)]
+#[path = "tests/tests.rs"]
 mod tests;
 
 #[cfg(test)]
+#[path = "tests/tests_voting_deregistration.rs"]
 mod tests_voting_deregistration;
 
 #[cfg(test)]
+#[path = "tests/mock.rs"]
 mod mock;
 
 mod benchmarking;
