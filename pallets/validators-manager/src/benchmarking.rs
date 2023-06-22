@@ -327,7 +327,6 @@ benchmarks! {
         let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
 
         setup_additional_validators::<T>(v);
-        // let caller = validators[(v - 1) as usize].account_id.clone();
         let (caller_account, caller_id, _) = generate_sender_collator_account_details::<T>();
         let caller = Validator::new(caller_account.clone(), caller_id.clone());
 
