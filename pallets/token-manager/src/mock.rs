@@ -595,20 +595,6 @@ pub fn verify_signature(signature: Signature, signer: AccountId, signed_data: &[
     return signature.verify(signed_data, &signer)
 }
 
-pub fn create_valid_signature_for_signed_transfer(
-    relayer: &AccountId,
-    from: &AccountId,
-    to: &AccountId,
-    token_id: H160,
-    amount: u128,
-    nonce: u64,
-    keys: &sr25519::Pair,
-) -> Signature {
-    let context = SIGNED_TRANSFER_CONTEXT;
-    let data_to_sign = (context, relayer, from, to, token_id, amount, nonce);
-
-    return sign(&keys, &data_to_sign.encode())
-}
 // ============================= Mock correctness tests ========================
 
 #[test]

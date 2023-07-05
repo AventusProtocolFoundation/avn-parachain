@@ -53,7 +53,6 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_token_manager.
 pub trait WeightInfo {
 	fn proxy_with_non_avt_token() -> Weight;
-	fn signed_transfer() -> Weight;
 	fn lower_avt_token() -> Weight;
 	fn lower_non_avt_token() -> Weight;
 	fn signed_lower_avt_token() -> Weight;
@@ -69,14 +68,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn proxy_with_non_avt_token() -> Weight {
 		Weight::from_ref_time(194_795_000)
-			.saturating_add(T::DbWeight::get().reads(4))
-			.saturating_add(T::DbWeight::get().writes(3))
-	}
-	// Storage: TokenManager Nonces (r:1 w:1)
-	// Storage: TokenManager AVTTokenContract (r:1 w:0)
-	// Storage: TokenManager Balances (r:2 w:2)
-	fn signed_transfer() -> Weight {
-		Weight::from_ref_time(183_614_000)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -131,14 +122,6 @@ impl WeightInfo for () {
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn proxy_with_non_avt_token() -> Weight {
 		Weight::from_ref_time(194_795_000)
-			.saturating_add(RocksDbWeight::get().reads(4))
-			.saturating_add(RocksDbWeight::get().writes(3))
-	}
-	// Storage: TokenManager Nonces (r:1 w:1)
-	// Storage: TokenManager AVTTokenContract (r:1 w:0)
-	// Storage: TokenManager Balances (r:2 w:2)
-	fn signed_transfer() -> Weight {
-		Weight::from_ref_time(183_614_000)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}

@@ -61,9 +61,6 @@ pub use default_weights::WeightInfo;
 mod mock;
 
 #[cfg(test)]
-mod test_proxying_signed_transfer;
-
-#[cfg(test)]
 mod test_proxying_signed_lower;
 
 #[cfg(test)]
@@ -78,7 +75,6 @@ mod test_non_avt_tokens;
 #[cfg(test)]
 mod test_growth;
 
-pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
 
 pub use pallet::*;
@@ -161,12 +157,6 @@ pub mod pallet {
             token_balance: T::TokenBalance,
             eth_tx_hash: H256,
         },
-        TokenTransferred {
-            token_id: T::TokenId,
-            sender: T::AccountId,
-            recipient: T::AccountId,
-            token_balance: T::TokenBalance,
-        },
         CallDispatched {
             relayer: T::AccountId,
             call_hash: T::Hash,
@@ -201,7 +191,6 @@ pub mod pallet {
         SenderNotValid,
         UnauthorizedTransaction,
         UnauthorizedProxyTransaction,
-        UnauthorizedSignedTransferTransaction,
         UnauthorizedSignedLowerTransaction,
         ErrorConvertingAccountId,
         ErrorConvertingTokenBalance,
@@ -260,7 +249,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// This extrinsic allows relayer to dispatch a `signed_transfer` or `signed_lower` call for
+        /// This extrinsic allows relayer to dispatch a `signed_lower` call for
         /// a sender. As a general rule, every function that can be proxied should follow
         /// this convention:
         /// - its first argument (after origin) should be a public verification key and a signature
@@ -280,47 +269,6 @@ pub mod pallet {
                 .map(|_| ())
                 .map_err(|e| e.error)?;
             Self::deposit_event(Event::<T>::CallDispatched { relayer, call_hash });
-            Ok(())
-        }
-
-        /// Transfer an amount of token with token_id from sender to receiver with a proof
-        #[pallet::call_index(1)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_transfer())]
-        pub fn signed_transfer(
-            origin: OriginFor<T>,
-            proof: Proof<T::Signature, T::AccountId>,
-            from: T::AccountId,
-            to: T::AccountId,
-            token_id: T::TokenId,
-            amount: T::TokenBalance,
-        ) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            ensure!(sender == from, Error::<T>::SenderNotValid);
-            let sender_nonce = Self::nonce(&sender);
-
-            let signed_payload = Self::encode_signed_transfer_params(
-                &proof,
-                &from,
-                &to,
-                &token_id,
-                &amount,
-                sender_nonce,
-            );
-
-            ensure!(
-                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
-                    .is_ok(),
-                Error::<T>::UnauthorizedSignedTransferTransaction
-            );
-
-            Self::settle_transfer(&token_id, &from, &to, &amount)?;
-
-            Self::deposit_event(Event::<T>::TokenTransferred {
-                token_id,
-                sender: from,
-                recipient: to,
-                token_balance: amount,
-            });
             Ok(())
         }
 
@@ -440,48 +388,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn settle_transfer(
-        token_id: &T::TokenId,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        amount: &T::TokenBalance,
-    ) -> DispatchResult {
-        if *token_id == Self::avt_token_contract().into() {
-            // First convert TokenBalance to u128
-            let amount_u128 = TryInto::<u128>::try_into(*amount)
-                .map_err(|_| Error::<T>::ErrorConvertingTokenBalance)?;
-            // Then convert to Balance
-            let transfer_amount = <BalanceOf<T> as TryFrom<u128>>::try_from(amount_u128)
-                .or_else(|_error| Err(Error::<T>::ErrorConvertingToBalance))?;
-
-            <T as pallet::Config>::Currency::transfer(
-                from,
-                to,
-                transfer_amount,
-                ExistenceRequirement::KeepAlive,
-            )?;
-        } else {
-            let sender_balance = Self::balance((token_id, from));
-            ensure!(sender_balance >= *amount, Error::<T>::InsufficientSenderBalance);
-
-            if from != to {
-                // If we are transfering to ourselves, we need to be careful when reading the
-                // balance because `Self::balance((token_id, from))` ==
-                // `Self::balance((token_id, to))` hence the if statement.
-                let receiver_balance = Self::balance((token_id, to));
-                ensure!(receiver_balance.checked_add(amount).is_some(), Error::<T>::AmountOverflow);
-            }
-
-            <Balances<T>>::mutate((token_id, from), |balance| *balance -= *amount);
-
-            <Balances<T>>::mutate((token_id, to), |balance| *balance += *amount);
-        }
-
-        <Nonces<T>>::mutate(from, |n| *n += 1);
-
-        Ok(())
-    }
-
     fn lift(event: &EthEvent) -> DispatchResult {
         return match &event.event_data {
             EventData::LogLifted(d) => return Self::process_lift(event, d),
@@ -590,26 +496,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn encode_signed_transfer_params(
-        proof: &Proof<T::Signature, T::AccountId>,
-        from: &T::AccountId,
-        to: &T::AccountId,
-        token_id: &T::TokenId,
-        amount: &T::TokenBalance,
-        sender_nonce: u64,
-    ) -> Vec<u8> {
-        return (
-            SIGNED_TRANSFER_CONTEXT,
-            proof.relayer.clone(),
-            from,
-            to,
-            token_id,
-            amount,
-            sender_nonce,
-        )
-            .encode()
-    }
-
     fn encode_signed_lower_params(
         proof: &Proof<T::Signature, T::AccountId>,
         from: &T::AccountId,
@@ -639,19 +525,6 @@ impl<T: Config> Pallet<T> {
         };
 
         match call {
-            Call::signed_transfer { proof, from, to, token_id, amount } => {
-                let sender_nonce = Self::nonce(&proof.signer);
-                let encoded_data = Self::encode_signed_transfer_params(
-                    proof,
-                    from,
-                    to,
-                    token_id,
-                    amount,
-                    sender_nonce,
-                );
-
-                return Some((proof, encoded_data))
-            },
             Call::signed_lower { proof, from, token_id, amount, t1_recipient } => {
                 let sender_nonce = Self::nonce(&proof.signer);
                 let encoded_data = Self::encode_signed_lower_params(
@@ -768,7 +641,6 @@ impl<T: Config> CallDecoder for Pallet<T> {
         };
 
         match call {
-            Call::signed_transfer { proof, .. } => return Ok(proof.clone()),
             Call::signed_lower { proof, .. } => return Ok(proof.clone()),
             _ => return Err(Error::TransactionNotSupported),
         }

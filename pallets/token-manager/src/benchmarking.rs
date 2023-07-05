@@ -52,65 +52,6 @@ fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::RuntimeEvent, 
     assert_eq!(event, &system_event);
 }
 
-struct Transfer<T: Config> {
-    relayer: T::AccountId,
-    from: T::AccountId,
-    to: T::AccountId,
-    token_id: T::TokenId,
-    amount: T::TokenBalance,
-    nonce: u64,
-}
-
-impl<T: Config> Transfer<T> {
-    fn new(token_id: H160) -> Self {
-        let mnemonic: &str =
-            "news slush supreme milk chapter athlete soap sausage put clutch what kitten";
-        let key_pair = SignerId::generate_pair(Some(mnemonic.as_bytes().to_vec()));
-        let account_id = T::AccountId::decode(&mut Encode::encode(&key_pair).as_slice()).unwrap();
-
-        let index = 2;
-        let seed = 2;
-        return Transfer {
-            relayer: whitelisted_caller(),
-            from: account_id,
-            to: account("to", index, seed),
-            token_id: token_id.into(),
-            amount: 1000u32.into(),
-            nonce: 0,
-        }
-    }
-
-    fn setup(self) -> Self {
-        Balances::<T>::insert((self.token_id, self.from.clone()), self.amount);
-        Nonces::<T>::insert(self.from.clone(), self.nonce);
-        return self
-    }
-
-    fn generate_signed_transfer_call(&self, signature: &[u8]) -> <T as Config>::RuntimeCall {
-        let proof: Proof<T::Signature, T::AccountId> = self.get_proof(&self.relayer, signature);
-        return Call::signed_transfer {
-            proof,
-            from: self.from.clone(),
-            to: self.to.clone(),
-            token_id: self.token_id,
-            amount: self.amount,
-        }
-        .into()
-    }
-
-    fn get_proof(
-        &self,
-        relayer: &T::AccountId,
-        signature: &[u8],
-    ) -> Proof<T::Signature, T::AccountId> {
-        return Proof {
-            signer: self.from.clone(),
-            relayer: relayer.clone(),
-            signature: sr25519::Signature::from_slice(signature).unwrap().into(),
-        }
-    }
-}
-
 struct Lower<T: Config> {
     from_account_id: T::AccountId,
     lower_account: H256,
@@ -179,56 +120,6 @@ impl<T: Config> Lower<T> {
 }
 
 benchmarks! {
-    proxy_with_non_avt_token {
-        let signature = &hex!("a6350211fcdf1d7f0c79bf0a9c296de17449ca88a899f0cd19a70b07513fc107b7d34249dba71d4761ceeec2ed6bc1305defeb96418e6869e6b6199ed0de558e");
-        let token_id = H160(hex!("1414141414141414141414141414141414141414"));
-        let transfer: Transfer<T> = Transfer::new(token_id).setup();
-        let call: <T as Config>::RuntimeCall = transfer.generate_signed_transfer_call(signature);
-        let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);
-        let call_hash: T::Hash = T::Hashing::hash_of(&boxed_call);
-    }: proxy(RawOrigin::<T::AccountId>::Signed(transfer.relayer.clone()), boxed_call)
-    verify {
-        assert_eq!(Balances::<T>::get((transfer.token_id, transfer.from.clone())), 0u32.into());
-        assert_eq!(Balances::<T>::get((transfer.token_id, transfer.to.clone())), transfer.amount);
-        assert_eq!(Nonces::<T>::get(transfer.from.clone()), transfer.nonce + 1);
-        assert_eq!(Nonces::<T>::get(transfer.to.clone()), 0);
-
-        assert_last_event::<T>(Event::<T>::CallDispatched{ relayer: transfer.relayer.clone(), call_hash: call_hash }.into());
-        assert_last_nth_event::<T>(Event::<T>::TokenTransferred {
-            token_id: transfer.token_id.clone(),
-            sender: transfer.from.clone(),
-            recipient: transfer.to.clone(),
-            token_balance: transfer.amount
-        }.into(), 2);
-    }
-
-    signed_transfer {
-        let signature = &hex!("a875c83f0709276ffd87bf401d1563bd8bcabcfda24ebb51170b72d4cd5edd6e3816f56712fa4df421260447ff483f69bcdb5a55f6356c3ffedace7fee12288e");
-        let token_id = H160(hex!("1414141414141414141414141414141414141414"));
-        let transfer: Transfer<T> = Transfer::new(token_id).setup();
-        let proof: Proof<T::Signature, T::AccountId> = transfer.get_proof(&transfer.from, signature);
-    }: _ (
-            RawOrigin::<T::AccountId>::Signed(transfer.from.clone()),
-            proof,
-            transfer.from.clone(),
-            transfer.to.clone(),
-            transfer.token_id,
-            transfer.amount
-        )
-    verify {
-        assert_eq!(Balances::<T>::get((transfer.token_id, transfer.from.clone())), 0u32.into());
-        assert_eq!(Balances::<T>::get((transfer.token_id, transfer.to.clone())), transfer.amount);
-        assert_eq!(Nonces::<T>::get(transfer.from.clone()), transfer.nonce + 1);
-        assert_eq!(Nonces::<T>::get(transfer.to.clone()), 0);
-
-        assert_last_event::<T>(Event::<T>::TokenTransferred {
-            token_id: transfer.token_id.clone(),
-            sender: transfer.from.clone(),
-            recipient: transfer.to.clone(),
-            token_balance: transfer.amount
-        }.into());
-    }
-
     lower_avt_token {
         let lower: Lower<T> = Lower::new().setup();
     }: lower(
