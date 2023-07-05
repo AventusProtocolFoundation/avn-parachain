@@ -15,6 +15,8 @@ pub const INITIAL_SENDER_BALANCE: u128 = 200;
 pub const BASE_FEE: u128 = 14;
 pub const FIXED_FEE: u128 = 10;
 pub const PERCENTAGE_FEE: u32 = 25;
+pub const NO_TIP: u128 = 0u128;
+pub const ONE_ATTO_TIP: u128 = 1u128;
 
 fn to_acc_id(id: u64) -> AccountId {
     return TestAccount::new(id).account_id()
@@ -25,9 +27,9 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
     DispatchInfo { weight: w, ..Default::default() }
 }
 
-fn pay_gas_and_call_remark(sender: &AccountId) {
+fn pay_gas_and_call_remark(sender: &AccountId, tip: u128) {
     let pre = <ChargeTransactionPayment<TestRuntime> as SignedExtension>::pre_dispatch(
-        ChargeTransactionPayment::from(0),
+        ChargeTransactionPayment::from(tip),
         sender,
         &RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
         &info_from_weight(Weight::from_ref_time(1)),
@@ -101,6 +103,12 @@ pub(crate) fn roll_blocks(n: u64) {
     }
 }
 
+fn pay_gas_with_tip_and_check(sender: &AccountId, tip: u128, expected_base_amount: u128) {
+    set_initial_sender_balance(sender);
+    pay_gas_and_call_remark(sender, tip);
+    check_sender_paid_fee(sender, expected_base_amount + tip);
+}
+
 mod adjustment_fee_tests {
     use super::*;
 
@@ -123,9 +131,10 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
-
+                    pay_gas_and_call_remark(&sender, NO_TIP);
                     check_sender_paid_fee(&sender, FIXED_FEE);
+
+                    pay_gas_with_tip_and_check(&sender, ONE_ATTO_TIP, FIXED_FEE);
                 })
             }
 
@@ -143,9 +152,10 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
-
+                    pay_gas_and_call_remark(&sender, NO_TIP);
                     check_sender_paid_fee(&sender, BASE_FEE);
+
+                    pay_gas_with_tip_and_check(&sender, ONE_ATTO_TIP, BASE_FEE);
                 })
             }
 
@@ -165,10 +175,12 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     let paid_fee = get_percentage_fee_paid(PERCENTAGE_FEE);
                     check_sender_paid_fee(&sender, paid_fee);
+
+                    pay_gas_with_tip_and_check(&sender, ONE_ATTO_TIP, paid_fee);
                 })
             }
 
@@ -189,9 +201,10 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
-
+                    pay_gas_and_call_remark(&sender, NO_TIP);
                     check_sender_paid_fee(&sender, 0);
+
+                    pay_gas_with_tip_and_check(&sender, ONE_ATTO_TIP, 0);
                 })
             }
         }
@@ -215,14 +228,14 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_paid_fee(&sender, FIXED_FEE);
 
                     <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_fee_and_event_emitted(&sender, BASE_FEE);
                 })
@@ -234,7 +247,7 @@ mod adjustment_fee_tests {
                     let sender = to_acc_id(1u64);
                     set_initial_sender_balance(&sender);
 
-                    let number_of_transactions = 1;
+                    let number_of_transactions = 2;
                     let config = AdjustmentInput::<TestRuntime> {
                         fee_type: FeeType::PercentageFee(PercentageFeeConfig {
                             percentage: PERCENTAGE_FEE,
@@ -247,15 +260,18 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     let paid_fee = get_percentage_fee_paid(PERCENTAGE_FEE);
                     check_sender_paid_fee(&sender, paid_fee);
 
+                    // this works because number_of_transactions is set to 2
+                    pay_gas_with_tip_and_check(&sender, ONE_ATTO_TIP, paid_fee);
+
                     <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_fee_and_event_emitted(&sender, BASE_FEE);
                 })
@@ -283,7 +299,7 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     let paid_fee = get_percentage_fee_paid(PERCENTAGE_FEE);
                     check_sender_paid_fee(&sender, paid_fee);
@@ -291,7 +307,7 @@ mod adjustment_fee_tests {
                     <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_fee_and_event_emitted(&sender, BASE_FEE);
                 })
@@ -315,15 +331,18 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
                     check_sender_paid_fee(&sender, FIXED_FEE);
+
+                    // we are still in the same block
+                    pay_gas_with_tip_and_check(&sender, ONE_ATTO_TIP, FIXED_FEE);
 
                     roll_one_block();
 
                     <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_fee_and_event_emitted(&sender, BASE_FEE);
                 })
@@ -346,7 +365,7 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
                     let paid_fee = get_percentage_fee_paid(PERCENTAGE_FEE);
                     check_sender_paid_fee(&sender, paid_fee);
 
@@ -355,7 +374,7 @@ mod adjustment_fee_tests {
                     <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_fee_and_event_emitted(&sender, BASE_FEE);
                 })
@@ -375,12 +394,12 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
                     check_sender_paid_fee(&sender, FIXED_FEE);
 
                     set_initial_sender_balance(&sender);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
                     check_sender_paid_fee(&sender, FIXED_FEE);
 
                     roll_one_block();
@@ -388,7 +407,7 @@ mod adjustment_fee_tests {
                     <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_fee_and_event_emitted(&sender, BASE_FEE);
                 })
@@ -412,7 +431,7 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     let paid_fee = get_percentage_fee_paid(PERCENTAGE_FEE);
                     check_sender_paid_fee(&sender, paid_fee);
@@ -422,7 +441,7 @@ mod adjustment_fee_tests {
                     <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_fee_and_event_emitted(&sender, BASE_FEE);
                 })
@@ -445,7 +464,7 @@ mod adjustment_fee_tests {
 
                     set_known_sender(&sender, config);
 
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     let paid_fee = get_percentage_fee_paid(PERCENTAGE_FEE);
                     check_sender_paid_fee(&sender, paid_fee);
@@ -455,7 +474,7 @@ mod adjustment_fee_tests {
                     <frame_system::Pallet<TestRuntime>>::reset_events();
 
                     set_initial_sender_balance(&sender);
-                    pay_gas_and_call_remark(&sender);
+                    pay_gas_and_call_remark(&sender, NO_TIP);
 
                     check_sender_fee_and_event_emitted(&sender, BASE_FEE);
                 })
