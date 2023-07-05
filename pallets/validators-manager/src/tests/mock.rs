@@ -3,7 +3,7 @@
 use crate::{self as validators_manager, *};
 use avn::FinalisedBlockChecker;
 use frame_support::{
-    parameter_types,
+    assert_ok, parameter_types,
     traits::{Currency, GenesisBuild, OnFinalize, OnInitialize},
     BasicExternalities, PalletId,
 };
@@ -680,7 +680,7 @@ impl MockData {
 
 impl ValidatorManager {
     pub fn insert_to_validators(to_insert: &AccountId) {
-        <ValidatorAccountIds<TestRuntime>>::append(to_insert.clone());
+        assert_ok!(<ValidatorAccountIds<TestRuntime>>::try_append(to_insert.clone()));
     }
 }
 

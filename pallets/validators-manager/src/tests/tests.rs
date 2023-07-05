@@ -588,7 +588,9 @@ mod add_validator {
                 let context = &AddValidatorContext::default();
 
                 set_session_keys(&context.collator);
-                <<ValidatorManager as Store>::ValidatorAccountIds>::append(&context.collator);
+                assert_ok!(<<ValidatorManager as Store>::ValidatorAccountIds>::try_append(
+                    &context.collator
+                ));
 
                 assert_noop!(
                     register_validator(&context.collator, &context.collator_eth_public_key),
