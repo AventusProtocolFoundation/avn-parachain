@@ -175,18 +175,11 @@ fn check_proxy_transfer_default_call_succeed(call: Box<<TestRuntime as Config>::
     let call_hash = Hashing::hash_of(&call);
 
     assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(default_relayer()), call));
-    assert_eq!(System::events().len(), 2);
+    assert_eq!(System::events().len(), 1);
     assert!(System::events().iter().any(|a| a.event ==
         RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
             relayer: default_relayer(),
             call_hash
-        })));
-    assert!(System::events().iter().any(|a| a.event ==
-        RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-            token_id: NON_AVT_TOKEN_ID,
-            sender: default_sender(),
-            recipient: default_receiver(),
-            token_balance: DEFAULT_AMOUNT
         })));
 }
 
@@ -228,17 +221,6 @@ fn avn_test_proxy_signed_transfer_succeeds() {
             RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
                 relayer,
                 call_hash
-            })));
-
-        // In order to validate that the proxied call has been dispatched we need any proof that
-        // transfer was called. In this case we will check that the Transferred signal was
-        // emitted.
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
             })));
     });
 }
@@ -300,17 +282,6 @@ fn avt_proxy_signed_transfer_succeeds() {
                 relayer,
                 call_hash
             })));
-
-        // In order to validate that the proxied call has been dispatched we need any proof that
-        // transfer was called. In this case we will check that the Transferred signal was
-        // emitted.
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: AVT_TOKEN_CONTRACT,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
-            })));
     });
 }
 
@@ -342,13 +313,6 @@ fn avn_test_direct_signed_transfer_succeeds() {
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)),
             DEFAULT_AMOUNT
         );
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
-            })));
     });
 }
 
@@ -395,14 +359,6 @@ fn avt_direct_signed_transfer_succeeds() {
 
         // Check that the token manager nonce increases
         assert_eq!(NON_ZERO_NONCE + 1, <TokenManager as Store>::Nonces::get(sender));
-
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: AVT_TOKEN_CONTRACT,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
-            })));
     });
 }
 
@@ -444,13 +400,6 @@ fn avn_test_proxy_signed_transfer_succeeds_with_nonce_zero() {
             RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
                 relayer,
                 call_hash
-            })));
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
             })));
     });
 }
@@ -936,14 +885,6 @@ fn avn_test_proxy_gas_costs_paid_correctly() {
                 call_hash
             })));
 
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
-            })));
-
         let fee: u128 = (BASE_FEE + TX_LEN as u64) as u128;
         assert_eq!(Balances::free_balance(relayer), AMOUNT_100_TOKEN - fee);
         assert_eq!(Balances::free_balance(sender), 0);
@@ -1005,7 +946,7 @@ fn avn_test_regular_call_gas_costs_paid_correctly() {
         ));
 
         let fee: u128 = (BASE_FEE + TX_LEN as u64) as u128;
-        assert_eq!(System::events().len(), 2);
+        assert_eq!(System::events().len(), 1);
         assert_eq!(Balances::free_balance(sender), AMOUNT_100_TOKEN - fee);
         assert_eq!(
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
@@ -1015,13 +956,6 @@ fn avn_test_regular_call_gas_costs_paid_correctly() {
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)),
             DEFAULT_AMOUNT
         );
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
-            })));
     });
 }
 

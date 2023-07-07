@@ -161,12 +161,6 @@ pub mod pallet {
             token_balance: T::TokenBalance,
             eth_tx_hash: H256,
         },
-        TokenTransferred {
-            token_id: T::TokenId,
-            sender: T::AccountId,
-            recipient: T::AccountId,
-            token_balance: T::TokenBalance,
-        },
         CallDispatched {
             relayer: T::AccountId,
             call_hash: T::Hash,
@@ -315,12 +309,6 @@ pub mod pallet {
 
             Self::settle_transfer(&token_id, &from, &to, &amount)?;
 
-            Self::deposit_event(Event::<T>::TokenTransferred {
-                token_id,
-                sender: from,
-                recipient: to,
-                token_balance: amount,
-            });
             Ok(())
         }
 

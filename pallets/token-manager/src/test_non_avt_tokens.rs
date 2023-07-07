@@ -234,14 +234,6 @@ fn avn_test_signed_transfer_with_valid_input_should_succeed() {
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
             4 * amount
         );
-
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender: sender_account_id,
-                recipient: recipient_account_id,
-                token_balance: amount
-            })));
     });
 }
 
@@ -317,14 +309,6 @@ fn avn_test_signed_transfer_of_0_token_should_succeed() {
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
             4 * amount
         );
-
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender: sender_account_id,
-                recipient: recipient_account_id,
-                token_balance: zero_amount
-            })));
     });
 }
 
@@ -391,14 +375,6 @@ fn avn_test_self_signed_transfer_should_succeed() {
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
             3 * amount
         );
-
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender: sender_account_id,
-                recipient: recipient_account_id,
-                token_balance: amount
-            })));
     });
 }
 
@@ -466,14 +442,6 @@ fn avn_test_self_signed_transfer_of_0_token_should_succeed() {
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
             3 * amount
         );
-
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: NON_AVT_TOKEN_ID,
-                sender: sender_account_id,
-                recipient: recipient_account_id,
-                token_balance: zero_amount
-            })));
     });
 }
 
