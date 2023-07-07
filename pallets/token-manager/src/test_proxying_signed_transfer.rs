@@ -305,11 +305,10 @@ fn avt_proxy_signed_transfer_succeeds() {
         // transfer was called. In this case we will check that the Transferred signal was
         // emitted.
         assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: AVT_TOKEN_CONTRACT,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
+            RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Transfer {
+                from: sender,
+                to: recipient,
+                amount: DEFAULT_AMOUNT
             })));
     });
 }
@@ -397,11 +396,10 @@ fn avt_direct_signed_transfer_succeeds() {
         assert_eq!(NON_ZERO_NONCE + 1, <TokenManager as Store>::Nonces::get(sender));
 
         assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenTransferred {
-                token_id: AVT_TOKEN_CONTRACT,
-                sender,
-                recipient,
-                token_balance: DEFAULT_AMOUNT
+            RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Transfer {
+                from: sender,
+                to: recipient,
+                amount: DEFAULT_AMOUNT
             })));
     });
 }

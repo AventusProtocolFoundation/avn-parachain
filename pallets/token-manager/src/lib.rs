@@ -315,12 +315,6 @@ pub mod pallet {
 
             Self::settle_transfer(&token_id, &from, &to, &amount)?;
 
-            Self::deposit_event(Event::<T>::TokenTransferred {
-                token_id,
-                sender: from,
-                recipient: to,
-                token_balance: amount,
-            });
             Ok(())
         }
 
@@ -475,6 +469,13 @@ impl<T: Config> Pallet<T> {
             <Balances<T>>::mutate((token_id, from), |balance| *balance -= *amount);
 
             <Balances<T>>::mutate((token_id, to), |balance| *balance += *amount);
+
+            Self::deposit_event(Event::<T>::TokenTransferred {
+                token_id: token_id.clone(),
+                sender: from.clone(),
+                recipient: to.clone(),
+                token_balance: amount.clone(),
+            });
         }
 
         <Nonces<T>>::mutate(from, |n| *n += 1);
