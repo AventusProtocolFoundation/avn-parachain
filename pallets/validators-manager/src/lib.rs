@@ -47,7 +47,7 @@ use sp_avn_common::{
     calculate_two_third_quorum, eth_key_actions::decompress_eth_public_key, event_types::Validator,
     safe_add_block_numbers, IngressCounter,
 };
-use sp_core::{ecdsa, H512};
+use sp_core::{ecdsa, H512, ConstU32};
 
 pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, PositiveImbalanceOf};
 use pallet_session::historical::IdentificationTuple;
@@ -174,7 +174,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn validator_account_ids)]
     pub type ValidatorAccountIds<T: Config> =
-        StorageValue<_, BoundedVec<T::AccountId, ConstU32<MAXIMUM_VALIDATORS_BOUND>>>;
+        StorageValue<_, BoundedVec<T::AccountId, MaximumValidatorsBound>>;
 
     #[pallet::storage]
     pub type ValidatorActions<T: Config> = StorageDoubleMap<
@@ -588,7 +588,7 @@ const MAX_OFFENDERS: u32 = 2;
 // TODO [TYPE: review][PRI: medium]: if needed, make this the default value to a configurable
 // option. See MinimumValidatorCount in Staking pallet as a reference
 const DEFAULT_MINIMUM_VALIDATORS_COUNT: usize = 2;
-const MAXIMUM_VALIDATORS_BOUND: u32 = 256;
+type MaximumValidatorsBound = ConstU32<256>;
 
 const NAME: &'static [u8; 17] = b"validatorsManager";
 
