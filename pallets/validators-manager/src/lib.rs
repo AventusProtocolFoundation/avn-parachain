@@ -47,7 +47,7 @@ use sp_avn_common::{
     calculate_two_third_quorum, eth_key_actions::decompress_eth_public_key, event_types::Validator,
     safe_add_block_numbers, IngressCounter,
 };
-use sp_core::{ecdsa, H512, ConstU32};
+use sp_core::{ecdsa, ConstU32, H512};
 
 pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, PositiveImbalanceOf};
 use pallet_session::historical::IdentificationTuple;
