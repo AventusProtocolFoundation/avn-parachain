@@ -598,5 +598,19 @@ mod add_validator {
                 );
             });
         }
+
+        #[test]
+        fn maximum_collators_is_reached() {
+            let mut ext = ExtBuilder::build_default().with_maximum_validators().as_externality();
+            ext.execute_with(|| {
+                let context = &AddValidatorContext::default();
+
+                set_session_keys(&context.collator);
+                assert_noop!(
+                    register_validator(&context.collator, &context.collator_eth_public_key),
+                    Error::<TestRuntime>::MaximumValidatorsReached
+                );
+            });
+        }
     }
 }

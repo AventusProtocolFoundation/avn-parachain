@@ -520,6 +520,15 @@ fn initial_validators_public_keys() -> Vec<ecdsa::Public> {
     ]
 }
 
+fn initial_maximum_validators_public_keys() -> Vec<ecdsa::Public> {
+    let mut public_keys = initial_validators_public_keys();
+
+    for i in public_keys.len() as u32..<MaximumValidatorsBound as sp_core::TypedGet>::get() {
+        public_keys.push(Public::from_raw([i as u8; 33]));
+    }
+    public_keys
+}
+
 pub struct ExtBuilder {
     pub storage: sp_runtime::Storage,
     offchain_state: Option<Arc<RwLock<OffchainState>>>,
@@ -551,9 +560,40 @@ impl ExtBuilder {
     }
 
     /// Setups a genesis configuration with 5 collators to the genesis state
-    pub fn with_validators(mut self) -> Self {
+    pub fn with_validators(self) -> Self {
         let validator_account_ids: &Vec<AccountId> =
             &VALIDATORS.with(|l| l.borrow().clone().unwrap());
+
+        self.setup_validators(validator_account_ids, initial_validators_public_keys)
+    }
+
+    /// Setups a genesis configuration with maximum collators to the genesis state
+    pub fn with_maximum_validators(self) -> Self {
+        let mut validators_account_ids: Vec<AccountId> = vec![];
+        // mock accounts
+        for i in 1..=MaximumValidatorsBound::get() {
+            let mut seed = [i as u8; 32];
+            // [0u8;32] is the identity of the collator we add in the tests. Change the seed if its
+            // the same.
+            if seed.eq(&[0u8; 32]) {
+                seed[30] = 1;
+            }
+            validators_account_ids.push(TestAccount::new(seed).account_id());
+        }
+        println!(
+            "keys {:?} {:?}",
+            validators_account_ids.len(),
+            initial_maximum_validators_public_keys().len()
+        );
+        self.setup_validators(&validators_account_ids, initial_maximum_validators_public_keys)
+    }
+
+    /// Setups a genesis configuration with N collators to the genesis state
+    fn setup_validators(
+        mut self,
+        validator_account_ids: &Vec<AccountId>,
+        get_eth_keys: fn() -> Vec<ecdsa::Public>,
+    ) -> Self {
         BasicExternalities::execute_with_storage(&mut self.storage, || {
             for ref k in validator_account_ids {
                 frame_system::Pallet::<TestRuntime>::inc_providers(k);
@@ -589,7 +629,7 @@ impl ExtBuilder {
             validators: validator_account_ids
                 .iter()
                 .map(|v| v.clone())
-                .zip(initial_validators_public_keys().iter().map(|pk| pk.clone()))
+                .zip(get_eth_keys().iter().map(|pk| pk.clone()))
                 .collect::<Vec<_>>(),
         }
         .assimilate_storage(&mut self.storage);
