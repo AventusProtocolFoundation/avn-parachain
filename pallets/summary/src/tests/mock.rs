@@ -117,7 +117,7 @@ impl Summary {
     ) {
         <<Summary as Store>::VotesRepository>::insert(
             root_id,
-            VotingSessionData::new(root_id.encode(), quorum, voting_period_end, 0),
+            VotingSessionData::new(root_id.session_id(), quorum, voting_period_end, 0),
         );
     }
 
@@ -126,11 +126,15 @@ impl Summary {
     }
 
     pub fn record_approve_vote(root_id: &RootId<BlockNumber>, voter: AccountId) {
-        <<Summary as Store>::VotesRepository>::mutate(root_id, |vote| vote.ayes.push(voter));
+        <<Summary as Store>::VotesRepository>::mutate(root_id, |vote| {
+            vote.ayes.try_push(voter).expect("Failed to record aye vote");
+        });
     }
 
     pub fn record_reject_vote(root_id: &RootId<BlockNumber>, voter: AccountId) {
-        <<Summary as Store>::VotesRepository>::mutate(root_id, |vote| vote.nays.push(voter));
+        <<Summary as Store>::VotesRepository>::mutate(root_id, |vote| {
+            vote.nays.try_push(voter).expect("Failed to record nay vote");
+        });
     }
 
     pub fn set_total_ingresses(ingress_counter: IngressCounter) {
@@ -369,6 +373,8 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         });
         return Ok(value)
     }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 /*********************** Add validators support ********************** */

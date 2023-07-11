@@ -101,6 +101,7 @@ pub mod pallet {
         InvalidVote,
         ErrorRecoveringPublicKeyFromSignature,
         InvalidECDSASignature,
+        VectorBoundsExceeded,
     }
 
     #[pallet::storage]

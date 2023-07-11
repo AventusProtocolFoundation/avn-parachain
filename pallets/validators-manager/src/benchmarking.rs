@@ -164,7 +164,7 @@ fn setup_voting_session<T: Config>(action_id: &ActionId<T::AccountId>) -> u32 {
     VotesRepository::<T>::insert(
         action_id,
         VotingSessionData::<T::AccountId, T::BlockNumber>::new(
-            action_id.encode(),
+            action_id.session_id(),
             quorum,
             voting_period_end.expect("already checked"),
             0u32.into(),
@@ -204,11 +204,17 @@ fn setup_votes<T: Config>(
             let approval_signature: ecdsa::Signature = generate_mock_ecdsa_signature::<T>(i as u8);
             match is_approval {
                 true => VotesRepository::<T>::mutate(action_id, |vote| {
-                    vote.ayes.push(validators[i].account_id.clone());
-                    vote.confirmations.push(approval_signature.clone());
+                    vote.ayes
+                        .try_push(validators[i].account_id.clone())
+                        .expect("Failed to add mock aye vote");
+                    vote.confirmations
+                        .try_push(approval_signature.clone())
+                        .expect("Failed to add mock confirmation vote");
                 }),
                 false => VotesRepository::<T>::mutate(action_id, |vote| {
-                    vote.nays.push(validators[i].account_id.clone())
+                    vote.nays
+                        .try_push(validators[i].account_id.clone())
+                        .expect("Failed to add mock nay vote");
                 }),
             }
         }

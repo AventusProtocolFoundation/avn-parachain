@@ -815,6 +815,8 @@ pub mod record_summary_calculation {
     use tests_vote::setup_approved_root;
 
     mod succeeds_implies_that {
+        use sp_runtime::BoundedVec;
+
         use super::*;
 
         #[test]
@@ -926,12 +928,12 @@ pub mod record_summary_calculation {
                 assert_eq!(
                     Summary::get_vote(context.root_id),
                     VotingSessionData {
-                        voting_session_id: context.root_id.encode(),
+                        voting_session_id: context.root_id.session_id(),
                         threshold: QUORUM,
-                        ayes: vec![],
-                        nays: vec![],
+                        ayes: BoundedVec::default(),
+                        nays: BoundedVec::default(),
                         end_of_voting_period: VOTING_PERIOD_END,
-                        confirmations: vec![],
+                        confirmations: BoundedVec::default(),
                         created_at_block: 10 // Setup creates block number 10
                     }
                 );

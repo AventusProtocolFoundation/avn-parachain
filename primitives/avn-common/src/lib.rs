@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{crypto::KeyTypeId, ecdsa, H160};
+use sp_core::{crypto::KeyTypeId, ecdsa, ConstU32, H160};
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -38,6 +38,10 @@ pub const ETHEREUM_PREFIX: &'static [u8] = b"\x19Ethereum Signed Message:\n32";
 pub const EXTERNAL_SERVICE_PORT_NUMBER_KEY: &'static [u8; 15] = b"avn_port_number";
 /// Default port number the external service runs on.
 pub const DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER: &str = "2020";
+/// Bound used for Vectors containing validators
+pub type MaximumValidatorsBound = ConstU32<256>;
+/// Bound used for voting session IDs
+pub type VotingSessionIdBound = ConstU32<64>;
 
 #[derive(Debug)]
 pub enum ECDSAVerificationError {
