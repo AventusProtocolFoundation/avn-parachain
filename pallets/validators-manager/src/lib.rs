@@ -190,7 +190,6 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_vote)]
-    #[pallet::unbounded]
     pub type VotesRepository<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
