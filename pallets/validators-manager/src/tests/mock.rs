@@ -3,7 +3,7 @@
 use crate::{self as validators_manager, *};
 use avn::FinalisedBlockChecker;
 use frame_support::{
-    assert_ok, parameter_types,
+    parameter_types,
     traits::{Currency, GenesisBuild, OnFinalize, OnInitialize},
     BasicExternalities, PalletId,
 };
@@ -720,7 +720,7 @@ impl MockData {
 
 impl ValidatorManager {
     pub fn insert_to_validators(to_insert: &AccountId) {
-        assert_ok!(<ValidatorAccountIds<TestRuntime>>::try_append(to_insert.clone()));
+        <ValidatorAccountIds<TestRuntime>>::try_append(to_insert.clone()).expect("Too many validator accounts in genesis");
     }
 }
 
