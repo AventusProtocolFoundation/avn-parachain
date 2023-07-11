@@ -720,7 +720,8 @@ impl MockData {
 
 impl ValidatorManager {
     pub fn insert_to_validators(to_insert: &AccountId) {
-        <ValidatorAccountIds<TestRuntime>>::try_append(to_insert.clone()).expect("Too many validator accounts in genesis");
+        <ValidatorAccountIds<TestRuntime>>::try_append(to_insert.clone())
+            .expect("Too many validator accounts in genesis");
     }
 }
 
