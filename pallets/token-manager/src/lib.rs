@@ -478,11 +478,11 @@ impl<T: Config> Pallet<T> {
     }
 
     fn settle_lower(
-        token_id: T::TokenId, 
+        token_id: T::TokenId,
         from: &T::AccountId,
         to: &T::AccountId,
         amount: u128,
-        t1_recipient: H160
+        t1_recipient: H160,
     ) -> DispatchResult {
         if token_id == Self::avt_token_contract().into() {
             let lower_amount = <BalanceOf<T> as TryFrom<u128>>::try_from(amount)
