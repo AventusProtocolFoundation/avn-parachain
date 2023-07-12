@@ -1620,6 +1620,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "node-primitives"
+version = "2.0.0"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.36#cb4f2491b00af7d7817f3a54209c26b20faa1f51"
+dependencies = [
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2018,6 +2031,7 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
+ "node-primitives",
  "pallet-avn",
  "pallet-ethereum-transactions",
  "pallet-session",

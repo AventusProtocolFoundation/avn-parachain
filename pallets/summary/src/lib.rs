@@ -19,7 +19,7 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    DispatchError, WeakBoundedVec,
+    BoundedVec, DispatchError,
 };
 use sp_std::prelude::*;
 
@@ -1378,8 +1378,8 @@ impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
         return RootId::<BlockNumber> { range, ingress_counter }
     }
 
-    fn session_id(&self) -> WeakBoundedVec<u8, VotingSessionIdBound> {
-        WeakBoundedVec::force_from(self.encode(), Some("summary pallet action id"))
+    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
     }
 }
 

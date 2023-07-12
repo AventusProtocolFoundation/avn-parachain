@@ -614,3 +614,19 @@ mod add_validator {
         }
     }
 }
+
+mod constrains {
+
+    use crate::ActionId;
+    use sp_avn_common::VotingSessionIdBound;
+    use sp_core::{sr25519::Public, Get};
+
+    #[test]
+    fn ensure_action_id_encodes_within_boundaries() {
+        let action_id = ActionId::<Public>::new(Public::from_raw([1u8; 32]), 1);
+        assert!(
+            action_id.session_id().len() as u32 <= VotingSessionIdBound::get(),
+            "The encoded size of ActionId must not exceed the VotingSessionIdBound"
+        );
+    }
+}
