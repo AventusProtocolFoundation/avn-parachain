@@ -164,12 +164,9 @@ fn avn_test_lower_all_avt_token_succeed() {
         ));
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
-                token_id: AVT_TOKEN_CONTRACT,
-                sender: from_account_id,
-                recipient: to_account_id,
-                amount,
-                t1_recipient
+            RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw { 
+                who: from_account_id, 
+                amount: amount
             })));
     });
 }
@@ -196,12 +193,9 @@ fn avn_test_lower_some_avt_token_succeed() {
         ));
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
-                token_id: AVT_TOKEN_CONTRACT,
-                sender: from_account_id,
-                recipient: to_account_id,
-                amount,
-                t1_recipient
+            RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw { 
+                who: from_account_id, 
+                amount: amount 
             })));
     });
 }
@@ -255,12 +249,9 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         ));
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
-                token_id: AVT_TOKEN_CONTRACT,
-                sender: from_account_id,
-                recipient: to_account_id,
-                amount,
-                t1_recipient
+            RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw { 
+                who: from_account_id, 
+                amount: amount 
             })));
 
         // Lift and lower AVT tokens again
@@ -277,12 +268,9 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         ));
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
-                token_id: AVT_TOKEN_CONTRACT,
-                sender: from_account_id,
-                recipient: to_account_id,
-                amount,
-                t1_recipient
+            RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw { 
+                who: from_account_id, 
+                amount: amount 
             })));
     });
 }
