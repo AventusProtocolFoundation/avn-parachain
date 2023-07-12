@@ -47,7 +47,7 @@ use sp_avn_common::{
     calculate_two_third_quorum, eth_key_actions::decompress_eth_public_key, event_types::Validator,
     safe_add_block_numbers, IngressCounter,
 };
-use sp_core::{ecdsa, H512};
+use sp_core::{ecdsa, ConstU32, H512};
 
 pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, PositiveImbalanceOf};
 use pallet_session::historical::IdentificationTuple;
@@ -66,13 +66,13 @@ use crate::offence::{
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::pallet_prelude::*;
+    use frame_support::{assert_ok, pallet_prelude::*};
     use frame_system::pallet_prelude::*;
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
     #[pallet::without_storage_info]
-    // TODO review the above
+    // TODO remove the above.
     pub struct Pallet<T>(_);
 
     #[pallet::config]
@@ -134,6 +134,7 @@ pub mod pallet {
         /// The ethereum public key of this validator alredy exists
         ValidatorEthKeyAlreadyExists,
         ErrorRemovingAccountFromCollators,
+        MaximumValidatorsReached,
     }
 
     #[pallet::event]
@@ -170,14 +171,11 @@ pub mod pallet {
         },
     }
 
-    // TODO: [STATE MIGRATION] - this storage item was changed from returning a default value to
-    // returning an option
     #[pallet::storage]
     #[pallet::getter(fn validator_account_ids)]
-    pub type ValidatorAccountIds<T: Config> = StorageValue<_, Vec<T::AccountId>>;
+    pub type ValidatorAccountIds<T: Config> =
+        StorageValue<_, BoundedVec<T::AccountId, MaximumValidatorsBound>>;
 
-    // TODO: [STATE MIGRATION] - this storage item was changed from returning a default value to
-    // returning an option
     #[pallet::storage]
     pub type ValidatorActions<T: Config> = StorageDoubleMap<
         _,
@@ -234,7 +232,7 @@ pub mod pallet {
                 self.validators.len()
             );
             for (validator_account_id, eth_public_key) in &self.validators {
-                <ValidatorAccountIds<T>>::append(validator_account_id);
+                assert_ok!(<ValidatorAccountIds<T>>::try_append(validator_account_id));
                 <EthereumPublicKeys<T>>::insert(eth_public_key, validator_account_id);
             }
         }
@@ -257,7 +255,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let validator_account_ids =
-                Self::validator_account_ids().or_else(|| Some(vec![])).expect("empty vec");
+                Self::validator_account_ids().ok_or(Error::<T>::NoValidators)?;
             ensure!(validator_account_ids.len() > 0, Error::<T>::NoValidators);
 
             ensure!(
@@ -283,7 +281,8 @@ pub mod pallet {
 
             Self::register_validator(&collator_account_id, &collator_eth_public_key)?;
 
-            <ValidatorAccountIds<T>>::append(collator_account_id.clone());
+            <ValidatorAccountIds<T>>::try_append(collator_account_id.clone())
+                .map_err(|_| Error::<T>::MaximumValidatorsReached)?;
             <EthereumPublicKeys<T>>::insert(collator_eth_public_key, collator_account_id);
 
             // TODO: benchmark `register_validator` and add to the weight
@@ -588,6 +587,8 @@ const MAX_OFFENDERS: u32 = 2;
 // TODO [TYPE: review][PRI: medium]: if needed, make this the default value to a configurable
 // option. See MinimumValidatorCount in Staking pallet as a reference
 const DEFAULT_MINIMUM_VALIDATORS_COUNT: usize = 2;
+type MaximumValidatorsBound = ConstU32<256>;
+
 const NAME: &'static [u8; 17] = b"validatorsManager";
 
 // Error codes returned by validate unsigned methods
