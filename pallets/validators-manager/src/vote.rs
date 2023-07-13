@@ -17,7 +17,7 @@ use frame_support::{
     log,
 };
 use frame_system::offchain::SubmitTransaction;
-use pallet_avn::{self as avn, vote::*, AccountToBytesConverter};
+use pallet_avn::{self as avn, vote::*, AccountToBytesConverter, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::ecdsa;
 use sp_std::fmt::Debug;
@@ -86,19 +86,35 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber>
     // TODO [TYPE: business logic][PRI: high][JIRA: 299][CRITICAL]: Store the approval signatures.
     // As per SYS-299's current proposal, validators can give an Eth Signature that proves they
     // have validated and approved this deregistration request
-    fn record_approve_vote(&self, voter: T::AccountId, approval_signature: ecdsa::Signature) {
+    fn record_approve_vote(
+        &self,
+        voter: T::AccountId,
+        approval_signature: ecdsa::Signature,
+    ) -> DispatchResult {
         if is_not_own_activation::<T>(&voter, self.action_id.ingress_counter) {
-            <ValidatorsManager<T> as Store>::VotesRepository::mutate(&self.action_id, |vote| {
-                vote.ayes.push(voter);
-                vote.confirmations.push(approval_signature);
-            })
+            <ValidatorsManager<T> as Store>::VotesRepository::try_mutate(
+                &self.action_id,
+                |vote| -> DispatchResult {
+                    vote.ayes.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+                    vote.confirmations
+                        .try_push(approval_signature)
+                        .map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+                    Ok(())
+                },
+            )?;
         }
+        Ok(())
     }
 
-    fn record_reject_vote(&self, voter: T::AccountId) {
-        <ValidatorsManager<T> as Store>::VotesRepository::mutate(&self.action_id, |vote| {
-            vote.nays.push(voter)
-        });
+    fn record_reject_vote(&self, voter: T::AccountId) -> DispatchResult {
+        <ValidatorsManager<T> as Store>::VotesRepository::try_mutate(
+            &self.action_id,
+            |vote| -> DispatchResult {
+                vote.nays.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+                Ok(())
+            },
+        )?;
+        Ok(())
     }
 
     fn end_voting_session(&self, sender: T::AccountId) -> DispatchResult {

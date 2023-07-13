@@ -19,11 +19,11 @@ use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Convert, Member},
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity},
-    DispatchError,
+    DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_avn::{
     self as avn,
     vote::{
@@ -45,9 +45,9 @@ use pallet_ethereum_transactions::{
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     calculate_two_third_quorum, eth_key_actions::decompress_eth_public_key, event_types::Validator,
-    safe_add_block_numbers, IngressCounter,
+    safe_add_block_numbers, IngressCounter, MaximumValidatorsBound, VotingSessionIdBound,
 };
-use sp_core::{ecdsa, ConstU32, H512};
+use sp_core::{bounded::BoundedVec, ecdsa, H512};
 
 pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, PositiveImbalanceOf};
 use pallet_session::historical::IdentificationTuple;
@@ -71,8 +71,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
-    #[pallet::without_storage_info]
-    // TODO remove the above.
     pub struct Pallet<T>(_);
 
     #[pallet::config]
@@ -500,7 +498,7 @@ pub mod pallet {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum ValidatorsActionStatus {
     /// Validator enters this state immediately within removal extrinsic, ready for session
     /// confirmation
@@ -514,7 +512,7 @@ pub enum ValidatorsActionStatus {
     None,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum ValidatorsActionType {
     /// Validator has asked to leave voluntarily
     Resignation,
@@ -536,7 +534,7 @@ impl ValidatorsActionType {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ValidatorsActionData<AccountId: Member> {
     pub status: ValidatorsActionStatus,
     pub primary_validator: AccountId,
@@ -587,7 +585,6 @@ const MAX_OFFENDERS: u32 = 2;
 // TODO [TYPE: review][PRI: medium]: if needed, make this the default value to a configurable
 // option. See MinimumValidatorCount in Staking pallet as a reference
 const DEFAULT_MINIMUM_VALIDATORS_COUNT: usize = 2;
-type MaximumValidatorsBound = ConstU32<256>;
 
 const NAME: &'static [u8; 17] = b"validatorsManager";
 
@@ -679,7 +676,7 @@ impl<T: Config> Pallet<T> {
                 validators_action_data.reserved_eth_transaction,
                 validators_action_data.eth_transaction_id,
                 validators_action_data.primary_validator,
-                voting_session.state()?.confirmations,
+                voting_session.state()?.confirmations.to_vec(),
             );
 
             if let Err(result) = result {
@@ -951,7 +948,7 @@ impl<T: Config> Pallet<T> {
         <VotesRepository<T>>::insert(
             action_id.clone(),
             VotingSessionData::new(
-                action_id.encode(),
+                action_id.session_id(),
                 quorum,
                 voting_period_end,
                 <system::Pallet<T>>::block_number(),
@@ -1033,7 +1030,7 @@ impl<T: Config> Pallet<T> {
             <VotesRepository<T>>::insert(
                 action_id.clone(),
                 VotingSessionData::new(
-                    action_id.encode(),
+                    action_id.session_id(),
                     quorum,
                     voting_period_end,
                     <system::Pallet<T>>::block_number(),
@@ -1045,15 +1042,18 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct ActionId<AccountId: Member> {
     pub action_account_id: AccountId,
     pub ingress_counter: IngressCounter,
 }
 
-impl<AccountId: Member> ActionId<AccountId> {
+impl<AccountId: Member + Encode> ActionId<AccountId> {
     fn new(action_account_id: AccountId, ingress_counter: IngressCounter) -> Self {
         return ActionId::<AccountId> { action_account_id, ingress_counter }
+    }
+    fn session_id(&self) -> WeakBoundedVec<u8, VotingSessionIdBound> {
+        WeakBoundedVec::force_from(self.encode(), Some("validators manager action id"))
     }
 }
 

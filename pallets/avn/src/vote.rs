@@ -2,16 +2,17 @@
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
+
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::event_types::Validator;
+use sp_avn_common::{event_types::Validator, MaximumValidatorsBound, VotingSessionIdBound};
 use sp_core::ecdsa;
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -19,6 +20,7 @@ use sp_runtime::{
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
     },
+    BoundedVec, WeakBoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -32,20 +34,21 @@ pub const VOTING_SESSION_DATA_IS_NOT_FOUND: u8 = 5;
 pub const APPROVE_VOTE: bool = true;
 pub const REJECT_VOTE: bool = false;
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct VotingSessionData<AccountId, BlockNumber> {
+    // TODO convert to BoundedVec
     /// The unique identifier for this voting session
-    pub voting_session_id: Vec<u8>,
+    pub voting_session_id: WeakBoundedVec<u8, VotingSessionIdBound>,
     /// The number of approval votes that are needed to reach an outcome.
     pub threshold: u32,
     /// The current set of voters that approved it.
-    pub ayes: Vec<AccountId>,
+    pub ayes: BoundedVec<AccountId, MaximumValidatorsBound>,
     /// The current set of voters that rejected it.
-    pub nays: Vec<AccountId>,
+    pub nays: BoundedVec<AccountId, MaximumValidatorsBound>,
     /// The hard end time of this vote.
     pub end_of_voting_period: BlockNumber,
     /// The confirmations collected from the aye votes
-    pub confirmations: Vec<ecdsa::Signature>,
+    pub confirmations: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
     /// The block number this session was created on
     pub created_at_block: BlockNumber,
 }
@@ -55,12 +58,12 @@ pub struct VotingSessionData<AccountId, BlockNumber> {
 impl<AccountId, BlockNumber: Zero> Default for VotingSessionData<AccountId, BlockNumber> {
     fn default() -> Self {
         Self {
-            voting_session_id: vec![],
+            voting_session_id: WeakBoundedVec::default(),
             threshold: 0u32,
-            ayes: vec![],
-            nays: vec![],
+            ayes: BoundedVec::default(),
+            nays: BoundedVec::default(),
             end_of_voting_period: Zero::zero(),
-            confirmations: vec![],
+            confirmations: BoundedVec::default(),
             created_at_block: Zero::zero(),
         }
     }
@@ -68,18 +71,18 @@ impl<AccountId, BlockNumber: Zero> Default for VotingSessionData<AccountId, Bloc
 
 impl<AccountId: Member, BlockNumber: Member> VotingSessionData<AccountId, BlockNumber> {
     pub fn new(
-        id: Vec<u8>,
+        session_id: WeakBoundedVec<u8, VotingSessionIdBound>,
         threshold: u32,
         end_of_voting_period: BlockNumber,
         created_at_block: BlockNumber,
     ) -> Self {
         return VotingSessionData::<AccountId, BlockNumber> {
-            voting_session_id: id,
+            voting_session_id: session_id,
             threshold,
-            ayes: Vec::new(),
-            nays: Vec::new(),
+            ayes: BoundedVec::default(),
+            nays: BoundedVec::default(),
             end_of_voting_period,
-            confirmations: Vec::new(),
+            confirmations: BoundedVec::default(),
             created_at_block,
         }
     }
@@ -114,9 +117,13 @@ pub trait VotingSessionManager<AccountId, BlockNumber> {
     // The session is valid (is_valid) AND has not ended yet
     fn is_active(&self) -> bool;
 
-    fn record_approve_vote(&self, voter: AccountId, approval_signature: ecdsa::Signature);
+    fn record_approve_vote(
+        &self,
+        voter: AccountId,
+        approval_signature: ecdsa::Signature,
+    ) -> DispatchResult;
 
-    fn record_reject_vote(&self, voter: AccountId);
+    fn record_reject_vote(&self, voter: AccountId) -> DispatchResult;
 
     fn end_voting_session(&self, sender: AccountId) -> DispatchResult;
 }
@@ -127,7 +134,7 @@ pub fn process_approve_vote<T: Config>(
     approval_signature: ecdsa::Signature,
 ) -> DispatchResult {
     validate_vote::<T>(voting_session, &voter)?;
-    voting_session.record_approve_vote(voter.clone(), approval_signature);
+    voting_session.record_approve_vote(voter.clone(), approval_signature)?;
     end_voting_if_outcome_reached::<T>(voting_session, voter)?;
     Ok(())
 }
@@ -147,7 +154,7 @@ pub fn process_reject_vote<T: Config>(
     voter: T::AccountId,
 ) -> DispatchResult {
     validate_vote::<T>(voting_session, &voter)?;
-    voting_session.record_reject_vote(voter.clone());
+    voting_session.record_reject_vote(voter.clone())?;
     end_voting_if_outcome_reached::<T>(voting_session, voter)?;
     Ok(())
 }

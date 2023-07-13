@@ -149,7 +149,7 @@ impl ValidatorManager {
     ) {
         <<ValidatorManager as Store>::VotesRepository>::insert(
             action_id,
-            VotingSessionData::new(action_id.encode(), quorum, voting_period_end, 0),
+            VotingSessionData::new(action_id.session_id(), quorum, voting_period_end, 0),
         );
     }
 
@@ -176,13 +176,13 @@ impl ValidatorManager {
 
     pub fn record_approve_vote(action_id: &ActionId<AccountId>, voter: AccountId) {
         <<ValidatorManager as Store>::VotesRepository>::mutate(action_id, |vote| {
-            vote.ayes.push(voter)
+            vote.ayes.try_push(voter).expect("Failed to record aye vote");
         });
     }
 
     pub fn record_reject_vote(action_id: &ActionId<AccountId>, voter: AccountId) {
         <<ValidatorManager as Store>::VotesRepository>::mutate(action_id, |vote| {
-            vote.nays.push(voter)
+            vote.nays.try_push(voter).expect("Failed to record nay vote");
         });
     }
 

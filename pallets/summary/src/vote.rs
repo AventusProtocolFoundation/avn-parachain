@@ -17,7 +17,7 @@ use frame_support::{
     log,
 };
 use frame_system::offchain::SubmitTransaction;
-use pallet_avn::{self as avn, vote::*};
+use pallet_avn::{self as avn, vote::*, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::ecdsa;
 use sp_runtime::scale_info::TypeInfo;
@@ -95,15 +95,33 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotin
             self.is_valid()
     }
 
-    fn record_approve_vote(&self, voter: T::AccountId, approval_signature: ecdsa::Signature) {
-        <Summary<T> as Store>::VotesRepository::mutate(&self.root_id, |vote| {
-            vote.ayes.push(voter);
-            vote.confirmations.push(approval_signature);
-        })
+    fn record_approve_vote(
+        &self,
+        voter: T::AccountId,
+        approval_signature: ecdsa::Signature,
+    ) -> DispatchResult {
+        <Summary<T> as Store>::VotesRepository::try_mutate(
+            &self.root_id,
+            |vote| -> DispatchResult {
+                vote.ayes.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+                vote.confirmations
+                    .try_push(approval_signature)
+                    .map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+                Ok(())
+            },
+        )?;
+        Ok(())
     }
 
-    fn record_reject_vote(&self, voter: T::AccountId) {
-        <Summary<T> as Store>::VotesRepository::mutate(&self.root_id, |vote| vote.nays.push(voter));
+    fn record_reject_vote(&self, voter: T::AccountId) -> DispatchResult {
+        <Summary<T> as Store>::VotesRepository::try_mutate(
+            &self.root_id,
+            |vote| -> DispatchResult {
+                vote.nays.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+                Ok(())
+            },
+        )?;
+        Ok(())
     }
 
     fn end_voting_session(&self, sender: T::AccountId) -> DispatchResult {

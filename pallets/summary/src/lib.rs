@@ -10,7 +10,7 @@ use sp_avn_common::{
     calculate_two_third_quorum,
     event_types::Validator,
     offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
-    safe_add_block_numbers, safe_sub_block_numbers, IngressCounter,
+    safe_add_block_numbers, safe_sub_block_numbers, IngressCounter, VotingSessionIdBound,
 };
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -19,7 +19,7 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    DispatchError,
+    DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -135,7 +135,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
-    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -450,7 +449,7 @@ pub mod pallet {
             <VotesRepository<T>>::insert(
                 root_id,
                 VotingSessionData::new(
-                    root_id.encode(),
+                    root_id.session_id(),
                     quorum,
                     voting_period_end,
                     current_block_number,
@@ -1188,7 +1187,7 @@ pub mod pallet {
                             )),
                             *root_data.tx_id.as_ref().expect("Non empty roots have valid hash"),
                             root_data.added_by.ok_or(Error::<T>::CurrentSlotValidatorNotFound)?,
-                            voting_session.state()?.confirmations,
+                            voting_session.state()?.confirmations.to_vec(),
                         );
 
                     if let Err(result) = result {
@@ -1374,9 +1373,13 @@ pub struct RootId<BlockNumber: AtLeast32Bit> {
     pub ingress_counter: IngressCounter,
 }
 
-impl<BlockNumber: AtLeast32Bit> RootId<BlockNumber> {
+impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
     fn new(range: RootRange<BlockNumber>, ingress_counter: IngressCounter) -> Self {
         return RootId::<BlockNumber> { range, ingress_counter }
+    }
+
+    fn session_id(&self) -> WeakBoundedVec<u8, VotingSessionIdBound> {
+        WeakBoundedVec::force_from(self.encode(), Some("summary pallet action id"))
     }
 }
 
