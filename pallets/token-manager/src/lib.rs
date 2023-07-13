@@ -335,15 +335,7 @@ pub mod pallet {
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
                 .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
 
-            Self::settle_lower(&from, token_id, amount)?;
-
-            Self::deposit_event(Event::<T>::TokenLowered {
-                token_id,
-                sender: from,
-                recipient: to_account_id,
-                amount,
-                t1_recipient,
-            });
+            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
 
             let final_weight = if token_id == Self::avt_token_contract().into() {
                 <T as pallet::Config>::WeightInfo::lower_avt_token()
@@ -388,15 +380,7 @@ pub mod pallet {
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
                 .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
 
-            Self::settle_lower(&from, token_id, amount)?;
-
-            Self::deposit_event(Event::<T>::TokenLowered {
-                token_id,
-                sender: from,
-                recipient: to_account_id,
-                amount,
-                t1_recipient,
-            });
+            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
 
             let final_weight = if token_id == Self::avt_token_contract().into() {
                 <T as pallet::Config>::WeightInfo::signed_lower_avt_token()
@@ -493,7 +477,13 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn settle_lower(from: &T::AccountId, token_id: T::TokenId, amount: u128) -> DispatchResult {
+    fn settle_lower(
+        token_id: T::TokenId,
+        from: &T::AccountId,
+        to: &T::AccountId,
+        amount: u128,
+        t1_recipient: H160,
+    ) -> DispatchResult {
         if token_id == Self::avt_token_contract().into() {
             let lower_amount = <BalanceOf<T> as TryFrom<u128>>::try_from(amount)
                 .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
@@ -522,6 +512,14 @@ impl<T: Config> Pallet<T> {
             ensure!(sender_balance >= lower_amount, Error::<T>::InsufficientSenderBalance);
 
             <Balances<T>>::mutate((token_id, from), |balance| *balance -= lower_amount);
+
+            Self::deposit_event(Event::<T>::TokenLowered {
+                token_id,
+                sender: from.clone(),
+                recipient: to.clone(),
+                amount,
+                t1_recipient,
+            });
         }
 
         <Nonces<T>>::mutate(from, |n| *n += 1);
