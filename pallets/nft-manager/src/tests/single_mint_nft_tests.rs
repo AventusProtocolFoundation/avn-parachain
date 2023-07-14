@@ -170,6 +170,28 @@ mod mint_single_nft {
         }
 
         #[test]
+        fn external_ref_is_out_of_bounds() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let mut context: Context = Default::default();
+                let expected_info_id: NftInfoId = NftManager::next_info_id();
+
+                assert_eq!(false, <Nfts<TestRuntime>>::contains_key(&context.generate_nft_id()));
+                assert_eq!(false, <NftInfos<TestRuntime>>::contains_key(&expected_info_id));
+                assert_eq!(false, context.event_emitted_with_single_nft_minted());
+
+                let out_of_bounds_size = 4096;
+                context.unique_external_ref = (0..out_of_bounds_size).map(|_| 65).collect();
+
+                assert_noop!(
+                    context.call_mint_single_nft(),
+                    Error::<TestRuntime>::ExternalRefOutOfBounds
+                );
+                assert_eq!(false, context.event_emitted_with_single_nft_minted());
+            });
+        }
+
+        #[test]
         fn external_ref_is_taken() {
             let mut ext = ExtBuilder::build_default().as_externality();
             ext.execute_with(|| {

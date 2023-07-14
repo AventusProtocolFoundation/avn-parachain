@@ -515,7 +515,10 @@ impl MintBatchNftContext {
     fn setup(&self) {
         <Nfts<TestRuntime>>::remove(&self.nft_id);
         <NftInfos<TestRuntime>>::remove(&self.nft_id);
-        <UsedExternalReferences<TestRuntime>>::remove(&self.unique_external_ref);
+        <UsedExternalReferences<TestRuntime>>::remove(
+            &BoundedVec::try_from(self.unique_external_ref.clone())
+                .expect("Unique external reference bound was exceeded."),
+        );
     }
 
     fn create_signed_mint_batch_nft_call(
@@ -603,7 +606,8 @@ mod signed_mint_batch_nft {
                 assert_eq!(
                     true,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        BoundedVec::try_from(context.unique_external_ref)
+                            .expect("Unique external reference bound was exceeded.")
                     )
                 );
 
@@ -757,6 +761,28 @@ mod signed_mint_batch_nft {
                 assert_noop!(
                     NftManager::proxy(Origin::signed(context.relayer), inner_call),
                     Error::<TestRuntime>::ExternalRefIsMandatory
+                );
+            });
+        }
+
+        #[test]
+        fn external_ref_is_out_of_bounds() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let mut context = MintBatchNftContext::default();
+                context.setup();
+
+                let out_of_bounds_size = 4096;
+                context.unique_external_ref = (0..out_of_bounds_size).map(|_| 65).collect();
+
+                let index = 0u64;
+                let batch_id = create_batch_and_list();
+
+                let inner_call = context.create_signed_mint_batch_nft_call(batch_id, index);
+
+                assert_noop!(
+                    NftManager::proxy(Origin::signed(context.relayer), inner_call),
+                    Error::<TestRuntime>::ExternalRefOutOfBounds
                 );
             });
         }

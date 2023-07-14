@@ -46,6 +46,8 @@ pub mod bounds {
     pub type MaximumValidatorsBound = ConstU32<256>;
     /// Bound used for voting session IDs
     pub type VotingSessionIdBound = ConstU32<64>;
+    /// Bound used for NFT external references
+    pub type NftExternalRefBound = ConstU32<1024>;
 }
 
 #[derive(Debug)]
