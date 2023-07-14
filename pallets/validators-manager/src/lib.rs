@@ -19,7 +19,7 @@ use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Convert, Member},
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity},
-    DispatchError, WeakBoundedVec,
+    DispatchError,
 };
 use sp_std::prelude::*;
 
@@ -1052,8 +1052,8 @@ impl<AccountId: Member + Encode> ActionId<AccountId> {
     fn new(action_account_id: AccountId, ingress_counter: IngressCounter) -> Self {
         return ActionId::<AccountId> { action_account_id, ingress_counter }
     }
-    fn session_id(&self) -> WeakBoundedVec<u8, VotingSessionIdBound> {
-        WeakBoundedVec::force_from(self.encode(), Some("validators manager action id"))
+    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
     }
 }
 

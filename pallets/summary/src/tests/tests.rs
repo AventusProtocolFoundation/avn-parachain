@@ -1717,3 +1717,19 @@ mod if_process_summary_is_called_a_second_time {
 }
 
 // TODO: add a test to ensure we pick validators in sequential order of their index
+
+mod constrains {
+    use crate::{RootId, RootRange};
+    use node_primitives::BlockNumber;
+    use sp_avn_common::VotingSessionIdBound;
+    use sp_core::Get;
+
+    #[test]
+    fn ensure_action_id_encodes_within_boundaries() {
+        let action_id = RootId::<BlockNumber>::new(RootRange::new(0u32.into(), 60u32.into()), 1);
+        assert!(
+            action_id.session_id().len() as u32 <= VotingSessionIdBound::get(),
+            "The encoded size of RootId must not exceed the VotingSessionIdBound"
+        );
+    }
+}

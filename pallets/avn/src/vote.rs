@@ -20,7 +20,7 @@ use sp_runtime::{
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionValidity, ValidTransaction,
     },
-    BoundedVec, WeakBoundedVec,
+    BoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -38,7 +38,7 @@ pub const REJECT_VOTE: bool = false;
 pub struct VotingSessionData<AccountId, BlockNumber> {
     // TODO convert to BoundedVec
     /// The unique identifier for this voting session
-    pub voting_session_id: WeakBoundedVec<u8, VotingSessionIdBound>,
+    pub voting_session_id: BoundedVec<u8, VotingSessionIdBound>,
     /// The number of approval votes that are needed to reach an outcome.
     pub threshold: u32,
     /// The current set of voters that approved it.
@@ -58,7 +58,7 @@ pub struct VotingSessionData<AccountId, BlockNumber> {
 impl<AccountId, BlockNumber: Zero> Default for VotingSessionData<AccountId, BlockNumber> {
     fn default() -> Self {
         Self {
-            voting_session_id: WeakBoundedVec::default(),
+            voting_session_id: BoundedVec::default(),
             threshold: 0u32,
             ayes: BoundedVec::default(),
             nays: BoundedVec::default(),
@@ -71,7 +71,7 @@ impl<AccountId, BlockNumber: Zero> Default for VotingSessionData<AccountId, Bloc
 
 impl<AccountId: Member, BlockNumber: Member> VotingSessionData<AccountId, BlockNumber> {
     pub fn new(
-        session_id: WeakBoundedVec<u8, VotingSessionIdBound>,
+        session_id: BoundedVec<u8, VotingSessionIdBound>,
         threshold: u32,
         end_of_voting_period: BlockNumber,
         created_at_block: BlockNumber,
