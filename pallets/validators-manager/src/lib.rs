@@ -44,8 +44,11 @@ use pallet_ethereum_transactions::{
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
-    calculate_two_third_quorum, eth_key_actions::decompress_eth_public_key, event_types::Validator,
-    safe_add_block_numbers, IngressCounter, MaximumValidatorsBound, VotingSessionIdBound,
+    bounds::{MaximumValidatorsBound, VotingSessionIdBound},
+    calculate_two_third_quorum,
+    eth_key_actions::decompress_eth_public_key,
+    event_types::Validator,
+    safe_add_block_numbers, IngressCounter,
 };
 use sp_core::{bounded::BoundedVec, ecdsa, H512};
 
