@@ -108,11 +108,11 @@ pub mod pallet {
         type Currency: Currency<Self::AccountId>;
 
         /// The units in which we record balances of tokens others than AVT
-        type TokenBalance: Member + Parameter + AtLeast32Bit + Default + Copy;
+        type TokenBalance: Member + Parameter + AtLeast32Bit + Default + Copy + MaxEncodedLen;
 
         /// The type of token identifier
         /// (a H160 because this is an Ethereum address)
-        type TokenId: Parameter + Default + Copy + From<H160>;
+        type TokenId: Parameter + Default + Copy + From<H160> + MaxEncodedLen;
 
         type ProcessedEventsChecker: ProcessedEventsChecker;
 
