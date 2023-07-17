@@ -35,14 +35,14 @@ use sp_avn_common::{
     event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
     verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
-use sp_core::{H160, H256};
+use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{
         AccountIdConversion, AtLeast32Bit, CheckedAdd, Dispatchable, Hash, IdentifyAccount, Member,
         Saturating, Verify, Zero,
     },
-    Perbill,
+    BoundedVec, Perbill,
 };
 use sp_std::prelude::*;
 
@@ -80,6 +80,7 @@ mod test_growth;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
+pub type MaximumSignedParamsSize = ConstU32<256>;
 
 pub use pallet::*;
 
@@ -596,17 +597,19 @@ impl<T: Config> Pallet<T> {
         token_id: &T::TokenId,
         amount: &T::TokenBalance,
         sender_nonce: u64,
-    ) -> Vec<u8> {
-        return (
-            SIGNED_TRANSFER_CONTEXT,
-            proof.relayer.clone(),
-            from,
-            to,
-            token_id,
-            amount,
-            sender_nonce,
+    ) -> BoundedVec<u8, MaximumSignedParamsSize> {
+        return BoundedVec::truncate_from(
+            (
+                SIGNED_TRANSFER_CONTEXT,
+                proof.relayer.clone(),
+                from,
+                to,
+                token_id,
+                amount,
+                sender_nonce,
+            )
+                .encode(),
         )
-            .encode()
     }
 
     fn encode_signed_lower_params(
@@ -616,22 +619,24 @@ impl<T: Config> Pallet<T> {
         amount: &u128,
         t1_recipient: &H160,
         sender_nonce: u64,
-    ) -> Vec<u8> {
-        return (
-            SIGNED_LOWER_CONTEXT,
-            proof.relayer.clone(),
-            from,
-            token_id,
-            amount,
-            t1_recipient,
-            sender_nonce,
+    ) -> BoundedVec<u8, MaximumSignedParamsSize> {
+        return BoundedVec::truncate_from(
+            (
+                SIGNED_LOWER_CONTEXT,
+                proof.relayer.clone(),
+                from,
+                token_id,
+                amount,
+                t1_recipient,
+                sender_nonce,
+            )
+                .encode(),
         )
-            .encode()
     }
 
     fn get_encoded_call_param(
         call: &<T as Config>::RuntimeCall,
-    ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
+    ) -> Option<(&Proof<T::Signature, T::AccountId>, BoundedVec<u8, MaximumSignedParamsSize>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
             None => return None,
