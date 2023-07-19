@@ -19,7 +19,7 @@
 use frame_support::parameter_types;
 use frame_system as system;
 use sp_avn_common::event_types::EthEventId;
-use sp_core::{sr25519, Pair, H256};
+use sp_core::{sr25519, ConstU32, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::Header,
@@ -39,6 +39,7 @@ pub type Hashing = <TestRuntime as system::Config>::Hashing;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
+pub type MockNftBatchBound = ConstU32<8>;
 
 frame_support::construct_runtime!(
     pub enum TestRuntime where
@@ -59,6 +60,7 @@ impl Config for TestRuntime {
     type Public = AccountId;
     type Signature = Signature;
     type WeightInfo = ();
+    type BatchBound = MockNftBatchBound;
 }
 
 parameter_types! {

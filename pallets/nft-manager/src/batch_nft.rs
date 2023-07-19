@@ -17,8 +17,9 @@
 use crate::{
     keccak_256, BatchInfoId, BatchOpenForSale, Config, Decode, DispatchResult, Encode, Error,
     EthEventId, Event, Nft, NftBatchId, NftBatches, NftEndBatchListingData, NftExternalRefBound,
-    NftInfo, NftInfoId, NftInfos, NftSaleType, NftUniqueId, Nfts, Pallet, ProcessedEventsChecker,
-    Proof, Royalty, Vec, BATCH_ID_CONTEXT, BATCH_NFT_ID_CONTEXT, H160, U256,
+    NftInfo, NftInfoId, NftInfos, NftRoyaltiesBound, NftSaleType, NftUniqueId, Nfts, Pallet,
+    ProcessedEventsChecker, Proof, Royalty, Vec, BATCH_ID_CONTEXT, BATCH_NFT_ID_CONTEXT, H160,
+    U256,
 };
 use frame_support::{dispatch::DispatchError, ensure};
 use sp_avn_common::event_types::NftMintData;
@@ -70,7 +71,7 @@ pub fn get_nft_info_for_batch<T: Config>(
 pub fn create_batch<T: Config>(
     info_id: NftInfoId,
     batch_id: NftBatchId,
-    royalties: Vec<Royalty>,
+    royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
     total_supply: u64,
     t1_authority: H160,
     creator: T::AccountId,
@@ -191,7 +192,7 @@ pub fn mint_batch_nft<T: Config>(
     Pallet::<T>::add_nft_and_update_owner(&owner, &nft);
 
     let mut nfts_for_batch = <NftBatches<T>>::get(batch_id);
-    nfts_for_batch.push(nft_id);
+    nfts_for_batch.try_push(nft_id).map_err(|_| Error::<T>::BatchOutOfBounds)?;
     <NftBatches<T>>::insert(batch_id, nfts_for_batch);
 
     <crate::Pallet<T>>::deposit_event(Event::<T>::BatchNftMinted {
