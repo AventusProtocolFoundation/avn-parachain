@@ -41,7 +41,7 @@ impl RoyaltyRate {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct Nft<AccountId: Member> {
     /// Unique identifier of a nft
     pub nft_id: NftId,
@@ -77,14 +77,14 @@ impl<AccountId: Member> Nft<AccountId> {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct NftInfo<AccountId: Member> {
     /// Unique identifier of this information
     pub info_id: NftInfoId,
     /// Batch Id defined by client
     pub batch_id: Option<NftBatchId>,
     /// Royalties payment rate for the nft.
-    pub royalties: Vec<Royalty>,
+    pub royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
     /// Total supply of NFTs in this collection:
     ///  - 1: it is for a singleton
     ///  - >1: it is for a batch
@@ -97,7 +97,11 @@ pub struct NftInfo<AccountId: Member> {
 }
 
 impl<AccountId: Member> NftInfo<AccountId> {
-    pub fn new(info_id: NftInfoId, royalties: Vec<Royalty>, t1_authority: H160) -> Self {
+    pub fn new(
+        info_id: NftInfoId,
+        royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
+        t1_authority: H160,
+    ) -> Self {
         return NftInfo::<AccountId> {
             info_id,
             batch_id: None,
@@ -111,7 +115,7 @@ impl<AccountId: Member> NftInfo<AccountId> {
     pub fn new_batch(
         info_id: NftInfoId,
         batch_id: NftBatchId,
-        royalties: Vec<Royalty>,
+        royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
         t1_authority: H160,
         total_supply: u64,
         creator: AccountId,
