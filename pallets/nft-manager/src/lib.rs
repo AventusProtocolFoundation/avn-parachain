@@ -25,7 +25,7 @@ use frame_support::{
         DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, Dispatchable,
         PostDispatchInfo,
     },
-    ensure, log,
+    ensure,
     traits::{Get, IsSubType},
     weights::Weight,
     Parameter,
@@ -39,7 +39,7 @@ use sp_avn_common::{
     },
     verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
-use sp_core::{H160, H256, U256};
+use sp_core::{ConstU32, H160, H256, U256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -73,12 +73,17 @@ pub const SIGNED_CANCEL_LIST_FIAT_NFT_CONTEXT: &'static [u8] =
 pub const SIGNED_MINT_BATCH_NFT_CONTEXT: &'static [u8] =
     b"authorization for mint batch nft operation";
 
-const MAX_NUMBER_OF_ROYALTIES: u32 = 5;
+const MAX_NUMBER_OF_ROYALTIES: u32 = 16;
+/// Bound used for number of Royalties an NFTs that can have
+pub(crate) type NftRoyaltiesBound = ConstU32<MAX_NUMBER_OF_ROYALTIES>;
 
 pub type NftId = U256;
 pub type NftInfoId = U256;
 pub type NftBatchId = U256;
 pub type NftUniqueId = U256;
+
+/// Suggested bound to use in runtime for number of NFTs that can exist in a single Batch
+pub type BatchNftBound = ConstU32<16384>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -112,6 +117,9 @@ pub mod pallet {
             + TypeInfo;
 
         type WeightInfo: WeightInfo;
+
+        #[pallet::constant]
+        type BatchBound: Get<u32>;
     }
 
     #[pallet::pallet]
@@ -245,6 +253,10 @@ pub mod pallet {
         BatchNotListedForEthereumSale,
         /// External reference size is out of bounds
         ExternalRefOutOfBounds,
+        /// Nft Royalties size is out of bounds
+        RoyaltiesOutOfBounds,
+        /// Batch size is out of bounds
+        BatchOutOfBounds,
     }
 
     /// A mapping between NFT Id and data
@@ -263,7 +275,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn nft_batches)]
     pub type NftBatches<T: Config> =
-        StorageMap<_, Blake2_128Concat, NftBatchId, Vec<NftId>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, NftBatchId, BoundedVec<NftId, T::BatchBound>, ValueQuery>;
 
     /// A mapping between the external batch id and its corresponding NtfInfoId
     #[pallet::storage]
@@ -294,6 +306,7 @@ pub mod pallet {
     pub type NftOpenForSale<T: Config> =
         StorageMap<_, Blake2_128Concat, NftId, NftSaleType, ValueQuery>;
 
+    // TODO remove this storage item and delete its data
     /// A mapping between the external batch id and its nft Ids
     #[pallet::storage]
     #[pallet::getter(fn get_owned_nfts)]
@@ -347,7 +360,7 @@ pub mod pallet {
             let info_id = Self::get_info_id_and_advance();
             let (nft, info) = Self::insert_single_nft_into_chain(
                 info_id,
-                royalties,
+                BoundedVec::try_from(royalties).map_err(|_| Error::<T>::RoyaltiesOutOfBounds)?,
                 t1_authority,
                 nft_id,
                 bounded_unique_external_ref,
@@ -405,7 +418,7 @@ pub mod pallet {
             let info_id = Self::get_info_id_and_advance();
             let (nft, info) = Self::insert_single_nft_into_chain(
                 info_id,
-                royalties,
+                BoundedVec::try_from(royalties).map_err(|_| Error::<T>::RoyaltiesOutOfBounds)?,
                 t1_authority,
                 nft_id,
                 bounded_unique_external_ref,
@@ -579,6 +592,7 @@ pub mod pallet {
             ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
             ensure!(t1_authority.is_zero() == false, Error::<T>::T1AuthorityIsMandatory);
             ensure!(total_supply > 0u64, Error::<T>::TotalSupplyZero);
+            ensure!(total_supply <= T::BatchBound::get().into(), Error::<T>::BatchOutOfBounds);
 
             Self::validate_royalties(&royalties)?;
 
@@ -607,7 +621,7 @@ pub mod pallet {
             create_batch::<T>(
                 info_id,
                 batch_id,
-                royalties,
+                BoundedVec::try_from(royalties).map_err(|_| Error::<T>::RoyaltiesOutOfBounds)?,
                 total_supply,
                 t1_authority,
                 sender.clone(),
@@ -756,11 +770,6 @@ pub mod pallet {
         // migration logic should be done in a separate function so it can be tested
         // properly.
         fn on_runtime_upgrade() -> Weight {
-            if <StorageVersion<T>>::get() == Releases::V2_0_0 {
-                <StorageVersion<T>>::put(Releases::V3_0_0);
-                return migrations::migrate_to_batch_nft::<T>()
-            }
-
             return Weight::from_ref_time(0)
         }
     }
@@ -852,7 +861,7 @@ impl<T: Config> Pallet<T> {
 
     fn insert_single_nft_into_chain(
         info_id: NftInfoId,
-        royalties: Vec<Royalty>,
+        royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
         t1_authority: H160,
         nft_id: NftId,
         unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
@@ -1263,42 +1272,6 @@ pub enum Releases {
 impl Default for Releases {
     fn default() -> Self {
         Releases::V3_0_0
-    }
-}
-
-pub mod migrations {
-    use super::*;
-
-    #[derive(Decode)]
-    struct OldNftInfo {
-        pub info_id: NftInfoId,
-        pub batch_id: Option<NftBatchId>,
-        pub royalties: Vec<Royalty>,
-        pub total_supply: u64,
-        pub t1_authority: H160,
-    }
-
-    impl OldNftInfo {
-        fn upgraded<T: Config>(self) -> NftInfo<T::AccountId> {
-            NftInfo {
-                info_id: self.info_id,
-                batch_id: self.batch_id,
-                royalties: self.royalties,
-                total_supply: self.total_supply,
-                t1_authority: self.t1_authority,
-                creator: None,
-            }
-        }
-    }
-
-    pub fn migrate_to_batch_nft<T: Config>() -> frame_support::weights::Weight {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-        log::info!("ℹ️  Nft manager pallet data migration invoked");
-
-        NftInfos::<T>::translate::<OldNftInfo, _>(|_, p| Some(p.upgraded::<T>()));
-
-        log::info!("ℹ️  Migrated NftInfo data successfully");
-        return T::BlockWeights::get().max_block
     }
 }
 
