@@ -137,6 +137,10 @@ impl Context {
         BoundedVec::try_from(self.unique_external_ref.clone())
             .expect("Unique external reference bound was exceeded.")
     }
+
+    pub fn bounded_royalties(&self) -> BoundedVec<Royalty, NftRoyaltiesBound> {
+        BoundedVec::try_from(self.royalties.clone()).expect("Royalty bound was exceeded.")
+    }
 }
 
 mod proxy_signed_mint_single_nft {
@@ -188,7 +192,11 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(true, <NftInfos<TestRuntime>>::contains_key(&context.info_id));
 
                 assert_eq!(
-                    NftInfo::new(context.info_id, context.royalties, context.t1_authority),
+                    NftInfo::new(
+                        context.info_id,
+                        context.bounded_royalties(),
+                        context.t1_authority
+                    ),
                     <NftInfos<TestRuntime>>::get(&context.info_id).unwrap()
                 );
             });
@@ -707,14 +715,18 @@ mod signed_mint_single_nft {
                 assert_ok!(NftManager::signed_mint_single_nft(
                     Origin::signed(context.nft_owner_account),
                     proof,
-                    context.unique_external_ref,
+                    context.unique_external_ref.clone(),
                     context.royalties.clone(),
                     context.t1_authority
                 ));
 
                 assert_eq!(true, <NftInfos<TestRuntime>>::contains_key(&context.info_id));
                 assert_eq!(
-                    NftInfo::new(context.info_id, context.royalties, context.t1_authority),
+                    NftInfo::new(
+                        context.info_id,
+                        context.bounded_royalties(),
+                        context.t1_authority
+                    ),
                     <NftInfos<TestRuntime>>::get(&context.info_id).unwrap()
                 );
             });

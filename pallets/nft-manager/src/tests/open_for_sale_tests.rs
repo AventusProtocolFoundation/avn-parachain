@@ -81,7 +81,7 @@ mod open_for_sale {
         pub fn inject_nft_to_chain(&self) -> (Nft<AccountId>, NftInfo<AccountId>) {
             return NftManager::insert_single_nft_into_chain(
                 self.info_id,
-                self.royalties.clone(),
+                self.bounded_royalties(),
                 self.t1_authority,
                 self.nft_id(),
                 self.bounded_external_ref(),
@@ -92,6 +92,10 @@ mod open_for_sale {
         pub fn bounded_external_ref(&self) -> BoundedVec<u8, NftExternalRefBound> {
             BoundedVec::try_from(self.unique_external_ref.clone())
                 .expect("Unique external reference bound was exceeded.")
+        }
+
+        pub fn bounded_royalties(&self) -> BoundedVec<Royalty, NftRoyaltiesBound> {
+            BoundedVec::try_from(self.royalties.clone()).expect("Royalty bound was exceeded.")
         }
     }
 
