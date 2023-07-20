@@ -11,6 +11,7 @@ repository = "https://github.com/Aventus-Network-Services/avn-parachain/"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+log = "0.4"
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
 hex-literal = { version = "0.3.4", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
