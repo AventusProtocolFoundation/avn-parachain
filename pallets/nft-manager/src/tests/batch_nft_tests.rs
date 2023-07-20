@@ -772,8 +772,8 @@ mod signed_mint_batch_nft {
                 let mut context = MintBatchNftContext::default();
                 context.setup();
 
-                let out_of_bounds_size = 4096;
-                context.unique_external_ref = (0..out_of_bounds_size).map(|_| 65).collect();
+                let out_of_bounds_size: u32 = <NftExternalRefBound as sp_core::Get<u32>>::get() + 1;
+                context.unique_external_ref = vec![b'A'; out_of_bounds_size as usize];
 
                 let index = 0u64;
                 let batch_id = create_batch_and_list();

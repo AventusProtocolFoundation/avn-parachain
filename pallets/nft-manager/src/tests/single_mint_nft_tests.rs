@@ -180,8 +180,8 @@ mod mint_single_nft {
                 assert_eq!(false, <NftInfos<TestRuntime>>::contains_key(&expected_info_id));
                 assert_eq!(false, context.event_emitted_with_single_nft_minted());
 
-                let out_of_bounds_size = 4096;
-                context.unique_external_ref = (0..out_of_bounds_size).map(|_| 65).collect();
+                let out_of_bounds_size: u32 = <NftExternalRefBound as sp_core::Get<u32>>::get() + 1;
+                context.unique_external_ref = vec![b'A'; out_of_bounds_size as usize];
 
                 assert_noop!(
                     context.call_mint_single_nft(),
