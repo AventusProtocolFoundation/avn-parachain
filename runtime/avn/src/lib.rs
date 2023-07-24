@@ -273,25 +273,7 @@ impl Contains<RuntimeCall> for RestrictedEndpointFilter {
 				pallet_parachain_staking::Call::execute_leave_candidates { .. }
 			) | RuntimeCall::ParachainStaking(
 				pallet_parachain_staking::Call::cancel_leave_candidates { .. }
-			) // Allow the following direct staking extrinsics:
-			  /*
-				  Call::ParachainStaking(pallet_parachain_staking::Call::nominate {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::nominator_bond_more {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::schedule_nominator_bond_less {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::schedule_revoke_nomination {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::execute_nomination_request {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::cancel_nomination_request {..}) |
-
-				  Call::ParachainStaking(pallet_parachain_staking::Call::schedule_candidate_bond_less {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::execute_candidate_bond_less {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::cancel_candidate_bond_less {..}) |
-
-				  Call::ParachainStaking(pallet_parachain_staking::Call::schedule_leave_nominators {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::execute_leave_nominators {..}) |
-				  Call::ParachainStaking(pallet_parachain_staking::Call::cancel_leave_nominators {..}) |
-
-				  Call::ParachainStaking(pallet_parachain_staking::Call::hotfix_remove_nomination_requests_exited_candidates{..})
-			  */
+			)
 		)
 	}
 }
@@ -615,7 +597,6 @@ impl pallet_avn_finality_tracker::pallet::Config for Runtime {
 }
 
 parameter_types! {
-	// TODO [TYPE: review][PRI: high][CRITICAL][JIRA: 434]: review this value.
 	pub const AdvanceSlotGracePeriod: BlockNumber = 5;
 	pub const MinBlockAge: BlockNumber = 5;
 	pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
