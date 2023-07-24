@@ -25,8 +25,6 @@ fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
 		"dev" => Box::new(chain_spec::development_config()),
 		"staging-dev" => Box::new(chain_spec::staging_dev_testnet_config()),
 		"staging" => Box::new(chain_spec::staging_testnet_config()),
-		"rococo" => Box::new(chain_spec::avn_rococo_config()?),
-		"polkadot" => Box::new(chain_spec::avn_polkadot_config()?),
 		#[cfg(feature = "avn-test-runtime")]
 		"avn-garde" => Box::new(chain_spec::avn_garde_staging_config()),
 		#[cfg(feature = "avn-test-runtime")]
