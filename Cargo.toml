@@ -22,6 +22,7 @@ rust-version = "1.64.0"
 [workspace]
 members = [
     "node",
+    "node/avn-service",
     "pallets/*",
     "primitives/*",
     "runtime/*",
