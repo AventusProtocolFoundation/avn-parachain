@@ -176,12 +176,14 @@ pub async fn send_raw_transaction(
 /// indicate an uncompressed public key; this first byte is ignored when
 /// computing the hash.
 pub fn public_key_address(public_key: &PublicKey) -> Address {
+    let uncompressed_key_flag = 0x04;
+    let ethereum_address_start_index = 12;
     let public_key = public_key.serialize_uncompressed();
 
-    debug_assert_eq!(public_key[0], 0x04);
+    debug_assert_eq!(public_key[0], uncompressed_key_flag);
     let hash = keccak256(&public_key[1..]);
 
-    Address::from_slice(&hash[12..])
+    Address::from_slice(&hash[ethereum_address_start_index..])
 }
 
 /// Gets the public address of a private key.
