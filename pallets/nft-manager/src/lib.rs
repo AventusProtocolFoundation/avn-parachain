@@ -126,7 +126,6 @@ pub mod pallet {
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
     #[pallet::storage_version(STORAGE_VERSION)]
-    // #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -795,10 +794,10 @@ pub mod pallet {
                 }
                 // Version item cleanup
                 {
-                    let owned_nfts_prefix =
+                    let storage_version_prefix =
                         storage::storage_prefix(b"NftManager", b"StorageVersion");
                     let mut key = vec![0u8; 32];
-                    key[0..32].copy_from_slice(&owned_nfts_prefix);
+                    key[0..32].copy_from_slice(&storage_version_prefix);
                     let res = unhashed::clear_prefix(&key[0..32], None, None);
 
                     log::info!(
