@@ -86,7 +86,8 @@ fn sort_and_concatenate_pair(left_node: H256, right_node: H256) -> Vec<u8> {
         .collect::<Vec<u8>>()
 }
 
-/// Generates a merkle tree using `leaves_data` and returns the path from the specified `leaf_data` to the root
+/// Generates a merkle tree using `leaves_data` and returns the path from the specified `leaf_data`
+/// to the root
 pub fn generate_merkle_path(leaf_data: &Vec<u8>, leaves_data: Vec<Vec<u8>>) -> Result<Vec<H256>> {
     let mut merkle_path: Vec<H256> = vec![];
 

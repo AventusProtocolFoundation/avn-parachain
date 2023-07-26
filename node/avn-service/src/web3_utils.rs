@@ -24,7 +24,8 @@ impl Web3Data {
         Web3Data { web3: None, nonce: None }
     }
 
-    /// Updates the web3 nonce value if needed. If the force_update flag is set to true then it always does.
+    /// Updates the web3 nonce value if needed. If the force_update flag is set to true then it
+    /// always does.
     pub async fn get_nonce(
         &mut self,
         sender_eth_address: &Vec<u8>,
