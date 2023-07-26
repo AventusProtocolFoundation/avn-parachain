@@ -100,6 +100,7 @@ pub use types::*;
 
 #[pallet]
 pub mod pallet {
+    use crate::set::BoundedOrderedSet;
     pub use crate::{
         calls::*,
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
@@ -206,6 +207,9 @@ pub mod pallet {
         type CollatorPayoutDustHandler: CollatorPayoutDustHandler<BalanceOf<Self>>;
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+        /// Maximum candidates
+        #[pallet::constant]
+        type MaxCandidates: Get<u32>;
     }
 
     #[pallet::error]
@@ -226,6 +230,7 @@ pub mod pallet {
         NominatorCannotLeaveYet,
         CandidateAlreadyLeaving,
         CandidateNotLeaving,
+        CandidateLimitReached,
         CandidateCannotLeaveYet,
         CannotGoOnlineIfLeaving,
         ExceedMaxNominationsPerNominator,
@@ -476,7 +481,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         T::AccountId,
-        Vec<ScheduledRequest<T::AccountId, BalanceOf<T>>>,
+        BoundedVec<ScheduledRequest<T::AccountId, BalanceOf<T>>, T::MaxNominationsPerNominator>,
         ValueQuery,
     >;
 
@@ -505,7 +510,8 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn selected_candidates)]
     /// The collator candidates selected for the current era
-    pub type SelectedCandidates<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
+    pub type SelectedCandidates<T: Config> =
+        StorageValue<_, BoundedVec<T::AccountId, T::MaxCandidates>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn total)]
@@ -515,8 +521,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn candidate_pool)]
     /// The pool of collator candidates, each with their total backing stake
-    pub(crate) type CandidatePool<T: Config> =
-        StorageValue<_, OrderedSet<Bond<T::AccountId, BalanceOf<T>>>, ValueQuery>;
+    pub(crate) type CandidatePool<T: Config> = StorageValue<
+        _,
+        BoundedOrderedSet<Bond<T::AccountId, BalanceOf<T>>, T::MaxCandidates>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn at_stake)]
@@ -797,10 +806,10 @@ pub mod pallet {
                 candidate_count >= old_count,
                 Error::<T>::TooLowCandidateCountWeightHintJoinCandidates
             );
-            ensure!(
-                candidates.insert(Bond { owner: acc.clone(), amount: bond }),
-                Error::<T>::CandidateExists
-            );
+            let maybe_inserted_candidate = candidates
+                .try_insert(Bond { owner: acc.clone(), amount: bond })
+                .map_err(|_| Error::<T>::CandidateLimitReached)?;
+            ensure!(maybe_inserted_candidate, Error::<T>::CandidateExists);
             ensure!(
                 Self::get_collator_stakable_free_balance(&acc) >= bond,
                 Error::<T>::InsufficientBalance,
@@ -950,10 +959,10 @@ pub mod pallet {
                 candidates.0.len() as u32 <= candidate_count,
                 Error::<T>::TooLowCandidateCountWeightHintCancelLeaveCandidates
             );
-            ensure!(
-                candidates.insert(Bond { owner: collator.clone(), amount: state.total_counted }),
-                Error::<T>::AlreadyActive
-            );
+            let maybe_inserted_candidate = candidates
+                .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
+                .map_err(|_| Error::<T>::CandidateLimitReached)?;
+            ensure!(maybe_inserted_candidate, Error::<T>::AlreadyActive);
             <CandidatePool<T>>::put(candidates);
             <CandidateInfo<T>>::insert(&collator, state);
             Self::deposit_event(Event::CancelledCandidateExit { candidate: collator });
@@ -987,10 +996,11 @@ pub mod pallet {
             ensure!(!state.is_leaving(), Error::<T>::CannotGoOnlineIfLeaving);
             state.go_online();
             let mut candidates = <CandidatePool<T>>::get();
-            ensure!(
-                candidates.insert(Bond { owner: collator.clone(), amount: state.total_counted }),
-                Error::<T>::AlreadyActive
-            );
+            let maybe_inserted_candidate = candidates
+                .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
+                .map_err(|_| Error::<T>::CandidateLimitReached)?;
+            ensure!(maybe_inserted_candidate, Error::<T>::AlreadyActive);
+
             <CandidatePool<T>>::put(candidates);
             <CandidateInfo<T>>::insert(&collator, state);
             Self::deposit_event(Event::CandidateBackOnline { candidate: collator });
@@ -1672,7 +1682,10 @@ pub mod pallet {
         pub(crate) fn update_active(candidate: T::AccountId, total: BalanceOf<T>) {
             let mut candidates = <CandidatePool<T>>::get();
             candidates.remove(&Bond::from_owner(candidate.clone()));
-            candidates.insert(Bond { owner: candidate, amount: total });
+            let maybe_inserted_candidate = candidates
+                .try_insert(Bond { owner: candidate, amount: total })
+                .map_err(|_| Error::<T>::CandidateLimitReached);
+            // candidates.insert(Bond { owner: candidate, amount: total });
             <CandidatePool<T>>::put(candidates);
         }
 
@@ -1949,7 +1962,10 @@ pub mod pallet {
                 });
             }
             // insert canonical collator set
-            <SelectedCandidates<T>>::put(collators);
+            <SelectedCandidates<T>>::put(
+                BoundedVec::try_from(collators)
+                    .expect("subset of collators is always less than or equal to max candidates"),
+            );
             (collator_count, nomination_count, total)
         }
 
