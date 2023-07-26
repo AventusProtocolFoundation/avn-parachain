@@ -12,7 +12,10 @@ use frame_support::{
     ensure,
 };
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{event_types::Validator, MaximumValidatorsBound, VotingSessionIdBound};
+use sp_avn_common::{
+    bounds::{MaximumValidatorsBound, VotingSessionIdBound},
+    event_types::Validator,
+};
 use sp_core::ecdsa;
 use sp_runtime::{
     scale_info::TypeInfo,

@@ -44,6 +44,7 @@ use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Hash, IdentifyAccount, Member, Verify},
+    BoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -242,6 +243,8 @@ pub mod pallet {
         UnauthorizedSignedEndBatchSaleTransaction,
         BatchNotListedForFiatSale,
         BatchNotListedForEthereumSale,
+        /// External reference size is out of bounds
+        ExternalRefOutOfBounds,
     }
 
     /// A mapping between NFT Id and data
@@ -272,7 +275,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn is_external_ref_used)]
     pub type UsedExternalReferences<T: Config> =
-        StorageMap<_, Blake2_128Concat, Vec<u8>, bool, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, BoundedVec<u8, NftExternalRefBound>, bool, ValueQuery>;
 
     /// The Id that will be used when creating the new NftInfo record
     #[pallet::storage]
@@ -325,7 +328,15 @@ pub mod pallet {
             t1_authority: H160,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            Self::validate_mint_single_nft_request(&unique_external_ref, &royalties, t1_authority)?;
+
+            let bounded_unique_external_ref =
+                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref)
+                    .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
+            Self::validate_mint_single_nft_request(
+                &bounded_unique_external_ref,
+                &royalties,
+                t1_authority,
+            )?;
 
             // We trust the input for the value of t1_authority
             let nft_id =
@@ -339,7 +350,7 @@ pub mod pallet {
                 royalties,
                 t1_authority,
                 nft_id,
-                unique_external_ref,
+                bounded_unique_external_ref,
                 sender,
             );
 
@@ -364,7 +375,14 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
-            Self::validate_mint_single_nft_request(&unique_external_ref, &royalties, t1_authority)?;
+            let bounded_unique_external_ref =
+                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref.clone())
+                    .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
+            Self::validate_mint_single_nft_request(
+                &bounded_unique_external_ref,
+                &royalties,
+                t1_authority,
+            )?;
 
             let signed_payload = Self::encode_mint_single_nft_params(
                 &proof,
@@ -390,7 +408,7 @@ pub mod pallet {
                 royalties,
                 t1_authority,
                 nft_id,
-                unique_external_ref,
+                bounded_unique_external_ref,
                 proof.signer,
             );
 
@@ -621,7 +639,11 @@ pub mod pallet {
             let sender = ensure_signed(origin)?;
             ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
 
-            let nft_info = validate_mint_batch_nft_request::<T>(batch_id, &unique_external_ref)?;
+            let bounded_unique_external_ref =
+                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref)
+                    .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
+            let nft_info =
+                validate_mint_batch_nft_request::<T>(batch_id, &bounded_unique_external_ref)?;
             ensure!(
                 <BatchOpenForSale<T>>::get(&batch_id) == NftSaleType::Fiat,
                 Error::<T>::BatchNotListedForFiatSale
@@ -632,7 +654,7 @@ pub mod pallet {
                 &proof,
                 &batch_id,
                 &index,
-                &unique_external_ref,
+                &bounded_unique_external_ref,
                 &owner,
             );
             ensure!(
@@ -641,7 +663,7 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedMintBatchNftTransaction
             );
 
-            mint_batch_nft::<T>(batch_id, owner, index, &unique_external_ref)?;
+            mint_batch_nft::<T>(batch_id, owner, index, bounded_unique_external_ref)?;
 
             Ok(())
         }
@@ -746,7 +768,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     fn validate_mint_single_nft_request(
-        unique_external_ref: &Vec<u8>,
+        unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
         royalties: &Vec<Royalty>,
         t1_authority: H160,
     ) -> DispatchResult {
@@ -758,7 +780,9 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn validate_external_ref(unique_external_ref: &Vec<u8>) -> DispatchResult {
+    fn validate_external_ref(
+        unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
+    ) -> DispatchResult {
         ensure!(unique_external_ref.len() > 0, Error::<T>::ExternalRefIsMandatory);
         ensure!(
             Self::is_external_ref_used(&unique_external_ref) == false,
@@ -831,7 +855,7 @@ impl<T: Config> Pallet<T> {
         royalties: Vec<Royalty>,
         t1_authority: H160,
         nft_id: NftId,
-        unique_external_ref: Vec<u8>,
+        unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
         owner: T::AccountId,
     ) -> (Nft<T::AccountId>, NftInfo<T::AccountId>) {
         let info = NftInfo::new(info_id, royalties, t1_authority);
