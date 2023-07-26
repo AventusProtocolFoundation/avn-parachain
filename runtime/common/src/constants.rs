@@ -20,40 +20,40 @@
 /// AVT, the native token, uses 18 decimals of precision.
 
 pub mod currency {
-	use node_primitives::Balance;
+    use node_primitives::Balance;
 
-	pub const PICO_AVT: Balance = 1_000_000;
-	pub const NANO_AVT: Balance = 1_000 * PICO_AVT;
-	pub const MICRO_AVT: Balance = 1_000 * NANO_AVT;
-	pub const MILLI_AVT: Balance = 1_000 * MICRO_AVT;
-	pub const AVT: Balance = 1_000 * MILLI_AVT;
+    pub const PICO_AVT: Balance = 1_000_000;
+    pub const NANO_AVT: Balance = 1_000 * PICO_AVT;
+    pub const MICRO_AVT: Balance = 1_000 * NANO_AVT;
+    pub const MILLI_AVT: Balance = 1_000 * MICRO_AVT;
+    pub const AVT: Balance = 1_000 * MILLI_AVT;
 
-	#[cfg(test)]
-	mod test_avt_constants {
-		use super::*;
+    #[cfg(test)]
+    mod test_avt_constants {
+        use super::*;
 
-		/// Checks that the avt amounts are correct.
-		#[test]
-		fn avt_amounts() {
-			assert_eq!(AVT, 1_000_000_000_000_000_000, "AVT should be 1_000_000_000_000_000_000");
-			assert_eq!(MILLI_AVT, 1_000_000_000_000_000, "mAVT should be 1_000_000_000_000_000");
-			assert_eq!(MICRO_AVT, 1_000_000_000_000, "μAVT should be 1_000_000_000_000");
-			assert_eq!(NANO_AVT, 1_000_000_000, "nAVT should be 1_000_000_000");
-			assert_eq!(PICO_AVT, 1_000_000, "pAVT should be 1_000_000");
-		}
-	}
+        /// Checks that the avt amounts are correct.
+        #[test]
+        fn avt_amounts() {
+            assert_eq!(AVT, 1_000_000_000_000_000_000, "AVT should be 1_000_000_000_000_000_000");
+            assert_eq!(MILLI_AVT, 1_000_000_000_000_000, "mAVT should be 1_000_000_000_000_000");
+            assert_eq!(MICRO_AVT, 1_000_000_000_000, "μAVT should be 1_000_000_000_000");
+            assert_eq!(NANO_AVT, 1_000_000_000, "nAVT should be 1_000_000_000");
+            assert_eq!(PICO_AVT, 1_000_000, "pAVT should be 1_000_000");
+        }
+    }
 }
 
 /// Time.
 pub mod time {
-	use node_primitives::{BlockNumber, Moment};
+    use node_primitives::{BlockNumber, Moment};
 
-	/// Change this to adjust the block time.
-	pub const MILLISECS_PER_BLOCK: u64 = 12000;
-	pub const SECS_PER_BLOCK: Moment = MILLISECS_PER_BLOCK / 1000;
+    /// Change this to adjust the block time.
+    pub const MILLISECS_PER_BLOCK: u64 = 12000;
+    pub const SECS_PER_BLOCK: Moment = MILLISECS_PER_BLOCK / 1000;
 
-	// These time units are defined in number of blocks.
-	pub const MINUTES: BlockNumber = 60 / (SECS_PER_BLOCK as BlockNumber);
-	pub const HOURS: BlockNumber = MINUTES * 60;
-	pub const DAYS: BlockNumber = HOURS * 24;
+    // These time units are defined in number of blocks.
+    pub const MINUTES: BlockNumber = 60 / (SECS_PER_BLOCK as BlockNumber);
+    pub const HOURS: BlockNumber = MINUTES * 60;
+    pub const DAYS: BlockNumber = HOURS * 24;
 }
