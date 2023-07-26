@@ -83,7 +83,7 @@ impl Context {
     fn setup(&self) {
         <Nfts<TestRuntime>>::remove(&self.nft_id);
         <NftInfos<TestRuntime>>::remove(&self.nft_id);
-        <UsedExternalReferences<TestRuntime>>::remove(&self.unique_external_ref);
+        <UsedExternalReferences<TestRuntime>>::remove(&self.bounded_external_ref());
     }
 
     fn create_signed_mint_single_nft_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
@@ -132,6 +132,11 @@ impl Context {
                 })
         })
     }
+
+    pub fn bounded_external_ref(&self) -> BoundedVec<u8, NftExternalRefBound> {
+        BoundedVec::try_from(self.unique_external_ref.clone())
+            .expect("Unique external reference bound was exceeded.")
+    }
 }
 
 mod proxy_signed_mint_single_nft {
@@ -160,7 +165,7 @@ mod proxy_signed_mint_single_nft {
                     Nft::new(
                         context.nft_id,
                         context.info_id,
-                        context.unique_external_ref,
+                        context.bounded_external_ref(),
                         context.nft_owner_account
                     ),
                     <Nfts<TestRuntime>>::get(&context.nft_id).unwrap()
@@ -200,7 +205,7 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
 
@@ -209,12 +214,12 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(
                     true,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(
                     true,
-                    <UsedExternalReferences<TestRuntime>>::get(context.unique_external_ref)
+                    <UsedExternalReferences<TestRuntime>>::get(context.bounded_external_ref())
                 );
             });
         }
@@ -305,7 +310,10 @@ mod proxy_signed_mint_single_nft {
             ext.execute_with(|| {
                 let context = Context::default();
                 context.setup();
-                <UsedExternalReferences<TestRuntime>>::insert(&context.unique_external_ref, true);
+                <UsedExternalReferences<TestRuntime>>::insert(
+                    &context.bounded_external_ref(),
+                    true,
+                );
                 let call = context.create_signed_mint_single_nft_call();
 
                 assert_noop!(
@@ -425,7 +433,7 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -466,7 +474,7 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -507,7 +515,7 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -551,7 +559,7 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -572,7 +580,7 @@ mod proxy_signed_mint_single_nft {
                 let data_to_sign = (
                     SIGNED_MINT_SINGLE_NFT_CONTEXT,
                     &context.relayer,
-                    &context.unique_external_ref,
+                    &context.bounded_external_ref(),
                     other_royalties,
                     context.t1_authority,
                 );
@@ -597,7 +605,7 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -640,7 +648,7 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -669,7 +677,7 @@ mod signed_mint_single_nft {
                     Origin::signed(context.nft_owner_account),
                     proof,
                     context.unique_external_ref.clone(),
-                    context.royalties,
+                    context.royalties.clone(),
                     context.t1_authority
                 ));
 
@@ -678,7 +686,7 @@ mod signed_mint_single_nft {
                     Nft::new(
                         context.nft_id,
                         context.info_id,
-                        context.unique_external_ref,
+                        context.bounded_external_ref(),
                         context.nft_owner_account
                     ),
                     <Nfts<TestRuntime>>::get(&context.nft_id).unwrap()
@@ -723,7 +731,7 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
 
@@ -738,12 +746,12 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     true,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(
                     true,
-                    <UsedExternalReferences<TestRuntime>>::get(context.unique_external_ref)
+                    <UsedExternalReferences<TestRuntime>>::get(context.bounded_external_ref())
                 );
             });
         }
@@ -759,7 +767,7 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
 
@@ -849,7 +857,10 @@ mod signed_mint_single_nft {
             ext.execute_with(|| {
                 let context = Context::default();
                 context.setup();
-                <UsedExternalReferences<TestRuntime>>::insert(&context.unique_external_ref, true);
+                <UsedExternalReferences<TestRuntime>>::insert(
+                    &context.bounded_external_ref(),
+                    true,
+                );
                 let proof = context.create_signed_mint_single_nft_proof();
 
                 assert_noop!(
@@ -990,7 +1001,7 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -1029,7 +1040,7 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -1068,7 +1079,7 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -1110,7 +1121,7 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -1154,7 +1165,7 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
@@ -1195,7 +1206,7 @@ mod signed_mint_single_nft {
                 assert_eq!(
                     false,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        &context.bounded_external_ref()
                     )
                 );
                 assert_eq!(false, context.mint_single_nft_event_emitted());
