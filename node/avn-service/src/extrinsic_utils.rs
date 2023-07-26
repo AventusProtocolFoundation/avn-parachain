@@ -26,7 +26,8 @@ pub struct LowerLeafFilter {
     pub extrinsic_index: u32,
 }
 
-/// Gets a vector of leaves for the given block range and a filtered leaf (if found) based on the filter provided
+/// Gets a vector of leaves for the given block range and a filtered leaf (if found) based on the
+/// filter provided
 pub fn get_extrinsics_and_check_if_filter_target_exists<Block: BlockT, ClientT>(
     client: &Arc<ClientT>,
     from_block_number: u32,

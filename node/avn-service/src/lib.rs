@@ -120,7 +120,8 @@ pub fn hash_with_ethereum_prefix(data_to_sign: Vec<u8>) -> [u8; 32] {
     keccak_256(&prefixed_message)
 }
 
-// TODO: Create common version of this, eg in primitives/avn-common, to share with version in frame/ethereum-events/src/event_parser.rs.
+// TODO: Create common version of this, eg in primitives/avn-common, to share with version in
+// frame/ethereum-events/src/event_parser.rs.
 pub fn to_bytes32(data: String) -> Result<[u8; 32], TideError> {
     let mut data = data.to_lowercase();
     if data.starts_with("0x") {
@@ -339,8 +340,8 @@ where
     app.at("/roothash/:from_block/:to_block").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             log::info!("ℹ️ avn-service roothash");
-            // We cannot use a number bigger than a u32, but with block times of 12 sec it would take
-            // of few hundred years before we reach it.
+            // We cannot use a number bigger than a u32, but with block times of 12 sec it would
+            // take of few hundred years before we reach it.
             let from_block_number: u32 = req.param("from_block")?.parse()?;
             let to_block_number: u32 = req.param("to_block")?.parse()?;
 

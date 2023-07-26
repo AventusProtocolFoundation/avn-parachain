@@ -21,7 +21,7 @@
 //! Key related CLI utilities
 
 use sc_cli::{
-	Error, GenerateCmd, GenerateNodeKeyCmd, InspectKeyCmd, InspectNodeKeyCmd, SubstrateCli,
+    Error, GenerateCmd, GenerateNodeKeyCmd, InspectKeyCmd, InspectNodeKeyCmd, SubstrateCli,
 };
 
 use super::insert_avn_key::InsertAvNKeyCmd;
@@ -29,32 +29,32 @@ use super::insert_avn_key::InsertAvNKeyCmd;
 /// Key utilities for the cli.
 #[derive(Debug, clap::Subcommand)]
 pub enum AvnKeySubcommand {
-	/// Generate a random node key, write it to a file or stdout and write the
-	/// corresponding peer-id to stderr
-	GenerateNodeKey(GenerateNodeKeyCmd),
+    /// Generate a random node key, write it to a file or stdout and write the
+    /// corresponding peer-id to stderr
+    GenerateNodeKey(GenerateNodeKeyCmd),
 
-	/// Generate a random account
-	Generate(GenerateCmd),
+    /// Generate a random account
+    Generate(GenerateCmd),
 
-	/// Gets a public key and a SS58 address from the provided Secret URI
-	Inspect(InspectKeyCmd),
+    /// Gets a public key and a SS58 address from the provided Secret URI
+    Inspect(InspectKeyCmd),
 
-	/// Load a node key from a file or stdin and print the corresponding peer-id
-	InspectNodeKey(InspectNodeKeyCmd),
+    /// Load a node key from a file or stdin and print the corresponding peer-id
+    InspectNodeKey(InspectNodeKeyCmd),
 
-	/// Insert a key to the keystore of a node.
-	Insert(InsertAvNKeyCmd),
+    /// Insert a key to the keystore of a node.
+    Insert(InsertAvNKeyCmd),
 }
 
 impl AvnKeySubcommand {
-	/// run the key subcommands
-	pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
-		match self {
-			AvnKeySubcommand::GenerateNodeKey(cmd) => cmd.run(),
-			AvnKeySubcommand::Generate(cmd) => cmd.run(),
-			AvnKeySubcommand::Inspect(cmd) => cmd.run(),
-			AvnKeySubcommand::Insert(cmd) => cmd.run(cli),
-			AvnKeySubcommand::InspectNodeKey(cmd) => cmd.run(),
-		}
-	}
+    /// run the key subcommands
+    pub fn run<C: SubstrateCli>(&self, cli: &C) -> Result<(), Error> {
+        match self {
+            AvnKeySubcommand::GenerateNodeKey(cmd) => cmd.run(),
+            AvnKeySubcommand::Generate(cmd) => cmd.run(),
+            AvnKeySubcommand::Inspect(cmd) => cmd.run(),
+            AvnKeySubcommand::Insert(cmd) => cmd.run(cli),
+            AvnKeySubcommand::InspectNodeKey(cmd) => cmd.run(),
+        }
+    }
 }
