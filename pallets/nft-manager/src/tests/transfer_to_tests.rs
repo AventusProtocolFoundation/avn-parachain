@@ -91,7 +91,7 @@ mod transfer_eth_nft {
                 self.royalties.clone(),
                 self.t1_authority,
                 self.nft_id(),
-                self.unique_external_ref.clone(),
+                self.bounded_external_ref(),
                 self.nft_owner,
             )
         }
@@ -116,6 +116,11 @@ mod transfer_eth_nft {
 
         pub fn perform_transfer(&self) -> DispatchResult {
             return NftManager::transfer_eth_nft(&self.event_id, &self.transfer_to_nft_data())
+        }
+
+        pub fn bounded_external_ref(&self) -> BoundedVec<u8, NftExternalRefBound> {
+            BoundedVec::try_from(self.unique_external_ref.clone())
+                .expect("Unique external reference bound was exceeded.")
         }
     }
 

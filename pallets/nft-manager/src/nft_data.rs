@@ -15,8 +15,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::*;
+use sp_core::bounded::BoundedVec;
 use sp_runtime::traits::Member;
 
+pub(crate) use sp_avn_common::bounds::NftExternalRefBound;
 pub const ROYALTY_RATE_DENOMINATOR: u32 = 1_000_000;
 
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, MaxEncodedLen, TypeInfo)]
@@ -46,7 +48,7 @@ pub struct Nft<AccountId: Member> {
     /// Id of an info struct instance
     pub info_id: NftInfoId,
     /// Unique reference to the NFT asset stored off-chain
-    pub unique_external_ref: Vec<u8>,
+    pub unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
     /// Transfer nonce of this NFT
     pub nonce: u64,
     /// Owner account address of this NFT
@@ -61,7 +63,7 @@ impl<AccountId: Member> Nft<AccountId> {
     pub fn new(
         nft_id: NftId,
         info_id: NftInfoId,
-        unique_external_ref: Vec<u8>,
+        unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
         owner: AccountId,
     ) -> Self {
         return Nft::<AccountId> {
