@@ -84,9 +84,14 @@ mod open_for_sale {
                 self.royalties.clone(),
                 self.t1_authority,
                 self.nft_id(),
-                self.unique_external_ref.clone(),
+                self.bounded_external_ref(),
                 self.nft_owner,
             )
+        }
+
+        pub fn bounded_external_ref(&self) -> BoundedVec<u8, NftExternalRefBound> {
+            BoundedVec::try_from(self.unique_external_ref.clone())
+                .expect("Unique external reference bound was exceeded.")
         }
     }
 
