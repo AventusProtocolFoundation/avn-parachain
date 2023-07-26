@@ -80,20 +80,20 @@ pallet-collator-selection = { git = "https://github.com/paritytech/cumulus.git",
 parachain-info = { git = "https://github.com/paritytech/cumulus.git", branch = "polkadot-v0.9.36", default-features = false }
 
 # AvN pallets
-sp-avn-common = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-avn-offence-handler = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-avn-finality-tracker = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-validators-manager = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-ethereum-events = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-avn = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-ethereum-transactions = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-summary = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-token-manager = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-nft-manager = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-avn-proxy = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
-pallet-avn-transaction-payment = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
+sp-avn-common = { path = "../../primitives/avn-common", default-features = false }
+pallet-avn-offence-handler = { path = "../../pallets/avn-offence-handler", default-features = false }
+pallet-avn-finality-tracker = { path = "../../pallets/avn-finality-tracker", default-features = false }
+pallet-validators-manager = { path = "../../pallets/validators-manager", default-features = false }
+pallet-ethereum-events = { path = "../../pallets/ethereum-events", default-features = false }
+pallet-avn = { path = "../../pallets/avn", default-features = false }
+pallet-ethereum-transactions = { path = "../../pallets/ethereum-transactions", default-features = false }
+pallet-summary = { path = "../../pallets/summary", default-features = false }
+pallet-token-manager = { path = "../../pallets/token-manager", default-features = false }
+pallet-nft-manager = { path = "../../pallets/nft-manager", default-features = false }
+pallet-avn-proxy = { path = "../../pallets/avn-proxy", default-features = false }
+pallet-avn-transaction-payment = { path = "../../pallets/avn-transaction-payment", default-features = false }
 
-pallet-parachain-staking = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
+pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
 
 # Common Runtime
 runtime-common = { package = "avn-runtime-common", path = "../common", default-features = false }

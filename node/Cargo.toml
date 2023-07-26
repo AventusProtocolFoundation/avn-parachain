@@ -73,7 +73,7 @@ node-primitives = { version = "2.0.0", default-features = false, git = "https://
 # AvN dependencies
 sp-authority-discovery = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.36" }
 pallet-im-online = { default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.36" }
-sp-avn-common = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
+sp-avn-common = { path = "../primitives/avn-common", default-features = false }
 
 # Polkadot
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.36" }
@@ -93,7 +93,7 @@ cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus.g
 
 # AvN
 avn-service = { version = "0.12.0", path = "avn-service"}
-pallet-avn = { git = "https://github.com/Aventus-Network-Services/avn-parachain", tag = "v1.2.0", default-features = false }
+pallet-avn = { path = "../pallets/avn", default-features = false }
 tiny-bip39 = "0.8.2"
 libp2p = "0.46.1"
 web3 = { version = "0.18.0", default-features = false, features = ["signing"]}
