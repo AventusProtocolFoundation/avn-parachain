@@ -91,7 +91,7 @@ impl<T: Ord> From<Vec<T>> for OrderedSet<T> {
 
 /// An ordered set backed by `BoundedVec`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(RuntimeDebug, PartialEq, Eq, Encode, Decode, Clone, TypeInfo, MaxEncodedLen)]
+#[derive(RuntimeDebug, PartialEq, Eq, Encode, Decode, TypeInfo, Clone, MaxEncodedLen)]
 #[scale_info(skip_type_params(S))]
 pub struct BoundedOrderedSet<T, S: Get<u32>>(pub BoundedVec<T, S>);
 
@@ -163,3 +163,9 @@ impl<T: Ord, S: Get<u32>> From<BoundedVec<T, S>> for BoundedOrderedSet<T, S> {
         Self::from(v)
     }
 }
+
+// impl<T: Clone, S: Get<u32>> Clone for BoundedOrderedSet<T, S> {
+//     fn clone(&self) -> Self {
+//         BoundedOrderedSet(self.0.clone())
+//     }
+// }

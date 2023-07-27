@@ -17,9 +17,9 @@
 //! Types for parachain-staking
 
 use crate::{
-    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era, EraIndex,
-    Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet, RewardPoint,
-    TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    set::BoundedOrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era,
+    EraIndex, Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet,
+    RewardPoint, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
     pallet_prelude::*,
@@ -1004,11 +1004,11 @@ pub enum NominatorAdded<B> {
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
 /// Nominator state
-pub struct Nominator<AccountId, Balance> {
+pub struct Nominator<AccountId, Balance, MaxNominations: Get<u32> + Clone> {
     /// Nominator account
     pub id: AccountId,
     /// All current nominations
-    pub nominations: OrderedSet<Bond<AccountId, Balance>>,
+    pub nominations: BoundedOrderedSet<Bond<AccountId, Balance>, MaxNominations>,
     /// Total balance locked for this nominator
     pub total: Balance,
     /// Sum of pending revocation amounts + bond less amounts
@@ -1016,7 +1016,7 @@ pub struct Nominator<AccountId, Balance> {
 }
 
 // Temporary manual implementation for migration testing purposes
-impl<A: PartialEq, B: PartialEq> PartialEq for Nominator<A, B> {
+impl<A: PartialEq, B: PartialEq, C: Get<u32> + Clone> PartialEq for Nominator<A, B, C> {
     fn eq(&self, other: &Self) -> bool {
         let must_be_true =
             self.id == other.id && self.total == other.total && self.less_total == other.less_total;
@@ -1045,12 +1045,16 @@ impl<
             + Zero
             + Default
             + Saturating,
-    > Nominator<AccountId, Balance>
+        MaxNominations: Get<u32> + Clone,
+    > Nominator<AccountId, Balance, MaxNominations>
 {
     pub fn new(id: AccountId, collator: AccountId, amount: Balance) -> Self {
         Nominator {
             id,
-            nominations: OrderedSet::from(vec![Bond { owner: collator, amount }]),
+            nominations: BoundedOrderedSet::from(BoundedVec::truncate_from(vec![Bond {
+                owner: collator,
+                amount,
+            }])),
             total: amount,
             less_total: Balance::zero(),
         }
@@ -1060,7 +1064,7 @@ impl<
         Nominator {
             id,
             total: amount,
-            nominations: OrderedSet::from(vec![]),
+            nominations: BoundedOrderedSet::from(BoundedVec::default()),
             less_total: Balance::zero(),
         }
     }
@@ -1107,7 +1111,7 @@ impl<
 
     pub fn add_nomination(&mut self, bond: Bond<AccountId, Balance>) -> bool {
         let amt = bond.amount;
-        if self.nominations.insert(bond) {
+        if self.nominations.try_insert(bond).is_ok() {
             self.total = self.total.saturating_add(amt);
             true
         } else {
@@ -1122,21 +1126,33 @@ impl<
         T::AccountId: From<AccountId>,
     {
         let mut amt: Option<Balance> = None;
-        let nominations = self
-            .nominations
-            .0
-            .iter()
-            .filter_map(|x| {
-                if &x.owner == collator {
-                    amt = Some(x.amount);
-                    None
-                } else {
-                    Some(x.clone())
-                }
-            })
-            .collect();
+        // let nominations = self
+        //     .nominations
+        //     .0
+        //     .iter()
+        //     .filter_map(|x| {
+        //         if &x.owner == collator {
+        //             amt = Some(x.amount);
+        //             None
+        //         } else {
+        //             Some(x.clone())
+        //         }
+        //     })
+        //     .collect();
+
+        let mut nominations = BoundedOrderedSet::new(); // Use the BoundedOrderedSet instead of Vec.
+
+        for x in &self.nominations.0 {
+            if &x.owner == collator {
+                amt = Some(x.amount);
+            } else {
+                nominations.try_insert(x.clone()).unwrap(); // Use try_insert to add elements to the
+                                                            // set.
+            }
+        }
+
         if let Some(balance) = amt {
-            self.nominations = OrderedSet::from(nominations);
+            self.nominations = nominations;
             self.total_sub::<T>(balance).expect("Decreasing lock cannot fail, qed");
             Some(self.total)
         } else {
@@ -1151,7 +1167,8 @@ impl<
     where
         BalanceOf<T>: From<Balance>,
         T::AccountId: From<AccountId>,
-        Nominator<T::AccountId, BalanceOf<T>>: From<Nominator<AccountId, Balance>>,
+        Nominator<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>:
+            From<Nominator<AccountId, Balance, MaxNominations>>,
     {
         let nominator_id: T::AccountId = self.id.clone().into();
         let candidate_id: T::AccountId = candidate.clone().into();
@@ -1181,7 +1198,8 @@ impl<
                 <CandidateInfo<T>>::insert(&candidate_id, collator_state);
                 let new_total_staked = <Total<T>>::get().saturating_add(balance_amt);
                 <Total<T>>::put(new_total_staked);
-                let nom_st: Nominator<T::AccountId, BalanceOf<T>> = self.clone().into();
+                let nom_st: Nominator<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator> =
+                    self.clone().into();
                 <NominatorState<T>>::insert(&nominator_id, nom_st);
                 Pallet::<T>::deposit_event(Event::NominationIncreased {
                     nominator: nominator_id,

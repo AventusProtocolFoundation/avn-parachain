@@ -134,7 +134,7 @@ pub mod pallet {
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
-    #[pallet::without_storage_info]
+    // #[pallet::without_storage_info]
     pub struct Pallet<T>(PhantomData<T>);
 
     pub type EraIndex = u32;
@@ -181,7 +181,7 @@ pub mod pallet {
         type MaxBottomNominationsPerCandidate: Get<u32>;
         /// Maximum nominations per nominator
         #[pallet::constant]
-        type MaxNominationsPerNominator: Get<u32>;
+        type MaxNominationsPerNominator: Get<u32> + Clone + TypeInfo;
         /// Minimum stake, per collator, that must be maintained by an account that is nominating
         #[pallet::constant]
         type MinNominationPerCollator: Get<BalanceOf<Self>>;
@@ -464,7 +464,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         T::AccountId,
-        Nominator<T::AccountId, BalanceOf<T>>,
+        Nominator<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
         OptionQuery,
     >;
 
@@ -1682,10 +1682,9 @@ pub mod pallet {
         pub(crate) fn update_active(candidate: T::AccountId, total: BalanceOf<T>) {
             let mut candidates = <CandidatePool<T>>::get();
             candidates.remove(&Bond::from_owner(candidate.clone()));
-            let maybe_inserted_candidate = candidates
+            candidates
                 .try_insert(Bond { owner: candidate, amount: total })
                 .map_err(|_| Error::<T>::CandidateLimitReached);
-            // candidates.insert(Bond { owner: candidate, amount: total });
             <CandidatePool<T>>::put(candidates);
         }
 
