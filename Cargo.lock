@@ -556,7 +556,7 @@ dependencies = [
  "libp2p 0.46.1",
  "log",
  "node-primitives",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-avn",
  "pallet-im-online",
  "pallet-transaction-payment-rpc",
  "parity-scale-codec 3.4.0",
@@ -583,7 +583,7 @@ dependencies = [
  "serde_json",
  "sp-api",
  "sp-authority-discovery",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "sp-avn-common",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus-aura",
@@ -634,28 +634,28 @@ dependencies = [
  "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-avn-finality-tracker 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-avn-offence-handler 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-avn-proxy 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-avn-transaction-payment 0.1.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-avn",
+ "pallet-avn-finality-tracker",
+ "pallet-avn-offence-handler",
+ "pallet-avn-proxy",
+ "pallet-avn-transaction-payment",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-ethereum-events 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-ethereum-transactions 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-ethereum-events",
+ "pallet-ethereum-transactions",
  "pallet-im-online",
- "pallet-nft-manager 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-nft-manager",
  "pallet-offences",
- "pallet-parachain-staking 3.0.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-parachain-staking",
  "pallet-session",
  "pallet-sudo",
- "pallet-summary 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-summary",
  "pallet-timestamp",
- "pallet-token-manager 0.1.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-token-manager",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
- "pallet-validators-manager 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-validators-manager",
  "pallet-xcm",
  "parachain-info",
  "parity-scale-codec 3.4.0",
@@ -665,7 +665,7 @@ dependencies = [
  "smallvec",
  "sp-api",
  "sp-authority-discovery",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "sp-avn-common",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
@@ -710,27 +710,27 @@ dependencies = [
  "pallet-aura",
  "pallet-authority-discovery",
  "pallet-authorship",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-avn-finality-tracker 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-avn-offence-handler 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-avn-proxy 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-avn",
+ "pallet-avn-finality-tracker",
+ "pallet-avn-offence-handler",
+ "pallet-avn-proxy",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-ethereum-events 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-ethereum-transactions 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-ethereum-events",
+ "pallet-ethereum-transactions",
  "pallet-im-online",
- "pallet-nft-manager 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-nft-manager",
  "pallet-offences",
- "pallet-parachain-staking 3.0.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-parachain-staking",
  "pallet-session",
  "pallet-sudo",
- "pallet-summary 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-summary",
  "pallet-timestamp",
- "pallet-token-manager 0.1.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-token-manager",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
- "pallet-validators-manager 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "pallet-validators-manager",
  "pallet-xcm",
  "parachain-info",
  "parity-scale-codec 3.4.0",
@@ -740,7 +740,7 @@ dependencies = [
  "smallvec",
  "sp-api",
  "sp-authority-discovery",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "sp-avn-common",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
@@ -791,7 +791,7 @@ dependencies = [
  "secp256k1 0.24.3",
  "serde",
  "serde_json",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "sp-avn-common",
  "sp-core",
  "sp-keystore",
  "sp-runtime",
@@ -6610,33 +6610,12 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-avn"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-support",
- "frame-system",
- "hex",
- "impl-trait-for-tuples",
- "pallet-session",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -6648,14 +6627,14 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
- "pallet-avn 0.12.0",
+ "pallet-avn",
  "pallet-timestamp",
  "parity-scale-codec 3.4.0",
  "parking_lot 0.12.1",
  "scale-info",
  "serde",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -6664,61 +6643,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-avn-finality-tracker"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-avn-offence-handler"
 version = "0.12.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
- "pallet-avn 0.12.0",
+ "pallet-avn",
  "pallet-session",
  "parity-scale-codec 3.4.0",
  "parking_lot 0.12.1",
  "scale-info",
  "serde",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-avn-offence-handler"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-session",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
  "sp-runtime",
  "sp-staking",
  "sp-std",
@@ -6732,14 +6671,14 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "pallet-avn 0.12.0",
+ "pallet-avn",
  "pallet-balances",
- "pallet-nft-manager 0.12.0",
+ "pallet-nft-manager",
  "parity-scale-codec 3.4.0",
  "parking_lot 0.12.1",
  "scale-info",
  "serde",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-keystore",
@@ -6749,23 +6688,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-avn-proxy"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-avn-transaction-payment"
 version = "0.1.0"
 dependencies = [
@@ -6779,32 +6701,12 @@ dependencies = [
  "scale-info",
  "serde",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-avn-transaction-payment"
-version = "0.1.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal",
- "pallet-transaction-payment",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -7077,8 +6979,8 @@ dependencies = [
  "hex",
  "hex-literal",
  "impl-trait-for-tuples",
- "pallet-avn 0.12.0",
- "pallet-avn-proxy 0.12.0",
+ "pallet-avn",
+ "pallet-avn-proxy",
  "pallet-balances",
  "pallet-session",
  "pallet-timestamp",
@@ -7088,7 +6990,7 @@ dependencies = [
  "serde",
  "simple-json2",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -7098,33 +7000,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-ethereum-events"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "hex-literal",
- "impl-trait-for-tuples",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-session",
- "parity-scale-codec 3.4.0",
- "parking_lot 0.12.1",
- "scale-info",
- "serde",
- "simple-json2",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-ethereum-transactions"
 version = "0.12.0"
 dependencies = [
@@ -7134,38 +7009,14 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
- "pallet-avn 0.12.0",
+ "pallet-avn",
  "pallet-session",
  "parity-scale-codec 3.4.0",
  "parking_lot 0.12.1",
  "scale-info",
  "serde",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-ethereum-transactions"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "ethabi 13.0.0",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "hex-literal",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "parity-scale-codec 3.4.0",
- "parking_lot 0.12.1",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -7324,37 +7175,18 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "pallet-avn 0.12.0",
+ "pallet-avn",
  "parity-scale-codec 3.4.0",
  "parking_lot 0.12.1",
  "scale-info",
  "serde",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-keystore",
  "sp-runtime",
  "sp-std",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-nft-manager"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -7469,8 +7301,8 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-authorship",
- "pallet-avn 0.12.0",
- "pallet-avn-proxy 0.12.0",
+ "pallet-avn",
+ "pallet-avn-proxy",
  "pallet-balances",
  "pallet-session",
  "pallet-transaction-payment",
@@ -7480,34 +7312,10 @@ dependencies = [
  "serde",
  "similar-asserts",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-keystore",
- "sp-runtime",
- "sp-std",
- "substrate-fixed",
-]
-
-[[package]]
-name = "pallet-parachain-staking"
-version = "3.0.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-authorship",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-session",
- "parity-scale-codec 3.4.0",
- "rand 0.7.3",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
  "sp-runtime",
  "sp-std",
  "substrate-fixed",
@@ -7750,46 +7558,21 @@ dependencies = [
  "hex",
  "hex-literal",
  "node-primitives",
- "pallet-avn 0.12.0",
- "pallet-ethereum-transactions 0.12.0",
+ "pallet-avn",
+ "pallet-ethereum-transactions",
  "pallet-session",
  "parity-scale-codec 3.4.0",
  "parking_lot 0.12.1",
  "scale-info",
  "serde",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-staking",
  "sp-std",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-summary"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "hex-literal",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-ethereum-transactions 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-session",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std",
 ]
 
 [[package]]
@@ -7838,43 +7621,22 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
- "pallet-avn 0.12.0",
+ "pallet-avn",
  "pallet-balances",
- "pallet-parachain-staking 3.0.0",
+ "pallet-parachain-staking",
  "pallet-session",
  "pallet-transaction-payment",
  "parity-scale-codec 3.4.0",
  "scale-info",
  "serde",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-keystore",
  "sp-runtime",
  "sp-std",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-token-manager"
-version = "0.1.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "enumflags2",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -7965,11 +7727,11 @@ dependencies = [
  "hex",
  "hex-literal",
  "libsecp256k1 0.3.5",
- "pallet-avn 0.12.0",
- "pallet-avn-proxy 0.12.0",
+ "pallet-avn",
+ "pallet-avn-proxy",
  "pallet-balances",
- "pallet-ethereum-transactions 0.12.0",
- "pallet-parachain-staking 3.0.0",
+ "pallet-ethereum-transactions",
+ "pallet-parachain-staking",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec 3.4.0",
@@ -7979,42 +7741,13 @@ dependencies = [
  "serde",
  "sha3 0.8.2",
  "sp-application-crypto",
- "sp-avn-common 0.12.0",
+ "sp-avn-common",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-staking",
  "sp-std",
  "substrate-test-utils",
-]
-
-[[package]]
-name = "pallet-validators-manager"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "hex-literal",
- "libsecp256k1 0.3.5",
- "pallet-avn 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-ethereum-transactions 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-parachain-staking 3.0.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "pallet-session",
- "parity-scale-codec 3.4.0",
- "rand 0.7.3",
- "scale-info",
- "serde",
- "sha3 0.8.2",
- "sp-application-crypto",
- "sp-avn-common 0.12.0 (git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0)",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-staking",
- "sp-std",
 ]
 
 [[package]]
@@ -12328,27 +12061,6 @@ name = "sp-avn-common"
 version = "0.12.0"
 dependencies = [
  "byte-slice-cast",
- "derive_more",
- "hex",
- "hex-literal",
- "impl-trait-for-tuples",
- "libsecp256k1 0.3.5",
- "log",
- "parity-scale-codec 3.4.0",
- "scale-info",
- "serde",
- "sha3 0.8.2",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "sp-avn-common"
-version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
-dependencies = [
  "derive_more",
  "hex",
  "hex-literal",
