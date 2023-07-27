@@ -158,11 +158,3 @@ impl TestAccount {
 pub fn sign(signer: &sr25519::Pair, message_to_sign: &[u8]) -> Signature {
     return Signature::from(signer.sign(message_to_sign))
 }
-
-pub fn nft_is_owned(owner: &AccountId, nft_id: &NftId) -> bool {
-    if <OwnedNfts<TestRuntime>>::contains_key(&owner) {
-        return NftManager::get_owned_nfts(owner).iter().any(|nft| nft == nft_id)
-    }
-
-    return false
-}
