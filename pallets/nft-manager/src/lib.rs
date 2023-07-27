@@ -26,6 +26,7 @@ use frame_support::{
         PostDispatchInfo,
     },
     ensure,
+    pallet_prelude::StorageVersion,
     traits::{Get, IsSubType},
     weights::Weight,
     Parameter,
@@ -124,7 +125,7 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
-    #[pallet::without_storage_info]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -305,17 +306,6 @@ pub mod pallet {
     #[pallet::getter(fn get_nft_open_for_sale_on)]
     pub type NftOpenForSale<T: Config> =
         StorageMap<_, Blake2_128Concat, NftId, NftSaleType, ValueQuery>;
-
-    // TODO remove this storage item and delete its data
-    /// A mapping between the external batch id and its nft Ids
-    #[pallet::storage]
-    #[pallet::getter(fn get_owned_nfts)]
-    pub type OwnedNfts<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<NftId>, ValueQuery>;
-
-    /// The version of this storage
-    #[pallet::storage]
-    pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
     /// An account nonce that represents the number of proxy transactions from this account
     #[pallet::storage]
@@ -505,7 +495,7 @@ pub mod pallet {
                 .expect("32 bytes will always decode into an AccountId");
             let market = Self::get_nft_open_for_sale_on(nft_id);
 
-            Self::transfer_nft(&nft_id, &nft.owner, &new_nft_owner.clone())?;
+            Self::transfer_nft(&nft_id, &new_nft_owner.clone())?;
             Self::deposit_event(Event::<T>::FiatNftTransfer {
                 nft_id,
                 sender,
@@ -770,6 +760,68 @@ pub mod pallet {
         // migration logic should be done in a separate function so it can be tested
         // properly.
         fn on_runtime_upgrade() -> Weight {
+            let onchain_version = Pallet::<T>::on_chain_storage_version();
+
+            log::debug!(
+                "Nft manager storage chain/current storage version: {:?} / {:?}",
+                onchain_version,
+                Pallet::<T>::current_storage_version(),
+            );
+
+            if onchain_version < 4 {
+                use frame_support::storage::unhashed;
+
+                // Owned Nfts cleanup
+                {
+                    let owned_nfts_prefix = storage::storage_prefix(b"NftManager", b"OwnedNfts");
+                    let mut key = vec![0u8; 32];
+                    key[0..32].copy_from_slice(&owned_nfts_prefix);
+                    let res = unhashed::clear_prefix(&key[0..32], None, None);
+
+                    log::info!(
+                    "✅ Cleared '{}' backend values from 'NftManager::OwnedNfts' storage prefix",
+                        res.backend
+                    );
+                    log::info!(
+                        "✅ Cleared '{}' entries from 'NftManager::OwnedNfts' storage prefix",
+                        res.unique
+                    );
+                    if res.maybe_cursor.is_some() {
+                        log::error!(
+                            "Storage prefix 'NftManager::OwnedNfts' is not completely cleared."
+                        );
+                    }
+                }
+                // Version item cleanup
+                {
+                    let storage_version_prefix =
+                        storage::storage_prefix(b"NftManager", b"StorageVersion");
+                    let mut key = vec![0u8; 32];
+                    key[0..32].copy_from_slice(&storage_version_prefix);
+                    let res = unhashed::clear_prefix(&key[0..32], None, None);
+
+                    log::info!(
+                    "✅ Cleared '{}' backend values from 'NftManager::StorageVersion' storage prefix",
+                        res.backend
+                    );
+                    log::info!(
+                        "✅ Cleared '{}' entries from 'NftManager::StorageVersion' storage prefix",
+                        res.unique
+                    );
+                    if res.maybe_cursor.is_some() {
+                        log::error!("Storage prefix 'StorageVersion' is not completely cleared.");
+                    }
+                }
+                crate::STORAGE_VERSION.put::<Pallet<T>>();
+                log::info!(
+                    "Dropped old enum-based versioning schema for nft-manager. New version:{:?}",
+                    Pallet::<T>::on_chain_storage_version()
+                );
+
+                // TODO migrate external ref
+
+                return Weight::from_ref_time(2)
+            }
             return Weight::from_ref_time(0)
         }
     }
@@ -872,7 +924,7 @@ impl<T: Config> Pallet<T> {
 
         <NftInfos<T>>::insert(info.info_id, &info);
 
-        Self::add_nft_and_update_owner(&owner, &nft);
+        Self::add_nft(&nft);
         return (nft, info)
     }
 
@@ -917,7 +969,7 @@ impl<T: Config> Pallet<T> {
 
         let new_nft_owner = T::AccountId::decode(&mut data.t2_transfer_to_public_key.as_bytes())
             .expect("32 bytes will always decode into an AccountId");
-        Self::transfer_nft(&data.nft_id, &nft.owner, &new_nft_owner)?;
+        Self::transfer_nft(&data.nft_id, &new_nft_owner)?;
         Self::deposit_event(Event::<T>::EthNftTransfer {
             nft_id: data.nft_id,
             new_owner: new_nft_owner,
@@ -929,58 +981,28 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn transfer_nft(
-        nft_id: &NftId,
-        old_nft_owner: &T::AccountId,
-        new_nft_owner: &T::AccountId,
-    ) -> DispatchResult {
+    fn transfer_nft(nft_id: &NftId, new_nft_owner: &T::AccountId) -> DispatchResult {
         Self::remove_listing_from_open_for_sale(nft_id)?;
-        Self::update_owner_for_transfer(nft_id, old_nft_owner, new_nft_owner);
+        Self::update_owner_for_transfer(nft_id, new_nft_owner);
         Ok(())
     }
 
     // See https://github.com/Aventus-Network-Services/avn-tier2/pull/991#discussion_r832470480 for details of why we have this
     // as a separate function
-    fn update_owner_for_transfer(
-        nft_id: &NftId,
-        old_nft_owner: &T::AccountId,
-        new_nft_owner: &T::AccountId,
-    ) {
+    fn update_owner_for_transfer(nft_id: &NftId, new_nft_owner: &T::AccountId) {
         <Nfts<T>>::mutate(nft_id, |maybe_nft| {
             maybe_nft.as_mut().map(|nft| {
                 nft.owner = new_nft_owner.clone();
                 nft.nonce += 1u64;
             })
         });
-
-        <OwnedNfts<T>>::mutate(old_nft_owner, |owner_nfts| {
-            if let Some(pos) = owner_nfts.iter().position(|n| n == nft_id) {
-                owner_nfts.swap_remove(pos);
-            }
-        });
-
-        if <OwnedNfts<T>>::contains_key(new_nft_owner) {
-            <OwnedNfts<T>>::mutate(new_nft_owner, |owner_nfts| {
-                owner_nfts.push(*nft_id);
-            });
-        } else {
-            <OwnedNfts<T>>::insert(new_nft_owner, vec![*nft_id]);
-        }
     }
 
     // See https://github.com/Aventus-Network-Services/avn-tier2/pull/991#discussion_r832470480 for details of why we have this
     // as a separate function
-    fn add_nft_and_update_owner(owner: &T::AccountId, nft: &Nft<T::AccountId>) {
+    fn add_nft(nft: &Nft<T::AccountId>) {
         <Nfts<T>>::insert(nft.nft_id, &nft);
         <UsedExternalReferences<T>>::insert(&nft.unique_external_ref, true);
-
-        if <OwnedNfts<T>>::contains_key(owner) {
-            <OwnedNfts<T>>::mutate(owner, |owner_nfts| {
-                owner_nfts.push(nft.nft_id);
-            });
-        } else {
-            <OwnedNfts<T>>::insert(owner, vec![nft.nft_id]);
-        }
     }
 
     fn cancel_eth_nft_listing(
@@ -1260,20 +1282,7 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
     }
 }
 
-// A value placed in storage that represents the current version of the Staking storage. This value
-// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
-pub enum Releases {
-    Unknown,
-    V2_0_0,
-    V3_0_0,
-}
-
-impl Default for Releases {
-    fn default() -> Self {
-        Releases::V3_0_0
-    }
-}
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 #[cfg(test)]
 #[path = "tests/mock.rs"]

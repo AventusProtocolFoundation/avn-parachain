@@ -100,7 +100,6 @@ mod mint_single_nft {
 
                 assert_eq!(true, <Nfts<TestRuntime>>::contains_key(&nft_id));
                 assert_eq!(true, <NftInfos<TestRuntime>>::contains_key(&expected_info_id));
-                assert_eq!(true, nft_is_owned(&context.owner, &context.generate_nft_id()));
                 assert_eq!(true, context.event_emitted_with_single_nft_minted());
             });
         }

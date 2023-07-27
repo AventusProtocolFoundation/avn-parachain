@@ -163,8 +163,6 @@ mod proxy_signed_mint_single_nft {
 
                 assert_eq!(true, <Nfts<TestRuntime>>::contains_key(&context.nft_id));
 
-                assert_eq!(true, nft_is_owned(&context.nft_owner_account, &context.nft_id));
-
                 assert_eq!(
                     Nft::new(
                         context.nft_id,
@@ -259,8 +257,6 @@ mod proxy_signed_mint_single_nft {
                 assert_eq!(false, context.call_dispatched_event_emitted(&call));
 
                 assert_ok!(NftManager::proxy(Origin::signed(context.relayer), call.clone()));
-
-                assert_eq!(true, nft_is_owned(&context.nft_owner_account, &context.nft_id));
             });
         }
 
@@ -765,33 +761,6 @@ mod signed_mint_single_nft {
                     true,
                     <UsedExternalReferences<TestRuntime>>::get(context.bounded_external_ref())
                 );
-            });
-        }
-
-        #[test]
-        fn owned_nft_list_is_updated_test() {
-            let mut ext = ExtBuilder::build_default().as_externality();
-            ext.execute_with(|| {
-                let context = Context::default();
-                context.setup();
-                let proof = context.create_signed_mint_single_nft_proof();
-
-                assert_eq!(
-                    false,
-                    <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.bounded_external_ref()
-                    )
-                );
-
-                assert_ok!(NftManager::signed_mint_single_nft(
-                    Origin::signed(context.nft_owner_account),
-                    proof,
-                    context.unique_external_ref.clone(),
-                    context.royalties.clone(),
-                    context.t1_authority
-                ));
-
-                assert_eq!(true, nft_is_owned(&context.nft_owner_account, &context.nft_id));
             });
         }
 
