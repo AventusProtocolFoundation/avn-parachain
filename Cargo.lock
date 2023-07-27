@@ -1091,7 +1091,9 @@ version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba3569f383e8f1598449f1a423e72e99569137b47740b1da11ef19af3d5c3223"
 dependencies = [
+ "lazy_static",
  "memchr",
+ "regex-automata",
 ]
 
 [[package]]
@@ -1423,6 +1425,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd7bef69dc86e3c610e4e7aed41035e2a7ed12e72dd7530f61327a6579a4390b"
 dependencies = [
  "crossbeam-utils",
+]
+
+[[package]]
+name = "console"
+version = "0.15.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d79fbe8970a77e3e34151cc13d3b3e248aa0faaecb9f6091fa07ebefe5ad60"
+dependencies = [
+ "encode_unicode",
+ "lazy_static",
+ "libc",
+ "windows-sys 0.42.0",
 ]
 
 [[package]]
@@ -2631,6 +2645,12 @@ dependencies = [
  "subtle 2.4.1",
  "zeroize",
 ]
+
+[[package]]
+name = "encode_unicode"
+version = "0.3.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "encoding_rs"
@@ -6456,14 +6476,17 @@ dependencies = [
 [[package]]
 name = "pallet-avn"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "hex-literal",
  "impl-trait-for-tuples",
+ "pallet-balances",
  "pallet-session",
+ "pallet-timestamp",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "scale-info",
  "serde",
  "sp-application-crypto",
@@ -6472,19 +6495,22 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
 name = "pallet-avn-finality-tracker"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
+ "hex-literal",
  "pallet-avn",
+ "pallet-timestamp",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "scale-info",
  "serde",
  "sp-application-crypto",
@@ -6493,12 +6519,12 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
 name = "pallet-avn-offence-handler"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6506,9 +6532,12 @@ dependencies = [
  "pallet-avn",
  "pallet-session",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "scale-info",
+ "serde",
  "sp-avn-common",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-staking",
  "sp-std",
@@ -6517,29 +6546,36 @@ dependencies = [
 [[package]]
 name = "pallet-avn-proxy"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal",
+ "pallet-avn",
+ "pallet-balances",
+ "pallet-nft-manager",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "scale-info",
+ "serde",
  "sp-avn-common",
  "sp-core",
+ "sp-io",
+ "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
 name = "pallet-avn-transaction-payment"
 version = "0.1.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex-literal",
+ "pallet-balances",
  "pallet-transaction-payment",
  "parity-scale-codec 3.2.1",
  "scale-info",
@@ -6547,8 +6583,10 @@ dependencies = [
  "sp-application-crypto",
  "sp-avn-common",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
@@ -6814,7 +6852,6 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum-events"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6823,7 +6860,10 @@ dependencies = [
  "hex-literal",
  "impl-trait-for-tuples",
  "pallet-avn",
+ "pallet-avn-proxy",
+ "pallet-balances",
  "pallet-session",
+ "pallet-timestamp",
  "parity-scale-codec 3.2.1",
  "parking_lot 0.12.1",
  "scale-info",
@@ -6836,12 +6876,12 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
 name = "pallet-ethereum-transactions"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "ethabi 13.0.0",
  "frame-benchmarking",
@@ -6850,6 +6890,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "pallet-avn",
+ "pallet-session",
  "parity-scale-codec 3.2.1",
  "parking_lot 0.12.1",
  "scale-info",
@@ -7009,7 +7050,6 @@ dependencies = [
 [[package]]
 name = "pallet-nft-manager"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7017,12 +7057,16 @@ dependencies = [
  "hex-literal",
  "pallet-avn",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "scale-info",
+ "serde",
  "sp-avn-common",
  "sp-core",
  "sp-io",
+ "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
@@ -7131,7 +7175,6 @@ dependencies = [
 [[package]]
 name = "pallet-parachain-staking"
 version = "3.0.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7139,14 +7182,20 @@ dependencies = [
  "log",
  "pallet-authorship",
  "pallet-avn",
+ "pallet-avn-proxy",
+ "pallet-balances",
  "pallet-session",
+ "pallet-transaction-payment",
  "parity-scale-codec 3.2.1",
  "rand 0.7.3",
  "scale-info",
  "serde",
+ "similar-asserts",
  "sp-application-crypto",
  "sp-avn-common",
  "sp-core",
+ "sp-io",
+ "sp-keystore",
  "sp-runtime",
  "sp-std",
  "substrate-fixed",
@@ -7381,17 +7430,19 @@ dependencies = [
 [[package]]
 name = "pallet-summary"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
+ "assert_matches",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
  "hex-literal",
+ "node-primitives",
  "pallet-avn",
  "pallet-ethereum-transactions",
  "pallet-session",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "scale-info",
  "serde",
  "sp-application-crypto",
@@ -7401,6 +7452,7 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
@@ -7443,7 +7495,6 @@ dependencies = [
 [[package]]
 name = "pallet-token-manager"
 version = "0.1.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -7451,14 +7502,21 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "pallet-avn",
+ "pallet-balances",
+ "pallet-parachain-staking",
+ "pallet-session",
+ "pallet-transaction-payment",
  "parity-scale-codec 3.2.1",
  "scale-info",
  "serde",
  "sp-application-crypto",
  "sp-avn-common",
  "sp-core",
+ "sp-io",
+ "sp-keystore",
  "sp-runtime",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
@@ -7541,19 +7599,23 @@ dependencies = [
 [[package]]
 name = "pallet-validators-manager"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
  "frame-benchmarking",
+ "frame-election-provider-support",
  "frame-support",
  "frame-system",
  "hex",
  "hex-literal",
  "libsecp256k1 0.3.5",
  "pallet-avn",
+ "pallet-avn-proxy",
+ "pallet-balances",
  "pallet-ethereum-transactions",
  "pallet-parachain-staking",
  "pallet-session",
+ "pallet-timestamp",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "rand 0.7.3",
  "scale-info",
  "serde",
@@ -7565,6 +7627,7 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+ "substrate-test-utils",
 ]
 
 [[package]]
@@ -11632,6 +11695,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "similar"
+version = "2.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "420acb44afdae038210c99e69aae24109f32f15500aa708e81d46c9f29d55fcf"
+dependencies = [
+ "bstr",
+ "unicode-segmentation",
+]
+
+[[package]]
+name = "similar-asserts"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbf644ad016b75129f01a34a355dcb8d66a5bc803e417c7a77cc5d5ee9fa0f18"
+dependencies = [
+ "console",
+ "similar",
+]
+
+[[package]]
 name = "simple-json2"
 version = "0.1.2"
 source = "git+https://github.com/Aventus-Network-Services/simple-json2?branch=fixed_dependencies_1.10#26b95b193f91ef63f2afb55ee0031d7567da3291"
@@ -11827,8 +11910,8 @@ dependencies = [
 [[package]]
 name = "sp-avn-common"
 version = "0.12.0"
-source = "git+https://github.com/Aventus-Network-Services/avn-parachain?tag=v1.2.0#61da2fdd460012387dd766a095a3451f1b08127a"
 dependencies = [
+ "byte-slice-cast",
  "derive_more",
  "hex",
  "hex-literal",
@@ -12813,6 +12896,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "substrate-test-utils"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.36#cb4f2491b00af7d7817f3a54209c26b20faa1f51"
+dependencies = [
+ "futures",
+ "substrate-test-utils-derive",
+ "tokio",
+]
+
+[[package]]
+name = "substrate-test-utils-derive"
+version = "0.10.0-dev"
+source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.36#cb4f2491b00af7d7817f3a54209c26b20faa1f51"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "substrate-wasm-builder"
 version = "5.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.36#cb4f2491b00af7d7817f3a54209c26b20faa1f51"
@@ -13536,7 +13640,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "digest 0.10.6",
  "rand 0.8.5",
  "static_assertions",
