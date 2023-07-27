@@ -21,13 +21,15 @@ use crate::{
     NominationScheduledRequests, Nominator, NominatorState, Pallet, Total,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get, RuntimeDebug};
-use parity_scale_codec::{Decode, Encode};
+use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, BoundedVec};
 use sp_std::vec;
 
 /// An action that can be performed upon a nomination
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, PartialOrd, Ord)]
+#[derive(
+    Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, PartialOrd, Ord, MaxEncodedLen,
+)]
 pub enum NominationAction<Balance> {
     Revoke(Balance),
     Decrease(Balance),
@@ -45,7 +47,9 @@ impl<Balance: Copy> NominationAction<Balance> {
 
 /// Represents a scheduled request that define a [NominationAction]. The request is executable
 /// iff the provided [EraIndex] is achieved.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, PartialOrd, Ord)]
+#[derive(
+    Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, PartialOrd, Ord, MaxEncodedLen,
+)]
 pub struct ScheduledRequest<AccountId, Balance> {
     pub nominator: AccountId,
     pub when_executable: EraIndex,

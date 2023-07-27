@@ -148,6 +148,7 @@ pub mod pallet {
 
     pub const COLLATOR_LOCK_ID: LockIdentifier = *b"stkngcol";
     pub const NOMINATOR_LOCK_ID: LockIdentifier = *b"stkngnom";
+    pub type CollatorMaxScores = ConstU32<10000>;
 
     /// Configuration trait of this pallet.
     #[pallet::config]
@@ -175,10 +176,10 @@ pub mod pallet {
         type MinSelectedCandidates: Get<u32>;
         /// Maximum top nominations counted per candidate
         #[pallet::constant]
-        type MaxTopNominationsPerCandidate: Get<u32>;
+        type MaxTopNominationsPerCandidate: Get<u32> + Clone + TypeInfo;
         /// Maximum bottom nominations (not counted) per candidate
         #[pallet::constant]
-        type MaxBottomNominationsPerCandidate: Get<u32>;
+        type MaxBottomNominationsPerCandidate: Get<u32> + Clone + TypeInfo;
         /// Maximum nominations per nominator
         #[pallet::constant]
         type MaxNominationsPerNominator: Get<u32> + Clone + TypeInfo;
@@ -492,7 +493,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         T::AccountId,
-        Nominations<T::AccountId, BalanceOf<T>>,
+        Nominations<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
         OptionQuery,
     >;
 
@@ -503,7 +504,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         T::AccountId,
-        Nominations<T::AccountId, BalanceOf<T>>,
+        Nominations<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
         OptionQuery,
     >;
 
@@ -536,7 +537,7 @@ pub mod pallet {
         EraIndex,
         Twox64Concat,
         T::AccountId,
-        CollatorSnapshot<T::AccountId, BalanceOf<T>>,
+        CollatorSnapshot<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
         ValueQuery,
     >;
 
@@ -817,7 +818,11 @@ pub mod pallet {
             T::Currency::set_lock(COLLATOR_LOCK_ID, &acc, bond, WithdrawReasons::all());
             let candidate = CandidateMetadata::new(bond);
             <CandidateInfo<T>>::insert(&acc, candidate);
-            let empty_nominations: Nominations<T::AccountId, BalanceOf<T>> = Default::default();
+            let empty_nominations: Nominations<
+                T::AccountId,
+                BalanceOf<T>,
+                T::MaxNominationsPerNominator,
+            > = Default::default();
             // insert empty top nominations
             <TopNominations<T>>::insert(&acc, empty_nominations.clone());
             // insert empty bottom nominations
@@ -1761,11 +1766,11 @@ pub mod pallet {
 
             <DelayedPayouts<T>>::insert(era_to_payout, &payout);
 
-            let collator_scores: Vec<CollatorScore<T::AccountId>> =
+            let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
                 <AwardedPts<T>>::iter_prefix(era_to_payout)
                     .map(|(collator, points)| CollatorScore::new(collator, points))
                     .collect::<Vec<CollatorScore<T::AccountId>>>();
-
+            let collator_scores = BoundedVec::truncate_from(collator_scores_vec);
             Self::update_collator_payout(
                 era_to_payout,
                 total_staked,
@@ -1983,7 +1988,7 @@ pub mod pallet {
                 .map(|x| (x.nominator, x.action))
                 .collect::<BTreeMap<_, _>>();
             let mut uncounted_stake = BalanceOf::<T>::zero();
-            let rewardable_nominations = <TopNominations<T>>::get(collator)
+            let rewardable_nominations_vec = <TopNominations<T>>::get(collator)
                 .expect("all members of CandidateQ must be candidates")
                 .nominations
                 .into_iter()
@@ -2013,6 +2018,7 @@ pub mod pallet {
                     bond
                 })
                 .collect();
+            let rewardable_nominations = BoundedVec::truncate_from(rewardable_nominations_vec);
             CountedNominations { uncounted_stake, rewardable_nominations }
         }
 
@@ -2035,7 +2041,7 @@ pub mod pallet {
             total_staked: BalanceOf<T>,
             payout: DelayedPayout<BalanceOf<T>>,
             total_points: RewardPoint,
-            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
+            current_collator_scores: BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
         ) {
             let collator_payout_period = Self::growth_period_info();
             let staking_reward_paid_in_era = payout.total_staking_reward;
@@ -2079,7 +2085,7 @@ pub mod pallet {
             total_staked: BalanceOf<T>,
             staking_reward_paid_in_era: BalanceOf<T>,
             total_points: RewardPoint,
-            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
+            current_collator_scores: BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
         ) {
             <Growth<T>>::mutate(growth_index, |info| {
                 info.number_of_accumulations = info.number_of_accumulations.saturating_add(1);
@@ -2094,9 +2100,9 @@ pub mod pallet {
         }
 
         fn update_collator_scores(
-            existing_collator_scores: &Vec<CollatorScore<T::AccountId>>,
-            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
-        ) -> Vec<CollatorScore<T::AccountId>> {
+            existing_collator_scores: &BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
+            current_collator_scores: BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
+        ) -> BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores> {
             let mut current_scores = existing_collator_scores
                 .into_iter()
                 .map(|current_score| (current_score.collator.clone(), current_score.points.clone()))
@@ -2111,10 +2117,12 @@ pub mod pallet {
                     .or_insert(new_score.points);
             });
 
-            return current_scores
-                .into_iter()
-                .map(|(acc, pts)| CollatorScore::new(acc, pts))
-                .collect()
+            return BoundedVec::truncate_from(
+                current_scores
+                    .into_iter()
+                    .map(|(acc, pts)| CollatorScore::new(acc, pts))
+                    .collect(),
+            )
         }
 
         pub fn payout_collators(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
