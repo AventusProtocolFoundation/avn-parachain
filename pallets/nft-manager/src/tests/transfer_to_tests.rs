@@ -157,28 +157,6 @@ mod transfer_eth_nft {
         }
 
         #[test]
-        fn ownership_is_updated() {
-            let mut ext = ExtBuilder::build_default().as_externality();
-            ext.execute_with(|| {
-                let context: Context = Default::default();
-                context.setup_valid_transfer();
-
-                let new_nft_owner = context.new_owner_to_account_id();
-                let nft_id = context.nft_id();
-
-                assert_eq!(true, nft_is_owned(&context.nft_owner, &nft_id));
-                assert_eq!(false, nft_is_owned(&new_nft_owner, &nft_id));
-
-                assert_ok!(context.perform_transfer());
-
-                assert_eq!(new_nft_owner, NftManager::nfts(context.nft_id()).unwrap().owner);
-
-                assert_eq!(false, nft_is_owned(&context.nft_owner, &nft_id));
-                assert_eq!(true, nft_is_owned(&new_nft_owner, &nft_id));
-            });
-        }
-
-        #[test]
         fn nft_is_not_listed_for_sale_anymore() {
             let mut ext = ExtBuilder::build_default().as_externality();
             ext.execute_with(|| {

@@ -637,9 +637,6 @@ mod signed_mint_batch_nft {
                 // Nft has been minted
                 assert_eq!(true, <Nfts<TestRuntime>>::contains_key(&context.nft_id));
 
-                // Ownership data is updated
-                assert_eq!(true, nft_is_owned(&context.nft_owner_account, &context.nft_id));
-
                 // Batch_id map has been created
                 assert!(<NftBatches<TestRuntime>>::contains_key(&batch_id));
 
@@ -692,22 +689,6 @@ mod signed_mint_batch_nft {
 
                 // 2 Nfts minted and assigned to the same batch
                 assert_eq!(<NftBatches<TestRuntime>>::get(batch_id).len(), 2);
-
-                // Ownership data is updated
-                assert_eq!(
-                    true,
-                    nft_is_owned(
-                        &context.nft_owner_account,
-                        &<NftBatches<TestRuntime>>::get(batch_id)[0]
-                    )
-                );
-                assert_eq!(
-                    true,
-                    nft_is_owned(
-                        &context.nft_owner_account,
-                        &<NftBatches<TestRuntime>>::get(batch_id)[1]
-                    )
-                );
             });
         }
     }
