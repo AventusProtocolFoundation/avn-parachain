@@ -5,7 +5,7 @@ ARG VCS_REF
 ARG BUILD_DATE
 ARG IMAGE_NAME
 
-# TODO once public, add io.aventus.image.source
+# TODO: add io.aventus.image.source
 LABEL io.aventus.image.authors="devops@aventus.io" \
 	io.aventus.image.vendor="Aventus Network Services" \
 	io.aventus.image.title="${IMAGE_NAME}" \
