@@ -1,4 +1,3 @@
-// Copyright 2019-2022 PureStake Inc.
 // This file is part of Moonbeam.
 
 // Moonbeam is free software: you can redistribute it and/or modify
@@ -106,21 +105,11 @@ impl<T: Config> Pallet<T> {
                     scheduled_exit: when,
                 });
             },
-            Err(element) => {
-                println!("Failed to insert {:?}.", element);
+            Err(_) => {
+                ();
             },
         }
 
-        // state.less_total = state.less_total.saturating_add(bonded_amount);
-        // <NominationScheduledRequests<T>>::insert(collator.clone(), scheduled_requests);
-        // <NominatorState<T>>::insert(nominator.clone(), state);
-
-        // Self::deposit_event(Event::NominationRevocationScheduled {
-        //     era: now,
-        //     nominator,
-        //     candidate: collator,
-        //     scheduled_exit: when,
-        // });
         Ok(().into())
     }
 
@@ -169,20 +158,8 @@ impl<T: Config> Pallet<T> {
                     execute_era: when,
                 });
             },
-            Err(element) => {
-                println!("Failed to insert {:?}.", element);
-            },
+            Err(_) => (),
         }
-        // state.less_total = state.less_total.saturating_add(decrease_amount);
-        // <NominationScheduledRequests<T>>::insert(collator.clone(), scheduled_requests);
-        // <NominatorState<T>>::insert(nominator.clone(), state);
-
-        // Self::deposit_event(Event::NominationDecreaseScheduled {
-        //     nominator,
-        //     candidate: collator,
-        //     amount_to_decrease: decrease_amount,
-        //     execute_era: when,
-        // });
         Ok(().into())
     }
 
@@ -211,7 +188,7 @@ impl<T: Config> Pallet<T> {
 
     fn cancel_request_with_state(
         nominator: &T::AccountId,
-        state: &mut Nominator<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
+        state: &mut Nominator<T::AccountId, BalanceOf<T>>,
         scheduled_requests: &mut BoundedVec<
             ScheduledRequest<T::AccountId, BalanceOf<T>>,
             T::MaxNominationsPerNominator,
@@ -382,9 +359,7 @@ impl<T: Config> Pallet<T> {
                     state.less_total = state.less_total.saturating_add(bonded_amount);
                     updated_scheduled_requests.push((collator, scheduled_requests));
                 },
-                Err(element) => {
-                    println!("Failed to push an element {:?}", element)
-                },
+                Err(_) => (),
             }
         }
 
@@ -519,7 +494,7 @@ impl<T: Config> Pallet<T> {
     pub(crate) fn nomination_remove_request_with_state(
         collator: &T::AccountId,
         nominator: &T::AccountId,
-        state: &mut Nominator<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
+        state: &mut Nominator<T::AccountId, BalanceOf<T>>,
     ) {
         let mut scheduled_requests = <NominationScheduledRequests<T>>::get(collator);
 
@@ -569,7 +544,10 @@ mod tests {
 
         let mut state = Nominator {
             id: nominator1_account_id,
-            nominations: OrderedSet::from(vec![Bond { amount: 100, owner: collator_account_id }]),
+            nominations: BoundedOrderedSet::from(BoundedVec::truncate_from(vec![Bond {
+                amount: 100,
+                owner: collator_account_id,
+            }])),
             total: 100,
             less_total: 100,
         };
@@ -628,15 +606,18 @@ mod tests {
 
         let mut state = Nominator {
             id: nominator1_account_id,
-            nominations: OrderedSet::from(vec![Bond { amount: 100, owner: collator_account_id }]),
+            nominations: BoundedOrderedSet::from(BoundedVec::truncate_from(vec![Bond {
+                amount: 100,
+                owner: collator_account_id,
+            }])),
             total: 100,
             less_total: 100,
         };
-        let mut scheduled_requests = vec![ScheduledRequest {
+        let mut scheduled_requests = BoundedVec::truncate_from(vec![ScheduledRequest {
             nominator: collator_account_id,
             when_executable: 1,
             action: NominationAction::Decrease(50),
-        }];
+        }]);
         let removed_request = <Pallet<Test>>::cancel_request_with_state(
             &nominator1_account_id,
             &mut state,
@@ -656,10 +637,10 @@ mod tests {
             state,
             Nominator {
                 id: nominator1_account_id,
-                nominations: OrderedSet::from(vec![Bond {
+                nominations: BoundedOrderedSet::from(BoundedVec::truncate_from(vec![Bond {
                     amount: 100,
                     owner: collator_account_id
-                }]),
+                }])),
                 total: 100,
                 less_total: 100,
             }

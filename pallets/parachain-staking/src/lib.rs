@@ -176,13 +176,13 @@ pub mod pallet {
         type MinSelectedCandidates: Get<u32>;
         /// Maximum top nominations counted per candidate
         #[pallet::constant]
-        type MaxTopNominationsPerCandidate: Get<u32> + Clone + TypeInfo;
+        type MaxTopNominationsPerCandidate: Get<u32>;
         /// Maximum bottom nominations (not counted) per candidate
         #[pallet::constant]
-        type MaxBottomNominationsPerCandidate: Get<u32> + Clone + TypeInfo;
+        type MaxBottomNominationsPerCandidate: Get<u32>;
         /// Maximum nominations per nominator
         #[pallet::constant]
-        type MaxNominationsPerNominator: Get<u32> + Clone + TypeInfo;
+        type MaxNominationsPerNominator: Get<u32>;
         /// Minimum stake, per collator, that must be maintained by an account that is nominating
         #[pallet::constant]
         type MinNominationPerCollator: Get<BalanceOf<Self>>;
@@ -465,7 +465,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         T::AccountId,
-        Nominator<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
+        Nominator<T::AccountId, BalanceOf<T>>,
         OptionQuery,
     >;
 
@@ -493,7 +493,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         T::AccountId,
-        Nominations<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
+        Nominations<T::AccountId, BalanceOf<T>>,
         OptionQuery,
     >;
 
@@ -504,7 +504,7 @@ pub mod pallet {
         _,
         Twox64Concat,
         T::AccountId,
-        Nominations<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
+        Nominations<T::AccountId, BalanceOf<T>>,
         OptionQuery,
     >;
 
@@ -537,7 +537,7 @@ pub mod pallet {
         EraIndex,
         Twox64Concat,
         T::AccountId,
-        CollatorSnapshot<T::AccountId, BalanceOf<T>, T::MaxNominationsPerNominator>,
+        CollatorSnapshot<T::AccountId, BalanceOf<T>>,
         ValueQuery,
     >;
 
@@ -818,11 +818,7 @@ pub mod pallet {
             T::Currency::set_lock(COLLATOR_LOCK_ID, &acc, bond, WithdrawReasons::all());
             let candidate = CandidateMetadata::new(bond);
             <CandidateInfo<T>>::insert(&acc, candidate);
-            let empty_nominations: Nominations<
-                T::AccountId,
-                BalanceOf<T>,
-                T::MaxNominationsPerNominator,
-            > = Default::default();
+            let empty_nominations: Nominations<T::AccountId, BalanceOf<T>> = Default::default();
             // insert empty top nominations
             <TopNominations<T>>::insert(&acc, empty_nominations.clone());
             // insert empty bottom nominations
