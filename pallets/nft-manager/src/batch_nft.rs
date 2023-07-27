@@ -189,7 +189,7 @@ pub fn mint_batch_nft<T: Config>(
     ensure!(<Nfts<T>>::contains_key(&nft_id) == false, Error::<T>::NftAlreadyExists);
 
     let nft = Nft::new(nft_id, nft_info.info_id, unique_external_ref, owner.clone());
-    Pallet::<T>::add_nft_and_update_owner(&owner, &nft);
+    Pallet::<T>::add_nft(&nft);
 
     let mut nfts_for_batch = <NftBatches<T>>::get(batch_id);
     nfts_for_batch.try_push(nft_id).map_err(|_| Error::<T>::BatchOutOfBounds)?;
