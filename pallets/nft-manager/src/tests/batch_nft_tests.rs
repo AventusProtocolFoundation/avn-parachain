@@ -563,7 +563,7 @@ impl MintBatchNftContext {
         <Nfts<TestRuntime>>::remove(&self.nft_id);
         <NftInfos<TestRuntime>>::remove(&self.nft_id);
         <UsedExternalReferences<TestRuntime>>::remove(
-            &WeakBoundedVec::try_from(self.unique_external_ref.clone())
+            &BoundedVec::try_from(self.unique_external_ref.clone())
                 .expect("Unique external reference bound was exceeded."),
         );
     }
@@ -650,7 +650,7 @@ mod signed_mint_batch_nft {
                 assert_eq!(
                     true,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        WeakBoundedVec::try_from(context.unique_external_ref)
+                        BoundedVec::try_from(context.unique_external_ref)
                             .expect("Unique external reference bound was exceeded.")
                     )
                 );
