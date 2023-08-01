@@ -45,7 +45,7 @@ use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Hash, IdentifyAccount, Member, Verify},
-    BoundedVec,
+    BoundedVec, WeakBoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -284,11 +284,12 @@ pub mod pallet {
     pub type BatchInfoId<T: Config> =
         StorageMap<_, Blake2_128Concat, NftBatchId, NftInfoId, ValueQuery>;
 
+    /// TODO: convert the key to BoundedVec once a runtime with the storage migration is applied.
     /// A mapping between an ExternalRef and a flag to show that an NFT has used it
     #[pallet::storage]
     #[pallet::getter(fn is_external_ref_used)]
     pub type UsedExternalReferences<T: Config> =
-        StorageMap<_, Blake2_128Concat, BoundedVec<u8, NftExternalRefBound>, bool, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, WeakBoundedVec<u8, NftExternalRefBound>, bool, ValueQuery>;
 
     /// The Id that will be used when creating the new NftInfo record
     #[pallet::storage]
@@ -818,9 +819,7 @@ pub mod pallet {
                     Pallet::<T>::on_chain_storage_version()
                 );
 
-                // TODO migrate external ref
-
-                return Weight::from_ref_time(2)
+                return migrations::migrate_to_bounded_nft::<T>()
             }
             return Weight::from_ref_time(0)
         }
@@ -845,8 +844,12 @@ impl<T: Config> Pallet<T> {
         unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
     ) -> DispatchResult {
         ensure!(unique_external_ref.len() > 0, Error::<T>::ExternalRefIsMandatory);
+        let unique_reference = WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
+            unique_external_ref.to_vec(),
+            Some("Weak bound exceeded. Shouldn't be possible when converting from bounded data."),
+        );
         ensure!(
-            Self::is_external_ref_used(&unique_external_ref) == false,
+            Self::is_external_ref_used(unique_reference) == false,
             Error::<T>::ExternalRefIsAlreadyInUse
         );
 
@@ -1002,7 +1005,11 @@ impl<T: Config> Pallet<T> {
     // as a separate function
     fn add_nft(nft: &Nft<T::AccountId>) {
         <Nfts<T>>::insert(nft.nft_id, &nft);
-        <UsedExternalReferences<T>>::insert(&nft.unique_external_ref, true);
+        let unique_reference = WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
+            nft.unique_external_ref.to_vec(),
+            Some("Weak bound exceeded. Shouldn't be possible when converting from bounded data."),
+        );
+        <UsedExternalReferences<T>>::insert(&unique_reference, true);
     }
 
     fn cancel_eth_nft_listing(
@@ -1284,6 +1291,68 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
 
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
+pub mod migrations {
+    use super::*;
+
+    #[derive(Decode)]
+    pub struct OldNft<AccountId: Member> {
+        pub nft_id: NftId,
+        pub info_id: NftInfoId,
+        pub unique_external_ref: Vec<u8>,
+        pub nonce: u64,
+        pub owner: AccountId,
+        pub is_locked: bool,
+    }
+
+    impl<AccountId: Member> OldNft<AccountId> {
+        fn upgraded(self) -> Nft<AccountId> {
+            Nft::<AccountId> {
+                nft_id: self.nft_id,
+                info_id: self.info_id,
+                unique_external_ref: BoundedVec::truncate_from(self.unique_external_ref),
+                nonce: self.nonce,
+                owner: self.owner,
+                is_locked: self.is_locked,
+            }
+        }
+    }
+
+    pub fn migrate_to_bounded_nft<T: Config>() -> frame_support::weights::Weight {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+        log::info!("ℹ️  Nft manager pallet data migration invoked");
+
+        let mut keys_need_update = Vec::<Vec<u8>>::new();
+
+        Nfts::<T>::translate::<OldNft<T::AccountId>, _>(|_, p| {
+            let bound: usize = <NftExternalRefBound as sp_core::Get<u32>>::get() as usize;
+            if p.unique_external_ref.len() > bound {
+                keys_need_update.push(p.unique_external_ref.clone());
+            }
+            Some(p.upgraded())
+        });
+
+        log::info!("ℹ️ Found {:?} out of bounds external ref. Migrating...", keys_need_update.len());
+
+        for external_ref in keys_need_update.iter() {
+            let unique_reference = WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
+                external_ref.clone(),
+                Some("Weak bound exceeded. Expected when migrating data to bounded"),
+            );
+            let value = UsedExternalReferences::<T>::get(&unique_reference);
+            UsedExternalReferences::<T>::remove(unique_reference);
+            let new_unique_reference = WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
+                BoundedVec::<u8, NftExternalRefBound>::truncate_from(external_ref.clone()).to_vec(),
+                Some(
+                    "Weak bound exceeded. Shouldn't be possible when converting from bounded data.",
+                ),
+            );
+            UsedExternalReferences::<T>::insert(new_unique_reference, value)
+        }
+
+        log::info!("ℹ️  Migrated Nfts bounds applied successfully");
+        return T::BlockWeights::get().max_block
+    }
+}
 #[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;
