@@ -201,7 +201,7 @@ parameter_types! {
     pub const MinNominationPerCollator: u128 = 1;
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
-    pub const MaxCandidates:u32 = 11;
+    pub const MaxCandidates:u32 = 100;
 }
 
 pub struct IsRegistered;
