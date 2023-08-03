@@ -1,0 +1,10 @@
+.git
+**/target/
+**/*.txt
+**/*.md
+/docker/
+!/target/release/avn-parachain-collator
+!/target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime*.wasm
+
+# dotfiles in the repo root
+/.*
