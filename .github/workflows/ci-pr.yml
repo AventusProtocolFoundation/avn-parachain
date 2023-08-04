@@ -20,7 +20,8 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
         with:
-          ref: refs/pull/${{github.event.pull_request.number}}/merge
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
       
       - name: Install cargo-edit
         run: |
