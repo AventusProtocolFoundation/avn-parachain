@@ -5,6 +5,7 @@ on:
   pull_request_target:
     branches:
       - main
+      - DEVOPS-365-update-the-ci-to-remove-the-public-private-repo-logic-and-add-all-the-release-creation-code-from-the-private-repo
 
 concurrency:
   group: ${{ github.head_ref || github.ref_name }}
@@ -19,7 +20,8 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
         with:
-          ref: "${{ github.event.pull_request.merge_commit_sha }}"
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
       
       - name: Install cargo-edit
         uses: baptiste0928/cargo-install@v2
