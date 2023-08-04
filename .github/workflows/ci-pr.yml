@@ -1,0 +1,89 @@
+name: CI PR
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+    branches:
+    - main
+
+concurrency:
+  group: ${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  set-up-job:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: Install cargo-edit
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-edit
+
+      - name: Verify PR type
+        env:
+          description: ${{ github.event.pull_request.body }}
+        run: |
+          ./.github/ci-scripts/verify_pr_type.sh "$description" "${{ github.event_name }}"
+
+      - name: skip testing
+        id: skip_tests
+        run: |
+          git checkout ${{ github.head_ref }}
+          commit_message=$(git log -1 --pretty=format:"%s")
+          git checkout $GITHUB_SHA
+
+          SKIP_TESTS=$([[ "$commit_message" == *"tag:skip_testing"* ]] && echo true || echo false)
+          echo "SKIP_TESTS=$SKIP_TESTS" >> "$GITHUB_ENV"
+          echo "SKIP_TESTS=$SKIP_TESTS" >> "$GITHUB_OUTPUT"
+
+      - name: Get latest repo tag
+        if: env.RELEASE == 'true' && env.SKIP_TESTS != 'true'
+        id: latest_repo_tag
+        run: |
+          LATEST_MAIN_TAG=$(git describe origin/main --tags --abbrev=0 --match "v[0-9]*")
+          echo "Latest main tag: $LATEST_MAIN_TAG"
+          echo "LATEST_MAIN_TAG=$LATEST_MAIN_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Get next repo tag
+        if: env.RELEASE == 'true' && env.SKIP_TESTS != 'true'
+        id: new_repo_tag
+        uses: WyriHaximus/github-action-next-semvers@v1
+        with:
+          version: ${{ steps.latest_repo_tag.outputs.LATEST_MAIN_TAG }}
+
+      - name: update Versions
+        if: env.RELEASE == 'true' && env.SKIP_TESTS != 'true'
+        env:
+          REGEX_PACKAGE_VERSION: '\(^s*\)\(version\s*=\s*\)\("\([0-9]\+\.\?\)\{3\}"\)'
+          REGEX_SPEC_VERSION: '\(^[[:space:]]*\)\(spec_version:\s*\)\([0-9]\+\)'
+          REGEX_IMPL_VERSION: '\(^[[:space:]]*\)\(impl_version:\s*\)\([0-9]\+\)'
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        run: |
+          ./.github/ci-scripts/update_versions.sh \
+            ${{ steps.new_repo_tag.outputs.major }} \
+            ${{ steps.new_repo_tag.outputs.minor }} \
+            ${{ steps.new_repo_tag.outputs.patch }} \
+            "${{ github.event_name }}"
+    outputs:
+      SKIP_TESTS: ${{ steps.skip_tests.outputs.SKIP_TESTS }}
+
+  check-code:
+    needs: [ set-up-job ]
+    if: |
+      ( !github.event.pull_request.draft ) &&
+      ( needs.set-up-job.outputs.SKIP_TESTS != 'true' )
+    uses: ./.github/workflows/cargo-check.yml
+
+  test-code:
+    needs: [set-up-job]
+    if: |
+      ( !github.event.pull_request.draft ) &&
+      ( needs.set-up-job.outputs.SKIP_TESTS != 'true' )
+    uses: ./.github/workflows/cargo-test.yml

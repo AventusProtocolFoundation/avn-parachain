@@ -1,0 +1,72 @@
+name: Docker Build
+
+on:
+  workflow_call:
+    inputs:
+      release:
+        required: true
+        type: string
+      docker_tag:
+        required: true
+        type: string
+      build_latest:
+        required: false
+        type: boolean
+        default: true
+
+env:
+  CARGO_TERM_COLOR: always
+  ECR_REPO: 189013141504.dkr.ecr.eu-west-2.amazonaws.com/avn/avn-node-parachain
+
+jobs:
+  docker-build:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: get AvN Parachain collator Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: avn-parachain-collator
+          path: target/release/
+
+      - name: get AvN Parachain runtime Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: avn-parachain-runtime
+          path: target/release/wbuild/avn-parachain-runtime/
+
+      - name: Set 'x' rights
+        run: chmod a+x target/release/avn-parachain-collator
+
+      - name: Build the avn-node-parachain docker images
+        run: |
+          docker build . --tag $ECR_REPO:${GITHUB_SHA::7}
+
+      - name: Build latest tag
+        if: ${{ inputs.build_latest }}
+        run: |
+          docker tag $ECR_REPO:${GITHUB_SHA::7} $ECR_REPO:latest
+
+      - name: Build docker tag, using git tag if it's a Release
+        if: ${{ inputs.release == 'true'}}
+        env:
+          DOCKER_TAG: ${{ inputs.docker_tag }}
+        run: |
+          docker tag $ECR_REPO:${GITHUB_SHA::7} $ECR_REPO:$DOCKER_TAG
+
+      - name: Configure AWS credentials from TestNet
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.TESTNET_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.TESTNET_AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Login to the AWS registry
+        run: |
+          aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 189013141504.dkr.ecr.eu-west-2.amazonaws.com
+
+      - name: Push the images to the registry
+        run: |
+          docker push -a $ECR_REPO

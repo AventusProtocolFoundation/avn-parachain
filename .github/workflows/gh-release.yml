@@ -1,0 +1,121 @@
+name: GH Release
+
+on:
+  workflow_call:
+    inputs:
+      repo_tag:
+        required: true
+        type: string
+      hotfix:
+        required: false
+        type: boolean
+        default: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  gh-release:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: get AvN Parachain collator Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: avn-parachain-collator
+          path: target/release/
+
+      - name: get AvN Parachain runtime Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: avn-parachain-runtime
+          path: target/release/wbuild/avn-parachain-runtime/
+
+      - name: get AvN Parachain test runtime Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: avn-parachain-test-runtime
+          path: target/release/wbuild/avn-parachain-test-runtime/
+
+      - name: add sha256sum to files
+        id: sha256
+        run: |
+          COLLATOR_SHA=$(sha256sum -z target/release/avn-parachain-collator | awk '{print $1}')
+          WASM_SHA_RUNTIME=$(sha256sum -z target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm | awk '{print $1}')
+          WASM_SHA_TEST=$(sha256sum -z target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm | awk '{print $1}')
+
+          {
+            echo "COLLATOR_SHA=$COLLATOR_SHA"
+            echo "WASM_SHA_RUNTIME=$WASM_SHA_RUNTIME"
+            echo "WASM_SHA_TEST=$WASM_SHA_TEST"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "$COLLATOR_SHA" >  target/release/avn-parachain-collator.sha256
+          echo "$WASM_SHA_RUNTIME" > target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm.sha256
+          echo "$WASM_SHA_TEST" > target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm.sha256
+
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.1
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          custom_tag: ${{ inputs.repo_tag }}
+          tag_prefix: ""
+          github_token: ${{ env.GITHUB_TOKEN }}
+
+      - name: Release
+        if: ${{ !inputs.hotfix }}
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          tag_name: ${{ inputs.repo_tag }}
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          append_body: true
+          body: |
+            # Release Notes
+            This release contains the latest version of AvN Node Parachain.
+            ## sha256sum
+            avn-parachain-collator: `${{ steps.sha256.outputs.COLLATOR_SHA }}`
+            avn_parachain_runtime.compact.compressed.wasm: `${{ steps.sha256.outputs.WASM_SHA_RUNTIME }}`
+            avn_parachain_test_runtime.compact.compressed.wasm: `${{ steps.sha256.outputs.WASM_SHA_TEST }}`
+          files: |
+            target/release/avn-parachain-collator
+            target/release/avn-parachain-collator.sha256
+            target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
+            target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm.sha256
+            target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm
+            target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm.sha256
+
+      - name: Hotfix Release
+        if: ${{ inputs.hotfix }}
+        uses: softprops/action-gh-release@v1
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          tag_name: ${{ inputs.repo_tag }}
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: true
+          body: |
+            # Release Notes
+            This is a hotfix release of AvN Node Parachain.
+            ## sha256sum
+            avn-parachain-collator: `${{ steps.sha256.outputs.COLLATOR_SHA }}`
+            avn_parachain_runtime.compact.compressed.wasm: `${{ steps.sha256.outputs.WASM_SHA_RUNTIME }}`
+            avn_parachain_test_runtime.compact.compressed.wasm: `${{ steps.sha256.outputs.WASM_SHA_TEST }}`
+          files: |
+            target/release/avn-parachain-collator
+            target/release/avn-parachain-collator.sha256
+            target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
+            target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm.sha256
+            target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm
+            target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm.sha256

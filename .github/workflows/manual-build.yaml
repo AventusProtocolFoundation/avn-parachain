@@ -1,0 +1,103 @@
+# This workflow is used to create git tags and releases with all needed artefacts automatically from a branch
+# If RELEASE is set to true, a git release will be created, with all needed artefacts.
+# If RELEASE is set to false, only build and push a docker image to the ECR with the commit hash
+name: CI Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      RELEASE:
+        required: true
+        type: boolean
+        description: Should we create a git release? Use it if it's a hotfix
+      GIT_TAG:
+        required: false
+        type: string
+        description: which tag do you want to create?
+      TEST_CODE:
+        required: true
+        type: boolean
+        description: Should we run the tests ?
+
+
+concurrency:
+  group: ${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  set-up-job:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: echo inputs
+        run: |
+          echo "Release: ${{ github.event.inputs.RELEASE }}"
+          echo "Git tag: ${{ github.event.inputs.GIT_TAG }}"
+          echo "Test code: ${{ github.event.inputs.TEST_CODE }}"
+
+          echo "RELEASE=${{ github.event.inputs.RELEASE }}">> "$GITHUB_OUTPUT"
+
+      - name: verify GIT TAG
+        run: |
+          VERSION=${{ github.event.inputs.GIT_TAG }}
+          rx='^v([0-9]+\.){0,2}(\*|[0-9]+)$'
+
+          if [[ $VERSION =~ $rx ]]; then
+            echo "version $VERSION matches the semver scheme 'vX.Y.Z' (prod tags). This workflow can only be used without prod tags";
+            exit 1
+          fi
+
+  test-code:
+    needs: [set-up-job]
+    if: ${{ github.event.inputs.TEST_CODE == 'true' }}
+    uses: ./.github/workflows/cargo-test.yml
+
+  build-code:
+    needs: [ set-up-job ]
+    uses: ./.github/workflows/cargo-build.yml
+    with:
+      upload_artifacts: true
+    secrets: inherit
+
+  build-avn-docker:
+    needs: [ set-up-job, build-code, test-code ]
+    if: |
+      always() &&
+      (needs.build-code.result == 'success') &&
+      (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      release: ${{ needs.set-up-job.outputs.RELEASE }}
+      docker_tag: ${{ github.event.inputs.GIT_TAG }}
+      build_latest: false
+    secrets: inherit
+
+  avn-repo-release:
+    needs: [ set-up-job, build-avn-docker ]
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/gh-release.yml
+    with:
+      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      hotfix: true
+    secrets: inherit
+
+  upload-avn-assets-internal-tools:
+    needs: [ set-up-job, build-avn-docker ]
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/s3-upload.yml
+    with:
+      bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
+      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+    secrets: inherit
+
+  cleanup-artifacts:
+    runs-on: ubuntu-20.04
+    needs:  [ set-up-job, build-code, build-avn-docker, avn-repo-release, upload-avn-assets-internal-tools ]
+    if: always()
+    steps:
+      - uses: geekyeggo/delete-artifact@v2
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        with:
+          name: |
+            avn-parachain-collator
+            avn-parachain-runtime
+          failOnError: false

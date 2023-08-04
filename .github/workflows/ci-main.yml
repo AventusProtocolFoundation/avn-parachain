@@ -1,0 +1,123 @@
+name: CI main
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  set-up-job:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Install cargo-edit
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-edit
+
+      - name: Check if Release
+        id: release_type_check
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        run: |
+          git fetch
+          PR_URL=$(gh pr list --search $GITHUB_SHA --state merged --json url --jq '.[0].url')
+          description=$(gh pr view $PR_URL)
+          echo "PR_URL=$PR_URL" >> "$GITHUB_ENV"
+
+          ./.github/ci-scripts/verify_pr_type.sh "$description" "${{ github.event_name }}"
+
+      - name: Get latest repo tag
+        if: env.RELEASE == 'true'
+        id: latest_repo_tag
+        run: |
+          LATEST_MAIN_TAG=$(git describe origin/main --tags --abbrev=0 --match "v[0-9]*")
+          echo "Latest main tag: $LATEST_MAIN_TAG"
+          echo "LATEST_MAIN_TAG=$LATEST_MAIN_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Get next repo tags
+        if: env.RELEASE == 'true'
+        id: new_repo_tag
+        uses: WyriHaximus/github-action-next-semvers@v1
+        with:
+          version: ${{ steps.latest_repo_tag.outputs.LATEST_MAIN_TAG }}
+
+      - name: choose next repo tag
+        if: env.RELEASE == 'true'
+        id: choose_next_repo_tag
+        run: |
+          echo "SEM_VERSION_TYPE: $SEM_VERSION_TYPE"
+
+          ./.github/ci-scripts/update_versions.sh \
+            ${{ steps.new_repo_tag.outputs.v_major }} \
+            ${{ steps.new_repo_tag.outputs.v_minor }} \
+            ${{ steps.new_repo_tag.outputs.v_patch }} \
+            "${{ github.event_name }}"
+    outputs:
+      RELEASE: ${{ steps.release_type_check.outputs.RELEASE }}
+      INCREASE_VERSIONS: ${{ steps.release_type_check.outputs.INCREASE_VERSIONS }}
+      SEM_VERSION_TYPE: ${{ steps.release_type_check.outputs.SEM_VERSION_TYPE }}
+      NEW_PACKAGE_TAG: ${{ steps.choose_next_repo_tag.outputs.NEW_PACKAGE_TAG }}
+
+  test-code:
+    needs: [set-up-job]
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/cargo-test.yml
+
+  build-code:
+    needs: [ set-up-job ]
+    uses: ./.github/workflows/cargo-build.yml
+    with:
+      upload_artifacts: true
+    secrets: inherit
+
+  build-avn-docker:
+    needs: [ set-up-job, build-code, test-code ]
+    if: |
+      always() &&
+      (needs.build-code.result == 'success') &&
+      (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      release: ${{ needs.set-up-job.outputs.RELEASE }}
+      docker_tag: ${{ needs.set-up-job.outputs.NEW_PACKAGE_TAG }}
+    secrets: inherit
+
+  avn-repo-release:
+    needs: [ set-up-job, build-avn-docker ]
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/gh-release.yml
+    with:
+      repo_tag: ${{ needs.set-up-job.outputs.NEW_PACKAGE_TAG }}
+    secrets: inherit
+
+  upload-avn-assets-internal-tools:
+    needs: [ set-up-job, build-avn-docker ]
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/s3-upload.yml
+    with:
+      bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
+      repo_tag: ${{ needs.set-up-job.outputs.NEW_PACKAGE_TAG }}
+    secrets: inherit
+
+  cleanup-artifacts:
+    runs-on: ubuntu-20.04
+    needs:  [ set-up-job, build-code, build-avn-docker, avn-repo-release, upload-avn-assets-internal-tools ]
+    if: always()
+    steps:
+      - uses: geekyeggo/delete-artifact@v2
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        with:
+          name: |
+            avn-parachain-collator
+            avn-parachain-runtime
+          failOnError: false
