@@ -1322,9 +1322,9 @@ pub mod migrations {
         log::info!("ℹ️  Nft manager pallet data migration invoked");
 
         let mut keys_need_update = Vec::<Vec<u8>>::new();
+        let bound: usize = <NftExternalRefBound as sp_core::Get<u32>>::get() as usize;
 
         Nfts::<T>::translate::<OldNft<T::AccountId>, _>(|_, p| {
-            let bound: usize = <NftExternalRefBound as sp_core::Get<u32>>::get() as usize;
             if p.unique_external_ref.len() > bound {
                 keys_need_update.push(p.unique_external_ref.clone());
             }
