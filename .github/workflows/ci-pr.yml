@@ -35,6 +35,7 @@ jobs:
       - name: skip testing
         id: skip_tests
         run: |
+          ls -altr
           git checkout ${{ github.head_ref }}
           commit_message=$(git log -1 --pretty=format:"%s")
           git checkout $GITHUB_SHA
