@@ -2,6 +2,19 @@ name: Cargo Test
 
 on:
   workflow_call:
+    inputs:
+      fetch-depth:
+        required: false
+        type: number
+        default: 1
+      ref:
+        required: false
+        type: string
+        default: ''
+      repository:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   ci:
@@ -11,6 +24,10 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repository }}
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -44,6 +61,11 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repository }}
+
       - name: Restore cargo cache - common
         uses: actions/cache@v3
         with:
@@ -70,7 +92,11 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
-      
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repository }}
+
       - name: Restore cargo cache - common
         uses: actions/cache@v3
         with:
@@ -98,6 +124,10 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repository }}
       
       - name: Restore cargo cache - common
         uses: actions/cache@v3
