@@ -6,7 +6,7 @@ edition = "2021"
 version = "3.0.0"
 
 [dependencies]
-log = "0.4"
+log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.101", optional = true }
 rand = { version = "0.7.2", default-features = false }
 # Substrate
@@ -49,6 +49,8 @@ std = [
 	"pallet-authorship/std",
 	"pallet-avn/std",
 	"pallet-session/std",
+	"log/std",
+
 ]
 runtime-benchmarks = [ "frame-benchmarking" ]
 try-runtime = [ "frame-support/try-runtime" ]
