@@ -19,7 +19,7 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
         with:
-          ref: refs/pull/${{github.event.pull_request.number}}/merge
+          ref: ${{ github.head_ref }}
       
       - name: Install cargo-edit
         uses: baptiste0928/cargo-install@v2
@@ -35,7 +35,7 @@ jobs:
       - name: skip testing
         id: skip_tests
         run: |
-          git checkout refs/pull/${{github.event.pull_request.number}}/merge
+          git checkout ${{ github.head_ref }}
           commit_message=$(git log -1 --pretty=format:"%s")
           git checkout $GITHUB_SHA
 
