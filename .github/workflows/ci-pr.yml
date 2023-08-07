@@ -32,6 +32,7 @@ jobs:
         env:
           description: ${{ github.event.pull_request.body }}
         run: |
+          ls -altr
           ./.github/ci-scripts/verify_pr_type.sh "$description" "${{ github.event_name }}"
 
       - name: skip testing
