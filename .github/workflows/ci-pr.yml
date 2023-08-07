@@ -39,6 +39,7 @@ jobs:
           git checkout ${{ github.head_ref }}
           commit_message=$(git log -1 --pretty=format:"%s")
           git checkout $GITHUB_SHA
+          ls -altr
 
           SKIP_TESTS=$([[ "$commit_message" == *"tag:skip_testing"* ]] && echo true || echo false)
           echo "SKIP_TESTS=$SKIP_TESTS" >> "$GITHUB_ENV"
