@@ -85,6 +85,10 @@ jobs:
       ( !github.event.pull_request.draft ) &&
       ( needs.set-up-job.outputs.SKIP_TESTS != 'true' )
     uses: ./.github/workflows/cargo-check.yml
+    with:
+      fetch-depth: 0
+      ref: ${{github.event.pull_request.head.ref}}
+      repository: ${{github.event.pull_request.head.repo.full_name}}
 
   test-code:
     needs: [set-up-job]
@@ -92,3 +96,7 @@ jobs:
       ( !github.event.pull_request.draft ) &&
       ( needs.set-up-job.outputs.SKIP_TESTS != 'true' )
     uses: ./.github/workflows/cargo-test.yml
+    with:
+      fetch-depth: 0
+      ref: ${{github.event.pull_request.head.ref}}
+      repository: ${{github.event.pull_request.head.repo.full_name}}
