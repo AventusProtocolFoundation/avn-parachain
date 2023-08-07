@@ -4,7 +4,6 @@ on:
   pull_request_target:
     branches:
       - main
-      - DEVOPS-365-update-the-ci-to-remove-the-public-private-repo-logic-and-add-all-the-release-creation-code-from-the-private-repo
 
 concurrency:
   group: ${{ github.head_ref || github.ref_name }}
@@ -32,17 +31,14 @@ jobs:
         env:
           description: ${{ github.event.pull_request.body }}
         run: |
-          ls -altr
           ./.github/ci-scripts/verify_pr_type.sh "$description" "${{ github.event_name }}"
 
       - name: skip testing
         id: skip_tests
         run: |
-          ls -altr
           git checkout ${{ github.head_ref }}
           commit_message=$(git log -1 --pretty=format:"%s")
           git checkout $GITHUB_SHA
-          ls -altr
 
           SKIP_TESTS=$([[ "$commit_message" == *"tag:skip_testing"* ]] && echo true || echo false)
           echo "SKIP_TESTS=$SKIP_TESTS" >> "$GITHUB_ENV"
@@ -87,16 +83,16 @@ jobs:
     uses: ./.github/workflows/cargo-check.yml
     with:
       fetch-depth: 0
-      ref: ${{github.event.pull_request.head.ref}}
-      repository: ${{github.event.pull_request.head.repo.full_name}}
+      ref: ${{ github.event.pull_request.head.ref }}
+      repository: ${{ github.event.pull_request.head.repo.full_name }}
 
   test-code:
-    needs: [set-up-job]
+    needs: [ set-up-job ]
     if: |
       ( !github.event.pull_request.draft ) &&
       ( needs.set-up-job.outputs.SKIP_TESTS != 'true' )
     uses: ./.github/workflows/cargo-test.yml
     with:
       fetch-depth: 0
-      ref: ${{github.event.pull_request.head.ref}}
-      repository: ${{github.event.pull_request.head.repo.full_name}}
+      ref: ${{ github.event.pull_request.head.ref }}
+      repository: ${{ github.event.pull_request.head.repo.full_name }}
