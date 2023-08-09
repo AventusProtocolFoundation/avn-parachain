@@ -102,7 +102,7 @@ docker build . --tag avn-node-parachain:latest
 
 ## Logs
 
-When running a node, various log messages are displayed in the output. Each log has a level sensitivity, such as `error`, `warning`, `info`, `debug`, or `trace` and is associated with a specific target.
+When running a node, various log messages are displayed in the output. Each log has a sensitivity level, such as `error`, `warning`, `info`, `debug`, or `trace` and is associated with a specific target.
 
 The following CLI options can be used to configure logging:
 ```
