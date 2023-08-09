@@ -5,7 +5,6 @@ event_type="$2"
 
 RELEASE=$([[ -n "$(echo "$description" | grep -oe '- \[x\] Release')" ]] && echo true || echo false)
 INCREASE_VERSIONS=$([[ -n "$(echo "$description" | grep -oe '- \[x\] Increase versions')" ]] && echo true || echo false)
-BASELINE_PASSED=false
 
 if [[ -n "$(echo -e "$description" | grep -woe '\- \[x\] \(Major\|Minor\|Patch\) release')" ]]; then
     SEM_VERSION_TYPE=$(echo -e "$description" | grep -woe '\- \[x\] \(Major\|Minor\|Patch\) release'| grep -woe '\(Major\|Minor\|Patch\)')
@@ -42,7 +41,6 @@ fi
 {
     echo "RELEASE=$RELEASE"
     echo "INCREASE_VERSIONS=$INCREASE_VERSIONS"
-    #echo "BASELINE_PASSED=$BASELINE_PASSED"
     echo "SEM_VERSION_TYPE=$SEM_VERSION_TYPE"
 } >> "$GITHUB_ENV"
 
@@ -50,6 +48,5 @@ fi
 echo "##### VARIABLES ####"
 echo "Release: $RELEASE"
 echo "Increase versions: $INCREASE_VERSIONS"
-#echo "Baseline tests: $BASELINE_PASSED"
 echo "Semantic Version: $SEM_VERSION_TYPE"
 echo ###################

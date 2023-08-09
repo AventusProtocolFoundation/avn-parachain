@@ -38,17 +38,22 @@ jobs:
           override: true
           default: true
 
-      - name: Set up cargo cache
+      - name: Restore cargo cache - common
         uses: actions/cache@v3
-        continue-on-error: false
         with:
           path: |
             ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Restore cargo cache - test
+        uses: actions/cache@v3
+        with:
+          path: |
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check Code
         run: cargo check --locked
