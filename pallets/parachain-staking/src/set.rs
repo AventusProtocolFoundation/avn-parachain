@@ -114,12 +114,6 @@ impl<T: Ord, S: Get<u32>> BoundedOrderedSet<T, S> {
         let v = v.try_mutate(|inner| inner.dedup()).expect(
             "input is a valid BoundedVec and deduping can only reduce the number of entires; qed",
         );
-        Self::from_sorted_set(v)
-    }
-
-    /// Create a set from a `Vec`.
-    /// Assume `v` is sorted and contain unique elements.
-    pub fn from_sorted_set(v: BoundedVec<T, S>) -> Self {
         Self(v)
     }
 
@@ -163,9 +157,3 @@ impl<T: Ord, S: Get<u32>> From<BoundedVec<T, S>> for BoundedOrderedSet<T, S> {
         Self::from(v)
     }
 }
-
-// impl<T: Clone, S: Get<u32>> Clone for BoundedOrderedSet<T, S> {
-//     fn clone(&self) -> Self {
-//         BoundedOrderedSet(self.0.clone())
-//     }
-// }

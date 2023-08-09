@@ -405,7 +405,7 @@ parameter_types! {
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPaymentDelay: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
-    pub const MaxCandidates: u32 = 257;
+    pub const MaxCandidates: u32 = 253;
 }
 
 impl parachain_staking::Config for TestRuntime {

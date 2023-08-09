@@ -91,6 +91,10 @@ mod test_staking_pot;
 #[path = "tests/tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "tests/test_bounded_ordered_set.rs"]
+mod test_bounded_ordered_set;
+
 use frame_support::pallet;
 pub use weights::WeightInfo;
 
@@ -134,7 +138,7 @@ pub mod pallet {
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
-    // #[pallet::without_storage_info]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(PhantomData<T>);
 
     pub type EraIndex = u32;
@@ -807,10 +811,12 @@ pub mod pallet {
                 candidate_count >= old_count,
                 Error::<T>::TooLowCandidateCountWeightHintJoinCandidates
             );
-            let maybe_inserted_candidate = candidates
-                .try_insert(Bond { owner: acc.clone(), amount: bond })
-                .map_err(|_| Error::<T>::CandidateLimitReached)?;
-            ensure!(maybe_inserted_candidate, Error::<T>::CandidateExists);
+
+            match candidates.try_insert(Bond { owner: acc.clone(), amount: bond }) {
+                Ok(true) => Ok(()),
+                Ok(false) => Err(Error::<T>::CandidateLimitReached),
+                Err(_) => Err(Error::<T>::CandidateExists),
+            };
             ensure!(
                 Self::get_collator_stakable_free_balance(&acc) >= bond,
                 Error::<T>::InsufficientBalance,
@@ -960,10 +966,17 @@ pub mod pallet {
                 candidates.0.len() as u32 <= candidate_count,
                 Error::<T>::TooLowCandidateCountWeightHintCancelLeaveCandidates
             );
-            let maybe_inserted_candidate = candidates
+            // let maybe_inserted_candidate = candidates
+            //     .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
+            //     .map_err(|_| Error::<T>::CandidateLimitReached)?;
+            // ensure!(maybe_inserted_candidate, Error::<T>::AlreadyActive);
+            match candidates
                 .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
-                .map_err(|_| Error::<T>::CandidateLimitReached)?;
-            ensure!(maybe_inserted_candidate, Error::<T>::AlreadyActive);
+            {
+                Ok(true) => Ok(()),
+                Ok(false) => Err(Error::<T>::CandidateLimitReached),
+                Err(_) => Err(Error::<T>::AlreadyActive),
+            };
             <CandidatePool<T>>::put(candidates);
             <CandidateInfo<T>>::insert(&collator, state);
             Self::deposit_event(Event::CancelledCandidateExit { candidate: collator });
@@ -1682,10 +1695,15 @@ pub mod pallet {
         /// Caller must ensure candidate is active before calling
         pub(crate) fn update_active(candidate: T::AccountId, total: BalanceOf<T>) {
             let mut candidates = <CandidatePool<T>>::get();
-            candidates.remove(&Bond::from_owner(candidate.clone()));
-            candidates
-                .try_insert(Bond { owner: candidate, amount: total })
-                .map_err(|_| Error::<T>::CandidateLimitReached);
+            candidates.remove(&Bond::from_owner(candidate.clone())); // TODO
+                                                                     // candidates
+                                                                     //     .try_insert(Bond { owner: candidate, amount: total })
+                                                                     //     .map_err(|_| Error::<T>::CandidateLimitReached);
+            match candidates.try_insert(Bond { owner: candidate, amount: total }) {
+                Ok(true) => Ok(()),
+                Ok(false) => Err(Error::<T>::CandidateLimitReached),
+                Err(_) => Err(Error::<T>::AlreadyActive),
+            };
             <CandidatePool<T>>::put(candidates);
         }
 
