@@ -18,6 +18,65 @@ Read our contribution guide [HERE](./CONTRIBUTING.adoc).
 
 Note: This repository is managed frequently so you do not need to email/contact us to notify us of your submission.
 
+## Parachains introduction and tutorials
+This project is originally a fork of the
+[Substrate Node Template](https://github.com/substrate-developer-hub/substrate-node-template)
+modified to include dependencies required for registering this node as a **parathread** or
+**parachain** to a **relay chain**.
+
+👉 Learn more about parachains [here](https://wiki.polkadot.network/docs/learn-parachains), and
+parathreads [here](https://wiki.polkadot.network/docs/learn-parathreads).
+
+## Building the project
+*Based on [Polkadot Build Guide](https://github.com/paritytech/polkadot#building)*
+
+First [Install Rust](https://www.rust-lang.org/tools/install):
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+If you already have Rust installed, make sure you're using the latest version by running:
+
+```bash
+rustup update
+```
+
+Once done, finish installing the support software:
+
+```bash
+# Additional rust targets
+rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-18
+# Additional OS dependencies
+sudo apt install build-essential git clang libclang-dev pkg-config libssl-dev
+```
+
+Build the client by cloning this repository and running the following commands from the root
+directory of the repo:
+
+```bash
+git checkout <latest tagged release>
+cargo build --release
+```
+
+### Enabling avn optional features
+
+[The Cargo Book - Features](https://doc.rust-lang.org/cargo/reference/features.html) section explains how features and feature flags can be used in cargo to enable additional features when building a project.
+
+```bash
+# single feature
+cargo build --features feature_name
+# multiple features
+cargo build --features feature_name_1,feature_name_2
+```
+
+#### Activating the Test Runtime
+
+The avn test runtime is an independent runtime that integrates the newest features of AvN, currently undergoing development and testing. By default, the test runtime is not built, but you can enable it using one of the following feature flags:
+
+- `avn-test-runtime`: Enables the compilation and chainspecs that utilize the test runtime
+- `test-native-runtime`: Switches the native runtime of the node to use the test runtime. This feature implies the `avn-test-runtime` feature.
+
 ## Building and testing the pallets
 
 To build and test a pallet, navigate to the directory of the pallet in your project by running the following command:
@@ -34,4 +93,96 @@ cargo test
 
 # Test the benchmark tests
 cargo test --features runtime-benchmarks
+```
+### Building the docker image
+```sh
+# Builds the docker image with the build artefacts under target/release
+docker build . --tag avn-node-parachain:latest
+```
+
+## Logs
+
+When running a node, various log messages are displayed in the output. Each log has a level sensitivity, such as `error`, `warning`, `info`, `debug`, or `trace` and is associated with a specific target.
+
+The following CLI options can be used to configure logging:
+```
+  -l, --log <LOG_PATTERN>...
+          Sets a custom logging filter. Syntax is `<target>=<level>`, e.g. -lsync=debug
+  --detailed-log-output
+      Enable detailed log output
+```
+
+Enabling the `detailed-log-output` flag provides more comprehensive log information, including the log target, log level, and the name of the emitting thread. If no target is specified, the name of the module will be used.
+
+Here are some examples of log statements and their corresponding outputs:
+
+```Rust
+log::info!(target: "aventus", "💾 Sample log");
+```
+Output:
+
+```console
+2023-05-15 08:00:00 💾 Sample log
+```
+Output with detailed log output enabled:
+```console
+2023-05-15 08:00:00  INFO main aventus: [Parachain] 💾 Sample log
+```
+During node execution, you have the flexibility to modify the log level for all or specific targets using the following command line parameters:
+```
+# Setting the log level to all targets
+-ldebug
+--log debug
+
+# Setting the log level to specific targets.
+-ltxpool=debug -lsub-libp2p=debug
+```
+There are numerous log targets available, and you can discover more by utilizing the detailed-log-output parameter or by referring to the code. However, for convenience, here are some commonly used log targets:
+
+- txpool
+- avn-service
+- sub-libp2p
+- sub-authority-discovery
+- parachain::collator-protocol
+- parachain::validator-discovery
+- gossip
+- peerset
+- cumulus-collator
+- db
+- executor
+- wasm-runtime
+- sync
+- offchain-worker::http
+- state-db
+- state
+
+*Please note that this list is not exhaustive*.
+
+### Log output manipulation using environment variables
+
+Alternatively, you can use the `RUST_LOG` environment variable to specify the desired log level per module. Substrate utilizes the [log crate](https://github.com/rust-lang/log) and [env_logger crate](https://docs.rs/env_logger/latest/env_logger/) for its internal logging implementation. These crates provide a flexible and configurable way to manage log output through the use of the `RUST_LOG` environment variable.
+
+- [Substrate - Debug](https://docs.substrate.io/test/debug/)
+- [Rust - Enabling logs per module](https://rust-lang-nursery.github.io/rust-cookbook/development_tools/debugging/config_log.html)
+
+## Chainspec Generation
+
+To generate the necessary chainspec files for your parachain, simply replace `<chain_name>` with your specific configuration name and execute these commands. This will produce the essential files for your parachain's configuration and genesis state.
+```sh
+# Generate the plain text version
+./avn-parachain-collator build-spec --chain <chain_name> --disable-default-bootnode > avn_chain_plain.json
+
+# Generate the raw version
+./avn-parachain-collator build-spec --chain avn_chain_plain.json --disable-default-bootnode --raw > avn_chain_raw.json
+```
+## Export Genesis State and Wasm
+
+To export the genesis state and wasm files, use the following commands:
+
+```sh
+# Export the genesis wasm
+./avn-parachain-collator export-genesis-wasm --chain <chain_name> --raw > genesis.wasm
+
+# Export the genesis state
+./avn-parachain-collator export-genesis-state --chain <chain_name> --raw > genesis.state
 ```
