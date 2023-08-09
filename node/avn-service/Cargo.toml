@@ -1,11 +1,12 @@
 [package]
 name = "avn-service"
-version = "0.12.0"
-authors = ["Aventus Network Services Team"]
-edition = "2021"
 license = "GPL-3.0"
-homepage = "http://www.aventus.io/"
-repository = "https://github.com/Aventus-Network-Services/avn-node-parachain/"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 [dependencies]
 # third-party dependencies
