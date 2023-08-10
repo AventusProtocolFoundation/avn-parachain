@@ -64,6 +64,16 @@ jobs:
           ref: ${{ inputs.ref }}
           repository: ${{ inputs.repository }}
 
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2022-10-18
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+          override: true
+          default: true
+
       - name: Restore cargo cache - common
         uses: actions/cache@v3
         with:
@@ -91,7 +101,17 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
-      
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2022-10-18
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+          override: true
+          default: true
+
       - name: Restore cargo cache - common
         uses: actions/cache@v3
         with:
