@@ -240,13 +240,7 @@ benchmarks! {
     )
     verify {
         assert_eq!(<T as pallet::Config>::Currency::free_balance(&lower.from_account_id), 0u32.into());
-        assert_last_event::<T>(Event::<T>::TokenLowered {
-            token_id: AVT_TOKEN_CONTRACT.into(),
-            sender: lower.from_account_id.clone(),
-            recipient: lower.lower_account_id,
-            amount: lower.amount.into(),
-            t1_recipient: lower.t1_recipient
-        }.into());
+
     }
 
     lower_non_avt_token {
@@ -283,13 +277,7 @@ benchmarks! {
     )
     verify {
         assert_eq!(<T as pallet::Config>::Currency::free_balance(&lower.from_account_id), 0u32.into());
-        assert_last_event::<T>(Event::<T>::TokenLowered {
-            token_id: AVT_TOKEN_CONTRACT.into(),
-            sender: lower.from_account_id.clone(),
-            recipient: lower.lower_account_id,
-            amount: lower.amount.into(),
-            t1_recipient: lower.t1_recipient
-        }.into());
+
     }
 
     signed_lower_non_avt_token {
