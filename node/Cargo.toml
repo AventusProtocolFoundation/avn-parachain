@@ -1,10 +1,10 @@
 [package]
 name = "avn-node-parachain"
-version = "2.7.1"
 description = "A Cumulus FRAME-based Substrate Node compatible with the AvN parachain"
 license = "GPL-3.0"
 build = "build.rs"
 
+version.workspace = true
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
@@ -92,7 +92,7 @@ cumulus-primitives-parachain-inherent = { git = "https://github.com/paritytech/c
 cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus.git", branch = "polkadot-v0.9.36" }
 
 # AvN
-avn-service = { version = "0.12.0", path = "avn-service"}
+avn-service = { path = "avn-service"}
 pallet-avn = { path = "../pallets/avn", default-features = false }
 tiny-bip39 = "0.8.2"
 libp2p = "0.46.1"
