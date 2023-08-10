@@ -1,0 +1,74 @@
+name: Cargo build
+
+on:
+  workflow_call:
+    inputs:
+      upload_artifacts:
+        required: true
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cargo-build:
+    runs-on: avn-runner
+    timeout-minutes: 90
+    steps:
+      - name: Check out
+        uses: actions/checkout@v3
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: nightly-2022-10-18
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+          override: true
+          default: true
+
+      - name: Restore cargo cache - common
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Set up cargo cache - build
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            target/
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --locked --release
+
+      - name: AvN Parachain collator Artifact
+        if: ${{ inputs.upload_artifacts }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: avn-parachain-collator
+          path: target/release/avn-parachain-collator
+          if-no-files-found: error
+
+      - name: AvN Parachain runtime Artifact
+        if: ${{ inputs.upload_artifacts }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: avn-parachain-runtime
+          path: target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
+          if-no-files-found: error
+
+      - name: AvN Parachain Test runtime Artifact
+        if: ${{ inputs.upload_artifacts }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: avn-parachain-test-runtime
+          path: target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm
+          if-no-files-found: error
