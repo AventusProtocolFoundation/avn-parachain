@@ -1,0 +1,17 @@
+name: CI cron
+
+on:
+  schedule:
+    # At 3am on sunday
+    - cron: '0 3 * * 0'
+
+jobs:
+  test-code:
+    uses: ./.github/workflows/cargo-test.yml
+
+  build-code:
+    needs: [ test-code ]
+    uses: ./.github/workflows/cargo-build.yml
+    with:
+      upload_artifacts: false
+    secrets: inherit

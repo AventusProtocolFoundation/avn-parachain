@@ -1,0 +1,44 @@
+[package]
+name = "avn-runtime-common"
+description = "A Cumulus FRAME-based Substrate Node compatible with the AvN parachain"
+license = "GPL-3.0"
+
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+
+ 
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+hex-literal = { version = "0.3.4", optional = true }
+log = { version = "0.4.17", default-features = false }
+scale-info = { version = "2.3.1", default-features = false, features = ["derive"] }
+smallvec = "1.10.0"
+
+# Substrate
+frame-support = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+node-primitives = { version = "2.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.36" }
+
+ 
+[features]
+default = [
+	"std",
+]
+no_std = []
+std = [
+	"codec/std",
+	"log/std",
+	"scale-info/std",
+	"node-primitives/std",
+	"sp-runtime/std",
+	"frame-support/std",
+]
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+]
+
+try-runtime = [
+]

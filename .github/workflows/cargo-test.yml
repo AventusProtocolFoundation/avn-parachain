@@ -1,25 +1,35 @@
-on:
-  workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-  push: # Run CI on the main branch after every merge. This is important to fill the GitHub Actions cache in a way that pull requests can see it
-    branches:
-      - main
+name: Cargo Test
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+on:
+  workflow_call:
+    inputs:
+      fetch-depth:
+        required: false
+        type: number
+        default: 1
+      ref:
+        required: false
+        type: string
+        default: ''
+      repository:
+        required: false
+        type: string
+        default: ''
 
 jobs:
   ci:
-    name: ci
     runs-on: avn-runner
     timeout-minutes: 90
+    
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repository }}
 
-      - name: Install Rust toolchain
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -29,29 +39,6 @@ jobs:
           override: true
           default: true
 
-      - name: Set up cargo cache - common
-        uses: actions/cache@v3
-        continue-on-error: false
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-common        
-
-      - name: Linting check
-        run: cargo fmt --all --check
-
-  check:
-    name: Check code
-    runs-on: avn-runner    
-    needs: ci
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v3
       - name: Restore cargo cache - common
         uses: actions/cache@v3
         with:
@@ -61,15 +48,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
           key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
-      - name: Restore cargo cache - release
-        uses: actions/cache@v3
-        with:
-          path: |
-            target/
-          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}    
 
-      - name: Check code
-        run: cargo check --locked --release
+      - name: Linting check
+        run: cargo fmt --all --check
 
   test:
     name: Test Code
@@ -78,6 +59,42 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repository }}
+
+      - name: Restore cargo cache - common
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Restore cargo cache - test
+        uses: actions/cache@v3
+        with:
+          path: |
+            target/
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}      
+
+      - name: Test Code
+        run: cargo test
+
+  runtime-benchmarks:
+    name: Runtime Benchmarks
+    runs-on: avn-runner    
+    needs: ci
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: ${{ inputs.fetch-depth }}
+          ref: ${{ inputs.ref }}
+          repository: ${{ inputs.repository }}
       
       - name: Restore cargo cache - common
         uses: actions/cache@v3
@@ -89,12 +106,12 @@ jobs:
             ~/.cargo/git/db/
           key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Restore cargo cache - debug
+      - name: Restore cargo cache - runtime benchmarks
         uses: actions/cache@v3
         with:
           path: |
             target/
-          key: ${{ runner.os }}-cargo-debug-${{ hashFiles('**/Cargo.lock') }}      
+          key: ${{ runner.os }}-runtime-benchmarks-${{ hashFiles('**/Cargo.lock') }}      
 
       - name: Test Code
         run: cargo test
