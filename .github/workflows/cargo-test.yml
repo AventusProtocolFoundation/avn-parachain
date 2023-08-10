@@ -91,38 +91,6 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: ${{ inputs.fetch-depth }}
-          ref: ${{ inputs.ref }}
-          repository: ${{ inputs.repository }}
-      
-      - name: Restore cargo cache - common
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Restore cargo cache - runtime benchmarks
-        uses: actions/cache@v3
-        with:
-          path: |
-            target/
-          key: ${{ runner.os }}-runtime-benchmarks-${{ hashFiles('**/Cargo.lock') }}      
-
-      - name: Test Code
-        run: cargo test
-
-  runtime-benchmarks:
-    name: Runtime Benchmarks
-    runs-on: avn-runner    
-    needs: ci
-    timeout-minutes: 90
-    steps:
-      - uses: actions/checkout@v3
       
       - name: Restore cargo cache - common
         uses: actions/cache@v3
