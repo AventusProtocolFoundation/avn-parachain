@@ -123,6 +123,25 @@ pub mod pallet {
         type BatchBound: Get<u32>;
     }
 
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub _phantom: sp_std::marker::PhantomData<T>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self { _phantom: Default::default() }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            crate::STORAGE_VERSION.put::<Pallet<T>>();
+        }
+    }
+
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
     #[pallet::storage_version(STORAGE_VERSION)]
