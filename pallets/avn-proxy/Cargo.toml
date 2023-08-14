@@ -1,12 +1,14 @@
 [package]
 name = "pallet-avn-proxy"
-version = "0.12.0"
-authors = ["Aventus Network Services Team"]
-edition = "2021"
-license = "GPL-3.0"
-homepage = "http://www.aventus.io/"
-repository = "https://github.com/Aventus-Network-Services/avn-node-parachain/"
 description = "Process proxy transactions with the ability to charge a fee"
+license = "GPL-3.0"
+
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -16,7 +18,7 @@ codec = { package = "parity-scale-codec", version = "3.0.0", default-features = 
 hex-literal = { version = "0.3.4", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 
-sp-avn-common = { version = "0.12.0", default-features = false, path = "../../primitives/avn-common" }
+sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
@@ -32,8 +34,8 @@ sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-pallet-nft-manager = { version = "0.12.0", path = "../nft-manager" }
-pallet-avn = { version = "0.12.0", path = "../avn" }
+pallet-nft-manager = { path = "../nft-manager" }
+pallet-avn = { path = "../avn" }
 parking_lot = { version = "0.12.0" }
 
 [features]

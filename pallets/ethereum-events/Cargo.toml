@@ -1,12 +1,14 @@
 [package]
 name = "pallet-ethereum-events"
-version = "0.12.0"
-authors = ["Aventus Network Services Team"]
-edition = "2021"
-license = "GPL-3.0"
-homepage = "http://www.aventus.io/"
-repository = "https://github.com/Aventus-Network-Services/avn-parachain/"
 description = "Process and handle ethereum events"
+license = "GPL-3.0"
+
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
@@ -16,7 +18,7 @@ hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 impl-trait-for-tuples = "0.2.2"
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 
-sp-avn-common = { version = "0.12.0", default-features = false, path = "../../primitives/avn-common" }
+sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
@@ -26,7 +28,7 @@ sp-io = { default-features = false, git = "https://github.com/paritytech/substra
 sp-staking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-session = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-pallet-avn = { version = "0.12.0", default-features = false, path = "../avn" }
+pallet-avn = { default-features = false, path = "../avn" }
 
 # Optional imports for benchmarking
 serde = { version = "1.0.137", optional = true }
@@ -37,7 +39,7 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-pallet-avn-proxy = { version = "0.12.0", default-features = false, path = "../avn-proxy" }
+pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
 
 [features]
 migrate = []

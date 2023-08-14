@@ -1,12 +1,13 @@
 [package]
 name = "pallet-token-manager"
-version = "0.1.0"
-authors = ["Aventus Network Services Team"]
-edition = "2021"
 license = "GPL-3.0"
-homepage = "http://www.aventus.io/"
-repository = "https://github.com/Aventus-Network-Services/avn-parachain/"
 
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -14,10 +15,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false }
 enumflags2 = { version = "0.7.4" }
-pallet-avn = { version = "0.12.0", default-features = false, path = "../avn" }
+pallet-avn = { default-features = false, path = "../avn" }
 hex-literal = { version = "0.3.4", default-features = false }
 scale-info = { version = "2.1.1", default-features = false, features = ["derive"] }
-sp-avn-common = { version = "0.12.0", default-features = false, path = "../../primitives/avn-common" }
+sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
@@ -35,7 +36,7 @@ substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-pallet-parachain-staking = { version = "3.0.0", path = "../parachain-staking" }
+pallet-parachain-staking = { path = "../parachain-staking" }
 pallet-session = { features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
 
 [features]

@@ -1,11 +1,13 @@
 [package]
 name = "pallet-nft-manager"
-version = "0.12.0"
-authors = ["Aventus Network Services Team"]
-edition = "2021"
 license = "GPL-3.0"
-homepage = "http://www.aventus.io/"
-repository = "https://github.com/Aventus-Network-Services/avn-parachain/"
+
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -19,9 +21,9 @@ frame-system = { default-features = false, git = "https://github.com/paritytech/
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-sp-avn-common = { version = "0.12.0", default-features = false, path = "../../primitives/avn-common" }
+sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
 sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-pallet-avn = { version = "0.12.0", default-features = false, path = "../avn" }
+pallet-avn = { default-features = false, path = "../avn" }
 
 # Optional imports for benchmarking
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }

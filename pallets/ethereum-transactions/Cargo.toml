@@ -1,12 +1,14 @@
 [package]
 name = "pallet-ethereum-transactions"
-version = "0.12.0"
-authors = ["Aventus Network Services Team"]
-edition = "2021"
-license = "GPL-3.0"
-homepage = "http://www.aventus.io/"
-repository = "https://github.com/Aventus-Network-Services/avn-parachain/"
 description = "Sends ethereum transactions"
+license = "GPL-3.0"
+
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
 
 [dependencies]
 serde = { version = "1.0.137", optional = true }
@@ -16,8 +18,8 @@ ethabi = { default-features = false, git = "https://github.com/Aventus-Network-S
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 hex-literal = { version = "0.3.4", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-sp-avn-common =  { version = "0.12.0", default-features = false, path = "../../primitives/avn-common" }
-pallet-avn = { version = "0.12.0", default-features = false, path = "../avn" }
+sp-avn-common =  { default-features = false, path = "../../primitives/avn-common" }
+pallet-avn = { default-features = false, path = "../avn" }
 
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }

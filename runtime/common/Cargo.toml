@@ -3,11 +3,11 @@ name = "avn-runtime-common"
 description = "A Cumulus FRAME-based Substrate Node compatible with the AvN parachain"
 license = "GPL-3.0"
 
-version.workspace = true
-authors.workspace = true
-edition.workspace = true
-homepage.workspace = true
-repository.workspace = true
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
 
  
 [dependencies]
