@@ -6475,7 +6475,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6500,7 +6500,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn-finality-tracker"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6524,7 +6524,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn-offence-handler"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6545,7 +6545,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn-proxy"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6569,7 +6569,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn-transaction-payment"
-version = "0.1.0"
+version = "2.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6851,7 +6851,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ethereum-events"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6881,7 +6881,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ethereum-transactions"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "ethabi 13.0.0",
  "frame-benchmarking",
@@ -7049,7 +7049,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-manager"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7174,7 +7174,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-parachain-staking"
-version = "3.0.0"
+version = "2.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7429,7 +7429,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-summary"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -7494,7 +7494,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-token-manager"
-version = "0.1.0"
+version = "2.7.1"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -7598,7 +7598,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-validators-manager"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -11909,7 +11909,7 @@ dependencies = [
 
 [[package]]
 name = "sp-avn-common"
-version = "0.12.0"
+version = "2.7.1"
 dependencies = [
  "byte-slice-cast",
  "derive_more",

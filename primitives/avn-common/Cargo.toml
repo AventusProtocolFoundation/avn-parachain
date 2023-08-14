@@ -1,12 +1,14 @@
 [package]
 name = "sp-avn-common"
-version = "0.12.0"
-authors = ["Aventus Network Services Team"]
-edition = "2021"
-license = "GPL-3.0"
-homepage = "http://www.aventus.io/"
-repository = "https://github.com/Aventus-Network-Services/avn-node-parachain/"
 description = "Common types for avn pallets"
+license = "GPL-3.0"
+
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
