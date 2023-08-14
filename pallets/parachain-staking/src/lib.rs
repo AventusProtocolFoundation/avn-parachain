@@ -966,10 +966,7 @@ pub mod pallet {
                 candidates.0.len() as u32 <= candidate_count,
                 Error::<T>::TooLowCandidateCountWeightHintCancelLeaveCandidates
             );
-            // let maybe_inserted_candidate = candidates
-            //     .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
-            //     .map_err(|_| Error::<T>::CandidateLimitReached)?;
-            // ensure!(maybe_inserted_candidate, Error::<T>::AlreadyActive);
+
             match candidates
                 .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
             {
@@ -1695,10 +1692,8 @@ pub mod pallet {
         /// Caller must ensure candidate is active before calling
         pub(crate) fn update_active(candidate: T::AccountId, total: BalanceOf<T>) {
             let mut candidates = <CandidatePool<T>>::get();
-            candidates.remove(&Bond::from_owner(candidate.clone())); // TODO
-                                                                     // candidates
-                                                                     //     .try_insert(Bond { owner: candidate, amount: total })
-                                                                     //     .map_err(|_| Error::<T>::CandidateLimitReached);
+            candidates.remove(&Bond::from_owner(candidate.clone()));
+
             match candidates.try_insert(Bond { owner: candidate, amount: total }) {
                 Ok(true) => Ok(()),
                 Ok(false) => Err(Error::<T>::CandidateLimitReached),
