@@ -139,14 +139,11 @@ fn mark_avn_tx_as_sent(tx_id: TransactionId, eth_tx_hash: H256) {
 
 #[test]
 fn validate_generated_publish_root_bytes_abi_success() {
-    let mut ext = ExtBuilder::build_default()
-        .with_genesis_config()
-        .with_validators()
-        .as_externality();
+    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
     ext.execute_with(|| {
         let (_, _, _, candidate_tx) = generate_merkle_root_mock_data_with_signatures();
-        let tx = candidate_tx.to_abi(EthereumTransactions::get_publish_root_contract()).unwrap();
+        let tx = candidate_tx.to_abi(AVN::<TestRuntime>::get_bridge_contract_address()).unwrap();
 
         assert_eq!(hex::encode(tx.data), ENCODED_DATA);
     });
@@ -243,10 +240,7 @@ mod reserve_transaction_id {
 
         #[test]
         fn fails_if_transaction_already_reserved() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let transaction = DefaultTransactionBuilder::build_default();
                 let old_unique_identifier =
@@ -271,10 +265,7 @@ mod reserve_transaction_id {
 
         #[test]
         fn when_call_succeeds() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let transaction = DefaultTransactionBuilder::build_default();
 
@@ -334,10 +325,7 @@ mod submit_candidate_for_tier1 {
 
         #[test]
         fn transaction_exists_in_repository() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let mut context = minimum_setup();
                 let expected_candidate = get_expected_candidate(&mut context);
@@ -354,10 +342,7 @@ mod submit_candidate_for_tier1 {
         #[ignore]
         #[test]
         fn does_not_have_enough_confirmations() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let mut context = minimum_setup();
 
@@ -373,10 +358,7 @@ mod submit_candidate_for_tier1 {
 
         #[test]
         fn other_than_reserved_id_is_used() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let mut context = minimum_setup();
                 // use different tx_id
@@ -395,10 +377,7 @@ mod submit_candidate_for_tier1 {
         }
         #[test]
         fn if_not_reserved() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let mut candidate_transaction = DefaultTransactionBuilder::build_default();
                 let from = SELECTED_SENDER_ACCOUNT_ID;
@@ -422,10 +401,7 @@ mod submit_candidate_for_tier1 {
 
         #[test]
         fn nonce_does_not_change() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let mut context = minimum_setup();
                 let expected_candidate = get_expected_candidate(&mut context);
@@ -443,10 +419,7 @@ mod submit_candidate_for_tier1 {
 
         #[test]
         fn transaction_gets_submitted() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let mut context = minimum_setup();
                 let expected_candidate = get_expected_candidate(&mut context);
@@ -465,10 +438,7 @@ mod submit_candidate_for_tier1 {
 
         #[test]
         fn event_is_emitted() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let mut context = minimum_setup();
                 let expected_candidate = get_expected_candidate(&mut context);
@@ -536,10 +506,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn tx_hash_is_updated() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
 
@@ -560,10 +527,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn event_is_emitted() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
 
@@ -592,10 +556,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
         // Bad parameters
         #[test]
         fn origin_is_signed() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
 
@@ -617,10 +578,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn submitter_is_not_a_validator() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
 
@@ -638,10 +596,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn submitter_is_not_the_designated_sender() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
 
@@ -660,10 +615,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
         // Bad state
         #[test]
         fn submitter_is_not_registered() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
 
@@ -685,10 +637,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn submitter_is_not_registered_for_this_transaction() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
 
@@ -711,10 +660,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn transaction_does_not_have_a_designated_submitter() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
                 EthereumTransactions::reset_submitter(context.tx_id);
@@ -733,10 +679,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn it_is_called_twice_for_same_transaction() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context = setup();
 
@@ -762,10 +705,7 @@ mod set_eth_tx_hash_for_dispatched_tx {
 
     #[test]
     fn can_reset_tx_hash_to_zero() {
-        let mut ext = ExtBuilder::build_default()
-            .with_genesis_config()
-            .with_validators()
-            .as_externality();
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup();
 
@@ -831,7 +771,6 @@ fn eth_transaction_candidate_get_eth_tx_hash_with_value() {
 #[test]
 fn tx_ready_to_be_sent_returns_correct_value_when_more_than_max_transactions_exist() {
     let (mut ext, _, _) = ExtBuilder::build_default()
-        .with_genesis_config()
         .with_validators()
         .for_offchain_worker()
         .as_externality_with_state();
@@ -851,7 +790,6 @@ fn tx_ready_to_be_sent_returns_correct_value_when_more_than_max_transactions_exi
 #[test]
 fn tx_ready_to_be_sent_returns_correct_value_when_exactly_max_transactions_exist() {
     let (mut ext, _, _) = ExtBuilder::build_default()
-        .with_genesis_config()
         .with_validators()
         .for_offchain_worker()
         .as_externality_with_state();
@@ -870,7 +808,6 @@ fn tx_ready_to_be_sent_returns_correct_value_when_exactly_max_transactions_exist
 #[test]
 fn tx_ready_to_be_sent_returns_correct_value_when_fewer_than_max_transactions_exist() {
     let (mut ext, _, _) = ExtBuilder::build_default()
-        .with_genesis_config()
         .with_validators()
         .for_offchain_worker()
         .as_externality_with_state();
@@ -889,10 +826,7 @@ fn tx_ready_to_be_sent_returns_correct_value_when_fewer_than_max_transactions_ex
 
 #[test]
 fn tx_ready_to_be_sent_returns_correct_value_none() {
-    let mut ext = ExtBuilder::build_default()
-        .with_genesis_config()
-        .with_validators()
-        .as_externality();
+    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
 
     ext.execute_with(|| {
         let txs_to_send =
@@ -912,7 +846,6 @@ fn get_expected_count_for_transactions_to_send(current: usize) -> usize {
 #[test]
 fn tx_ready_to_be_sent_excludes_already_sent() {
     let (mut ext, _, _) = ExtBuilder::build_default()
-        .with_genesis_config()
         .with_validators()
         .for_offchain_worker()
         .as_externality_with_state();
@@ -940,7 +873,6 @@ fn tx_ready_to_be_sent_excludes_already_sent() {
 #[test]
 fn tx_ready_to_be_sent_respects_locks() {
     let (mut ext, _, _) = ExtBuilder::build_default()
-        .with_genesis_config()
         .with_validators()
         .for_offchain_worker()
         .as_externality_with_state();
@@ -973,7 +905,6 @@ fn tx_ready_to_be_sent_respects_locks() {
 #[test]
 fn tx_ready_to_be_sent_only_includes_own_transactions() {
     let (mut ext, _, _) = ExtBuilder::build_default()
-        .with_genesis_config()
         .with_validators()
         .for_offchain_worker()
         .as_externality_with_state();
@@ -1007,10 +938,8 @@ fn tx_ready_to_be_sent_only_includes_own_transactions() {
 
 #[test]
 fn eth_tx_hash_validates_correctly() {
-    let (mut ext, _, offchain_state) = ExtBuilder::build_default()
-        .with_genesis_config()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    let (mut ext, _, offchain_state) =
+        ExtBuilder::build_default().for_offchain_worker().as_externality_with_state();
 
     ext.execute_with(|| {
         let (_, _, _, candidate_transaction) = generate_merkle_root_mock_data_with_signatures();
@@ -1028,10 +957,8 @@ fn eth_tx_hash_validates_correctly() {
 
 #[test]
 fn eth_tx_hash_invalid_hex_string() {
-    let (mut ext, _, offchain_state) = ExtBuilder::build_default()
-        .with_genesis_config()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    let (mut ext, _, offchain_state) =
+        ExtBuilder::build_default().for_offchain_worker().as_externality_with_state();
 
     ext.execute_with(|| {
         let invalid_tx_hash =
@@ -1053,10 +980,8 @@ fn eth_tx_hash_invalid_hex_string() {
 
 #[test]
 fn eth_tx_hash_invalid_length() {
-    let (mut ext, _, offchain_state) = ExtBuilder::build_default()
-        .with_genesis_config()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    let (mut ext, _, offchain_state) =
+        ExtBuilder::build_default().for_offchain_worker().as_externality_with_state();
 
     ext.execute_with(|| {
         let invalid_tx_hash = H160::random();
@@ -1077,10 +1002,8 @@ fn eth_tx_hash_invalid_length() {
 
 #[test]
 fn eth_tx_hash_invalid_bytes() {
-    let (mut ext, _, offchain_state) = ExtBuilder::build_default()
-        .with_genesis_config()
-        .for_offchain_worker()
-        .as_externality_with_state();
+    let (mut ext, _, offchain_state) =
+        ExtBuilder::build_default().for_offchain_worker().as_externality_with_state();
 
     ext.execute_with(|| {
         let invalid_tx_hash = vec![159; 64];
@@ -1099,7 +1022,7 @@ fn test_get_contract_address_for_eth_txn(
     transaction_type: &EthTransactionType,
     expected_contract_address: H160,
 ) {
-    let actual_contract_address = EthereumTransactions::get_contract_address(transaction_type);
+    let actual_contract_address = Some(AVN::<TestRuntime>::get_bridge_contract_address());
 
     assert!(actual_contract_address.is_some(), "Contract address must not be empty");
     assert_eq!(actual_contract_address.unwrap(), expected_contract_address);
@@ -1107,14 +1030,15 @@ fn test_get_contract_address_for_eth_txn(
 
 #[test]
 fn eth_get_contract_address_works_with_valid_input() {
-    let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+    let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
+        EthereumTransactions::setup_mock_ethereum_contracts_address();
         let (_, _, _, publish_root_candidate_tx) = generate_merkle_root_mock_data_with_signatures();
         let (_, dispatched_candidate_txs) =
             generate_valid_dispatched_transactions(1, publish_root_candidate_tx);
         let publish_root_eth_tx_candidate = &dispatched_candidate_txs[0];
-        let expected_contract_address = get_publish_root_default_contract();
+        let expected_contract_address = get_default_contract();
         test_get_contract_address_for_eth_txn(
             &publish_root_eth_tx_candidate.call_data,
             expected_contract_address,
@@ -1127,19 +1051,8 @@ fn eth_get_contract_address_works_with_valid_input() {
         let deregister_validator_eth_tx_candidate = &dispatched_candidate_txs[0];
         test_get_contract_address_for_eth_txn(
             &deregister_validator_eth_tx_candidate.call_data,
-            CUSTOM_VALIDATOR_MANAGER_CONTRACT,
+            H160::from(BRIDGE_CONTRACT),
         );
-    });
-}
-
-#[test]
-fn eth_get_contract_address_invalid_input() {
-    let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
-
-    ext.execute_with(|| {
-        let actual_contract_address =
-            EthereumTransactions::get_contract_address(&EthTransactionType::Invalid);
-        assert_eq!(actual_contract_address, None);
     });
 }
 
@@ -1169,7 +1082,7 @@ mod unreserve_transaction_tests {
         use super::*;
         #[test]
         fn origin_is_root_and_value_exists() {
-            let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+            let mut ext = ExtBuilder::build_default().as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
                 context.create_reservation();
@@ -1197,7 +1110,7 @@ mod unreserve_transaction_tests {
 
         #[test]
         fn origin_is_root_and_value_does_not_exist() {
-            let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+            let mut ext = ExtBuilder::build_default().as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
 
@@ -1227,7 +1140,7 @@ mod unreserve_transaction_tests {
         use super::*;
         #[test]
         fn origin_is_unsigned() {
-            let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+            let mut ext = ExtBuilder::build_default().as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
                 context.create_reservation();
@@ -1258,7 +1171,7 @@ mod unreserve_transaction_tests {
 
         #[test]
         fn origin_is_signed() {
-            let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+            let mut ext = ExtBuilder::build_default().as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
                 context.create_reservation();

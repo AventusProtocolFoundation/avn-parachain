@@ -3,10 +3,11 @@
 
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok};
+use frame_system::RawOrigin;
 use sp_runtime::traits::BadOrigin;
-use system::RawOrigin;
 
-mod test_set_publish_root_contract {
+mod test_set_bridge_contract {
+
     use super::*;
 
     struct Context {
@@ -21,25 +22,27 @@ mod test_set_publish_root_contract {
     }
 
     impl Context {
-        fn dispatch_set_publish_root_contract(&self) -> DispatchResult {
-            return EthereumTransactions::set_publish_root_contract(
-                self.origin.clone(),
-                self.new_contract_address.clone(),
-            )
+        fn dispatch_set_bridge_contract(&self, address: H160) -> DispatchResult {
+            return AVN::set_bridge_contract(self.origin.clone(), address.clone())
         }
     }
 
     mod successful_cases {
         use super::*;
         #[test]
-        fn update_publish_root_contract() {
+        fn update_contract() {
             let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
             ext.execute_with(|| {
                 let context = Context::default();
-                assert_ok!(context.dispatch_set_publish_root_contract());
+                let new_address = context.new_contract_address;
+                assert_ne!(
+                    new_address, 
+                    AVN::get_bridge_contract_address()
+                );
+                assert_ok!(context.dispatch_set_bridge_contract(new_address));
                 assert_eq!(
-                    context.new_contract_address,
-                    EthereumTransactions::get_publish_root_contract()
+                    new_address, 
+                    AVN::get_bridge_contract_address()
                 );
             });
         }
@@ -53,15 +56,11 @@ mod test_set_publish_root_contract {
             let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
             ext.execute_with(|| {
                 let context: Context =
-                    Context { new_contract_address: H160::zero(), ..Default::default() };
-
+                    Context { ..Default::default() };
+                let invalid_contract_address = H160::zero();
                 assert_noop!(
-                    context.dispatch_set_publish_root_contract(),
+                    context.dispatch_set_bridge_contract(invalid_contract_address),
                     Error::<TestRuntime>::InvalidContractAddress
-                );
-                assert_ne!(
-                    context.new_contract_address,
-                    EthereumTransactions::get_publish_root_contract()
                 );
             });
         }
@@ -74,11 +73,10 @@ mod test_set_publish_root_contract {
                     origin: RuntimeOrigin::signed(Default::default()),
                     ..Default::default()
                 };
-
-                assert_noop!(context.dispatch_set_publish_root_contract(), BadOrigin);
-                assert_ne!(
-                    context.new_contract_address,
-                    EthereumTransactions::get_publish_root_contract()
+                let new_address = context.new_contract_address;
+                assert_noop!(
+                    context.dispatch_set_bridge_contract(new_address),
+                    BadOrigin
                 );
             });
         }
@@ -89,12 +87,12 @@ mod test_set_publish_root_contract {
             ext.execute_with(|| {
                 let context: Context =
                     Context { origin: RawOrigin::None.into(), ..Default::default() };
-
-                assert_noop!(context.dispatch_set_publish_root_contract(), BadOrigin);
-                assert_ne!(
-                    context.new_contract_address,
-                    EthereumTransactions::get_publish_root_contract()
+                let new_address = context.new_contract_address;
+                assert_noop!(
+                    context.dispatch_set_bridge_contract(new_address),
+                    BadOrigin
                 );
+                //assert_ne!(Invalid_contract_address, AVN::get_bridge_contract_address());
             });
         }
     }

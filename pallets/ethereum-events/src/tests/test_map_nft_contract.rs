@@ -2,7 +2,6 @@
 #![cfg(test)]
 
 use crate::{mock::*, *};
-use avn;
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_avn_common::event_types::ValidEvents;
@@ -37,7 +36,7 @@ mod test_set_ethereum_contract {
     mod successful_cases {
         use super::*;
         #[test]
-        fn update_nft_marketplace_contract_for_reserved_marketplace() {
+        fn insert_nft_marketplace_contract_for_reserved_marketplace() {
             let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
             ext.execute_with(|| {
                 let mut context = Context::default();

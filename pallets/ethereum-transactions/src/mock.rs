@@ -21,6 +21,7 @@ use sp_runtime::{
 use std::cell::RefCell;
 
 use frame_system as system;
+use pallet_avn::AvnBridgeContractAddress;
 
 use codec::alloc::sync::Arc;
 use pallet_session as session;
@@ -33,6 +34,8 @@ pub type AccountId = <TestRuntime as system::Config>::AccountId;
 pub type AuthorityId = <TestRuntime as avn::Config>::AuthorityId;
 pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
 
+pub const BRIDGE_CONTRACT: [u8; 20] = [9u8; 20];
+
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
@@ -44,14 +47,12 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-        AVN: pallet_avn::{Pallet, Storage},
-        EthereumTransactions: pallet_ethereum_transactions::{Pallet, Call, Storage, Event<T>, Config<T>},
+        AVN: pallet_avn::{Pallet, Storage, Config<T>},
+        EthereumTransactions: pallet_ethereum_transactions::{Pallet, Call, Storage, Event<T>},
     }
 );
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"ettx");
-pub static CUSTOM_VALIDATOR_MANAGER_CONTRACT: H160 =
-    H160(hex!("11111AAAAA22222BBBBB11111AAAAA22222BBBBB"));
 
 pub mod crypto {
     use super::KEY_TYPE;
@@ -59,15 +60,10 @@ pub mod crypto {
     app_crypto!(sr25519, KEY_TYPE);
 }
 
-parameter_types! {
-    pub TestValidatorManagerContractAddress: H160 = CUSTOM_VALIDATOR_MANAGER_CONTRACT;
-}
-
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type AccountToBytesConvert = U64To32BytesConverter;
-    type ValidatorManagerContractAddress = TestValidatorManagerContractAddress;
     type WeightInfo = ();
 }
 
@@ -175,6 +171,10 @@ impl EthereumTransactions {
         <EthereumTransactions as Store>::ReservedTransactions::insert(candidate_type, tx_id);
     }
 
+    pub fn setup_mock_ethereum_contracts_address() {
+        AvnBridgeContractAddress::<TestRuntime>::put(H160::from(BRIDGE_CONTRACT));
+    }
+
     pub fn insert_to_dispatched_avn_tx_ids(
         submitter: AccountId,
         candidate_transaction_ids: Vec<TransactionId>,
@@ -225,8 +225,8 @@ impl EthereumTransactions {
     }
 }
 
-pub fn get_publish_root_default_contract() -> H160 {
-    return H160::from([2u8; 20])
+pub fn get_default_contract() -> H160 {
+    return H160::from(BRIDGE_CONTRACT)
 }
 
 pub struct ExtBuilder {
@@ -240,9 +240,7 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage = pallet_ethereum_transactions::GenesisConfig::<TestRuntime>::default()
-            .build_storage()
-            .unwrap();
+        let storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
         Self {
             storage,
             pool_state: None,
@@ -253,12 +251,14 @@ impl ExtBuilder {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_genesis_config(mut self) -> Self {
-        let _ = pallet_ethereum_transactions::GenesisConfig::<TestRuntime> {
+         let _ = pallet_avn::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
-            get_publish_root_contract: get_publish_root_default_contract(),
+            bridge_contract_address: H160::from(BRIDGE_CONTRACT),
         }
         .assimilate_storage(&mut self.storage);
+
         self
     }
 
