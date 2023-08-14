@@ -6,6 +6,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod governance;
 pub mod proxy_config;
 pub mod xcm_config;
 
@@ -32,7 +33,8 @@ use frame_support::{
     dispatch::DispatchClass,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Imbalance, OnUnbalanced,
+        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, EqualPrivilegeOnly,
+        Imbalance, OnUnbalanced,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
@@ -41,6 +43,7 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureSigned,
 };
+use governance::pallet_custom_origins;
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -704,6 +707,36 @@ impl pallet_assets::Config for Runtime {
     type BenchmarkHelper = ();
 }
 
+parameter_types! {
+    pub MaximumSchedulerWeight: Weight = RuntimeBlockWeights::get().max_block;
+    pub const MaxScheduledPerBlock: u32 = 50;
+    pub const NoPreimagePostponement: Option<u32> = Some(10);
+}
+
+impl pallet_scheduler::Config for Runtime {
+    type RuntimeOrigin = RuntimeOrigin;
+    type RuntimeEvent = RuntimeEvent;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    // The goal of having ScheduleOrigin include AuctionAdmin is to allow the auctions track of
+    // OpenGov to schedule periodic auctions.
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type Preimages = Preimage;
+}
+
+impl pallet_preimage::Config for Runtime {
+    type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
+    type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type BaseDeposit = ConstU128<{ 5 * AVT }>;
+    type ByteDeposit = ConstU128<{ 100 * MICRO_AVT }>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub enum Runtime where
@@ -758,6 +791,14 @@ construct_runtime!(
         TokenManager: pallet_token_manager = 87,
         Summary: pallet_summary = 88,
         AvnProxy: pallet_avn_proxy = 89,
+
+        // OpenGov pallets
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 97,
+        Scheduler: pallet_scheduler::{Pallet, Storage, Event<T>, Call} = 98,
+        Origins: pallet_custom_origins::{Origin} = 99,
+        ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 100,
+        Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 101,
+        Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102,
     }
 );
 

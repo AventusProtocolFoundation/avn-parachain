@@ -39,6 +39,11 @@ pallet-sudo = { git = "https://github.com/paritytech/substrate", default-feature
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+pallet-referenda = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+pallet-conviction-voting = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+pallet-whitelist = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+pallet-scheduler = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+pallet-preimage = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 sp-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
@@ -162,6 +167,11 @@ std = [
 	"pallet-parachain-staking/std",
 	# Avn Common Runtime
 	"runtime-common/std",
+	"pallet-referenda/std", 
+	"pallet-conviction-voting/std", 
+	"pallet-whitelist/std", 
+	"pallet-scheduler/std", 
+	"pallet-preimage/std",
 ]
 
 runtime-benchmarks = [
@@ -193,6 +203,13 @@ runtime-benchmarks = [
 	"pallet-parachain-staking/runtime-benchmarks",
 	# Avn Common Runtime
 	"runtime-common/runtime-benchmarks",
+	# OpenGov
+	"pallet-referenda/runtime-benchmarks", 
+	"pallet-conviction-voting/runtime-benchmarks", 
+	"pallet-whitelist/runtime-benchmarks", 
+	"pallet-scheduler/runtime-benchmarks", 
+	"pallet-preimage/runtime-benchmarks",
+	
 ]
 
 try-runtime = [
