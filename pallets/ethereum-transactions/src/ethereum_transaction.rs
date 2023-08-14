@@ -1,6 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::EthTransaction;
-use sp_core::{ecdsa, H160, H256, H512, U256};
+use sp_core::{ecdsa, H160, H256, H512, U256, ConstU32};
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -185,7 +185,9 @@ impl ActivateCollatorData {
 pub type TransactionId = u64;
 pub type EthereumTransactionHash = H256;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
+pub type TransactionIdLimit = ConstU32<{ u32::MAX }>;
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct EthTransactionCandidate {
     pub tx_id: TransactionId,
     pub from: Option<[u8; 32]>, // AvN Public Key of a validator
@@ -424,6 +426,10 @@ pub struct EthSignatures {
 }
 
 impl EthSignatures {
+    fn max_encoded_len() -> usize {
+        u32::MAX as usize
+    }
+
     pub fn count(&self) -> u32 {
         return self.signatures_list.len() as u32
     }
