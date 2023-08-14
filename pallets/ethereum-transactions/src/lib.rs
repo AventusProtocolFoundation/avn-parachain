@@ -477,7 +477,7 @@ impl<T: Config> Pallet<T> {
             }
             Self::deposit_event(Event::<T>::TransactionReadyToSend {
                 transaction_id: candidate_tx.tx_id,
-                sender: submitter.clone(),
+                sender: submitter,
             });
         }
         Ok(())
