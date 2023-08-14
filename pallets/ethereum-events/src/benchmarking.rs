@@ -161,7 +161,7 @@ benchmarks! {
         assert_last_event::<T>(Event::<T>::EthereumEventAdded {
             eth_event_id: eth_event_id,
             added_by: account_id,
-            t1_contract_address: Pallet::<T>::get_contract_address_for_non_nft_event(&ValidEvents::AddedValidator).unwrap()
+            t1_contract_address: AVN::<T>::get_bridge_contract_address()
             }.into()
         );
     }
@@ -188,7 +188,7 @@ benchmarks! {
         assert_last_event::<T>(Event::<T>::EthereumEventAdded{
             eth_event_id: eth_event_id,
             added_by: account_id,
-            t1_contract_address: Pallet::<T>::get_contract_address_for_non_nft_event(&ValidEvents::Lifted).unwrap()
+            t1_contract_address: AVN::<T>::get_bridge_contract_address()
         }.into());
     }
 
@@ -254,19 +254,10 @@ benchmarks! {
     }
 
     set_ethereum_contract_map_storage {
-        let contract_type = EthereumContracts::NftMarketplace;
         let contract_address = H160::from([1; 20]);
-    }: set_ethereum_contract(RawOrigin::Root, contract_type.clone(), contract_address.clone())
+    }: map_nft_contract(RawOrigin::Root, contract_address.clone())
     verify {
         assert_eq!(true, <NftT1Contracts<T>>::contains_key(contract_address));
-    }
-
-    set_ethereum_contract_storage {
-        let contract_type = EthereumContracts::ValidatorsManager;
-        let contract_address = H160::from([1; 20]);
-    }: set_ethereum_contract(RawOrigin::Root, contract_type.clone(), contract_address.clone())
-    verify {
-        assert_eq!(<ValidatorManagerContractAddress<T>>::get(), contract_address);
     }
 
     submit_checkevent_result {
