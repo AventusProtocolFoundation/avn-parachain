@@ -215,6 +215,53 @@ mod signed_create_batch {
         }
 
         #[test]
+        fn total_supply_exceeds_bounds() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let mut context = CreateBatchContext::default();
+                let out_of_bounds_supply: u32 = <MockNftBatchBound as sp_core::Get<u32>>::get() + 1;
+
+                context.total_supply = out_of_bounds_supply as u64;
+
+                let nonce = <BatchNonces<TestRuntime>>::get(context.creator_account);
+                let inner_call = context.create_signed_create_batch_call(nonce);
+
+                assert_noop!(
+                    NftManager::proxy(Origin::signed(context.relayer), inner_call),
+                    Error::<TestRuntime>::BatchOutOfBounds
+                );
+            });
+        }
+
+        #[test]
+        fn royalties_exceeds_bounds() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let mut context = CreateBatchContext::default();
+                let out_of_bounds_royalties: u32 =
+                    <NftRoyaltiesBound as sp_core::Get<u32>>::get() + 1;
+
+                context.royalties = vec![
+                    Royalty {
+                        recipient_t1_address: H160(hex!(
+                            "0000000000000000000000000000000000000002"
+                        )),
+                        rate: RoyaltyRate { parts_per_million: 1_000u32 },
+                    };
+                    out_of_bounds_royalties as usize
+                ];
+
+                let nonce = <BatchNonces<TestRuntime>>::get(context.creator_account);
+                let inner_call = context.create_signed_create_batch_call(nonce);
+
+                assert_noop!(
+                    NftManager::proxy(Origin::signed(context.relayer), inner_call),
+                    Error::<TestRuntime>::RoyaltiesOutOfBounds
+                );
+            });
+        }
+
+        #[test]
         fn t1_authority_is_empty() {
             let mut ext = ExtBuilder::build_default().as_externality();
             ext.execute_with(|| {
@@ -515,7 +562,10 @@ impl MintBatchNftContext {
     fn setup(&self) {
         <Nfts<TestRuntime>>::remove(&self.nft_id);
         <NftInfos<TestRuntime>>::remove(&self.nft_id);
-        <UsedExternalReferences<TestRuntime>>::remove(&self.unique_external_ref);
+        <UsedExternalReferences<TestRuntime>>::remove(
+            &WeakBoundedVec::try_from(self.unique_external_ref.clone())
+                .expect("Unique external reference bound was exceeded."),
+        );
     }
 
     fn create_signed_mint_batch_nft_call(
@@ -587,9 +637,6 @@ mod signed_mint_batch_nft {
                 // Nft has been minted
                 assert_eq!(true, <Nfts<TestRuntime>>::contains_key(&context.nft_id));
 
-                // Ownership data is updated
-                assert_eq!(true, nft_is_owned(&context.nft_owner_account, &context.nft_id));
-
                 // Batch_id map has been created
                 assert!(<NftBatches<TestRuntime>>::contains_key(&batch_id));
 
@@ -603,7 +650,8 @@ mod signed_mint_batch_nft {
                 assert_eq!(
                     true,
                     <UsedExternalReferences<TestRuntime>>::contains_key(
-                        &context.unique_external_ref
+                        WeakBoundedVec::try_from(context.unique_external_ref)
+                            .expect("Unique external reference bound was exceeded.")
                     )
                 );
 
@@ -641,22 +689,6 @@ mod signed_mint_batch_nft {
 
                 // 2 Nfts minted and assigned to the same batch
                 assert_eq!(<NftBatches<TestRuntime>>::get(batch_id).len(), 2);
-
-                // Ownership data is updated
-                assert_eq!(
-                    true,
-                    nft_is_owned(
-                        &context.nft_owner_account,
-                        &<NftBatches<TestRuntime>>::get(batch_id)[0]
-                    )
-                );
-                assert_eq!(
-                    true,
-                    nft_is_owned(
-                        &context.nft_owner_account,
-                        &<NftBatches<TestRuntime>>::get(batch_id)[1]
-                    )
-                );
             });
         }
     }
@@ -757,6 +789,28 @@ mod signed_mint_batch_nft {
                 assert_noop!(
                     NftManager::proxy(Origin::signed(context.relayer), inner_call),
                     Error::<TestRuntime>::ExternalRefIsMandatory
+                );
+            });
+        }
+
+        #[test]
+        fn external_ref_is_out_of_bounds() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let mut context = MintBatchNftContext::default();
+                context.setup();
+
+                let out_of_bounds_size: u32 = <NftExternalRefBound as sp_core::Get<u32>>::get() + 1;
+                context.unique_external_ref = vec![b'A'; out_of_bounds_size as usize];
+
+                let index = 0u64;
+                let batch_id = create_batch_and_list();
+
+                let inner_call = context.create_signed_mint_batch_nft_call(batch_id, index);
+
+                assert_noop!(
+                    NftManager::proxy(Origin::signed(context.relayer), inner_call),
+                    Error::<TestRuntime>::ExternalRefOutOfBounds
                 );
             });
         }
@@ -1287,7 +1341,10 @@ mod signed_list_batch_for_sale {
                 for i in 0..info.total_supply {
                     nft_ids.push(U256::zero() + i);
                 }
-                <NftBatches<TestRuntime>>::insert(batch_id, nft_ids);
+                <NftBatches<TestRuntime>>::insert(
+                    batch_id,
+                    BoundedVec::try_from(nft_ids).expect("Batch boundaries were exceeded"),
+                );
 
                 // Now try to list the batch for sale
                 let inner_call = context.create_signed_list_batch_for_sale_call(batch_id, nonce);

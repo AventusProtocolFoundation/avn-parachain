@@ -6,7 +6,7 @@ use frame_system as system;
 use hex_literal::hex;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
-use sp_core::{sr25519, Pair, H160, H256};
+use sp_core::{sr25519, ConstU32, Pair, H160, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
@@ -113,6 +113,7 @@ impl pallet_nft_manager::Config for TestRuntime {
     type Public = AccountId;
     type Signature = Signature;
     type WeightInfo = ();
+    type BatchBound = ConstU32<10>;
 }
 
 impl pallet_avn::Config for TestRuntime {

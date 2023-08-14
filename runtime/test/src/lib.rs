@@ -187,7 +187,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 33,
+    spec_version: 34,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -658,6 +658,7 @@ impl pallet_nft_manager::Config for Runtime {
     type ProcessedEventsChecker = EthereumEvents;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
+    type BatchBound = sp_avn_common::bounds::NftExternalRefBound;
     type WeightInfo = pallet_nft_manager::default_weights::SubstrateWeight<Runtime>;
 }
 
