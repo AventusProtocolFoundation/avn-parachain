@@ -1,10 +1,11 @@
-use super::*;
+pub use super::*;
 
 pub mod referenda;
 
-mod origins;
+pub mod origins;
 pub use origins::{
-    pallet_custom_origins, ReferendumCanceller, ReferendumKiller, Sudo, WhitelistedCaller,
+    pallet_custom_origins, FellowshipAdmin, ReferendumCanceller, ReferendumKiller, Sudo,
+    WhitelistedCaller,
 };
-mod tracks;
+pub mod tracks;
 pub use tracks::TracksInfo;

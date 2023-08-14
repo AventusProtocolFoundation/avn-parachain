@@ -30,10 +30,11 @@ impl pallet_conviction_voting::Config for Runtime {
     type WeightInfo = pallet_conviction_voting::weights::SubstrateWeight<Runtime>;
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
-    type Polls = Referenda;
-    type MaxTurnout = frame_support::traits::TotalIssuanceOf<Balances, Self::AccountId>;
-    type MaxVotes = ConstU32<512>;
     type VoteLockingPeriod = VoteLockingPeriod;
+    type MaxVotes = ConstU32<512>;
+    type MaxTurnout =
+        frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
+    type Polls = Referenda;
 }
 
 parameter_types! {
@@ -50,7 +51,7 @@ impl pallet_whitelist::Config for Runtime {
     type WeightInfo = pallet_whitelist::weights::SubstrateWeight<Runtime>;
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
-    type WhitelistOrigin = WhitelistedCaller;
+    type WhitelistOrigin = EnsureRoot<Self::AccountId>;
     type DispatchWhitelistedOrigin = EitherOf<EnsureRoot<Self::AccountId>, WhitelistedCaller>;
     type Preimages = Preimage;
 }
@@ -67,8 +68,8 @@ impl pallet_referenda::Config for Runtime {
     type Scheduler = Scheduler;
     type Currency = Balances;
     type SubmitOrigin = frame_system::EnsureSigned<AccountId>;
-    type CancelOrigin = EitherOf<EnsureRoot<Self::AccountId>, ReferendumCanceller>;
-    type KillOrigin = EitherOf<EnsureRoot<Self::AccountId>, ReferendumKiller>;
+    type CancelOrigin = EitherOf<EnsureRoot<AccountId>, ReferendumCanceller>;
+    type KillOrigin = EitherOf<EnsureRoot<AccountId>, ReferendumKiller>;
     type Slash = ();
     type Votes = pallet_conviction_voting::VotesOf<Runtime>;
     type Tally = pallet_conviction_voting::TallyOf<Runtime>;

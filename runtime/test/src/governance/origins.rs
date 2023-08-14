@@ -36,6 +36,7 @@ pub mod pallet_custom_origins {
         ReferendumCanceller,
         ReferendumKiller,
         GeneralAdmin,
+        FellowshipAdmin,
     }
     macro_rules! decl_unit_ensures {
         ( $name:ident: $success_type:ty = $success:expr ) => {
@@ -72,6 +73,7 @@ pub mod pallet_custom_origins {
         ReferendumCanceller,
         ReferendumKiller,
         WhitelistedCaller,
-        GeneralAdmin
+        GeneralAdmin,
+        FellowshipAdmin
     );
 }
