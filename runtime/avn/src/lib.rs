@@ -639,6 +639,7 @@ impl pallet_nft_manager::Config for Runtime {
     type ProcessedEventsChecker = EthereumEvents;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
+    type BatchBound = sp_avn_common::bounds::NftExternalRefBound;
     type WeightInfo = pallet_nft_manager::default_weights::SubstrateWeight<Runtime>;
 }
 

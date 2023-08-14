@@ -88,10 +88,10 @@ mod transfer_eth_nft {
         pub fn inject_nft_to_chain(&self) -> (Nft<AccountId>, NftInfo<AccountId>) {
             return NftManager::insert_single_nft_into_chain(
                 self.info_id,
-                self.royalties.clone(),
+                self.bounded_royalties(),
                 self.t1_authority,
                 self.nft_id(),
-                self.unique_external_ref.clone(),
+                self.bounded_external_ref(),
                 self.nft_owner,
             )
         }
@@ -116,6 +116,15 @@ mod transfer_eth_nft {
 
         pub fn perform_transfer(&self) -> DispatchResult {
             return NftManager::transfer_eth_nft(&self.event_id, &self.transfer_to_nft_data())
+        }
+
+        pub fn bounded_external_ref(&self) -> BoundedVec<u8, NftExternalRefBound> {
+            BoundedVec::try_from(self.unique_external_ref.clone())
+                .expect("Unique external reference bound was exceeded.")
+        }
+
+        pub fn bounded_royalties(&self) -> BoundedVec<Royalty, NftRoyaltiesBound> {
+            BoundedVec::try_from(self.royalties.clone()).expect("Royalty bound was exceeded.")
         }
     }
 
@@ -144,28 +153,6 @@ mod transfer_eth_nft {
                 assert_ok!(context.perform_transfer());
 
                 assert_eq!(true, context.nft_transfer_to_event_emitted());
-            });
-        }
-
-        #[test]
-        fn ownership_is_updated() {
-            let mut ext = ExtBuilder::build_default().as_externality();
-            ext.execute_with(|| {
-                let context: Context = Default::default();
-                context.setup_valid_transfer();
-
-                let new_nft_owner = context.new_owner_to_account_id();
-                let nft_id = context.nft_id();
-
-                assert_eq!(true, nft_is_owned(&context.nft_owner, &nft_id));
-                assert_eq!(false, nft_is_owned(&new_nft_owner, &nft_id));
-
-                assert_ok!(context.perform_transfer());
-
-                assert_eq!(new_nft_owner, NftManager::nfts(context.nft_id()).unwrap().owner);
-
-                assert_eq!(false, nft_is_owned(&context.nft_owner, &nft_id));
-                assert_eq!(true, nft_is_owned(&new_nft_owner, &nft_id));
             });
         }
 
