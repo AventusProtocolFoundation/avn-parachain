@@ -63,10 +63,6 @@ mod ethereum_transaction_tests;
 #[path = "tests/tests_eth_transaction_type.rs"]
 mod tests_eth_transaction_type;
 
-#[cfg(test)]
-#[path = "tests/test_set_publish_root_contract.rs"]
-mod test_set_publish_root_contract;
-
 mod benchmarking;
 
 pub mod default_weights;
@@ -107,8 +103,6 @@ pub mod pallet {
         type RuntimeCall: From<Call<Self>>;
 
         type AccountToBytesConvert: AccountToBytesConverter<Self::AccountId>;
-
-        type ValidatorManagerContractAddress: Get<H160>;
 
         type WeightInfo: WeightInfo;
     }
@@ -187,31 +181,12 @@ pub mod pallet {
     // TransactionId => H160;
     #[pallet::storage]
     #[pallet::getter(fn get_publish_root_contract)]
+    #[deprecated]
     pub type PublishRootContract<T: Config> = StorageValue<_, H160, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_nonce)]
     pub type Nonce<T: Config> = StorageValue<_, TransactionId, ValueQuery>;
-
-    #[pallet::genesis_config]
-    pub struct GenesisConfig<T: Config> {
-        pub _phantom: sp_std::marker::PhantomData<T>,
-        pub get_publish_root_contract: H160,
-    }
-
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self { _phantom: Default::default(), get_publish_root_contract: H160::zero() }
-        }
-    }
-
-    #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-        fn build(&self) {
-            PublishRootContract::<T>::put(self.get_publish_root_contract);
-        }
-    }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -290,20 +265,6 @@ pub mod pallet {
                     reserved_tx_id,
                 );
             }
-            Ok(())
-        }
-
-        /// Sets the address for ethereum contracts
-        #[pallet::call_index(3)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_publish_root_contract())]
-        pub fn set_publish_root_contract(
-            origin: OriginFor<T>,
-            contract_address: H160,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
-
-            <PublishRootContract<T>>::put(contract_address);
             Ok(())
         }
     }
@@ -417,7 +378,7 @@ impl<T: Config> Pallet<T> {
         if transaction.from == Some(T::AccountToBytesConvert::into_bytes(account_id)) &&
             transaction.get_eth_tx_hash().is_none()
         {
-            let ethereum_contract = Self::get_contract_address(&transaction.call_data);
+            let ethereum_contract = Some(AVN::<T>::get_bridge_contract_address());
             if ethereum_contract.is_none() {
                 log::error!("Invalid transaction type");
                 return None
@@ -443,15 +404,6 @@ impl<T: Config> Pallet<T> {
         }
 
         return None
-    }
-
-    fn get_contract_address(transaction_type: &EthTransactionType) -> Option<H160> {
-        return match transaction_type {
-            EthTransactionType::PublishRoot(_) => Some(Self::get_publish_root_contract()),
-            EthTransactionType::ActivateCollator(_) | EthTransactionType::DeregisterCollator(_) =>
-                Some(T::ValidatorManagerContractAddress::get()),
-            _ => None,
-        }
     }
 
     fn promote_candidate_transaction_to_dispatched(

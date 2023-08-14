@@ -106,8 +106,8 @@ mod test_parse_event;
 mod test_challenges;
 
 #[cfg(test)]
-#[path = "tests/test_set_ethereum_contract.rs"]
-mod test_set_ethereum_contract;
+#[path = "tests/test_map_nft_contract.rs"]
+mod test_map_nft_contract;
 
 #[cfg(test)]
 #[path = "tests/test_set_event_challenge_period.rs"]
@@ -132,8 +132,7 @@ pub use default_weights::WeightInfo;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
 pub enum EthereumContracts {
-    ValidatorsManager,
-    Lifting,
+    EthereumBridgeContract,
     NftMarketplace,
 }
 
@@ -278,9 +277,9 @@ pub mod pallet {
         DuplicateChallenge,
         ErrorSavingValidationToLocalDB,
         MalformedHash,
+        InvalidContractAddress,
         InvalidEventToProcess,
         ChallengingOwnEvent,
-        InvalidContractAddress,
         InvalidContractType,
         InvalidEventChallengePeriod,
         SenderIsNotSigner,
@@ -292,10 +291,12 @@ pub mod pallet {
     #[pallet::getter(fn validator_manager_contract_address)]
     // TODO [TYPE: refactoring][PRI: low]: replace these contract addresses by a map.
     // (note: low value. This is simple to use, and there are few contracts)
+    #[deprecated]
     pub type ValidatorManagerContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn lifting_contract_address)]
+    #[deprecated]
     pub type LiftingContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
     #[pallet::storage]
@@ -352,8 +353,6 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub validator_manager_contract_address: H160,
-        pub lifting_contract_address: H160,
         pub quorum_factor: u32,
         pub event_challenge_period: T::BlockNumber,
         pub lift_tx_hashes: Vec<H256>,
@@ -365,8 +364,6 @@ pub mod pallet {
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
-                validator_manager_contract_address: H160::zero(),
-                lifting_contract_address: H160::zero(),
                 quorum_factor: 4 as u32,
                 event_challenge_period: T::BlockNumber::from(300 as u32),
                 lift_tx_hashes: Vec::<H256>::new(),
@@ -379,9 +376,6 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            ValidatorManagerContractAddress::<T>::put(self.validator_manager_contract_address);
-            LiftingContractAddress::<T>::put(self.lifting_contract_address);
-
             assert_ne!(self.quorum_factor, 0, "Quorum factor cannot be 0");
             QuorumFactor::<T>::put(self.quorum_factor);
 
@@ -738,21 +732,11 @@ pub mod pallet {
         #[pallet::weight(
             <T as pallet::Config>::WeightInfo::set_ethereum_contract_map_storage().max(<T as Config>::WeightInfo::set_ethereum_contract_storage()
         ))]
-        pub fn set_ethereum_contract(
-            origin: OriginFor<T>,
-            contract_type: EthereumContracts,
-            contract_address: H160,
-        ) -> DispatchResult {
+        pub fn map_nft_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
 
-            match contract_type {
-                EthereumContracts::ValidatorsManager =>
-                    <ValidatorManagerContractAddress<T>>::put(contract_address),
-                EthereumContracts::Lifting => <LiftingContractAddress<T>>::put(contract_address),
-                EthereumContracts::NftMarketplace =>
-                    <NftT1Contracts<T>>::insert(contract_address, ()),
-            };
+            <NftT1Contracts<T>>::insert(contract_address, ());
 
             Ok(())
         }
@@ -1536,7 +1520,7 @@ impl<T: Config> Pallet<T> {
             });
         } else {
             let eth_contract_address: H160 =
-                Self::get_contract_address_for_non_nft_event(&event_type)
+                Some(AVN::<T>::get_bridge_contract_address())
                     .or_else(|| Some(H160::zero()))
                     .expect("Always return a default value");
             Self::deposit_event(Event::<T>::EthereumEventAdded {
@@ -1549,15 +1533,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn get_contract_address_for_non_nft_event(event_type: &ValidEvents) -> Option<H160> {
-        match event_type {
-            ValidEvents::AddedValidator => Some(Self::validator_manager_contract_address()),
-            ValidEvents::Lifted | ValidEvents::AvtGrowthLifted =>
-                Some(Self::lifting_contract_address()),
-            _ => None,
-        }
-    }
-
     fn is_event_contract_valid(contract_address: &H160, event_id: &EthEventId) -> bool {
         let event_type = ValidEvents::try_from(&event_id.signature);
         if let Some(event_type) = event_type {
@@ -1565,8 +1540,7 @@ impl<T: Config> Pallet<T> {
                 return <NftT1Contracts<T>>::contains_key(contract_address)
             }
 
-            let non_nft_contract_address =
-                Self::get_contract_address_for_non_nft_event(&event_type);
+            let non_nft_contract_address = Some(AVN::<T>::get_bridge_contract_address());
             return non_nft_contract_address.is_some() &&
                 non_nft_contract_address.expect("checked for none") == *contract_address
         }
