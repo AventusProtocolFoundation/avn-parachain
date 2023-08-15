@@ -104,7 +104,7 @@ mod proxy_signed_nominate {
 
                 // The staker state has also been updated
                 let staker_state = ParachainStaking::nominator_state(staker.account_id).unwrap();
-                assert_eq!(staker_state.total(), amount_to_stake);
+                assert_eq!(staker_state.total, amount_to_stake);
 
                 // Each collator has been nominated by the expected amount
                 for (index, collator) in collators.into_iter().enumerate() {
@@ -197,7 +197,7 @@ mod proxy_signed_nominate {
                 let staker_state = ParachainStaking::nominator_state(staker.account_id).unwrap();
 
                 // The staker state has also been updated
-                assert_eq!(staker_state.total(), amount_to_stake);
+                assert_eq!(staker_state.total, amount_to_stake);
 
                 // The staker free balance has been reduced
                 assert_eq!(
@@ -540,7 +540,7 @@ mod existing_direct_nominate_tests {
                 ));
                 let nominator_state = ParachainStaking::nominator_state(account_id_2)
                     .expect("just nominated => exists");
-                assert_eq!(nominator_state.total(), 10);
+                assert_eq!(nominator_state.total, 10);
                 assert_eq!(nominator_state.nominations.0[0].owner, account_id);
                 assert_eq!(nominator_state.nominations.0[0].amount, 10);
             });

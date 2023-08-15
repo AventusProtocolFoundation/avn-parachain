@@ -25,15 +25,15 @@ use crate::{
     assert_tail_eq,
     mock::{
         roll_one_block, roll_to, roll_to_era_begin, roll_to_era_end, set_author, set_reward_pot,
-        AccountId, Balances, ExtBuilder, ParachainStaking, RuntimeEvent as MetaEvent,
-        RuntimeOrigin as Origin, Test, TestAccount,
+        AccountId, Balance, Balances, ExtBuilder, MaxNominations, MaxNominationsPerNominator,
+        ParachainStaking, RuntimeEvent as MetaEvent, RuntimeOrigin as Origin, Test, TestAccount,
     },
     nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
-    AtStake, CollatorStatus, Error, Event, NominationScheduledRequests, NominatorAdded,
-    NOMINATOR_LOCK_ID,
+    AtStake, CollatorSnapshot, CollatorStatus, Error, Event, NominationScheduledRequests,
+    NominatorAdded, NOMINATOR_LOCK_ID,
 };
 use frame_support::{assert_noop, assert_ok};
-use sp_runtime::{traits::Zero, DispatchError, ModuleError};
+use sp_runtime::{traits::Zero, BoundedVec, DispatchError, ModuleError};
 
 // ~~ ROOT ~~
 
@@ -742,11 +742,14 @@ fn execute_leave_candidates_removes_pending_nomination_requests() {
             let state = ParachainStaking::nomination_scheduled_requests(&account_id);
             assert_eq!(
                 state,
-                vec![ScheduledRequest {
+                BoundedVec::<
+                    ScheduledRequest<sp_core::sr25519::Public, u128>,
+                    MaxNominationsPerNominator,
+                >::truncate_from(vec![ScheduledRequest {
                     nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
-                }],
+                }]),
             );
             assert_ok!(ParachainStaking::schedule_leave_candidates(
                 Origin::signed(account_id),
@@ -1258,11 +1261,14 @@ fn execute_leave_nominators_removes_pending_nomination_requests() {
             let state = ParachainStaking::nomination_scheduled_requests(&account_id);
             assert_eq!(
                 state,
-                vec![ScheduledRequest {
+                BoundedVec::<
+                    ScheduledRequest<sp_core::sr25519::Public, u128>,
+                    MaxNominationsPerNominator,
+                >::truncate_from(vec![ScheduledRequest {
                     nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
-                }],
+                }]),
             );
             assert_ok!(ParachainStaking::schedule_leave_nominators(Origin::signed(account_id_2)));
             roll_to(10);
@@ -3492,12 +3498,12 @@ fn multiple_nominations() {
             expected.append(&mut new3);
             assert_eq_events!(expected);
             // verify that nominations are removed after collator leaves, not before
-            assert_eq!(ParachainStaking::nominator_state(account_id_7).unwrap().total(), 90);
+            assert_eq!(ParachainStaking::nominator_state(account_id_7).unwrap().total, 90);
             assert_eq!(
                 ParachainStaking::nominator_state(account_id_7).unwrap().nominations.0.len(),
                 2usize
             );
-            assert_eq!(ParachainStaking::nominator_state(account_id_6).unwrap().total(), 40);
+            assert_eq!(ParachainStaking::nominator_state(account_id_6).unwrap().total, 40);
             assert_eq!(
                 ParachainStaking::nominator_state(account_id_6).unwrap().nominations.0.len(),
                 4usize
@@ -3512,8 +3518,8 @@ fn multiple_nominations() {
                 account_id_2,
                 5
             ));
-            assert_eq!(ParachainStaking::nominator_state(account_id_7).unwrap().total(), 10);
-            assert_eq!(ParachainStaking::nominator_state(account_id_6).unwrap().total(), 30);
+            assert_eq!(ParachainStaking::nominator_state(account_id_7).unwrap().total, 10);
+            assert_eq!(ParachainStaking::nominator_state(account_id_6).unwrap().total, 30);
             assert_eq!(
                 ParachainStaking::nominator_state(account_id_7).unwrap().nominations.0.len(),
                 1usize
@@ -5032,9 +5038,14 @@ fn no_selected_candidates_defaults_to_last_era_collators() {
             }
             let old_era = ParachainStaking::era().current;
             let old_selected_candidates = ParachainStaking::selected_candidates();
-            let mut old_at_stake_snapshots = Vec::new();
+            let mut old_at_stake_snapshots: BoundedVec<
+                CollatorSnapshot<sp_core::sr25519::Public, u128>,
+                MaxNominationsPerNominator,
+            > = BoundedVec::default();
             for account in old_selected_candidates.clone() {
-                old_at_stake_snapshots.push(<AtStake<Test>>::get(old_era, account));
+                old_at_stake_snapshots
+                    .try_push(<AtStake<Test>>::get(old_era, account))
+                    .unwrap_or_else(|_| ());
             }
             roll_to_era_begin(3);
             // execute leave
@@ -5496,11 +5507,11 @@ fn test_nomination_request_exists_returns_true_when_decrease_exists() {
         .execute_with(|| {
             <NominationScheduledRequests<Test>>::insert(
                 account_id,
-                vec![ScheduledRequest {
+                BoundedVec::truncate_from(vec![ScheduledRequest {
                     nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
-                }],
+                }]),
             );
             assert!(ParachainStaking::nomination_request_exists(&account_id, &account_id_2));
         });
@@ -5518,11 +5529,11 @@ fn test_nomination_request_exists_returns_true_when_revoke_exists() {
         .execute_with(|| {
             <NominationScheduledRequests<Test>>::insert(
                 account_id,
-                vec![ScheduledRequest {
+                BoundedVec::truncate_from(vec![ScheduledRequest {
                     nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Revoke(5),
-                }],
+                }]),
             );
             assert!(ParachainStaking::nomination_request_exists(&account_id, &account_id_2));
         });
@@ -5557,11 +5568,11 @@ fn test_nomination_request_revoke_exists_returns_false_when_decrease_exists() {
         .execute_with(|| {
             <NominationScheduledRequests<Test>>::insert(
                 account_id,
-                vec![ScheduledRequest {
+                BoundedVec::truncate_from(vec![ScheduledRequest {
                     nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Decrease(5),
-                }],
+                }]),
             );
             assert!(!ParachainStaking::nomination_request_revoke_exists(
                 &account_id,
@@ -5582,11 +5593,11 @@ fn test_nomination_request_revoke_exists_returns_true_when_revoke_exists() {
         .execute_with(|| {
             <NominationScheduledRequests<Test>>::insert(
                 account_id,
-                vec![ScheduledRequest {
+                BoundedVec::truncate_from(vec![ScheduledRequest {
                     nominator: account_id_2,
                     when_executable: 3,
                     action: NominationAction::Revoke(5),
-                }],
+                }]),
             );
             assert!(ParachainStaking::nomination_request_revoke_exists(&account_id, &account_id_2));
         });
@@ -5605,11 +5616,11 @@ fn test_hotfix_remove_nomination_requests_exited_candidates_cleans_up() {
             // invalid state
             <NominationScheduledRequests<Test>>::insert(
                 account_id_2,
-                Vec::<ScheduledRequest<AccountId, u128>>::new(),
+                BoundedVec::<ScheduledRequest<AccountId, u128>, MaxNominationsPerNominator>::default(),
             );
             <NominationScheduledRequests<Test>>::insert(
                 to_acc_id(3),
-                Vec::<ScheduledRequest<AccountId, u128>>::new(),
+                BoundedVec::<ScheduledRequest<AccountId, u128>, MaxNominationsPerNominator>::default(),
             );
             assert_ok!(ParachainStaking::hotfix_remove_nomination_requests_exited_candidates(
                 Origin::signed(account_id),
@@ -5634,11 +5645,11 @@ fn test_hotfix_remove_nomination_requests_exited_candidates_cleans_up_only_speci
             // invalid state
             <NominationScheduledRequests<Test>>::insert(
                 account_id_2,
-                Vec::<ScheduledRequest<AccountId, u128>>::new(),
+                BoundedVec::<ScheduledRequest<AccountId, u128>, MaxNominationsPerNominator>::default(),
             );
             <NominationScheduledRequests<Test>>::insert(
                 to_acc_id(3),
-                Vec::<ScheduledRequest<AccountId, u128>>::new(),
+                BoundedVec::<ScheduledRequest<AccountId, u128>, MaxNominationsPerNominator>::default(),
             );
             assert_ok!(ParachainStaking::hotfix_remove_nomination_requests_exited_candidates(
                 Origin::signed(account_id),
@@ -5661,15 +5672,15 @@ fn test_hotfix_remove_nomination_requests_exited_candidates_errors_when_requests
             // invalid state
             <NominationScheduledRequests<Test>>::insert(
                 to_acc_id(2),
-                Vec::<ScheduledRequest<AccountId, u128>>::new(),
+                BoundedVec::<ScheduledRequest<AccountId, u128>, MaxNominationsPerNominator>::default(),
             );
             <NominationScheduledRequests<Test>>::insert(
                 to_acc_id(3),
-                vec![ScheduledRequest {
+                BoundedVec::truncate_from(vec![ScheduledRequest {
                     nominator: to_acc_id(10),
                     when_executable: 1,
                     action: NominationAction::Revoke(10),
-                }],
+                }]),
             );
 
             assert_noop!(
@@ -5693,7 +5704,7 @@ fn test_hotfix_remove_nomination_requests_exited_candidates_errors_when_candidat
             // invalid state
             <NominationScheduledRequests<Test>>::insert(
                 account_id,
-                Vec::<ScheduledRequest<AccountId, u128>>::new(),
+                BoundedVec::<ScheduledRequest<AccountId, u128>, MaxNominationsPerNominator>::default(),
             );
             assert_noop!(
                 ParachainStaking::hotfix_remove_nomination_requests_exited_candidates(
