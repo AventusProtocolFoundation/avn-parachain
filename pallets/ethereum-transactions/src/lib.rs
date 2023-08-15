@@ -21,8 +21,7 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    BoundedVec,
-    DispatchError,
+    BoundedVec, DispatchError,
 };
 use sp_std::prelude::*;
 
@@ -38,7 +37,8 @@ pub use pallet::*;
 
 pub mod ethereum_transaction;
 use crate::ethereum_transaction::{
-    EthTransactionCandidate, EthTransactionType, EthereumTransactionHash, TransactionId, TransactionIdLimit
+    EthTransactionCandidate, EthTransactionType, EthereumTransactionHash, TransactionId,
+    TransactionIdLimit,
 };
 
 use pallet_avn::{self as avn, AccountToBytesConverter, Error as avn_error};
@@ -463,16 +463,21 @@ impl<T: Config> Pallet<T> {
         if candidate_tx.ready_to_dispatch() {
             if <DispatchedAvnTxIds<T>>::contains_key(&submitter) {
                 <DispatchedAvnTxIds<T>>::mutate(&submitter, |submitter_dispatched_tx| {
-                    submitter_dispatched_tx.try_push(DispatchedData::new(
-                        candidate_tx_id,
-                        <system::Pallet<T>>::block_number(),
-                    )).map_err(|_| Error::<T>::TransactionIdLimitReached)?;
+                    submitter_dispatched_tx
+                        .try_push(DispatchedData::new(
+                            candidate_tx_id,
+                            <system::Pallet<T>>::block_number(),
+                        ))
+                        .map_err(|_| Error::<T>::TransactionIdLimitReached)?;
                     Ok(())
                 })?;
             } else {
                 <DispatchedAvnTxIds<T>>::insert(
                     &submitter,
-                    BoundedVec::truncate_from(vec![DispatchedData::new(candidate_tx_id, <system::Pallet<T>>::block_number())]),
+                    BoundedVec::truncate_from(vec![DispatchedData::new(
+                        candidate_tx_id,
+                        <system::Pallet<T>>::block_number(),
+                    )]),
                 );
             }
             Self::deposit_event(Event::<T>::TransactionReadyToSend {

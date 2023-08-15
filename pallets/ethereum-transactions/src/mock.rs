@@ -183,7 +183,7 @@ impl EthereumTransactions {
             .iter()
             .map(|id| DispatchedData::new(*id, 0u64))
             .collect();
-    
+
         <EthereumTransactions as Store>::DispatchedAvnTxIds::insert(
             submitter,
             BoundedVec::truncate_from(dispatched_data_vec),

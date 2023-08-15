@@ -1,6 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::EthTransaction;
-use sp_core::{ecdsa, H160, H256, H512, U256, ConstU32};
+use sp_core::{ecdsa, ConstU32, H160, H256, H512, U256};
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
