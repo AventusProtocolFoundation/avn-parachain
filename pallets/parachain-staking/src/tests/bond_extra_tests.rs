@@ -100,7 +100,7 @@ mod proxy_signed_bond_extra {
 
                 // The staker state has also been updated
                 let staker_state = ParachainStaking::nominator_state(staker.account_id).unwrap();
-                assert_eq!(staker_state.total(), initial_stake * 2 + amount_to_topup);
+                assert_eq!(staker_state.total, initial_stake * 2 + amount_to_topup);
 
                 // Each collator that has been nominated has been topped up by the expected amount
                 let nominations = staker_state.nominations.0.clone();
@@ -202,7 +202,7 @@ mod proxy_signed_bond_extra {
 
                 // The staker state has also been updated
                 let staker_state = ParachainStaking::nominator_state(staker.account_id).unwrap();
-                assert_eq!(staker_state.total(), initial_stake * 5 + amount_to_topup);
+                assert_eq!(staker_state.total, initial_stake * 5 + amount_to_topup);
 
                 // The staker free balance has been reduced
                 assert_eq!(
@@ -802,15 +802,9 @@ fn nominator_bond_extra_updates_nominator_state() {
         .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(
-                ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
-                10
-            );
+            assert_eq!(ParachainStaking::nominator_state(account_id_2).expect("exists").total, 10);
             assert_ok!(ParachainStaking::bond_extra(Origin::signed(account_id_2), account_id, 5));
-            assert_eq!(
-                ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
-                15
-            );
+            assert_eq!(ParachainStaking::nominator_state(account_id_2).expect("exists").total, 15);
         });
 }
 

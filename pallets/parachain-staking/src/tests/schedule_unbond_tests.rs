@@ -755,7 +755,7 @@ mod signed_execute_nomination_request {
                     ParachainStaking::get_nominator_stakable_free_balance(&staker.account_id);
                 let initial_total_stake = ParachainStaking::total();
                 let initial_state_total =
-                    ParachainStaking::nominator_state(staker.account_id).unwrap().total();
+                    ParachainStaking::nominator_state(staker.account_id).unwrap().total;
                 let initial_collator1_state =
                     &ParachainStaking::top_nominations(collator_1).unwrap().nominations[0];
                 let initial_collator2_state =
@@ -789,7 +789,7 @@ mod signed_execute_nomination_request {
                 );
                 assert_eq!(ParachainStaking::total(), initial_total_stake - amount_to_unbond);
                 assert_eq!(
-                    ParachainStaking::nominator_state(staker.account_id).unwrap().total(),
+                    ParachainStaking::nominator_state(staker.account_id).unwrap().total,
                     initial_state_total - amount_to_unbond
                 );
                 assert_eq!(
@@ -1669,10 +1669,7 @@ fn execute_nominator_unbond_updates_nominator_state() {
         .with_nominations(vec![(account_id_2, account_id, 10)])
         .build()
         .execute_with(|| {
-            assert_eq!(
-                ParachainStaking::nominator_state(account_id_2).expect("exists").total(),
-                10
-            );
+            assert_eq!(ParachainStaking::nominator_state(account_id_2).expect("exists").total, 10);
             assert_ok!(ParachainStaking::schedule_nominator_unbond(
                 RuntimeOrigin::signed(account_id_2),
                 account_id,
@@ -1684,7 +1681,7 @@ fn execute_nominator_unbond_updates_nominator_state() {
                 account_id_2,
                 account_id
             ));
-            assert_eq!(ParachainStaking::nominator_state(account_id_2).expect("exists").total(), 5);
+            assert_eq!(ParachainStaking::nominator_state(account_id_2).expect("exists").total, 5);
         });
 }
 
