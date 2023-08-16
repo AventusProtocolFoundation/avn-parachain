@@ -21,6 +21,7 @@ use alloc::string::{String, ToString};
 use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
+    bounds::MaximumValidatorsBound,
     event_types::{EthEventId, Validator},
     offchain_worker_storage_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
@@ -53,12 +54,10 @@ pub mod sr25519 {
     pub type AuthorityId = app_sr25519::Public;
 }
 
-pub type MaxValidators = frame_support::traits::ConstU32<100>;
-
 #[frame_support::pallet]
 pub mod pallet {
     use frame_support::pallet_prelude::*;
-    use sp_runtime::BoundedVec;
+    use sp_avn_common::bounds::MaximumValidatorsBound;
 
     use super::*;
 
@@ -114,7 +113,7 @@ pub mod pallet {
     /// offchain worker.
     pub type Validators<T: Config> = StorageValue<
         _,
-        BoundedVec<Validator<T::AuthorityId, T::AccountId>, MaxValidators>,
+        BoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound>,
         ValueQuery,
     >;
 }
@@ -276,8 +275,8 @@ impl<T: Config> Pallet<T> {
         return Self::validators().into_iter().any(|v| v.account_id == *account_id)
     }
 
-    pub fn active_validators() -> BoundedVec<Validator<T::AuthorityId, T::AccountId>, MaxValidators>
-    {
+    pub fn active_validators(
+    ) -> BoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound> {
         return Self::validators()
     }
 
@@ -413,9 +412,9 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
             if T::DisabledValidatorChecker::is_disabled(x.0) {
                 disabled_avn_validators.push(x.0.clone());
             } else {
-                let _ = active_avn_validators
+                active_avn_validators
                     .try_push(Validator::new(x.0.clone(), x.1))
-                    .map_err(|_| Error::<T>::MaxValidatorsExceeded);
+                    .map_err(|_| DispatchError::Other("Maximum Validators reached"));
             }
         });
 
