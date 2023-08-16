@@ -483,7 +483,6 @@ impl pallet_parachain_staking::Config for Runtime {
     type CollatorSessionRegistration = Session;
     type CollatorPayoutDustHandler = TokenManager;
     type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
-    type MaxCandidates = ConstU32<100>;
 }
 
 // Substrate pallets that AvN has dependency

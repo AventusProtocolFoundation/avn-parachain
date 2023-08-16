@@ -34,12 +34,10 @@ use pallet_authorship::EventHandler;
 use parity_scale_codec::{Decode, Encode};
 use rand::{RngCore, SeedableRng};
 use sp_application_crypto::KeyTypeId;
-use sp_core::{bounded::BoundedVec, ConstU32};
 use sp_runtime::{traits::StaticLookup, RuntimeAppPublic};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
-pub type MaxNominations = ConstU32<100>;
 mod app_sr25519 {
     use super::BENCH_KEY_TYPE_ID;
     use sp_application_crypto::{app_crypto, sr25519};
@@ -1394,12 +1392,12 @@ benchmarks! {
             total_staking_reward: total_staked,
         });
 
-        let mut nominations: BoundedVec<Bond<T::AccountId, BalanceOf<T>>, MaxNominations> = BoundedVec::default();
+        let mut nominations: Vec<Bond<T::AccountId, BalanceOf<T>>> = Vec::new();
         for nominator in &nominators {
-            nominations.try_push(Bond {
+            nominations.push(Bond {
                 owner: nominator.clone(),
                 amount: 100u32.into(),
-            }).unwrap();
+            });
         }
 
         <AtStake<T>>::insert(era_for_payout, &sole_collator, CollatorSnapshot {
