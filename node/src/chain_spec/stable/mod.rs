@@ -103,7 +103,6 @@ pub(crate) fn testnet_genesis(
         aura: Default::default(),
         aura_ext: Default::default(),
         im_online: ImOnlineConfig { keys: vec![] },
-        nft_manager: Default::default(),
         parachain_system: Default::default(),
         parachain_staking: ParachainStakingConfig {
             candidates: candidates

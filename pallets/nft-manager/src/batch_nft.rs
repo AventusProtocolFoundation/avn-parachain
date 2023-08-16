@@ -16,14 +16,12 @@
 
 use crate::{
     keccak_256, BatchInfoId, BatchOpenForSale, Config, Decode, DispatchResult, Encode, Error,
-    EthEventId, Event, Nft, NftBatchId, NftBatches, NftEndBatchListingData, NftExternalRefBound,
-    NftInfo, NftInfoId, NftInfos, NftRoyaltiesBound, NftSaleType, NftUniqueId, Nfts, Pallet,
-    ProcessedEventsChecker, Proof, Royalty, Vec, BATCH_ID_CONTEXT, BATCH_NFT_ID_CONTEXT, H160,
-    U256,
+    EthEventId, Event, Nft, NftBatchId, NftBatches, NftEndBatchListingData, NftInfo, NftInfoId,
+    NftInfos, NftSaleType, NftUniqueId, Nfts, Pallet, ProcessedEventsChecker, Proof, Royalty, Vec,
+    BATCH_ID_CONTEXT, BATCH_NFT_ID_CONTEXT, H160, U256,
 };
 use frame_support::{dispatch::DispatchError, ensure};
 use sp_avn_common::event_types::NftMintData;
-use sp_core::bounded::BoundedVec;
 
 pub const SIGNED_CREATE_BATCH_CONTEXT: &'static [u8] = b"authorization for create batch operation";
 pub const SIGNED_MINT_BATCH_NFT_CONTEXT: &'static [u8] =
@@ -71,7 +69,7 @@ pub fn get_nft_info_for_batch<T: Config>(
 pub fn create_batch<T: Config>(
     info_id: NftInfoId,
     batch_id: NftBatchId,
-    royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
+    royalties: Vec<Royalty>,
     total_supply: u64,
     t1_authority: H160,
     creator: T::AccountId,
@@ -151,17 +149,12 @@ pub fn process_mint_batch_nft_event<T: Config>(
     let owner = T::AccountId::decode(&mut data.t2_owner_public_key.as_bytes())
         .expect("32 bytes will always decode into an AccountId");
 
-    Ok(mint_batch_nft::<T>(
-        data.batch_id,
-        owner,
-        data.sale_index,
-        data.unique_external_ref.clone(),
-    )?)
+    Ok(mint_batch_nft::<T>(data.batch_id, owner, data.sale_index, &data.unique_external_ref)?)
 }
 
 pub fn validate_mint_batch_nft_request<T: Config>(
     batch_id: NftBatchId,
-    unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
+    unique_external_ref: &Vec<u8>,
 ) -> Result<NftInfo<T::AccountId>, DispatchError> {
     ensure!(batch_id.is_zero() == false, Error::<T>::BatchIdIsMandatory);
     ensure!(<BatchInfoId<T>>::contains_key(&batch_id), Error::<T>::BatchDoesNotExist);
@@ -182,17 +175,17 @@ pub fn mint_batch_nft<T: Config>(
     batch_id: NftBatchId,
     owner: T::AccountId,
     sale_index: u64,
-    unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
+    unique_external_ref: &Vec<u8>,
 ) -> DispatchResult {
-    let nft_info = validate_mint_batch_nft_request::<T>(batch_id, &unique_external_ref)?;
+    let nft_info = validate_mint_batch_nft_request::<T>(batch_id, unique_external_ref)?;
     let nft_id = generate_batch_nft_id::<T>(&batch_id, &sale_index);
     ensure!(<Nfts<T>>::contains_key(&nft_id) == false, Error::<T>::NftAlreadyExists);
 
-    let nft = Nft::new(nft_id, nft_info.info_id, unique_external_ref, owner.clone());
-    Pallet::<T>::add_nft(&nft);
+    let nft = Nft::new(nft_id, nft_info.info_id, unique_external_ref.to_vec(), owner.clone());
+    Pallet::<T>::add_nft_and_update_owner(&owner, &nft);
 
     let mut nfts_for_batch = <NftBatches<T>>::get(batch_id);
-    nfts_for_batch.try_push(nft_id).map_err(|_| Error::<T>::BatchOutOfBounds)?;
+    nfts_for_batch.push(nft_id);
     <NftBatches<T>>::insert(batch_id, nfts_for_batch);
 
     <crate::Pallet<T>>::deposit_event(Event::<T>::BatchNftMinted {

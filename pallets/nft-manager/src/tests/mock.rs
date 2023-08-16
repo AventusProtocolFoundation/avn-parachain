@@ -19,7 +19,7 @@
 use frame_support::parameter_types;
 use frame_system as system;
 use sp_avn_common::event_types::EthEventId;
-use sp_core::{sr25519, ConstU32, Pair, H256};
+use sp_core::{sr25519, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::Header,
@@ -39,7 +39,6 @@ pub type Hashing = <TestRuntime as system::Config>::Hashing;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
-pub type MockNftBatchBound = ConstU32<8>;
 
 frame_support::construct_runtime!(
     pub enum TestRuntime where
@@ -60,7 +59,6 @@ impl Config for TestRuntime {
     type Public = AccountId;
     type Signature = Signature;
     type WeightInfo = ();
-    type BatchBound = MockNftBatchBound;
 }
 
 parameter_types! {
@@ -157,4 +155,12 @@ impl TestAccount {
 
 pub fn sign(signer: &sr25519::Pair, message_to_sign: &[u8]) -> Signature {
     return Signature::from(signer.sign(message_to_sign))
+}
+
+pub fn nft_is_owned(owner: &AccountId, nft_id: &NftId) -> bool {
+    if <OwnedNfts<TestRuntime>>::contains_key(&owner) {
+        return NftManager::get_owned_nfts(owner).iter().any(|nft| nft == nft_id)
+    }
+
+    return false
 }

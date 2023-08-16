@@ -66,15 +66,6 @@ fn get_proof<T: Config>(
     }
 }
 
-fn bounded_unique_external_ref() -> BoundedVec<u8, NftExternalRefBound> {
-    BoundedVec::try_from(String::from("Offchain location of NFT").into_bytes())
-        .expect("Unique external reference bound was exceeded.")
-}
-
-pub fn bounded_royalties(royalties: Vec<Royalty>) -> BoundedVec<Royalty, NftRoyaltiesBound> {
-    BoundedVec::try_from(royalties.clone()).expect("Royalty bound was exceeded.")
-}
-
 fn get_relayer<T: Config>() -> T::AccountId {
     let relayer_account: H256 =
         H256(hex!("0000000000000000000000000000000000000000000000000000000000000001"));
@@ -94,7 +85,7 @@ struct MintSingleNft<T: Config> {
     nft_owner: T::AccountId,
     nft_id: U256,
     info_id: U256,
-    unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
+    unique_external_ref: Vec<u8>,
     royalties: Vec<Royalty>,
     t1_authority: H160,
     signature: Vec<u8>,
@@ -110,7 +101,7 @@ impl<T: Config> MintSingleNft<T> {
             104, 83, 241, 253, 146, 114, 166, 195, 200, 254, 120, 78,
         ]);
 
-        let unique_external_ref = bounded_unique_external_ref();
+        let unique_external_ref = String::from("Offchain location of NFT").into_bytes();
         let royalties = Self::setup_royalties(number_of_royalties);
         let t1_authority = H160(hex!("0000000000000000000000000000000000000001"));
 
@@ -159,7 +150,7 @@ impl<T: Config> MintSingleNft<T> {
             get_proof::<T>(self.nft_owner.clone(), self.relayer.clone(), &self.signature);
         return Call::signed_mint_single_nft {
             proof,
-            unique_external_ref: self.unique_external_ref.to_vec(),
+            unique_external_ref: self.unique_external_ref.clone(),
             royalties: self.royalties.clone(),
             t1_authority: self.t1_authority,
         }
@@ -185,7 +176,7 @@ impl<T: Config> ListNftOpenForSale<T> {
         let nft = Nft::new(
             nft_id,
             U256::one(),
-            bounded_unique_external_ref(),
+            String::from("Offchain location of NFT").into_bytes(),
             nft_owner_account_id.clone(),
         );
 
@@ -240,7 +231,7 @@ impl<T: Config> TransferFiatNft<T> {
         let nft = Nft::new(
             nft_id,
             U256::one(),
-            bounded_unique_external_ref(),
+            String::from("Offchain location of NFT").into_bytes(),
             nft_owner_account_id.clone(),
         );
 
@@ -308,7 +299,7 @@ impl<T: Config> CancelListFiatNft<T> {
         let nft = Nft::new(
             nft_id,
             U256::one(),
-            bounded_unique_external_ref(),
+            String::from("Offchain location of NFT").into_bytes(),
             nft_owner_account_id.clone(),
         );
 
@@ -352,12 +343,12 @@ struct CreateBatch<T: Config> {
 }
 
 impl<T: Config> CreateBatch<T> {
-    fn new(batch_size: u32) -> Self {
+    fn new(number_of_royalties: u32) -> Self {
         let relayer_account_id = get_relayer::<T>();
         let (creator_key_pair, creator_account_id) = get_user_account::<T>();
 
-        let total_supply = batch_size as u64;
-        let royalties = Self::setup_royalties(NftRoyaltiesBound::get());
+        let total_supply = 100;
+        let royalties = Self::setup_royalties(number_of_royalties);
         let t1_authority = H160(hex!("0000000000000000000000000000000000000001"));
         let nonce = 0u64;
 
@@ -410,7 +401,7 @@ impl<T: Config> CreateBatch<T> {
         create_batch::<T>(
             U256::zero(),
             batch_id,
-            self.bounded_royalties(),
+            self.royalties.clone(),
             self.total_supply,
             self.t1_authority,
             self.creator_account_id.clone(),
@@ -420,10 +411,6 @@ impl<T: Config> CreateBatch<T> {
 
         return batch_id
     }
-
-    pub fn bounded_royalties(&self) -> BoundedVec<Royalty, NftRoyaltiesBound> {
-        bounded_royalties(self.royalties.clone())
-    }
 }
 
 struct MintBatchNft<T: Config> {
@@ -431,7 +418,7 @@ struct MintBatchNft<T: Config> {
     nft_owner: T::AccountId,
     batch_id: NftBatchId,
     nft_id: U256,
-    unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
+    unique_external_ref: Vec<u8>,
     t1_authority: H160,
     signature: Vec<u8>,
 }
@@ -443,7 +430,7 @@ impl<T: Config> MintBatchNft<T> {
         let (nft_owner_key_pair, nft_owner_account_id) = get_user_account::<T>();
 
         // create batch and list
-        let batch: CreateBatch<T> = CreateBatch::new(T::BatchBound::get());
+        let batch: CreateBatch<T> = CreateBatch::new(1);
         let batch_id = batch.create_batch_for_setup();
         <BatchOpenForSale<T>>::insert(batch_id, NftSaleType::Fiat);
 
@@ -455,7 +442,7 @@ impl<T: Config> MintBatchNft<T> {
             18, 53, 164, 178, 200, 65, 155, 27, 180, 246, 23, 91, 12, 175,
         ]);
 
-        let unique_external_ref = bounded_unique_external_ref();
+        let unique_external_ref = String::from("Offchain location of NFT").into_bytes();
         let t1_authority = H160(hex!("0000000000000000000000000000000000000001"));
 
         let signed_payload = (
@@ -493,7 +480,7 @@ impl<T: Config> MintBatchNft<T> {
             batch_id,
             index,
             owner: self.nft_owner.clone(),
-            unique_external_ref: self.unique_external_ref.to_vec(),
+            unique_external_ref: self.unique_external_ref.clone(),
         }
         .into()
     }
@@ -514,7 +501,7 @@ impl<T: Config> ListBatch<T> {
 
         let market = NftSaleType::Fiat;
 
-        let batch: CreateBatch<T> = CreateBatch::new(T::BatchBound::get());
+        let batch: CreateBatch<T> = CreateBatch::new(1);
         let batch_id = batch.create_batch_for_setup();
         let nonce = <BatchNonces<T>>::get(&creator_account_id);
 
@@ -559,7 +546,7 @@ impl<T: Config> EndBatchSale<T> {
 
         let market = NftSaleType::Fiat;
 
-        let batch: CreateBatch<T> = CreateBatch::new(T::BatchBound::get());
+        let batch: CreateBatch<T> = CreateBatch::new(1);
         let batch_id = batch.create_batch_for_setup();
 
         <BatchOpenForSale<T>>::insert(batch_id, market);
@@ -592,7 +579,7 @@ benchmarks! {
         let mint_nft: MintSingleNft<T> = MintSingleNft::new(r).setup();
     }: _(
         RawOrigin::<T::AccountId>::Signed(mint_nft.nft_owner.clone()),
-        mint_nft.unique_external_ref.to_vec(),
+        mint_nft.unique_external_ref.clone(),
         mint_nft.royalties.clone(),
         mint_nft.t1_authority
     )
@@ -604,7 +591,7 @@ benchmarks! {
         );
         assert_eq!(true, NftInfos::<T>::contains_key(&mint_nft.info_id));
         assert_eq!(
-            NftInfo::new(mint_nft.info_id, bounded_royalties(mint_nft.royalties.clone()), mint_nft.t1_authority),
+            NftInfo::new(mint_nft.info_id, mint_nft.royalties, mint_nft.t1_authority),
             <NftInfos<T>>::get(&mint_nft.info_id).unwrap()
         );
         assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.unique_external_ref));
@@ -627,7 +614,7 @@ benchmarks! {
     }: _(
         RawOrigin::<T::AccountId>::Signed(mint_nft.nft_owner.clone()),
         proof,
-        mint_nft.unique_external_ref.to_vec(),
+        mint_nft.unique_external_ref.clone(),
         mint_nft.royalties.clone(),
         mint_nft.t1_authority
     )
@@ -639,7 +626,7 @@ benchmarks! {
         );
         assert_eq!(true, NftInfos::<T>::contains_key(&mint_nft.info_id));
         assert_eq!(
-            NftInfo::new(mint_nft.info_id, bounded_royalties(mint_nft.royalties.clone()), mint_nft.t1_authority),
+            NftInfo::new(mint_nft.info_id, mint_nft.royalties, mint_nft.t1_authority),
             <NftInfos<T>>::get(&mint_nft.info_id).unwrap()
         );
         assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.unique_external_ref));
@@ -658,7 +645,7 @@ benchmarks! {
         let nft = Nft::new(
             nft_id,
             U256::one(),
-            bounded_unique_external_ref(),
+            String::from("Offchain location of NFT").into_bytes(),
             nft_owner_account_id.clone(),
         );
         let market = NftSaleType::Ethereum;
@@ -762,7 +749,7 @@ benchmarks! {
         );
         assert_eq!(true, NftInfos::<T>::contains_key(&mint_nft.info_id));
         assert_eq!(
-            NftInfo::new(mint_nft.info_id, bounded_royalties(mint_nft.royalties.clone()), mint_nft.t1_authority),
+            NftInfo::new(mint_nft.info_id, mint_nft.royalties, mint_nft.t1_authority),
             <NftInfos<T>>::get(&mint_nft.info_id).unwrap()
         );
         assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.unique_external_ref));
@@ -830,7 +817,7 @@ benchmarks! {
     }
 
     proxy_signed_create_batch {
-        let r in 1 .. T::BatchBound::get();
+        let r in 1 .. MAX_NUMBER_OF_ROYALTIES;
         let batch: CreateBatch<T> = CreateBatch::new(r);
         let call: <T as Config>::RuntimeCall = batch.generate_signed_create_batch();
         let boxed_call: Box<<T as Config>::RuntimeCall> = Box::new(call);

@@ -25,8 +25,7 @@ use frame_support::{
         DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, Dispatchable,
         PostDispatchInfo,
     },
-    ensure,
-    pallet_prelude::StorageVersion,
+    ensure, log,
     traits::{Get, IsSubType},
     weights::Weight,
     Parameter,
@@ -40,12 +39,11 @@ use sp_avn_common::{
     },
     verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
-use sp_core::{ConstU32, H160, H256, U256};
+use sp_core::{H160, H256, U256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Hash, IdentifyAccount, Member, Verify},
-    BoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -74,17 +72,12 @@ pub const SIGNED_CANCEL_LIST_FIAT_NFT_CONTEXT: &'static [u8] =
 pub const SIGNED_MINT_BATCH_NFT_CONTEXT: &'static [u8] =
     b"authorization for mint batch nft operation";
 
-const MAX_NUMBER_OF_ROYALTIES: u32 = 16;
-/// Bound used for number of Royalties an NFTs that can have
-pub(crate) type NftRoyaltiesBound = ConstU32<MAX_NUMBER_OF_ROYALTIES>;
+const MAX_NUMBER_OF_ROYALTIES: u32 = 5;
 
 pub type NftId = U256;
 pub type NftInfoId = U256;
 pub type NftBatchId = U256;
 pub type NftUniqueId = U256;
-
-/// Suggested bound to use in runtime for number of NFTs that can exist in a single Batch
-pub type BatchNftBound = ConstU32<16384>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -118,33 +111,11 @@ pub mod pallet {
             + TypeInfo;
 
         type WeightInfo: WeightInfo;
-
-        #[pallet::constant]
-        type BatchBound: Get<u32>;
-    }
-
-    #[pallet::genesis_config]
-    pub struct GenesisConfig<T: Config> {
-        pub _phantom: sp_std::marker::PhantomData<T>,
-    }
-
-    #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T> {
-        fn default() -> Self {
-            Self { _phantom: Default::default() }
-        }
-    }
-
-    #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
-        fn build(&self) {
-            crate::STORAGE_VERSION.put::<Pallet<T>>();
-        }
     }
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
-    #[pallet::storage_version(STORAGE_VERSION)]
+    #[pallet::without_storage_info]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -271,12 +242,6 @@ pub mod pallet {
         UnauthorizedSignedEndBatchSaleTransaction,
         BatchNotListedForFiatSale,
         BatchNotListedForEthereumSale,
-        /// External reference size is out of bounds
-        ExternalRefOutOfBounds,
-        /// Nft Royalties size is out of bounds
-        RoyaltiesOutOfBounds,
-        /// Batch size is out of bounds
-        BatchOutOfBounds,
     }
 
     /// A mapping between NFT Id and data
@@ -295,7 +260,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn nft_batches)]
     pub type NftBatches<T: Config> =
-        StorageMap<_, Blake2_128Concat, NftBatchId, BoundedVec<NftId, T::BatchBound>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, NftBatchId, Vec<NftId>, ValueQuery>;
 
     /// A mapping between the external batch id and its corresponding NtfInfoId
     #[pallet::storage]
@@ -307,7 +272,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn is_external_ref_used)]
     pub type UsedExternalReferences<T: Config> =
-        StorageMap<_, Blake2_128Concat, BoundedVec<u8, NftExternalRefBound>, bool, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, Vec<u8>, bool, ValueQuery>;
 
     /// The Id that will be used when creating the new NftInfo record
     #[pallet::storage]
@@ -325,6 +290,16 @@ pub mod pallet {
     #[pallet::getter(fn get_nft_open_for_sale_on)]
     pub type NftOpenForSale<T: Config> =
         StorageMap<_, Blake2_128Concat, NftId, NftSaleType, ValueQuery>;
+
+    /// A mapping between the external batch id and its nft Ids
+    #[pallet::storage]
+    #[pallet::getter(fn get_owned_nfts)]
+    pub type OwnedNfts<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, Vec<NftId>, ValueQuery>;
+
+    /// The version of this storage
+    #[pallet::storage]
+    pub type StorageVersion<T: Config> = StorageValue<_, Releases, ValueQuery>;
 
     /// An account nonce that represents the number of proxy transactions from this account
     #[pallet::storage]
@@ -350,15 +325,7 @@ pub mod pallet {
             t1_authority: H160,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-
-            let bounded_unique_external_ref =
-                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref)
-                    .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
-            Self::validate_mint_single_nft_request(
-                &bounded_unique_external_ref,
-                &royalties,
-                t1_authority,
-            )?;
+            Self::validate_mint_single_nft_request(&unique_external_ref, &royalties, t1_authority)?;
 
             // We trust the input for the value of t1_authority
             let nft_id =
@@ -369,10 +336,10 @@ pub mod pallet {
             let info_id = Self::get_info_id_and_advance();
             let (nft, info) = Self::insert_single_nft_into_chain(
                 info_id,
-                BoundedVec::try_from(royalties).map_err(|_| Error::<T>::RoyaltiesOutOfBounds)?,
+                royalties,
                 t1_authority,
                 nft_id,
-                bounded_unique_external_ref,
+                unique_external_ref,
                 sender,
             );
 
@@ -397,14 +364,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
-            let bounded_unique_external_ref =
-                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref.clone())
-                    .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
-            Self::validate_mint_single_nft_request(
-                &bounded_unique_external_ref,
-                &royalties,
-                t1_authority,
-            )?;
+            Self::validate_mint_single_nft_request(&unique_external_ref, &royalties, t1_authority)?;
 
             let signed_payload = Self::encode_mint_single_nft_params(
                 &proof,
@@ -427,10 +387,10 @@ pub mod pallet {
             let info_id = Self::get_info_id_and_advance();
             let (nft, info) = Self::insert_single_nft_into_chain(
                 info_id,
-                BoundedVec::try_from(royalties).map_err(|_| Error::<T>::RoyaltiesOutOfBounds)?,
+                royalties,
                 t1_authority,
                 nft_id,
-                bounded_unique_external_ref,
+                unique_external_ref,
                 proof.signer,
             );
 
@@ -514,7 +474,7 @@ pub mod pallet {
                 .expect("32 bytes will always decode into an AccountId");
             let market = Self::get_nft_open_for_sale_on(nft_id);
 
-            Self::transfer_nft(&nft_id, &new_nft_owner.clone())?;
+            Self::transfer_nft(&nft_id, &nft.owner, &new_nft_owner.clone())?;
             Self::deposit_event(Event::<T>::FiatNftTransfer {
                 nft_id,
                 sender,
@@ -601,7 +561,6 @@ pub mod pallet {
             ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
             ensure!(t1_authority.is_zero() == false, Error::<T>::T1AuthorityIsMandatory);
             ensure!(total_supply > 0u64, Error::<T>::TotalSupplyZero);
-            ensure!(total_supply <= T::BatchBound::get().into(), Error::<T>::BatchOutOfBounds);
 
             Self::validate_royalties(&royalties)?;
 
@@ -630,7 +589,7 @@ pub mod pallet {
             create_batch::<T>(
                 info_id,
                 batch_id,
-                BoundedVec::try_from(royalties).map_err(|_| Error::<T>::RoyaltiesOutOfBounds)?,
+                royalties,
                 total_supply,
                 t1_authority,
                 sender.clone(),
@@ -662,11 +621,7 @@ pub mod pallet {
             let sender = ensure_signed(origin)?;
             ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
 
-            let bounded_unique_external_ref =
-                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref)
-                    .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
-            let nft_info =
-                validate_mint_batch_nft_request::<T>(batch_id, &bounded_unique_external_ref)?;
+            let nft_info = validate_mint_batch_nft_request::<T>(batch_id, &unique_external_ref)?;
             ensure!(
                 <BatchOpenForSale<T>>::get(&batch_id) == NftSaleType::Fiat,
                 Error::<T>::BatchNotListedForFiatSale
@@ -677,7 +632,7 @@ pub mod pallet {
                 &proof,
                 &batch_id,
                 &index,
-                &bounded_unique_external_ref,
+                &unique_external_ref,
                 &owner,
             );
             ensure!(
@@ -686,7 +641,7 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedMintBatchNftTransaction
             );
 
-            mint_batch_nft::<T>(batch_id, owner, index, bounded_unique_external_ref)?;
+            mint_batch_nft::<T>(batch_id, owner, index, &unique_external_ref)?;
 
             Ok(())
         }
@@ -779,12 +734,11 @@ pub mod pallet {
         // migration logic should be done in a separate function so it can be tested
         // properly.
         fn on_runtime_upgrade() -> Weight {
-            let onchain_version = Pallet::<T>::on_chain_storage_version();
-            log::debug!(
-                "Nft manager storage chain/current storage version: {:?} / {:?}",
-                onchain_version,
-                Pallet::<T>::current_storage_version(),
-            );
+            if <StorageVersion<T>>::get() == Releases::V2_0_0 {
+                <StorageVersion<T>>::put(Releases::V3_0_0);
+                return migrations::migrate_to_batch_nft::<T>()
+            }
+
             return Weight::from_ref_time(0)
         }
     }
@@ -792,7 +746,7 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     fn validate_mint_single_nft_request(
-        unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
+        unique_external_ref: &Vec<u8>,
         royalties: &Vec<Royalty>,
         t1_authority: H160,
     ) -> DispatchResult {
@@ -804,9 +758,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn validate_external_ref(
-        unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
-    ) -> DispatchResult {
+    fn validate_external_ref(unique_external_ref: &Vec<u8>) -> DispatchResult {
         ensure!(unique_external_ref.len() > 0, Error::<T>::ExternalRefIsMandatory);
         ensure!(
             Self::is_external_ref_used(&unique_external_ref) == false,
@@ -876,10 +828,10 @@ impl<T: Config> Pallet<T> {
 
     fn insert_single_nft_into_chain(
         info_id: NftInfoId,
-        royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
+        royalties: Vec<Royalty>,
         t1_authority: H160,
         nft_id: NftId,
-        unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
+        unique_external_ref: Vec<u8>,
         owner: T::AccountId,
     ) -> (Nft<T::AccountId>, NftInfo<T::AccountId>) {
         let info = NftInfo::new(info_id, royalties, t1_authority);
@@ -887,7 +839,7 @@ impl<T: Config> Pallet<T> {
 
         <NftInfos<T>>::insert(info.info_id, &info);
 
-        Self::add_nft(&nft);
+        Self::add_nft_and_update_owner(&owner, &nft);
         return (nft, info)
     }
 
@@ -932,7 +884,7 @@ impl<T: Config> Pallet<T> {
 
         let new_nft_owner = T::AccountId::decode(&mut data.t2_transfer_to_public_key.as_bytes())
             .expect("32 bytes will always decode into an AccountId");
-        Self::transfer_nft(&data.nft_id, &new_nft_owner)?;
+        Self::transfer_nft(&data.nft_id, &nft.owner, &new_nft_owner)?;
         Self::deposit_event(Event::<T>::EthNftTransfer {
             nft_id: data.nft_id,
             new_owner: new_nft_owner,
@@ -944,28 +896,58 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn transfer_nft(nft_id: &NftId, new_nft_owner: &T::AccountId) -> DispatchResult {
+    fn transfer_nft(
+        nft_id: &NftId,
+        old_nft_owner: &T::AccountId,
+        new_nft_owner: &T::AccountId,
+    ) -> DispatchResult {
         Self::remove_listing_from_open_for_sale(nft_id)?;
-        Self::update_owner_for_transfer(nft_id, new_nft_owner);
+        Self::update_owner_for_transfer(nft_id, old_nft_owner, new_nft_owner);
         Ok(())
     }
 
     // See https://github.com/Aventus-Network-Services/avn-tier2/pull/991#discussion_r832470480 for details of why we have this
     // as a separate function
-    fn update_owner_for_transfer(nft_id: &NftId, new_nft_owner: &T::AccountId) {
+    fn update_owner_for_transfer(
+        nft_id: &NftId,
+        old_nft_owner: &T::AccountId,
+        new_nft_owner: &T::AccountId,
+    ) {
         <Nfts<T>>::mutate(nft_id, |maybe_nft| {
             maybe_nft.as_mut().map(|nft| {
                 nft.owner = new_nft_owner.clone();
                 nft.nonce += 1u64;
             })
         });
+
+        <OwnedNfts<T>>::mutate(old_nft_owner, |owner_nfts| {
+            if let Some(pos) = owner_nfts.iter().position(|n| n == nft_id) {
+                owner_nfts.swap_remove(pos);
+            }
+        });
+
+        if <OwnedNfts<T>>::contains_key(new_nft_owner) {
+            <OwnedNfts<T>>::mutate(new_nft_owner, |owner_nfts| {
+                owner_nfts.push(*nft_id);
+            });
+        } else {
+            <OwnedNfts<T>>::insert(new_nft_owner, vec![*nft_id]);
+        }
     }
 
     // See https://github.com/Aventus-Network-Services/avn-tier2/pull/991#discussion_r832470480 for details of why we have this
     // as a separate function
-    fn add_nft(nft: &Nft<T::AccountId>) {
+    fn add_nft_and_update_owner(owner: &T::AccountId, nft: &Nft<T::AccountId>) {
         <Nfts<T>>::insert(nft.nft_id, &nft);
         <UsedExternalReferences<T>>::insert(&nft.unique_external_ref, true);
+
+        if <OwnedNfts<T>>::contains_key(owner) {
+            <OwnedNfts<T>>::mutate(owner, |owner_nfts| {
+                owner_nfts.push(nft.nft_id);
+            });
+        } else {
+            <OwnedNfts<T>>::insert(owner, vec![nft.nft_id]);
+        }
     }
 
     fn cancel_eth_nft_listing(
@@ -1245,7 +1227,56 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
     }
 }
 
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+// A value placed in storage that represents the current version of the Staking storage. This value
+// is used by the `on_runtime_upgrade` logic to determine whether we run storage migration logic.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, MaxEncodedLen, TypeInfo)]
+pub enum Releases {
+    Unknown,
+    V2_0_0,
+    V3_0_0,
+}
+
+impl Default for Releases {
+    fn default() -> Self {
+        Releases::V3_0_0
+    }
+}
+
+pub mod migrations {
+    use super::*;
+
+    #[derive(Decode)]
+    struct OldNftInfo {
+        pub info_id: NftInfoId,
+        pub batch_id: Option<NftBatchId>,
+        pub royalties: Vec<Royalty>,
+        pub total_supply: u64,
+        pub t1_authority: H160,
+    }
+
+    impl OldNftInfo {
+        fn upgraded<T: Config>(self) -> NftInfo<T::AccountId> {
+            NftInfo {
+                info_id: self.info_id,
+                batch_id: self.batch_id,
+                royalties: self.royalties,
+                total_supply: self.total_supply,
+                t1_authority: self.t1_authority,
+                creator: None,
+            }
+        }
+    }
+
+    pub fn migrate_to_batch_nft<T: Config>() -> frame_support::weights::Weight {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+        log::info!("ℹ️  Nft manager pallet data migration invoked");
+
+        NftInfos::<T>::translate::<OldNftInfo, _>(|_, p| Some(p.upgraded::<T>()));
+
+        log::info!("ℹ️  Migrated NftInfo data successfully");
+        return T::BlockWeights::get().max_block
+    }
+}
 
 #[cfg(test)]
 #[path = "tests/mock.rs"]
