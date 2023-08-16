@@ -296,6 +296,7 @@ impl pallet_avn::Config for Test {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type WeightInfo = ();
 }
 
 impl session::Config for Test {

@@ -804,6 +804,10 @@ pub mod pallet {
                 return migrations::migrate_to_multi_nft_contract::<T>()
             }
 
+            if StorageVersion::<T>::get() == Releases::Unknown {
+                StorageVersion::<T>::put(Releases::V4_0_0);
+                return migrations::migrate_to_bridge_contract::<T>()
+            }
             return Weight::from_ref_time(0)
         }
     }
@@ -1646,16 +1650,18 @@ enum Releases {
     Unknown,
     V2_0_0,
     V3_0_0,
+    V4_0_0,
 }
 
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V3_0_0
+        Releases::V4_0_0
     }
 }
 
 pub mod migrations {
     use super::*;
+    use pallet_avn::AvnBridgeContractAddress;
     use frame_support::{migration::storage_key_iter, Blake2_128Concat};
     pub type MarketplaceId = u32;
 
@@ -1679,6 +1685,24 @@ pub mod migrations {
         }
 
         log::info!("ℹ️  Migrated Ethereum event's NFT contract addresses successfully");
+        return consumed_weight
+    }
+
+    pub fn migrate_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+        log::info!("ℹ️  Ethereum events pallet data migration invoked");
+
+        let consumed_weight = T::DbWeight::get().reads_writes(1, 3);
+
+        let address = LiftingContractAddress::<T>::get();
+
+        //Insert the address into the new storage item
+        <AvnBridgeContractAddress<T>>::put(address);
+
+        <LiftingContractAddress<T>>::kill();
+        <ValidatorManagerContractAddress<T>>::kill();
+
+        log::info!("ℹ️  Migrated Ethereum event's Lifting and Bridge contract addresses successfully");
         return consumed_weight
     }
 }

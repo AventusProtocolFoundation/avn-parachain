@@ -18,7 +18,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 
-use frame_support::{dispatch::DispatchResult, ensure, log::*, traits::OneSessionHandler};
+use frame_support::{dispatch::DispatchResult, ensure, log::*, traits::{OneSessionHandler, Get}};
 use frame_system::{ensure_root, pallet_prelude::OriginFor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
@@ -42,6 +42,9 @@ pub use pallet::*;
 #[path = "tests/testing.rs"]
 pub mod testing;
 pub mod vote;
+
+pub mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 #[path = "tests/test_proxy_signed_add_avn_logs.rs"]
@@ -77,6 +80,7 @@ pub mod pallet {
             + Ord
             + MaybeSerializeDeserialize
             + MaxEncodedLen;
+
         type EthereumPublicKeyChecker: EthereumPublicKeyChecker<Self::AccountId>;
         /// A handler that will notify other pallets when a new session starts
         type NewSessionHandler: NewSessionHandler<Self::AuthorityId, Self::AccountId>;
@@ -84,6 +88,8 @@ pub mod pallet {
         type DisabledValidatorChecker: DisabledValidatorChecker<Self::AccountId>;
         /// trait that allows the runtime to check if a block is finalised
         type FinalisedBlockChecker: FinalisedBlockChecker<Self::BlockNumber>;
+
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -144,16 +150,30 @@ pub mod pallet {
             AvnBridgeContractAddress::<T>::put(self.bridge_contract_address);
         }
     }
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_bridge_contract_storage())]
+        pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
+    
+            <AvnBridgeContractAddress<T>>::put(contract_address);
+            Ok(())
+        }
+    }
 }
 
-impl<T: Config> Pallet<T> {
-    pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
-        ensure_root(origin)?;
-        ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
 
-        <AvnBridgeContractAddress<T>>::put(contract_address);
-        Ok(())
-    }
+impl<T: Config> Pallet<T> {
+    // pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
+    //     ensure_root(origin)?;
+    //     ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
+
+    //     <AvnBridgeContractAddress<T>>::put(contract_address);
+    //     Ok(())
+    // }
 
     pub fn pre_run_setup(
         block_number: T::BlockNumber,

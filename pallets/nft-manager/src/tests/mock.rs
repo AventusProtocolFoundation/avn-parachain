@@ -100,6 +100,7 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type WeightInfo = ();
 }
 
 pub struct ExtBuilder {

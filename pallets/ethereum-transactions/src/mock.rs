@@ -123,6 +123,7 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = Self;
+    type WeightInfo = ();
 }
 
 thread_local! {

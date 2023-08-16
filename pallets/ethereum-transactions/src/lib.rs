@@ -22,6 +22,7 @@ use sp_runtime::{
         ValidTransaction,
     },
     DispatchError,
+    RuntimeDebug,
 };
 use sp_std::prelude::*;
 
@@ -188,6 +189,9 @@ pub mod pallet {
     #[pallet::getter(fn get_nonce)]
     pub type Nonce<T: Config> = StorageValue<_, TransactionId, ValueQuery>;
 
+    #[pallet::storage]
+    pub(crate) type StorageVersion<T> = StorageValue<_, Releases, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // TODO [TYPE: business logic][PRI: medium]: This is a workaround to allow synch with T1
@@ -294,6 +298,16 @@ pub mod pallet {
             // TODO [TYPE: review][PRI: high][CRITICAL][JIRA: 352] add the rest offchain worker
             // logic here, corresponding to the confirmation loop (eg transactions sent
             // to Ethereum)
+        }
+        // Note: this "special" function will run during every runtime upgrade. Any complicated
+        // migration logic should be done in a separate function so it can be tested
+        // properly.
+        fn on_runtime_upgrade() -> Weight {
+            if StorageVersion::<T>::get() == Releases::Unknown {
+                StorageVersion::<T>::put(Releases::V4_0_0);
+                return migrations::migrate_pb_to_bridge_contract::<T>()
+            }
+            return Weight::from_ref_time(0)
         }
     }
 
@@ -662,5 +676,39 @@ pub struct DispatchedData<BlockNumber: Member + AtLeast32Bit> {
 impl<BlockNumber: Member + AtLeast32Bit> DispatchedData<BlockNumber> {
     fn new(transaction_id: TransactionId, submitted_at_block: BlockNumber) -> Self {
         return DispatchedData::<BlockNumber> { transaction_id, submitted_at_block }
+    }
+}
+
+// A value placed in storage that represents the current version of the EthereumEvents pallet
+// storage. This value is used by the `on_runtime_upgrade` logic to determine whether we run its
+// storage migration logic.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+enum Releases {
+    Unknown,
+    V2_0_0,
+    V3_0_0,
+    V4_0_0,
+}
+
+impl Default for Releases {
+    fn default() -> Self {
+        Releases::V4_0_0
+    }
+}
+
+pub mod migrations {
+    use super::*;
+
+    pub fn migrate_pb_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+        log::info!("ℹ️  Ethereum Transactions pallet data migration invoked");
+
+        let mut consumed_weight = T::DbWeight::get().reads_writes(0, 1);
+
+        log::info!("Destroying contract........");
+        <PublishRootContract::<T>>::kill();
+
+        log::info!("ℹ️  Migrated Ethereum Transactions's PublishRoot contract addresses successfully");
+        return consumed_weight
     }
 }

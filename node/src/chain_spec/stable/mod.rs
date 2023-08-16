@@ -10,7 +10,7 @@ use crate::chain_spec::{
 };
 use avn_parachain_runtime::{
     self as avn_runtime, AuthorityDiscoveryConfig, EthereumEventsConfig,
-    EthereumTransactionsConfig, ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig,
+    ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig,
     TokenManagerConfig, ValidatorsManagerConfig,
 };
 use node_primitives::AccountId;
@@ -54,6 +54,7 @@ pub(crate) fn testnet_genesis(
     voting_period: BlockNumber,
 ) -> avn_runtime::GenesisConfig {
     avn_runtime::GenesisConfig {
+        avn: pallet_avn::GenesisConfig { _phantom: Default::default(), bridge_contract_address: avn_eth_contract.clone() },
         system: avn_runtime::SystemConfig {
             code: avn_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
@@ -80,17 +81,11 @@ pub(crate) fn testnet_genesis(
         // of this.
         assets: Default::default(),
         ethereum_events: EthereumEventsConfig {
-            validator_manager_contract_address: avn_eth_contract.clone(),
-            lifting_contract_address: avn_eth_contract.clone(),
             nft_t1_contracts: nft_eth_contracts,
             processed_events: vec![],
             lift_tx_hashes,
             quorum_factor: QUORUM_FACTOR,
             event_challenge_period,
-        },
-        ethereum_transactions: EthereumTransactionsConfig {
-            _phantom: Default::default(),
-            get_publish_root_contract: avn_eth_contract.clone(),
         },
         validators_manager: ValidatorsManagerConfig {
             validators: candidates

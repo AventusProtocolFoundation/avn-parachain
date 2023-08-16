@@ -42,6 +42,7 @@ impl Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type WeightInfo = ();
 }
 
 parameter_types! {
