@@ -618,7 +618,7 @@ mod add_validator {
 mod constrains {
 
     use crate::ActionId;
-    use sp_avn_common::bounds::VotingSessionIdBound;
+    use sp_avn_common::VotingSessionIdBound;
     use sp_core::{sr25519::Public, Get};
 
     #[test]

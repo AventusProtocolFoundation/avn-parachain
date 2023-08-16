@@ -66,8 +66,7 @@ impl Context {
         let nft = Nft::new(
             self.nft_id,
             NftManager::get_info_id_and_advance(),
-            BoundedVec::try_from(String::from("Offchain location of NFT").into_bytes())
-                .expect("Unique external reference bound was exceeded."),
+            String::from("Offchain location of NFT").into_bytes(),
             self.nft_owner_account,
         );
         <NftManager as Store>::Nfts::insert(self.nft_id, &nft);

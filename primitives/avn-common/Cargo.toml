@@ -26,7 +26,7 @@ sp-runtime = { default-features = false, git = "https://github.com/paritytech/su
 sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 
 serde = { version = "1.0.101", optional = true, features = ["derive"] }
-log = { version = "0.4.17", default-features = false }
+log = { version = "0.4.8", optional = true, features = ["std"] }
 
 libsecp256k1 = { version = "0.3.2", default-features = false, features = ["hmac"] }
 sha3 = { version = "0.8", default-features = false }
@@ -36,6 +36,7 @@ byte-slice-cast = "1.2.1"
 sha3 = {version = "0.8.2", default-features = false }
 
 [features]
+default = [ "std" ]
 std = [
 	"serde",
 	"codec/std",
@@ -43,7 +44,7 @@ std = [
 	"sp-std/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"log/std",
+	"log",
 	"libsecp256k1/std",
 	"sha3/std"
 ]

@@ -1,9 +1,8 @@
-use crate::bounds::NftExternalRefBound;
 use codec::{Decode, Encode};
 use hex_literal::hex;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-use sp_core::{bounded::BoundedVec, H160, H256, H512, U256};
+use sp_core::{H160, H256, H512, U256};
 use sp_runtime::{scale_info::TypeInfo, traits::Member, DispatchResult};
 use sp_std::{convert::TryInto, vec::Vec};
 
@@ -34,7 +33,6 @@ pub enum Error {
     NftMintedEventBadTopicLength,
     NftMintedEventSaleIndexConversion,
     NftMintedEventBadDataLength,
-    NftMintedEventBadRefLength,
 
     NftTransferToEventShouldOnlyContainTopics,
     NftTransferToEventWrongTopicCount,
@@ -291,7 +289,7 @@ pub struct NftMintData {
     #[deprecated(note = "must only be used for backwards compatibility reasons")]
     pub t1_contract_issuer: H160,
     pub sale_index: u64,
-    pub unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
+    pub unique_external_ref: Vec<u8>,
 }
 
 impl NftMintData {
@@ -347,10 +345,7 @@ impl NftMintData {
         // The actual unique ref is expected to be a UUID which is made up of 32bytes (WORD_LENGTH)
         // + 4 bytes for the dashes Example: b1dc0452-8b2f-78ec-7e80-167002d11678
         let ref_size = WORD_LENGTH + 4 * BYTE_LENGTH;
-        let unique_external_ref = BoundedVec::<u8, NftExternalRefBound>::try_from(
-            data[2 * WORD_LENGTH..2 * WORD_LENGTH + ref_size].to_vec(),
-        )
-        .map_err(|_| Error::NftMintedEventBadRefLength)?;
+        let unique_external_ref = data[2 * WORD_LENGTH..2 * WORD_LENGTH + ref_size].to_vec();
 
         #[allow(deprecated)]
         return Ok(NftMintData {

@@ -1721,7 +1721,7 @@ mod if_process_summary_is_called_a_second_time {
 mod constrains {
     use crate::{RootId, RootRange};
     use node_primitives::BlockNumber;
-    use sp_avn_common::bounds::VotingSessionIdBound;
+    use sp_avn_common::VotingSessionIdBound;
     use sp_core::Get;
 
     #[test]
