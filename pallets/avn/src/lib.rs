@@ -30,7 +30,7 @@ use sp_avn_common::{
 use sp_runtime::{
     offchain::{http, storage::StorageValueRef, Duration},
     traits::Member,
-    BoundedVec, DispatchError,
+    DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -113,7 +113,7 @@ pub mod pallet {
     /// offchain worker.
     pub type Validators<T: Config> = StorageValue<
         _,
-        BoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound>,
+        WeakBoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound>,
         ValueQuery,
     >;
 }
@@ -276,7 +276,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn active_validators(
-    ) -> BoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound> {
+    ) -> WeakBoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound> {
         return Self::validators()
     }
 
@@ -388,8 +388,9 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
         I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
     {
         trace!("Avn pallet genesis session entrypoint");
-        let avn_validators = BoundedVec::truncate_from(
+        let avn_validators = WeakBoundedVec::force_from(
             validators.map(|x| Validator::new(x.0.clone(), x.1)).collect::<Vec<_>>(),
+            Some("Too many validators for session"),
         );
         if !avn_validators.is_empty() {
             assert!(Validators::<T>::get().is_empty(), "Validators are already initialized!");
@@ -406,13 +407,15 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
         trace!("Avn pallet new session entrypoint");
         // Update the list of validators if it has changed
         let mut disabled_avn_validators: Vec<T::AccountId> = vec![];
-        let mut active_avn_validators = BoundedVec::default();
+        let mut active_avn_validators = WeakBoundedVec::default();
 
         validators.for_each(|x| {
             if T::DisabledValidatorChecker::is_disabled(x.0) {
                 disabled_avn_validators.push(x.0.clone());
             } else {
-                if let Err(_) = active_avn_validators.try_push(Validator::new(x.0.clone(), x.1)) {}
+                if let Err(_) = active_avn_validators.try_push(Validator::new(x.0.clone(), x.1)) {
+                    return // breaking out of the for_each
+                }
             }
         });
 
