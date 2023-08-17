@@ -412,9 +412,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
             if T::DisabledValidatorChecker::is_disabled(x.0) {
                 disabled_avn_validators.push(x.0.clone());
             } else {
-                active_avn_validators
-                    .try_push(Validator::new(x.0.clone(), x.1))
-                    .map_err(|_| DispatchError::Other("Maximum Validators reached"));
+                if let Err(_) = active_avn_validators.try_push(Validator::new(x.0.clone(), x.1)) {}
             }
         });
 
