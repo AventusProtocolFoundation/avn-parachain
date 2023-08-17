@@ -23,7 +23,7 @@ mod tests {
     fn vec_to_ordered_set<T: Ord + Debug + Clone, S: Get<u32>>(
         values: Vec<T>,
     ) -> BoundedOrderedSet<T, S> {
-        let mut bounded_vec: BoundedVec<T, S> = BoundedVec::truncate_from(values);
+        let bounded_vec: BoundedVec<T, S> = BoundedVec::truncate_from(values);
 
         let mut new_bounded_vec = BoundedVec::default(); // Create a new BoundedVec
         for value in bounded_vec.iter() {
@@ -89,10 +89,10 @@ mod tests {
 
     #[test]
     fn test_clear() {
-        let mut set = vec_to_ordered_set::<i32, MaxBound>(vec![3, 1, 4]);
+        let set = vec_to_ordered_set::<i32, MaxBound>(vec![3, 1, 4]);
 
         assert!(!set.0.is_empty()); // Assert before clearing
-        let set_clone = set.clone(); // Clone the set
+        let _set_clone = set.clone(); // Clone the set
         set.clear();
     }
 }

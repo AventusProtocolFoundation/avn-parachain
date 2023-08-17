@@ -18,8 +18,8 @@
 
 use crate::{
     set::BoundedOrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era,
-    EraIndex, Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, OrderedSet,
-    Pallet, RewardPoint, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    EraIndex, Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet,
+    RewardPoint, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
     pallet_prelude::*,

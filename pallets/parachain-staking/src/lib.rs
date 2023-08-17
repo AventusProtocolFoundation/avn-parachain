@@ -813,9 +813,9 @@ pub mod pallet {
             );
 
             match candidates.try_insert(Bond { owner: acc.clone(), amount: bond }) {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(Error::<T>::CandidateLimitReached),
-                Err(_) => Err(Error::<T>::CandidateExists),
+                Err(_) => Err(Error::<T>::CandidateExists)?,
+                Ok(false) => Err(Error::<T>::CandidateLimitReached)?,
+                Ok(true) => {},
             };
             ensure!(
                 Self::get_collator_stakable_free_balance(&acc) >= bond,
@@ -970,9 +970,9 @@ pub mod pallet {
             match candidates
                 .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
             {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(Error::<T>::CandidateLimitReached),
-                Err(_) => Err(Error::<T>::AlreadyActive),
+                Err(_) => Err(Error::<T>::AlreadyActive)?,
+                Ok(false) => Err(Error::<T>::CandidateLimitReached)?,
+                Ok(true) => {},
             };
             <CandidatePool<T>>::put(candidates);
             <CandidateInfo<T>>::insert(&collator, state);
@@ -1694,11 +1694,11 @@ pub mod pallet {
             let mut candidates = <CandidatePool<T>>::get();
             candidates.remove(&Bond::from_owner(candidate.clone()));
 
-            match candidates.try_insert(Bond { owner: candidate, amount: total }) {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(Error::<T>::CandidateLimitReached),
-                Err(_) => Err(Error::<T>::AlreadyActive),
-            };
+            if let Err(_) | Ok(false) =
+                candidates.try_insert(Bond { owner: candidate, amount: total })
+            {
+                log::error!("💔 Error while trying to update active candidates. Since a candidate was just removed this should never fail.");
+            }
             <CandidatePool<T>>::put(candidates);
         }
 

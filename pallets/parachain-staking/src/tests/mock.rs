@@ -49,7 +49,6 @@ pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
 pub type Balance = u128;
 pub type BlockNumber = u64;
-pub type MaxNominations = u64;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
