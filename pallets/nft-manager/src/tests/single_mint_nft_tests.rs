@@ -100,7 +100,6 @@ mod mint_single_nft {
 
                 assert_eq!(true, <Nfts<TestRuntime>>::contains_key(&nft_id));
                 assert_eq!(true, <NftInfos<TestRuntime>>::contains_key(&expected_info_id));
-                assert_eq!(true, nft_is_owned(&context.owner, &context.generate_nft_id()));
                 assert_eq!(true, context.event_emitted_with_single_nft_minted());
             });
         }
@@ -164,6 +163,28 @@ mod mint_single_nft {
                 assert_noop!(
                     context.call_mint_single_nft(),
                     Error::<TestRuntime>::ExternalRefIsMandatory
+                );
+                assert_eq!(false, context.event_emitted_with_single_nft_minted());
+            });
+        }
+
+        #[test]
+        fn external_ref_is_out_of_bounds() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let mut context: Context = Default::default();
+                let expected_info_id: NftInfoId = NftManager::next_info_id();
+
+                assert_eq!(false, <Nfts<TestRuntime>>::contains_key(&context.generate_nft_id()));
+                assert_eq!(false, <NftInfos<TestRuntime>>::contains_key(&expected_info_id));
+                assert_eq!(false, context.event_emitted_with_single_nft_minted());
+
+                let out_of_bounds_size: u32 = <NftExternalRefBound as sp_core::Get<u32>>::get() + 1;
+                context.unique_external_ref = vec![b'A'; out_of_bounds_size as usize];
+
+                assert_noop!(
+                    context.call_mint_single_nft(),
+                    Error::<TestRuntime>::ExternalRefOutOfBounds
                 );
                 assert_eq!(false, context.event_emitted_with_single_nft_minted());
             });

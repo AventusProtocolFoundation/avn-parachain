@@ -15,8 +15,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::*;
+use sp_core::bounded::BoundedVec;
 use sp_runtime::traits::Member;
 
+pub(crate) use sp_avn_common::bounds::NftExternalRefBound;
 pub const ROYALTY_RATE_DENOMINATOR: u32 = 1_000_000;
 
 #[derive(Encode, Decode, Default, Debug, Clone, PartialEq, MaxEncodedLen, TypeInfo)]
@@ -39,14 +41,14 @@ impl RoyaltyRate {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct Nft<AccountId: Member> {
     /// Unique identifier of a nft
     pub nft_id: NftId,
     /// Id of an info struct instance
     pub info_id: NftInfoId,
     /// Unique reference to the NFT asset stored off-chain
-    pub unique_external_ref: Vec<u8>,
+    pub unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
     /// Transfer nonce of this NFT
     pub nonce: u64,
     /// Owner account address of this NFT
@@ -61,7 +63,7 @@ impl<AccountId: Member> Nft<AccountId> {
     pub fn new(
         nft_id: NftId,
         info_id: NftInfoId,
-        unique_external_ref: Vec<u8>,
+        unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
         owner: AccountId,
     ) -> Self {
         return Nft::<AccountId> {
@@ -75,14 +77,14 @@ impl<AccountId: Member> Nft<AccountId> {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct NftInfo<AccountId: Member> {
     /// Unique identifier of this information
     pub info_id: NftInfoId,
     /// Batch Id defined by client
     pub batch_id: Option<NftBatchId>,
     /// Royalties payment rate for the nft.
-    pub royalties: Vec<Royalty>,
+    pub royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
     /// Total supply of NFTs in this collection:
     ///  - 1: it is for a singleton
     ///  - >1: it is for a batch
@@ -95,7 +97,11 @@ pub struct NftInfo<AccountId: Member> {
 }
 
 impl<AccountId: Member> NftInfo<AccountId> {
-    pub fn new(info_id: NftInfoId, royalties: Vec<Royalty>, t1_authority: H160) -> Self {
+    pub fn new(
+        info_id: NftInfoId,
+        royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
+        t1_authority: H160,
+    ) -> Self {
         return NftInfo::<AccountId> {
             info_id,
             batch_id: None,
@@ -109,7 +115,7 @@ impl<AccountId: Member> NftInfo<AccountId> {
     pub fn new_batch(
         info_id: NftInfoId,
         batch_id: NftBatchId,
-        royalties: Vec<Royalty>,
+        royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
         t1_authority: H160,
         total_supply: u64,
         creator: AccountId,
