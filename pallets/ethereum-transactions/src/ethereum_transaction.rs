@@ -1,5 +1,5 @@
 use codec::{Decode, Encode, MaxEncodedLen};
-use sp_avn_common::EthTransaction;
+use sp_avn_common::{bounds::MaximumValidatorsBound, EthTransaction};
 use sp_core::{ecdsa, ConstU32, ConstU64, H160, H256, H512, U256};
 use sp_runtime::BoundedVec;
 
@@ -187,7 +187,7 @@ pub type TransactionId = u64;
 pub type EthereumTransactionHash = H256;
 
 pub type TransactionIdLimit = ConstU32<{ u32::MAX }>;
-pub type SignaturesLimit = ConstU32<{ u32::MAX }>;
+pub type SignaturesLimit = MaximumValidatorsBound;
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct EthTransactionCandidate {
