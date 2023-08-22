@@ -406,7 +406,6 @@ parameter_types! {
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPaymentDelay: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
-    pub const MaxCandidates: u32 = 256;
 }
 
 impl parachain_staking::Config for TestRuntime {
@@ -428,7 +427,6 @@ impl parachain_staking::Config for TestRuntime {
     type CollatorPayoutDustHandler = ();
     type ProcessedEventsChecker = ();
     type WeightInfo = ();
-    type MaxCandidates = MaxCandidates;
 }
 
 /// A mock offence report handler.

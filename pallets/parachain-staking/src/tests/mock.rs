@@ -49,7 +49,6 @@ pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
 pub type Balance = u128;
 pub type BlockNumber = u64;
-pub type MaxNominations = u64;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -201,7 +200,6 @@ parameter_types! {
     pub const MinNominationPerCollator: u128 = 1;
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
-    pub const MaxCandidates:u32 = 100;
 }
 
 pub struct IsRegistered;
@@ -230,7 +228,6 @@ impl Config for Test {
     type CollatorSessionRegistration = IsRegistered;
     type CollatorPayoutDustHandler = TestCollatorPayoutDustHandler;
     type WeightInfo = ();
-    type MaxCandidates = MaxCandidates;
 }
 
 // Deal with any positive imbalance by sending it to the fake treasury

@@ -407,9 +407,6 @@ mod growth_info_recorded_correctly {
 }
 
 mod growth_amount {
-    use sp_core::ConstU32;
-    use sp_runtime::BoundedVec;
-
     use super::*;
 
     const PERIOD_INDEX: u32 = 1;
@@ -418,13 +415,12 @@ mod growth_amount {
     const COLLATOR_BALANCE: u128 = 100;
     const COLLATOR1_POINTS: u32 = 20;
     const COLLATOR2_POINTS: u32 = 10;
-    // const CollatorMaxScores: ConstU32<10000> = 10000;
 
     fn set_growth_data(
         total_staked: u128,
         staking_reward: u128,
         total_points: u32,
-        collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
+        collator_scores: Vec<CollatorScore<AccountId>>,
     ) {
         <GrowthPeriod<Test>>::put(GrowthPeriodInfo { start_era_index: 1, index: 1 });
 
@@ -461,10 +457,10 @@ mod growth_amount {
                         TOTAL_STAKE,
                         TOTAL_REWARD,
                         total_points,
-                        BoundedVec::truncate_from(vec![
+                        vec![
                             CollatorScore::new(collator_1, COLLATOR1_POINTS),
                             CollatorScore::new(previous_collator_3, previous_collator3_points),
-                        ]),
+                        ],
                     );
 
                     // Initial state
@@ -641,10 +637,10 @@ mod growth_amount {
                         TOTAL_STAKE,
                         TOTAL_REWARD,
                         total_points,
-                        BoundedVec::truncate_from(vec![
+                        vec![
                             CollatorScore::new(collator_1, COLLATOR1_POINTS),
                             CollatorScore::new(collator_2, COLLATOR2_POINTS),
-                        ]),
+                        ],
                     );
 
                     assert_eq!(true, <Growth<Test>>::contains_key(PERIOD_INDEX));
@@ -676,10 +672,10 @@ mod growth_amount {
                         TOTAL_STAKE,
                         TOTAL_REWARD,
                         total_points,
-                        BoundedVec::truncate_from(vec![
+                        vec![
                             CollatorScore::new(collator_1, COLLATOR1_POINTS),
                             CollatorScore::new(collator_2, COLLATOR2_POINTS),
-                        ]),
+                        ],
                     );
 
                     assert_eq!(true, <Growth<Test>>::contains_key(PERIOD_INDEX));

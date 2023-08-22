@@ -91,10 +91,6 @@ mod test_staking_pot;
 #[path = "tests/tests.rs"]
 mod tests;
 
-#[cfg(test)]
-#[path = "tests/test_bounded_ordered_set.rs"]
-mod test_bounded_ordered_set;
-
 use frame_support::pallet;
 pub use weights::WeightInfo;
 
@@ -104,7 +100,6 @@ pub use types::*;
 
 #[pallet]
 pub mod pallet {
-    use crate::set::BoundedOrderedSet;
     pub use crate::{
         calls::*,
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
@@ -152,7 +147,6 @@ pub mod pallet {
 
     pub const COLLATOR_LOCK_ID: LockIdentifier = *b"stkngcol";
     pub const NOMINATOR_LOCK_ID: LockIdentifier = *b"stkngnom";
-    pub type CollatorMaxScores = ConstU32<10000>;
 
     /// Configuration trait of this pallet.
     #[pallet::config]
@@ -212,9 +206,6 @@ pub mod pallet {
         type CollatorPayoutDustHandler: CollatorPayoutDustHandler<BalanceOf<Self>>;
         /// Weight information for extrinsics in this pallet.
         type WeightInfo: WeightInfo;
-        /// Maximum candidates
-        #[pallet::constant]
-        type MaxCandidates: Get<u32>;
     }
 
     #[pallet::error]
@@ -235,7 +226,6 @@ pub mod pallet {
         NominatorCannotLeaveYet,
         CandidateAlreadyLeaving,
         CandidateNotLeaving,
-        CandidateLimitReached,
         CandidateCannotLeaveYet,
         CannotGoOnlineIfLeaving,
         ExceedMaxNominationsPerNominator,
@@ -486,7 +476,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         T::AccountId,
-        BoundedVec<ScheduledRequest<T::AccountId, BalanceOf<T>>, T::MaxNominationsPerNominator>,
+        Vec<ScheduledRequest<T::AccountId, BalanceOf<T>>>,
         ValueQuery,
     >;
 
@@ -515,8 +505,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn selected_candidates)]
     /// The collator candidates selected for the current era
-    pub type SelectedCandidates<T: Config> =
-        StorageValue<_, BoundedVec<T::AccountId, T::MaxCandidates>, ValueQuery>;
+    pub type SelectedCandidates<T: Config> = StorageValue<_, Vec<T::AccountId>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn total)]
@@ -526,11 +515,8 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn candidate_pool)]
     /// The pool of collator candidates, each with their total backing stake
-    pub(crate) type CandidatePool<T: Config> = StorageValue<
-        _,
-        BoundedOrderedSet<Bond<T::AccountId, BalanceOf<T>>, T::MaxCandidates>,
-        ValueQuery,
-    >;
+    pub(crate) type CandidatePool<T: Config> =
+        StorageValue<_, OrderedSet<Bond<T::AccountId, BalanceOf<T>>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn at_stake)]
@@ -811,12 +797,10 @@ pub mod pallet {
                 candidate_count >= old_count,
                 Error::<T>::TooLowCandidateCountWeightHintJoinCandidates
             );
-
-            match candidates.try_insert(Bond { owner: acc.clone(), amount: bond }) {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(Error::<T>::CandidateLimitReached),
-                Err(_) => Err(Error::<T>::CandidateExists),
-            };
+            ensure!(
+                candidates.insert(Bond { owner: acc.clone(), amount: bond }),
+                Error::<T>::CandidateExists
+            );
             ensure!(
                 Self::get_collator_stakable_free_balance(&acc) >= bond,
                 Error::<T>::InsufficientBalance,
@@ -966,14 +950,10 @@ pub mod pallet {
                 candidates.0.len() as u32 <= candidate_count,
                 Error::<T>::TooLowCandidateCountWeightHintCancelLeaveCandidates
             );
-
-            match candidates
-                .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
-            {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(Error::<T>::CandidateLimitReached),
-                Err(_) => Err(Error::<T>::AlreadyActive),
-            };
+            ensure!(
+                candidates.insert(Bond { owner: collator.clone(), amount: state.total_counted }),
+                Error::<T>::AlreadyActive
+            );
             <CandidatePool<T>>::put(candidates);
             <CandidateInfo<T>>::insert(&collator, state);
             Self::deposit_event(Event::CancelledCandidateExit { candidate: collator });
@@ -1007,11 +987,10 @@ pub mod pallet {
             ensure!(!state.is_leaving(), Error::<T>::CannotGoOnlineIfLeaving);
             state.go_online();
             let mut candidates = <CandidatePool<T>>::get();
-            let maybe_inserted_candidate = candidates
-                .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
-                .map_err(|_| Error::<T>::CandidateLimitReached)?;
-            ensure!(maybe_inserted_candidate, Error::<T>::AlreadyActive);
-
+            ensure!(
+                candidates.insert(Bond { owner: collator.clone(), amount: state.total_counted }),
+                Error::<T>::AlreadyActive
+            );
             <CandidatePool<T>>::put(candidates);
             <CandidateInfo<T>>::insert(&collator, state);
             Self::deposit_event(Event::CandidateBackOnline { candidate: collator });
@@ -1693,12 +1672,7 @@ pub mod pallet {
         pub(crate) fn update_active(candidate: T::AccountId, total: BalanceOf<T>) {
             let mut candidates = <CandidatePool<T>>::get();
             candidates.remove(&Bond::from_owner(candidate.clone()));
-
-            match candidates.try_insert(Bond { owner: candidate, amount: total }) {
-                Ok(true) => Ok(()),
-                Ok(false) => Err(Error::<T>::CandidateLimitReached),
-                Err(_) => Err(Error::<T>::AlreadyActive),
-            };
+            candidates.insert(Bond { owner: candidate, amount: total });
             <CandidatePool<T>>::put(candidates);
         }
 
@@ -1775,11 +1749,11 @@ pub mod pallet {
 
             <DelayedPayouts<T>>::insert(era_to_payout, &payout);
 
-            let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
+            let collator_scores: Vec<CollatorScore<T::AccountId>> =
                 <AwardedPts<T>>::iter_prefix(era_to_payout)
                     .map(|(collator, points)| CollatorScore::new(collator, points))
                     .collect::<Vec<CollatorScore<T::AccountId>>>();
-            let collator_scores = BoundedVec::truncate_from(collator_scores_vec);
+
             Self::update_collator_payout(
                 era_to_payout,
                 total_staked,
@@ -1975,10 +1949,7 @@ pub mod pallet {
                 });
             }
             // insert canonical collator set
-            <SelectedCandidates<T>>::put(
-                BoundedVec::try_from(collators)
-                    .expect("subset of collators is always less than or equal to max candidates"),
-            );
+            <SelectedCandidates<T>>::put(collators);
             (collator_count, nomination_count, total)
         }
 
@@ -1997,7 +1968,7 @@ pub mod pallet {
                 .map(|x| (x.nominator, x.action))
                 .collect::<BTreeMap<_, _>>();
             let mut uncounted_stake = BalanceOf::<T>::zero();
-            let rewardable_nominations_vec = <TopNominations<T>>::get(collator)
+            let rewardable_nominations = <TopNominations<T>>::get(collator)
                 .expect("all members of CandidateQ must be candidates")
                 .nominations
                 .into_iter()
@@ -2027,7 +1998,6 @@ pub mod pallet {
                     bond
                 })
                 .collect();
-            let rewardable_nominations = BoundedVec::truncate_from(rewardable_nominations_vec);
             CountedNominations { uncounted_stake, rewardable_nominations }
         }
 
@@ -2050,7 +2020,7 @@ pub mod pallet {
             total_staked: BalanceOf<T>,
             payout: DelayedPayout<BalanceOf<T>>,
             total_points: RewardPoint,
-            current_collator_scores: BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
+            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
         ) {
             let collator_payout_period = Self::growth_period_info();
             let staking_reward_paid_in_era = payout.total_staking_reward;
@@ -2094,7 +2064,7 @@ pub mod pallet {
             total_staked: BalanceOf<T>,
             staking_reward_paid_in_era: BalanceOf<T>,
             total_points: RewardPoint,
-            current_collator_scores: BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
+            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
         ) {
             <Growth<T>>::mutate(growth_index, |info| {
                 info.number_of_accumulations = info.number_of_accumulations.saturating_add(1);
@@ -2109,9 +2079,9 @@ pub mod pallet {
         }
 
         fn update_collator_scores(
-            existing_collator_scores: &BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
-            current_collator_scores: BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
-        ) -> BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores> {
+            existing_collator_scores: &Vec<CollatorScore<T::AccountId>>,
+            current_collator_scores: Vec<CollatorScore<T::AccountId>>,
+        ) -> Vec<CollatorScore<T::AccountId>> {
             let mut current_scores = existing_collator_scores
                 .into_iter()
                 .map(|current_score| (current_score.collator.clone(), current_score.points.clone()))
@@ -2126,12 +2096,10 @@ pub mod pallet {
                     .or_insert(new_score.points);
             });
 
-            return BoundedVec::truncate_from(
-                current_scores
-                    .into_iter()
-                    .map(|(acc, pts)| CollatorScore::new(acc, pts))
-                    .collect(),
-            )
+            return current_scores
+                .into_iter()
+                .map(|(acc, pts)| CollatorScore::new(acc, pts))
+                .collect()
         }
 
         pub fn payout_collators(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
