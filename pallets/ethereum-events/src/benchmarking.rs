@@ -253,7 +253,7 @@ benchmarks! {
         }.into());
     }
 
-    set_ethereum_contract_map_storage {
+    set_nft_contract_map_storage {
         let contract_address = H160::from([1; 20]);
     }: map_nft_contract(RawOrigin::Root, contract_address.clone())
     verify {

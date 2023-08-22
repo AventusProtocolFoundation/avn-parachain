@@ -92,7 +92,6 @@ mod test_set_bridge_contract {
                     context.dispatch_set_bridge_contract(new_address),
                     BadOrigin
                 );
-                //assert_ne!(Invalid_contract_address, AVN::get_bridge_contract_address());
             });
         }
     }
