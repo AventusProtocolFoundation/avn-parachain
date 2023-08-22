@@ -118,8 +118,8 @@ mod transfer_eth_nft {
             return NftManager::transfer_eth_nft(&self.event_id, &self.transfer_to_nft_data())
         }
 
-        pub fn bounded_external_ref(&self) -> BoundedVec<u8, NftExternalRefBound> {
-            BoundedVec::try_from(self.unique_external_ref.clone())
+        pub fn bounded_external_ref(&self) -> WeakBoundedVec<u8, NftExternalRefBound> {
+            WeakBoundedVec::try_from(self.unique_external_ref.clone())
                 .expect("Unique external reference bound was exceeded.")
         }
 
