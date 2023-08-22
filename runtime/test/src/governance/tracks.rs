@@ -48,25 +48,22 @@ const APP_GENERAL_ADMIN: Curve =
     Curve::make_reciprocal(4, 28, percent(80), percent(50), percent(100));
 const SUP_GENERAL_ADMIN: Curve =
     Curve::make_reciprocal(7, 28, percent(10), percent(0), percent(50));
-const APP_FELLOWSHIP_ADMIN: Curve = Curve::make_linear(17, 28, percent(50), percent(100));
-const SUP_FELLOWSHIP_ADMIN: Curve =
-    Curve::make_reciprocal(12, 28, percent(1), percent(0), percent(50));
 
-const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 6] = [
-    (
-        0,
-        pallet_referenda::TrackInfo {
-            name: "sudo",
-            max_deciding: 1,
-            decision_deposit: 1000 * AVT,
-            prepare_period: 2 * HOURS,
-            decision_period: 14 * DAYS,
-            confirm_period: 3 * HOURS,
-            min_enactment_period: 10 * MINUTES,
-            min_approval: APP_ROOT,
-            min_support: SUP_ROOT,
-        },
-    ),
+const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 4] = [
+    // (
+    //     0,
+    //     pallet_referenda::TrackInfo {
+    //         name: "sudo",
+    //         max_deciding: 1,
+    //         decision_deposit: 1000 * AVT,
+    //         prepare_period: 2 * HOURS,
+    //         decision_period: 14 * DAYS,
+    //         confirm_period: 3 * HOURS,
+    //         min_enactment_period: 10 * MINUTES,
+    //         min_approval: APP_ROOT,
+    //         min_support: SUP_ROOT,
+    //     },
+    // ),
     (
         1,
         pallet_referenda::TrackInfo {
@@ -123,20 +120,6 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 6]
             min_support: SUP_GENERAL_ADMIN,
         },
     ),
-    (
-        6,
-        pallet_referenda::TrackInfo {
-            name: "fellowship_admin",
-            max_deciding: 10,
-            decision_deposit: 500 * AVT,
-            prepare_period: 2 * HOURS,
-            decision_period: 28 * DAYS,
-            confirm_period: 3 * HOURS,
-            min_enactment_period: 10 * MINUTES,
-            min_approval: APP_FELLOWSHIP_ADMIN,
-            min_support: SUP_FELLOWSHIP_ADMIN,
-        },
-    ),
 ];
 
 pub struct TracksInfo;
@@ -164,12 +147,11 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
             }
         } else if let Ok(custom_origin) = origins::Origin::try_from(id.clone()) {
             match custom_origin {
-                origins::Origin::Sudo => Ok(1),
+                // origins::Origin::Sudo => Ok(1),
                 origins::Origin::WhitelistedCaller => Ok(2),
                 origins::Origin::ReferendumCanceller => Ok(3),
                 origins::Origin::ReferendumKiller => Ok(4),
                 origins::Origin::GeneralAdmin => Ok(5),
-                origins::Origin::FellowshipAdmin => Ok(6),
             }
         } else {
             Err(())

@@ -19,8 +19,8 @@
 use super::*;
 use frame_support::traits::EitherOf;
 use runtime_common::constants::currency::*;
-use sp_core::ConstU16;
-use sp_runtime::traits::Replace;
+// use sp_core::ConstU16;
+// use sp_runtime::traits::Replace;
 
 parameter_types! {
     pub const VoteLockingPeriod: BlockNumber = 1 * DAYS;
