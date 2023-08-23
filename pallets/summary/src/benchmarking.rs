@@ -41,7 +41,7 @@ fn setup_publish_root_voting<T: Config>(
 fn setup_voting_session<T: Config>(root_id: &RootId<T::BlockNumber>) -> u32 {
     PendingApproval::<T>::insert(root_id.range.clone(), root_id.ingress_counter);
 
-    let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32);
+    let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
     let voting_period_end =
         safe_add_block_numbers(<system::Pallet<T>>::block_number(), VotingPeriod::<T>::get());
     let current_block_number: T::BlockNumber = 0u32.into();

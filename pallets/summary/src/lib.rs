@@ -8,7 +8,7 @@ use alloc::string::{String, ToString};
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::{
     bounds::VotingSessionIdBound,
-    calculate_two_third_quorum,
+    calculate_one_third_quorum,
     event_types::Validator,
     offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
     safe_add_block_numbers, safe_sub_block_numbers, IngressCounter,
@@ -426,7 +426,7 @@ pub mod pallet {
             );
             ensure!(new_block_number == expected_target_block, Error::<T>::InvalidSummaryRange);
 
-            let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32);
+            let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
             let voting_period_end =
                 safe_add_block_numbers(current_block_number, Self::voting_period())
                     .map_err(|_| Error::<T>::Overflow)?;

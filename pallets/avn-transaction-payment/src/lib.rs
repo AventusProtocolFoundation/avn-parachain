@@ -17,7 +17,7 @@ use frame_system::{self as system};
 use core::convert::TryInto;
 pub use pallet::*;
 use sp_runtime::{
-    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating, Zero},
+    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating},
     transaction_validity::InvalidTransaction,
 };
 
