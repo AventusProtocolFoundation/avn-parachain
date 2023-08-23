@@ -1523,10 +1523,9 @@ impl<T: Config> Pallet<T> {
                 account_id: sender,
             });
         } else {
-            let eth_contract_address: H160 =
-                Some(AVN::<T>::get_bridge_contract_address())
-                    .or_else(|| Some(H160::zero()))
-                    .expect("Always return a default value");
+            let eth_contract_address: H160 = Some(AVN::<T>::get_bridge_contract_address())
+                .or_else(|| Some(H160::zero()))
+                .expect("Always return a default value");
             Self::deposit_event(Event::<T>::EthereumEventAdded {
                 eth_event_id: event_id,
                 added_by: sender,
@@ -1661,8 +1660,8 @@ impl Default for Releases {
 
 pub mod migrations {
     use super::*;
-    use pallet_avn::AvnBridgeContractAddress;
     use frame_support::{migration::storage_key_iter, Blake2_128Concat};
+    use pallet_avn::AvnBridgeContractAddress;
     pub type MarketplaceId = u32;
 
     pub fn migrate_to_multi_nft_contract<T: Config>() -> frame_support::weights::Weight {
@@ -1702,7 +1701,9 @@ pub mod migrations {
         <LiftingContractAddress<T>>::kill();
         <ValidatorManagerContractAddress<T>>::kill();
 
-        log::info!("ℹ️  Migrated Ethereum event's Lifting and Bridge contract addresses successfully");
+        log::info!(
+            "ℹ️  Migrated Ethereum event's Lifting and Bridge contract addresses successfully"
+        );
         return consumed_weight
     }
 }

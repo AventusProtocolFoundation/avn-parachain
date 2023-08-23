@@ -18,7 +18,12 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 
-use frame_support::{dispatch::DispatchResult, ensure, log::*, traits::{OneSessionHandler, Get}};
+use frame_support::{
+    dispatch::DispatchResult,
+    ensure,
+    log::*,
+    traits::{Get, OneSessionHandler},
+};
 use frame_system::{ensure_root, pallet_prelude::OriginFor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
@@ -158,23 +163,14 @@ pub mod pallet {
         pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
-    
+
             <AvnBridgeContractAddress<T>>::put(contract_address);
             Ok(())
         }
     }
 }
 
-
 impl<T: Config> Pallet<T> {
-    // pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
-    //     ensure_root(origin)?;
-    //     ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
-
-    //     <AvnBridgeContractAddress<T>>::put(contract_address);
-    //     Ok(())
-    // }
-
     pub fn pre_run_setup(
         block_number: T::BlockNumber,
         caller_id: Vec<u8>,

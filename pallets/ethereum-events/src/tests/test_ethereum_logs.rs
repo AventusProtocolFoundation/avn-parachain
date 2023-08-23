@@ -565,7 +565,7 @@ mod add_event {
                 RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                     eth_event_id: lift_event.clone(),
                     added_by: account_id,
-                    t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address()
+                    t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address(),
                 });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());

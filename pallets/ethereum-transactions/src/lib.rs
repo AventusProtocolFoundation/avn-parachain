@@ -21,8 +21,7 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    DispatchError,
-    RuntimeDebug,
+    DispatchError, RuntimeDebug,
 };
 use sp_std::prelude::*;
 
@@ -706,9 +705,11 @@ pub mod migrations {
         let mut consumed_weight = T::DbWeight::get().reads_writes(0, 1);
 
         log::info!("Destroying contract........");
-        <PublishRootContract::<T>>::kill();
+        <PublishRootContract<T>>::kill();
 
-        log::info!("ℹ️  Migrated Ethereum Transactions's PublishRoot contract addresses successfully");
+        log::info!(
+            "ℹ️  Migrated Ethereum Transactions's PublishRoot contract addresses successfully"
+        );
         return consumed_weight
     }
 }

@@ -241,7 +241,8 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+        let storage =
+            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
         Self {
             storage,
             pool_state: None,
@@ -254,7 +255,7 @@ impl ExtBuilder {
 
     #[allow(dead_code)]
     pub fn with_genesis_config(mut self) -> Self {
-         let _ = pallet_avn::GenesisConfig::<TestRuntime> {
+        let _ = pallet_avn::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
             bridge_contract_address: H160::from(BRIDGE_CONTRACT),
         }

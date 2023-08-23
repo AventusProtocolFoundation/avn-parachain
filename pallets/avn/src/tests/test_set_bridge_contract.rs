@@ -35,15 +35,9 @@ mod test_set_bridge_contract {
             ext.execute_with(|| {
                 let context = Context::default();
                 let new_address = context.new_contract_address;
-                assert_ne!(
-                    new_address, 
-                    AVN::get_bridge_contract_address()
-                );
+                assert_ne!(new_address, AVN::get_bridge_contract_address());
                 assert_ok!(context.dispatch_set_bridge_contract(new_address));
-                assert_eq!(
-                    new_address, 
-                    AVN::get_bridge_contract_address()
-                );
+                assert_eq!(new_address, AVN::get_bridge_contract_address());
             });
         }
     }
@@ -55,8 +49,7 @@ mod test_set_bridge_contract {
         fn zero_contract_should_fail() {
             let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
             ext.execute_with(|| {
-                let context: Context =
-                    Context { ..Default::default() };
+                let context: Context = Context { ..Default::default() };
                 let invalid_contract_address = H160::zero();
                 assert_noop!(
                     context.dispatch_set_bridge_contract(invalid_contract_address),
@@ -74,10 +67,7 @@ mod test_set_bridge_contract {
                     ..Default::default()
                 };
                 let new_address = context.new_contract_address;
-                assert_noop!(
-                    context.dispatch_set_bridge_contract(new_address),
-                    BadOrigin
-                );
+                assert_noop!(context.dispatch_set_bridge_contract(new_address), BadOrigin);
             });
         }
 
@@ -88,10 +78,7 @@ mod test_set_bridge_contract {
                 let context: Context =
                     Context { origin: RawOrigin::None.into(), ..Default::default() };
                 let new_address = context.new_contract_address;
-                assert_noop!(
-                    context.dispatch_set_bridge_contract(new_address),
-                    BadOrigin
-                );
+                assert_noop!(context.dispatch_set_bridge_contract(new_address), BadOrigin);
             });
         }
     }
