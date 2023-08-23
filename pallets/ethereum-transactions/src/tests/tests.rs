@@ -15,7 +15,7 @@ const OTHER_SENDER_ACCOUNT_ID: AccountId = 2;
 const NON_VALIDATOR_ACCOUNT_ID: AccountId = 4;
 
 const DEFAULT_HASH: [u8; 32] = [5; 32];
-const DEFAULT_QUORUM: u32 = 3;
+const DEFAULT_QUORUM: u32 = 1;
 static ENCODED_DATA: &str = "c4024f0e030303030303030303030303030303030303030303030303030303030303030300000000000000000000000000\
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000\
 0000000000000000000000000000000000000820404040404040404040404040404040404040404040404040404040404040404040404040404040404040404\
@@ -172,13 +172,13 @@ impl DefaultTransactionBuilder {
         return [3u8; 32]
     }
 
-    // The quorum is 2/3 of the validators plus 1
-    // Our validator list has 3 members, so the quorum must be 3
+    // The quorum is 1/3 of the validators
+    // Our validator list has 3 members, so the quorum must be 1
     // I chose not to implement the same logic of the quorum function
     // because that would defeat the point of the test being black box
     pub fn default_quorum() -> u32 {
         assert_eq!(mock::AVN::active_validators().len(), 3);
-        3
+        1
     }
 
     pub fn build_default() -> Self {
@@ -197,8 +197,6 @@ impl DefaultTransactionBuilder {
     pub fn with_confirmations(&mut self) -> &mut Self {
         self.confirmations.append(&mut vec![
             ecdsa::Signature::from_raw([1; 65]),
-            ecdsa::Signature::from_raw([2; 65]),
-            ecdsa::Signature::from_raw([3; 65]),
         ]);
         self
     }
