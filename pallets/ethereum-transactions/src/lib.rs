@@ -665,7 +665,7 @@ impl<T: Config> CandidateTransactionSubmitter<T::AccountId> for Pallet<T> {
         // Ensure the signatures count satisfy quorum before accepting
         let quorum = signatures.len() as u32;
         ensure!(
-            quorum >= AVN::<T>::calculate_two_third_quorum(),
+            quorum >= AVN::<T>::calculate_one_third_quorum(),
             Error::<T>::NotEnoughConfirmations
         );
 

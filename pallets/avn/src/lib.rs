@@ -297,13 +297,9 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    pub fn calculate_two_third_quorum() -> u32 {
-        let len = Self::active_validators().len() as u32;
-        if len < 3 {
-            return len
-        } else {
-            return (2 * len / 3) + 1
-        }
+    pub fn calculate_one_third_quorum() -> u32 {
+        let active = Self::active_validators().len() as u32;
+        return active - active * 2 / 3
     }
 
     pub fn is_block_finalised(block_number: T::BlockNumber) -> bool {
