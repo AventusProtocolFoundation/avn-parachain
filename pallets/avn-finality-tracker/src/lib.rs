@@ -232,10 +232,10 @@ impl<BlockNumber: Member + AtLeast32Bit> SubmissionData<BlockNumber> {
 }
 
 impl<T: Config> Pallet<T> {
-    /// This function will only update the finalised block if there are 2/3rd or more
+    /// This function will only update the finalised block if there are 1/3rd or more
     /// submissions from distinct validators
     pub fn update_latest_finalised_block_if_required() {
-        let quorum = AVN::<T>::calculate_two_third_quorum();
+        let quorum = AVN::<T>::calculate_one_third_quorum();
         let current_block_number = <frame_system::Pallet<T>>::block_number();
         let last_finalised_block_submission = Self::last_finalised_block_submission();
 
