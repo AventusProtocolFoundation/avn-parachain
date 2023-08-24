@@ -76,10 +76,12 @@ fn add_eth_tx_candidate_to_candidate_tx_id<T: Config>(
 }
 
 fn add_tx_ids_to_account<T: Config>(account: &T::AccountId, candidate_tx_ids: Vec<TransactionId>) {
-    let dispatch_data: Vec<DispatchedData<T::BlockNumber>> = candidate_tx_ids
+    let dispatch_data_vec = candidate_tx_ids
         .iter()
         .map(|id| DispatchedData::new(*id, 0u32.into()))
         .collect();
+    let dispatch_data: BoundedVec<DispatchedData<T::BlockNumber>, TransactionIdLimit> =
+        BoundedVec::truncate_from(dispatch_data_vec);
     DispatchedAvnTxIds::<T>::insert(account, dispatch_data);
 }
 

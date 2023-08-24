@@ -7,6 +7,7 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use ethereum_transaction::SignaturesLimit;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get};
 use frame_system::{
     self as system, ensure_none, ensure_root,
@@ -631,7 +632,7 @@ pub trait CandidateTransactionSubmitter<AccountId> {
         candidate_type: EthTransactionType,
         tx_id: TransactionId,
         submitter: AccountId,
-        signatures: Vec<ecdsa::Signature>,
+        signatures: BoundedVec<ecdsa::Signature, SignaturesLimit>,
     ) -> DispatchResult;
 
     /// Sets a transaction Id. This is only enabled for benchmarks
@@ -662,7 +663,7 @@ impl<T: Config> CandidateTransactionSubmitter<T::AccountId> for Pallet<T> {
         candidate_type: EthTransactionType,
         tx_id: TransactionId,
         submitter: T::AccountId,
-        signatures: Vec<ecdsa::Signature>,
+        signatures: BoundedVec<ecdsa::Signature, SignaturesLimit>,
     ) -> DispatchResult {
         ensure!(
             <ReservedTransactions<T>>::contains_key(&candidate_type),
