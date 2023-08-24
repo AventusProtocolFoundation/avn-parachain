@@ -811,7 +811,7 @@ pub mod pallet {
             if onchain_version < 4 {
                 return migrations::partial_owned_nfts_entries_drop::<T>()
             }
-            return Weight::from_ref_time(0)
+            return T::DbWeight::get().reads(1)
         }
     }
 }
