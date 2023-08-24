@@ -791,60 +791,25 @@ pub mod pallet {
             );
 
             if onchain_version < 4 {
-                use frame_support::storage::unhashed;
-                let mut writes_count = 0u32;
+                let mut migration_weight: Weight = Weight::from_ref_time(0);
 
-                // Owned Nfts cleanup
-                {
-                    let owned_nfts_prefix = storage::storage_prefix(b"NftManager", b"OwnedNfts");
-                    let mut key = vec![0u8; 32];
-                    key[0..32].copy_from_slice(&owned_nfts_prefix);
-                    let res = unhashed::clear_prefix(&key[0..32], None, None);
+                migration_weight += migrations::partial_owned_nfts_entries_drop::<T>();
+                migration_weight += migrations::safe_storage_info_drop::<T>();
 
-                    log::info!(
-                    "✅ Cleared '{}' backend values from 'NftManager::OwnedNfts' storage prefix",
-                        res.backend
-                    );
-                    log::info!(
-                        "✅ Cleared '{}' entries from 'NftManager::OwnedNfts' storage prefix",
-                        res.unique
-                    );
-                    if res.maybe_cursor.is_some() {
-                        log::error!(
-                            "Storage prefix 'NftManager::OwnedNfts' is not completely cleared."
-                        );
-                    }
-                    writes_count += res.backend + res.unique;
-                }
-                // Version item cleanup
-                {
-                    let storage_version_prefix =
-                        storage::storage_prefix(b"NftManager", b"StorageVersion");
-                    let mut key = vec![0u8; 32];
-                    key[0..32].copy_from_slice(&storage_version_prefix);
-                    let res = unhashed::clear_prefix(&key[0..32], None, None);
-
-                    log::info!(
-                    "✅ Cleared '{}' backend values from 'NftManager::StorageVersion' storage prefix",
-                        res.backend
-                    );
-                    log::info!(
-                        "✅ Cleared '{}' entries from 'NftManager::StorageVersion' storage prefix",
-                        res.unique
-                    );
-                    if res.maybe_cursor.is_some() {
-                        log::error!("Storage prefix 'StorageVersion' is not completely cleared.");
-                    }
-                    writes_count += res.backend + res.unique;
-                }
-                crate::STORAGE_VERSION.put::<Pallet<T>>();
-                writes_count += 1;
                 log::info!(
                     "Dropped old enum-based versioning schema for nft-manager. New version:{:?}",
                     Pallet::<T>::on_chain_storage_version()
                 );
 
-                return T::DbWeight::get().reads_writes(0 as u64, writes_count as u64)
+                return migration_weight
+            }
+            return Weight::from_ref_time(0)
+        }
+
+        fn on_initialize(_n: T::BlockNumber) -> Weight {
+            let onchain_version = Pallet::<T>::on_chain_storage_version();
+            if onchain_version < 4 {
+                return migrations::partial_owned_nfts_entries_drop::<T>()
             }
             return Weight::from_ref_time(0)
         }
@@ -1311,6 +1276,61 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
         }
 
         return false
+    }
+}
+
+pub mod migrations {
+
+    use super::*;
+    use frame_support::storage::{self as storage, unhashed};
+
+    const DELETION_LIMIT: u32 = 256;
+
+    pub fn partial_owned_nfts_entries_drop<T: Config>() -> frame_support::weights::Weight {
+        let owned_nfts_prefix = storage::storage_prefix(b"NftManager", b"OwnedNfts");
+        let mut key = vec![0u8; 32];
+        key[0..32].copy_from_slice(&owned_nfts_prefix);
+        let res = unhashed::clear_prefix(&key[0..32], Some(DELETION_LIMIT), None);
+
+        log::info!(
+            "✅ Cleared '{}' backend values from 'NftManager::OwnedNfts' storage prefix",
+            res.backend
+        );
+        log::info!(
+            "✅ Cleared '{}' entries from 'NftManager::OwnedNfts' storage prefix",
+            res.unique
+        );
+        let mut migration_weight: Weight =
+            T::DbWeight::get().writes(u64::from(res.backend) + u64::from(res.unique));
+
+        if res.maybe_cursor.is_some() {
+            log::info!("Storage prefix 'NftManager::OwnedNfts' is not completely cleared. Will resume clearing on future blocks");
+        } else {
+            crate::STORAGE_VERSION.put::<Pallet<T>>();
+            migration_weight += T::DbWeight::get().writes(1);
+        }
+        migration_weight
+    }
+
+    pub fn safe_storage_info_drop<T: Config>() -> frame_support::weights::Weight {
+        let storage_version_prefix = storage::storage_prefix(b"NftManager", b"StorageVersion");
+        let mut key = vec![0u8; 32];
+        key[0..32].copy_from_slice(&storage_version_prefix);
+        let res = unhashed::clear_prefix(&key[0..32], Some(DELETION_LIMIT), None);
+
+        log::info!(
+            "✅ Cleared '{}' backend values from 'NftManager::StorageVersion' storage prefix",
+            res.backend
+        );
+        log::info!(
+            "✅ Cleared '{}' entries from 'NftManager::StorageVersion' storage prefix",
+            res.unique
+        );
+        if res.maybe_cursor.is_some() {
+            log::error!("Storage prefix 'StorageVersion' is not completely cleared.");
+        }
+
+        T::DbWeight::get().writes(u64::from(res.backend) + u64::from(res.unique))
     }
 }
 
