@@ -187,7 +187,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 37,
+    spec_version: 38,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -483,6 +483,7 @@ impl pallet_parachain_staking::Config for Runtime {
     type CollatorSessionRegistration = Session;
     type CollatorPayoutDustHandler = TokenManager;
     type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
+    type MaxCandidates = ConstU32<100>;
 }
 
 // Substrate pallets that AvN has dependency
