@@ -804,11 +804,8 @@ pub mod pallet {
                 return migrations::migrate_to_multi_nft_contract::<T>()
             }
 
-            if StorageVersion::<T>::get() == Releases::Unknown {
-                StorageVersion::<T>::put(Releases::V4_0_0);
-                return migrations::migrate_to_bridge_contract::<T>()
-            }
-            return Weight::from_ref_time(0)
+            StorageVersion::<T>::put(Releases::V4_0_0);
+            return migrations::migrate_to_bridge_contract::<T>()
         }
     }
 
@@ -1663,6 +1660,7 @@ pub mod migrations {
     use frame_support::{migration::storage_key_iter, Blake2_128Concat};
     use pallet_avn::AvnBridgeContractAddress;
     pub type MarketplaceId = u32;
+    use frame_support::pallet_prelude::Weight;
 
     pub fn migrate_to_multi_nft_contract<T: Config>() -> frame_support::weights::Weight {
         sp_runtime::runtime_logger::RuntimeLogger::init();
@@ -1691,18 +1689,22 @@ pub mod migrations {
         sp_runtime::runtime_logger::RuntimeLogger::init();
         log::info!("ℹ️  Ethereum events pallet data migration invoked");
 
-        let consumed_weight = T::DbWeight::get().reads_writes(1, 3);
+        let mut consumed_weight = Weight::from_ref_time(0);
 
         let address = LiftingContractAddress::<T>::get();
+        let validators_address: H160 = <ValidatorManagerContractAddress<T>>::get();
 
-        //Insert the address into the new storage item
-        <AvnBridgeContractAddress<T>>::put(address);
-
-        <LiftingContractAddress<T>>::kill();
-        <ValidatorManagerContractAddress<T>>::kill();
-
+        if !address.is_zero() || !validators_address.is_zero() {
+            <AvnBridgeContractAddress<T>>::put(address);
+            <LiftingContractAddress<T>>::kill();
+            <ValidatorManagerContractAddress<T>>::kill();
+            log::info!("ℹ️  Deleted Lifting and Bridge contract addresses successfully");
+            StorageVersion::<T>::put(Releases::V4_0_0);
+            return consumed_weight.saturating_add(T::DbWeight::get().writes(3))
+        }
         log::info!(
-            "ℹ️  Migrated Ethereum event's Lifting and Bridge contract addresses successfully"
+            "
+        ℹ️  Failed to migrate ethereum events storage items due to address being zero"
         );
         return consumed_weight
     }

@@ -302,11 +302,7 @@ pub mod pallet {
         // migration logic should be done in a separate function so it can be tested
         // properly.
         fn on_runtime_upgrade() -> Weight {
-            if StorageVersion::<T>::get() == Releases::Unknown {
-                StorageVersion::<T>::put(Releases::V4_0_0);
-                return migrations::migrate_pb_to_bridge_contract::<T>()
-            }
-            return Weight::from_ref_time(0)
+            return migrations::migrate_pb_to_bridge_contract::<T>()
         }
     }
 
@@ -697,18 +693,25 @@ impl Default for Releases {
 
 pub mod migrations {
     use super::*;
+    use frame_support::pallet_prelude::Weight;
 
     pub fn migrate_pb_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
         sp_runtime::runtime_logger::RuntimeLogger::init();
         log::info!("ℹ️  Ethereum Transactions pallet data migration invoked");
 
-        let mut consumed_weight = T::DbWeight::get().reads_writes(0, 1);
+        let mut consumed_weight = Weight::from_ref_time(0);
 
-        log::info!("Destroying contract........");
-        <PublishRootContract<T>>::kill();
+        let address = PublishRootContract::<T>::get();
 
+        if !address.is_zero() {
+            <PublishRootContract<T>>::kill();
+            log::info!("Destroyed Publish Root Contract Address........");
+            StorageVersion::<T>::put(Releases::V4_0_0);
+            return consumed_weight.saturating_add(T::DbWeight::get().writes(1))
+        }
         log::info!(
-            "ℹ️  Migrated Ethereum Transactions's PublishRoot contract addresses successfully"
+            "
+        ℹ️  Failed to migrate ethereum transactions storage item due to address being zero"
         );
         return consumed_weight
     }
