@@ -783,7 +783,7 @@ pub mod pallet {
             for nft_id in nft_ids.iter() {
                 if let Some(nft) = Self::nfts(nft_id) {
                     if nft.unique_external_ref.len() <= bound {
-                        log::info!("NFT with id: {} was not found", nft_id);
+                        log::info!("NFT with id: {} was within bounds", nft_id);
                         continue
                     }
                     let (original_ref, sanitised_ref) =
@@ -799,6 +799,8 @@ pub mod pallet {
                         maybe_nft.as_mut().map(|nft| nft.unique_external_ref = sanitised_ref)
                     });
                     log::info!("NFT with id: {} got external reference sanitised within the expected bounds", nft_id);
+                } else {
+                    log::info!("NFT with id: {} was not found", nft_id);
                 }
             }
             Ok(())
@@ -1421,5 +1423,9 @@ pub mod cancel_single_nft_listing_tests;
 #[cfg(test)]
 #[path = "tests/batch_nft_tests.rs"]
 pub mod batch_nft_tests;
+
+#[cfg(test)]
+#[path = "tests/sanitise_nft_data_tests.rs"]
+pub mod sanitise_nft_data_tests;
 
 mod benchmarking;
