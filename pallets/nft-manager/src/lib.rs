@@ -1253,10 +1253,7 @@ impl<T: Config> Pallet<T> {
     fn get_sanitised_reference_data(
         nft: Nft<T::AccountId>,
         bound: usize,
-    ) -> (
-        frame_support::WeakBoundedVec<u8, ConstU32<1024>>,
-        frame_support::WeakBoundedVec<u8, ConstU32<1024>>,
-    ) {
+    ) -> (WeakBoundedVec<u8, NftExternalRefBound>, WeakBoundedVec<u8, NftExternalRefBound>) {
         let original_ref = nft.unique_external_ref.clone();
         let sanitised_ref = {
             let mut data_to_bound = original_ref.to_vec();
