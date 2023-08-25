@@ -774,6 +774,35 @@ pub mod pallet {
 
             Ok(())
         }
+
+        #[pallet::weight(T::DbWeight::get().reads_writes(1 as u64, 2 as u64))]
+        #[pallet::call_index(11)]
+        pub fn sanitise_nft_data(origin: OriginFor<T>, nft_ids: Vec<U256>) -> DispatchResult {
+            let _sender = ensure_root(origin)?;
+            let bound: usize = <NftExternalRefBound as sp_core::Get<u32>>::get() as usize;
+            for nft_id in nft_ids.iter() {
+                if let Some(nft) = Self::nfts(nft_id) {
+                    if nft.unique_external_ref.len() <= bound {
+                        log::info!("NFT with id: {} was not found", nft_id);
+                        continue
+                    }
+                    let (original_ref, sanitised_ref) =
+                        Self::get_sanitised_reference_data(nft, bound);
+                    ensure!(
+                        UsedExternalReferences::<T>::contains_key(&sanitised_ref) == false,
+                        Error::<T>::ExternalRefIsAlreadyInUse
+                    );
+                    let value = UsedExternalReferences::<T>::take(&original_ref);
+                    UsedExternalReferences::<T>::insert(sanitised_ref.clone(), value);
+
+                    <Nfts<T>>::mutate(nft_id, |maybe_nft| {
+                        maybe_nft.as_mut().map(|nft| nft.unique_external_ref = sanitised_ref)
+                    });
+                    log::info!("NFT with id: {} got external reference sanitised within the expected bounds", nft_id);
+                }
+            }
+            Ok(())
+        }
     }
 
     #[pallet::hooks]
@@ -1217,6 +1246,25 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(maybe_nft.expect("checked for none"))
+    }
+
+    fn get_sanitised_reference_data(
+        nft: Nft<T::AccountId>,
+        bound: usize,
+    ) -> (
+        frame_support::WeakBoundedVec<u8, ConstU32<1024>>,
+        frame_support::WeakBoundedVec<u8, ConstU32<1024>>,
+    ) {
+        let original_ref = nft.unique_external_ref.clone();
+        let sanitised_ref = {
+            let mut data_to_bound = original_ref.to_vec();
+            data_to_bound.truncate(bound);
+            WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
+                data_to_bound,
+                Some("Weak bound exceeded."),
+            )
+        };
+        (original_ref, sanitised_ref)
     }
 }
 
