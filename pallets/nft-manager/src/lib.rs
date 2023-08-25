@@ -777,7 +777,7 @@ pub mod pallet {
 
         #[pallet::weight(T::DbWeight::get().reads_writes(1 as u64, 2 as u64))]
         #[pallet::call_index(11)]
-        pub fn sanitise_nft_data(origin: OriginFor<T>, nft_ids: Vec<U256>) -> DispatchResult {
+        pub fn sanitise_external_ref(origin: OriginFor<T>, nft_ids: Vec<U256>) -> DispatchResult {
             let _sender = ensure_root(origin)?;
             let bound: usize = <NftExternalRefBound as sp_core::Get<u32>>::get() as usize;
             for nft_id in nft_ids.iter() {
@@ -1425,7 +1425,7 @@ pub mod cancel_single_nft_listing_tests;
 pub mod batch_nft_tests;
 
 #[cfg(test)]
-#[path = "tests/sanitise_nft_data_tests.rs"]
-pub mod sanitise_nft_data_tests;
+#[path = "tests/sanitise_external_ref_tests.rs"]
+pub mod sanitise_external_ref_tests;
 
 mod benchmarking;

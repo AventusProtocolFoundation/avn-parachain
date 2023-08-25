@@ -6,7 +6,7 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::traits::BadOrigin;
 
-mod sanitise_nft_data_tests {
+mod sanitise_external_ref_tests {
     use hex_literal::hex;
 
     use super::*;
@@ -69,8 +69,8 @@ mod sanitise_nft_data_tests {
             )
         }
 
-        fn dispatch_sanitise_nft_data(&self) -> DispatchResult {
-            return NftManager::sanitise_nft_data(self.origin.clone(), vec![self.nft_id()])
+        fn dispatch_sanitise_external_ref(&self) -> DispatchResult {
+            return NftManager::sanitise_external_ref(self.origin.clone(), vec![self.nft_id()])
         }
     }
 
@@ -92,7 +92,7 @@ mod sanitise_nft_data_tests {
                 assert_eq!(true, NftManager::is_external_ref_used(out_of_bounds_external_ref()));
                 assert_eq!(false, NftManager::is_external_ref_used(sanitised_external_ref()));
 
-                assert_ok!(context.dispatch_sanitise_nft_data());
+                assert_ok!(context.dispatch_sanitise_external_ref());
 
                 let nft_after_sanitisation =
                     NftManager::nfts(context.nft_id()).expect("Should exist as inserted");
@@ -117,7 +117,7 @@ mod sanitise_nft_data_tests {
                     origin: RuntimeOrigin::signed(account.public()),
                     ..Default::default()
                 };
-                assert_noop!(context.dispatch_sanitise_nft_data(), BadOrigin);
+                assert_noop!(context.dispatch_sanitise_external_ref(), BadOrigin);
             });
         }
 
@@ -128,7 +128,7 @@ mod sanitise_nft_data_tests {
                 let context: Context =
                     Context { origin: RawOrigin::None.into(), ..Default::default() };
 
-                assert_noop!(context.dispatch_sanitise_nft_data(), BadOrigin);
+                assert_noop!(context.dispatch_sanitise_external_ref(), BadOrigin);
             });
         }
     }
