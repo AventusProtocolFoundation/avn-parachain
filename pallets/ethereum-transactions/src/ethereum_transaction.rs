@@ -306,16 +306,10 @@ impl EthAbiHelper {
     }
 
     pub fn generate_ethereum_description_for_signature_request(
-        from: &[u8; 32],
         call: &EthTransactionType,
         transaction_id: TransactionId,
     ) -> Result<EthTransactionDescription, ethabi::Error> {
-        let mut mut_call = EthAbiHelper::generate_ethereum_description(call, transaction_id)?;
-        mut_call.function_call.inputs.append(&mut vec![Param {
-            name: String::from("_t2PublicKey"),
-            kind: ParamType::FixedBytes(32),
-        }]);
-        mut_call.call_values.push(Token::FixedBytes(from.to_vec()));
+        let mut_call = EthAbiHelper::generate_ethereum_description(call, transaction_id)?;
 
         Ok(mut_call)
     }
@@ -335,8 +329,10 @@ impl EthAbiHelper {
         Ok(mut_call)
     }
 
-    pub fn generate_eth_abi_encoding_for_params_only(call: &EthTransactionDescription) -> Vec<u8> {
-        ethabi::encode(&call.call_values)
+    pub fn generate_eth_abi_encoding_for_params_only(transaction_id: TransactionId) -> Vec<u8> {
+        let tokens =
+            vec![Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into())];
+        ethabi::encode(&tokens)
     }
 
     pub fn generate_ethereum_abi_data_for_signature_request(

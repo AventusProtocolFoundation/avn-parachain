@@ -190,10 +190,8 @@ fn short_ethereum_description_appends_to_original_description() {
     let (number_of_original_terms, original_inputs, original_values) =
         extract_data_from_abi_description(original_abi_description);
 
-    let from = [5u8; 32];
     let tx_id = 12;
     let abi_description = EthAbiHelper::generate_ethereum_description_for_signature_request(
-        &from,
         &EthTransactionType::PublishRoot(mt_data),
         tx_id,
     )
@@ -203,7 +201,7 @@ fn short_ethereum_description_appends_to_original_description() {
     assert_eq!(&inputs[0..number_of_original_terms], &original_inputs[..]);
     assert_eq!(&values[0..number_of_original_terms], &original_values[..]);
 
-    let expected_new_arguments = ["_t2TransactionId", "_t2PublicKey"];
+    let expected_new_arguments = ["_t2TransactionId"];
     assert_eq!(
         inputs
             .into_iter()
@@ -218,7 +216,6 @@ fn short_ethereum_description_appends_to_original_description() {
 
     assert_eq!(&values[number_of_original_terms], &Token::Uint(tx_id_be.into()));
 
-    assert_eq!(values[number_of_original_terms + 1], Token::FixedBytes(from.to_vec()));
     assert_eq!(number_of_terms - number_of_original_terms, expected_new_arguments.len());
 }
 
