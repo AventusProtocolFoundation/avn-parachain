@@ -879,17 +879,18 @@ pub mod pallet {
         pub fn convert_data_to_eth_compatible_encoding(
             root_data: &RootData<T::AccountId>,
         ) -> Result<String, DispatchError> {
-            let maybe_root_data_tx_id = match root_data.tx_id {
+            let root_hash = PublishRootData::new(*root_data.root_hash.as_fixed_bytes());
+            let root_data_tx_id = match root_data.tx_id {
                 None => EMPTY_ROOT_TRANSACTION_ID,
                 _ => *root_data
                     .tx_id
                     .as_ref()
                     .expect("Non-Empty roots have a reserved TransactionId"),
             };
+            let hex_encoded_data =
+                hex::encode(EthAbiHelper::encode_arguments(&root_hash.root_hash, root_data_tx_id));
 
-            Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(
-                maybe_root_data_tx_id,
-            )))
+            Ok(hex_encoded_data)
         }
 
         pub fn sign_root_for_ethereum(

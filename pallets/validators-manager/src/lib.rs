@@ -626,12 +626,10 @@ impl<T: Config> Pallet<T> {
             T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator);
 
         // Now treat this as an bytes32 parameter and generate signing abi.
-        let hex_encoded_confirmation_data =
-            hex::encode(EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
-                &action_parameters_concat_hash,
-                validators_action_data.eth_transaction_id,
-                &sender,
-            ));
+        let hex_encoded_confirmation_data = hex::encode(EthAbiHelper::encode_arguments(
+            &action_parameters_concat_hash,
+            validators_action_data.eth_transaction_id,
+        ));
 
         log::info!(
             "📩 Data used for abi encode: (hex-encoded hash: {:?}, tx_id: {:?}, hex-encoded sender: {:?}). Output: {:?}",
