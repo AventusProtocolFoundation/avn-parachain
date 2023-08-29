@@ -329,21 +329,10 @@ impl EthAbiHelper {
         Ok(mut_call)
     }
 
-    pub fn generate_eth_abi_encoding_for_params_only(transaction_id: TransactionId) -> Vec<u8> {
-        let tokens =
-            vec![Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into())];
-        ethabi::encode(&tokens)
-    }
-
-    pub fn generate_ethereum_abi_data_for_signature_request(
-        hash_data: &[u8; 32],
-        transaction_id: TransactionId,
-        from: &[u8; 32],
-    ) -> Vec<u8> {
+    pub fn encode_arguments(hash_data: &[u8; 32], transaction_id: TransactionId) -> Vec<u8> {
         let call_values: Vec<Token> = vec![
             Token::FixedBytes(hash_data.to_vec()),
             Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into()),
-            Token::FixedBytes(from.to_vec()),
         ];
         return ethabi::encode(&call_values)
     }
