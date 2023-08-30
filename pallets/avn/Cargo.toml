@@ -25,11 +25,11 @@ sp-application-crypto = { default-features = false, git = "https://github.com/pa
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-session = {features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
 
 [dev-dependencies]
 hex-literal = { version = "0.3.4", default-features = false }
 parking_lot = { version = "0.12.0" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 
@@ -47,4 +47,5 @@ std = [
 	"sp-avn-common/std",
 	"pallet-session/std",
 	"sp-application-crypto/std",
+	"pallet-timestamp/std"
 ]

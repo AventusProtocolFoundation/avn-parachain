@@ -94,6 +94,7 @@ pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
+    use sp_core::U256;
 
     // Public interface of this pallet
     #[pallet::config]
@@ -887,8 +888,12 @@ pub mod pallet {
                     .as_ref()
                     .expect("Non-Empty roots have a reserved TransactionId"),
             };
-            let hex_encoded_data =
-                hex::encode(EthAbiHelper::encode_arguments(&root_hash.root_hash, root_data_tx_id));
+            let expiry = AVN::<T>::calculate_eth_tx_expiry();
+            let hex_encoded_data = hex::encode(EthAbiHelper::encode_arguments(
+                &root_hash.root_hash,
+                expiry,
+                root_data_tx_id,
+            ));
 
             Ok(hex_encoded_data)
         }

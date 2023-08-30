@@ -320,9 +320,14 @@ impl EthAbiHelper {
         Ok(mut_call)
     }
 
-    pub fn encode_arguments(hash_data: &[u8; 32], transaction_id: TransactionId) -> Vec<u8> {
+    pub fn encode_arguments(
+        hash_data: &[u8; 32],
+        expiry: U256,
+        transaction_id: TransactionId,
+    ) -> Vec<u8> {
         let call_values: Vec<Token> = vec![
             Token::FixedBytes(hash_data.to_vec()),
+            Token::Uint(EthAbiHelper::u256_to_big_endian(&expiry).into()),
             Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into()),
         ];
         return ethabi::encode(&call_values)

@@ -54,6 +54,7 @@ pub(crate) fn testnet_genesis(
     voting_period: BlockNumber,
 ) -> avn_runtime::GenesisConfig {
     avn_runtime::GenesisConfig {
+        avn: pallet_avn::GenesisConfig { _phantom: Default::default(), timeout_duration: 6 as u64 },
         system: avn_runtime::SystemConfig {
             code: avn_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
