@@ -309,15 +309,6 @@ impl EthAbiHelper {
         Ok(mut_call)
     }
 
-    pub fn generate_ethereum_description_for_signature_request(
-        call: &EthTransactionType,
-        transaction_id: TransactionId,
-    ) -> Result<EthTransactionDescription, ethabi::Error> {
-        let mut_call = EthAbiHelper::generate_ethereum_description(call, transaction_id)?;
-
-        Ok(mut_call)
-    }
-
     pub fn generate_full_ethereum_description(
         call: &EthTransactionType,
         transaction_id: TransactionId,
