@@ -188,7 +188,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
     spec_version: 41,
-    spec_version: 38,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
