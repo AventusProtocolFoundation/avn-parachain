@@ -182,44 +182,6 @@ fn extract_data_from_abi_description(
 }
 
 #[test]
-// test name does not reproduce the name of function under test to avoid too long a test name
-fn short_ethereum_description_appends_to_original_description() {
-    let mt_data = generate_publish_root_data(ROOT_HASH);
-
-    let original_abi_description = mt_data.to_abi();
-    let (number_of_original_terms, original_inputs, original_values) =
-        extract_data_from_abi_description(original_abi_description);
-
-    let tx_id = 12;
-    let abi_description = EthAbiHelper::generate_ethereum_description_for_signature_request(
-        &EthTransactionType::PublishRoot(mt_data),
-        tx_id,
-    )
-    .unwrap();
-
-    let (number_of_terms, inputs, values) = extract_data_from_abi_description(abi_description);
-    assert_eq!(&inputs[0..number_of_original_terms], &original_inputs[..]);
-    assert_eq!(&values[0..number_of_original_terms], &original_values[..]);
-
-    let expected_new_arguments = ["_t2TransactionId"];
-    assert_eq!(
-        inputs
-            .into_iter()
-            .skip(number_of_original_terms)
-            .map(|entry| entry.name)
-            .collect::<Vec<String>>(),
-        &expected_new_arguments
-    );
-
-    let tx_id_as_u256 = U256::from(tx_id);
-    let tx_id_be = EthAbiHelper::u256_to_big_endian(&tx_id_as_u256);
-
-    assert_eq!(&values[number_of_original_terms], &Token::Uint(tx_id_be.into()));
-
-    assert_eq!(number_of_terms - number_of_original_terms, expected_new_arguments.len());
-}
-
-#[test]
 fn full_ethereum_description_appends_signatures() {
     let mt_data = generate_publish_root_data(ROOT_HASH);
     let call = EthTransactionType::PublishRoot(mt_data);
