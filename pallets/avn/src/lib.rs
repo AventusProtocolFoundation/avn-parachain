@@ -203,7 +203,6 @@ impl<T: Config> Pallet<T> {
     pub fn calculate_eth_tx_expiry() -> U256 {
         let now = T::TimeProvider::now();
         let now_as_secs = now.as_secs();
-        // let now_as_secs = 123;
 
         let timeout_duration_hours = Self::get_eth_tx_timeout_duration();
         let timeout_duration_seconds = timeout_duration_hours * 3600;
