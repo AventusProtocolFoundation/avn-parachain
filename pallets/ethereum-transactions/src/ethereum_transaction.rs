@@ -328,6 +328,20 @@ impl EthAbiHelper {
         return ethabi::encode(&call_values)
     }
 
+    // this is only for validators manager and will be deleted when we focus on that pallet
+    pub fn generate_ethereum_abi_data_for_signature_request(
+        hash_data: &[u8; 32],
+        transaction_id: TransactionId,
+        from: &[u8; 32],
+    ) -> Vec<u8> {
+        let call_values: Vec<Token> = vec![
+            Token::FixedBytes(hash_data.to_vec()),
+            Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into()),
+            Token::FixedBytes(from.to_vec()),
+        ];
+        return ethabi::encode(&call_values)
+    }
+
     pub fn generate_ethereum_transaction_abi(
         from: [u8; 32],
         to: H160,
