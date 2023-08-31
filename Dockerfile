@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 
 # metadata
 ARG VCS_REF
@@ -20,7 +20,7 @@ ENV RUST_BACKTRACE 1
 # install tools and dependencies
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	libssl1.1 \
+	libssl3 \
 	ca-certificates \
 	curl \
 	jq && \

@@ -30,6 +30,7 @@ use sp_staking::{
 use avn::{AvnBridgeContractAddress, FinalisedBlockChecker};
 use sp_avn_common::event_types::EthEvent;
 use sp_io::TestExternalities;
+use pallet_avn::{self as avn, AccountToBytesConverter, Error as avn_error};
 
 use crate::{self as pallet_ethereum_events, *};
 
@@ -55,6 +56,7 @@ frame_support::construct_runtime!(
         AvnProxy: pallet_avn_proxy::{Pallet, Call, Storage, Event<T>},
         EthereumEvents: pallet_ethereum_events::{Pallet, Call, Storage, Event<T>, Config<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
+        EthereumTransactions: pallet_ethereum_transactions::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -189,6 +191,13 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = Self;
+    type WeightInfo = ();
+}
+
+impl pallet_ethereum_transactions::Config for TestRuntime {
+    type RuntimeCall = RuntimeCall;
+    type RuntimeEvent = RuntimeEvent;
+    type AccountToBytesConvert = AVN;
     type WeightInfo = ();
 }
 

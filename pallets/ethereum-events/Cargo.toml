@@ -29,6 +29,7 @@ sp-staking = { default-features = false, git = "https://github.com/paritytech/su
 pallet-session = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-avn = { default-features = false, path = "../avn" }
+pallet-ethereum-transactions = { default-features = false, path = "../ethereum-transactions" }
 
 # Optional imports for benchmarking
 serde = { version = "1.0.137", optional = true }
@@ -55,6 +56,7 @@ std = [
 	"frame-system/std",
 	"pallet-session/std",
 	"pallet-avn/std",
+	"pallet-ethereum-transactions/std",
 	"sp-application-crypto/std",
 	"parking_lot",
 	"sp-staking/std",

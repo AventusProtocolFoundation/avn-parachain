@@ -157,6 +157,7 @@ pub mod pallet {
         + frame_system::Config
         + avn::Config
         + pallet_session::historical::Config
+        + pallet_ethereum_transactions::Config
     {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -1659,6 +1660,7 @@ pub mod migrations {
     use super::*;
     use frame_support::{migration::storage_key_iter, Blake2_128Concat};
     use pallet_avn::AvnBridgeContractAddress;
+    use pallet_ethereum_transactions::PublishRootContract;
     pub type MarketplaceId = u32;
     use frame_support::pallet_prelude::Weight;
 
@@ -1692,15 +1694,19 @@ pub mod migrations {
         let mut consumed_weight = Weight::from_ref_time(0);
 
         let address = LiftingContractAddress::<T>::get();
-        let validators_address: H160 = <ValidatorManagerContractAddress<T>>::get();
+        let validators_address = ValidatorManagerContractAddress::<T>::get();
+        let pb_address = PublishRootContract::<T>::get();
 
-        if !address.is_zero() || !validators_address.is_zero() {
+        log::info!("ℹ️  Checking if zero");
+        if !address.is_zero() && !validators_address.is_zero() && !pb_address.is_zero(){
             <AvnBridgeContractAddress<T>>::put(address);
             <LiftingContractAddress<T>>::kill();
             <ValidatorManagerContractAddress<T>>::kill();
+            <PublishRootContract<T>>::kill();
+            
             log::info!("ℹ️  Deleted Lifting and Bridge contract addresses successfully");
             StorageVersion::<T>::put(Releases::V4_0_0);
-            return consumed_weight.saturating_add(T::DbWeight::get().writes(3))
+            return consumed_weight.saturating_add(T::DbWeight::get().writes(4))
         }
         log::info!(
             "
