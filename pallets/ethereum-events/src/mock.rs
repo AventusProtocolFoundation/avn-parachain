@@ -28,9 +28,9 @@ use sp_staking::{
 };
 
 use avn::{AvnBridgeContractAddress, FinalisedBlockChecker};
+use pallet_avn::{self as avn, AccountToBytesConverter, Error as avn_error};
 use sp_avn_common::event_types::EthEvent;
 use sp_io::TestExternalities;
-use pallet_avn::{self as avn, AccountToBytesConverter, Error as avn_error};
 
 use crate::{self as pallet_ethereum_events, *};
 

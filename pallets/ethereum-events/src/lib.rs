@@ -1698,12 +1698,12 @@ pub mod migrations {
         let pb_address = PublishRootContract::<T>::get();
 
         log::info!("ℹ️  Checking if zero");
-        if !address.is_zero() && !validators_address.is_zero() && !pb_address.is_zero(){
+        if !address.is_zero() && !validators_address.is_zero() && !pb_address.is_zero() {
             <AvnBridgeContractAddress<T>>::put(address);
             <LiftingContractAddress<T>>::kill();
             <ValidatorManagerContractAddress<T>>::kill();
             <PublishRootContract<T>>::kill();
-            
+
             log::info!("ℹ️  Deleted Lifting and Bridge contract addresses successfully");
             StorageVersion::<T>::put(Releases::V4_0_0);
             return consumed_weight.saturating_add(T::DbWeight::get().writes(4))
