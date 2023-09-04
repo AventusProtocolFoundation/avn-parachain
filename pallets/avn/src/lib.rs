@@ -407,20 +407,20 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
         trace!("Avn pallet new session entrypoint");
         // Update the list of validators if it has changed
         let mut disabled_avn_validators: Vec<T::AccountId> = vec![];
-        let mut active_avn_validators = WeakBoundedVec::default();
+        let mut active_avn_validators: Vec<Validator<T::AuthorityId, T::AccountId>> = vec![];
 
         validators.for_each(|x| {
             if T::DisabledValidatorChecker::is_disabled(x.0) {
                 disabled_avn_validators.push(x.0.clone());
             } else {
-                if let Err(_) = active_avn_validators.try_push(Validator::new(x.0.clone(), x.1)) {
-                    return // breaking out of the for_each
-                }
+                active_avn_validators.push(Validator::new(x.0.clone(), x.1));
             }
         });
 
+        let bounded_active_avn_validators = WeakBoundedVec::force_from(active_avn_validators);
+
         if changed {
-            Validators::<T>::put(&active_avn_validators);
+            Validators::<T>::put(&bounded_active_avn_validators);
         }
 
         T::NewSessionHandler::on_new_session(
