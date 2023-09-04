@@ -557,6 +557,8 @@ impl pallet_avn::Config for Runtime {
     type NewSessionHandler = ValidatorsManager;
     type DisabledValidatorChecker = ValidatorsManager;
     type FinalisedBlockChecker = AvnFinalityTracker;
+    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
+    type WeightInfo = pallet_avn::default_weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
