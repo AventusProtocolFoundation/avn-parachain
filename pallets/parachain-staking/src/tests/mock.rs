@@ -37,7 +37,7 @@ use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
 use parity_scale_codec::{Decode, Encode};
 use sp_avn_common::InnerCallValidator;
-use sp_core::{sr25519, Pair, H256};
+use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_io;
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
@@ -290,12 +290,21 @@ impl WeightToFeeT for TransactionByteFee {
     }
 }
 
+impl pallet_timestamp::Config for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<6000>;
+    type WeightInfo = ();
+}
+
 impl pallet_avn::Config for Test {
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type TimeProvider = pallet_timestamp::Pallet<Test>;
+    type WeightInfo = ();
 }
 
 impl session::Config for Test {

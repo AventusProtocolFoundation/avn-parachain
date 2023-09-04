@@ -8,7 +8,7 @@ use frame_system as system;
 use pallet_session as session;
 use sp_core::{
     offchain::testing::{OffchainState, PendingRequest},
-    H256,
+    ConstU64, H256,
 };
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
@@ -41,6 +41,8 @@ impl Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type WeightInfo = ();
+    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
 }
 
 parameter_types! {
@@ -109,6 +111,13 @@ impl session::Config for TestRuntime {
     type ValidatorId = u64;
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
+    type WeightInfo = ();
+}
+
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<6000>;
     type WeightInfo = ();
 }
 

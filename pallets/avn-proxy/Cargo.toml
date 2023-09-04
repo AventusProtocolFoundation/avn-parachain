@@ -37,6 +37,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 pallet-nft-manager = { path = "../nft-manager" }
 pallet-avn = { path = "../avn" }
 parking_lot = { version = "0.12.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 
 [features]
 default = ["std"]

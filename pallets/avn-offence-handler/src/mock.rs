@@ -9,7 +9,7 @@ use frame_support::{
 };
 use frame_system as system;
 use pallet_session as session;
-use sp_core::H256;
+use sp_core::{ConstU64, H256};
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
@@ -50,12 +50,21 @@ impl pallet_session::historical::Config for TestRuntime {
     type FullIdentificationOf = ConvertInto;
 }
 
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<6000>;
+    type WeightInfo = ();
+}
+
 impl pallet_avn::Config for TestRuntime {
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
+    type WeightInfo = ();
 }
 
 pub struct TestSessionManager;
