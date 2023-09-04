@@ -417,9 +417,11 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
             }
         });
 
-        let bounded_active_avn_validators = WeakBoundedVec::force_from(active_avn_validators);
-
         if changed {
+            let bounded_active_avn_validators = WeakBoundedVec::force_from(
+                active_avn_validators.clone(),
+                Some("Too many validators for session"),
+            );
             Validators::<T>::put(&bounded_active_avn_validators);
         }
 
