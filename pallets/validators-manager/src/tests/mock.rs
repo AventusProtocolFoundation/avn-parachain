@@ -320,6 +320,8 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ValidatorManager;
     type DisabledValidatorChecker = ValidatorManager;
     type FinalisedBlockChecker = Self;
+    type TimeProvider = timestamp::Pallet<TestRuntime>;
+    type WeightInfo = ();
 }
 
 parameter_types! {
