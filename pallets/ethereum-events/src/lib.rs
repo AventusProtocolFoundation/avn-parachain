@@ -1691,23 +1691,53 @@ pub mod migrations {
         sp_runtime::runtime_logger::RuntimeLogger::init();
         log::info!("ℹ️  Ethereum events pallet data migration invoked");
 
-        let mut consumed_weight = Weight::from_ref_time(0);
+        let consumed_weight = Weight::from_ref_time(0);
 
-        let address = LiftingContractAddress::<T>::get();
-        let validators_address = ValidatorManagerContractAddress::<T>::get();
-        let pb_address = PublishRootContract::<T>::get();
+        let bridge_contract_address = AvnBridgeContractAddress::<T>::get();
+        let lift_address = LiftingContractAddress::<T>::get();
+        let validator_manager_address = ValidatorManagerContractAddress::<T>::get();
+        let pub_root_address = PublishRootContract::<T>::get();
 
         log::info!("ℹ️  Checking if zero");
-        if !address.is_zero() && !validators_address.is_zero() && !pb_address.is_zero() {
-            <AvnBridgeContractAddress<T>>::put(address);
-            <LiftingContractAddress<T>>::kill();
-            <ValidatorManagerContractAddress<T>>::kill();
-            <PublishRootContract<T>>::kill();
+        if !lift_address.is_zero() {
+            if bridge_contract_address == lift_address {
+                <AvnBridgeContractAddress<T>>::put(lift_address);
+                log::info!("ℹ️  Update contract address successfully");
+                StorageVersion::<T>::put(Releases::V4_0_0);
+                consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+            }
 
-            log::info!("ℹ️  Deleted Lifting and Bridge contract addresses successfully");
-            StorageVersion::<T>::put(Releases::V4_0_0);
-            return consumed_weight.saturating_add(T::DbWeight::get().writes(4))
+            <LiftingContractAddress<T>>::kill();
+            log::info!("ℹ️  Deleted Lifting contract address successfully");
+            consumed_weight.saturating_add(T::DbWeight::get().writes(1));
         }
+
+        if !validator_manager_address.is_zero() {
+            if bridge_contract_address == validator_manager_address {
+                <AvnBridgeContractAddress<T>>::put(validator_manager_address);
+                log::info!("ℹ️  Update contract address successfully");
+                StorageVersion::<T>::put(Releases::V4_0_0);
+                consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+            }
+
+            <ValidatorManagerContractAddress<T>>::kill();
+            log::info!("ℹ️  Deleted Validators Manager contract address successfully");
+            consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+        }
+
+        if !pub_root_address.is_zero() {
+            if bridge_contract_address == pub_root_address {
+                <AvnBridgeContractAddress<T>>::put(pub_root_address);
+                log::info!("ℹ️  Update contract address successfully");
+                StorageVersion::<T>::put(Releases::V4_0_0);
+                consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+            }
+
+            <PublishRootContract<T>>::kill();
+            log::info!("ℹ️  Deleted Publish Root contract address successfully");
+            consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+        }
+
         log::info!(
             "
         ℹ️  Failed to migrate ethereum events storage items due to address being zero"
