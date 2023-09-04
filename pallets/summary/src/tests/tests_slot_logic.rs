@@ -37,15 +37,13 @@ mod advance_slot {
         let summary_last_block_in_range = next_block_to_process + schedule_period - 1;
 
         let current_block = summary_last_block_in_range + min_block_age + arbitrary_margin;
-        let slot_number = 3;
+        let slot_number = 6;
         let block_number_for_next_slot = current_block;
 
         // index - Validators:
         // 0 - FIRST_VALIDATOR_INDEX
-        // 1 - SECOND_VALIDATOR_INDEX
-        // 2 - THIRD_VALIDATOR_INDEX
-        // 3 - FOURTH_VALIDATOR_INDEX
-        let slot_validator = get_validator(FOURTH_VALIDATOR_INDEX);
+        // 6 - SIXTH_VALIDATOR_INDEX
+        let slot_validator = get_validator(SIXTH_VALIDATOR_INDEX);
         let other_validator = get_validator(FIRST_VALIDATOR_INDEX);
 
         assert!(slot_validator != other_validator);
