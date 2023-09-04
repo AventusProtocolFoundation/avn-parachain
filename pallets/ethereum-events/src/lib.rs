@@ -1693,16 +1693,15 @@ pub mod migrations {
 
         let consumed_weight = Weight::from_ref_time(0);
 
-        let bridge_contract_address = AvnBridgeContractAddress::<T>::get();
         let lift_address = LiftingContractAddress::<T>::get();
         let validator_manager_address = ValidatorManagerContractAddress::<T>::get();
         let pub_root_address = PublishRootContract::<T>::get();
 
-        log::info!("ℹ️  Checking if zero");
         if !lift_address.is_zero() {
-            if bridge_contract_address == lift_address {
+            log::info!("ℹ️  Checking if zero");
+            if AvnBridgeContractAddress::<T>::get().is_zero() {
                 <AvnBridgeContractAddress<T>>::put(lift_address);
-                log::info!("ℹ️  Update contract address successfully");
+                log::info!("ℹ️  Updated bridge contract address successfully");
                 StorageVersion::<T>::put(Releases::V4_0_0);
                 consumed_weight.saturating_add(T::DbWeight::get().writes(1));
             }
@@ -1713,9 +1712,10 @@ pub mod migrations {
         }
 
         if !validator_manager_address.is_zero() {
-            if bridge_contract_address == validator_manager_address {
+            log::info!("ℹ️  Checking if zero");
+            if AvnBridgeContractAddress::<T>::get().is_zero() {
                 <AvnBridgeContractAddress<T>>::put(validator_manager_address);
-                log::info!("ℹ️  Update contract address successfully");
+                log::info!("ℹ️  Updated bridge contract address successfully");
                 StorageVersion::<T>::put(Releases::V4_0_0);
                 consumed_weight.saturating_add(T::DbWeight::get().writes(1));
             }
@@ -1726,9 +1726,10 @@ pub mod migrations {
         }
 
         if !pub_root_address.is_zero() {
-            if bridge_contract_address == pub_root_address {
+            log::info!("ℹ️  Checking if zero");
+            if AvnBridgeContractAddress::<T>::get().is_zero() {
                 <AvnBridgeContractAddress<T>>::put(pub_root_address);
-                log::info!("ℹ️  Update contract address successfully");
+                log::info!("ℹ️  Updated bridge contract address successfully");
                 StorageVersion::<T>::put(Releases::V4_0_0);
                 consumed_weight.saturating_add(T::DbWeight::get().writes(1));
             }
