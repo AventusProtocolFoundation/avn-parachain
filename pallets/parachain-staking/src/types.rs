@@ -17,9 +17,9 @@
 //! Types for parachain-staking
 
 use crate::{
-    set::OrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era, EraIndex,
-    Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet, RewardPoint,
-    TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    set::BoundedOrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era,
+    EraIndex, Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, OrderedSet,
+    Pallet, RewardPoint, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use frame_support::{
     pallet_prelude::*,
@@ -34,10 +34,22 @@ use sp_std::{cmp::Ordering, prelude::*};
 
 pub struct CountedNominations<T: Config> {
     pub uncounted_stake: BalanceOf<T>,
-    pub rewardable_nominations: Vec<Bond<T::AccountId, BalanceOf<T>>>,
+    pub rewardable_nominations: BoundedVec<Bond<T::AccountId, BalanceOf<T>>, MaxNominations>,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct MaxCloneableNominations;
+
+impl Get<u32> for MaxCloneableNominations {
+    fn get() -> u32 {
+        const MAX_NOMINATIONS: u32 = 100;
+        MAX_NOMINATIONS
+    }
+}
+
+pub type MaxNominations = ConstU32<100>;
+
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bond<AccountId, Balance> {
     pub owner: AccountId,
     pub amount: Balance,
@@ -79,7 +91,7 @@ impl<AccountId: Ord, Balance> PartialEq for Bond<AccountId, Balance> {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// The activity status of the collator
 pub enum CollatorStatus {
     /// Committed to be online and producing valid blocks (not equivocating)
@@ -96,7 +108,7 @@ impl Default for CollatorStatus {
     }
 }
 
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// Snapshot of collator state at the start of the era for which they are selected
 pub struct CollatorSnapshot<AccountId, Balance> {
     /// The total value locked by the collator.
@@ -105,7 +117,7 @@ pub struct CollatorSnapshot<AccountId, Balance> {
     /// The rewardable nominations. This list is a subset of total nominators, where certain
     /// nominators are adjusted based on their scheduled
     /// [NominationChange::Revoke] or [NominationChange::Decrease] action.
-    pub nominations: Vec<Bond<AccountId, Balance>>,
+    pub nominations: BoundedVec<Bond<AccountId, Balance>, MaxNominations>,
 
     /// The total counted value locked for the collator, including the self bond + total staked by
     /// top nominators.
@@ -131,34 +143,38 @@ impl<A: PartialEq, B: PartialEq> PartialEq for CollatorSnapshot<A, B> {
 
 impl<A, B: Default> Default for CollatorSnapshot<A, B> {
     fn default() -> CollatorSnapshot<A, B> {
-        CollatorSnapshot { bond: B::default(), nominations: Vec::new(), total: B::default() }
+        CollatorSnapshot {
+            bond: B::default(),
+            nominations: BoundedVec::default(),
+            total: B::default(),
+        }
     }
 }
 
-#[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Default, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// Info needed to make delayed payments to stakers after era end
 pub struct DelayedPayout<Balance> {
     /// Total era reward (result of compute_total_reward_to_pay() at era end)
     pub total_staking_reward: Balance,
 }
 
-#[derive(PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Clone, Copy, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// Request scheduled to change the collator candidate self-bond
 pub struct CandidateBondLessRequest<Balance> {
     pub amount: Balance,
     pub when_executable: EraIndex,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// Type for top and bottom nomination storage item
 pub struct Nominations<AccountId, Balance> {
-    pub nominations: Vec<Bond<AccountId, Balance>>,
+    pub nominations: BoundedVec<Bond<AccountId, Balance>, MaxNominations>,
     pub total: Balance,
 }
 
 impl<A, B: Default> Default for Nominations<A, B> {
     fn default() -> Nominations<A, B> {
-        Nominations { nominations: Vec::new(), total: B::default() }
+        Nominations { nominations: BoundedVec::default(), total: B::default() }
     }
 }
 
@@ -177,7 +193,7 @@ impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating
         if !self.nominations.is_empty() {
             // if last_element == nomination.amount => push the nomination and return early
             if self.nominations[self.nominations.len() - 1].amount == nomination.amount {
-                self.nominations.push(nomination);
+                self.nominations.try_push(nomination).unwrap_or_else(|_| ());
                 // early return
                 return
             }
@@ -192,13 +208,13 @@ impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating
                     if self.nominations[new_index].amount == nomination.amount {
                         new_index = new_index.saturating_add(1);
                     } else {
-                        self.nominations.insert(new_index, nomination);
+                        self.nominations.try_insert(new_index, nomination).unwrap_or_else(|_| ());
                         return
                     }
                 }
-                self.nominations.push(nomination)
+                self.nominations.try_push(nomination).unwrap_or_else(|_| ())
             },
-            Err(i) => self.nominations.insert(i, nomination),
+            Err(i) => self.nominations.try_insert(i, nomination).unwrap_or_else(|_| ()),
         }
     }
     /// Return the capacity status for top nominations
@@ -228,7 +244,7 @@ impl<AccountId, Balance: Copy + Ord + sp_std::ops::AddAssign + Zero + Saturating
     }
 }
 
-#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// Capacity status for top or bottom nominations
 pub enum CapacityStatus {
     /// Reached capacity
@@ -239,7 +255,7 @@ pub enum CapacityStatus {
     Partial,
 }
 
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// All candidate info except the top and bottom nominations
 pub struct CandidateMetadata<Balance> {
     /// This candidate's self bond amount
@@ -635,7 +651,7 @@ impl<
         let mut top_nominations = <TopNominations<T>>::get(candidate)
             .expect("CandidateInfo exists => TopNominations exists");
         let mut actual_amount_option: Option<BalanceOf<T>> = None;
-        top_nominations.nominations = top_nominations
+        let filtered_nominations_vec: Vec<_> = top_nominations
             .nominations
             .clone()
             .into_iter()
@@ -648,6 +664,7 @@ impl<
                 }
             })
             .collect();
+        top_nominations.nominations = BoundedVec::truncate_from(filtered_nominations_vec);
         let actual_amount = actual_amount_option.ok_or(Error::<T>::NominationDNE)?;
         top_nominations.total = top_nominations.total.saturating_sub(actual_amount);
         // if bottom nonempty => bump top bottom to top
@@ -684,7 +701,7 @@ impl<
         let mut bottom_nominations = <BottomNominations<T>>::get(candidate)
             .expect("CandidateInfo exists => BottomNominations exists");
         let mut actual_amount_option: Option<BalanceOf<T>> = None;
-        bottom_nominations.nominations = bottom_nominations
+        let filtered_bottom_nominations: Vec<_> = bottom_nominations
             .nominations
             .clone()
             .into_iter()
@@ -697,6 +714,8 @@ impl<
                 }
             })
             .collect();
+
+        bottom_nominations.nominations = BoundedVec::truncate_from(filtered_bottom_nominations);
         let actual_amount = actual_amount_option.ok_or(Error::<T>::NominationDNE)?;
         bottom_nominations.total = bottom_nominations.total.saturating_sub(actual_amount);
         // update candidate info
@@ -749,7 +768,7 @@ impl<
         let mut top_nominations = <TopNominations<T>>::get(candidate)
             .expect("CandidateInfo exists => TopNominations exists");
         let mut in_top = false;
-        top_nominations.nominations = top_nominations
+        let filtered_top_nominations: Vec<_> = top_nominations
             .nominations
             .clone()
             .into_iter()
@@ -763,6 +782,7 @@ impl<
                 }
             })
             .collect();
+        top_nominations.nominations = BoundedVec::truncate_from(filtered_top_nominations);
         ensure!(in_top, Error::<T>::NominationDNE);
         top_nominations.total = top_nominations.total.saturating_add(more);
         top_nominations.sort_greatest_to_least();
@@ -787,7 +807,7 @@ impl<
         let in_top_after = if (bond.saturating_add(more)).into() > self.lowest_top_nomination_amount
         {
             // bump it from bottom
-            bottom_nominations.nominations = bottom_nominations
+            let filtered_bottom_nominations: Vec<_> = bottom_nominations
                 .nominations
                 .clone()
                 .into_iter()
@@ -803,6 +823,7 @@ impl<
                     }
                 })
                 .collect();
+            bottom_nominations.nominations = BoundedVec::truncate_from(filtered_bottom_nominations);
             let nomination = nomination_option.ok_or(Error::<T>::NominationDNE)?;
             bottom_nominations.total = bottom_nominations.total.saturating_sub(bond);
             // add it to top
@@ -827,7 +848,7 @@ impl<
         } else {
             let mut in_bottom = false;
             // just increase the nomination
-            bottom_nominations.nominations = bottom_nominations
+            let filtered_bottom_nominations = bottom_nominations
                 .nominations
                 .clone()
                 .into_iter()
@@ -840,6 +861,7 @@ impl<
                     }
                 })
                 .collect();
+            bottom_nominations.nominations = BoundedVec::truncate_from(filtered_bottom_nominations);
             ensure!(in_bottom, Error::<T>::NominationDNE);
             bottom_nominations.total = bottom_nominations.total.saturating_add(more);
             bottom_nominations.sort_greatest_to_least();
@@ -904,7 +926,7 @@ impl<
         let in_top_after = if bond_after_less_than_highest_bottom && full_top_and_nonempty_bottom {
             let mut nomination_option: Option<Bond<T::AccountId, BalanceOf<T>>> = None;
             // take nomination from top
-            top_nominations.nominations = top_nominations
+            let filtered_top_nominations = top_nominations
                 .nominations
                 .clone()
                 .into_iter()
@@ -921,6 +943,7 @@ impl<
                     }
                 })
                 .collect();
+            top_nominations.nominations = BoundedVec::truncate_from(filtered_top_nominations);
             let nomination = nomination_option.ok_or(Error::<T>::NominationDNE)?;
             // pop highest bottom by reverse and popping
             let mut bottom_nominations = <BottomNominations<T>>::get(candidate)
@@ -938,7 +961,7 @@ impl<
         } else {
             // keep it in the top
             let mut is_in_top = false;
-            top_nominations.nominations = top_nominations
+            let filtered_top_nominations = top_nominations
                 .nominations
                 .clone()
                 .into_iter()
@@ -951,6 +974,7 @@ impl<
                     }
                 })
                 .collect();
+            top_nominations.nominations = BoundedVec::truncate_from(filtered_top_nominations);
             ensure!(is_in_top, Error::<T>::NominationDNE);
             top_nominations.total = top_nominations.total.saturating_sub(less);
             top_nominations.sort_greatest_to_least();
@@ -973,7 +997,7 @@ impl<
         let mut bottom_nominations = <BottomNominations<T>>::get(candidate)
             .expect("CandidateInfo exists => BottomNominations exists");
         let mut in_bottom = false;
-        bottom_nominations.nominations = bottom_nominations
+        let filtered_bottom_nominations = bottom_nominations
             .nominations
             .clone()
             .into_iter()
@@ -986,6 +1010,7 @@ impl<
                 }
             })
             .collect();
+        bottom_nominations.nominations = BoundedVec::truncate_from(filtered_bottom_nominations);
         ensure!(in_bottom, Error::<T>::NominationDNE);
         bottom_nominations.sort_greatest_to_least();
         self.reset_bottom_data::<T>(&bottom_nominations);
@@ -1002,13 +1027,13 @@ pub enum NominatorAdded<B> {
     AddedToBottom,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// Nominator state
 pub struct Nominator<AccountId, Balance> {
     /// Nominator account
     pub id: AccountId,
     /// All current nominations
-    pub nominations: OrderedSet<Bond<AccountId, Balance>>,
+    pub nominations: BoundedOrderedSet<Bond<AccountId, Balance>, MaxCloneableNominations>,
     /// Total balance locked for this nominator
     pub total: Balance,
     /// Sum of pending revocation amounts + bond less amounts
@@ -1016,7 +1041,7 @@ pub struct Nominator<AccountId, Balance> {
 }
 
 // Temporary manual implementation for migration testing purposes
-impl<A: PartialEq, B: PartialEq> PartialEq for Nominator<A, B> {
+impl<A: PartialEq, B: PartialEq + Clone> PartialEq for Nominator<A, B> {
     fn eq(&self, other: &Self) -> bool {
         let must_be_true =
             self.id == other.id && self.total == other.total && self.less_total == other.less_total;
@@ -1050,7 +1075,10 @@ impl<
     pub fn new(id: AccountId, collator: AccountId, amount: Balance) -> Self {
         Nominator {
             id,
-            nominations: OrderedSet::from(vec![Bond { owner: collator, amount }]),
+            nominations: BoundedOrderedSet::from(BoundedVec::truncate_from(vec![Bond {
+                owner: collator,
+                amount,
+            }])),
             total: amount,
             less_total: Balance::zero(),
         }
@@ -1060,7 +1088,7 @@ impl<
         Nominator {
             id,
             total: amount,
-            nominations: OrderedSet::from(vec![]),
+            nominations: BoundedOrderedSet::from(BoundedVec::default()),
             less_total: Balance::zero(),
         }
     }
@@ -1107,7 +1135,7 @@ impl<
 
     pub fn add_nomination(&mut self, bond: Bond<AccountId, Balance>) -> bool {
         let amt = bond.amount;
-        if self.nominations.insert(bond) {
+        if self.nominations.try_insert(bond.clone()).unwrap() {
             self.total = self.total.saturating_add(amt);
             true
         } else {
@@ -1122,21 +1150,20 @@ impl<
         T::AccountId: From<AccountId>,
     {
         let mut amt: Option<Balance> = None;
-        let nominations = self
-            .nominations
-            .0
-            .iter()
-            .filter_map(|x| {
-                if &x.owner == collator {
-                    amt = Some(x.amount);
-                    None
-                } else {
-                    Some(x.clone())
-                }
-            })
-            .collect();
+
+        let mut nominations = BoundedOrderedSet::new(); // Use the BoundedOrderedSet instead of   Vec.
+
+        for x in &self.nominations.0 {
+            if &x.owner == collator {
+                amt = Some(x.amount);
+            } else {
+                nominations.try_insert(x.clone()).unwrap(); // Use try_insert to add elements to the
+                                                            // set.
+            }
+        }
+
         if let Some(balance) = amt {
-            self.nominations = OrderedSet::from(nominations);
+            self.nominations = nominations;
             self.total_sub::<T>(balance).expect("Decreasing lock cannot fail, qed");
             Some(self.total)
         } else {
@@ -1248,7 +1275,7 @@ impl<
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 /// The current era index and transition information
 pub struct EraInfo<BlockNumber> {
     /// Current era index
@@ -1289,7 +1316,7 @@ pub enum BondAdjust<Balance> {
     Decrease,
 }
 
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct CollatorScore<AccountId> {
     pub collator: AccountId,
     pub points: RewardPoint,
@@ -1333,13 +1360,13 @@ impl<AccountId: Ord> PartialEq for CollatorScore<AccountId> {
 }
 
 // Data structure for tracking collator rewards
-#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct GrowthInfo<AccountId, Balance> {
     pub number_of_accumulations: GrowthPeriodIndex,
     pub total_stake_accumulated: Balance,
     pub total_staker_reward: Balance,
     pub total_points: RewardPoint,
-    pub collator_scores: Vec<CollatorScore<AccountId>>,
+    pub collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
 }
 
 impl<
@@ -1361,7 +1388,7 @@ impl<
             total_stake_accumulated: Balance::zero(),
             total_staker_reward: Balance::zero(),
             total_points: 0u32.into(),
-            collator_scores: vec![],
+            collator_scores: BoundedVec::default(),
         }
     }
 }
@@ -1373,13 +1400,13 @@ impl<A: Decode, B: Default> Default for GrowthInfo<A, B> {
             total_stake_accumulated: B::default(),
             total_staker_reward: B::default(),
             total_points: Default::default(),
-            collator_scores: vec![],
+            collator_scores: BoundedVec::default(),
         }
     }
 }
 
 // Data structure for tracking collator reward periods
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, Default, TypeInfo, MaxEncodedLen)]
 pub struct GrowthPeriodInfo {
     pub start_era_index: EraIndex,
     pub index: GrowthPeriodIndex,
