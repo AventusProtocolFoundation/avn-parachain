@@ -46,7 +46,6 @@ fn setup_voting_session<T: Config>(root_id: &RootId<T::BlockNumber>) -> u32 {
     let voting_period_end =
         safe_add_block_numbers(<system::Pallet<T>>::block_number(), VotingPeriod::<T>::get());
     let current_block_number: T::BlockNumber = 0u32.into();
-    println!("HELP !!! {}", quorum);
     VotesRepository::<T>::insert(
         root_id,
         VotingSessionData::<T::AccountId, T::BlockNumber>::new(
