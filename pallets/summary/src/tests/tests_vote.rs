@@ -1124,7 +1124,7 @@ mod end_voting_period {
     mod offence_logic {
         use super::*;
 
-        const TEST_VALIDATOR_COUNT: u64 = 5;
+        const TEST_VALIDATOR_COUNT: u64 = 7;
 
         fn validator_indices() -> Vec<ValidatorId> {
             return (1..=TEST_VALIDATOR_COUNT).collect::<Vec<ValidatorId>>()

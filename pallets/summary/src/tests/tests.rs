@@ -910,7 +910,6 @@ pub mod record_summary_calculation {
             });
         }
 
-        #[ignore]
         #[test]
         fn root_range_is_added_to_votes_repository() {
             let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
