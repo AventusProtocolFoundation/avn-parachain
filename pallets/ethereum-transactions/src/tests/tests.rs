@@ -195,9 +195,7 @@ impl DefaultTransactionBuilder {
     }
 
     pub fn with_confirmations(&mut self) -> &mut Self {
-        self.confirmations.append(&mut vec![
-            ecdsa::Signature::from_raw([1; 65]),
-        ]);
+        self.confirmations.append(&mut vec![ecdsa::Signature::from_raw([1; 65])]);
         self
     }
 
