@@ -38,7 +38,7 @@ fn setup_success_preconditions() -> LocalContext {
 
     let block_after_grace_period = block_number_for_next_slot + grace_period + 1;
 
-    let slot_validator = get_validator(FOURTH_VALIDATOR_INDEX);
+    let slot_validator = get_validator(SIXTH_VALIDATOR_INDEX);
     let primary_validator_account_id =
         AVN::<TestRuntime>::calculate_primary_validator(block_after_grace_period).unwrap();
     let other_validator = get_validator(primary_validator_account_id);

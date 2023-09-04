@@ -267,14 +267,17 @@ pub type ValidatorId = u64;
 type FullIdentification = u64;
 
 pub const INITIAL_TRANSACTION_ID: TransactionId = 0;
-pub const VALIDATOR_COUNT: u32 = 4;
+pub const VALIDATOR_COUNT: u32 = 7;
 thread_local! {
     // validator accounts (aka public addresses, public keys-ish)
     pub static VALIDATORS: RefCell<Option<Vec<ValidatorId>>> = RefCell::new(Some(vec![
         FIRST_VALIDATOR_INDEX,
         SECOND_VALIDATOR_INDEX,
         THIRD_VALIDATOR_INDEX,
-        FOURTH_VALIDATOR_INDEX
+        FOURTH_VALIDATOR_INDEX,
+        FIFTH_VALIDATOR_INDEX,
+        SIXTH_VALIDATOR_INDEX,
+        SEVENTH_VALIDATOR_INDEX
     ]));
 
     static MOCK_TX_ID: RefCell<TransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
@@ -567,7 +570,10 @@ pub const FIRST_VALIDATOR_INDEX: u64 = 1;
 pub const SECOND_VALIDATOR_INDEX: u64 = 2;
 pub const THIRD_VALIDATOR_INDEX: u64 = 3;
 pub const FOURTH_VALIDATOR_INDEX: u64 = 4;
-pub const VALIDATORS_COUNT: u64 = 4;
+pub const FIFTH_VALIDATOR_INDEX: u64 = 5;
+pub const SIXTH_VALIDATOR_INDEX: u64 = 6;
+pub const SEVENTH_VALIDATOR_INDEX: u64 = 7;
+pub const VALIDATORS_COUNT: u64 = 7;
 pub const DEFAULT_INGRESS_COUNTER: IngressCounter = 100;
 
 #[derive(Clone)]
