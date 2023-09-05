@@ -1,5 +1,5 @@
 use crate::bounds::NftExternalRefBound;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use hex_literal::hex;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -719,7 +719,7 @@ impl Default for ChallengeReason {
 // ================================= Authorities and Validators
 // =======================================
 
-#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, Debug, PartialEq, TypeInfo, MaxEncodedLen)]
 pub struct Validator<AuthorityId: Member, AccountId: Member> {
     pub account_id: AccountId,
     pub key: AuthorityId,

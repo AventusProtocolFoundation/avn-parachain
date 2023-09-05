@@ -34,6 +34,8 @@ First [Install Rust](https://www.rust-lang.org/tools/install):
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# set default cargo location
+source $HOME/.cargo/env
 ```
 
 If you already have Rust installed, make sure you're using the latest version by running:
@@ -42,14 +44,43 @@ If you already have Rust installed, make sure you're using the latest version by
 rustup update
 ```
 
-Once done, finish installing the support software:
+Once done, finish installing the support software and configure your default toolchain:
 
 ```bash
-# Additional rust targets
-rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-18
+# Install nightly toolchain and use it
+rustup toolchain install nightly-2022-10-18
+rustup default nightly-2022-10-18
+rustup target add --toolchain nightly-2022-10-18 wasm32-unknown-unknown
+
 # Additional OS dependencies
-sudo apt install build-essential git clang libclang-dev pkg-config libssl-dev
+sudo apt install build-essential
+sudo apt install --assume-yes git clang curl libssl-dev protobuf-compiler
 ```
+
+Verify the configuration of your development environment by running the following command:
+```bash
+rustup show
+rustup +nightly show
+```
+The command displays output similar to the following:
+```bash
+# rustup show
+
+active toolchain
+----------------
+
+stable-x86_64-unknown-linux-gnu (default)
+rustc 1.62.1 (e092d0b6b 2022-07-16)
+
+# rustup +nightly show
+
+active toolchain
+----------------
+
+nightly-x86_64-unknown-linux-gnu (overridden by +toolchain on the command line)
+rustc 1.65.0-nightly (34a6cae28 2022-08-09)
+```
+See [here](https://docs.substrate.io/install/linux/) for a more detailed guide on installing Rust and the required dependecies.
 
 Build the client by cloning this repository and running the following commands from the root
 directory of the repo:
@@ -94,7 +125,7 @@ cargo test
 # Test the benchmark tests
 cargo test --features runtime-benchmarks
 ```
-### Building the docker image
+## Building the docker image
 ```sh
 # Builds the docker image with the build artefacts under target/release
 docker build . --tag avn-node-parachain:latest
