@@ -243,7 +243,7 @@ pub mod pallet {
         /// OffenceReported(OffenceType, Offenders)
         OffenceReported {
             offence_type: EthereumLogOffenceType,
-            offenders: BoundedVec<IdentificationTuple<T>, MaxOffenders>,
+            offenders: Vec<IdentificationTuple<T>>,
         },
         /// EventAccepted(EthEventId)
         EventAccepted {
@@ -1371,7 +1371,7 @@ impl<T: Config> Pallet<T> {
     // The outcome of the check must be reported back, even if the check fails
     fn compute_result(
         block_number: T::BlockNumber,
-        response_body: Result<BoundedVec<u8, ConstU32<5>>, http::Error>,
+        response_body: Result<Vec<u8>, http::Error>,
         event_id: &EthEventId,
         validator_account_id: &T::AccountId,
     ) -> EthEventCheckResult<T::BlockNumber, T::AccountId> {
@@ -1502,7 +1502,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    fn fetch_event(event_id: &EthEventId) -> Result<BoundedVec<u8, MaxEvents>, http::Error> {
+    fn fetch_event(event_id: &EthEventId) -> Result<Vec<u8>, http::Error> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
         let external_service_port_number = AVN::<T>::get_external_service_port_number();
 
@@ -1521,7 +1521,7 @@ impl<T: Config> Pallet<T> {
             return Err(http::Error::Unknown)
         }
 
-        Ok(BoundedVec::truncate_from(response.body().collect::<Vec<u8>>()))
+        Ok(response.body().collect::<Vec<u8>>())
     }
 
     fn event_exists_in_system(event_id: &EthEventId) -> bool {

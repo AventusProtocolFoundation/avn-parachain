@@ -76,7 +76,7 @@ pub fn create_and_report_invalid_log_offence<T: crate::Config>(
     offenders_accounts: &Vec<T::AccountId>,
     offence_type: EthereumLogOffenceType,
 ) {
-    let offenders = BoundedVec::truncate_from(create_offenders_identification::<T>(offenders_accounts));
+    let offenders = create_offenders_identification::<T>(offenders_accounts);
 
     if offenders.len() > 0 {
         let invalid_event_offence = InvalidEthereumLogOffence {

@@ -218,7 +218,7 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
-                                offenders: BoundedVec::truncate_from(vec![(context.checked_by, context.checked_by)]),
+                                offenders: vec![(context.checked_by, context.checked_by)],
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -349,7 +349,7 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
-                                offenders: BoundedVec::truncate_from(vec![(context.checked_by, context.checked_by)]),
+                                offenders: vec![(context.checked_by, context.checked_by)],
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -461,10 +461,10 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                                offenders: BoundedVec::truncate_from(vec![
+                                offenders: vec![
                                     (context.first_validator_id, context.first_validator_id),
                                     (context.second_validator_id, context.second_validator_id),
-                                ]),
+                                ],
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -596,10 +596,10 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                                offenders: BoundedVec::truncate_from(vec![
+                                offenders: vec![
                                     (context.first_validator_id, context.first_validator_id),
                                     (context.second_validator_id, context.second_validator_id),
-                                ]),
+                                ],
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -765,7 +765,7 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
-                                offenders: BoundedVec::truncate_from(vec![(context.checked_by, context.checked_by)]),
+                                offenders: vec![(context.checked_by, context.checked_by)],
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -896,7 +896,7 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
-                                offenders: BoundedVec::truncate_from(vec![(context.checked_by, context.checked_by)]),
+                                offenders: vec![(context.checked_by, context.checked_by)],
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -1021,10 +1021,10 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                                offenders: BoundedVec::truncate_from(vec![
+                                offenders: vec![
                                     (context.first_validator_id, context.first_validator_id),
                                     (context.second_validator_id, context.second_validator_id),
-                                ]),
+                                ],
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -1148,10 +1148,10 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                                offenders: BoundedVec::truncate_from(vec![
+                                offenders: vec![
                                     (context.first_validator_id, context.first_validator_id),
                                     (context.second_validator_id, context.second_validator_id),
-                                ]),
+                                ],
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
