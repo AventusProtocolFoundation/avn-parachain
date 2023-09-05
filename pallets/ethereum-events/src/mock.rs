@@ -7,7 +7,7 @@ use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    Perbill,
+    Perbill, WeakBoundedVec,
 };
 use std::cell::RefCell;
 
@@ -30,6 +30,8 @@ use sp_staking::{
 use avn::{AvnBridgeContractAddress, FinalisedBlockChecker};
 use pallet_avn::{self as avn, AccountToBytesConverter, Error as avn_error};
 use sp_avn_common::event_types::EthEvent;
+use avn::FinalisedBlockChecker;
+use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent};
 use sp_io::TestExternalities;
 
 use crate::{self as pallet_ethereum_events, *};
@@ -411,7 +413,8 @@ impl EthereumEvents {
         return !<EventsPendingChallenge<TestRuntime>>::get().is_empty()
     }
 
-    pub fn validators() -> Vec<Validator<AuthorityId, AccountId>> {
+    pub fn validators() -> WeakBoundedVec<Validator<AuthorityId, AccountId>, MaximumValidatorsBound>
+    {
         return AVN::active_validators()
     }
 
