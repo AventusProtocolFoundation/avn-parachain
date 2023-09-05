@@ -94,7 +94,6 @@ pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
-    use sp_core::U256;
 
     // Public interface of this pallet
     #[pallet::config]
