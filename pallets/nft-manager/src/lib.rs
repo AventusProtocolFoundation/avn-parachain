@@ -86,8 +86,6 @@ pub type NftUniqueId = U256;
 /// Suggested bound to use in runtime for number of NFTs that can exist in a single Batch
 pub type BatchNftBound = ConstU32<16384>;
 
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -355,7 +353,7 @@ pub mod pallet {
             let sender = ensure_signed(origin)?;
 
             let bounded_unique_external_ref =
-                WeakBoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref)
+                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref)
                     .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
             Self::validate_mint_single_nft_request(
                 &bounded_unique_external_ref,
@@ -401,7 +399,7 @@ pub mod pallet {
             let sender = ensure_signed(origin)?;
             ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
             let bounded_unique_external_ref =
-                WeakBoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref.clone())
+                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref.clone())
                     .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
             Self::validate_mint_single_nft_request(
                 &bounded_unique_external_ref,
@@ -666,7 +664,7 @@ pub mod pallet {
             ensure!(sender == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let bounded_unique_external_ref =
-                WeakBoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref)
+                BoundedVec::<u8, NftExternalRefBound>::try_from(unique_external_ref)
                     .map_err(|_| Error::<T>::ExternalRefOutOfBounds)?;
             let nft_info =
                 validate_mint_batch_nft_request::<T>(batch_id, &bounded_unique_external_ref)?;
@@ -774,37 +772,6 @@ pub mod pallet {
 
             Ok(())
         }
-
-        #[pallet::weight(T::DbWeight::get().reads_writes(1 as u64, 2 as u64))]
-        #[pallet::call_index(11)]
-        pub fn sanitise_external_ref(origin: OriginFor<T>, nft_ids: Vec<U256>) -> DispatchResult {
-            let _sender = ensure_root(origin)?;
-            let bound: usize = <NftExternalRefBound as sp_core::Get<u32>>::get() as usize;
-            for nft_id in nft_ids.iter() {
-                if let Some(nft) = Self::nfts(nft_id) {
-                    if nft.unique_external_ref.len() <= bound {
-                        log::info!("NFT with id: {} was within bounds", nft_id);
-                        continue
-                    }
-                    let (original_ref, sanitised_ref) =
-                        Self::get_sanitised_reference_data(nft, bound);
-                    ensure!(
-                        UsedExternalReferences::<T>::contains_key(&sanitised_ref) == false,
-                        Error::<T>::ExternalRefIsAlreadyInUse
-                    );
-                    let value = UsedExternalReferences::<T>::take(&original_ref);
-                    UsedExternalReferences::<T>::insert(sanitised_ref.clone(), value);
-
-                    <Nfts<T>>::mutate(nft_id, |maybe_nft| {
-                        maybe_nft.as_mut().map(|nft| nft.unique_external_ref = sanitised_ref)
-                    });
-                    log::info!("NFT with id: {} got external reference sanitised within the expected bounds", nft_id);
-                } else {
-                    log::info!("NFT with id: {} was not found", nft_id);
-                }
-            }
-            Ok(())
-        }
     }
 
     #[pallet::hooks]
@@ -822,34 +789,65 @@ pub mod pallet {
             );
 
             if onchain_version < 4 {
-                let mut migration_weight: Weight = Weight::from_ref_time(0);
+                use frame_support::storage::unhashed;
 
-                migration_weight += migrations::partial_owned_nfts_entries_drop::<T>();
-                migration_weight += migrations::safe_storage_info_drop::<T>();
+                // Owned Nfts cleanup
+                {
+                    let owned_nfts_prefix = storage::storage_prefix(b"NftManager", b"OwnedNfts");
+                    let mut key = vec![0u8; 32];
+                    key[0..32].copy_from_slice(&owned_nfts_prefix);
+                    let res = unhashed::clear_prefix(&key[0..32], None, None);
 
+                    log::info!(
+                    "✅ Cleared '{}' backend values from 'NftManager::OwnedNfts' storage prefix",
+                        res.backend
+                    );
+                    log::info!(
+                        "✅ Cleared '{}' entries from 'NftManager::OwnedNfts' storage prefix",
+                        res.unique
+                    );
+                    if res.maybe_cursor.is_some() {
+                        log::error!(
+                            "Storage prefix 'NftManager::OwnedNfts' is not completely cleared."
+                        );
+                    }
+                }
+                // Version item cleanup
+                {
+                    let storage_version_prefix =
+                        storage::storage_prefix(b"NftManager", b"StorageVersion");
+                    let mut key = vec![0u8; 32];
+                    key[0..32].copy_from_slice(&storage_version_prefix);
+                    let res = unhashed::clear_prefix(&key[0..32], None, None);
+
+                    log::info!(
+                    "✅ Cleared '{}' backend values from 'NftManager::StorageVersion' storage prefix",
+                        res.backend
+                    );
+                    log::info!(
+                        "✅ Cleared '{}' entries from 'NftManager::StorageVersion' storage prefix",
+                        res.unique
+                    );
+                    if res.maybe_cursor.is_some() {
+                        log::error!("Storage prefix 'StorageVersion' is not completely cleared.");
+                    }
+                }
+                crate::STORAGE_VERSION.put::<Pallet<T>>();
                 log::info!(
                     "Dropped old enum-based versioning schema for nft-manager. New version:{:?}",
                     Pallet::<T>::on_chain_storage_version()
                 );
 
-                return migration_weight
+                return migrations::migrate_to_bounded_nft::<T>()
             }
             return Weight::from_ref_time(0)
-        }
-
-        fn on_initialize(_n: T::BlockNumber) -> Weight {
-            let onchain_version = Pallet::<T>::on_chain_storage_version();
-            if onchain_version < 4 {
-                return migrations::partial_owned_nfts_entries_drop::<T>()
-            }
-            return T::DbWeight::get().reads(1)
         }
     }
 }
 
 impl<T: Config> Pallet<T> {
     fn validate_mint_single_nft_request(
-        unique_external_ref: &WeakBoundedVec<u8, NftExternalRefBound>,
+        unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
         royalties: &Vec<Royalty>,
         t1_authority: H160,
     ) -> DispatchResult {
@@ -862,7 +860,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn validate_external_ref(
-        unique_external_ref: &WeakBoundedVec<u8, NftExternalRefBound>,
+        unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
     ) -> DispatchResult {
         ensure!(unique_external_ref.len() > 0, Error::<T>::ExternalRefIsMandatory);
         let unique_reference = WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
@@ -940,7 +938,7 @@ impl<T: Config> Pallet<T> {
         royalties: BoundedVec<Royalty, NftRoyaltiesBound>,
         t1_authority: H160,
         nft_id: NftId,
-        unique_external_ref: WeakBoundedVec<u8, NftExternalRefBound>,
+        unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
         owner: T::AccountId,
     ) -> (Nft<T::AccountId>, NftInfo<T::AccountId>) {
         let info = NftInfo::new(info_id, royalties, t1_authority);
@@ -1249,22 +1247,6 @@ impl<T: Config> Pallet<T> {
 
         Ok(maybe_nft.expect("checked for none"))
     }
-
-    fn get_sanitised_reference_data(
-        nft: Nft<T::AccountId>,
-        bound: usize,
-    ) -> (WeakBoundedVec<u8, NftExternalRefBound>, WeakBoundedVec<u8, NftExternalRefBound>) {
-        let original_ref = nft.unique_external_ref.clone();
-        let sanitised_ref = {
-            let mut data_to_bound = original_ref.to_vec();
-            data_to_bound.truncate(bound);
-            WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
-                data_to_bound,
-                Some("Weak bound exceeded."),
-            )
-        };
-        (original_ref, sanitised_ref)
-    }
 }
 
 impl<T: Config> ProcessedEventHandler for Pallet<T> {
@@ -1326,61 +1308,70 @@ impl<T: Config> InnerCallValidator for Pallet<T> {
     }
 }
 
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+
 pub mod migrations {
-
     use super::*;
-    use frame_support::storage::{self as storage, unhashed};
 
-    const DELETION_LIMIT: u32 = 256;
-
-    pub fn partial_owned_nfts_entries_drop<T: Config>() -> frame_support::weights::Weight {
-        let owned_nfts_prefix = storage::storage_prefix(b"NftManager", b"OwnedNfts");
-        let mut key = vec![0u8; 32];
-        key[0..32].copy_from_slice(&owned_nfts_prefix);
-        let res = unhashed::clear_prefix(&key[0..32], Some(DELETION_LIMIT), None);
-
-        log::info!(
-            "✅ Cleared '{}' backend values from 'NftManager::OwnedNfts' storage prefix",
-            res.backend
-        );
-        log::info!(
-            "✅ Cleared '{}' entries from 'NftManager::OwnedNfts' storage prefix",
-            res.unique
-        );
-        let mut migration_weight: Weight =
-            T::DbWeight::get().writes(u64::from(res.backend) + u64::from(res.unique));
-
-        if res.maybe_cursor.is_some() {
-            log::info!("Storage prefix 'NftManager::OwnedNfts' is not completely cleared. Will resume clearing on future blocks");
-        } else {
-            crate::STORAGE_VERSION.put::<Pallet<T>>();
-            migration_weight += T::DbWeight::get().writes(1);
-        }
-        migration_weight
+    #[derive(Decode)]
+    pub struct OldNft<AccountId: Member> {
+        pub nft_id: NftId,
+        pub info_id: NftInfoId,
+        pub unique_external_ref: Vec<u8>,
+        pub nonce: u64,
+        pub owner: AccountId,
+        pub is_locked: bool,
     }
 
-    pub fn safe_storage_info_drop<T: Config>() -> frame_support::weights::Weight {
-        let storage_version_prefix = storage::storage_prefix(b"NftManager", b"StorageVersion");
-        let mut key = vec![0u8; 32];
-        key[0..32].copy_from_slice(&storage_version_prefix);
-        let res = unhashed::clear_prefix(&key[0..32], Some(DELETION_LIMIT), None);
+    impl<AccountId: Member> OldNft<AccountId> {
+        fn upgraded(self) -> Nft<AccountId> {
+            Nft::<AccountId> {
+                nft_id: self.nft_id,
+                info_id: self.info_id,
+                unique_external_ref: BoundedVec::truncate_from(self.unique_external_ref),
+                nonce: self.nonce,
+                owner: self.owner,
+                is_locked: self.is_locked,
+            }
+        }
+    }
 
-        log::info!(
-            "✅ Cleared '{}' backend values from 'NftManager::StorageVersion' storage prefix",
-            res.backend
-        );
-        log::info!(
-            "✅ Cleared '{}' entries from 'NftManager::StorageVersion' storage prefix",
-            res.unique
-        );
-        if res.maybe_cursor.is_some() {
-            log::error!("Storage prefix 'StorageVersion' is not completely cleared.");
+    pub fn migrate_to_bounded_nft<T: Config>() -> frame_support::weights::Weight {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+        log::info!("ℹ️  Nft manager pallet data migration invoked");
+
+        let mut keys_need_update = Vec::<Vec<u8>>::new();
+        let bound: usize = <NftExternalRefBound as sp_core::Get<u32>>::get() as usize;
+
+        Nfts::<T>::translate::<OldNft<T::AccountId>, _>(|_, p| {
+            if p.unique_external_ref.len() > bound {
+                keys_need_update.push(p.unique_external_ref.clone());
+            }
+            Some(p.upgraded())
+        });
+
+        log::info!("ℹ️ Found {:?} out of bounds external ref. Migrating...", keys_need_update.len());
+
+        for external_ref in keys_need_update.iter() {
+            let unique_reference = WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
+                external_ref.clone(),
+                Some("Weak bound exceeded. Expected when migrating data to bounded"),
+            );
+            let value = UsedExternalReferences::<T>::get(&unique_reference);
+            UsedExternalReferences::<T>::remove(unique_reference);
+            let new_unique_reference = WeakBoundedVec::<u8, NftExternalRefBound>::force_from(
+                BoundedVec::<u8, NftExternalRefBound>::truncate_from(external_ref.clone()).to_vec(),
+                Some(
+                    "Weak bound exceeded. Shouldn't be possible when converting from bounded data.",
+                ),
+            );
+            UsedExternalReferences::<T>::insert(new_unique_reference, value)
         }
 
-        T::DbWeight::get().writes(u64::from(res.backend) + u64::from(res.unique))
+        log::info!("ℹ️  Migrated Nfts bounds applied successfully");
+        return T::BlockWeights::get().max_block
     }
 }
-
 #[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;
@@ -1420,9 +1411,5 @@ pub mod cancel_single_nft_listing_tests;
 #[cfg(test)]
 #[path = "tests/batch_nft_tests.rs"]
 pub mod batch_nft_tests;
-
-#[cfg(test)]
-#[path = "tests/sanitise_external_ref_tests.rs"]
-pub mod sanitise_external_ref_tests;
 
 mod benchmarking;

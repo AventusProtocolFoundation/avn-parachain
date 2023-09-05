@@ -66,8 +66,8 @@ fn get_proof<T: Config>(
     }
 }
 
-fn bounded_unique_external_ref() -> WeakBoundedVec<u8, NftExternalRefBound> {
-    WeakBoundedVec::try_from(String::from("Offchain location of NFT").into_bytes())
+fn bounded_unique_external_ref() -> BoundedVec<u8, NftExternalRefBound> {
+    BoundedVec::try_from(String::from("Offchain location of NFT").into_bytes())
         .expect("Unique external reference bound was exceeded.")
 }
 
@@ -94,7 +94,7 @@ struct MintSingleNft<T: Config> {
     nft_owner: T::AccountId,
     nft_id: U256,
     info_id: U256,
-    unique_external_ref: WeakBoundedVec<u8, NftExternalRefBound>,
+    unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
     royalties: Vec<Royalty>,
     t1_authority: H160,
     signature: Vec<u8>,
@@ -150,7 +150,7 @@ impl<T: Config> MintSingleNft<T> {
     fn setup(self) -> Self {
         <Nfts<T>>::remove(&self.nft_id);
         <NftInfos<T>>::remove(&self.nft_id);
-        <UsedExternalReferences<T>>::remove(&self.bounded_external_ref());
+        <UsedExternalReferences<T>>::remove(&self.weak_bounded_external_ref());
         return self
     }
 
@@ -166,7 +166,7 @@ impl<T: Config> MintSingleNft<T> {
         .into()
     }
 
-    pub fn bounded_external_ref(&self) -> WeakBoundedVec<u8, NftExternalRefBound> {
+    pub fn weak_bounded_external_ref(&self) -> WeakBoundedVec<u8, NftExternalRefBound> {
         WeakBoundedVec::try_from(self.unique_external_ref.to_vec())
             .expect("Unique external reference bound was exceeded.")
     }
@@ -436,7 +436,7 @@ struct MintBatchNft<T: Config> {
     nft_owner: T::AccountId,
     batch_id: NftBatchId,
     nft_id: U256,
-    unique_external_ref: WeakBoundedVec<u8, NftExternalRefBound>,
+    unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
     t1_authority: H160,
     signature: Vec<u8>,
 }
@@ -486,7 +486,7 @@ impl<T: Config> MintBatchNft<T> {
         }
     }
 
-    pub fn bounded_external_ref(&self) -> WeakBoundedVec<u8, NftExternalRefBound> {
+    pub fn weak_bounded_external_ref(&self) -> WeakBoundedVec<u8, NftExternalRefBound> {
         WeakBoundedVec::try_from(self.unique_external_ref.to_vec())
             .expect("Unique external reference bound was exceeded.")
     }
@@ -617,8 +617,8 @@ benchmarks! {
             NftInfo::new(mint_nft.info_id, bounded_royalties(mint_nft.royalties.clone()), mint_nft.t1_authority),
             <NftInfos<T>>::get(&mint_nft.info_id).unwrap()
         );
-        assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.bounded_external_ref()));
-        assert_eq!(true, <UsedExternalReferences<T>>::get(mint_nft.bounded_external_ref()));
+        assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.weak_bounded_external_ref()));
+        assert_eq!(true, <UsedExternalReferences<T>>::get(mint_nft.weak_bounded_external_ref()));
         assert_last_event::<T>(Event::<T>::SingleNftMinted {
             nft_id: mint_nft.nft_id,
             owner: mint_nft.nft_owner,
@@ -652,8 +652,8 @@ benchmarks! {
             NftInfo::new(mint_nft.info_id, bounded_royalties(mint_nft.royalties.clone()), mint_nft.t1_authority),
             <NftInfos<T>>::get(&mint_nft.info_id).unwrap()
         );
-        assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.bounded_external_ref()));
-        assert_eq!(true, <UsedExternalReferences<T>>::get(mint_nft.bounded_external_ref()));
+        assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.weak_bounded_external_ref()));
+        assert_eq!(true, <UsedExternalReferences<T>>::get(mint_nft.weak_bounded_external_ref()));
         assert_last_event::<T>(Event::<T>::SingleNftMinted {
             nft_id: mint_nft.nft_id,
             owner: mint_nft.nft_owner,
@@ -775,8 +775,8 @@ benchmarks! {
             NftInfo::new(mint_nft.info_id, bounded_royalties(mint_nft.royalties.clone()), mint_nft.t1_authority),
             <NftInfos<T>>::get(&mint_nft.info_id).unwrap()
         );
-        assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.bounded_external_ref()));
-        assert_eq!(true, <UsedExternalReferences<T>>::get(mint_nft.bounded_external_ref()));
+        assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&mint_nft.weak_bounded_external_ref()));
+        assert_eq!(true, <UsedExternalReferences<T>>::get(mint_nft.weak_bounded_external_ref()));
         assert_last_event::<T>(Event::<T>::CallDispatched{ relayer: mint_nft.relayer.clone(), hash: call_hash }.into());
         assert_last_nth_event::<T>(Event::<T>::SingleNftMinted {
             nft_id: mint_nft.nft_id,
@@ -878,8 +878,8 @@ benchmarks! {
             Nft::new(context.nft_id, U256::zero(), context.unique_external_ref.clone(), context.nft_owner.clone()),
             Nfts::<T>::get(&context.nft_id).unwrap()
         );
-        assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&context.bounded_external_ref()));
-        assert_eq!(true, <UsedExternalReferences<T>>::get(context.bounded_external_ref()));
+        assert_eq!(true, <UsedExternalReferences<T>>::contains_key(&context.weak_bounded_external_ref()));
+        assert_eq!(true, <UsedExternalReferences<T>>::get(context.weak_bounded_external_ref()));
 
         assert_last_event::<T>(Event::<T>::CallDispatched{ relayer: context.relayer.clone(), hash: call_hash }.into());
         assert_last_nth_event::<T>(Event::<T>::BatchNftMinted {
