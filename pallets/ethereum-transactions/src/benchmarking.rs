@@ -14,6 +14,7 @@ use crate::ethereum_transaction::{EthTransactionType, PublishRootData, Transacti
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::{EventRecord, RawOrigin};
 use pallet_avn::{self as avn};
+use sp_runtime::WeakBoundedVec;
 
 pub const ROOT_HASH_BYTES: [u8; 32] = [
     135, 54, 201, 230, 113, 254, 88, 31, 228, 239, 70, 49, 17, 32, 56, 41, 125, 205, 236, 174, 22,
@@ -40,7 +41,10 @@ fn setup_eth_tx_and_dispatched_tx<T: Config>(
         let account = account("dummy_account", i, i);
         validators.push(Validator::new(account, key));
     }
-    avn::Validators::<T>::put(validators.clone());
+    avn::Validators::<T>::put(WeakBoundedVec::force_from(
+        validators.clone(),
+        Some("Too many validators for session"),
+    ));
 
     // Setup transaction ids
     let tx_ids = create_tx_ids::<T>(number_of_txn_ids);
