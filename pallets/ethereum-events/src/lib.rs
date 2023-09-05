@@ -17,7 +17,7 @@ use frame_support::{
 };
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 use simple_json2::json::JsonValue;
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, ConstU32};
 use sp_runtime::{
     offchain::{
         http,
@@ -60,6 +60,7 @@ pub mod event_parser;
 use crate::event_parser::{
     find_event, get_data, get_events, get_num_confirmations, get_status, get_topics,
 };
+use sp_runtime::BoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;
 pub use pallet::*;
@@ -145,6 +146,12 @@ const MAX_NUMBER_OF_VALIDATORS_ACCOUNTS: u32 = 10;
 const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 5;
 const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 5;
 const MAX_CHALLENGES: u32 = 10;
+
+pub type MaxEvents = ConstU32<MAX_NUMBER_OF_UNCHECKED_EVENTS>;
+pub type MaxChallenges = ConstU32<MAX_CHALLENGES>;
+pub type MaxNumValidatorAccounts = ConstU32<MAX_NUMBER_OF_VALIDATORS_ACCOUNTS>;
+
+pub type MaxOffenders = ConstU32<10>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -236,7 +243,7 @@ pub mod pallet {
         /// OffenceReported(OffenceType, Offenders)
         OffenceReported {
             offence_type: EthereumLogOffenceType,
-            offenders: Vec<IdentificationTuple<T>>,
+            offenders: BoundedVec<IdentificationTuple<T>, MaxOffenders>,
         },
         /// EventAccepted(EthEventId)
         EventAccepted {
@@ -265,6 +272,10 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        ChallengeLimitReached,
+        EventLimitReached,
+        OffendersLimitReached,
+        NumValidatorAccountsLimitReached,
         DuplicateEvent,
         MissingEventToCheck,
         UnrecognizedEventSignature,
@@ -305,7 +316,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn unchecked_events)]
     pub type UncheckedEvents<T: Config> =
-        StorageValue<_, Vec<(EthEventId, IngressCounter, T::BlockNumber)>, ValueQuery>;
+        StorageValue<_, BoundedVec<(EthEventId, IngressCounter, T::BlockNumber), MaxEvents>, ValueQuery>;
 
     // //TODO [TYPE: business logic][PRI: high][CRITICAL][NOTE: clarify]: What happens to invalid
     // events (missing) in this list?
@@ -313,7 +324,7 @@ pub mod pallet {
     #[pallet::getter(fn events_pending_challenge)]
     pub type EventsPendingChallenge<T: Config> = StorageValue<
         _,
-        Vec<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>,
+        BoundedVec<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber), MaxEvents>,
         ValueQuery,
     >;
 
@@ -328,7 +339,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn challenges)]
     pub type Challenges<T: Config> =
-        StorageMap<_, Blake2_128Concat, EthEventId, Vec<T::AccountId>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, EthEventId, BoundedVec<T::AccountId, MaxChallenges>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn quorum_factor)]
@@ -356,9 +367,9 @@ pub mod pallet {
         pub lifting_contract_address: H160,
         pub quorum_factor: u32,
         pub event_challenge_period: T::BlockNumber,
-        pub lift_tx_hashes: Vec<H256>,
-        pub processed_events: Vec<(EthEventId, bool)>,
-        pub nft_t1_contracts: Vec<(H160, ())>,
+        pub lift_tx_hashes: BoundedVec<H256, ConstU32<10>>,
+        pub processed_events: BoundedVec<(EthEventId, bool), ConstU32<10>>,
+        pub nft_t1_contracts: BoundedVec<(H160, ()), ConstU32<10>>,
     }
 
     #[cfg(feature = "std")]
@@ -369,9 +380,9 @@ pub mod pallet {
                 lifting_contract_address: H160::zero(),
                 quorum_factor: 4 as u32,
                 event_challenge_period: T::BlockNumber::from(300 as u32),
-                lift_tx_hashes: Vec::<H256>::new(),
-                processed_events: Vec::<(EthEventId, bool)>::new(),
-                nft_t1_contracts: Vec::<(H160, ())>::new(),
+                lift_tx_hashes: BoundedVec::<H256, ConstU32<10>>::default(),
+                processed_events: BoundedVec::<(EthEventId, bool), ConstU32<10>>::default(),
+                nft_t1_contracts: BoundedVec::<(H160, ()), ConstU32<10>>::default(),
             }
         }
     }
@@ -411,7 +422,9 @@ pub mod pallet {
                 })
                 .collect::<Vec<(EthEventId, IngressCounter, T::BlockNumber)>>();
 
-            UncheckedEvents::<T>::put(unchecked_lift_events);
+            // let bounded = <BoundedVec::<(EthEventId, IngressCounter, T::BlockNumber), MaxEvents>>::truncate_from(unchecked_lift_events.clone());
+
+            UncheckedEvents::<T>::put(BoundedVec::truncate_from(unchecked_lift_events));
         }
     }
 
@@ -481,8 +494,8 @@ pub mod pallet {
                     (AVN::<T>::active_validators().len() as u32) / Self::quorum_factor();
 
                 // Insert first and remove
-                <EventsPendingChallenge<T>>::mutate(|pending_events| {
-                    pending_events.push((result.clone(), ingress_counter, current_block))
+                <EventsPendingChallenge<T>>::try_mutate(|pending_events| {
+                    pending_events.try_push((result.clone(), ingress_counter, current_block))
                 });
 
                 <UncheckedEvents<T>>::mutate(|events| events.remove(event_index));
@@ -651,7 +664,6 @@ pub mod pallet {
             // TODO [TYPE: business logic][PRI: medium][CRITICAL][JIRA: 349]: Make sure the
             // challenge period has not passed. Note: the current block number can be
             // different to the block_number the offchain worker was invoked in
-
             if <Challenges<T>>::contains_key(&challenge.event_id) {
                 ensure!(
                     !Self::challenges(challenge.event_id.clone())
@@ -661,12 +673,15 @@ pub mod pallet {
                 );
 
                 <Challenges<T>>::mutate(challenge.event_id.clone(), |prev_challenges| {
-                    prev_challenges.push(challenge.challenged_by.clone());
+                    match prev_challenges.try_push(challenge.challenged_by.clone()) {
+                        Ok(()) => Ok(()),
+                        Err(_) => Err(Error::<T>::ChallengeLimitReached),
+                    }
                 });
             } else {
                 <Challenges<T>>::insert(
                     challenge.event_id.clone(),
-                    vec![challenge.challenged_by.clone()],
+                    BoundedVec::truncate_from(vec![challenge.challenged_by.clone()]),
                 );
             }
 
@@ -1113,9 +1128,9 @@ impl<T: Config> Pallet<T> {
     ) -> Option<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>
     {
         let storage = StorageValueRef::persistent(VALIDATED_EVENT_LOCAL_STORAGE);
-        let validated_events = storage.get::<Vec<EthEventId>>();
+        let validated_events = storage.get::<BoundedVec<EthEventId, MaxEvents>>();
 
-        let mut stored_validated_events: Vec<EthEventId> = Vec::<EthEventId>::new();
+        let mut stored_validated_events: BoundedVec<EthEventId, MaxEvents> = BoundedVec::<EthEventId, MaxEvents>::default();
         let mut node_has_never_validated_events = true;
 
         match validated_events {
@@ -1320,13 +1335,13 @@ impl<T: Config> Pallet<T> {
     fn save_validated_event_in_local_storage(event_id: EthEventId) -> Result<(), Error<T>> {
         let storage = StorageValueRef::persistent(VALIDATED_EVENT_LOCAL_STORAGE);
         let result =
-            storage.mutate(|events: Result<Option<Vec<EthEventId>>, StorageRetrievalError>| {
+            storage.mutate(|events: Result<Option<BoundedVec<EthEventId, MaxEvents>>, StorageRetrievalError>| {
                 match events {
                     Ok(Some(mut events)) => {
-                        events.push(event_id);
+                        events.try_push(event_id);
                         Ok(events)
                     },
-                    Ok(None) => Ok(vec![event_id]),
+                    Ok(None) => Ok(BoundedVec::truncate_from(vec![event_id])),
                     _ => Err(()),
                 }
             });
@@ -1356,7 +1371,7 @@ impl<T: Config> Pallet<T> {
     // The outcome of the check must be reported back, even if the check fails
     fn compute_result(
         block_number: T::BlockNumber,
-        response_body: Result<Vec<u8>, http::Error>,
+        response_body: Result<BoundedVec<u8, ConstU32<5>>, http::Error>,
         event_id: &EthEventId,
         validator_account_id: &T::AccountId,
     ) -> EthEventCheckResult<T::BlockNumber, T::AccountId> {
@@ -1487,7 +1502,7 @@ impl<T: Config> Pallet<T> {
         )
     }
 
-    fn fetch_event(event_id: &EthEventId) -> Result<Vec<u8>, http::Error> {
+    fn fetch_event(event_id: &EthEventId) -> Result<BoundedVec<u8, MaxEvents>, http::Error> {
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
         let external_service_port_number = AVN::<T>::get_external_service_port_number();
 
@@ -1506,7 +1521,7 @@ impl<T: Config> Pallet<T> {
             return Err(http::Error::Unknown)
         }
 
-        Ok(response.body().collect::<Vec<u8>>())
+        Ok(BoundedVec::truncate_from(response.body().collect::<Vec<u8>>()))
     }
 
     fn event_exists_in_system(event_id: &EthEventId) -> bool {
@@ -1523,7 +1538,7 @@ impl<T: Config> Pallet<T> {
         ensure!(!Self::event_exists_in_system(&event_id), Error::<T>::DuplicateEvent);
 
         let ingress_counter = Self::get_next_ingress_counter();
-        <UncheckedEvents<T>>::append((
+        <UncheckedEvents<T>>::try_append((
             event_id.clone(),
             ingress_counter,
             <frame_system::Pallet<T>>::block_number(),
@@ -1600,20 +1615,20 @@ impl<T: Config> Pallet<T> {
         event_type: &ValidEvents,
         tx_hash: &H256,
         sender_nonce: u64,
-    ) -> Vec<u8> {
-        return (
+    ) -> BoundedVec<u8, ConstU32<10>> {
+        return BoundedVec::truncate_from((
             SIGNED_ADD_ETHEREUM_LOG_CONTEXT,
             proof.relayer.clone(),
             event_type,
             tx_hash,
             sender_nonce,
         )
-            .encode()
+            .encode())
     }
 
     fn get_encoded_call_param(
         call: &<T as Config>::RuntimeCall,
-    ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
+    ) -> Option<(&Proof<T::Signature, T::AccountId>, BoundedVec<u8, ConstU32<10>>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
             None => return None,

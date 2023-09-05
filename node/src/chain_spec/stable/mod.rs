@@ -2,6 +2,7 @@ mod local;
 mod staging;
 
 pub use local::{development_config, local_testnet_config};
+use sp_runtime::BoundedVec;
 pub use staging::{staging_dev_testnet_config, staging_testnet_config};
 
 use crate::chain_spec::{
@@ -15,7 +16,7 @@ use avn_parachain_runtime::{
 };
 use node_primitives::AccountId;
 
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, ConstU32, bounded_vec};
 
 use hex_literal::hex;
 
@@ -46,9 +47,9 @@ pub(crate) fn testnet_genesis(
     sudo_account: AccountId,
     avt_token_contract: H160,
     avn_eth_contract: H160,
-    nft_eth_contracts: Vec<(H160, ())>,
+    nft_eth_contracts: BoundedVec<(H160, ()), ConstU32<10>>,
     eth_public_keys: Vec<EthPublicKey>,
-    lift_tx_hashes: Vec<H256>,
+    lift_tx_hashes: BoundedVec<H256, ConstU32<10>>,
     event_challenge_period: BlockNumber,
     schedule_period: BlockNumber,
     voting_period: BlockNumber,
@@ -83,7 +84,7 @@ pub(crate) fn testnet_genesis(
             validator_manager_contract_address: avn_eth_contract.clone(),
             lifting_contract_address: avn_eth_contract.clone(),
             nft_t1_contracts: nft_eth_contracts,
-            processed_events: vec![],
+            processed_events: bounded_vec![],
             lift_tx_hashes,
             quorum_factor: QUORUM_FACTOR,
             event_challenge_period,

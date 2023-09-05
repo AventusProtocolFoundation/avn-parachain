@@ -8,7 +8,7 @@ use crate::chain_spec::stable::{
 };
 use hex_literal::hex;
 use node_primitives::AccountId;
-use sp_core::{crypto::UncheckedInto, ecdsa, sr25519, ByteArray, H160};
+use sp_core::{crypto::UncheckedInto, ecdsa, sr25519, ByteArray, H160, bounded_vec};
 
 pub fn staging_testnet_config() -> ChainSpec {
     let staging_parachain_id: u32 = 3000;
@@ -53,9 +53,9 @@ pub fn staging_testnet_config() -> ChainSpec {
                 H160(hex!("97d9b397189e8b771FfAc3Cb04cf26C780a93431")),
                 // AVN contract
                 H160(hex!("d6C9731A8DCAf6d09076218584c0ab9A2F44485C")),
-                vec![],
+                bounded_vec![],
                 staging_ethereum_public_keys(),
-                vec![],
+                bounded_vec![],
                 SMALL_EVENT_CHALLENGE_PERIOD,
                 HALF_HOUR_SCHEDULE_PERIOD,
                 SMALL_VOTING_PERIOD,
@@ -112,9 +112,9 @@ pub fn staging_dev_testnet_config() -> ChainSpec {
                 // AVN contract
                 H160(hex!("4e20efBC16836Cfa09F44DD95be677034C4027DE")),
                 // TODO update this if needed with the nft contracts
-                vec![],
+                bounded_vec![],
                 staging_dev_ethereum_public_keys(),
-                vec![],
+                bounded_vec![],
                 NORMAL_EVENT_CHALLENGE_PERIOD,
                 FOUR_HOURS_SCHEDULE_PERIOD,
                 NORMAL_VOTING_PERIOD,

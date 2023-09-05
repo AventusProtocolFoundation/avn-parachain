@@ -136,7 +136,8 @@ fn check_event_and_submit_result(
         );
         assert!(result.is_ok(), "Check of valid event with valid data failed");
 
-        let tx = pool_state.write().transactions.pop();
+        // let tx = pool_state.write().transactions.pop();
+        let tx = Some(BoundedVec::truncate_from(pool_state.write().transactions.pop().unwrap()));
         match tx {
             None => assert!(expected_result == CheckResult::Unknown),
             Some(tx) => {

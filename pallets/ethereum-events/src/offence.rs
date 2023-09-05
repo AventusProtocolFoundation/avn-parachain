@@ -12,6 +12,7 @@ use pallet_session::{historical::IdentificationTuple, Config as SessionConfig};
 use sp_runtime::{scale_info::TypeInfo, traits::Convert};
 use sp_staking::offence::ReportOffence;
 use sp_std::prelude::*;
+use sp_runtime::BoundedVec;
 
 #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
 pub enum EthereumLogOffenceType {
@@ -75,13 +76,13 @@ pub fn create_and_report_invalid_log_offence<T: crate::Config>(
     offenders_accounts: &Vec<T::AccountId>,
     offence_type: EthereumLogOffenceType,
 ) {
-    let offenders = create_offenders_identification::<T>(offenders_accounts);
+    let offenders = BoundedVec::truncate_from(create_offenders_identification::<T>(offenders_accounts));
 
     if offenders.len() > 0 {
         let invalid_event_offence = InvalidEthereumLogOffence {
             session_index: <pallet_session::Pallet<T>>::current_index(),
             validator_set_count: <pallet_session::Pallet<T>>::validators().len() as u32,
-            offenders: offenders.clone(),
+            offenders: offenders.to_vec().clone(),
             offence_type: offence_type.clone(),
         };
 

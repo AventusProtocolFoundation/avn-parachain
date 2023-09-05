@@ -15,6 +15,7 @@ use sp_avn_common::{
     event_types::{AddedValidatorData, CheckResult, EthEventCheckResult, EventData},
 };
 use sp_core::hash::H256;
+use sp_runtime::BoundedVec;
 use sp_runtime::{
     testing::{TestSignature, UintAuthorityId},
     transaction_validity::TransactionValidityError,
@@ -105,7 +106,7 @@ fn submit_checkevent_result_should_return_expected_result_when_input_is_valid() 
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         let mock_data = MockData::setup();
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -146,7 +147,7 @@ fn submit_checkevent_result_should_return_error_when_request_is_signed() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         let mock_data = MockData::setup();
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -186,7 +187,7 @@ fn submit_checkevent_result_should_return_error_when_validator_key_is_invalid() 
             mock_data.block_number - 1,
             mock_data.min_challenge_votes,
         );
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -229,7 +230,7 @@ fn submit_checkevent_result_should_return_error_when_event_log_never_been_added(
             mock_data.block_number - 1,
             mock_data.min_challenge_votes,
         );
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -260,7 +261,7 @@ fn submit_checkevent_result_should_return_error_when_challenge_window_overflow()
     ext.execute_with(|| {
         let mock_data = MockData::setup();
         System::set_block_number(u64::max_value());
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -292,7 +293,7 @@ fn process_event_should_return_expected_result_when_challenge_fails() {
         let mock_data = MockData::setup();
 
         // Add a new event, whose checked result is OK, into the EventsPendingChallenge collection
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             mock_data.eth_event_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -344,10 +345,10 @@ fn process_event_should_return_expected_result_when_challenge_is_successful() {
 
         let _ = <Challenges<TestRuntime>>::insert(
             mock_data.event_id.clone(),
-            vec![
+            BoundedVec::truncate_from(vec![
                 EthereumEvents::validators()[1].account_id.clone(),
                 EthereumEvents::validators()[2].account_id.clone(),
-            ],
+            ]),
         );
 
         let invalid_check_result = EthEventCheckResult::new(
@@ -362,7 +363,7 @@ fn process_event_should_return_expected_result_when_challenge_is_successful() {
 
         // Add a new event, whose checked result is Invalid, into the EventsPendingChallenge
         // collection
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             invalid_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -412,7 +413,7 @@ fn process_event_should_return_error_when_request_is_signed() {
     ext.execute_with(|| {
         let mock_data = MockData::setup();
 
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             mock_data.eth_event_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -439,7 +440,7 @@ fn process_event_should_return_error_when_validator_key_is_invalid() {
         let mock_data = MockData::setup();
         let invalid_validator = Validator::new(account_id_0(), UintAuthorityId(0));
 
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             mock_data.eth_event_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -488,7 +489,7 @@ fn process_event_should_return_error_when_event_is_still_in_challenge_window() {
     ext.execute_with(|| {
         let mock_data = MockData::setup();
 
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             mock_data.eth_event_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -552,7 +553,7 @@ fn validate_unsigned_with_submit_checkevent_result_call_should_return_error_when
             signature: mock_data.signature,
             validator: mock_data.validator,
         };
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -590,7 +591,7 @@ fn validate_unsigned_with_submit_checkevent_result_call_should_return_error_when
             signature: mock_data.signature,
             validator: mock_data.validator,
         };
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -616,7 +617,7 @@ fn validate_unsigned_with_submit_checkevent_result_call_should_return_error_when
             signature: TestSignature(0, vec![]), // Invalid signature
             validator: mock_data.validator,
         };
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,

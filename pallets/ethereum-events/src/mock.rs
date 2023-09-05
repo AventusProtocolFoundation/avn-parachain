@@ -30,6 +30,8 @@ use sp_staking::{
 use avn::FinalisedBlockChecker;
 use sp_avn_common::event_types::EthEvent;
 use sp_io::TestExternalities;
+use sp_runtime::bounded_vec;
+use sp_runtime::BoundedVec;
 
 use crate::{self as pallet_ethereum_events, *};
 
@@ -320,7 +322,7 @@ impl EthereumEvents {
     }
 
     pub fn insert_to_unchecked_events(to_insert: &EthEventId, ingress_counter: IngressCounter) {
-        <UncheckedEvents<TestRuntime>>::append((to_insert.clone(), ingress_counter, 0));
+        <UncheckedEvents<TestRuntime>>::try_append((to_insert.clone(), ingress_counter, 0));
         Self::set_ingress_counter(ingress_counter);
     }
 
@@ -386,7 +388,10 @@ impl EthereumEvents {
             checked_at_block,
             min_challenge_votes,
         );
-        <EventsPendingChallenge<TestRuntime>>::append((to_insert, ingress_counter, 0));
+        match <EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0)) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(Error::<TestRuntime>::EventLimitReached),
+        };
     }
 
     pub fn get_event_id(seed: u8) -> EthEventId {
@@ -624,7 +629,9 @@ pub const INITIAL_LIFTS: [[u8; 32]; 4] = [[10u8; 32], [11u8; 32], [12u8; 32], [1
 
 pub const INITIAL_PROCESSED_EVENTS: [[u8; 32]; 3] = [[15u8; 32], [16u8; 32], [17u8; 32]];
 
-pub fn create_initial_processed_events() -> Vec<(EthEventId, bool)> {
+pub type max_initial_processed_events = ConstU32<10>;
+
+pub fn create_initial_processed_events() -> BoundedVec<(EthEventId, bool), max_initial_processed_events> {
     let initial_processed_events = INITIAL_PROCESSED_EVENTS
         .iter()
         .map(|x| {
@@ -638,7 +645,8 @@ pub fn create_initial_processed_events() -> Vec<(EthEventId, bool)> {
         })
         .collect::<Vec<(EthEventId, bool)>>();
     assert_eq!(INITIAL_PROCESSED_EVENTS.len(), initial_processed_events.len());
-    return initial_processed_events
+    let bounded = <BoundedVec::<(EthEventId, bool), max_initial_processed_events>>::truncate_from(initial_processed_events.clone());
+    return bounded
 }
 
 pub struct ExtBuilder {
@@ -676,9 +684,9 @@ impl ExtBuilder {
         let _ = pallet_ethereum_events::GenesisConfig::<TestRuntime> {
             validator_manager_contract_address: H160::from(VALIDATORS_MANAGER_CONTRACT),
             lifting_contract_address: H160::from(LIFTING_CONTRACT),
-            nft_t1_contracts: vec![(H160::from(NFT_CONTRACT), ())],
-            processed_events: vec![],
-            lift_tx_hashes: vec![],
+            nft_t1_contracts: bounded_vec![(H160::from(NFT_CONTRACT), ())],
+            processed_events: bounded_vec![],
+            lift_tx_hashes: bounded_vec![],
             quorum_factor: QUORUM_FACTOR,
             event_challenge_period: EVENT_CHALLENGE_PERIOD,
         }
@@ -690,9 +698,9 @@ impl ExtBuilder {
         let _ = pallet_ethereum_events::GenesisConfig::<TestRuntime> {
             validator_manager_contract_address: H160::from(VALIDATORS_MANAGER_CONTRACT),
             lifting_contract_address: H160::from(LIFTING_CONTRACT),
-            nft_t1_contracts: vec![(H160::from(NFT_CONTRACT), ())],
+            nft_t1_contracts: bounded_vec![(H160::from(NFT_CONTRACT), ())],
             processed_events: create_initial_processed_events(),
-            lift_tx_hashes: vec![
+            lift_tx_hashes: bounded_vec![
                 H256::from(INITIAL_LIFTS[0]),
                 H256::from(INITIAL_LIFTS[1]),
                 H256::from(INITIAL_LIFTS[2]),

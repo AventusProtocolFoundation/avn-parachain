@@ -11,6 +11,7 @@ use sp_core::hash::H256;
 use sp_runtime::testing::{TestSignature, UintAuthorityId};
 
 use sp_avn_common::event_types::{CheckResult, EthEventCheckResult, EventData};
+use sp_runtime::BoundedVec;
 
 use offence::EthereumLogOffenceType;
 
@@ -217,7 +218,7 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
-                                offenders: vec![(context.checked_by, context.checked_by)],
+                                offenders: BoundedVec::truncate_from(vec![(context.checked_by, context.checked_by)]),
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -348,7 +349,7 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
-                                offenders: vec![(context.checked_by, context.checked_by)],
+                                offenders: BoundedVec::truncate_from(vec![(context.checked_by, context.checked_by)]),
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -460,10 +461,10 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                                offenders: vec![
+                                offenders: BoundedVec::truncate_from(vec![
                                     (context.first_validator_id, context.first_validator_id),
                                     (context.second_validator_id, context.second_validator_id),
-                                ],
+                                ]),
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -595,10 +596,10 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                                offenders: vec![
+                                offenders: BoundedVec::truncate_from(vec![
                                     (context.first_validator_id, context.first_validator_id),
                                     (context.second_validator_id, context.second_validator_id),
-                                ],
+                                ]),
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -764,7 +765,7 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
-                                offenders: vec![(context.checked_by, context.checked_by)],
+                                offenders: BoundedVec::truncate_from(vec![(context.checked_by, context.checked_by)]),
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -895,7 +896,7 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
-                                offenders: vec![(context.checked_by, context.checked_by)],
+                                offenders: BoundedVec::truncate_from(vec![(context.checked_by, context.checked_by)]),
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -1020,10 +1021,10 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                                offenders: vec![
+                                offenders: BoundedVec::truncate_from(vec![
                                     (context.first_validator_id, context.first_validator_id),
                                     (context.second_validator_id, context.second_validator_id),
-                                ],
+                                ]),
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -1147,10 +1148,10 @@ mod process_event {
                             Event::EthereumEvents(crate::Event::<TestRuntime>::OffenceReported {
                                 offence_type:
                                     EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                                offenders: vec![
+                                offenders: BoundedVec::truncate_from(vec![
                                     (context.first_validator_id, context.first_validator_id),
                                     (context.second_validator_id, context.second_validator_id),
-                                ],
+                                ]),
                             });
                         assert_eq!(true, an_event_was_emitted(&event));
                     });
@@ -1209,7 +1210,7 @@ mod process_event {
     }
 
     fn setup_preconditions(context: &Context) {
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             context.check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
@@ -1238,7 +1239,7 @@ mod process_event {
         // Adds some challenges to this event
         let _ = <Challenges<TestRuntime>>::insert(
             context.event_id.clone(),
-            vec![context.first_validator_id.clone(), context.second_validator_id.clone()],
+            BoundedVec::truncate_from(vec![context.first_validator_id.clone(), context.second_validator_id.clone()]),
         );
     }
 

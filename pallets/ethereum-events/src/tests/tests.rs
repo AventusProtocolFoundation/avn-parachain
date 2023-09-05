@@ -11,6 +11,7 @@ use frame_support::{assert_ok, unsigned::ValidateUnsigned};
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
 use sp_core::hash::H256;
 use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::BoundedVec;
 
 mod test_get_contract_address_for {
     use super::*;
@@ -262,15 +263,15 @@ fn test_event_exists_in_system_entry_in_processed_queue() {
 
 #[test]
 fn test_multiple_events_in_system() {
-    let mut unchecked_events: Vec<EthEventId> = Vec::new();
-    let mut pending_challenge_events: Vec<EthEventId> = Vec::new();
+    let mut unchecked_events: BoundedVec<EthEventId, MaxEvents> = Default::default();
+    let mut pending_challenge_events: BoundedVec<EthEventId, MaxEvents> = Default::default();
 
     for i in 0..10 {
-        unchecked_events.push(EthEventId {
+        unchecked_events.try_push(EthEventId {
             signature: ValidEvents::Lifted.signature(),
             transaction_hash: H256::from([i; 32]),
         });
-        pending_challenge_events.push(EthEventId {
+        pending_challenge_events.try_push(EthEventId {
             signature: ValidEvents::Lifted.signature(),
             transaction_hash: H256::from([i + 10; 32]),
         });
@@ -363,7 +364,7 @@ fn test_compute_result_ok() {
         let event_topics = "0x00000000000000000000000023aaf097c241897060c0a6b8aae61af5ea48cea3\",
                           \"0x689d5b000758030ea25304346869b002a345e7647ec5784b8af986e24e971303\",
                           \"0x689d5b000758030ea25304346869b002a345e7647ec5784b8af986e24e971303";
-        let json = test_json(
+        let json = BoundedVec::truncate_from(test_json(
             &unchecked_event.transaction_hash,
             &unchecked_event.signature,
             &EthereumEvents::validator_manager_contract_address(),
@@ -371,7 +372,7 @@ fn test_compute_result_ok() {
             event_topics,
             GOOD_STATUS,
             GOOD_BLOCK_CONFIRMATIONS,
-        );
+        ));
         let result = EthereumEvents::compute_result(
             block_number,
             Ok(json),
@@ -414,7 +415,7 @@ fn test_compute_result_invalid_event_signature() {
                           \"0x689d5b000758030ea25304346869b002a345e7647ec5784b8af986e24e971303\",
                           \"0x689d5b000758030ea25304346869b002a345e7647ec5784b8af986e24e971303";
         let invalid_event_signature = H256::from([1; 32]);
-        let json = test_json(
+        let json = BoundedVec::truncate_from(test_json(
             &unchecked_event.transaction_hash,
             &invalid_event_signature,
             &EthereumEvents::validator_manager_contract_address(),
@@ -422,7 +423,7 @@ fn test_compute_result_invalid_event_signature() {
             event_topics,
             GOOD_STATUS,
             GOOD_BLOCK_CONFIRMATIONS,
-        );
+        ));
 
         let result = EthereumEvents::compute_result(
             block_number,
@@ -455,7 +456,7 @@ fn test_compute_result_invalid_contract_address() {
                           \"0x689d5b000758030ea25304346869b002a345e7647ec5784b8af986e24e971303";
 
         let invalid_contract_address = H160::from([1; 20]);
-        let json = test_json(
+        let json = BoundedVec::truncate_from(test_json(
             &unchecked_event.transaction_hash,
             &unchecked_event.signature,
             &invalid_contract_address,
@@ -463,7 +464,7 @@ fn test_compute_result_invalid_contract_address() {
             event_topics,
             GOOD_STATUS,
             GOOD_BLOCK_CONFIRMATIONS,
-        );
+        ));
         let result = EthereumEvents::compute_result(
             block_number,
             Ok(json),
@@ -493,7 +494,7 @@ fn test_compute_result_invalid_log_data() {
         let event_topics = "0x00000000000000000000000023aaf097c241897060c0a6b8aae61af5ea48cea3\",
                           \"0x689d5b000758030ea25304346869b002a345e7647ec5784b8af986e24e971303";
 
-        let json = test_json(
+        let json = BoundedVec::truncate_from(test_json(
             &unchecked_event.transaction_hash,
             &unchecked_event.signature,
             &EthereumEvents::validator_manager_contract_address(),
@@ -501,7 +502,7 @@ fn test_compute_result_invalid_log_data() {
             event_topics,
             GOOD_STATUS,
             GOOD_BLOCK_CONFIRMATIONS,
-        );
+        ));
         let result = EthereumEvents::compute_result(
             block_number,
             Ok(json),
@@ -530,7 +531,7 @@ fn test_compute_result_invalid_event_topics() {
         let log_data = "0x0000000000000000000000000000000000000000000000000000000005f5e100";
         let invalid_event_topics = "0xblah";
 
-        let json = test_json(
+        let json = BoundedVec::truncate_from(test_json(
             &unchecked_event.transaction_hash,
             &unchecked_event.signature,
             &EthereumEvents::validator_manager_contract_address(),
@@ -538,7 +539,7 @@ fn test_compute_result_invalid_event_topics() {
             invalid_event_topics,
             GOOD_STATUS,
             GOOD_BLOCK_CONFIRMATIONS,
-        );
+        ));
         let result = EthereumEvents::compute_result(
             block_number,
             Ok(json),
@@ -564,7 +565,7 @@ fn test_compute_result_empty_json() {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: tx_validator_hash,
         };
-        let json = String::from("{}").into_bytes();
+        let json = BoundedVec::truncate_from(String::from("{}").into_bytes());
         let result = EthereumEvents::compute_result(
             block_number,
             Ok(json),
@@ -590,7 +591,7 @@ fn test_compute_result_invalid_json() {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: tx_validator_hash,
         };
-        let json = String::from("bad").into_bytes();
+        let json = BoundedVec::truncate_from(String::from("bad").into_bytes());
         let result = EthereumEvents::compute_result(
             block_number,
             Ok(json),
@@ -883,8 +884,9 @@ mod signature_in {
 
                 assert_ok!(result);
 
+                let tx2 = <BoundedVec::<u8, MaxEvents>>::truncate_from(pool_state.write().transactions.pop().unwrap());
                 let tx = pool_state.write().transactions.pop().unwrap();
-                let tx = Extrinsic::decode(&mut &*tx).unwrap();
+                let tx = Extrinsic::decode(&mut &*tx2).unwrap();
 
                 match tx.call {
                     Call::EthereumEvents(inner_tx) => {
@@ -928,8 +930,9 @@ mod signature_in {
 
                 assert_ok!(result);
 
+                let tx2 = <BoundedVec::<u8, MaxEvents>>::truncate_from(pool_state.write().transactions.pop().unwrap());
                 let tx = pool_state.write().transactions.pop().unwrap();
-                let tx = Extrinsic::decode(&mut &*tx).unwrap();
+                let tx = Extrinsic::decode(&mut &*tx2).unwrap();
 
                 match tx.call {
                     Call::EthereumEvents(crate::Call::challenge_event {
