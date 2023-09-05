@@ -5,7 +5,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::{pallet::*, *};
+use super::*;
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use hex_literal::hex;
 use sp_core::{sr25519, H256};
