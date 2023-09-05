@@ -12,6 +12,7 @@ use frame_system::{EventRecord, RawOrigin};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
 use sp_core::sr25519;
+use sp_runtime::WeakBoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;
 
@@ -88,7 +89,10 @@ fn setup_validators<T: Config>(
     }
 
     // Setup validators in avn pallet
-    avn::Validators::<T>::put(validators.clone());
+    avn::Validators::<T>::put(WeakBoundedVec::force_from(
+        validators.clone(),
+        Some("Too many validators for session"),
+    ));
 
     return validators
 }
