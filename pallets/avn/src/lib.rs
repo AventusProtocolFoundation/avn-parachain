@@ -131,7 +131,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_eth_tx_timeout_duration)]
-    pub type TimoutDuration<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub type TimeoutDuration<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -149,7 +149,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            TimoutDuration::<T>::put(self.timeout_duration);
+            TimeoutDuration::<T>::put(self.timeout_duration);
         }
     }
 
@@ -165,7 +165,7 @@ pub mod pallet {
             ensure_root(origin)?;
 
             // Update the timeout_duration storage item
-            TimoutDuration::<T>::put(timeout_duration);
+            TimeoutDuration::<T>::put(timeout_duration);
 
             Ok(().into())
         }
@@ -210,8 +210,7 @@ impl<T: Config> Pallet<T> {
         let now = T::TimeProvider::now();
         let now_as_secs = now.as_secs();
 
-        let timeout_duration_hours = Self::get_eth_tx_timeout_duration();
-        let timeout_duration_seconds = timeout_duration_hours * 3600;
+        let timeout_duration_seconds = Self::get_eth_tx_timeout_duration();
 
         let expiry_timestamp = now_as_secs + timeout_duration_seconds;
 
