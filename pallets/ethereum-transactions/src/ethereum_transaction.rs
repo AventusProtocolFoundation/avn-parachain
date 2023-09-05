@@ -433,10 +433,6 @@ impl EthSignatures {
         return self.signatures_list.len() as u32
     }
 
-    pub fn append(&mut self, mut other: Vec<ecdsa::Signature>) {
-        if let Err(_) = self.signatures_list.try_append(&mut other) {}
-    }
-
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut data = Vec::<u8>::new();
         for sig in self.signatures_list.iter() {
@@ -454,6 +450,13 @@ impl EthSignatures {
             return Err(OtherError::DuplicateSignature)
         }
         if let Err(_) = self.signatures_list.try_push(signature) {
+            return Err(OtherError::ExceededSignatureLimit)
+        }
+        Ok(())
+    }
+
+    pub fn append(&mut self, mut confirmations: Vec<ecdsa::Signature>) -> Result<(), OtherError> {
+        if let Err(_) = self.signatures_list.try_append(&mut confirmations) {
             return Err(OtherError::ExceededSignatureLimit)
         }
         Ok(())

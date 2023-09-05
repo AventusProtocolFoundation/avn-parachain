@@ -225,7 +225,10 @@ impl DefaultTransactionBuilder {
             self.tx_type.clone(),
             Self::default_quorum(),
         );
-        tx_candidate.signatures.append(self.confirmations.clone());
+        tx_candidate
+            .signatures
+            .append(self.confirmations.clone())
+            .expect("Exceeded signature limit");
 
         return tx_candidate
     }
