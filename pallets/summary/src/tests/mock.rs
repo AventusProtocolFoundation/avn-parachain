@@ -20,7 +20,7 @@ use sp_core::{
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    H256,
+    ConstU64, H256,
 };
 use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
@@ -256,6 +256,7 @@ frame_support::construct_runtime!(
         AVN: pallet_avn::{Pallet, Storage},
         Summary: summary::{Pallet, Call, Storage, Event<T>, Config<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
 
@@ -339,12 +340,21 @@ impl system::Config for TestRuntime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<6000>;
+    type WeightInfo = ();
+}
+
 impl avn::Config for TestRuntime {
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = Self;
+    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
+    type WeightInfo = ();
 }
 
 parameter_types! {

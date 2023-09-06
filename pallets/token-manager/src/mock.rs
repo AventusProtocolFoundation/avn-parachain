@@ -29,7 +29,7 @@ use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{sr25519, Pair, H256};
+use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
@@ -96,12 +96,21 @@ impl token_manager::Config for TestRuntime {
     type WeightInfo = ();
 }
 
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<6000>;
+    type WeightInfo = ();
+}
+
 impl avn::Config for TestRuntime {
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
+    type WeightInfo = ();
 }
 
 impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {

@@ -24,7 +24,6 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use avn::AccountToBytesConverter;
 use core::convert::TryInto;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, weights::Weight};
 use frame_system::{
@@ -880,30 +879,22 @@ pub mod pallet {
         pub fn convert_data_to_eth_compatible_encoding(
             root_data: &RootData<T::AccountId>,
         ) -> Result<String, DispatchError> {
-            let eth_description =
-                EthAbiHelper::generate_ethereum_description_for_signature_request(
-                    &T::AccountToBytesConvert::into_bytes(
-                        root_data
-                            .added_by
-                            .as_ref()
-                            .ok_or(Error::<T>::CurrentSlotValidatorNotFound)?,
-                    ),
-                    &EthTransactionType::PublishRoot(PublishRootData::new(
-                        *root_data.root_hash.as_fixed_bytes(),
-                    )),
-                    match root_data.tx_id {
-                        None => EMPTY_ROOT_TRANSACTION_ID,
-                        _ => *root_data
-                            .tx_id
-                            .as_ref()
-                            .expect("Non-Empty roots have a reserved TransactionId"),
-                    },
-                )
-                .map_err(|_| Error::<T>::InvalidRoot)?;
+            let root_hash = PublishRootData::new(*root_data.root_hash.as_fixed_bytes());
+            let root_data_tx_id = match root_data.tx_id {
+                None => EMPTY_ROOT_TRANSACTION_ID,
+                _ => *root_data
+                    .tx_id
+                    .as_ref()
+                    .expect("Non-Empty roots have a reserved TransactionId"),
+            };
+            let expiry = AVN::<T>::calculate_eth_tx_expiry();
+            let hex_encoded_data = hex::encode(EthAbiHelper::encode_arguments(
+                &root_hash.root_hash,
+                expiry,
+                root_data_tx_id,
+            ));
 
-            Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(
-                &eth_description,
-            )))
+            Ok(hex_encoded_data)
         }
 
         pub fn sign_root_for_ethereum(

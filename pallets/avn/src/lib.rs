@@ -18,7 +18,12 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 
-use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
+use frame_support::{
+    dispatch::DispatchResult,
+    log::*,
+    traits::{OneSessionHandler, UnixTime},
+};
+use frame_system::{ensure_root, pallet_prelude::OriginFor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
@@ -37,11 +42,14 @@ use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use core::convert::TryInto;
 pub use pallet::*;
-use sp_core::ecdsa;
+use sp_core::{ecdsa, U256};
 
 #[path = "tests/testing.rs"]
 pub mod testing;
 pub mod vote;
+
+pub mod default_weights;
+pub use default_weights::WeightInfo;
 
 // Definition of the crypto to use for signing
 pub mod sr25519 {
@@ -56,7 +64,7 @@ pub mod sr25519 {
 
 #[frame_support::pallet]
 pub mod pallet {
-    use frame_support::pallet_prelude::*;
+    use frame_support::{pallet_prelude::*, traits::UnixTime};
     use sp_avn_common::bounds::MaximumValidatorsBound;
 
     use super::*;
@@ -77,6 +85,10 @@ pub mod pallet {
         type DisabledValidatorChecker: DisabledValidatorChecker<Self::AccountId>;
         /// trait that allows the runtime to check if a block is finalised
         type FinalisedBlockChecker: FinalisedBlockChecker<Self::BlockNumber>;
+        /// trait that allows the system to keep track of the time
+        type TimeProvider: UnixTime;
+
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -115,6 +127,48 @@ pub mod pallet {
         WeakBoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound>,
         ValueQuery,
     >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_eth_tx_timeout_duration)]
+    pub type TimeoutDuration<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub _phantom: sp_std::marker::PhantomData<T>,
+        pub timeout_duration: u64,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self { _phantom: Default::default(), timeout_duration: 0 }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            TimeoutDuration::<T>::put(self.timeout_duration);
+        }
+    }
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_eth_tx_timeout_duration())]
+        pub fn set_eth_tx_timeout_duration(
+            origin: OriginFor<T>,
+            timeout_duration: u64,
+        ) -> DispatchResultWithPostInfo {
+            // Ensure that the origin is the sudo key
+            ensure_root(origin)?;
+
+            // Update the timeout_duration storage item
+            TimeoutDuration::<T>::put(timeout_duration);
+
+            Ok(().into())
+        }
+    }
 }
 
 impl<T: Config> Pallet<T> {
@@ -149,6 +203,17 @@ impl<T: Config> Pallet<T> {
         OcwLock::cleanup_expired_entries(&block_number);
 
         Ok(maybe_validator.expect("Already checked"))
+    }
+
+    pub fn calculate_eth_tx_expiry() -> U256 {
+        let now = T::TimeProvider::now();
+        let now_as_secs = now.as_secs();
+
+        let timeout_duration_seconds = Self::get_eth_tx_timeout_duration();
+
+        let expiry_timestamp = now_as_secs + timeout_duration_seconds;
+
+        return U256::from(expiry_timestamp)
     }
 
     // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name

@@ -10,7 +10,7 @@ use sp_core::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt as OffchainExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    H256,
+    ConstU64, H256,
 };
 use sp_io::TestExternalities;
 use sp_runtime::{
@@ -121,12 +121,21 @@ parameter_types! {
     pub const Offset: u64 = 0;
 }
 
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<6000>;
+    type WeightInfo = ();
+}
+
 impl avn::Config for TestRuntime {
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = Self;
+    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
+    type WeightInfo = ();
 }
 
 thread_local! {

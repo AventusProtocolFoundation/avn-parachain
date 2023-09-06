@@ -19,7 +19,7 @@
 use frame_support::parameter_types;
 use frame_system as system;
 use sp_avn_common::event_types::EthEventId;
-use sp_core::{sr25519, ConstU32, Pair, H256};
+use sp_core::{sr25519, ConstU32, ConstU64, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::Header,
@@ -94,12 +94,21 @@ impl system::Config for TestRuntime {
     type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<6000>;
+    type WeightInfo = ();
+}
+
 impl avn::Config for TestRuntime {
     type AuthorityId = avn::sr25519::AuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
+    type WeightInfo = ();
 }
 
 pub struct ExtBuilder {

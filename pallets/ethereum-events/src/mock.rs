@@ -2,10 +2,8 @@
 
 #![cfg(test)]
 
-use frame_support::{
-    assert_ok, parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities,
-};
-use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
+use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities};
+use sp_core::{crypto::KeyTypeId, sr25519, ConstU64, Pair, H256};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
@@ -186,12 +184,21 @@ thread_local! {
     pub static PROCESS_EVENT_SUCCESS: RefCell<bool> = RefCell::new(true);
 }
 
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ConstU64<6000>;
+    type WeightInfo = ();
+}
+
 impl avn::Config for TestRuntime {
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = Self;
+    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
+    type WeightInfo = ();
 }
 
 pub struct TestSessionManager;

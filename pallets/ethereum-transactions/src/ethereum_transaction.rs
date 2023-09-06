@@ -337,21 +337,6 @@ impl EthAbiHelper {
         Ok(mut_call)
     }
 
-    pub fn generate_ethereum_description_for_signature_request(
-        from: &[u8; 32],
-        call: &EthTransactionType,
-        transaction_id: TransactionId,
-    ) -> Result<EthTransactionDescription, ethabi::Error> {
-        let mut mut_call = EthAbiHelper::generate_ethereum_description(call, transaction_id)?;
-        mut_call.function_call.inputs.append(&mut vec![Param {
-            name: String::from("_t2PublicKey"),
-            kind: ParamType::FixedBytes(32),
-        }]);
-        mut_call.call_values.push(Token::FixedBytes(from.to_vec()));
-
-        Ok(mut_call)
-    }
-
     pub fn generate_full_ethereum_description(
         call: &EthTransactionType,
         transaction_id: TransactionId,
@@ -367,10 +352,20 @@ impl EthAbiHelper {
         Ok(mut_call)
     }
 
-    pub fn generate_eth_abi_encoding_for_params_only(call: &EthTransactionDescription) -> Vec<u8> {
-        ethabi::encode(&call.call_values)
+    pub fn encode_arguments(
+        hash_data: &[u8; 32],
+        expiry: U256,
+        transaction_id: TransactionId,
+    ) -> Vec<u8> {
+        let call_values: Vec<Token> = vec![
+            Token::FixedBytes(hash_data.to_vec()),
+            Token::Uint(EthAbiHelper::u256_to_big_endian(&expiry).into()),
+            Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into()),
+        ];
+        return ethabi::encode(&call_values)
     }
 
+    // this is only for validators manager and will be deleted when we focus on that pallet
     pub fn generate_ethereum_abi_data_for_signature_request(
         hash_data: &[u8; 32],
         transaction_id: TransactionId,
