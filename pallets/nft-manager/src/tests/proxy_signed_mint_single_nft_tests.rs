@@ -133,8 +133,8 @@ impl Context {
         })
     }
 
-    pub fn bounded_external_ref(&self) -> WeakBoundedVec<u8, NftExternalRefBound> {
-        WeakBoundedVec::try_from(self.unique_external_ref.clone())
+    pub fn bounded_external_ref(&self) -> BoundedVec<u8, NftExternalRefBound> {
+        BoundedVec::try_from(self.unique_external_ref.clone())
             .expect("Unique external reference bound was exceeded.")
     }
 
