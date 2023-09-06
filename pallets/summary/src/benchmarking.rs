@@ -348,7 +348,7 @@ benchmarks! {
         assert_eq!(true, vote.ayes.contains(&sender.account_id));
         assert_eq!(true, vote.confirmations.contains(&approval_signature));
 
-        // assert_eq!(false, NextBlockToProcess::<T>::get() == root_id.range.to_block + 1u32.into());
+        assert_eq!(false, NextBlockToProcess::<T>::get() == root_id.range.to_block + 1u32.into());
         assert_eq!(false, Roots::<T>::get(root_id.range, root_id.ingress_counter).is_validated);
         assert_eq!(false, SlotOfLastPublishedSummary::<T>::get() == CurrentSlot::<T>::get());
         assert_eq!(true, PendingApproval::<T>::contains_key(&root_id.range));
