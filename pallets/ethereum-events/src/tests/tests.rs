@@ -270,11 +270,11 @@ fn test_multiple_events_in_system() {
         unchecked_events.try_push(EthEventId {
             signature: ValidEvents::Lifted.signature(),
             transaction_hash: H256::from([i; 32]),
-        });
+        }).map_err(|_| Error::<TestRuntime>::VectorBoundsExceeded);
         pending_challenge_events.try_push(EthEventId {
             signature: ValidEvents::Lifted.signature(),
             transaction_hash: H256::from([i + 10; 32]),
-        });
+        }).map_err(|_| Error::<TestRuntime>::VectorBoundsExceeded);
     }
 
     let mut ext = ExtBuilder::build_default().as_externality();

@@ -280,6 +280,7 @@ pub mod pallet {
         MissingEventToCheck,
         UnrecognizedEventSignature,
         EventParsingFailed,
+        VectorBoundsExceeded,
         ErrorSigning,
         ErrorSubmittingTransaction,
         InvalidKey,
