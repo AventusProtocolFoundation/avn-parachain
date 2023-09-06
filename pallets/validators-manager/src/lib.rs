@@ -268,6 +268,15 @@ pub mod pallet {
                 Error::<T>::ValidatorEthKeyAlreadyExists
             );
 
+            // This early check ensures a consistent pallet interface, regardless of the staking
+            // pallet's configuration. The staking pallet uses a different bound for
+            // collator candidates, which could result in its own error code.
+            ensure!(
+                ValidatorAccountIds::<T>::get().unwrap_or_default().len() <
+                    (<MaximumValidatorsBound as sp_core::TypedGet>::get() as usize),
+                Error::<T>::MaximumValidatorsReached
+            );
+
             let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
             let bond = deposit
                 .or_else(|| Some(parachain_staking::Pallet::<T>::min_collator_stake()))
@@ -679,7 +688,7 @@ impl<T: Config> Pallet<T> {
                 validators_action_data.reserved_eth_transaction,
                 validators_action_data.eth_transaction_id,
                 validators_action_data.primary_validator,
-                voting_session.state()?.confirmations.to_vec(),
+                voting_session.state()?.confirmations,
             );
 
             if let Err(result) = result {

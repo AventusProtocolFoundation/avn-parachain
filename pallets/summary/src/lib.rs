@@ -1188,7 +1188,7 @@ pub mod pallet {
                             )),
                             *root_data.tx_id.as_ref().expect("Non empty roots have valid hash"),
                             root_data.added_by.ok_or(Error::<T>::CurrentSlotValidatorNotFound)?,
-                            voting_session.state()?.confirmations.to_vec(),
+                            voting_session.state()?.confirmations,
                         );
 
                     if let Err(result) = result {

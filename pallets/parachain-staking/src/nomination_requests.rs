@@ -533,7 +533,7 @@ mod tests {
     use super::*;
     use crate::{
         mock::{Test, TestAccount},
-        set::{BoundedOrderedSet, OrderedSet},
+        set::BoundedOrderedSet,
         Bond,
     };
 

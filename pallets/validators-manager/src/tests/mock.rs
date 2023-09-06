@@ -359,7 +359,7 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         _candidate_type: EthTransactionType,
         _tx_id: TransactionId,
         _submitter: AccountId,
-        _signatures: Vec<ecdsa::Signature>,
+        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
     ) -> DispatchResult {
         Ok(())
     }

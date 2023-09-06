@@ -1,6 +1,7 @@
 use codec::{Decode, Encode, MaxEncodedLen};
-use sp_avn_common::EthTransaction;
-use sp_core::{ecdsa, H160, H256, H512, U256};
+use sp_avn_common::{bounds::MaximumValidatorsBound, EthTransaction};
+use sp_core::{ecdsa, ConstU32, H160, H256, H512, U256};
+use sp_runtime::BoundedVec;
 
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -185,7 +186,10 @@ impl ActivateCollatorData {
 pub type TransactionId = u64;
 pub type EthereumTransactionHash = H256;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
+pub type TransactionIdLimit = ConstU32<1000000>;
+pub type SignaturesLimit = MaximumValidatorsBound;
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct EthTransactionCandidate {
     pub tx_id: TransactionId,
     pub from: Option<[u8; 32]>, // AvN Public Key of a validator
@@ -366,6 +370,7 @@ impl EthAbiHelper {
 pub enum OtherError {
     InvalidEcdsaData,
     DuplicateSignature,
+    ExceededSignatureLimit,
 }
 
 // TODO [TYPE: refactoring][PRI: medium][JIRA: 92]: replace by some Substrate inbuilt ECDSA type
@@ -416,20 +421,16 @@ impl EcdsaSignature {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct EthSignatures {
     // TODO [TYPE: refactoring][PRI: medium]: make this private and fix tests.rs to deal with it
     // Alternatively: consider removing this struct entirely
-    pub signatures_list: Vec<ecdsa::Signature>,
+    pub signatures_list: BoundedVec<ecdsa::Signature, SignaturesLimit>,
 }
 
 impl EthSignatures {
     pub fn count(&self) -> u32 {
         return self.signatures_list.len() as u32
-    }
-
-    pub fn append(&mut self, mut other: Vec<ecdsa::Signature>) {
-        self.signatures_list.append(&mut other);
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -448,12 +449,23 @@ impl EthSignatures {
         if self.signatures_list.contains(&signature) {
             return Err(OtherError::DuplicateSignature)
         }
-        self.signatures_list.push(signature);
+        if let Err(_) = self.signatures_list.try_push(signature) {
+            return Err(OtherError::ExceededSignatureLimit)
+        }
+        Ok(())
+    }
+
+    pub fn append(&mut self, mut confirmations: Vec<ecdsa::Signature>) -> Result<(), OtherError> {
+        if let Err(_) = self.signatures_list.try_append(&mut confirmations) {
+            return Err(OtherError::ExceededSignatureLimit)
+        }
         Ok(())
     }
 
     pub fn new() -> Self {
-        return EthSignatures { signatures_list: Vec::<ecdsa::Signature>::new() }
+        return EthSignatures {
+            signatures_list: BoundedVec::<ecdsa::Signature, SignaturesLimit>::default(),
+        }
     }
 }
 
