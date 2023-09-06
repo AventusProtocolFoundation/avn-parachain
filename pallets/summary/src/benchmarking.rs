@@ -12,6 +12,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
+use sp_runtime::WeakBoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;
 pub const ROOT_HASH_BYTES: [u8; 32] = [
@@ -145,7 +146,10 @@ fn setup_validators<T: Config>(
     validators[sender_index] = Validator::new(account_id, sender.key);
 
     // Setup validators in avn pallet
-    avn::Validators::<T>::put(validators.clone());
+    avn::Validators::<T>::put(WeakBoundedVec::force_from(
+        validators.clone(),
+        Some("Too many validators for session"),
+    ));
 
     return validators
 }

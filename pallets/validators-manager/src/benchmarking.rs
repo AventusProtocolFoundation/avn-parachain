@@ -17,6 +17,7 @@ use pallet_session::Pallet as Session;
 use secp256k1::{PublicKey, SecretKey};
 use sp_avn_common::eth_key_actions::decompress_eth_public_key;
 use sp_core::{ecdsa::Public, H512};
+use sp_runtime::WeakBoundedVec;
 
 // Resigner keys derived from [6u8; 32] private key
 const RESIGNING_COLLATOR_PUBLIC_KEY_BYTES: [u8; 32] =
@@ -84,8 +85,13 @@ fn setup_additional_validators<T: Config>(number_of_additional_validators: u32) 
 
     // Setup validators in avn pallet
     let mut new_avn_validators = avn::Validators::<T>::get();
-    new_avn_validators.append(&mut avn_validators);
-    avn::Validators::<T>::put(new_avn_validators);
+    // new_avn_validators.append(&mut avn_validators.clone());
+    let combined_avn_validators: Vec<_> =
+        new_avn_validators.iter().chain(avn_validators.iter()).cloned().collect();
+    avn::Validators::<T>::put(WeakBoundedVec::force_from(
+        combined_avn_validators,
+        Some("Too many validators for session"),
+    ));
 
     validators.iter().enumerate().for_each(|(i, (account_id, eth_public_key))| {
         force_add_collator::<T>(&account_id, i as u64, &eth_public_key)

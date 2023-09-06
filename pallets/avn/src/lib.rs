@@ -21,6 +21,7 @@ use alloc::string::{String, ToString};
 use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
+    bounds::MaximumValidatorsBound,
     event_types::{EthEventId, Validator},
     offchain_worker_storage_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
@@ -29,7 +30,7 @@ use sp_avn_common::{
 use sp_runtime::{
     offchain::{http, storage::StorageValueRef, Duration},
     traits::Member,
-    DispatchError,
+    DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -56,6 +57,7 @@ pub mod sr25519 {
 #[frame_support::pallet]
 pub mod pallet {
     use frame_support::pallet_prelude::*;
+    use sp_avn_common::bounds::MaximumValidatorsBound;
 
     use super::*;
 
@@ -102,14 +104,18 @@ pub mod pallet {
         ErrorRecoveringPublicKeyFromSignature,
         InvalidECDSASignature,
         VectorBoundsExceeded,
+        MaxValidatorsExceeded,
     }
 
     #[pallet::storage]
     #[pallet::getter(fn validators)]
     /// The current set of validators (address and key) that may issue a transaction from the
     /// offchain worker.
-    pub type Validators<T: Config> =
-        StorageValue<_, Vec<Validator<T::AuthorityId, T::AccountId>>, ValueQuery>;
+    pub type Validators<T: Config> = StorageValue<
+        _,
+        WeakBoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound>,
+        ValueQuery,
+    >;
 }
 
 impl<T: Config> Pallet<T> {
@@ -269,7 +275,8 @@ impl<T: Config> Pallet<T> {
         return Self::validators().into_iter().any(|v| v.account_id == *account_id)
     }
 
-    pub fn active_validators() -> Vec<Validator<T::AuthorityId, T::AccountId>> {
+    pub fn active_validators(
+    ) -> WeakBoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound> {
         return Self::validators()
     }
 
@@ -377,8 +384,10 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
         I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
     {
         trace!("Avn pallet genesis session entrypoint");
-        let avn_validators =
-            validators.map(|x| Validator::new(x.0.clone(), x.1)).collect::<Vec<_>>();
+        let avn_validators = WeakBoundedVec::force_from(
+            validators.map(|x| Validator::new(x.0.clone(), x.1)).collect::<Vec<_>>(),
+            Some("Too many validators for session"),
+        );
         if !avn_validators.is_empty() {
             assert!(Validators::<T>::get().is_empty(), "Validators are already initialized!");
             Validators::<T>::put(&avn_validators);
@@ -405,7 +414,11 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
         });
 
         if changed {
-            Validators::<T>::put(&active_avn_validators);
+            let bounded_active_avn_validators = WeakBoundedVec::force_from(
+                active_avn_validators.clone(),
+                Some("Too many validators for session"),
+            );
+            Validators::<T>::put(&bounded_active_avn_validators);
         }
 
         T::NewSessionHandler::on_new_session(

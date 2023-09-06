@@ -10,6 +10,7 @@ use crate::*;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use pallet_avn::{self as avn};
+use sp_runtime::WeakBoundedVec;
 
 fn setup<T: Config>(
     validators: &Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>>,
@@ -41,7 +42,10 @@ fn setup_validators<T: Config>(
     }
 
     // Setup validators in avn pallet
-    avn::Validators::<T>::put(validators.clone());
+    avn::Validators::<T>::put(WeakBoundedVec::force_from(
+        validators.clone(),
+        Some("Too many validators for session"),
+    ));
 
     return validators
 }
