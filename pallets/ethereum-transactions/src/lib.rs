@@ -22,7 +22,7 @@ use sp_runtime::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    DispatchError, RuntimeDebug, BoundedVec, 
+    BoundedVec, DispatchError, RuntimeDebug,
 };
 use sp_std::prelude::*;
 
