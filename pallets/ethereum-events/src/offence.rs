@@ -12,7 +12,6 @@ use pallet_session::{historical::IdentificationTuple, Config as SessionConfig};
 use sp_runtime::{scale_info::TypeInfo, traits::Convert};
 use sp_staking::offence::ReportOffence;
 use sp_std::prelude::*;
-use sp_runtime::BoundedVec;
 
 #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
 pub enum EthereumLogOffenceType {

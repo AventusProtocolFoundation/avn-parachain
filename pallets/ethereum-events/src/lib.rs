@@ -151,8 +151,6 @@ pub type MaxEvents = ConstU32<MAX_NUMBER_OF_UNCHECKED_EVENTS>;
 pub type MaxChallenges = ConstU32<MAX_CHALLENGES>;
 pub type MaxNumValidatorAccounts = ConstU32<MAX_NUMBER_OF_VALIDATORS_ACCOUNTS>;
 
-pub type MaxOffenders = ConstU32<10>;
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -423,8 +421,6 @@ pub mod pallet {
                 })
                 .collect::<Vec<(EthEventId, IngressCounter, T::BlockNumber)>>();
 
-            // let bounded = <BoundedVec::<(EthEventId, IngressCounter, T::BlockNumber), MaxEvents>>::truncate_from(unchecked_lift_events.clone());
-
             UncheckedEvents::<T>::put(BoundedVec::truncate_from(unchecked_lift_events));
         }
     }
@@ -497,7 +493,7 @@ pub mod pallet {
                 // Insert first and remove
                 <EventsPendingChallenge<T>>::try_mutate(|pending_events| {
                     pending_events.try_push((result.clone(), ingress_counter, current_block))
-                });
+                }).expect("Cannot mutate");
 
                 <UncheckedEvents<T>>::mutate(|events| events.remove(event_index));
 
@@ -674,11 +670,10 @@ pub mod pallet {
                 );
 
                 <Challenges<T>>::mutate(challenge.event_id.clone(), |prev_challenges| {
-                    match prev_challenges.try_push(challenge.challenged_by.clone()) {
-                        Ok(()) => Ok(()),
-                        Err(_) => Err(Error::<T>::ChallengeLimitReached),
-                    }
+                    prev_challenges.try_push(challenge.challenged_by.clone())
+                    .expect("Cannot push");
                 });
+
             } else {
                 <Challenges<T>>::insert(
                     challenge.event_id.clone(),
@@ -1339,7 +1334,7 @@ impl<T: Config> Pallet<T> {
             storage.mutate(|events: Result<Option<BoundedVec<EthEventId, MaxEvents>>, StorageRetrievalError>| {
                 match events {
                     Ok(Some(mut events)) => {
-                        events.try_push(event_id);
+                        events.try_push(event_id).expect("Cannot push");
                         Ok(events)
                     },
                     Ok(None) => Ok(BoundedVec::truncate_from(vec![event_id])),
@@ -1532,7 +1527,7 @@ impl<T: Config> Pallet<T> {
                 .iter()
                 .any(|(event, _counter, _)| &event.event.event_id == event_id)
     }
-    /// Adds an event: tx_hash must be a nonzero hash
+    /// Adds an event: tx_hash must be> a nonzero hash
     fn add_event(event_type: ValidEvents, tx_hash: H256, sender: T::AccountId) -> DispatchResult {
         let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
 
@@ -1543,7 +1538,7 @@ impl<T: Config> Pallet<T> {
             event_id.clone(),
             ingress_counter,
             <frame_system::Pallet<T>>::block_number(),
-        ));
+        )).expect("Cannot append");
 
         if event_type.is_nft_event() {
             Self::deposit_event(Event::<T>::NftEthereumEventAdded {

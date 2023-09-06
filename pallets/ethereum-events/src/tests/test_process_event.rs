@@ -1214,7 +1214,7 @@ mod process_event {
             context.check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        )).expect("Cannot append");
 
         // Set block number to be ready for processing the event
         System::set_block_number(context.check_result.ready_for_processing_after_block + 1);

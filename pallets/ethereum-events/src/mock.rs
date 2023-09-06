@@ -322,7 +322,7 @@ impl EthereumEvents {
     }
 
     pub fn insert_to_unchecked_events(to_insert: &EthEventId, ingress_counter: IngressCounter) {
-        <UncheckedEvents<TestRuntime>>::try_append((to_insert.clone(), ingress_counter, 0));
+        <UncheckedEvents<TestRuntime>>::try_append((to_insert.clone(), ingress_counter, 0)).expect("Cannot append");
         Self::set_ingress_counter(ingress_counter);
     }
 
@@ -388,10 +388,7 @@ impl EthereumEvents {
             checked_at_block,
             min_challenge_votes,
         );
-        match <EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0)) {
-            Ok(_) => Ok(()),
-            Err(_) => Err(Error::<TestRuntime>::EventLimitReached),
-        };
+        <EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0)).expect("Cannot append");
     }
 
     pub fn get_event_id(seed: u8) -> EthEventId {
@@ -630,9 +627,7 @@ pub const INITIAL_LIFTS: [[u8; 32]; 4] = [[10u8; 32], [11u8; 32], [12u8; 32], [1
 
 pub const INITIAL_PROCESSED_EVENTS: [[u8; 32]; 3] = [[15u8; 32], [16u8; 32], [17u8; 32]];
 
-pub type max_initial_processed_events = ConstU32<10>;
-
-pub fn create_initial_processed_events() -> BoundedVec<(EthEventId, bool), max_initial_processed_events> {
+pub fn create_initial_processed_events() -> BoundedVec<(EthEventId, bool), ConstU32<10>> {
     let initial_processed_events = INITIAL_PROCESSED_EVENTS
         .iter()
         .map(|x| {
@@ -646,7 +641,7 @@ pub fn create_initial_processed_events() -> BoundedVec<(EthEventId, bool), max_i
         })
         .collect::<Vec<(EthEventId, bool)>>();
     assert_eq!(INITIAL_PROCESSED_EVENTS.len(), initial_processed_events.len());
-    let bounded = <BoundedVec::<(EthEventId, bool), max_initial_processed_events>>::truncate_from(initial_processed_events.clone());
+    let bounded = <BoundedVec::<(EthEventId, bool), ConstU32<10>>>::truncate_from(initial_processed_events.clone());
     return bounded
 }
 
