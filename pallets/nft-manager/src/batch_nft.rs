@@ -23,7 +23,7 @@ use crate::{
 };
 use frame_support::{dispatch::DispatchError, ensure};
 use sp_avn_common::event_types::NftMintData;
-use sp_core::bounded::{BoundedVec, WeakBoundedVec};
+use sp_core::bounded::BoundedVec;
 
 pub const SIGNED_CREATE_BATCH_CONTEXT: &'static [u8] = b"authorization for create batch operation";
 pub const SIGNED_MINT_BATCH_NFT_CONTEXT: &'static [u8] =
@@ -161,7 +161,7 @@ pub fn process_mint_batch_nft_event<T: Config>(
 
 pub fn validate_mint_batch_nft_request<T: Config>(
     batch_id: NftBatchId,
-    unique_external_ref: &WeakBoundedVec<u8, NftExternalRefBound>,
+    unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
 ) -> Result<NftInfo<T::AccountId>, DispatchError> {
     ensure!(batch_id.is_zero() == false, Error::<T>::BatchIdIsMandatory);
     ensure!(<BatchInfoId<T>>::contains_key(&batch_id), Error::<T>::BatchDoesNotExist);
@@ -182,7 +182,7 @@ pub fn mint_batch_nft<T: Config>(
     batch_id: NftBatchId,
     owner: T::AccountId,
     sale_index: u64,
-    unique_external_ref: WeakBoundedVec<u8, NftExternalRefBound>,
+    unique_external_ref: BoundedVec<u8, NftExternalRefBound>,
 ) -> DispatchResult {
     let nft_info = validate_mint_batch_nft_request::<T>(batch_id, &unique_external_ref)?;
     let nft_id = generate_batch_nft_id::<T>(&batch_id, &sale_index);
