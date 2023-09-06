@@ -813,8 +813,8 @@ pub mod pallet {
             );
 
             match candidates.try_insert(Bond { owner: acc.clone(), amount: bond }) {
-                Err(_) => Err(Error::<T>::CandidateExists)?,
-                Ok(false) => Err(Error::<T>::CandidateLimitReached)?,
+                Err(_) => Err(Error::<T>::CandidateLimitReached)?,
+                Ok(false) => Err(Error::<T>::CandidateExists)?,
                 Ok(true) => {},
             };
             ensure!(
@@ -970,8 +970,8 @@ pub mod pallet {
             match candidates
                 .try_insert(Bond { owner: collator.clone(), amount: state.total_counted })
             {
-                Err(_) => Err(Error::<T>::AlreadyActive)?,
-                Ok(false) => Err(Error::<T>::CandidateLimitReached)?,
+                Err(_) => Err(Error::<T>::CandidateLimitReached)?,
+                Ok(false) => Err(Error::<T>::AlreadyActive)?,
                 Ok(true) => {},
             };
             <CandidatePool<T>>::put(candidates);

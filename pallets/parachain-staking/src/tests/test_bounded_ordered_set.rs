@@ -86,13 +86,4 @@ mod tests {
         assert_eq!(set.contains(&3), true);
         assert_eq!(set.contains(&2), false);
     }
-
-    #[test]
-    fn test_clear() {
-        let set = vec_to_ordered_set::<i32, MaxBound>(vec![3, 1, 4]);
-
-        assert!(!set.0.is_empty()); // Assert before clearing
-        let _set_clone = set.clone(); // Clone the set
-        set.clear();
-    }
 }

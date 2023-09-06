@@ -142,14 +142,6 @@ impl<T: Ord, S: Get<u32>> BoundedOrderedSet<T, S> {
     pub fn contains(&self, value: &T) -> bool {
         self.0.binary_search(value).is_ok()
     }
-
-    /// Clear the set
-    pub fn clear(mut self) {
-        let v = self.0.try_mutate(|inner| inner.clear()).expect(
-            "input is a valid BoundedVec and clearing can only reduce the number of entires; qed",
-        );
-        self.0 = v;
-    }
 }
 
 impl<T: Ord, S: Get<u32>> From<BoundedVec<T, S>> for BoundedOrderedSet<T, S> {
