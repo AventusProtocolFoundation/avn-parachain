@@ -679,7 +679,7 @@ impl<T: Config> Pallet<T> {
                 validators_action_data.reserved_eth_transaction,
                 validators_action_data.eth_transaction_id,
                 validators_action_data.primary_validator,
-                voting_session.state()?.confirmations.to_vec(),
+                voting_session.state()?.confirmations,
             );
 
             if let Err(result) = result {

@@ -9,7 +9,9 @@ use pallet_avn::{
 };
 use pallet_session as session;
 use parking_lot::RwLock;
-use sp_avn_common::{safe_add_block_numbers, safe_sub_block_numbers};
+use sp_avn_common::{
+    bounds::MaximumValidatorsBound, safe_add_block_numbers, safe_sub_block_numbers,
+};
 use sp_core::{
     ecdsa,
     offchain::{
@@ -353,7 +355,7 @@ impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
         candidate_type: EthTransactionType,
         _tx_id: TransactionId,
         _submitter: AccountId,
-        _signatures: Vec<ecdsa::Signature>,
+        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
     ) -> DispatchResult {
         if candidate_type !=
             EthTransactionType::PublishRoot(PublishRootData::new(
