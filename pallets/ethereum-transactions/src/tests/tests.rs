@@ -49,7 +49,9 @@ fn generate_merkle_root_mock_data_with_signatures(
 ) -> (AccountId, [u8; 32], EthSignatures, EthTransactionCandidate) {
     let (from, root_hash, mut sigs, mut candidate_transaction) =
         generate_merkle_root_mock_data_with_sender();
-    sigs.signatures_list.append(&mut create_mock_ecdsa_signatures());
+    sigs.signatures_list
+        .try_append(&mut create_mock_ecdsa_signatures())
+        .expect("Cannot append signatures");
     candidate_transaction.signatures = sigs.clone();
     return (from, root_hash, sigs, candidate_transaction)
 }
@@ -65,7 +67,9 @@ fn generate_merkle_root_mock_data_with_sender(
 fn generate_deregister_validator_mock_data_with_signatures() -> EthTransactionCandidate {
     let (mut sigs, mut candidate_transaction) =
         generate_deregister_validator_mock_data_with_sender();
-    sigs.signatures_list.append(&mut create_mock_ecdsa_signatures());
+    sigs.signatures_list
+        .try_append(&mut create_mock_ecdsa_signatures())
+        .expect("Cannot append signatures");
     candidate_transaction.signatures = sigs.clone();
     return candidate_transaction
 }
@@ -217,7 +221,10 @@ impl DefaultTransactionBuilder {
             self.tx_type.clone(),
             Self::default_quorum(),
         );
-        tx_candidate.signatures.append(self.confirmations.clone());
+        tx_candidate
+            .signatures
+            .append(self.confirmations.clone())
+            .expect("Exceeded signature limit");
 
         return tx_candidate
     }
