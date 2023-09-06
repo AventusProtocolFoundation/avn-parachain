@@ -82,8 +82,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
-    // #[pallet::without_storage_info]
-    // TODO review the above - look at replacing all unbounded vectors so we can use this feature
     pub struct Pallet<T>(_);
 
     #[pallet::event]

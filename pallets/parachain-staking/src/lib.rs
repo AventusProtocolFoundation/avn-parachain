@@ -138,7 +138,6 @@ pub mod pallet {
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
-    #[pallet::without_storage_info]
     pub struct Pallet<T>(PhantomData<T>);
 
     pub type EraIndex = u32;
