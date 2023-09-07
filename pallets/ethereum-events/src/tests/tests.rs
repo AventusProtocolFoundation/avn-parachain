@@ -8,7 +8,6 @@ use crate::{
 };
 use codec::Decode;
 use frame_support::{assert_ok, unsigned::ValidateUnsigned};
-// use avn::{FinalisedBlockChecker, EthereumBridgeContract};
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
 use sp_core::hash::H256;
 use sp_runtime::testing::UintAuthorityId;
