@@ -125,10 +125,17 @@ cargo test
 # Test the benchmark tests
 cargo test --features runtime-benchmarks
 ```
+AvN binaries are built on Ubuntu 20.04 (focal), which is a Long Term Support (LTS) version. Consequently, these binaries may rely on certain native libraries such as OpenSSL. While Debian bullseye-based operating systems should be compatible, we highly recommend using Ubuntu 20.04 for running a node binary.
 ## Building the docker image
+When building an image, make sure the binary is located under the target/release folder.
+If you are using the official releases or have built binaries locally using Ubuntu 20.04:
 ```sh
-# Builds the docker image with the build artefacts under target/release
 docker build . --tag avn-node-parachain:latest
+```
+
+If you have built binaries locally using Ubuntu 22.04:
+```sh
+docker build -f Dockerfile.22_04 . --tag avn-node-parachain:latest
 ```
 
 ## Logs
