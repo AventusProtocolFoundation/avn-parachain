@@ -49,7 +49,7 @@ mod test_set_bridge_contract {
         fn zero_contract_should_fail() {
             let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
             ext.execute_with(|| {
-                let context: Context = Context { ..Default::default() };
+                let context = Context::default();
                 let invalid_contract_address = H160::zero();
                 assert_noop!(
                     context.dispatch_set_bridge_contract(invalid_contract_address),
