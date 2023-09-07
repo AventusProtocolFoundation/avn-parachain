@@ -1703,7 +1703,7 @@ pub mod migrations {
                 <AvnBridgeContractAddress<T>>::put(lift_address);
                 log::info!("ℹ️  Updated bridge contract address successfully");
                 StorageVersion::<T>::put(Releases::V4_0_0);
-                consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+                consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
             }
 
             <LiftingContractAddress<T>>::kill();
@@ -1717,7 +1717,7 @@ pub mod migrations {
                 <AvnBridgeContractAddress<T>>::put(validator_manager_address);
                 log::info!("ℹ️  Updated bridge contract address successfully");
                 StorageVersion::<T>::put(Releases::V4_0_0);
-                consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+                consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
             }
 
             <ValidatorManagerContractAddress<T>>::kill();
@@ -1731,7 +1731,7 @@ pub mod migrations {
                 <AvnBridgeContractAddress<T>>::put(pub_root_address);
                 log::info!("ℹ️  Updated bridge contract address successfully");
                 StorageVersion::<T>::put(Releases::V4_0_0);
-                consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+                consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
             }
 
             <PublishRootContract<T>>::kill();
@@ -1739,10 +1739,6 @@ pub mod migrations {
             consumed_weight.saturating_add(T::DbWeight::get().writes(1));
         }
 
-        log::info!(
-            "
-        ℹ️  Failed to migrate ethereum events storage items due to address being zero"
-        );
         return consumed_weight
     }
 }
