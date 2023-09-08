@@ -805,8 +805,12 @@ pub mod pallet {
                 return migrations::migrate_to_multi_nft_contract::<T>()
             }
 
-            StorageVersion::<T>::put(Releases::V4_0_0);
-            return migrations::migrate_to_bridge_contract::<T>()
+            if StorageVersion::<T>::get() == Releases::V2_0_0 || StorageVersion::<T>::get() == Releases::V3_0_0 {
+                StorageVersion::<T>::put(Releases::V4_0_0);
+                return migrations::migrate_to_bridge_contract::<T>()
+            }
+
+            return Weight::from_ref_time(0)
         }
     }
 
@@ -1687,6 +1691,22 @@ pub mod migrations {
         return consumed_weight
     }
 
+    fn migration<T: Config>(consumed_weight : Weight, address : H160) {
+        if !address.is_zero() {
+            log::info!("ℹ️  Checking if zero");
+            if AvnBridgeContractAddress::<T>::get().is_zero() {
+                <AvnBridgeContractAddress<T>>::put(address);
+                log::info!("ℹ️  Updated bridge contract address successfully");
+                StorageVersion::<T>::put(Releases::V4_0_0);
+                consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
+            }
+
+            <LiftingContractAddress<T>>::kill();
+            log::info!("ℹ️  Deleted Lifting contract address successfully");
+            consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+        }
+    }
+
     pub fn migrate_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
         sp_runtime::runtime_logger::RuntimeLogger::init();
         log::info!("ℹ️  Ethereum events pallet data migration invoked");
@@ -1697,47 +1717,9 @@ pub mod migrations {
         let validator_manager_address = ValidatorManagerContractAddress::<T>::get();
         let pub_root_address = PublishRootContract::<T>::get();
 
-        if !lift_address.is_zero() {
-            log::info!("ℹ️  Checking if zero");
-            if AvnBridgeContractAddress::<T>::get().is_zero() {
-                <AvnBridgeContractAddress<T>>::put(lift_address);
-                log::info!("ℹ️  Updated bridge contract address successfully");
-                StorageVersion::<T>::put(Releases::V4_0_0);
-                consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
-            }
-
-            <LiftingContractAddress<T>>::kill();
-            log::info!("ℹ️  Deleted Lifting contract address successfully");
-            consumed_weight.saturating_add(T::DbWeight::get().writes(1));
-        }
-
-        if !validator_manager_address.is_zero() {
-            log::info!("ℹ️  Checking if zero");
-            if AvnBridgeContractAddress::<T>::get().is_zero() {
-                <AvnBridgeContractAddress<T>>::put(validator_manager_address);
-                log::info!("ℹ️  Updated bridge contract address successfully");
-                StorageVersion::<T>::put(Releases::V4_0_0);
-                consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
-            }
-
-            <ValidatorManagerContractAddress<T>>::kill();
-            log::info!("ℹ️  Deleted Validators Manager contract address successfully");
-            consumed_weight.saturating_add(T::DbWeight::get().writes(1));
-        }
-
-        if !pub_root_address.is_zero() {
-            log::info!("ℹ️  Checking if zero");
-            if AvnBridgeContractAddress::<T>::get().is_zero() {
-                <AvnBridgeContractAddress<T>>::put(pub_root_address);
-                log::info!("ℹ️  Updated bridge contract address successfully");
-                StorageVersion::<T>::put(Releases::V4_0_0);
-                consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
-            }
-
-            <PublishRootContract<T>>::kill();
-            log::info!("ℹ️  Deleted Publish Root contract address successfully");
-            consumed_weight.saturating_add(T::DbWeight::get().writes(1));
-        }
+        migration::<T>(consumed_weight, lift_address);
+        migration::<T>(consumed_weight, validator_manager_address);
+        migration::<T>(consumed_weight, pub_root_address);
 
         return consumed_weight
     }
