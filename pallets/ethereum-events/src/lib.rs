@@ -143,11 +143,12 @@ const CHALLENGE_EVENT_CONTEXT: &'static [u8] = b"challenge_event";
 const PROCESS_EVENT_CONTEXT: &'static [u8] = b"process_event";
 
 const MAX_NUMBER_OF_VALIDATORS_ACCOUNTS: u32 = 10;
-const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 5;
-const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 5;
+const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 10;
+const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 10;
 const MAX_CHALLENGES: u32 = 10;
 
-pub type MaxEvents = ConstU32<MAX_NUMBER_OF_UNCHECKED_EVENTS>;
+pub type MaxUncheckedEvents = ConstU32<MAX_NUMBER_OF_UNCHECKED_EVENTS>;
+pub type MaxEventsPendingChallenges = ConstU32<MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES>;
 pub type MaxChallenges = ConstU32<MAX_CHALLENGES>;
 pub type MaxNumValidatorAccounts = ConstU32<MAX_NUMBER_OF_VALIDATORS_ACCOUNTS>;
 
@@ -296,6 +297,9 @@ pub mod pallet {
         SenderIsNotSigner,
         UnauthorizedTransaction,
         UnauthorizedSignedAddEthereumLogTransaction,
+        UncheckedEventsOverflow,
+        PrevChallengesOverflow,
+        EventsPendingChallengeOverflow
     }
 
     #[pallet::storage]
@@ -315,7 +319,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn unchecked_events)]
     pub type UncheckedEvents<T: Config> =
-        StorageValue<_, BoundedVec<(EthEventId, IngressCounter, T::BlockNumber), MaxEvents>, ValueQuery>;
+        StorageValue<_, BoundedVec<(EthEventId, IngressCounter, T::BlockNumber), MaxUncheckedEvents>, ValueQuery>;
 
     // //TODO [TYPE: business logic][PRI: high][CRITICAL][NOTE: clarify]: What happens to invalid
     // events (missing) in this list?
@@ -323,7 +327,7 @@ pub mod pallet {
     #[pallet::getter(fn events_pending_challenge)]
     pub type EventsPendingChallenge<T: Config> = StorageValue<
         _,
-        BoundedVec<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber), MaxEvents>,
+        BoundedVec<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber), MaxEventsPendingChallenges>,
         ValueQuery,
     >;
 
@@ -491,9 +495,9 @@ pub mod pallet {
                     (AVN::<T>::active_validators().len() as u32) / Self::quorum_factor();
 
                 // Insert first and remove
-                <EventsPendingChallenge<T>>::try_mutate(|pending_events| {
-                    pending_events.try_push((result.clone(), ingress_counter, current_block))
-                }).expect("Cannot mutate");
+                <EventsPendingChallenge<T>>::mutate(|pending_events| {
+                    pending_events.try_push((result.clone(), ingress_counter, current_block)).expect("Cannot push")
+                });
 
                 <UncheckedEvents<T>>::mutate(|events| events.remove(event_index));
 
@@ -670,8 +674,7 @@ pub mod pallet {
                 );
 
                 <Challenges<T>>::mutate(challenge.event_id.clone(), |prev_challenges| {
-                    prev_challenges.try_push(challenge.challenged_by.clone())
-                    .expect("Cannot push");
+                    prev_challenges.try_push(challenge.challenged_by.clone()).expect("Cannot push");
                 });
 
             } else {
@@ -1124,9 +1127,9 @@ impl<T: Config> Pallet<T> {
     ) -> Option<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>
     {
         let storage = StorageValueRef::persistent(VALIDATED_EVENT_LOCAL_STORAGE);
-        let validated_events = storage.get::<BoundedVec<EthEventId, MaxEvents>>();
+        let validated_events = storage.get::<Vec<EthEventId>>();
 
-        let mut stored_validated_events: BoundedVec<EthEventId, MaxEvents> = BoundedVec::<EthEventId, MaxEvents>::default();
+        let mut stored_validated_events: Vec<EthEventId> = Vec::<EthEventId>::new();
         let mut node_has_never_validated_events = true;
 
         match validated_events {
@@ -1331,13 +1334,13 @@ impl<T: Config> Pallet<T> {
     fn save_validated_event_in_local_storage(event_id: EthEventId) -> Result<(), Error<T>> {
         let storage = StorageValueRef::persistent(VALIDATED_EVENT_LOCAL_STORAGE);
         let result =
-            storage.mutate(|events: Result<Option<BoundedVec<EthEventId, MaxEvents>>, StorageRetrievalError>| {
+            storage.mutate(|events: Result<Option<Vec<EthEventId>>, StorageRetrievalError>| {
                 match events {
                     Ok(Some(mut events)) => {
-                        events.try_push(event_id).expect("Cannot push");
+                        events.push(event_id);
                         Ok(events)
                     },
-                    Ok(None) => Ok(BoundedVec::truncate_from(vec![event_id])),
+                    Ok(None) => Ok(vec![event_id]),
                     _ => Err(()),
                 }
             });
@@ -1527,7 +1530,7 @@ impl<T: Config> Pallet<T> {
                 .iter()
                 .any(|(event, _counter, _)| &event.event.event_id == event_id)
     }
-    /// Adds an event: tx_hash must be> a nonzero hash
+    /// Adds an event: tx_hash must be a nonzero hash
     fn add_event(event_type: ValidEvents, tx_hash: H256, sender: T::AccountId) -> DispatchResult {
         let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
 
@@ -1611,20 +1614,20 @@ impl<T: Config> Pallet<T> {
         event_type: &ValidEvents,
         tx_hash: &H256,
         sender_nonce: u64,
-    ) -> BoundedVec<u8, ConstU32<10>> {
-        return BoundedVec::truncate_from((
+    ) -> Vec<u8> {
+        return (
             SIGNED_ADD_ETHEREUM_LOG_CONTEXT,
             proof.relayer.clone(),
             event_type,
             tx_hash,
             sender_nonce,
         )
-            .encode())
+            .encode()
     }
 
     fn get_encoded_call_param(
         call: &<T as Config>::RuntimeCall,
-    ) -> Option<(&Proof<T::Signature, T::AccountId>, BoundedVec<u8, ConstU32<10>>)> {
+    ) -> Option<(&Proof<T::Signature, T::AccountId>, Vec<u8>)> {
         let call = match call.is_sub_type() {
             Some(call) => call,
             None => return None,

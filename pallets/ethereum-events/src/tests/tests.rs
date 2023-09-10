@@ -263,18 +263,18 @@ fn test_event_exists_in_system_entry_in_processed_queue() {
 
 #[test]
 fn test_multiple_events_in_system() {
-    let mut unchecked_events: BoundedVec<EthEventId, MaxEvents> = Default::default();
-    let mut pending_challenge_events: BoundedVec<EthEventId, MaxEvents> = Default::default();
+    let mut unchecked_events: BoundedVec<EthEventId, MaxUncheckedEvents> = Default::default();
+    let mut pending_challenge_events: BoundedVec<EthEventId, MaxEventsPendingChallenges> = Default::default();
 
     for i in 0..10 {
         unchecked_events.try_push(EthEventId {
             signature: ValidEvents::Lifted.signature(),
             transaction_hash: H256::from([i; 32]),
-        }).expect("Cannot add EthEventId");
+        }).expect("Cannot push");
         pending_challenge_events.try_push(EthEventId {
             signature: ValidEvents::Lifted.signature(),
             transaction_hash: H256::from([i + 10; 32]),
-        }).expect("Cannot add EthEventId");
+        }).expect("Cannot push");
     }
 
     let mut ext = ExtBuilder::build_default().as_externality();
