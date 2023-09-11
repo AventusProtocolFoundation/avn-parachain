@@ -321,8 +321,15 @@ impl EthereumEvents {
     }
 
     pub fn insert_to_unchecked_events(to_insert: &EthEventId, ingress_counter: IngressCounter) {
-        <UncheckedEvents<TestRuntime>>::try_append((to_insert.clone(), ingress_counter, 0))
-            .expect("Cannot append");
+        let append_unchecked_events: Result<(), Error<_>> =
+            match <UncheckedEvents<TestRuntime>>::try_append((
+                to_insert.clone(),
+                ingress_counter,
+                0,
+            )) {
+                Ok(_) => Ok(()),
+                Err(_) => Err(Error::<TestRuntime>::UncheckedEventsOverflow.into()),
+            };
         Self::set_ingress_counter(ingress_counter);
     }
 
@@ -388,8 +395,11 @@ impl EthereumEvents {
             checked_at_block,
             min_challenge_votes,
         );
-        <EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0))
-            .expect("Cannot append");
+        if <EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0))
+            .is_err()
+        {
+            log::error!("Failed to append to EventsPendingChallenge");
+        }
     }
 
     pub fn get_event_id(seed: u8) -> EthEventId {

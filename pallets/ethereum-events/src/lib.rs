@@ -506,9 +506,10 @@ pub mod pallet {
 
                 // Insert first and remove
                 <EventsPendingChallenge<T>>::mutate(|pending_events| {
-                    pending_events
-                        .try_push((result.clone(), ingress_counter, current_block))
-                        .expect("Cannot push")
+                    if let Err(_) =
+                        pending_events.try_push((result.clone(), ingress_counter, current_block))
+                    {
+                    }
                 });
 
                 <UncheckedEvents<T>>::mutate(|events| events.remove(event_index));
@@ -686,7 +687,7 @@ pub mod pallet {
                 );
 
                 <Challenges<T>>::mutate(challenge.event_id.clone(), |prev_challenges| {
-                    prev_challenges.try_push(challenge.challenged_by.clone()).expect("Cannot push");
+                    if let Err(_) = prev_challenges.try_push(challenge.challenged_by.clone()) {}
                 });
             } else {
                 <Challenges<T>>::insert(
@@ -1548,12 +1549,15 @@ impl<T: Config> Pallet<T> {
         ensure!(!Self::event_exists_in_system(&event_id), Error::<T>::DuplicateEvent);
 
         let ingress_counter = Self::get_next_ingress_counter();
-        <UncheckedEvents<T>>::try_append((
+        if <UncheckedEvents<T>>::try_append((
             event_id.clone(),
             ingress_counter,
             <frame_system::Pallet<T>>::block_number(),
         ))
-        .expect("Cannot append");
+        .is_err()
+        {
+            log::error!("Failed to append to UncheckedEvents");
+        }
 
         if event_type.is_nft_event() {
             Self::deposit_event(Event::<T>::NftEthereumEventAdded {
