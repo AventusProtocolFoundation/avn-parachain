@@ -509,6 +509,7 @@ pub mod pallet {
                     if let Err(_) =
                         pending_events.try_push((result.clone(), ingress_counter, current_block))
                     {
+                        log::error!("Failed to push to pending_events");
                     }
                 });
 
@@ -687,7 +688,9 @@ pub mod pallet {
                 );
 
                 <Challenges<T>>::mutate(challenge.event_id.clone(), |prev_challenges| {
-                    if let Err(_) = prev_challenges.try_push(challenge.challenged_by.clone()) {}
+                    if let Err(_) = prev_challenges.try_push(challenge.challenged_by.clone()) {
+                        log::error!("Failed to push to prev_challenges");
+                    }
                 });
             } else {
                 <Challenges<T>>::insert(
