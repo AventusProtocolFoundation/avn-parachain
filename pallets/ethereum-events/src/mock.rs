@@ -627,7 +627,7 @@ pub const INITIAL_LIFTS: [[u8; 32]; 4] = [[10u8; 32], [11u8; 32], [12u8; 32], [1
 
 pub const INITIAL_PROCESSED_EVENTS: [[u8; 32]; 3] = [[15u8; 32], [16u8; 32], [17u8; 32]];
 
-pub fn create_initial_processed_events() -> BoundedVec<(EthEventId, bool), ConstU32<10>> {
+pub fn create_initial_processed_events() -> Vec<(EthEventId, bool)> {
     let initial_processed_events = INITIAL_PROCESSED_EVENTS
         .iter()
         .map(|x| {
@@ -641,8 +641,7 @@ pub fn create_initial_processed_events() -> BoundedVec<(EthEventId, bool), Const
         })
         .collect::<Vec<(EthEventId, bool)>>();
     assert_eq!(INITIAL_PROCESSED_EVENTS.len(), initial_processed_events.len());
-    let bounded = <BoundedVec::<(EthEventId, bool), ConstU32<10>>>::truncate_from(initial_processed_events.clone());
-    return bounded
+    return initial_processed_events
 }
 
 pub struct ExtBuilder {
@@ -680,9 +679,9 @@ impl ExtBuilder {
         let _ = pallet_ethereum_events::GenesisConfig::<TestRuntime> {
             validator_manager_contract_address: H160::from(VALIDATORS_MANAGER_CONTRACT),
             lifting_contract_address: H160::from(LIFTING_CONTRACT),
-            nft_t1_contracts: bounded_vec![(H160::from(NFT_CONTRACT), ())],
-            processed_events: bounded_vec![],
-            lift_tx_hashes: bounded_vec![],
+            nft_t1_contracts: vec![(H160::from(NFT_CONTRACT), ())],
+            processed_events: vec![],
+            lift_tx_hashes: vec![],
             quorum_factor: QUORUM_FACTOR,
             event_challenge_period: EVENT_CHALLENGE_PERIOD,
         }
@@ -694,9 +693,9 @@ impl ExtBuilder {
         let _ = pallet_ethereum_events::GenesisConfig::<TestRuntime> {
             validator_manager_contract_address: H160::from(VALIDATORS_MANAGER_CONTRACT),
             lifting_contract_address: H160::from(LIFTING_CONTRACT),
-            nft_t1_contracts: bounded_vec![(H160::from(NFT_CONTRACT), ())],
+            nft_t1_contracts: vec![(H160::from(NFT_CONTRACT), ())],
             processed_events: create_initial_processed_events(),
-            lift_tx_hashes: bounded_vec![
+            lift_tx_hashes: vec![
                 H256::from(INITIAL_LIFTS[0]),
                 H256::from(INITIAL_LIFTS[1]),
                 H256::from(INITIAL_LIFTS[2]),

@@ -6,7 +6,7 @@ use crate::chain_spec::stable::{
     get_account_id_from_seed, get_authority_keys_from_seed, testnet_genesis,
 };
 use hex_literal::hex;
-use sp_core::{ecdsa, sr25519, ByteArray, H160, bounded_vec};
+use sp_core::{ecdsa, sr25519, ByteArray, H160};
 
 pub fn development_config() -> ChainSpec {
     let dev_rococo_parachain_id: u32 = 2060;
@@ -55,9 +55,9 @@ pub fn development_config() -> ChainSpec {
                 H160(hex!("97d9b397189e8b771FfAc3Cb04cf26C780a93431")),
                 // AVN contract
                 H160(hex!("9d6394ea67D297b4Fc777f719F82Ae1F1fc06383")),
-                bounded_vec![],
+                vec![],
                 dev_ethereum_public_keys(),
-                bounded_vec![],
+                vec![],
                 SMALL_EVENT_CHALLENGE_PERIOD,
                 HALF_HOUR_SCHEDULE_PERIOD,
                 SMALL_VOTING_PERIOD,
@@ -118,9 +118,9 @@ pub fn local_testnet_config() -> ChainSpec {
                 H160(hex!("97d9b397189e8b771FfAc3Cb04cf26C780a93431")),
                 // AVN contract
                 H160(hex!("9d6394ea67D297b4Fc777f719F82Ae1F1fc06383")),
-                bounded_vec![],
+                vec![],
                 dev_ethereum_public_keys(),
-                bounded_vec![],
+                vec![],
                 SMALL_EVENT_CHALLENGE_PERIOD,
                 HALF_HOUR_SCHEDULE_PERIOD,
                 SMALL_VOTING_PERIOD,

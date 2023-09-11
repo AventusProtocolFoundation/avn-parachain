@@ -150,7 +150,6 @@ const MAX_CHALLENGES: u32 = 10;
 pub type MaxUncheckedEvents = ConstU32<MAX_NUMBER_OF_UNCHECKED_EVENTS>;
 pub type MaxEventsPendingChallenges = ConstU32<MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES>;
 pub type MaxChallenges = ConstU32<MAX_CHALLENGES>;
-pub type MaxNumValidatorAccounts = ConstU32<MAX_NUMBER_OF_VALIDATORS_ACCOUNTS>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -370,9 +369,9 @@ pub mod pallet {
         pub lifting_contract_address: H160,
         pub quorum_factor: u32,
         pub event_challenge_period: T::BlockNumber,
-        pub lift_tx_hashes: BoundedVec<H256, ConstU32<10>>,
-        pub processed_events: BoundedVec<(EthEventId, bool), ConstU32<10>>,
-        pub nft_t1_contracts: BoundedVec<(H160, ()), ConstU32<10>>,
+        pub lift_tx_hashes: Vec<H256>,
+        pub processed_events: Vec<(EthEventId, bool)>,
+        pub nft_t1_contracts: Vec<(H160, ())>,
     }
 
     #[cfg(feature = "std")]
@@ -383,9 +382,9 @@ pub mod pallet {
                 lifting_contract_address: H160::zero(),
                 quorum_factor: 4 as u32,
                 event_challenge_period: T::BlockNumber::from(300 as u32),
-                lift_tx_hashes: BoundedVec::<H256, ConstU32<10>>::default(),
-                processed_events: BoundedVec::<(EthEventId, bool), ConstU32<10>>::default(),
-                nft_t1_contracts: BoundedVec::<(H160, ()), ConstU32<10>>::default(),
+                lift_tx_hashes: Vec::<H256>::new(),
+                processed_events: Vec::<(EthEventId, bool)>::new(),
+                nft_t1_contracts: Vec::<(H160, ())>::new(),
             }
         }
     }

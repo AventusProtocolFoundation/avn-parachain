@@ -81,7 +81,7 @@ pub fn create_and_report_invalid_log_offence<T: crate::Config>(
         let invalid_event_offence = InvalidEthereumLogOffence {
             session_index: <pallet_session::Pallet<T>>::current_index(),
             validator_set_count: <pallet_session::Pallet<T>>::validators().len() as u32,
-            offenders: offenders.to_vec().clone(),
+            offenders: offenders.clone(),
             offence_type: offence_type.clone(),
         };
 
