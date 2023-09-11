@@ -805,12 +805,13 @@ pub mod pallet {
                 return migrations::migrate_to_multi_nft_contract::<T>()
             }
 
-            if StorageVersion::<T>::get() == Releases::V2_0_0 || StorageVersion::<T>::get() == Releases::V3_0_0 {
-                StorageVersion::<T>::put(Releases::V4_0_0);
-                return migrations::migrate_to_bridge_contract::<T>()
-            }
+            //if StorageVersion::<T>::get() == Releases::Unknown || StorageVersion::<T>::get() == Releases::V2_0_0 || StorageVersion::<T>::get() == Releases::V3_0_0 {
+            log::info!("Performing bridge contract migration");
+            StorageVersion::<T>::put(Releases::V4_0_0);
+            return migrations::migrate_to_bridge_contract::<T>()
+            //}
 
-            return Weight::from_ref_time(0)
+            //return Weight::from_ref_time(0)
         }
     }
 
@@ -1691,7 +1692,8 @@ pub mod migrations {
         return consumed_weight
     }
 
-    fn migration<T: Config>(consumed_weight : Weight, address : H160) {
+    fn migration<T: Config>(consumed_weight: Weight, contractAddress: <T>) {
+        address = contractAddress::<T>::get();
         if !address.is_zero() {
             log::info!("ℹ️  Checking if zero");
             if AvnBridgeContractAddress::<T>::get().is_zero() {
@@ -1701,7 +1703,7 @@ pub mod migrations {
                 consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
             }
 
-            <LiftingContractAddress<T>>::kill();
+            <contractAddress<T>>::kill();
             log::info!("ℹ️  Deleted Lifting contract address successfully");
             consumed_weight.saturating_add(T::DbWeight::get().writes(1));
         }
@@ -1713,13 +1715,9 @@ pub mod migrations {
 
         let consumed_weight = Weight::from_ref_time(0);
 
-        let lift_address = LiftingContractAddress::<T>::get();
-        let validator_manager_address = ValidatorManagerContractAddress::<T>::get();
-        let pub_root_address = PublishRootContract::<T>::get();
-
-        migration::<T>(consumed_weight, lift_address);
-        migration::<T>(consumed_weight, validator_manager_address);
-        migration::<T>(consumed_weight, pub_root_address);
+        migration::<T>(consumed_weight, LiftingContractAddress::<T>);
+        migration::<T>(consumed_weight, ValidatorManagerContractAddress::<T>);
+        migration::<T>(consumed_weight, PublishRootContract::<T>);
 
         return consumed_weight
     }
