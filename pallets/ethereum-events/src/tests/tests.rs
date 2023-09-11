@@ -10,8 +10,7 @@ use codec::Decode;
 use frame_support::{assert_ok, unsigned::ValidateUnsigned};
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
 use sp_core::hash::H256;
-use sp_runtime::testing::UintAuthorityId;
-use sp_runtime::BoundedVec;
+use sp_runtime::{testing::UintAuthorityId, BoundedVec};
 
 mod test_get_contract_address_for {
     use super::*;
@@ -264,17 +263,22 @@ fn test_event_exists_in_system_entry_in_processed_queue() {
 #[test]
 fn test_multiple_events_in_system() {
     let mut unchecked_events: BoundedVec<EthEventId, MaxUncheckedEvents> = Default::default();
-    let mut pending_challenge_events: BoundedVec<EthEventId, MaxEventsPendingChallenges> = Default::default();
+    let mut pending_challenge_events: BoundedVec<EthEventId, MaxEventsPendingChallenges> =
+        Default::default();
 
     for i in 0..10 {
-        unchecked_events.try_push(EthEventId {
-            signature: ValidEvents::Lifted.signature(),
-            transaction_hash: H256::from([i; 32]),
-        }).expect("Cannot push");
-        pending_challenge_events.try_push(EthEventId {
-            signature: ValidEvents::Lifted.signature(),
-            transaction_hash: H256::from([i + 10; 32]),
-        }).expect("Cannot push");
+        unchecked_events
+            .try_push(EthEventId {
+                signature: ValidEvents::Lifted.signature(),
+                transaction_hash: H256::from([i; 32]),
+            })
+            .expect("Cannot push");
+        pending_challenge_events
+            .try_push(EthEventId {
+                signature: ValidEvents::Lifted.signature(),
+                transaction_hash: H256::from([i + 10; 32]),
+            })
+            .expect("Cannot push");
     }
 
     let mut ext = ExtBuilder::build_default().as_externality();
@@ -884,7 +888,6 @@ mod signature_in {
 
                 assert_ok!(result);
 
-                //let tx2 = <BoundedVec::<u8, MaxEvents>>::truncate_from(pool_state.write().transactions.pop().unwrap());
                 let tx = pool_state.write().transactions.pop().unwrap();
                 let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
@@ -930,7 +933,6 @@ mod signature_in {
 
                 assert_ok!(result);
 
-                //let tx2 = <BoundedVec::<u8, MaxEvents>>::truncate_from(pool_state.write().transactions.pop().unwrap());
                 let tx = pool_state.write().transactions.pop().unwrap();
                 let tx = Extrinsic::decode(&mut &*tx).unwrap();
 

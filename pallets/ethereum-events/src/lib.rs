@@ -17,7 +17,7 @@ use frame_support::{
 };
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 use simple_json2::json::JsonValue;
-use sp_core::{H160, H256, ConstU32};
+use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
     offchain::{
         http,
@@ -298,7 +298,7 @@ pub mod pallet {
         UnauthorizedSignedAddEthereumLogTransaction,
         UncheckedEventsOverflow,
         PrevChallengesOverflow,
-        EventsPendingChallengeOverflow
+        EventsPendingChallengeOverflow,
     }
 
     #[pallet::storage]
@@ -317,8 +317,11 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn unchecked_events)]
-    pub type UncheckedEvents<T: Config> =
-        StorageValue<_, BoundedVec<(EthEventId, IngressCounter, T::BlockNumber), MaxUncheckedEvents>, ValueQuery>;
+    pub type UncheckedEvents<T: Config> = StorageValue<
+        _,
+        BoundedVec<(EthEventId, IngressCounter, T::BlockNumber), MaxUncheckedEvents>,
+        ValueQuery,
+    >;
 
     // //TODO [TYPE: business logic][PRI: high][CRITICAL][NOTE: clarify]: What happens to invalid
     // events (missing) in this list?
@@ -326,7 +329,10 @@ pub mod pallet {
     #[pallet::getter(fn events_pending_challenge)]
     pub type EventsPendingChallenge<T: Config> = StorageValue<
         _,
-        BoundedVec<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber), MaxEventsPendingChallenges>,
+        BoundedVec<
+            (EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber),
+            MaxEventsPendingChallenges,
+        >,
         ValueQuery,
     >;
 
@@ -340,8 +346,13 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn challenges)]
-    pub type Challenges<T: Config> =
-        StorageMap<_, Blake2_128Concat, EthEventId, BoundedVec<T::AccountId, MaxChallenges>, ValueQuery>;
+    pub type Challenges<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EthEventId,
+        BoundedVec<T::AccountId, MaxChallenges>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn quorum_factor)]
@@ -495,7 +506,9 @@ pub mod pallet {
 
                 // Insert first and remove
                 <EventsPendingChallenge<T>>::mutate(|pending_events| {
-                    pending_events.try_push((result.clone(), ingress_counter, current_block)).expect("Cannot push")
+                    pending_events
+                        .try_push((result.clone(), ingress_counter, current_block))
+                        .expect("Cannot push")
                 });
 
                 <UncheckedEvents<T>>::mutate(|events| events.remove(event_index));
@@ -675,7 +688,6 @@ pub mod pallet {
                 <Challenges<T>>::mutate(challenge.event_id.clone(), |prev_challenges| {
                     prev_challenges.try_push(challenge.challenged_by.clone()).expect("Cannot push");
                 });
-
             } else {
                 <Challenges<T>>::insert(
                     challenge.event_id.clone(),
@@ -1540,7 +1552,8 @@ impl<T: Config> Pallet<T> {
             event_id.clone(),
             ingress_counter,
             <frame_system::Pallet<T>>::block_number(),
-        )).expect("Cannot append");
+        ))
+        .expect("Cannot append");
 
         if event_type.is_nft_event() {
             Self::deposit_event(Event::<T>::NftEthereumEventAdded {

@@ -30,8 +30,7 @@ use sp_staking::{
 use avn::FinalisedBlockChecker;
 use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent};
 use sp_io::TestExternalities;
-use sp_runtime::bounded_vec;
-use sp_runtime::BoundedVec;
+use sp_runtime::{bounded_vec, BoundedVec};
 
 use crate::{self as pallet_ethereum_events, *};
 
@@ -322,7 +321,8 @@ impl EthereumEvents {
     }
 
     pub fn insert_to_unchecked_events(to_insert: &EthEventId, ingress_counter: IngressCounter) {
-        <UncheckedEvents<TestRuntime>>::try_append((to_insert.clone(), ingress_counter, 0)).expect("Cannot append");
+        <UncheckedEvents<TestRuntime>>::try_append((to_insert.clone(), ingress_counter, 0))
+            .expect("Cannot append");
         Self::set_ingress_counter(ingress_counter);
     }
 
@@ -388,7 +388,8 @@ impl EthereumEvents {
             checked_at_block,
             min_challenge_votes,
         );
-        <EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0)).expect("Cannot append");
+        <EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0))
+            .expect("Cannot append");
     }
 
     pub fn get_event_id(seed: u8) -> EthEventId {
