@@ -18,6 +18,8 @@ use frame_support::{
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 use simple_json2::json::JsonValue;
 use sp_core::{H160, H256};
+use pallet_ethereum_transactions::PublishRootContract;
+use pallet_avn::AvnBridgeContractAddress;
 use sp_runtime::{
     offchain::{
         http,
@@ -199,6 +201,12 @@ pub mod pallet {
     // TODO review the above
     pub struct Pallet<T>(_);
 
+    // pub enum storageItems<T: Config> {
+    //     Lifting(LiftingContractAddress::<T>),
+    //     ValidatorManager(ValidatorManagerContractAddress::<T>),
+    //     PublishRoot(PublishRootContract::<T>),
+    // }
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -379,6 +387,8 @@ pub mod pallet {
         fn build(&self) {
             assert_ne!(self.quorum_factor, 0, "Quorum factor cannot be 0");
             QuorumFactor::<T>::put(self.quorum_factor);
+
+            StorageVersion::<T>::put(Releases::default());
 
             EventChallengePeriod::<T>::put(self.event_challenge_period);
 
@@ -800,18 +810,12 @@ pub mod pallet {
         // migration logic should be done in a separate function so it can be tested
         // properly.
         fn on_runtime_upgrade() -> Weight {
-            if StorageVersion::<T>::get() == Releases::Unknown {
-                StorageVersion::<T>::put(Releases::V2_0_0);
-                return migrations::migrate_to_multi_nft_contract::<T>()
+            if StorageVersion::<T>::get() != Releases::V4_0_0 || !StorageVersion::<T>::exists() {
+                log::info!("Performing bridge contract migration");
+                return migrations::migrate_to_bridge_contract::<T>()
+            } else {
+                return Weight::from_ref_time(0)
             }
-
-            //if StorageVersion::<T>::get() == Releases::Unknown || StorageVersion::<T>::get() == Releases::V2_0_0 || StorageVersion::<T>::get() == Releases::V3_0_0 {
-            log::info!("Performing bridge contract migration");
-            StorageVersion::<T>::put(Releases::V4_0_0);
-            return migrations::migrate_to_bridge_contract::<T>()
-            //}
-
-            //return Weight::from_ref_time(0)
         }
     }
 
@@ -1655,6 +1659,7 @@ enum Releases {
     V4_0_0,
 }
 
+//Todo: Change this once merged
 impl Default for Releases {
     fn default() -> Self {
         Releases::V4_0_0
@@ -1663,61 +1668,41 @@ impl Default for Releases {
 
 pub mod migrations {
     use super::*;
-    use frame_support::{migration::storage_key_iter, Blake2_128Concat};
-    use pallet_avn::AvnBridgeContractAddress;
-    use pallet_ethereum_transactions::PublishRootContract;
-    pub type MarketplaceId = u32;
+    use sp_core::H160;
     use frame_support::pallet_prelude::Weight;
 
-    pub fn migrate_to_multi_nft_contract<T: Config>() -> frame_support::weights::Weight {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-        log::info!("ℹ️  Ethereum events pallet data migration invoked");
+    pub fn get_migration_address<T: Config>() -> H160 {
+        let val_manager = ValidatorManagerContractAddress::<T>::get();
+        let lifting =  LiftingContractAddress::<T>::get();
+        let pub_root = PublishRootContract::<T>::get();
 
-        let mut consumed_weight = T::DbWeight::get().reads_writes(1, 1);
-
-        for (_, address) in storage_key_iter::<MarketplaceId, H160, Blake2_128Concat>(
-            b"EthereumEvents",
-            b"NftContractAddresses",
-        )
-        .drain()
-        {
-            //Insert the address into the new storage item
-            <NftT1Contracts<T>>::insert(address, ());
-
-            //update weight
-            consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
-        }
-
-        log::info!("ℹ️  Migrated Ethereum event's NFT contract addresses successfully");
-        return consumed_weight
-    }
-
-    fn migration<T: Config>(consumed_weight: Weight, contractAddress: <T>) {
-        address = contractAddress::<T>::get();
-        if !address.is_zero() {
-            log::info!("ℹ️  Checking if zero");
-            if AvnBridgeContractAddress::<T>::get().is_zero() {
-                <AvnBridgeContractAddress<T>>::put(address);
-                log::info!("ℹ️  Updated bridge contract address successfully");
-                StorageVersion::<T>::put(Releases::V4_0_0);
-                consumed_weight.saturating_add(T::DbWeight::get().reads_writes(1, 2));
-            }
-
-            <contractAddress<T>>::kill();
-            log::info!("ℹ️  Deleted Lifting contract address successfully");
-            consumed_weight.saturating_add(T::DbWeight::get().writes(1));
+        if !val_manager.is_zero() {
+            return val_manager
+        } else if !lifting.is_zero() {
+            return lifting
+        } else {
+            return pub_root
         }
     }
-
+    
     pub fn migrate_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
         sp_runtime::runtime_logger::RuntimeLogger::init();
         log::info!("ℹ️  Ethereum events pallet data migration invoked");
+    
+        let mut consumed_weight = Weight::from_ref_time(0);
 
-        let consumed_weight = Weight::from_ref_time(0);
+        if AvnBridgeContractAddress::<T>::get().is_zero() {
+            <AvnBridgeContractAddress<T>>::put(get_migration_address::<T>());
+            log::info!("ℹ️  Updated bridge contract address successfully");
+            consumed_weight.saturating_add(T::DbWeight::get().reads_writes(4, 1));
+        }
 
-        migration::<T>(consumed_weight, LiftingContractAddress::<T>);
-        migration::<T>(consumed_weight, ValidatorManagerContractAddress::<T>);
-        migration::<T>(consumed_weight, PublishRootContract::<T>);
+        LiftingContractAddress::<T>::kill();
+        ValidatorManagerContractAddress::<T>::kill();
+        PublishRootContract::<T>::kill();   
+
+        StorageVersion::<T>::put(Releases::V4_0_0);
+        consumed_weight.saturating_add(T::DbWeight::get().writes(4));
 
         return consumed_weight
     }
