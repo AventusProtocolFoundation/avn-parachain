@@ -16,10 +16,10 @@ use frame_support::{
     traits::{Get, IsSubType},
 };
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
+use pallet_avn::AvnBridgeContractAddress;
+use pallet_ethereum_transactions::PublishRootContract;
 use simple_json2::json::JsonValue;
 use sp_core::{H160, H256};
-use pallet_ethereum_transactions::PublishRootContract;
-use pallet_avn::AvnBridgeContractAddress;
 use sp_runtime::{
     offchain::{
         http,
@@ -1668,7 +1668,7 @@ pub mod migrations {
 
     pub fn get_migration_address<T: Config>() -> H160 {
         let val_manager = ValidatorManagerContractAddress::<T>::get();
-        let lifting =  LiftingContractAddress::<T>::get();
+        let lifting = LiftingContractAddress::<T>::get();
         let pub_root = PublishRootContract::<T>::get();
 
         if !val_manager.is_zero() {
@@ -1679,11 +1679,11 @@ pub mod migrations {
             return pub_root
         }
     }
-    
+
     pub fn migrate_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
         sp_runtime::runtime_logger::RuntimeLogger::init();
         log::info!("ℹ️  Ethereum events pallet data migration invoked");
-    
+
         let mut consumed_weight = Weight::from_ref_time(0);
 
         if AvnBridgeContractAddress::<T>::get().is_zero() {
@@ -1694,7 +1694,7 @@ pub mod migrations {
 
         LiftingContractAddress::<T>::kill();
         ValidatorManagerContractAddress::<T>::kill();
-        PublishRootContract::<T>::kill();   
+        PublishRootContract::<T>::kill();
 
         StorageVersion::<T>::put(Releases::V4_0_0);
         consumed_weight.saturating_add(T::DbWeight::get().writes(4));
