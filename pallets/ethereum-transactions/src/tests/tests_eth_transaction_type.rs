@@ -21,10 +21,7 @@ fn generate_deregister_validator_data(
     DeregisterCollatorData { t1_public_key, t2_public_key }
 }
 
-fn generate_trigger_growth_data(
-    amount: u128,
-    period: u32,
-) -> TriggerGrowthData {
+fn generate_trigger_growth_data(amount: u128, period: u32) -> TriggerGrowthData {
     TriggerGrowthData { amount, period }
 }
 
@@ -63,10 +60,7 @@ fn generate_deregister_collator_eth_txn_desc(
     }
 }
 
-fn generate_trigger_growth_eth_txn_desc(
-    amount: u128,
-    period: u32,
-) -> EthTransactionDescription {
+fn generate_trigger_growth_eth_txn_desc(amount: u128, period: u32) -> EthTransactionDescription {
     EthTransactionDescription {
         function_call: Function {
             name: String::from("triggerGrowth"),
@@ -77,10 +71,7 @@ fn generate_trigger_growth_eth_txn_desc(
             outputs: Vec::<Param>::new(),
             constant: false,
         },
-        call_values: vec![
-            Token::Uint(amount.into()),
-            Token::Uint(period.into()),
-        ],
+        call_values: vec![Token::Uint(amount.into()), Token::Uint(period.into())],
     }
 }
 
@@ -146,14 +137,10 @@ mod eth_transaction_type {
 
             #[test]
             fn txn_is_trigger_growth() {
-                let trigger_growth_eth_txn_type = generate_trigger_growth_eth_txn_type(
-                    GROWTH_AMOUNT,
-                    GROWTH_PERIOD,
-                );
-                let trigger_growth_eth_txn_desc = generate_trigger_growth_eth_txn_desc(
-                    GROWTH_AMOUNT,
-                    GROWTH_PERIOD,
-                );
+                let trigger_growth_eth_txn_type =
+                    generate_trigger_growth_eth_txn_type(GROWTH_AMOUNT, GROWTH_PERIOD);
+                let trigger_growth_eth_txn_desc =
+                    generate_trigger_growth_eth_txn_desc(GROWTH_AMOUNT, GROWTH_PERIOD);
 
                 let result = trigger_growth_eth_txn_type.to_abi();
 
@@ -220,7 +207,6 @@ mod deregister_validator_data {
     }
 }
 
-
 // TriggerGrowthData tests
 mod trigger_growth_data {
     use super::*;
@@ -238,8 +224,7 @@ mod trigger_growth_data {
 
     #[test]
     fn to_abi_succeeds() {
-        let trigger_growth_data =
-            generate_trigger_growth_data(GROWTH_AMOUNT, GROWTH_PERIOD);
+        let trigger_growth_data = generate_trigger_growth_data(GROWTH_AMOUNT, GROWTH_PERIOD);
         let expected_eth_transaction_desc: EthTransactionDescription =
             generate_trigger_growth_eth_txn_desc(GROWTH_AMOUNT, GROWTH_PERIOD);
 

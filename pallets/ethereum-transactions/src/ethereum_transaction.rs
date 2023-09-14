@@ -194,7 +194,8 @@ pub struct TriggerGrowthData {
 impl TriggerGrowthData {
     pub fn new(amount: u128, period: u32) -> TriggerGrowthData {
         TriggerGrowthData { amount, period }
-    }    pub fn to_abi(&self) -> EthTransactionDescription {
+    }
+    pub fn to_abi(&self) -> EthTransactionDescription {
         EthTransactionDescription {
             function_call: Function {
                 name: String::from("triggerGrowth"),
@@ -205,10 +206,7 @@ impl TriggerGrowthData {
                 outputs: Vec::<Param>::new(),
                 constant: false,
             },
-            call_values: vec![
-                Token::Uint(self.amount.into()),
-                Token::Uint(self.period.into()),
-            ],
+            call_values: vec![Token::Uint(self.amount.into()), Token::Uint(self.period.into())],
         }
     }
 }
