@@ -78,8 +78,8 @@ fn generate_trigger_growth_eth_txn_desc(
             constant: false,
         },
         call_values: vec![
-            Token::Uint(amount.into())),
-            Token::Uint(period.into())),
+            Token::Uint(amount.into()),
+            Token::Uint(period.into()),
         ],
     }
 }
@@ -241,7 +241,7 @@ mod trigger_growth_data {
         let trigger_growth_data =
             generate_trigger_growth_data(GROWTH_AMOUNT, GROWTH_PERIOD);
         let expected_eth_transaction_desc: EthTransactionDescription =
-            generate_deregister_collator_eth_txn_desc(GROWTH_AMOUNT, GROWTH_PERIOD);
+            generate_trigger_growth_eth_txn_desc(GROWTH_AMOUNT, GROWTH_PERIOD);
 
         assert_eq!(trigger_growth_data.to_abi(), expected_eth_transaction_desc);
     }

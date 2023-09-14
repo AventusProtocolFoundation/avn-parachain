@@ -30,6 +30,7 @@ pub enum EthTransactionType {
     Discarded(TransactionId),
     ActivateCollator(ActivateCollatorData),
     DeregisterCollator(DeregisterCollatorData),
+    TriggerGrowth(TriggerGrowthData),
 }
 
 impl Default for EthTransactionType {
@@ -44,6 +45,7 @@ impl EthTransactionType {
             EthTransactionType::PublishRoot(d) => Ok(d.to_abi()),
             EthTransactionType::ActivateCollator(d) => Ok(d.to_abi()),
             EthTransactionType::DeregisterCollator(d) => Ok(d.to_abi()),
+            EthTransactionType::TriggerGrowth(d) => Ok(d.to_abi()),
             _ => Err(EthAbiError::InvalidData),
         }
     }
@@ -178,6 +180,34 @@ impl ActivateCollatorData {
             call_values: vec![
                 Token::Bytes(self.t1_public_key.to_fixed_bytes().to_vec()),
                 Token::FixedBytes(self.t2_public_key.to_vec()),
+            ],
+        }
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
+pub struct TriggerGrowthData {
+    pub amount: u128,
+    pub period: u32,
+}
+
+impl TriggerGrowthData {
+    pub fn new(amount: u128, period: u32) -> TriggerGrowthData {
+        TriggerGrowthData { amount, period }
+    }    pub fn to_abi(&self) -> EthTransactionDescription {
+        EthTransactionDescription {
+            function_call: Function {
+                name: String::from("triggerGrowth"),
+                inputs: vec![
+                    Param { name: String::from("amount"), kind: ParamType::Uint(128) },
+                    Param { name: String::from("period"), kind: ParamType::Uint(32) },
+                ],
+                outputs: Vec::<Param>::new(),
+                constant: false,
+            },
+            call_values: vec![
+                Token::Uint(self.amount.into()),
+                Token::Uint(self.period.into()),
             ],
         }
     }
