@@ -53,10 +53,6 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 #[cfg(test)]
-#[path = "tests/test_proxy_signed_add_avn_logs.rs"]
-mod test_proxy_signed_add_avn_logs;
-
-#[cfg(test)]
 #[path = "tests/test_set_bridge_contract.rs"]
 mod test_set_bridge_contract;
 

@@ -28,7 +28,7 @@ use sp_staking::{
 };
 
 use avn::{AvnBridgeContractAddress, FinalisedBlockChecker};
-use pallet_avn::{self as avn, AccountToBytesConverter, Error as avn_error};
+use pallet_avn::{self as avn, Error as avn_error};
 use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent};
 use sp_io::TestExternalities;
 

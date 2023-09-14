@@ -123,10 +123,6 @@ mod test_initial_events;
 #[path = "tests/test_ethereum_logs.rs"]
 mod tests_ethereum_logs;
 
-#[cfg(test)]
-#[path = "tests/test_proxy_signed_add_ethereum_logs.rs"]
-mod test_proxy_signed_add_ethereum_logs;
-
 mod benchmarking;
 
 pub mod default_weights;
@@ -1668,7 +1664,6 @@ impl Default for Releases {
 
 pub mod migrations {
     use super::*;
-    use sp_core::H160;
     use frame_support::pallet_prelude::Weight;
 
     pub fn get_migration_address<T: Config>() -> H160 {

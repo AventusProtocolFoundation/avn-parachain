@@ -2,10 +2,8 @@
 #![cfg(test)]
 
 use crate::{mock::*, *};
-use frame_support::{assert_noop, assert_ok};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use sp_avn_common::event_types::ValidEvents;
-use sp_runtime::traits::BadOrigin;
 
 mod test_set_ethereum_contract {
 
