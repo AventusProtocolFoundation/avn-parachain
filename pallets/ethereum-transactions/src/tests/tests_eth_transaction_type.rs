@@ -7,6 +7,8 @@ use sp_core::H512;
 pub const ROOT_HASH: [u8; 32] = [3; 32];
 pub const T2_PUBLIC_KEY: [u8; 32] = [4; 32];
 pub const T1_PUBLIC_KEY: [u8; 64] = [5u8; 64];
+pub const GROWTH_AMOUNT: u128 = 100;
+pub const GROWTH_PERIOD: u32 = 1;
 
 pub fn generate_publish_root_data(root_hash: [u8; 32]) -> PublishRootData {
     PublishRootData { root_hash }
@@ -17,6 +19,13 @@ fn generate_deregister_validator_data(
     t2_public_key: [u8; 32],
 ) -> DeregisterCollatorData {
     DeregisterCollatorData { t1_public_key, t2_public_key }
+}
+
+fn generate_trigger_growth_data(
+    amount: u128,
+    period: u32,
+) -> TriggerGrowthData {
+    TriggerGrowthData { amount, period }
 }
 
 fn generate_publish_root_eth_txn_desc(root_hash: [u8; 32]) -> EthTransactionDescription {
@@ -54,6 +63,27 @@ fn generate_deregister_collator_eth_txn_desc(
     }
 }
 
+fn generate_trigger_growth_eth_txn_desc(
+    amount: u128,
+    period: u32,
+) -> EthTransactionDescription {
+    EthTransactionDescription {
+        function_call: Function {
+            name: String::from("triggerGrowth"),
+            inputs: vec![
+                Param { name: String::from("amount"), kind: ParamType::Uint(128) },
+                Param { name: String::from("period"), kind: ParamType::Uint(32) },
+            ],
+            outputs: Vec::<Param>::new(),
+            constant: false,
+        },
+        call_values: vec![
+            Token::Uint(amount.into())),
+            Token::Uint(period.into())),
+        ],
+    }
+}
+
 // EthTransactionType tests
 mod eth_transaction_type {
     use super::*;
@@ -70,6 +100,10 @@ mod eth_transaction_type {
             t1_public_key,
             t2_public_key,
         ))
+    }
+
+    fn generate_trigger_growth_eth_txn_type(amount: u128, period: u32) -> EthTransactionType {
+        EthTransactionType::TriggerGrowth(generate_trigger_growth_data(amount, period))
     }
 
     fn generate_unsupported_eth_txn_type() -> EthTransactionType {
@@ -108,6 +142,23 @@ mod eth_transaction_type {
 
                 assert!(result.is_ok(), "Unsupported ethereum transaction type!");
                 assert_eq!(result.unwrap(), deregister_validator_eth_txn_desc);
+            }
+
+            #[test]
+            fn txn_is_trigger_growth() {
+                let trigger_growth_eth_txn_type = generate_trigger_growth_eth_txn_type(
+                    GROWTH_AMOUNT,
+                    GROWTH_PERIOD,
+                );
+                let trigger_growth_eth_txn_desc = generate_trigger_growth_eth_txn_desc(
+                    GROWTH_AMOUNT,
+                    GROWTH_PERIOD,
+                );
+
+                let result = trigger_growth_eth_txn_type.to_abi();
+
+                assert!(result.is_ok(), "Unsupported ethereum transaction type!");
+                assert_eq!(result.unwrap(), trigger_growth_eth_txn_desc);
             }
         }
 
@@ -166,5 +217,32 @@ mod deregister_validator_data {
             generate_deregister_collator_eth_txn_desc(H512::from(T1_PUBLIC_KEY), T2_PUBLIC_KEY);
 
         assert_eq!(deregister_validator_data.to_abi(), expected_eth_transaction_desc);
+    }
+}
+
+
+// TriggerGrowthData tests
+mod trigger_growth_data {
+    use super::*;
+
+    #[test]
+    fn new_succeeds() {
+        let expected_trigger_growth_data =
+            generate_trigger_growth_data(GROWTH_AMOUNT, GROWTH_PERIOD);
+
+        assert_eq!(
+            TriggerGrowthData::new(GROWTH_AMOUNT, GROWTH_PERIOD),
+            expected_trigger_growth_data
+        );
+    }
+
+    #[test]
+    fn to_abi_succeeds() {
+        let trigger_growth_data =
+            generate_trigger_growth_data(GROWTH_AMOUNT, GROWTH_PERIOD);
+        let expected_eth_transaction_desc: EthTransactionDescription =
+            generate_deregister_collator_eth_txn_desc(GROWTH_AMOUNT, GROWTH_PERIOD);
+
+        assert_eq!(trigger_growth_data.to_abi(), expected_eth_transaction_desc);
     }
 }
