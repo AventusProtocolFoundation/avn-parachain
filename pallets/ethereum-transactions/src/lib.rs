@@ -26,6 +26,8 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
+use pallet_avn::AvnBridgeContractAddress;
+
 use sp_avn_common::{
     event_types::Validator,
     offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
@@ -190,6 +192,9 @@ pub mod pallet {
     #[pallet::getter(fn get_nonce)]
     pub type Nonce<T: Config> = StorageValue<_, TransactionId, ValueQuery>;
 
+    #[pallet::storage]
+    pub(crate) type StorageVersion<T> = StorageValue<_, Releases, ValueQuery>;
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         // TODO [TYPE: business logic][PRI: medium]: This is a workaround to allow synch with T1
@@ -296,6 +301,15 @@ pub mod pallet {
             // TODO [TYPE: review][PRI: high][CRITICAL][JIRA: 352] add the rest offchain worker
             // logic here, corresponding to the confirmation loop (eg transactions sent
             // to Ethereum)
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            if StorageVersion::<T>::get() != Releases::V4_0_0 || !StorageVersion::<T>::exists() {
+                log::info!("Performing bridge contract migration");
+                return migrations::migrate_pb_to_bridge_contract::<T>()
+            } else {
+                return Weight::from_ref_time(0)
+            }
         }
     }
 
@@ -671,5 +685,44 @@ pub struct DispatchedData<BlockNumber: Member + AtLeast32Bit> {
 impl<BlockNumber: Member + AtLeast32Bit> DispatchedData<BlockNumber> {
     fn new(transaction_id: TransactionId, submitted_at_block: BlockNumber) -> Self {
         return DispatchedData::<BlockNumber> { transaction_id, submitted_at_block }
+    }
+}
+
+// A value placed in storage that represents the current version of the EthereumEvents pallet
+// storage. This value is used by the `on_runtime_upgrade` logic to determine whether we run its
+// storage migration logic.
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, RuntimeDebug, MaxEncodedLen, TypeInfo)]
+enum Releases {
+    V4_0_0,
+}
+
+impl Default for Releases {
+    fn default() -> Self {
+        Releases::V4_0_0
+    }
+}
+
+pub mod migrations {
+    use super::*;
+    use frame_support::pallet_prelude::Weight;
+
+    pub fn migrate_pb_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
+        sp_runtime::runtime_logger::RuntimeLogger::init();
+        log::info!("ℹ️  Ethereum Transactions pallet data migration invoked");
+
+        let mut consumed_weight = Weight::from_ref_time(0);
+
+        if AvnBridgeContractAddress::<T>::get().is_zero() {
+            <AvnBridgeContractAddress<T>>::put(PublishRootContract::<T>::get());
+            log::info!("ℹ️  Updated bridge contract address successfully in ethereum transactions");
+            consumed_weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+        }
+
+        PublishRootContract::<T>::kill();
+
+        StorageVersion::<T>::put(Releases::V4_0_0);
+        consumed_weight.saturating_add(T::DbWeight::get().writes(2));
+
+        return consumed_weight
     }
 }

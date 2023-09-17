@@ -17,7 +17,6 @@ use frame_support::{
 };
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 use pallet_avn::AvnBridgeContractAddress;
-use pallet_ethereum_transactions::PublishRootContract;
 use simple_json2::json::JsonValue;
 use sp_core::{H160, H256};
 use sp_runtime::{
@@ -196,12 +195,6 @@ pub mod pallet {
     #[pallet::without_storage_info]
     // TODO review the above
     pub struct Pallet<T>(_);
-
-    // pub enum storageItems<T: Config> {
-    //     Lifting(LiftingContractAddress::<T>),
-    //     ValidatorManager(ValidatorManagerContractAddress::<T>),
-    //     PublishRoot(PublishRootContract::<T>),
-    // }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -1669,14 +1662,11 @@ pub mod migrations {
     pub fn get_migration_address<T: Config>() -> H160 {
         let val_manager = ValidatorManagerContractAddress::<T>::get();
         let lifting = LiftingContractAddress::<T>::get();
-        let pub_root = PublishRootContract::<T>::get();
 
         if !val_manager.is_zero() {
             return val_manager
-        } else if !lifting.is_zero() {
-            return lifting
         } else {
-            return pub_root
+            return lifting
         }
     }
 
@@ -1688,13 +1678,12 @@ pub mod migrations {
 
         if AvnBridgeContractAddress::<T>::get().is_zero() {
             <AvnBridgeContractAddress<T>>::put(get_migration_address::<T>());
-            log::info!("ℹ️  Updated bridge contract address successfully");
+            log::info!("ℹ️  Updated bridge contract address successfully in ethereum events");
             consumed_weight.saturating_add(T::DbWeight::get().reads_writes(4, 1));
         }
 
         LiftingContractAddress::<T>::kill();
         ValidatorManagerContractAddress::<T>::kill();
-        PublishRootContract::<T>::kill();
 
         StorageVersion::<T>::put(Releases::V4_0_0);
         consumed_weight.saturating_add(T::DbWeight::get().writes(4));
