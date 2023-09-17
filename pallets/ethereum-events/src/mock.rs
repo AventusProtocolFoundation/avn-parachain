@@ -2,7 +2,7 @@
 
 #![cfg(test)]
 
-use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities};
+use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities, assert_ok};
 use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
@@ -321,15 +321,7 @@ impl EthereumEvents {
     }
 
     pub fn insert_to_unchecked_events(to_insert: &EthEventId, ingress_counter: IngressCounter) {
-        let append_unchecked_events: Result<(), Error<_>> =
-            match <UncheckedEvents<TestRuntime>>::try_append((
-                to_insert.clone(),
-                ingress_counter,
-                0,
-            )) {
-                Ok(_) => Ok(()),
-                Err(_) => Err(Error::<TestRuntime>::UncheckedEventsOverflow.into()),
-            };
+        assert_ok!(<UncheckedEvents<TestRuntime>>::try_append((to_insert.clone(), ingress_counter, 0)));
         Self::set_ingress_counter(ingress_counter);
     }
 
@@ -395,11 +387,8 @@ impl EthereumEvents {
             checked_at_block,
             min_challenge_votes,
         );
-        if <EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0))
-            .is_err()
-        {
-            log::error!("Failed to append to EventsPendingChallenge");
-        }
+
+        assert_ok!(<EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0)));
     }
 
     pub fn get_event_id(seed: u8) -> EthEventId {

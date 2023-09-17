@@ -200,8 +200,6 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
-    #[pallet::without_storage_info]
-    // TODO review the above
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -434,8 +432,12 @@ pub mod pallet {
                     )
                 })
                 .collect::<Vec<(EthEventId, IngressCounter, T::BlockNumber)>>();
+            
+            
+            let bounded_unchecked_events = BoundedVec::<(EthEventId, IngressCounter, T::BlockNumber), MaxUncheckedEvents>::try_from(unchecked_lift_events);
 
-            UncheckedEvents::<T>::put(BoundedVec::truncate_from(unchecked_lift_events));
+            assert!(bounded_unchecked_events.is_ok());
+            UncheckedEvents::<T>::put(bounded_unchecked_events.unwrap());
         }
     }
 
@@ -1552,15 +1554,11 @@ impl<T: Config> Pallet<T> {
         ensure!(!Self::event_exists_in_system(&event_id), Error::<T>::DuplicateEvent);
 
         let ingress_counter = Self::get_next_ingress_counter();
-        if <UncheckedEvents<T>>::try_append((
+        <UncheckedEvents<T>>::try_append((
             event_id.clone(),
             ingress_counter,
             <frame_system::Pallet<T>>::block_number(),
-        ))
-        .is_err()
-        {
-            log::error!("Failed to append to UncheckedEvents");
-        }
+        )).map_err(|_| Error::<T>::UncheckedEventsOverflow)?;
 
         if event_type.is_nft_event() {
             Self::deposit_event(Event::<T>::NftEthereumEventAdded {
