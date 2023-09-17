@@ -432,9 +432,11 @@ pub mod pallet {
                     )
                 })
                 .collect::<Vec<(EthEventId, IngressCounter, T::BlockNumber)>>();
-            
-            
-            let bounded_unchecked_events = BoundedVec::<(EthEventId, IngressCounter, T::BlockNumber), MaxUncheckedEvents>::try_from(unchecked_lift_events);
+
+            let bounded_unchecked_events = BoundedVec::<
+                (EthEventId, IngressCounter, T::BlockNumber),
+                MaxUncheckedEvents,
+            >::try_from(unchecked_lift_events);
 
             assert!(bounded_unchecked_events.is_ok());
             UncheckedEvents::<T>::put(bounded_unchecked_events.unwrap());
@@ -1558,7 +1560,8 @@ impl<T: Config> Pallet<T> {
             event_id.clone(),
             ingress_counter,
             <frame_system::Pallet<T>>::block_number(),
-        )).map_err(|_| Error::<T>::UncheckedEventsOverflow)?;
+        ))
+        .map_err(|_| Error::<T>::UncheckedEventsOverflow)?;
 
         if event_type.is_nft_event() {
             Self::deposit_event(Event::<T>::NftEthereumEventAdded {

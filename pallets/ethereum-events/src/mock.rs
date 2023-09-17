@@ -2,7 +2,9 @@
 
 #![cfg(test)]
 
-use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities, assert_ok};
+use frame_support::{
+    assert_ok, parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities,
+};
 use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
@@ -321,7 +323,11 @@ impl EthereumEvents {
     }
 
     pub fn insert_to_unchecked_events(to_insert: &EthEventId, ingress_counter: IngressCounter) {
-        assert_ok!(<UncheckedEvents<TestRuntime>>::try_append((to_insert.clone(), ingress_counter, 0)));
+        assert_ok!(<UncheckedEvents<TestRuntime>>::try_append((
+            to_insert.clone(),
+            ingress_counter,
+            0
+        )));
         Self::set_ingress_counter(ingress_counter);
     }
 
@@ -388,7 +394,11 @@ impl EthereumEvents {
             min_challenge_votes,
         );
 
-        assert_ok!(<EventsPendingChallenge<TestRuntime>>::try_append((to_insert, ingress_counter, 0)));
+        assert_ok!(<EventsPendingChallenge<TestRuntime>>::try_append((
+            to_insert,
+            ingress_counter,
+            0
+        )));
     }
 
     pub fn get_event_id(seed: u8) -> EthEventId {
