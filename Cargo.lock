@@ -6862,7 +6862,6 @@ dependencies = [
  "pallet-avn",
  "pallet-avn-proxy",
  "pallet-balances",
- "pallet-ethereum-transactions",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec 3.2.1",

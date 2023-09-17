@@ -259,7 +259,7 @@ benchmarks! {
 
     set_nft_contract_map_storage {
         let contract_address = H160::from([1; 20]);
-    }: map_nft_contract(RawOrigin::Root, contract_address.clone())
+    }: insert_nft_contract(RawOrigin::Root, contract_address.clone())
     verify {
         assert_eq!(true, <NftT1Contracts<T>>::contains_key(contract_address));
     }

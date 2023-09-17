@@ -107,8 +107,8 @@ mod test_parse_event;
 mod test_challenges;
 
 #[cfg(test)]
-#[path = "tests/test_map_nft_contract.rs"]
-mod test_map_nft_contract;
+#[path = "tests/test_insert_nft_contract.rs"]
+mod test_insert_nft_contract;
 
 #[cfg(test)]
 #[path = "tests/test_set_event_challenge_period.rs"]
@@ -154,7 +154,6 @@ pub mod pallet {
         + frame_system::Config
         + avn::Config
         + pallet_session::historical::Config
-        + pallet_ethereum_transactions::Config
     {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -732,7 +731,7 @@ pub mod pallet {
         #[pallet::weight(
             <T as pallet::Config>::WeightInfo::set_ethereum_contract_map_storage().max(<T as Config>::WeightInfo::set_ethereum_contract_storage()
         ))]
-        pub fn map_nft_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
+        pub fn insert_nft_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
 
