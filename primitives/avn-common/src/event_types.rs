@@ -139,7 +139,7 @@ impl ValidEvents {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct AddedValidatorData {
     pub eth_public_key: H512,
     pub t2_address: H256,
@@ -205,7 +205,7 @@ impl AddedValidatorData {
 // T1 Event definition:
 // event LogLifted(address indexed tokenContract, address indexed lifter, bytes32 indexed liftee,
 // uint amount);
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct LiftedData {
     pub token_contract: H160,
     pub sender_address: H160,
@@ -282,7 +282,7 @@ impl LiftedData {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct NftMintData {
     pub batch_id: U256,
     pub t2_owner_public_key: H256,
@@ -364,7 +364,7 @@ impl NftMintData {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct NftTransferToData {
     pub nft_id: U256,
     pub t2_transfer_to_public_key: H256,
@@ -417,7 +417,7 @@ impl NftTransferToData {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct NftCancelListingData {
     pub nft_id: U256,
     pub op_id: u64,
@@ -469,7 +469,7 @@ impl NftCancelListingData {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct NftEndBatchListingData {
     pub batch_id: U256,
 }
@@ -508,7 +508,7 @@ impl NftEndBatchListingData {
 
 // T1 Event definition:
 // event LogGrowth(uint256 amount, uint32 period);
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct AvtGrowthLiftedData {
     pub amount: u128,
     pub period: u32,
@@ -564,7 +564,7 @@ impl AvtGrowthLiftedData {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub enum EventData {
     LogAddedValidator(AddedValidatorData),
     LogLifted(LiftedData),
@@ -601,7 +601,7 @@ impl Default for EventData {
 
 // ================================= Checking and Validating Events
 // ====================================
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub enum CheckResult {
     /// Event exists on tier 1
     Ok,
@@ -623,7 +623,7 @@ impl Default for CheckResult {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 // Note: strictly speaking, different contracts can have events with the same signature, which would
 // suggest that the contract should be part of the EventId.
@@ -643,13 +643,13 @@ impl EthEventId {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct EthEvent {
     pub event_id: EthEventId,
     pub event_data: EventData,
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct EthEventCheckResult<BlockNumber: Member, AccountId: Member> {
     pub event: EthEvent,
     pub result: CheckResult,

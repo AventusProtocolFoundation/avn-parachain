@@ -10,7 +10,7 @@ use codec::Decode;
 use frame_support::{assert_ok, unsigned::ValidateUnsigned};
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
 use sp_core::hash::H256;
-use sp_runtime::testing::UintAuthorityId;
+use sp_runtime::{testing::UintAuthorityId, BoundedVec};
 
 mod test_get_contract_address_for {
     use super::*;
@@ -262,18 +262,23 @@ fn test_event_exists_in_system_entry_in_processed_queue() {
 
 #[test]
 fn test_multiple_events_in_system() {
-    let mut unchecked_events: Vec<EthEventId> = Vec::new();
-    let mut pending_challenge_events: Vec<EthEventId> = Vec::new();
+    let mut unchecked_events: BoundedVec<EthEventId, MaxUncheckedEvents> = Default::default();
+    let mut pending_challenge_events: BoundedVec<EthEventId, MaxEventsPendingChallenges> =
+        Default::default();
 
     for i in 0..10 {
-        unchecked_events.push(EthEventId {
-            signature: ValidEvents::Lifted.signature(),
-            transaction_hash: H256::from([i; 32]),
-        });
-        pending_challenge_events.push(EthEventId {
-            signature: ValidEvents::Lifted.signature(),
-            transaction_hash: H256::from([i + 10; 32]),
-        });
+        unchecked_events
+            .try_push(EthEventId {
+                signature: ValidEvents::Lifted.signature(),
+                transaction_hash: H256::from([i; 32]),
+            })
+            .expect("Cannot push");
+        pending_challenge_events
+            .try_push(EthEventId {
+                signature: ValidEvents::Lifted.signature(),
+                transaction_hash: H256::from([i + 10; 32]),
+            })
+            .expect("Cannot push");
     }
 
     let mut ext = ExtBuilder::build_default().as_externality();

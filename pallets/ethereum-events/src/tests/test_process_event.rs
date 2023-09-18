@@ -11,6 +11,7 @@ use sp_core::hash::H256;
 use sp_runtime::testing::{TestSignature, UintAuthorityId};
 
 use sp_avn_common::event_types::{CheckResult, EthEventCheckResult, EventData};
+use sp_runtime::BoundedVec;
 
 use offence::EthereumLogOffenceType;
 
@@ -1209,11 +1210,12 @@ mod process_event {
     }
 
     fn setup_preconditions(context: &Context) {
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             context.check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         // Set block number to be ready for processing the event
         System::set_block_number(context.check_result.ready_for_processing_after_block + 1);
@@ -1238,7 +1240,10 @@ mod process_event {
         // Adds some challenges to this event
         let _ = <Challenges<TestRuntime>>::insert(
             context.event_id.clone(),
-            vec![context.first_validator_id.clone(), context.second_validator_id.clone()],
+            BoundedVec::truncate_from(vec![
+                context.first_validator_id.clone(),
+                context.second_validator_id.clone(),
+            ]),
         );
     }
 
