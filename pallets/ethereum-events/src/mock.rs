@@ -2,7 +2,9 @@
 
 #![cfg(test)]
 
-use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities};
+use frame_support::{
+    assert_ok, parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities,
+};
 use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
@@ -30,6 +32,7 @@ use sp_staking::{
 use avn::FinalisedBlockChecker;
 use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent};
 use sp_io::TestExternalities;
+use sp_runtime::{bounded_vec, BoundedVec};
 
 use crate::{self as pallet_ethereum_events, *};
 
@@ -320,7 +323,11 @@ impl EthereumEvents {
     }
 
     pub fn insert_to_unchecked_events(to_insert: &EthEventId, ingress_counter: IngressCounter) {
-        <UncheckedEvents<TestRuntime>>::append((to_insert.clone(), ingress_counter, 0));
+        assert_ok!(<UncheckedEvents<TestRuntime>>::try_append((
+            to_insert.clone(),
+            ingress_counter,
+            0
+        )));
         Self::set_ingress_counter(ingress_counter);
     }
 
@@ -386,7 +393,12 @@ impl EthereumEvents {
             checked_at_block,
             min_challenge_votes,
         );
-        <EventsPendingChallenge<TestRuntime>>::append((to_insert, ingress_counter, 0));
+
+        assert_ok!(<EventsPendingChallenge<TestRuntime>>::try_append((
+            to_insert,
+            ingress_counter,
+            0
+        )));
     }
 
     pub fn get_event_id(seed: u8) -> EthEventId {

@@ -18,7 +18,7 @@ use sp_core::hash::H256;
 use sp_runtime::{
     testing::{TestSignature, UintAuthorityId},
     transaction_validity::TransactionValidityError,
-    DispatchError,
+    BoundedVec, DispatchError,
 };
 
 #[derive(Clone)]
@@ -105,11 +105,12 @@ fn submit_checkevent_result_should_return_expected_result_when_input_is_valid() 
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         let mock_data = MockData::setup();
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         assert_eq!(EthereumEvents::unchecked_events().len(), 1);
         assert_eq!(EthereumEvents::events_pending_challenge().len(), 0);
@@ -146,11 +147,12 @@ fn submit_checkevent_result_should_return_error_when_request_is_signed() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         let mock_data = MockData::setup();
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         assert_noop!(
             EthereumEvents::submit_checkevent_result(
@@ -186,11 +188,12 @@ fn submit_checkevent_result_should_return_error_when_validator_key_is_invalid() 
             mock_data.block_number - 1,
             mock_data.min_challenge_votes,
         );
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         assert_noop!(
             EthereumEvents::submit_checkevent_result(
@@ -229,11 +232,12 @@ fn submit_checkevent_result_should_return_error_when_event_log_never_been_added(
             mock_data.block_number - 1,
             mock_data.min_challenge_votes,
         );
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         assert_noop!(
             EthereumEvents::submit_checkevent_result(
@@ -260,11 +264,12 @@ fn submit_checkevent_result_should_return_error_when_challenge_window_overflow()
     ext.execute_with(|| {
         let mock_data = MockData::setup();
         System::set_block_number(u64::max_value());
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         assert_noop!(
             EthereumEvents::submit_checkevent_result(
@@ -292,11 +297,12 @@ fn process_event_should_return_expected_result_when_challenge_fails() {
         let mock_data = MockData::setup();
 
         // Add a new event, whose checked result is OK, into the EventsPendingChallenge collection
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             mock_data.eth_event_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         // Set block number to be ready for processing the event
         System::set_block_number(
@@ -344,10 +350,10 @@ fn process_event_should_return_expected_result_when_challenge_is_successful() {
 
         let _ = <Challenges<TestRuntime>>::insert(
             mock_data.event_id.clone(),
-            vec![
+            BoundedVec::truncate_from(vec![
                 EthereumEvents::validators()[1].account_id.clone(),
                 EthereumEvents::validators()[2].account_id.clone(),
-            ],
+            ]),
         );
 
         let invalid_check_result = EthEventCheckResult::new(
@@ -362,11 +368,12 @@ fn process_event_should_return_expected_result_when_challenge_is_successful() {
 
         // Add a new event, whose checked result is Invalid, into the EventsPendingChallenge
         // collection
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             invalid_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         // Set block number to be ready for processing the event
         System::set_block_number(
@@ -412,11 +419,12 @@ fn process_event_should_return_error_when_request_is_signed() {
     ext.execute_with(|| {
         let mock_data = MockData::setup();
 
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             mock_data.eth_event_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
         System::set_block_number(mock_data.eth_event_check_result.ready_for_processing_after_block);
 
         assert_noop!(
@@ -439,11 +447,12 @@ fn process_event_should_return_error_when_validator_key_is_invalid() {
         let mock_data = MockData::setup();
         let invalid_validator = Validator::new(account_id_0(), UintAuthorityId(0));
 
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             mock_data.eth_event_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
         System::set_block_number(mock_data.eth_event_check_result.ready_for_processing_after_block);
 
         assert_noop!(
@@ -488,11 +497,12 @@ fn process_event_should_return_error_when_event_is_still_in_challenge_window() {
     ext.execute_with(|| {
         let mock_data = MockData::setup();
 
-        <EventsPendingChallenge<TestRuntime>>::append((
+        <EventsPendingChallenge<TestRuntime>>::try_append((
             mock_data.eth_event_check_result.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
         let block_number_within_challenge_window =
             mock_data.eth_event_check_result.ready_for_processing_after_block - 1;
         System::set_block_number(block_number_within_challenge_window);
@@ -552,11 +562,12 @@ fn validate_unsigned_with_submit_checkevent_result_call_should_return_error_when
             signature: mock_data.signature,
             validator: mock_data.validator,
         };
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         assert_noop!(
             EthereumEvents::validate_unsigned(TransactionSource::Local, &transaction_call),
@@ -590,11 +601,12 @@ fn validate_unsigned_with_submit_checkevent_result_call_should_return_error_when
             signature: mock_data.signature,
             validator: mock_data.validator,
         };
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         assert_noop!(
             EthereumEvents::validate_unsigned(TransactionSource::Local, &transaction_call),
@@ -616,11 +628,12 @@ fn validate_unsigned_with_submit_checkevent_result_call_should_return_error_when
             signature: TestSignature(0, vec![]), // Invalid signature
             validator: mock_data.validator,
         };
-        <UncheckedEvents<TestRuntime>>::append(&(
+        <UncheckedEvents<TestRuntime>>::try_append(&(
             mock_data.event_id.clone(),
             DEFAULT_INGRESS_COUNTER,
             0,
-        ));
+        ))
+        .expect("Cannot append");
 
         assert_noop!(
             EthereumEvents::validate_unsigned(TransactionSource::Local, &transaction_call),
