@@ -102,7 +102,11 @@ pub use nomination_requests::{CancelledScheduledRequest, NominationAction, Sched
 pub use pallet::*;
 pub use types::*;
 
+pub mod vote;
+use crate::vote::*;
+
 pub type AVN<T> = pallet_avn::Pallet<T>;
+
 #[pallet]
 pub mod pallet {
     use crate::set::BoundedOrderedSet;
@@ -2347,6 +2351,7 @@ pub mod pallet {
 
             Ok(().into())
         }
+
         pub fn get_growth_voting_session(growth_id: &GrowthId) -> 
             Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>> 
         {
@@ -2360,6 +2365,17 @@ pub mod pallet {
             }
 
             Err(Error::<T>::GrowthDataNotFound)?
+        }
+
+        pub fn end_voting(
+            reporter: T::AccountId,
+            growth_id: &GrowthId,
+        ) -> DispatchResult {
+            let voting_session = Self::get_growth_voting_session(&growth_id);
+
+            //TODO: Implement me
+
+            Ok(())
         }
     }
 
