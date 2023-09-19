@@ -35,7 +35,7 @@ use pallet_avn::CollatorPayoutDustHandler;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use sp_avn_common::InnerCallValidator;
 use sp_core::{sr25519, Pair, H256};
 use sp_io;
