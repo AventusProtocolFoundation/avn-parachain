@@ -27,7 +27,7 @@ fn setup_unchecked_events<T: Config>(event_type: &ValidEvents, number_of_uncheck
         ));
     }
 
-    UncheckedEvents::<T>::put(unchecked_added_validator_events);
+    UncheckedEvents::<T>::put(BoundedVec::truncate_from(unchecked_added_validator_events));
 }
 
 fn setup_events_pending_challenge<T: Config>(
@@ -57,7 +57,7 @@ fn setup_events_pending_challenge<T: Config>(
             0u32.into(),
         ));
     }
-    EventsPendingChallenge::<T>::put(events_pending_challenge);
+    EventsPendingChallenge::<T>::put(BoundedVec::truncate_from(events_pending_challenge));
 }
 
 fn setup_challenges<T: Config>(
@@ -71,7 +71,7 @@ fn setup_challenges<T: Config>(
     for _ in 0..number_of_challenges {
         challengers.push(validators_account_ids[0 as usize].clone());
     }
-    Challenges::<T>::insert(event_id, challengers);
+    Challenges::<T>::insert(event_id, BoundedVec::truncate_from(challengers));
 }
 
 fn setup_validators<T: Config>(
@@ -144,8 +144,8 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 benchmarks! {
     add_validator_log {
-        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES;
+        let u = MAX_NUMBER_OF_UNCHECKED_EVENTS-2;
+        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
 
         let event_type = ValidEvents::AddedValidator;
         setup_unchecked_events::<T>(&event_type, u);
@@ -171,8 +171,8 @@ benchmarks! {
     }
 
     add_lift_log {
-        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES;
+        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS-2;
+        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
 
         let event_type = ValidEvents::Lifted;
         setup_unchecked_events::<T>(&event_type, u);
@@ -197,8 +197,8 @@ benchmarks! {
     }
 
     add_ethereum_log {
-        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES;
+        let u = MAX_NUMBER_OF_UNCHECKED_EVENTS-2;
+        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
 
         let event_type = ValidEvents::NftMint;
         setup_unchecked_events::<T>(&event_type, u);
@@ -222,8 +222,8 @@ benchmarks! {
     }
 
     signed_add_ethereum_log {
-        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES;
+        let u = MAX_NUMBER_OF_UNCHECKED_EVENTS-2;
+        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
 
         let event_type = ValidEvents::NftMint;
         setup_unchecked_events::<T>(&event_type, u);
@@ -274,14 +274,14 @@ benchmarks! {
     }
 
     submit_checkevent_result {
-        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
-        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS;
+        let v = MAX_NUMBER_OF_VALIDATORS_ACCOUNTS-2;
+        let u = MAX_NUMBER_OF_UNCHECKED_EVENTS-3;
 
         let event_type = ValidEvents::Lifted;
         setup_unchecked_events::<T>(&event_type, u);
         let validators = setup_validators::<T>(v);
         let (mut result, ingress_counter, signature, validator) = setup_extrinsics_inputs::<T>(validators.clone());
-        UncheckedEvents::<T>::mutate(|events| events.push((result.event.event_id.clone(), ingress_counter as IngressCounter, 0u32.into())));
+        UncheckedEvents::<T>::mutate(|events| events.try_push((result.event.event_id.clone(), ingress_counter as IngressCounter, 0u32.into())).expect("Cannot push"));
 
         let unchecked_events_length = UncheckedEvents::<T>::get().len();
         let events_pending_challenge_length = EventsPendingChallenge::<T>::get().len();
@@ -305,14 +305,14 @@ benchmarks! {
     }
 
     process_event_with_successful_challenge {
-        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES;
+        let v = MAX_NUMBER_OF_VALIDATORS_ACCOUNTS-2;
+        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
 
         let validators = setup_validators::<T>(v);
         let (result, ingress_counter, signature, validator) = setup_extrinsics_inputs::<T>(validators.clone());
 
         setup_events_pending_challenge::<T>(&ValidEvents::AddedValidator, e);
-        EventsPendingChallenge::<T>::mutate(|events| events.push((result.clone(), ingress_counter, 0u32.into())));
+        EventsPendingChallenge::<T>::mutate(|events| events.try_push((result.clone(), ingress_counter, 0u32.into())).expect("Cannot push"));
         let required_challenge_votes = (AVN::<T>::active_validators().len() as u32) / <QuorumFactor<T>>::get();
         setup_challenges::<T>(&result.event.event_id.clone(), validators.clone(), required_challenge_votes + 1);
     }: process_event(RawOrigin::None, result.event.event_id.clone(), ingress_counter, validator.clone(), signature)
@@ -327,15 +327,15 @@ benchmarks! {
     }
 
     process_event_without_successful_challenge {
-        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES;
+        let v = MAX_NUMBER_OF_VALIDATORS_ACCOUNTS-2;
+        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
 
         let validators = setup_validators::<T>(v);
         let (mut result, ingress_counter, signature, validator) = setup_extrinsics_inputs::<T>(validators.clone());
 
         setup_events_pending_challenge::<T>(&ValidEvents::AddedValidator, e);
         result.min_challenge_votes = 3;
-        EventsPendingChallenge::<T>::mutate(|events| events.push((result.clone(), ingress_counter, 0u32.into())));
+        EventsPendingChallenge::<T>::mutate(|events| events.try_push((result.clone(), ingress_counter, 0u32.into())).expect("Cannot push"));
         let required_challenge_votes = (AVN::<T>::active_validators().len() as u32) / <QuorumFactor<T>>::get();
         setup_challenges::<T>(&result.event.event_id.clone(), validators.clone(), 1);
     }: process_event(RawOrigin::None, result.event.event_id.clone(), ingress_counter, validator.clone(), signature)
@@ -346,15 +346,15 @@ benchmarks! {
     }
 
     challenge_event {
-        let v in 3 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES;
-        let c in 1 .. MAX_CHALLENGES;
+        let v = MAX_NUMBER_OF_VALIDATORS_ACCOUNTS-2;
+        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
+        let c = MAX_CHALLENGES-2;
 
         let mut validators = setup_validators::<T>(v);
         let (result, ingress_counter, signature, validator) = setup_extrinsics_inputs::<T>(validators.clone());
 
         setup_events_pending_challenge::<T>(&ValidEvents::AddedValidator, e);
-        EventsPendingChallenge::<T>::mutate(|events| events.push((result.clone(), ingress_counter as IngressCounter, 0u32.into())));
+        EventsPendingChallenge::<T>::mutate(|events| events.try_push((result.clone(), ingress_counter as IngressCounter, 0u32.into())).expect("Cannot push"));
 
         let challenged_by = validators[validators.len()-2].account_id.clone();
         validators.remove(validators.len()-1); // remove validator
