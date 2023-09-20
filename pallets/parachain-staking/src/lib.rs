@@ -146,6 +146,7 @@ pub mod pallet {
         Perbill,
     };
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+    pub use crate::GrowthId;
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
