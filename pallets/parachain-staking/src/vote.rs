@@ -167,7 +167,7 @@ pub fn end_voting_if_required<T: Config>(
     return;
 }
 
-fn root_can_be_voted_on<T: Config>(growth_id: &GrowthId, voter: &T::AccountId) -> bool {
+fn growth_can_be_voted_on<T: Config>(growth_id: &GrowthId, voter: &T::AccountId) -> bool {
     //TODO: Implement me
     return false;
 }
@@ -207,7 +207,7 @@ fn sign_for_approve_vote_extrinsic<T: Config>(
     );
 
     if signature.is_none() {
-        log::error!("💔️ Error signing root id {:?} to vote", &growth_id);
+        log::error!("💔️ Error signing growth id {:?} to vote", &growth_id);
         return Err(())
     };
 
