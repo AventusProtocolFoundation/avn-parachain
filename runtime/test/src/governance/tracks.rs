@@ -22,22 +22,21 @@ const fn percent(x: i32) -> sp_runtime::FixedI64 {
     sp_runtime::FixedI64::from_rational(x as u128, 100)
 }
 use pallet_referenda::Curve;
-const APP_ROOT: Curve = Curve::make_reciprocal(4, 28, percent(80), percent(50), percent(100));
-const SUP_ROOT: Curve = Curve::make_linear(28, 28, percent(0), percent(50));
+const APP_ROOT: Curve = Curve::make_reciprocal(1, 2, percent(80), percent(50), percent(100));
+const SUP_ROOT: Curve = Curve::make_linear(1, 2, percent(0), percent(50));
 const APP_GENERAL_ADMIN: Curve =
-    Curve::make_reciprocal(4, 28, percent(80), percent(50), percent(100));
-const SUP_GENERAL_ADMIN: Curve =
-    Curve::make_reciprocal(7, 28, percent(10), percent(0), percent(50));
+    Curve::make_reciprocal(1, 2, percent(80), percent(50), percent(100));
+const SUP_GENERAL_ADMIN: Curve = Curve::make_reciprocal(1, 2, percent(10), percent(0), percent(50));
 const APP_REFERENDUM_CANCELLER: Curve = Curve::make_linear(17, 28, percent(50), percent(100));
 const SUP_REFERENDUM_CANCELLER: Curve =
-    Curve::make_reciprocal(12, 28, percent(1), percent(0), percent(50));
+    Curve::make_reciprocal(12, 2, percent(1), percent(0), percent(50));
 const APP_REFERENDUM_KILLER: Curve = Curve::make_linear(17, 28, percent(50), percent(100));
 const SUP_REFERENDUM_KILLER: Curve =
-    Curve::make_reciprocal(12, 28, percent(1), percent(0), percent(50));
+    Curve::make_reciprocal(12, 2, percent(1), percent(0), percent(50));
 const APP_WHITELISTED_CALLER: Curve =
-    Curve::make_reciprocal(16, 28 * 24, percent(96), percent(50), percent(100));
+    Curve::make_reciprocal(16, 2 * 24, percent(96), percent(50), percent(100));
 const SUP_WHITELISTED_CALLER: Curve =
-    Curve::make_reciprocal(1, 28, percent(20), percent(5), percent(50));
+    Curve::make_reciprocal(1, 2, percent(20), percent(5), percent(50));
 
 const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 5] = [
     (
@@ -45,11 +44,11 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 5]
         pallet_referenda::TrackInfo {
             name: "root",
             max_deciding: 1,
-            decision_deposit: 1000 * AVT,
-            prepare_period: 2 * HOURS,
-            decision_period: 28 * DAYS,
-            confirm_period: 24 * HOURS,
-            min_enactment_period: 24 * HOURS,
+            decision_deposit: 1 * AVT,
+            prepare_period: 1 * MINUTES,
+            decision_period: 1 * MINUTES,
+            confirm_period: 1 * MINUTES,
+            min_enactment_period: 1 * MINUTES,
             min_approval: APP_ROOT,
             min_support: SUP_ROOT,
         },
@@ -58,12 +57,12 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 5]
         1,
         pallet_referenda::TrackInfo {
             name: "whitelisted_caller",
-            max_deciding: 100,
-            decision_deposit: 1000 * AVT,
-            prepare_period: 30 * MINUTES,
-            decision_period: 28 * DAYS,
-            confirm_period: 10 * MINUTES,
-            min_enactment_period: 10 * MINUTES,
+            max_deciding: 3,
+            decision_deposit: 1 * AVT,
+            prepare_period: 1 * MINUTES,
+            decision_period: 1 * MINUTES,
+            confirm_period: 1 * MINUTES,
+            min_enactment_period: 1 * MINUTES,
             min_approval: APP_WHITELISTED_CALLER,
             min_support: SUP_WHITELISTED_CALLER,
         },
@@ -72,12 +71,12 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 5]
         2,
         pallet_referenda::TrackInfo {
             name: "general_admin",
-            max_deciding: 10,
-            decision_deposit: 500 * AVT,
-            prepare_period: 2 * HOURS,
-            decision_period: 28 * DAYS,
-            confirm_period: 3 * HOURS,
-            min_enactment_period: 10 * MINUTES,
+            max_deciding: 3,
+            decision_deposit: 1 * AVT,
+            prepare_period: 1 * MINUTES,
+            decision_period: 1 * MINUTES,
+            confirm_period: 1 * MINUTES,
+            min_enactment_period: 1 * MINUTES,
             min_approval: APP_GENERAL_ADMIN,
             min_support: SUP_GENERAL_ADMIN,
         },
@@ -86,12 +85,12 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 5]
         3,
         pallet_referenda::TrackInfo {
             name: "referendum_canceller",
-            max_deciding: 1000,
-            decision_deposit: 1000 * AVT,
-            prepare_period: 2 * HOURS,
-            decision_period: 7 * DAYS,
-            confirm_period: 3 * HOURS,
-            min_enactment_period: 10 * MINUTES,
+            max_deciding: 3,
+            decision_deposit: 1 * AVT,
+            prepare_period: 1 * MINUTES,
+            decision_period: 1 * MINUTES,
+            confirm_period: 1 * MINUTES,
+            min_enactment_period: 1 * MINUTES,
             min_approval: APP_REFERENDUM_CANCELLER,
             min_support: SUP_REFERENDUM_CANCELLER,
         },
@@ -100,12 +99,12 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 5]
         4,
         pallet_referenda::TrackInfo {
             name: "referendum_killer",
-            max_deciding: 1000,
-            decision_deposit: 2000 * AVT,
-            prepare_period: 2 * HOURS,
-            decision_period: 28 * DAYS,
-            confirm_period: 3 * HOURS,
-            min_enactment_period: 10 * MINUTES,
+            max_deciding: 3,
+            decision_deposit: 1 * AVT,
+            prepare_period: 1 * MINUTES,
+            decision_period: 1 * MINUTES,
+            confirm_period: 1 * MINUTES,
+            min_enactment_period: 1 * MINUTES,
             min_approval: APP_REFERENDUM_KILLER,
             min_support: SUP_REFERENDUM_KILLER,
         },
