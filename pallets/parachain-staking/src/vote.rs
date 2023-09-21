@@ -21,11 +21,11 @@ use frame_system::offchain::SubmitTransaction;
 use pallet_avn::{self as avn, vote::*, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::ecdsa;
-use sp_runtime::scale_info::TypeInfo;
+use sp_runtime::{scale_info::TypeInfo, traits::Zero};
 use sp_std::fmt::Debug;
 
 use super::{Call, Config};
-use crate::{Pallet as ParachainStaking, GrowthId, Store, AVN, GrowthPeriodIndex};
+use crate::{Pallet as ParachainStaking, GrowthId, Store, AVN, GrowthPeriodIndex, BalanceOf};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"growth_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"growth_end_voting_period";
@@ -76,6 +76,9 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for GrowthVot
             return false
         }
 
+        let growth_data = growth_data_result.expect("checked for error");
+        let growth_values_are_valid = growth_data.rewards_in_period > BalanceOf::<T>::zero() && 
+            growth_data.average_staked_in_period > BalanceOf::<T>::zero();
         let growth_already_processed =
             <ParachainStaking<T> as Store>::ProcessedGrowthPeriods::contains_key(&self.growth_id.period);
         let growth_period_is_complete = 
@@ -92,7 +95,8 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for GrowthVot
         return !growth_already_processed &&
             growth_period_is_complete &&
             vote_is_for_correct_ingress_counter &&
-            voting_session_is_finalised
+            voting_session_is_finalised && 
+            growth_values_are_valid
     }
 
     fn is_active(&self) -> bool {
@@ -168,15 +172,49 @@ pub fn end_voting_if_required<T: Config>(
 }
 
 fn growth_can_be_voted_on<T: Config>(growth_id: &GrowthId, voter: &T::AccountId) -> bool {
-    //TODO: Implement me
-    return false;
+    // There is an edge case here. If this is being run very close to `end_of_voting_period`, by the
+    // time the vote gets mined. It may be outside the voting window and get rejected.
+    let growth_voting_session = ParachainStaking::<T>::get_growth_voting_session(growth_id);
+    let voting_session_data = growth_voting_session.state();
+    return voting_session_data.is_ok() &&
+        !voting_session_data.expect("voting session data is ok").has_voted(voter) &&
+        !is_vote_in_transaction_pool::<T>(growth_id) &&
+        growth_voting_session.is_active()
 }
 
 fn send_approve_vote<T: Config>(
     growth_id: &GrowthId,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
-    // Implement me
+    let (eth_encoded_data, eth_signature) =
+        ParachainStaking::<T>::sign_growth_for_ethereum(&growth_id).map_err(|_| ())?;
+
+    let approve_vote_extrinsic_signature = sign_for_approve_vote_extrinsic::<T>(
+        growth_id,
+        this_validator,
+        eth_encoded_data,
+        &eth_signature,
+    )?;
+
+    log::trace!(target: "avn", "🖊️  Worker sends approval vote for triggering growth: {:?}]", &growth_id);
+    //TODO: Enable me on the next PR
+
+    // if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+    //     Call::approve_growth {
+    //         growth_id: growth_id.clone(),
+    //         validator: this_validator.clone(),
+    //         approval_signature: eth_signature,
+    //         signature: approve_vote_extrinsic_signature,
+    //     }
+    //     .into(),
+    // ) {
+    //     log::error!(
+    //         "💔️ Error sending `approve vote transaction` for growth id {:?}: {:?}",
+    //         growth_id,
+    //         e
+    //     );
+    //     return Err(())
+    // }
 
     Ok(())
 }
@@ -218,6 +256,42 @@ fn send_reject_vote<T: Config>(
     growth_id: &GrowthId,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
-    //TODO: Implement me
+    let voting_session_data = ParachainStaking::<T>::get_growth_voting_session(&growth_id).state();
+    if voting_session_data.is_err() {
+        log::error!("💔 Error getting voting session data with growth id {:?} to vote", &growth_id);
+        return Err(())
+    }
+
+    let voting_session_id =
+        voting_session_data.expect("voting session data is ok").voting_session_id;
+    let signature = this_validator
+        .key
+        .sign(&(CAST_VOTE_CONTEXT, voting_session_id, REJECT_VOTE).encode());
+
+    if signature.is_none() {
+        log::error!("💔️ Error signing growth id {:?} to vote", &growth_id);
+        return Err(())
+    };
+
+    log::trace!(target: "avn", "🖊️  Worker sends reject vote for triggering growth: {:?}]", &growth_id);
+
+    //TODO: Enable me on the next PR
+    
+    // if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+    //     Call::reject_growth {
+    //         growth_id: growth_id.clone(),
+    //         validator: this_validator.clone(),
+    //         signature: signature.expect("We have a signature"),
+    //     }
+    //     .into(),
+    // ) {
+    //     log::error!(
+    //         "💔️ Error sending `reject vote transaction` for growth id {:?}: {:?}",
+    //         growth_id,
+    //         e
+    //     );
+    //     return Err(())
+    // }
+
     Ok(())
 }

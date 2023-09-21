@@ -288,7 +288,12 @@ pub mod pallet {
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
         FailedToWithdrawFullAmount,
-        GrowthDataNotFound
+        GrowthDataNotFound,
+        AccumulationIsZero,
+        ErrorCalculatingPrimaryValidator,
+        PrimaryCollatorNotFound,
+        InvalidGrowthData,
+        ErrorConvertingBalance
     }
 
     #[pallet::event]
@@ -435,6 +440,10 @@ pub mod pallet {
         CollatorPaid { account: T::AccountId, amount: BalanceOf<T>, period: GrowthPeriodIndex },
         /// An admin settings value has been updated
         AdminSettingsUpdated { value: AdminSettings<BalanceOf<T>> },
+        /// Vote by a voter for a root id is added
+        VoteAdded { voter: T::AccountId, growth_id: GrowthId, agree_vote: bool },
+        /// Voting for the root id is finished, true means the root is approved
+        VotingEnded { growth_id: GrowthId, vote_approved: bool },
     }
 
     #[pallet::hooks]
@@ -1633,7 +1642,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO: Benchmark me
         #[pallet::weight(<T as Config>::WeightInfo::set_admin_setting())]
         #[pallet::call_index(32)]
         pub fn set_admin_setting(
@@ -1651,6 +1659,48 @@ pub mod pallet {
 
             Self::deposit_event(Event::AdminSettingsUpdated { value });
 
+            Ok(())
+        }
+
+        // TODO: Benchmark me
+        #[pallet::weight(0)]
+        #[pallet::call_index(33)]
+        pub fn approve_growth(
+            origin: OriginFor<T>,
+            growth_id: GrowthId,
+            validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            approval_signature: ecdsa::Signature,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
+
+            let growth_data = Self::try_get_growth_data(&growth_id)?;
+            let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&growth_data)?;
+            if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
+            {
+                //TODO: enable offence
+                // create_and_report_summary_offence::<T>(
+                //     &validator.account_id,
+                //     &vec![validator.account_id.clone()],
+                //     SummaryOffenceType::InvalidSignatureSubmitted,
+                // );
+                return Err(avn_error::<T>::InvalidECDSASignature)?
+            };
+
+            let voting_session = Self::get_growth_voting_session(&growth_id);
+
+            process_approve_vote::<T>(
+                &voting_session,
+                validator.account_id.clone(),
+                approval_signature,
+            )?;
+
+            Self::deposit_event(Event::<T>::VoteAdded {
+                voter: validator.account_id,
+                growth_id,
+                agree_vote: true,
+            });
+            // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
             Ok(())
         }
     }
@@ -2360,12 +2410,78 @@ pub mod pallet {
                 as Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>
         }
 
-        pub fn try_get_growth_data(growth_id: &GrowthId) -> Result<GrowthInfo<T::AccountId, BalanceOf<T>>, Error<T>> {
+        pub fn try_get_growth_data(growth_id: &GrowthId) -> Result<GrowthData<T>, Error<T>> {
             if <Growth<T>>::contains_key(growth_id.period) {
-                return Ok(<Growth<T>>::get(growth_id.period))
+                let growth_info = <Growth<T>>::get(growth_id.period);
+                if growth_info.number_of_accumulations < 0u32 {
+                    Err(Error::<T>::AccumulationIsZero)?
+                }
+
+                let average_staked =  growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into();
+                let added_by = 
+                    AVN::<T>::calculate_primary_validator(<frame_system::Pallet<T>>::block_number())
+                    .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
+
+                return Ok(
+                    GrowthData::<T> {
+                        period: growth_id.period,
+                        rewards_in_period: growth_info.total_staker_reward,
+                        average_staked_in_period: average_staked,
+                        added_by: Some(added_by),
+                        tx_id: None
+                    }
+                )
             }
 
             Err(Error::<T>::GrowthDataNotFound)?
+        }
+
+        pub fn convert_data_to_eth_compatible_encoding(
+            growth_data: &GrowthData<T>,
+        ) -> Result<String, DispatchError> {
+            let rewards_in_period_128 = TryInto::<u128>::try_into(growth_data.rewards_in_period)
+                .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
+
+            let average_staked_in_period_128 = TryInto::<u128>::try_into(growth_data.average_staked_in_period)
+                .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
+
+            let eth_description =
+                EthAbiHelper::generate_ethereum_description_for_signature_request(
+                    &T::AccountToBytesConvert::into_bytes(
+                        growth_data
+                            .added_by
+                            .as_ref()
+                            .ok_or(Error::<T>::PrimaryCollatorNotFound)?,
+                    ),
+                    &EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
+                        rewards_in_period_128,
+                        average_staked_in_period_128,
+                        growth_data.period
+                    )),
+                    match growth_data.tx_id {
+                        None => EMPTY_GROWTH_TRANSACTION_ID,
+                        _ => *growth_data
+                            .tx_id
+                            .as_ref()
+                            .expect("Non-Empty roots have a reserved TransactionId"),
+                    },
+                )
+                .map_err(|_| Error::<T>::InvalidGrowthData)?;
+
+            Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(
+                &eth_description,
+            )))
+        }
+
+        pub fn sign_growth_for_ethereum(growth_id: &GrowthId)
+            -> Result<(String, ecdsa::Signature), DispatchError> 
+        {
+            let growth_data = Self::try_get_growth_data(&growth_id)?;
+            let data = Self::convert_data_to_eth_compatible_encoding(&growth_data)?;
+            return Ok((
+                data.clone(),
+                AVN::<T>::request_ecdsa_signature_from_external_service(&data)?,
+            ))
         }
 
         pub fn end_voting(
@@ -2421,5 +2537,44 @@ impl GrowthId {
 
     fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
         BoundedVec::truncate_from(self.encode())
+    }
+}
+    
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct GrowthData<T: Config> {
+    pub period: u32,
+    pub rewards_in_period: BalanceOf<T>,
+    pub average_staked_in_period: BalanceOf<T>,
+    pub added_by: Option<T::AccountId>,
+    pub tx_id: Option<TransactionId>
+}
+
+impl<T: Config> GrowthData<T> {
+    fn new(
+        period: u32, 
+        rewards_in_period: BalanceOf<T>, 
+        average_staked_in_period: BalanceOf<T>, 
+        added_by: T::AccountId, 
+        tx_id: Option<TransactionId>) -> Self 
+    {
+        return GrowthData::<T> {
+            period,
+            rewards_in_period,
+            average_staked_in_period,
+            added_by: Some(added_by),
+            tx_id
+        }
+    }
+}
+
+impl<T: Config> Default for GrowthData<T> {
+    fn default() -> Self {
+        Self {
+            period: 0u32,
+            rewards_in_period: BalanceOf::<T>::zero(),
+            average_staked_in_period: BalanceOf::<T>::zero(),
+            added_by: None,
+            tx_id: None,
+        }
     }
 }
