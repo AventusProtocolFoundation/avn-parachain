@@ -106,9 +106,12 @@ pub mod vote;
 use crate::vote::*;
 
 pub type AVN<T> = pallet_avn::Pallet<T>;
+use pallet_ethereum_transactions::ethereum_transaction::TransactionId;
 
 #[pallet]
 pub mod pallet {
+    const EMPTY_GROWTH_TRANSACTION_ID: TransactionId = 0;
+    use sp_core::{ecdsa, H256};
     use crate::set::BoundedOrderedSet;
     pub use crate::{
         calls::*,
@@ -117,6 +120,8 @@ pub mod pallet {
         set::OrderedSet,
         types::*,
         WeightInfo,
+        AVN,
+        GrowthData,
     };
     use crate::GrowthVotingSession;
     pub use frame_support::{
@@ -130,23 +135,31 @@ pub mod pallet {
     };
     pub use frame_system::pallet_prelude::*;
     pub use pallet_avn::{
-        CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker, 
+        self as avn,
+        CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker, AccountToBytesConverter,
         vote::{
             approve_vote_validate_unsigned, end_voting_period_validate_unsigned, process_approve_vote,
             process_reject_vote, reject_vote_validate_unsigned, VotingSessionData,
             VotingSessionManager,
         },
+        Error as avn_error,
     };
-    pub use sp_avn_common::{verify_signature, Proof, IngressCounter, bounds::VotingSessionIdBound};
+    
+    pub use sp_avn_common::{verify_signature, Proof, IngressCounter, bounds::VotingSessionIdBound, event_types::Validator,};
     pub use sp_runtime::{
         traits::{
             AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Dispatchable, IdentifyAccount,
-            Member, Saturating, StaticLookup, Verify, Zero,
+            Member, Saturating, StaticLookup, Verify, Zero, CheckedDiv
         },
         Perbill,
     };
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
     pub use crate::GrowthId;
+    use pallet_ethereum_transactions::{
+        ethereum_transaction::{EthAbiHelper, EthTransactionType, TriggerGrowthData, TransactionId},
+        CandidateTransactionSubmitter,
+    };
+    use sp_application_crypto::RuntimeAppPublic;
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
@@ -227,6 +240,7 @@ pub mod pallet {
         /// Maximum candidates
         #[pallet::constant]
         type MaxCandidates: Get<u32>;
+        type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
     }
 
     #[pallet::error]
