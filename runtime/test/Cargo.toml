@@ -91,6 +91,7 @@ pallet-summary = { path = "../../pallets/summary", default-features = false }
 pallet-token-manager = { path = "../../pallets/token-manager", default-features = false }
 pallet-nft-manager = { path = "../../pallets/nft-manager", default-features = false }
 pallet-avn-proxy = { path = "../../pallets/avn-proxy", default-features = false }
+pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = false }
 
 pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
 
@@ -152,6 +153,7 @@ std = [
 	"pallet-avn/std",
 	"pallet-avn-finality-tracker/std",
 	"pallet-avn-offence-handler/std",
+	"pallet-eth-bridge/std",
 	"pallet-ethereum-events/std",
 	"pallet-ethereum-transactions/std",
 	"pallet-nft-manager/std",
@@ -183,6 +185,7 @@ runtime-benchmarks = [
 	"pallet-avn-proxy/runtime-benchmarks",
 	"pallet-avn-finality-tracker/runtime-benchmarks",
 	"pallet-avn-offence-handler/runtime-benchmarks",
+	"pallet-eth-bridge/runtime-benchmarks",
 	"pallet-ethereum-events/runtime-benchmarks",
 	"pallet-ethereum-transactions/runtime-benchmarks",
 	"pallet-nft-manager/runtime-benchmarks",
