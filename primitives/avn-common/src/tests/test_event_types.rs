@@ -151,7 +151,6 @@ fn get_lifted_avt_with_long_topic() -> Vec<Vec<u8>> {
 #[test]
 fn test_lifted_avt_parse_bytes_good_case() {
     let expected_contract_address = H160(hex!("1414141414141414141414141414141414141414"));
-    let expected_sender_address = H160(hex!("3232323232323232323232323232323232323232"));
     let expected_receiver_address =
         H256(hex!("1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e"));
     let expected_amount = 10000u32;
@@ -165,7 +164,6 @@ fn test_lifted_avt_parse_bytes_good_case() {
     assert!(result.is_valid());
 
     assert_eq!(result.token_contract, expected_contract_address);
-    assert_eq!(result.sender_address, expected_sender_address);
     assert_eq!(result.receiver_address, expected_receiver_address);
     assert_eq!(result.amount, expected_amount.into());
     assert!(result.nonce.is_zero());
@@ -174,7 +172,6 @@ fn test_lifted_avt_parse_bytes_good_case() {
 #[test]
 fn test_lifted_avt_parse_bytes_max_values() {
     let expected_contract_address = H160(hex!("1414141414141414141414141414141414141414"));
-    let expected_sender_address = H160(hex!("3232323232323232323232323232323232323232"));
     let expected_receiver_address =
         H256(hex!("1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e"));
     let expected_amount = u128::max_value();
@@ -188,7 +185,6 @@ fn test_lifted_avt_parse_bytes_max_values() {
     assert!(result.is_valid());
 
     assert_eq!(result.token_contract, expected_contract_address);
-    assert_eq!(result.sender_address, expected_sender_address);
     assert_eq!(result.receiver_address, expected_receiver_address);
     assert_eq!(result.amount, expected_amount.into());
     assert!(result.nonce.is_zero());
@@ -197,7 +193,6 @@ fn test_lifted_avt_parse_bytes_max_values() {
 #[test]
 fn test_lifted_avt_parse_bytes_endianness() {
     let expected_contract_address = H160(hex!("1414141414141414141414141414141414141414"));
-    let expected_sender_address = H160(hex!("3232323232323232323232323232323232323232"));
     let expected_receiver_address =
         H256(hex!("1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e"));
     let expected_amount = 1u128 << 127;
@@ -211,7 +206,6 @@ fn test_lifted_avt_parse_bytes_endianness() {
     assert!(result.is_valid());
 
     assert_eq!(result.token_contract, expected_contract_address);
-    assert_eq!(result.sender_address, expected_sender_address);
     assert_eq!(result.receiver_address, expected_receiver_address);
     assert_eq!(result.amount, expected_amount.into());
     assert!(result.nonce.is_zero());

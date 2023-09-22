@@ -208,7 +208,6 @@ impl AddedValidatorData {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct LiftedData {
     pub token_contract: H160,
-    pub sender_address: H160,
     pub receiver_address: H256,
     pub amount: u128,
     pub nonce: U256,
@@ -216,13 +215,10 @@ pub struct LiftedData {
 
 impl LiftedData {
     const TOPIC_CURRENCY_CONTRACT: usize = 1;
-    const TOPIC_INDEX_T1_ADDRESS: usize = 2;
     const TOPIC_INDEX_T2_ADDRESS: usize = 3;
 
     pub fn is_valid(&self) -> bool {
-        return !self.token_contract.is_zero() &&
-            !self.sender_address.is_zero() &&
-            !self.receiver_address.is_zero()
+        return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -248,7 +244,6 @@ impl LiftedData {
         }
 
         if topics[Self::TOPIC_CURRENCY_CONTRACT].len() != WORD_LENGTH ||
-            topics[Self::TOPIC_INDEX_T1_ADDRESS].len() != WORD_LENGTH ||
             topics[Self::TOPIC_INDEX_T2_ADDRESS].len() != WORD_LENGTH
         {
             return Err(Error::LiftedEventBadTopicLength)
@@ -256,9 +251,6 @@ impl LiftedData {
 
         let token_contract = H160::from_slice(
             &topics[Self::TOPIC_CURRENCY_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
-        );
-        let sender_address = H160::from_slice(
-            &topics[Self::TOPIC_INDEX_T1_ADDRESS][DISCARDED_ZERO_BYTES..WORD_LENGTH],
         );
         let receiver_address = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
 
@@ -273,7 +265,6 @@ impl LiftedData {
         );
         return Ok(LiftedData {
             token_contract,
-            sender_address,
             receiver_address,
             amount,
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
