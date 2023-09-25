@@ -112,6 +112,11 @@ pub use pallet_ethereum_transactions::ethereum_transaction::TransactionId;
 
 #[pallet]
 pub mod pallet {
+    #[cfg(not(feature = "std"))]
+    extern crate alloc;
+    #[cfg(not(feature = "std"))]
+    use alloc::string::{String, ToString};
+
     const EMPTY_GROWTH_TRANSACTION_ID: TransactionId = 0;
     use pallet_session::historical::IdentificationTuple;
     use sp_staking::offence::ReportOffence;

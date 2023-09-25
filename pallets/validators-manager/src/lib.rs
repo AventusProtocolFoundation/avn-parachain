@@ -632,7 +632,7 @@ impl<T: Config> Pallet<T> {
         };
 
         let sender =
-            T::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator);
+            <T as pallet::Config>::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator);
 
         // Now treat this as an bytes32 parameter and generate signing abi.
         let hex_encoded_confirmation_data =
@@ -684,7 +684,7 @@ impl<T: Config> Pallet<T> {
         if vote_is_approved {
             let validators_action_data = Self::try_get_validators_action_data(action_id)?;
 
-            let result = T::CandidateTransactionSubmitter::submit_candidate_transaction_to_tier1(
+            let result = <T as pallet::Config>::CandidateTransactionSubmitter::submit_candidate_transaction_to_tier1(
                 validators_action_data.reserved_eth_transaction,
                 validators_action_data.eth_transaction_id,
                 validators_action_data.primary_validator,
@@ -759,10 +759,10 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
         let eth_transaction_type = EthTransactionType::ActivateCollator(ActivateCollatorData::new(
             decompressed_collator_eth_public_key,
-            T::AccountToBytesConvert::into_bytes(&collator_id),
+            <T as pallet::Config>::AccountToBytesConvert::into_bytes(&collator_id),
         ));
         let tx_id =
-            T::CandidateTransactionSubmitter::reserve_transaction_id(&eth_transaction_type)?;
+            <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(&eth_transaction_type)?;
 
         Ok((new_collator_id, eth_tx_sender, eth_transaction_type, tx_id))
     }
@@ -862,7 +862,7 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
 
         let tx_id =
-            T::CandidateTransactionSubmitter::reserve_transaction_id(&eth_transaction_type)?;
+            <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(&eth_transaction_type)?;
 
         TotalIngresses::<T>::put(ingress_counter);
         <ValidatorActions<T>>::insert(
@@ -917,7 +917,7 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::InvalidPublicKey)?;
         let candidate_tx = EthTransactionType::DeregisterCollator(DeregisterCollatorData::new(
             decompressed_eth_public_key,
-            T::AccountToBytesConvert::into_bytes(resigned_validator),
+            <T as pallet::Config>::AccountToBytesConvert::into_bytes(resigned_validator),
         ));
         let ingress_counter = Self::get_ingress_counter() + 1;
         return Self::remove(
