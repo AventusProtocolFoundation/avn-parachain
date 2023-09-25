@@ -230,6 +230,9 @@ impl Config for Test {
     type CollatorPayoutDustHandler = TestCollatorPayoutDustHandler;
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
+    type AccountToBytesConvert = Avn;
+    type CandidateTransactionSubmitter = EthereumTransactions;
+    type ReportGrowthOffence = OffenceHandler;
 }
 
 // Deal with any positive imbalance by sending it to the fake treasury
@@ -239,6 +242,23 @@ impl CollatorPayoutDustHandler<Balance> for TestCollatorPayoutDustHandler {
         // Transfer the amount and drop the imbalance to increase the total issuance
         let imbalance = Balances::deposit_creating(&fake_treasury(), dust_amount);
         drop(imbalance);
+    }
+}
+
+thread_local! {
+    pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
+}
+
+/// A mock offence report handler.
+pub struct OffenceHandler;
+impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
+    fn report_offence(reporters: Vec<AccountId>, offence: Offence) -> Result<(), OffenceError> {
+        OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
+        Ok(())
+    }
+
+    fn is_known_offence(_offenders: &[IdentificationTuple], _time_slot: &SessionIndex) -> bool {
+        false
     }
 }
 
