@@ -188,6 +188,8 @@ pub mod pallet {
     const ERROR_CODE_INVALID_GROWTH_DATA: u8 = 10;
     const ERROR_CODE_INVALID_GROWTH_PERIOD: u8 = 20;
 
+    const MAX_GROWTHS_TO_PROCESS: usize = 5;
+
     pub type CollatorMaxScores = ConstU32<10000>;
 
     /// Configuration trait of this pallet.
@@ -714,6 +716,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn voting_period)]
     pub type VotingPeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+    /// The last period we triggered growth    
+    #[pallet::storage]
+    #[pallet::getter(fn last_triggered_growth_period)]
+    pub type LastTriggeredGrowthPeriod<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -2285,13 +2292,8 @@ pub mod pallet {
                 new_payout_info.collator_scores = current_collator_scores;
 
                 <Growth<T>>::insert(new_growth_period, new_payout_info);
-
-                if new_growth_period > 0u32 && total_staked > 0u32.into() && staking_reward_paid_in_era > 0u32.into() {
-                    let result = Self::trigger_growth_on_t1(&(new_growth_period - 1));
-                    if result.is_err() {
-                        log::error!("💔 Error triggering growth for period {:?}. {:?}", new_growth_period - 1, result);
-                    }
-                }
+                                
+                Self::trigger_outstanding_growths(&(new_growth_period - 1));                            
             } else {
                 Self::accumulate_payout_for_period(
                     collator_payout_period.index,
@@ -2555,56 +2557,94 @@ pub mod pallet {
                 as Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>
         }
 
-        pub fn trigger_growth_on_t1(growth_period: &u32) -> Result<(), Error<T>> {
-            if <Growth<T>>::contains_key(growth_period) {
-                let growth_info = <Growth<T>>::get(growth_period);
-                               
-                let rewards_in_period_128 = TryInto::<u128>::try_into(growth_info.total_staker_reward)
-                .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
+        pub fn trigger_outstanding_growths(latest_period: &u32) {
+            let periods_to_process = Self::get_untriggered_growths(*latest_period);
 
-                let average_staked_in_period_128 = TryInto::<u128>::try_into(growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into())
-                .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
-                
-                let trigger_growth = EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
-                    rewards_in_period_128,
-                    average_staked_in_period_128,
-                    *growth_period
-                ));
+            for growth_period in periods_to_process.iter()
+            {   
+                if <Growth<T>>::contains_key(growth_period) {
+                    let growth_info = <Growth<T>>::get(growth_period);
 
-                let tx_id =  Some(T::CandidateTransactionSubmitter::reserve_transaction_id(&trigger_growth).map_err(|_| Error::<T>::ErrorReservingId)?);                            
-                let added_by = 
-                    AVN::<T>::calculate_primary_validator(<frame_system::Pallet<T>>::block_number())
-                    .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
-                
-                let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32);
-                let ingress_counter = Self::get_ingress_counter();
-                let current_block_number = <frame_system::Pallet<T>>::block_number();
-                let voting_period_end =
-                    safe_add_block_numbers(current_block_number, Self::voting_period())
-                    .map_err(|_| Error::<T>::Overflow)?;
-
-                let growth_id = GrowthId::new(*growth_period, ingress_counter);
-
-                <TotalIngresses<T>>::mutate(|x| *x = x.saturating_add(1));
-                <Growth<T>>::mutate(growth_period, |growth| {
-                    growth.added_by = Some(added_by);
-                    growth.tx_id = tx_id;
-                });
-                <PendingApproval<T>>::insert(growth_period, ingress_counter);
-                <VotesRepository<T>>::insert(
-                    growth_id,
-                    VotingSessionData::new(
-                        growth_id.session_id(),
-                        quorum,
-                        voting_period_end,
-                        <frame_system::Pallet<T>>::block_number(),
-                    ),
-                );
-
-                return Ok(());
+                    if <ProcessedGrowthPeriods<T>>::contains_key(growth_period) ||
+                        growth_info.added_by.is_some() ||
+                        growth_info.tx_id.is_some() 
+                    {
+                        log::warn!("Growth for period {:?} is already processed. Added by: {:?}, Tx id: {:?}", growth_period, growth_info.added_by, growth_info.tx_id);
+                        continue;
+                    }
+    
+                    if growth_info.number_of_accumulations == 0u32 ||
+                        growth_info.total_stake_accumulated == 0u32.into() ||
+                        growth_info.total_staker_reward == 0u32.into() 
+                    {
+                        log::warn!("Growth for period {:?} will be 0, skipping it.", growth_period);
+                        <LastTriggeredGrowthPeriod<T>>::put(growth_period);                
+                        <Growth<T>>::mutate(growth_period, |growth| {                        
+                            growth.tx_id = Some(0u64);
+                        });
+    
+                        continue;
+                    }
+    
+    
+                    let result = Self::trigger_growth_on_t1(&growth_period, growth_info);
+                    if result.is_err() {
+                        log::error!("💔 Error triggering growth for period {:?}. {:?}", growth_period, result);
+                    }            
+                }
             }
+        }
+        
+        pub fn trigger_growth_on_t1(growth_period: &u32, growth_info: GrowthInfo<T::AccountId, BalanceOf<T>>) -> Result<(), Error<T>> {                                                                              
+            let rewards_in_period_128 = TryInto::<u128>::try_into(growth_info.total_staker_reward)
+            .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
 
-            Err(Error::<T>::GrowthDataNotFound)?
+            let average_staked_in_period_128 = TryInto::<u128>::try_into(growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into())
+            .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
+            
+            let trigger_growth = EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
+                rewards_in_period_128,
+                average_staked_in_period_128,
+                *growth_period
+            ));
+
+            let tx_id =  Some(T::CandidateTransactionSubmitter::reserve_transaction_id(&trigger_growth).map_err(|_| Error::<T>::ErrorReservingId)?);                            
+            let added_by = 
+                AVN::<T>::calculate_primary_validator(<frame_system::Pallet<T>>::block_number())
+                .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
+            
+            let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32);
+            let ingress_counter = Self::get_ingress_counter();
+            let current_block_number = <frame_system::Pallet<T>>::block_number();
+            let voting_period_end =
+                safe_add_block_numbers(current_block_number, Self::voting_period())
+                .map_err(|_| Error::<T>::Overflow)?;
+
+            let growth_id = GrowthId::new(*growth_period, ingress_counter);
+
+            <LastTriggeredGrowthPeriod<T>>::put(growth_period);
+            <TotalIngresses<T>>::mutate(|x| *x = x.saturating_add(1));
+            <Growth<T>>::mutate(growth_period, |growth| {
+                growth.added_by = Some(added_by);
+                growth.tx_id = tx_id;
+            });
+            <PendingApproval<T>>::insert(growth_period, ingress_counter);
+            <VotesRepository<T>>::insert(
+                growth_id,
+                VotingSessionData::new(
+                    growth_id.session_id(),
+                    quorum,
+                    voting_period_end,
+                    <frame_system::Pallet<T>>::block_number(),
+                ),
+            );
+
+            return Ok(());                        
+        }
+
+        pub fn get_untriggered_growths(current_period: u32) -> Vec<u32> {                        
+            let starting_period = Self::last_triggered_growth_period() + 1;
+            return (starting_period..=current_period).take(MAX_GROWTHS_TO_PROCESS).collect();            
         }
 
         pub fn try_get_growth_data(growth_period: &u32) -> Result<GrowthInfo<T::AccountId, BalanceOf<T>>, Error<T>> {
@@ -2730,17 +2770,7 @@ pub mod pallet {
                     growth_period: growth_id.period,                    
                 });
             } else {
-                // We didn't get enough votes to approve this growth
-
-                let growth_creator =
-                    growth_info.added_by.ok_or(Error::<T>::GrowthTxSenderNotFound)?;
-                    
-                create_and_report_growth_offence::<T>(
-                    &reporter,
-                    &vec![growth_creator],
-                    GrowthOffenceType::CreatedInvalidGrowth,
-                );
-
+                // We didn't get enough votes to approve this growth                                
                 create_and_report_growth_offence::<T>(
                     &reporter,
                     &vote.ayes,
