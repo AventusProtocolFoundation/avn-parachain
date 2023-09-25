@@ -105,15 +105,20 @@ pub use types::*;
 pub mod vote;
 use crate::vote::*;
 
+pub mod offence;
+
 pub type AVN<T> = pallet_avn::Pallet<T>;
 pub use pallet_ethereum_transactions::ethereum_transaction::TransactionId;
 
 #[pallet]
 pub mod pallet {
     const EMPTY_GROWTH_TRANSACTION_ID: TransactionId = 0;
+    use pallet_session::historical::IdentificationTuple;
+    use sp_staking::offence::ReportOffence;
     use sp_core::{ecdsa};
-    use crate::set::BoundedOrderedSet;
-    pub use crate::{
+    use crate::set::BoundedOrderedSet;    
+    pub use crate::{        
+        offence::{create_and_report_growth_offence, GrowthOffence, GrowthOffenceType},
         calls::*,
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
         proxy_methods::*,
@@ -187,7 +192,7 @@ pub mod pallet {
 
     /// Configuration trait of this pallet.
     #[pallet::config]
-    pub trait Config: SendTransactionTypes<Call<Self>> + frame_system::Config + pallet_session::Config + pallet_avn::Config {
+    pub trait Config: SendTransactionTypes<Call<Self>> + frame_system::Config + pallet_session::Config + pallet_avn::Config + pallet_session::historical::Config {
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
@@ -250,6 +255,13 @@ pub mod pallet {
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
 
         type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
+
+        ///  A type that gives the pallet the ability to report offences
+        type ReportGrowthOffence: ReportOffence<
+            Self::AccountId,
+            IdentificationTuple<Self>,
+            GrowthOffence<IdentificationTuple<Self>>,
+        >;
     }
 
     #[pallet::error]
@@ -473,7 +485,12 @@ pub mod pallet {
         /// Voting for the growth id is finished, true means the growth is approved
         VotingEnded { growth_id: GrowthId, vote_approved: bool },
         /// Starting a new growth trigger for the specified period.
-        TriggeringGrowth {growth_period: u32}
+        TriggeringGrowth {growth_period: u32},
+        /// A growth offence by a list of offenders is reported
+        GrowthOffenceReported {
+            offence_type: GrowthOffenceType,
+            offenders: Vec<IdentificationTuple<T>>,
+        },
     }
 
     #[pallet::hooks]
@@ -1717,13 +1734,12 @@ pub mod pallet {
             
             let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&growth_id.period)?;
             if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
-            {
-                //TODO: enable offence
-                // create_and_report_summary_offence::<T>(
-                //     &validator.account_id,
-                //     &vec![validator.account_id.clone()],
-                //     SummaryOffenceType::InvalidSignatureSubmitted,
-                // );
+            {                
+                create_and_report_growth_offence::<T>(
+                    &validator.account_id,
+                    &vec![validator.account_id.clone()],
+                    GrowthOffenceType::InvalidSignatureSubmitted,
+                );
                 return Err(avn_error::<T>::InvalidECDSASignature)?
             };
 
@@ -2700,11 +2716,11 @@ pub mod pallet {
                 }
                 // If we get here, then we did not get an error when submitting to T1.
 
-                // create_and_report_summary_offence::<T>(
-                //     &reporter,
-                //     &vote.nays,
-                //     SummaryOffenceType::RejectedValidRoot,
-                // );
+                create_and_report_growth_offence::<T>(
+                    &reporter,
+                    &vote.nays,
+                    GrowthOffenceType::RejectedValidGrowth,
+                );
                 
                 <Growth<T>>::mutate(growth_id.period, |growth| {
                     growth.triggered = Some(true)
@@ -2718,17 +2734,18 @@ pub mod pallet {
 
                 let growth_creator =
                     growth_info.added_by.ok_or(Error::<T>::GrowthTxSenderNotFound)?;
-                // create_and_report_summary_offence::<T>(
-                //     &reporter,
-                //     &vec![growth_creator],
-                //     SummaryOffenceType::CreatedInvalidRoot,
-                // );
+                    
+                create_and_report_growth_offence::<T>(
+                    &reporter,
+                    &vec![growth_creator],
+                    GrowthOffenceType::CreatedInvalidGrowth,
+                );
 
-                // create_and_report_summary_offence::<T>(
-                //     &reporter,
-                //     &vote.ayes,
-                //     SummaryOffenceType::ApprovedInvalidRoot,
-                // );
+                create_and_report_growth_offence::<T>(
+                    &reporter,
+                    &vote.ayes,
+                    GrowthOffenceType::ApprovedInvalidGrowth,
+                );
             }
 
             <PendingApproval<T>>::remove(growth_id.period);
