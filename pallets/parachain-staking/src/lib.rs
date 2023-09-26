@@ -132,7 +132,7 @@ pub mod pallet {
         },
         transactional, PalletId,
     };
-    pub use frame_system::pallet_prelude::*;
+    pub use frame_system::{pallet_prelude::*,  offchain::{SendTransactionTypes, SubmitTransaction},};
     pub use pallet_avn::{
         self as avn,
         CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker, AccountToBytesConverter,
@@ -144,7 +144,9 @@ pub mod pallet {
         Error as avn_error,
     };
     
-    pub use sp_avn_common::{verify_signature, Proof, IngressCounter, bounds::VotingSessionIdBound, event_types::Validator,};
+    pub use sp_avn_common::{verify_signature, Proof, IngressCounter, bounds::VotingSessionIdBound, event_types::Validator,
+        calculate_two_third_quorum, safe_add_block_numbers,
+        offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},};
     pub use sp_runtime::{
         traits::{
             AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Dispatchable, IdentifyAccount,
@@ -176,11 +178,16 @@ pub mod pallet {
 
     pub const COLLATOR_LOCK_ID: LockIdentifier = *b"stkngcol";
     pub const NOMINATOR_LOCK_ID: LockIdentifier = *b"stkngnom";
+
+    // Error codes returned by validate unsigned methods    
+    const ERROR_CODE_INVALID_GROWTH_DATA: u8 = 10;
+    const ERROR_CODE_INVALID_GROWTH_PERIOD: u8 = 20;
+
     pub type CollatorMaxScores = ConstU32<10000>;
 
     /// Configuration trait of this pallet.
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_session::Config + pallet_avn::Config {
+    pub trait Config: SendTransactionTypes<Call<Self>> + frame_system::Config + pallet_session::Config + pallet_avn::Config {
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = Self::RuntimeOrigin, PostInfo = PostDispatchInfo>
@@ -239,7 +246,10 @@ pub mod pallet {
         /// Maximum candidates
         #[pallet::constant]
         type MaxCandidates: Get<u32>;
+
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
+
+        type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
     }
 
     #[pallet::error]
@@ -306,7 +316,12 @@ pub mod pallet {
         ErrorCalculatingPrimaryValidator,
         PrimaryCollatorNotFound,
         InvalidGrowthData,
-        ErrorConvertingBalance
+        ErrorConvertingBalance,
+        GrowthTxSenderNotFound,
+        ErrorEndingVotingPeriod,
+        VotingSessionIsNotValid,
+        ErrorReservingId,
+        Overflow,
     }
 
     #[pallet::event]
@@ -453,10 +468,12 @@ pub mod pallet {
         CollatorPaid { account: T::AccountId, amount: BalanceOf<T>, period: GrowthPeriodIndex },
         /// An admin settings value has been updated
         AdminSettingsUpdated { value: AdminSettings<BalanceOf<T>> },
-        /// Vote by a voter for a root id is added
+        /// Vote by a voter for a growth id is added
         VoteAdded { voter: T::AccountId, growth_id: GrowthId, agree_vote: bool },
-        /// Voting for the root id is finished, true means the root is approved
+        /// Voting for the growth id is finished, true means the growth is approved
         VotingEnded { growth_id: GrowthId, vote_approved: bool },
+        /// Starting a new growth trigger for the specified period.
+        TriggeringGrowth {growth_period: u32}
     }
 
     #[pallet::hooks]
@@ -669,6 +686,17 @@ pub mod pallet {
     #[pallet::getter(fn get_pending_growths)]
     pub type PendingApproval<T: Config> =
         StorageMap<_, Blake2_128Concat, GrowthPeriodIndex, IngressCounter, ValueQuery>;
+
+    /// The total ingresses of growths 
+    #[pallet::storage]
+    #[pallet::getter(fn get_ingress_counter)]
+    pub type TotalIngresses<T: Config> = StorageValue<_, IngressCounter, ValueQuery>;
+ 
+    /// A period (in block number) where authors are allowed to vote on the validity of a growth
+    /// hash
+    #[pallet::storage]
+    #[pallet::getter(fn voting_period)]
+    pub type VotingPeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -1715,6 +1743,95 @@ pub mod pallet {
             // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
             Ok(())
         }
+
+        #[pallet::weight(0)]
+        #[pallet::call_index(34)]
+        pub fn reject_growth(
+            origin: OriginFor<T>,
+            growth_id: GrowthId,
+            validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
+            let voting_session = Self::get_growth_voting_session(&growth_id);
+            process_reject_vote::<T>(&voting_session, validator.account_id.clone())?;
+
+            Self::deposit_event(Event::<T>::VoteAdded {
+                voter: validator.account_id,
+                growth_id,
+                agree_vote: false,
+            });
+            // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
+            Ok(())
+        }
+
+        #[pallet::weight(0)]
+        #[pallet::call_index(35)]
+        pub fn end_voting_period(
+            origin: OriginFor<T>,
+            growth_id: GrowthId,
+            validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+        ) -> DispatchResult {
+            ensure_none(origin)?;
+            //Event is deposited in end_voting because this function can get called from
+            // `approve_growth` or `reject_growth`
+            Self::end_voting(validator.account_id, &growth_id)?;
+
+            // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
+            Ok(())
+        }
+    }
+
+    #[pallet::validate_unsigned]
+    impl<T: Config> ValidateUnsigned for Pallet<T> {
+        type Call = Call<T>;
+
+        fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            if let Call::end_voting_period { growth_id, validator, signature } = call {
+                if !<Growth<T>>::contains_key(growth_id.period) {
+                    return InvalidTransaction::Custom(ERROR_CODE_INVALID_GROWTH_PERIOD).into()
+                }
+
+                let growth_voting_session = Self::get_growth_voting_session(growth_id);
+                return end_voting_period_validate_unsigned::<T>(
+                    &growth_voting_session,
+                    validator,
+                    signature,
+                )
+            } else if let Call::approve_growth { growth_id, validator, approval_signature, signature } =
+                call
+            {
+                if !<Growth<T>>::contains_key(growth_id.period) {
+                    return InvalidTransaction::Custom(ERROR_CODE_INVALID_GROWTH_PERIOD).into()
+                }
+
+                let growth_voting_session = Self::get_growth_voting_session(growth_id);                
+                let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&growth_id.period)
+                    .map_err(|_| InvalidTransaction::Custom(ERROR_CODE_INVALID_GROWTH_DATA))?;
+
+                return approve_vote_validate_unsigned::<T>(
+                    &growth_voting_session,
+                    validator,
+                    eth_encoded_data.encode(),
+                    approval_signature,
+                    signature,
+                )
+            } else if let Call::reject_growth { growth_id, validator, signature } = call {
+                if !<Growth<T>>::contains_key(growth_id.period) {
+                    return InvalidTransaction::Custom(ERROR_CODE_INVALID_GROWTH_PERIOD).into()
+                }
+
+                let growth_voting_session = Self::get_growth_voting_session(growth_id);
+                return reject_vote_validate_unsigned::<T>(
+                    &growth_voting_session,
+                    validator,
+                    signature,
+                )
+            } else {
+                return InvalidTransaction::Call.into()
+            }
+        }
     }
 
     impl<T: Config> Pallet<T> {
@@ -2422,33 +2539,7 @@ pub mod pallet {
             return Box::new(GrowthVotingSession::<T>::new(growth_id))
                 as Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>
         }
-
-        pub fn try_get_growth_data(growth_id: &GrowthId) -> Result<GrowthData<T>, Error<T>> {
-            if <Growth<T>>::contains_key(growth_id.period) {
-                let growth_info = <Growth<T>>::get(growth_id.period);
-                if growth_info.number_of_accumulations <= 0u32 {
-                    Err(Error::<T>::AccumulationIsZero)?
-                }
-
-                let average_staked =  growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into();
-                let added_by = 
-                    AVN::<T>::calculate_primary_validator(<frame_system::Pallet<T>>::block_number())
-                    .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
-
-                return Ok(
-                    GrowthData::<T> {
-                        period: growth_id.period,
-                        rewards_in_period: growth_info.total_staker_reward,
-                        average_staked_in_period: average_staked,
-                        added_by: Some(added_by),
-                        tx_id: None
-                    }
-                )
-            }
-
-            Err(Error::<T>::GrowthDataNotFound)?
-        }
-
+        
         pub fn try_get_growth_data(growth_period: &u32) -> Result<GrowthInfo<T::AccountId, BalanceOf<T>>, Error<T>> {
             if <Growth<T>>::contains_key(growth_period) {
                 return Ok(<Growth<T>>::get(growth_period));                
@@ -2493,6 +2584,15 @@ pub mod pallet {
             )))
         }
 
+        pub fn lock_till_request_expires() -> OcwOperationExpiration {
+            let avn_service_expiry_in_millisec = 300_000 as u32;
+            let avn_block_generation_in_millisec = 12_000 as u32;
+            let delay = 10 as u32;
+            let lock_expiration_in_blocks =
+                avn_service_expiry_in_millisec / avn_block_generation_in_millisec + delay;
+            return OcwOperationExpiration::Custom(lock_expiration_in_blocks)
+        }
+
         pub fn sign_growth_for_ethereum(growth_id: &GrowthId)
             -> Result<(String, ecdsa::Signature), DispatchError> 
         {            
@@ -2508,10 +2608,96 @@ pub mod pallet {
             growth_id: &GrowthId,
         ) -> DispatchResult {
             let voting_session = Self::get_growth_voting_session(&growth_id);
+            ensure!(voting_session.is_valid(), Error::<T>::VotingSessionIsNotValid);
 
-            //TODO: Implement me
+            let vote = Self::get_vote(growth_id);
+            ensure!(Self::can_end_vote(&vote), Error::<T>::ErrorEndingVotingPeriod);
+
+            let growth_is_approved = vote.is_approved();
+
+            let growth_info = Self::try_get_growth_data(&growth_id.period)?;
+            let rewards_in_period_128 = TryInto::<u128>::try_into(growth_info.total_staker_reward)
+                .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
+
+            let average_staked_in_period_128 = TryInto::<u128>::try_into(growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into())
+                .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
+
+            if growth_is_approved {
+                if growth_info.tx_id.is_some() {
+                    let result =
+                        T::CandidateTransactionSubmitter::submit_candidate_transaction_to_tier1(
+                            EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
+                                rewards_in_period_128,
+                                average_staked_in_period_128,
+                                growth_id.period 
+                            )),
+                            *growth_info.tx_id.as_ref().expect("checked on the IF statement"),
+                            growth_info.added_by.ok_or(Error::<T>::GrowthTxSenderNotFound)?,
+                            voting_session.state()?.confirmations,
+                        );
+
+                    if let Err(result) = result {
+                        log::error!("❌ Error Submitting Tx: {:?}", result);
+                        Err(result)?
+                    }
+                    // There are a couple possible reasons for failure.
+                    // 1. We fail before sending to T1: likely a bug on our part
+                    // 2. Quorum mismatch. There is no guarantee that between accepting a growth and
+                    // submitting it to T1, the tier2 session hasn't changed and with it
+                    // the quorum, making ethereum-transactions reject it
+                    // In either case, we should not slash anyone.
+                }
+                // If we get here, then we did not get an error when submitting to T1.
+
+                // create_and_report_summary_offence::<T>(
+                //     &reporter,
+                //     &vote.nays,
+                //     SummaryOffenceType::RejectedValidRoot,
+                // );
+                
+                <Growth<T>>::mutate(growth_id.period, |growth| {
+                    growth.triggered = Some(true)
+                });
+                
+                Self::deposit_event(Event::<T>::TriggeringGrowth {
+                    growth_period: growth_id.period,                    
+                });
+            } else {
+                // We didn't get enough votes to approve this growth
+                
+                // create_and_report_summary_offence::<T>(
+                //     &reporter,
+                //     &vec![growth_creator],
+                //     SummaryOffenceType::CreatedInvalidRoot,
+                // );
+
+                // create_and_report_summary_offence::<T>(
+                //     &reporter,
+                //     &vote.ayes,
+                //     SummaryOffenceType::ApprovedInvalidRoot,
+                // );
+            }
+
+            <PendingApproval<T>>::remove(growth_id.period);
+
+            // When we get here, the growth's voting session has ended and it has been removed from
+            // PendingApproval If the growth was approved, it is now marked as validated.
+            // Otherwise, it stays false. If there was an error when submitting to T1, none of
+            // this happened and it is still pending and not validated. In either case, the whole
+            // voting history remains in storage
+
+            Self::deposit_event(Event::<T>::VotingEnded {
+                growth_id: *growth_id,
+                vote_approved: growth_is_approved,
+            });
+
 
             Ok(())
+        }
+
+        fn can_end_vote(vote: &VotingSessionData<T::AccountId, T::BlockNumber>) -> bool {
+            return vote.has_outcome() ||
+                <frame_system::Pallet<T>>::block_number() >= vote.end_of_voting_period
         }
     }
 
@@ -2539,164 +2725,6 @@ pub mod pallet {
     impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
         fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
             return Self::payout_collators(amount, growth_period)
-        }
-    }
-
-    #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-    pub struct GrowthId {
-        pub period: GrowthPeriodIndex,
-        pub ingress_counter: IngressCounter,
-    }
-
-    impl GrowthId {
-        fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-            return GrowthId { period, ingress_counter }
-        }
-
-        fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-            BoundedVec::truncate_from(self.encode())
-        }
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-    
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthData<T: Config> {
-    pub period: u32,
-    pub rewards_in_period: BalanceOf<T>,
-    pub average_staked_in_period: BalanceOf<T>,
-    pub added_by: Option<T::AccountId>,
-    pub tx_id: Option<TransactionId>
-}
-
-impl<T: Config> GrowthData<T> {
-    fn new(
-        period: u32, 
-        rewards_in_period: BalanceOf<T>, 
-        average_staked_in_period: BalanceOf<T>, 
-        added_by: T::AccountId, 
-        tx_id: Option<TransactionId>) -> Self 
-    {
-        return GrowthData::<T> {
-            period,
-            rewards_in_period,
-            average_staked_in_period,
-            added_by: Some(added_by),
-            tx_id
-        }
-    }
-}
-
-impl<T: Config> Default for GrowthData<T> {
-    fn default() -> Self {
-        Self {
-            period: 0u32,
-            rewards_in_period: BalanceOf::<T>::zero(),
-            average_staked_in_period: BalanceOf::<T>::zero(),
-            added_by: None,
-            tx_id: None,
-        }
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-    
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthData<T: Config> {
-    pub period: u32,
-    pub rewards_in_period: BalanceOf<T>,
-    pub average_staked_in_period: BalanceOf<T>,
-    pub added_by: Option<T::AccountId>,
-    pub tx_id: Option<TransactionId>
-}
-
-impl<T: Config> GrowthData<T> {
-    fn new(
-        period: u32, 
-        rewards_in_period: BalanceOf<T>, 
-        average_staked_in_period: BalanceOf<T>, 
-        added_by: T::AccountId, 
-        tx_id: Option<TransactionId>) -> Self 
-    {
-        return GrowthData::<T> {
-            period,
-            rewards_in_period,
-            average_staked_in_period,
-            added_by: Some(added_by),
-            tx_id
-        }
-    }
-}
-
-impl<T: Config> Default for GrowthData<T> {
-    fn default() -> Self {
-        Self {
-            period: 0u32,
-            rewards_in_period: BalanceOf::<T>::zero(),
-            average_staked_in_period: BalanceOf::<T>::zero(),
-            added_by: None,
-            tx_id: None,
         }
     }
 }

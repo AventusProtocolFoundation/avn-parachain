@@ -196,24 +196,23 @@ fn send_approve_vote<T: Config>(
     )?;
 
     log::trace!(target: "avn", "🖊️  Worker sends approval vote for triggering growth: {:?}]", &growth_id);
-    //TODO: Enable me on the next PR
-
-    // if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-    //     Call::approve_growth {
-    //         growth_id: growth_id.clone(),
-    //         validator: this_validator.clone(),
-    //         approval_signature: eth_signature,
-    //         signature: approve_vote_extrinsic_signature,
-    //     }
-    //     .into(),
-    // ) {
-    //     log::error!(
-    //         "💔️ Error sending `approve vote transaction` for growth id {:?}: {:?}",
-    //         growth_id,
-    //         e
-    //     );
-    //     return Err(())
-    // }
+    
+    if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+        Call::approve_growth {
+            growth_id: growth_id.clone(),
+            validator: this_validator.clone(),
+            approval_signature: eth_signature,
+            signature: approve_vote_extrinsic_signature,
+        }
+        .into(),
+    ) {
+        log::error!(
+            "💔️ Error sending `approve vote transaction` for growth id {:?}: {:?}",
+            growth_id,
+            e
+        );
+        return Err(())
+    }
 
     Ok(())
 }
@@ -273,24 +272,22 @@ fn send_reject_vote<T: Config>(
     };
 
     log::trace!(target: "avn", "🖊️  Worker sends reject vote for triggering growth: {:?}]", &growth_id);
-
-    //TODO: Enable me on the next PR
-    
-    // if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-    //     Call::reject_growth {
-    //         growth_id: growth_id.clone(),
-    //         validator: this_validator.clone(),
-    //         signature: signature.expect("We have a signature"),
-    //     }
-    //     .into(),
-    // ) {
-    //     log::error!(
-    //         "💔️ Error sending `reject vote transaction` for growth id {:?}: {:?}",
-    //         growth_id,
-    //         e
-    //     );
-    //     return Err(())
-    // }
+       
+    if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+        Call::reject_growth {
+            growth_id: growth_id.clone(),
+            validator: this_validator.clone(),
+            signature: signature.expect("We have a signature"),
+        }
+        .into(),
+    ) {
+        log::error!(
+            "💔️ Error sending `reject vote transaction` for growth id {:?}: {:?}",
+            growth_id,
+            e
+        );
+        return Err(())
+    }
 
     Ok(())
 }
