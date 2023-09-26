@@ -2438,3 +2438,19 @@ impl GrowthId {
         BoundedVec::truncate_from(self.encode())
     }
 }
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct GrowthId {
+    pub period: GrowthPeriodIndex,
+    pub ingress_counter: IngressCounter,
+}
+
+impl GrowthId {
+    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
+        return GrowthId { period, ingress_counter }
+    }
+
+    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
+    }
+}
