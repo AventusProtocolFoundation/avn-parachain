@@ -102,6 +102,7 @@ pub use nomination_requests::{CancelledScheduledRequest, NominationAction, Sched
 pub use pallet::*;
 pub use types::*;
 
+pub type AVN<T> = pallet_avn::Pallet<T>;
 #[pallet]
 pub mod pallet {
     use crate::set::BoundedOrderedSet;
@@ -113,6 +114,7 @@ pub mod pallet {
         types::*,
         WeightInfo,
     };
+    use crate::GrowthVotingSession;
     pub use frame_support::{
         dispatch::{GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
@@ -124,9 +126,14 @@ pub mod pallet {
     };
     pub use frame_system::pallet_prelude::*;
     pub use pallet_avn::{
-        CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
+        CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker, 
+        vote::{
+            approve_vote_validate_unsigned, end_voting_period_validate_unsigned, process_approve_vote,
+            process_reject_vote, reject_vote_validate_unsigned, VotingSessionData,
+            VotingSessionManager,
+        },
     };
-    pub use sp_avn_common::{verify_signature, Proof};
+    pub use sp_avn_common::{verify_signature, Proof, IngressCounter, bounds::VotingSessionIdBound};
     pub use sp_runtime::{
         traits::{
             AccountIdConversion, Bounded, CheckedAdd, CheckedSub, Dispatchable, IdentifyAccount,
@@ -137,6 +144,7 @@ pub mod pallet {
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
     /// Pallet for parachain staking
     #[pallet::pallet]
+    #[pallet::generate_store(pub (super) trait Store)]
     #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
     pub struct Pallet<T>(PhantomData<T>);
 
@@ -275,6 +283,7 @@ pub mod pallet {
         AdminSettingsValueIsNotValid,
         CandidateSessionKeysNotFound,
         FailedToWithdrawFullAmount,
+        GrowthDataNotFound
     }
 
     #[pallet::event]
@@ -618,6 +627,21 @@ pub mod pallet {
     #[pallet::getter(fn proxy_nonce)]
     /// An account nonce that represents the number of proxy transactions from this account
     pub type ProxyNonces<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, u64, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_vote)]
+    pub type VotesRepository<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        GrowthId,
+        VotingSessionData<T::AccountId, T::BlockNumber>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_pending_growths)]
+    pub type PendingApproval<T: Config> =
+        StorageMap<_, Blake2_128Concat, GrowthPeriodIndex, IngressCounter, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -2323,6 +2347,20 @@ pub mod pallet {
 
             Ok(().into())
         }
+        pub fn get_growth_voting_session(growth_id: &GrowthId) -> 
+            Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>> 
+        {
+            return Box::new(GrowthVotingSession::<T>::new(growth_id))
+                as Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>
+        }
+
+        pub fn try_get_growth_data(growth_id: &GrowthId) -> Result<GrowthInfo<T::AccountId, BalanceOf<T>>, Error<T>> {
+            if <Growth<T>>::contains_key(growth_id.period) {
+                return Ok(<Growth<T>>::get(growth_id.period))
+            }
+
+            Err(Error::<T>::GrowthDataNotFound)?
+        }
     }
 
     /// Keep track of number of authored blocks per authority, uncles are counted as well since
@@ -2349,6 +2387,22 @@ pub mod pallet {
     impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
         fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
             return Self::payout_collators(amount, growth_period)
+        }
+    }
+
+    #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+    pub struct GrowthId {
+        pub period: GrowthPeriodIndex,
+        pub ingress_counter: IngressCounter,
+    }
+
+    impl GrowthId {
+        fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
+            return GrowthId { period, ingress_counter }
+        }
+
+        fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+            BoundedVec::truncate_from(self.encode())
         }
     }
 }
