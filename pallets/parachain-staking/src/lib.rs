@@ -106,12 +106,12 @@ pub mod vote;
 use crate::vote::*;
 
 pub type AVN<T> = pallet_avn::Pallet<T>;
-use pallet_ethereum_transactions::ethereum_transaction::TransactionId;
+pub use pallet_ethereum_transactions::ethereum_transaction::TransactionId;
 
 #[pallet]
 pub mod pallet {
     const EMPTY_GROWTH_TRANSACTION_ID: TransactionId = 0;
-    use sp_core::{ecdsa, H256};
+    use sp_core::{ecdsa};
     use crate::set::BoundedOrderedSet;
     pub use crate::{
         calls::*,
@@ -121,7 +121,6 @@ pub mod pallet {
         types::*,
         WeightInfo,
         AVN,
-        GrowthData,
     };
     use crate::GrowthVotingSession;
     pub use frame_support::{
@@ -1687,9 +1686,8 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
             ensure_none(origin)?;
-
-            let growth_data = Self::try_get_growth_data(&growth_id)?;
-            let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&growth_data)?;
+            
+            let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&growth_id.period)?;
             if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
             {
                 //TODO: enable offence
@@ -2153,6 +2151,7 @@ pub mod pallet {
                     info.index = info.index.saturating_add(1);
                 });
 
+                let new_growth_period = Self::growth_period_info().index;
                 let mut new_payout_info = GrowthInfo::new(payout_era);
                 new_payout_info.number_of_accumulations = 1u32;
                 new_payout_info.total_stake_accumulated = total_staked;
@@ -2160,7 +2159,7 @@ pub mod pallet {
                 new_payout_info.total_points = total_points;
                 new_payout_info.collator_scores = current_collator_scores;
 
-                <Growth<T>>::insert(Self::growth_period_info().index, new_payout_info);
+                <Growth<T>>::insert(new_growth_period, new_payout_info);
             } else {
                 Self::accumulate_payout_for_period(
                     collator_payout_period.index,
@@ -2261,10 +2260,10 @@ pub mod pallet {
 
             if <Growth<T>>::contains_key(growth_period) {
                 // get the list of candidates that earned points from `growth_period`
-                let growth_data = <Growth<T>>::get(growth_period);
-                for collator_data in growth_data.collator_scores {
+                let growth_info = <Growth<T>>::get(growth_period);
+                for collator_data in growth_info.collator_scores {
                     let percent =
-                        Perbill::from_rational(collator_data.points, growth_data.total_points);
+                        Perbill::from_rational(collator_data.points, growth_info.total_points);
                     pay(collator_data.collator, percent * amount)?;
                 }
 
@@ -2450,19 +2449,26 @@ pub mod pallet {
             Err(Error::<T>::GrowthDataNotFound)?
         }
 
-        pub fn convert_data_to_eth_compatible_encoding(
-            growth_data: &GrowthData<T>,
-        ) -> Result<String, DispatchError> {
-            let rewards_in_period_128 = TryInto::<u128>::try_into(growth_data.rewards_in_period)
+        pub fn try_get_growth_data(growth_period: &u32) -> Result<GrowthInfo<T::AccountId, BalanceOf<T>>, Error<T>> {
+            if <Growth<T>>::contains_key(growth_period) {
+                return Ok(<Growth<T>>::get(growth_period));                
+            }
+
+            Err(Error::<T>::GrowthDataNotFound)?
+        }
+
+        pub fn convert_data_to_eth_compatible_encoding(growth_period: &u32) -> Result<String, DispatchError> {
+            let growth_info = Self::try_get_growth_data(growth_period)?;
+            let rewards_in_period_128 = TryInto::<u128>::try_into(growth_info.total_staker_reward)
                 .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
 
-            let average_staked_in_period_128 = TryInto::<u128>::try_into(growth_data.average_staked_in_period)
+                let average_staked_in_period_128 = TryInto::<u128>::try_into(growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into())
                 .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
 
             let eth_description =
                 EthAbiHelper::generate_ethereum_description_for_signature_request(
                     &T::AccountToBytesConvert::into_bytes(
-                        growth_data
+                        growth_info
                             .added_by
                             .as_ref()
                             .ok_or(Error::<T>::PrimaryCollatorNotFound)?,
@@ -2470,14 +2476,14 @@ pub mod pallet {
                     &EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
                         rewards_in_period_128,
                         average_staked_in_period_128,
-                        growth_data.period
+                        *growth_period
                     )),
-                    match growth_data.tx_id {
+                    match growth_info.tx_id {
                         None => EMPTY_GROWTH_TRANSACTION_ID,
-                        _ => *growth_data
+                        _ => *growth_info
                             .tx_id
                             .as_ref()
-                            .expect("Non-Empty roots have a reserved TransactionId"),
+                            .expect("Non-Empty growths have a reserved TransactionId"),
                     },
                 )
                 .map_err(|_| Error::<T>::InvalidGrowthData)?;
@@ -2489,9 +2495,8 @@ pub mod pallet {
 
         pub fn sign_growth_for_ethereum(growth_id: &GrowthId)
             -> Result<(String, ecdsa::Signature), DispatchError> 
-        {
-            let growth_data = Self::try_get_growth_data(&growth_id)?;
-            let data = Self::convert_data_to_eth_compatible_encoding(&growth_data)?;
+        {            
+            let data = Self::convert_data_to_eth_compatible_encoding(&growth_id.period)?;
             return Ok((
                 data.clone(),
                 AVN::<T>::request_ecdsa_signature_from_external_service(&data)?,
@@ -2693,5 +2698,21 @@ impl<T: Config> Default for GrowthData<T> {
             added_by: None,
             tx_id: None,
         }
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct GrowthId {
+    pub period: GrowthPeriodIndex,
+    pub ingress_counter: IngressCounter,
+}
+
+impl GrowthId {
+    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
+        return GrowthId { period, ingress_counter }
+    }
+
+    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
     }
 }

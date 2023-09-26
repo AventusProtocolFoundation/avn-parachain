@@ -25,7 +25,7 @@ use sp_runtime::{scale_info::TypeInfo, traits::Zero};
 use sp_std::fmt::Debug;
 
 use super::{Call, Config};
-use crate::{Pallet as ParachainStaking, GrowthId, Store, AVN, GrowthPeriodIndex, BalanceOf};
+use crate::{Pallet as ParachainStaking, GrowthId, Store, AVN, BalanceOf};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"growth_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"growth_end_voting_period";
@@ -59,16 +59,15 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for GrowthVot
         return Err(DispatchError::Other("Growth data is not found in votes repository"))
     }
 
-    fn is_valid(&self) -> bool {
-        return false;
+    fn is_valid(&self) -> bool {        
         let voting_session_data = self.state();
-        let growth_data_result = ParachainStaking::<T>::try_get_growth_data(&self.growth_id);
+        let growth_info_result = ParachainStaking::<T>::try_get_growth_data(&self.growth_id.period);
         let growth_is_pending_approval =
             <ParachainStaking<T> as Store>::PendingApproval::contains_key(&self.growth_id.period);
         let voting_session_exists_for_growth =
             <ParachainStaking<T> as Store>::VotesRepository::contains_key(&self.growth_id);
 
-        if growth_data_result.is_err() ||
+        if growth_info_result.is_err() ||
             !growth_is_pending_approval ||
             !voting_session_exists_for_growth ||
             voting_session_data.is_err()
