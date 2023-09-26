@@ -102,6 +102,9 @@ pub use nomination_requests::{CancelledScheduledRequest, NominationAction, Sched
 pub use pallet::*;
 pub use types::*;
 
+pub mod vote;
+use crate::vote::*;
+
 pub type AVN<T> = pallet_avn::Pallet<T>;
 #[pallet]
 pub mod pallet {
@@ -142,6 +145,7 @@ pub mod pallet {
         Perbill,
     };
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+    pub use crate::GrowthId;
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
@@ -2347,6 +2351,7 @@ pub mod pallet {
 
             Ok(().into())
         }
+
         pub fn get_growth_voting_session(growth_id: &GrowthId) -> 
             Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>> 
         {
@@ -2360,6 +2365,17 @@ pub mod pallet {
             }
 
             Err(Error::<T>::GrowthDataNotFound)?
+        }
+
+        pub fn end_voting(
+            reporter: T::AccountId,
+            growth_id: &GrowthId,
+        ) -> DispatchResult {
+            let voting_session = Self::get_growth_voting_session(&growth_id);
+
+            //TODO: Implement me
+
+            Ok(())
         }
     }
 
@@ -2404,5 +2420,21 @@ pub mod pallet {
         fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
             BoundedVec::truncate_from(self.encode())
         }
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct GrowthId {
+    pub period: GrowthPeriodIndex,
+    pub ingress_counter: IngressCounter,
+}
+
+impl GrowthId {
+    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
+        return GrowthId { period, ingress_counter }
+    }
+
+    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
     }
 }
