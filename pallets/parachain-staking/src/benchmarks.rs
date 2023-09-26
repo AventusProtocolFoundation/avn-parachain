@@ -31,7 +31,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec, Ze
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::RawOrigin;
 use pallet_authorship::EventHandler;
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use rand::{RngCore, SeedableRng};
 use sp_application_crypto::KeyTypeId;
 use sp_core::{bounded::BoundedVec, ConstU32};

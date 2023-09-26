@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use frame_support::traits::IsSubType;
-use parity_scale_codec::Encode;
+use codec::Encode;
 use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
 use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;

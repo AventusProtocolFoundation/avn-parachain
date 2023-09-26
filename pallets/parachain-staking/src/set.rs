@@ -16,7 +16,7 @@
 
 /* TODO: use orml_utilities::OrderedSet without leaking substrate v2.0 dependencies */
 use frame_support::traits::Get;
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

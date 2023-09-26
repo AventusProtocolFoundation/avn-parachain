@@ -20,7 +20,7 @@ use crate::{
     NominationScheduledRequests, Nominator, NominatorState, Pallet, Total,
 };
 use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get, RuntimeDebug};
-use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, BoundedVec};
 use sp_std::vec;

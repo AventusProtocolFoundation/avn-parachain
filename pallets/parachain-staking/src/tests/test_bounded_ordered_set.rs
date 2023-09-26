@@ -3,7 +3,7 @@ mod tests {
     use core::fmt::Debug;
 
     use frame_support::traits::Get;
-    use parity_scale_codec::{Decode, Encode, MaxEncodedLen};
+    use codec::{Decode, Encode, MaxEncodedLen};
     use scale_info::TypeInfo;
     use sp_core::RuntimeDebug;
     use sp_runtime::BoundedVec;

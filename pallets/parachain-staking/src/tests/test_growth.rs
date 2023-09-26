@@ -9,7 +9,7 @@ use crate::{
     GrowthPeriodInfo, ProcessedGrowthPeriods,
 };
 use frame_support::{assert_noop, assert_ok};
-use parity_scale_codec::{Decode, Encode};
+use codec::{Decode, Encode};
 use sp_runtime::Perbill;
 use std::collections::HashMap;
 
