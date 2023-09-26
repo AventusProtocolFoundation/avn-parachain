@@ -2682,9 +2682,7 @@ pub mod pallet {
                 });
             } else {
                 // We didn't get enough votes to approve this growth
-
-                let growth_creator =
-                    growth_info.added_by.ok_or(Error::<T>::GrowthTxSenderNotFound)?;
+                
                 // create_and_report_summary_offence::<T>(
                 //     &reporter,
                 //     &vec![growth_creator],
