@@ -106,7 +106,6 @@ pub mod vote;
 use crate::vote::*;
 
 pub type AVN<T> = pallet_avn::Pallet<T>;
-
 #[pallet]
 pub mod pallet {
     use crate::set::BoundedOrderedSet;
@@ -2413,7 +2412,7 @@ pub mod pallet {
         pub fn try_get_growth_data(growth_id: &GrowthId) -> Result<GrowthData<T>, Error<T>> {
             if <Growth<T>>::contains_key(growth_id.period) {
                 let growth_info = <Growth<T>>::get(growth_id.period);
-                if growth_info.number_of_accumulations < 0u32 {
+                if growth_info.number_of_accumulations <= 0u32 {
                     Err(Error::<T>::AccumulationIsZero)?
                 }
 
@@ -2521,6 +2520,54 @@ pub mod pallet {
         fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
             return Self::payout_collators(amount, growth_period)
         }
+    }
+
+    #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+    pub struct GrowthId {
+        pub period: GrowthPeriodIndex,
+        pub ingress_counter: IngressCounter,
+    }
+
+    impl GrowthId {
+        fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
+            return GrowthId { period, ingress_counter }
+        }
+
+        fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+            BoundedVec::truncate_from(self.encode())
+        }
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct GrowthId {
+    pub period: GrowthPeriodIndex,
+    pub ingress_counter: IngressCounter,
+}
+
+impl GrowthId {
+    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
+        return GrowthId { period, ingress_counter }
+    }
+
+    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct GrowthId {
+    pub period: GrowthPeriodIndex,
+    pub ingress_counter: IngressCounter,
+}
+
+impl GrowthId {
+    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
+        return GrowthId { period, ingress_counter }
+    }
+
+    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
     }
 }
 
