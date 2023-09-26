@@ -341,6 +341,7 @@ pub mod pallet {
         VotingSessionIsNotValid,
         ErrorReservingId,
         Overflow,
+        ErrorSubmitCandidateTxnToTier1,
     }
 
     #[pallet::event]

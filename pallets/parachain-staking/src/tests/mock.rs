@@ -17,8 +17,13 @@
 //! Test utilities
 use crate as pallet_parachain_staking;
 use crate::{
-    pallet, AwardedPts, Config, Points, Proof, TypeInfo, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    pallet, AwardedPts, Config, Points, Proof, TypeInfo, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID, TransactionId, DispatchResult,
+    BoundedVec, Error
 };
+use std::cell::RefCell;
+
+use pallet_ethereum_transactions::{CandidateTransactionSubmitter, ethereum_transaction::{EthTransactionType, TriggerGrowthData}};
+use sp_staking::{SessionIndex, offence::{ReportOffence, OffenceError}};
 use frame_support::{
     assert_ok, construct_runtime,
     dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
@@ -30,17 +35,17 @@ use frame_support::{
     weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
 };
-use frame_system::limits;
+use frame_system::{self as system, limits};
 use pallet_avn::CollatorPayoutDustHandler;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
 use codec::{Decode, Encode};
-use sp_avn_common::InnerCallValidator;
-use sp_core::{sr25519, Pair, H256};
+use sp_avn_common::{InnerCallValidator, bounds::MaximumValidatorsBound};
+use sp_core::{sr25519, Pair, H256, ecdsa};
 use sp_io;
 use sp_runtime::{
-    testing::{Header, UintAuthorityId},
+    testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     DispatchError, Perbill, SaturatedConversion,
 };
@@ -50,8 +55,14 @@ pub type Signature = sr25519::Signature;
 pub type Balance = u128;
 pub type BlockNumber = u64;
 
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
+
+pub type ValidatorId = AccountId;
+type FullIdentification = AccountId;
+type IdentificationTuple = (ValidatorId, FullIdentification);
+type Offence = crate::GrowthOffence<IdentificationTuple>;
 
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
@@ -67,7 +78,8 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
         AVN: pallet_avn::{Pallet, Storage},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-        AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
+        AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},        
+        Historical: pallet_session::historical::{Pallet, Storage},
     }
 );
 
@@ -210,6 +222,14 @@ impl ValidatorRegistration<AccountId> for IsRegistered {
     }
 }
 
+impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for Test
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type OverarchingCall = RuntimeCall;
+    type Extrinsic = Extrinsic;
+}
+
 impl Config for Test {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
@@ -230,10 +250,43 @@ impl Config for Test {
     type CollatorPayoutDustHandler = TestCollatorPayoutDustHandler;
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
-    type AccountToBytesConvert = Avn;
-    type CandidateTransactionSubmitter = EthereumTransactions;
-    type ReportGrowthOffence = OffenceHandler;
+    type AccountToBytesConvert = AVN;
+    type CandidateTransactionSubmitter = Self;
+    type ReportGrowthOffence = ();
 }
+
+const GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR: u32 = 3u32;
+const TOTAL_REWARD_IN_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR: u128 = 3u128;
+const AVERAGE_STAKE_THAT_CAUSES_SUBMISSION_TO_T1_ERROR: u128 = 10u128;
+
+impl CandidateTransactionSubmitter<AccountId> for Test {
+    fn submit_candidate_transaction_to_tier1(
+        candidate_type: EthTransactionType,
+        _tx_id: TransactionId,
+        _submitter: AccountId,
+        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
+    ) -> DispatchResult {
+        if candidate_type !=
+            EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
+                TOTAL_REWARD_IN_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,
+                AVERAGE_STAKE_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,                
+                GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,
+            ))
+        {
+            return Ok(())
+        }
+        Err(Error::<Test>::ErrorSubmitCandidateTxnToTier1.into())
+    }
+
+    fn reserve_transaction_id(
+        _candidate_type: &EthTransactionType,
+    ) -> Result<TransactionId, DispatchError> {        
+        return Ok(0)
+    }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
+}
+
 
 // Deal with any positive imbalance by sending it to the fake treasury
 pub struct TestCollatorPayoutDustHandler;
@@ -245,13 +298,18 @@ impl CollatorPayoutDustHandler<Balance> for TestCollatorPayoutDustHandler {
     }
 }
 
+impl pallet_session::historical::Config for Test {
+    type FullIdentification = AccountId;
+    type FullIdentificationOf = ConvertInto;
+}
+
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
 }
 
 /// A mock offence report handler.
-pub struct OffenceHandler;
-impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
+pub struct TestOffenceHandler;
+impl ReportOffence<AccountId, IdentificationTuple, Offence> for TestOffenceHandler {
     fn report_offence(reporters: Vec<AccountId>, offence: Offence) -> Result<(), OffenceError> {
         OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
         Ok(())
