@@ -1792,7 +1792,7 @@ pub mod pallet {
                 if !<Growth<T>>::contains_key(growth_id.period) {
                     return InvalidTransaction::Custom(ERROR_CODE_INVALID_GROWTH_PERIOD).into()
                 }
-                
+
                 let growth_voting_session = Self::get_growth_voting_session(growth_id);
                 return end_voting_period_validate_unsigned::<T>(
                     &growth_voting_session,
@@ -2539,33 +2539,7 @@ pub mod pallet {
             return Box::new(GrowthVotingSession::<T>::new(growth_id))
                 as Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>
         }
-
-        pub fn try_get_growth_data(growth_id: &GrowthId) -> Result<GrowthData<T>, Error<T>> {
-            if <Growth<T>>::contains_key(growth_id.period) {
-                let growth_info = <Growth<T>>::get(growth_id.period);
-                if growth_info.number_of_accumulations <= 0u32 {
-                    Err(Error::<T>::AccumulationIsZero)?
-                }
-
-                let average_staked =  growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into();
-                let added_by = 
-                    AVN::<T>::calculate_primary_validator(<frame_system::Pallet<T>>::block_number())
-                    .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
-
-                return Ok(
-                    GrowthData::<T> {
-                        period: growth_id.period,
-                        rewards_in_period: growth_info.total_staker_reward,
-                        average_staked_in_period: average_staked,
-                        added_by: Some(added_by),
-                        tx_id: None
-                    }
-                )
-            }
-
-            Err(Error::<T>::GrowthDataNotFound)?
-        }
-
+        
         pub fn try_get_growth_data(growth_period: &u32) -> Result<GrowthInfo<T::AccountId, BalanceOf<T>>, Error<T>> {
             if <Growth<T>>::contains_key(growth_period) {
                 return Ok(<Growth<T>>::get(growth_period));                
@@ -2752,180 +2726,6 @@ pub mod pallet {
         fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
             return Self::payout_collators(amount, growth_period)
         }
-    }
-
-    #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-    pub struct GrowthId {
-        pub period: GrowthPeriodIndex,
-        pub ingress_counter: IngressCounter,
-    }
-
-    impl GrowthId {
-        fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-            return GrowthId { period, ingress_counter }
-        }
-
-        fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-            BoundedVec::truncate_from(self.encode())
-        }
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-    
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthData<T: Config> {
-    pub period: u32,
-    pub rewards_in_period: BalanceOf<T>,
-    pub average_staked_in_period: BalanceOf<T>,
-    pub added_by: Option<T::AccountId>,
-    pub tx_id: Option<TransactionId>
-}
-
-impl<T: Config> GrowthData<T> {
-    fn new(
-        period: u32, 
-        rewards_in_period: BalanceOf<T>, 
-        average_staked_in_period: BalanceOf<T>, 
-        added_by: T::AccountId, 
-        tx_id: Option<TransactionId>) -> Self 
-    {
-        return GrowthData::<T> {
-            period,
-            rewards_in_period,
-            average_staked_in_period,
-            added_by: Some(added_by),
-            tx_id
-        }
-    }
-}
-
-impl<T: Config> Default for GrowthData<T> {
-    fn default() -> Self {
-        Self {
-            period: 0u32,
-            rewards_in_period: BalanceOf::<T>::zero(),
-            average_staked_in_period: BalanceOf::<T>::zero(),
-            added_by: None,
-            tx_id: None,
-        }
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-    
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthData<T: Config> {
-    pub period: u32,
-    pub rewards_in_period: BalanceOf<T>,
-    pub average_staked_in_period: BalanceOf<T>,
-    pub added_by: Option<T::AccountId>,
-    pub tx_id: Option<TransactionId>
-}
-
-impl<T: Config> GrowthData<T> {
-    fn new(
-        period: u32, 
-        rewards_in_period: BalanceOf<T>, 
-        average_staked_in_period: BalanceOf<T>, 
-        added_by: T::AccountId, 
-        tx_id: Option<TransactionId>) -> Self 
-    {
-        return GrowthData::<T> {
-            period,
-            rewards_in_period,
-            average_staked_in_period,
-            added_by: Some(added_by),
-            tx_id
-        }
-    }
-}
-
-impl<T: Config> Default for GrowthData<T> {
-    fn default() -> Self {
-        Self {
-            period: 0u32,
-            rewards_in_period: BalanceOf::<T>::zero(),
-            average_staked_in_period: BalanceOf::<T>::zero(),
-            added_by: None,
-            tx_id: None,
-        }
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
     }
 }
 
