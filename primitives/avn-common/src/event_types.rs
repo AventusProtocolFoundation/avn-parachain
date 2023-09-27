@@ -215,7 +215,7 @@ pub struct LiftedData {
 
 impl LiftedData {
     const TOPIC_CURRENCY_CONTRACT: usize = 1;
-    const TOPIC_INDEX_T2_ADDRESS: usize = 3;
+    const TOPIC_INDEX_T2_ADDRESS: usize = 2;
 
     pub fn is_valid(&self) -> bool {
         return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
