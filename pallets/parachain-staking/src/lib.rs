@@ -1812,6 +1812,10 @@ pub mod pallet {
 
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             if let Call::end_voting_period { growth_id, validator, signature } = call {
+                if !<Growth<T>>::contains_key(growth_id.period) {
+                    return InvalidTransaction::Custom(ERROR_CODE_INVALID_GROWTH_PERIOD).into()
+                }
+
                 let growth_voting_session = Self::get_growth_voting_session(growth_id);
                 return end_voting_period_validate_unsigned::<T>(
                     &growth_voting_session,
@@ -1837,6 +1841,10 @@ pub mod pallet {
                     signature,
                 )
             } else if let Call::reject_growth { growth_id, validator, signature } = call {
+                if !<Growth<T>>::contains_key(growth_id.period) {
+                    return InvalidTransaction::Custom(ERROR_CODE_INVALID_GROWTH_PERIOD).into()
+                }
+
                 let growth_voting_session = Self::get_growth_voting_session(growth_id);
                 return reject_vote_validate_unsigned::<T>(
                     &growth_voting_session,
