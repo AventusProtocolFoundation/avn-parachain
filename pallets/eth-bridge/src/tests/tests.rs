@@ -10,36 +10,6 @@ const PERIOD: &[u8] = b"3";
 const T2_PUB_KEY: &str = "14aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a547";
 const T1_PUB_KEY: &str = "23d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea";
 
-fn run_checks(
-    function_name: Vec<u8>,
-    params: Vec<(Vec<u8>, Vec<u8>)>,
-    expected_msg_hash: &str,
-    expected_calldata: &str,
-) {
-    let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
-    ext.execute_with(|| {
-        let current_time = 1_695_809_729_000;
-        pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
-
-        let expected_tx_id = 1;
-        let tx_id = EthBridge::publish_to_ethereum(function_name.clone(), params.clone()).unwrap();
-        assert_eq!(tx_id, expected_tx_id);
-
-        let transaction_data = EthBridge::get_transaction_data(tx_id);
-        let expiry = transaction_data.expiry;
-        let tx_lifetime = EthBridge::get_eth_tx_lifetime_secs();
-        let expected_expiry = current_time / 1000 + tx_lifetime;
-        assert_eq!(expiry, expected_expiry);
-
-        let msg_hash = hex::encode(transaction_data.msg_hash);
-        assert_eq!(msg_hash, expected_msg_hash);
-
-        let eth_transaction = EthBridge::generate_eth_transaction(tx_id).unwrap();
-        let calldata = hex::encode(eth_transaction.data);
-        assert_eq!(calldata, expected_calldata);
-    })
-}
-
 #[test]
 fn check_publish_root_encoding() {
     let function_name = b"publishRoot".to_vec();
@@ -92,4 +62,34 @@ fn check_remove_author_encoding() {
     let expected_calldata = "146b3b5214aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a54700000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000651407c900000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000004023d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea0000000000000000000000000000000000000000000000000000000000000000";
 
     run_checks(function_name, params, expected_msg_hash, expected_calldata);
+}
+
+fn run_checks(
+    function_name: Vec<u8>,
+    params: Vec<(Vec<u8>, Vec<u8>)>,
+    expected_msg_hash: &str,
+    expected_calldata: &str,
+) {
+    let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+    ext.execute_with(|| {
+        let current_time = 1_695_809_729_000;
+        pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
+
+        let expected_tx_id = 1;
+        let tx_id = EthBridge::publish_to_ethereum(function_name.clone(), params.clone()).unwrap();
+        assert_eq!(tx_id, expected_tx_id);
+
+        let transaction_data = EthBridge::get_transaction_data(tx_id);
+        let expiry = transaction_data.expiry;
+        let tx_lifetime = EthBridge::get_eth_tx_lifetime_secs();
+        let expected_expiry = current_time / 1000 + tx_lifetime;
+        assert_eq!(expiry, expected_expiry);
+
+        let msg_hash = hex::encode(transaction_data.msg_hash);
+        assert_eq!(msg_hash, expected_msg_hash);
+
+        let eth_transaction = EthBridge::generate_eth_transaction(tx_id).unwrap();
+        let calldata = hex::encode(eth_transaction.data);
+        assert_eq!(calldata, expected_calldata);
+    })
 }
