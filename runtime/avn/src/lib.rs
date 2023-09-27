@@ -188,7 +188,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 42,
+    spec_version: 43,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -444,7 +444,7 @@ impl pallet_parachain_staking::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     /// Minimum era length is 4 minutes (20 * 12 second block times)
-    type MinBlocksPerEra = ConstU32<20>;
+    type MinBlocksPerEra = ConstU32<10>;
     /// Eras before the reward is paid
     type RewardPaymentDelay = ConstU32<2>;
     /// Minimum collators selected per era, default at genesis and minimum forever after
@@ -458,7 +458,7 @@ impl pallet_parachain_staking::Config for Runtime {
     /// Minimum stake required to be reserved to be a nominator
     type MinNominationPerCollator = ConstU128<1>;
     type RewardPotId = RewardPotId;
-    type ErasPerGrowthPeriod = ConstU32<30>; // 30 eras (~ 1 month if era = 1 day)
+    type ErasPerGrowthPeriod = ConstU32<2>; // 30 eras (~ 1 month if era = 1 day)
     type ProcessedEventsChecker = EthereumEvents;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
