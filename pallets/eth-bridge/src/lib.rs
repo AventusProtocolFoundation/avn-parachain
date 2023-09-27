@@ -287,7 +287,8 @@ pub mod pallet {
         pub fn generate_eth_transaction(tx_id: u32) -> Result<EthTransaction, ethabi::Error> {
             // TODO: CHECK CONFIRMATIONS > QUORUM
             let author: [u8; 32] = [0u8; 32]; // TODO: Get chosen sender
-            let bridge_contract = H160(hex!("F05Df39f745A240fb133cC4a11E42467FAB10f1F")); // TODO: Replace with AVN bridge contract getter and remove H160 and hex
+             // TODO: Replace with AVN bridge contract getter and remove H160 and hex:
+            let bridge_contract = H160(hex!("F05Df39f745A240fb133cC4a11E42467FAB10f1F"));
 
             let mut tx_data = Transactions::<T>::get(tx_id);
             tx_data.author = Some(author);
