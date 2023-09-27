@@ -120,10 +120,10 @@ pub mod pallet {
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
     pub struct TransactionData {
         pub function_name: Vec<u8>,        // Function name in T1 contract
-        pub args: Vec<(Vec<u8>, Vec<u8>)>, // array of type:value pairs for all args preceding "expiry"
+        pub args: Vec<(Vec<u8>, Vec<u8>)>, // Array of type:value pairs for all args preceding "expiry"
         pub expiry: u64,                   // Unix timestamp after which T1 will reject the tx
         pub msg_hash: H256,                // 32 byte message hash to be signed by authors
-        pub confirmations: Vec<[u8; 65]>,  // signatures of message hash collected from authors
+        pub confirmations: Vec<[u8; 65]>,  // Signatures of message hash collected from authors
         pub author: Option<[u8; 32]>,      // AvN Public Key of the author selected to send
         pub eth_tx_hash: H256,             // Resultant Ethereum tx hash
         pub status: TransactionStatus,     // Status in regard to Ethereum
