@@ -35,6 +35,7 @@ pub fn enable_automatic_growth<T: Config>() -> Weight {
     let latest_processed_growth_period: u32 = processed_growth_periods.into_iter().nth(0).or_else(|| Some(0)).expect("we have a default value");
     
     <LastTriggeredGrowthPeriod<T>>::put(latest_processed_growth_period);
+    <VotingPeriod<T>>::put(100);
         
     Growth::<T>::translate::<GrowthInfo<T::AccountId, BalanceOf<T>>, _>(
         |period, mut growth_info| {
