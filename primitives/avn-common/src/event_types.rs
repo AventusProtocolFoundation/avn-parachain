@@ -82,9 +82,9 @@ impl ValidEvents {
             ValidEvents::AddedValidator =>
                 H256(hex!("ff083a6e395a67771f3c9108922bc274c27b38b48c210b0f6a8c5f4710c0494b")),
 
-            // hex string of Keccak-256 for LogLifted(address,address,bytes32,uint256)
+            // hex string of Keccak-256 for LogLifted(address,bytes32,uint256)
             ValidEvents::Lifted =>
-                H256(hex!("8964776336bc2fa8ecaaf70b6f8e8450807efb1ff78f8b87980707aa821f0ec0")),
+                H256(hex!("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")),
 
             // hex string of Keccak-256 for AvnMintTo(uint256,uint64,bytes32,string)
             ValidEvents::NftMint =>
