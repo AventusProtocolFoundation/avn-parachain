@@ -130,7 +130,7 @@ pub use default_weights::WeightInfo;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
 pub enum EthereumContracts {
-    EthereumBridgeContract,
+    AvnBridgeContract,
     NftMarketplace,
 }
 
