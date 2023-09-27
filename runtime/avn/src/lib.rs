@@ -663,6 +663,13 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_eth_bridge::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
+    type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
+}
+
 // Other pallets
 parameter_types! {
     pub const AssetDeposit: Balance = 10 * MILLI_AVT;
@@ -749,7 +756,8 @@ construct_runtime!(
         TokenManager: pallet_token_manager = 87,
         Summary: pallet_summary = 88,
         AvnProxy: pallet_avn_proxy = 89,
-        AvnTransactionPayment: pallet_avn_transaction_payment = 90
+        AvnTransactionPayment: pallet_avn_transaction_payment = 90,
+        EthBridge: pallet_eth_bridge = 91,
     }
 );
 
@@ -773,6 +781,7 @@ mod benches {
         [pallet_token_manager, TokenManager]
         [pallet_validators_manager, ValidatorsManager]
         [pallet_avn_transaction_payment, AvnTransactionPayment]
+        [pallet_eth_bridge, EthBridge]
         [pallet_session, SessionBench::<Runtime>]
         [pallet_timestamp, Timestamp]
         [pallet_utility, Utility]

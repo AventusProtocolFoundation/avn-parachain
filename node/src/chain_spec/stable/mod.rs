@@ -9,7 +9,7 @@ use crate::chain_spec::{
     ImOnlineId, ParaId,
 };
 use avn_parachain_runtime::{
-    self as avn_runtime, AuthorityDiscoveryConfig, EthereumEventsConfig,
+    self as avn_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig,
     EthereumTransactionsConfig, ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig,
     TokenManagerConfig, ValidatorsManagerConfig,
 };
@@ -80,6 +80,11 @@ pub(crate) fn testnet_genesis(
         // no need to pass anything to aura, in fact it will panic if we do. Session will take care
         // of this.
         assets: Default::default(),
+        eth_bridge: EthBridgeConfig {
+            _phantom: Default::default(),
+            tx_lifetime_secs: 60 * 30 as u64, // 30 minutes
+            next_tx_id: 1 as u32,
+        },
         ethereum_events: EthereumEventsConfig {
             validator_manager_contract_address: avn_eth_contract.clone(),
             lifting_contract_address: avn_eth_contract.clone(),
