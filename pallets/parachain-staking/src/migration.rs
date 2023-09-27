@@ -8,7 +8,7 @@
 
 use crate::{
     BalanceOf, Config, Growth, GrowthInfo,
-    Pallet, ProcessedGrowthPeriods, LastTriggeredGrowthPeriod
+    Pallet, ProcessedGrowthPeriods, LastTriggeredGrowthPeriod, Vec
 };
 use frame_support::{
     dispatch::GetStorageVersion,
@@ -47,7 +47,7 @@ pub fn enable_automatic_growth<T: Config>() -> Weight {
                 growth_info.tx_id = Some(0);
                 growth_info.triggered = Some(true);
             }
-            
+
             Some(growth_info)
         },
     );
