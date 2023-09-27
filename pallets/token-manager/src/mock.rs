@@ -237,6 +237,9 @@ impl parachain_staking::Config for TestRuntime {
     type ProcessedEventsChecker = ();
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
+    type AccountToBytesConvert = Avn;
+    type CandidateTransactionSubmitter = EthereumTransactions;
+    type ReportGrowthOffence = OffenceHandler;
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -254,6 +257,19 @@ impl WeightToFeeT for TransactionByteFee {
     fn weight_to_fee(weight: &Weight) -> Self::Balance {
         Self::Balance::saturated_from(weight.ref_time())
             .saturating_mul(TRANSACTION_BYTE_FEE.with(|v| *v.borrow()))
+    }
+}
+
+/// A mock offence report handler.
+pub struct OffenceHandler;
+impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
+    fn report_offence(reporters: Vec<AccountId>, offence: Offence) -> Result<(), OffenceError> {
+        OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
+        Ok(())
+    }
+
+    fn is_known_offence(_offenders: &[IdentificationTuple], _time_slot: &SessionIndex) -> bool {
+        false
     }
 }
 
@@ -283,6 +299,7 @@ impl TestAccount {
 
 thread_local! {
     static PROCESSED_EVENTS: RefCell<Vec<EthEventId>> = RefCell::new(vec![]);
+    pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
 }
 
 pub fn insert_to_mock_processed_events(event_id: &EthEventId) {

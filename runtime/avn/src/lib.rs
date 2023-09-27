@@ -466,6 +466,9 @@ impl pallet_parachain_staking::Config for Runtime {
     type CollatorPayoutDustHandler = TokenManager;
     type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
     type MaxCandidates = ConstU32<100>;
+    type AccountToBytesConvert = Avn;
+    type CandidateTransactionSubmitter = EthereumTransactions;
+    type ReportGrowthOffence = Offences;
 }
 
 // Substrate pallets that AvN has dependency
