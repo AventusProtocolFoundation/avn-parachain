@@ -119,6 +119,8 @@ pub mod pallet {
 
     const NAME: &'static [u8; 24] = b"parachainStaking::Growth";
     const EMPTY_GROWTH_TRANSACTION_ID: TransactionId = 0;
+    const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
+
     use pallet_session::historical::IdentificationTuple;
     use sp_staking::offence::ReportOffence;
     use sp_core::{ecdsa};
@@ -759,6 +761,7 @@ pub mod pallet {
         pub delay: EraIndex,
         pub min_collator_stake: BalanceOf<T>,
         pub min_total_nominator_stake: BalanceOf<T>,
+        pub voting_period: T::BlockNumber,
     }
 
     #[cfg(feature = "std")]
@@ -770,6 +773,7 @@ pub mod pallet {
                 delay: Default::default(),
                 min_collator_stake: Default::default(),
                 min_total_nominator_stake: Default::default(),
+                voting_period: T::BlockNumber::from(DEFAULT_VOTING_PERIOD),
             }
         }
     }
@@ -853,6 +857,12 @@ pub mod pallet {
 
             // Set the first GrowthInfo
             <Growth<T>>::insert(0u32, GrowthInfo::new(1u32));
+
+            let mut voting_period_in_blocks = self.voting_period;
+            if voting_period_in_blocks == 0u32.into() {
+                voting_period_in_blocks = DEFAULT_VOTING_PERIOD.into();
+            }
+            <VotingPeriod<T>>::put(voting_period_in_blocks);
 
             <Pallet<T>>::deposit_event(Event::NewEra {
                 starting_block: T::BlockNumber::zero(),

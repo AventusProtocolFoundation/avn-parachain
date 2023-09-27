@@ -114,6 +114,7 @@ pub(crate) fn avn_test_runtime_genesis(
             min_collator_stake: COLLATOR_DEPOSIT,
             min_total_nominator_stake: 10 * AVT,
             delay: 2,
+            voting_period: 100,
         },
         polkadot_xcm: avn_test_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(SAFE_XCM_VERSION),
