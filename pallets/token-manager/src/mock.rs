@@ -297,6 +297,19 @@ impl WeightToFeeT for TransactionByteFee {
     }
 }
 
+/// A mock offence report handler.
+pub struct OffenceHandler;
+impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
+    fn report_offence(reporters: Vec<AccountId>, offence: Offence) -> Result<(), OffenceError> {
+        OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
+        Ok(())
+    }
+
+    fn is_known_offence(_offenders: &[IdentificationTuple], _time_slot: &SessionIndex) -> bool {
+        false
+    }
+}
+
 /// create a transaction info struct from weight. Handy to avoid building the whole struct.
 pub fn info_from_weight(w: Weight) -> DispatchInfo {
     DispatchInfo { weight: w, ..Default::default() }
@@ -323,6 +336,7 @@ impl TestAccount {
 
 thread_local! {
     static PROCESSED_EVENTS: RefCell<Vec<EthEventId>> = RefCell::new(vec![]);
+    pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
 }
 
 pub fn insert_to_mock_processed_events(event_id: &EthEventId) {
