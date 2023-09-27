@@ -27,6 +27,7 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+sp-staking = {default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 substrate-fixed = { git = "https://github.com/encointer/substrate-fixed", default-features = false }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 pallet-avn = { default-features = false, path = "../avn" }
@@ -54,6 +55,7 @@ std = [
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-core/std",
+	"sp-staking/std",
 	"pallet-authorship/std",
 	"pallet-avn/std",
 	"pallet-session/std",
