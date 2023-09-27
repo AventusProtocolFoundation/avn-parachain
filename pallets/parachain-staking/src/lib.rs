@@ -117,6 +117,7 @@ pub mod pallet {
     #[cfg(not(feature = "std"))]
     use alloc::string::{String, ToString};
 
+    const NAME: &'static [u8; 24] = b"parachainStaking::Growth";
     const EMPTY_GROWTH_TRANSACTION_ID: TransactionId = 0;
     use pallet_session::historical::IdentificationTuple;
     use sp_staking::offence::ReportOffence;
@@ -131,6 +132,7 @@ pub mod pallet {
         types::*,
         WeightInfo,
         AVN,
+        vote::*,
     };
     use crate::GrowthVotingSession;
     pub use frame_support::{
@@ -522,6 +524,26 @@ pub mod pallet {
             );
             weight
         }
+        
+        fn offchain_worker(block_number: T::BlockNumber) {
+            let setup_result = AVN::<T>::pre_run_setup(block_number, NAME.to_vec());
+            if let Err(e) = setup_result {
+                match e {
+                    _ if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => {
+                        ();
+                    },
+                    _ => {
+                        log::error!("💔️ Unable to run offchain worker: {:?}", e);
+                    },
+                };
+
+                return
+            }
+            let this_validator = setup_result.expect("We have a validator");            
+            cast_votes_if_required::<T>(block_number, &this_validator);
+            end_voting_if_required::<T>(block_number, &this_validator);            
+        }
+    
     }
 
     #[pallet::storage]

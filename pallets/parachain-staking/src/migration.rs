@@ -8,7 +8,7 @@
 
 use crate::{
     BalanceOf, Config, Growth, GrowthInfo,
-    Pallet, ProcessedGrowthPeriods, LastTriggeredGrowthPeriod, Vec
+    Pallet, ProcessedGrowthPeriods, LastTriggeredGrowthPeriod, Vec, VotingPeriod,
 };
 use frame_support::{
     dispatch::GetStorageVersion,
@@ -20,6 +20,7 @@ use frame_support::{
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 pub fn enable_automatic_growth<T: Config>() -> Weight {        
+    let initial_voting_period: T::BlockNumber = 100u32.into();
     let mut consumed_weight: Weight = Weight::from_ref_time(0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -35,7 +36,7 @@ pub fn enable_automatic_growth<T: Config>() -> Weight {
     let latest_processed_growth_period: u32 = processed_growth_periods.into_iter().nth(0).or_else(|| Some(0)).expect("we have a default value");
     
     <LastTriggeredGrowthPeriod<T>>::put(latest_processed_growth_period);
-    <VotingPeriod<T>>::put(100);
+    <VotingPeriod<T>>::put(initial_voting_period);
         
     Growth::<T>::translate::<GrowthInfo<T::AccountId, BalanceOf<T>>, _>(
         |period, mut growth_info| {
