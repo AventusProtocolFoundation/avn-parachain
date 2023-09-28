@@ -12,7 +12,6 @@ type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRunt
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 use crate::{self as eth_bridge};
-// Configure a mock runtime to test against
 frame_support::construct_runtime!(
     pub enum TestRuntime where
         Block = Block,
