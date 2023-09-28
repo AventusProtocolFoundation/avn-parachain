@@ -116,9 +116,8 @@ fn get_topic_20_bytes(n: u8) -> Vec<u8> {
 fn get_lifted_avt_topics() -> Vec<Vec<u8>> {
     let topic_event_signature = get_topic_32_bytes(10);
     let topic_contract = get_topic_20_bytes(20);
-    let topic_sender = get_topic_20_bytes(50);
     let topic_receiver = get_topic_32_bytes(30);
-    return vec![topic_event_signature, topic_contract, topic_sender, topic_receiver]
+    return vec![topic_event_signature, topic_contract, topic_receiver]
 }
 
 fn get_lifted_avt_few_topics() -> Vec<Vec<u8>> {

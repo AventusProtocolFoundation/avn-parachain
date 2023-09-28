@@ -239,7 +239,7 @@ impl LiftedData {
             return Err(Error::LiftedEventBadDataLength)
         }
 
-        if topics.len() != 4 {
+        if topics.len() != 3 {
             return Err(Error::LiftedEventWrongTopicCount)
         }
 
