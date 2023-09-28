@@ -11,7 +11,7 @@ use alloc::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use ethabi::{Function, Int, Param, ParamType, Token};
-use frame_support::{dispatch::DispatchResultWithPostInfo, traits::IsSubType};
+use frame_support::{dispatch::DispatchResultWithPostInfo, traits::IsSubType, BoundedVec};
 use frame_system::{ensure_root, pallet_prelude::OriginFor};
 use hex_literal::hex;
 use sp_avn_common::EthTransaction;
@@ -51,7 +51,7 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        PublishToEthereum { tx_id: u32, function_name: Vec<u8>, args: Vec<(Vec<u8>, Vec<u8>)> },
+        PublishToEthereum { tx_id: u32, function_name: Vec<u8>, params: Vec<(Vec<u8>, Vec<u8>)> },
     }
 
     #[pallet::pallet]
@@ -108,7 +108,7 @@ pub mod pallet {
     pub type Transactions<T: Config> =
         StorageMap<_, Blake2_128Concat, u32, TransactionData, ValueQuery>;
 
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub enum TransactionStatus {
         #[default]
         Unsent,
@@ -117,46 +117,28 @@ pub mod pallet {
         Failed,
     }
 
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
+    pub type FunctionLimit = ConstU32<32>; // Max chars in T1 function name
+    pub type ParamsLimit = ConstU32<5>; // Max params (not including expiry, t2TxId, confirmations)
+    pub type TypeLimit = ConstU32<7>; // Max chars in a type name
+    pub type ValueLimit = ConstU32<130>; // Max chars in a value
+    pub type ConfirmationsLimit = ConstU32<1000>; // Max Confirmations - TODO: Review this
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub struct TransactionData {
-        pub function_name: Vec<u8>,        // Function name in T1 contract
-        pub args: Vec<(Vec<u8>, Vec<u8>)>, // Array of type:value pairs for all args preceding "expiry"
-        pub expiry: u64,                   // Unix timestamp after which T1 will reject the tx
-        pub msg_hash: H256,                // 32 byte message hash to be signed by authors
-        pub confirmations: Vec<[u8; 65]>,  // Signatures of message hash collected from authors
-        pub author: Option<[u8; 32]>,      // AvN Public Key of the author selected to send
-        pub eth_tx_hash: H256,             // Resultant Ethereum tx hash
-        pub status: TransactionStatus,     // Status in regard to Ethereum
-    }
-
-    impl MaxEncodedLen for TransactionData {
-        fn max_encoded_len() -> usize {
-            const MAX_NAME_LEN: usize = 32; // Max length of T1 function name
-            const MAX_PARAMS: usize = 5; // Max number of params in T1 function, excluding "expiry", "t2TxId" and "confirmations"
-            const MAX_TYPE_LEN: usize = 7; // "uint256", "bytes32" and "address" all equal 7 characters
-            const MAX_VALUE_LEN: usize = 132; // 65 bytes as hex
-            const MAX_CONFIRMATIONS: usize = 10; // TODO: what should our max quorum size be?
-
-            let args_max_len = MAX_PARAMS * (MAX_TYPE_LEN + MAX_VALUE_LEN);
-            let expiry_len = sp_std::mem::size_of::<u64>();
-            let confirmations_max_len = MAX_CONFIRMATIONS * 65;
-            let status_max_len = sp_std::mem::size_of::<TransactionStatus>();
-            // fixed length fields = msg_hash (32) + author (32 + 1)  + eth_tx_hash (32)
-            let fixed_fields_len = 32 + 32 + 1 + 32;
-
-            MAX_NAME_LEN +
-                args_max_len +
-                expiry_len +
-                confirmations_max_len +
-                status_max_len +
-                fixed_fields_len
-        }
+        pub function_name: BoundedVec<u8, FunctionLimit>,
+        pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+        pub expiry: u64,
+        pub msg_hash: H256,
+        pub confirmations: BoundedVec<[u8; 65], ConfirmationsLimit>,
+        pub author: Option<[u8; 32]>,
+        pub eth_tx_hash: H256,
+        pub status: TransactionStatus,
     }
 
     impl<T: Config> Pallet<T> {
         pub fn publish_to_ethereum(
             function_name: Vec<u8>,
-            args: Vec<(Vec<u8>, Vec<u8>)>,
+            params: Vec<(Vec<u8>, Vec<u8>)>,
         ) -> Result<u32, ethabi::Error> {
             let expiry = T::TimeProvider::now().as_secs() + Self::get_eth_tx_lifetime_secs();
             let tx_id = Self::get_and_update_next_tx_id();
@@ -164,20 +146,20 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::PublishToEthereum {
                 tx_id,
                 function_name: function_name.clone(),
-                args: args.clone(),
+                params: params.clone(),
             });
 
-            let mut extended_args = args.clone();
-            extended_args.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
-            extended_args.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
-            let msg_hash = Self::generate_msg_hash(&extended_args)?;
+            let mut extended_params = params.clone();
+            extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
+            extended_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
+            let msg_hash = Self::generate_msg_hash(&extended_params)?;
 
             let tx_data = TransactionData {
-                function_name,
-                args,
+                function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name).unwrap(),
+                params: Self::bound_params(params).unwrap(),
                 expiry,
                 msg_hash,
-                confirmations: Vec::new(),
+                confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
                 author: None,
                 eth_tx_hash: H256::zero(),
                 status: TransactionStatus::Unsent,
@@ -188,15 +170,48 @@ pub mod pallet {
             Ok(tx_id)
         }
 
+        fn bound_params(
+            params: Vec<(Vec<u8>, Vec<u8>)>,
+        ) -> Result<
+            BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+            DispatchError,
+        > {
+            let result: Result<Vec<_>, _> = params
+                .into_iter()
+                .map(|(type_vec, value_vec)| {
+                    let type_bounded = BoundedVec::try_from(type_vec)
+                        .map_err(|_| DispatchError::Other("Type name length"))?;
+                    let value_bounded = BoundedVec::try_from(value_vec)
+                        .map_err(|_| DispatchError::Other("Value length"))?;
+                    Ok::<_, DispatchError>((type_bounded, value_bounded))
+                })
+                .collect();
+
+            BoundedVec::<_, ParamsLimit>::try_from(result?)
+                .map_err(|_| DispatchError::Other("Number of params"))
+        }
+
+        fn unbound_params(
+            params: BoundedVec<
+                (BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>),
+                ParamsLimit,
+            >,
+        ) -> Vec<(Vec<u8>, Vec<u8>)> {
+            params
+                .into_iter()
+                .map(|(type_bounded, value_bounded)| (type_bounded.into(), value_bounded.into()))
+                .collect()
+        }
+
         fn get_and_update_next_tx_id() -> u32 {
             let tx_id = NextTxId::<T>::get();
             NextTxId::<T>::put(tx_id + 1);
             tx_id
         }
 
-        fn generate_msg_hash(args: &Vec<(Vec<u8>, Vec<u8>)>) -> Result<H256, ethabi::Error> {
+        fn generate_msg_hash(params: &Vec<(Vec<u8>, Vec<u8>)>) -> Result<H256, ethabi::Error> {
             let (types, values): (Vec<&Vec<u8>>, Vec<&Vec<u8>>) =
-                args.iter().map(|(a, b)| (a, b)).unzip();
+                params.iter().map(|(a, b)| (a, b)).unzip();
 
             let types: Result<Vec<ParamType>, _> = types
                 .iter()
@@ -226,15 +241,15 @@ pub mod pallet {
                     acc
                 });
 
-            let mut full_args = tx_data.args.clone();
-            full_args.push((UINT256.to_vec(), tx_data.expiry.to_string().into_bytes()));
-            full_args.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
-            full_args.push((BYTES.to_vec(), concatenated_confirmations));
+            let mut full_params = Self::unbound_params(tx_data.params.clone());
+            full_params.push((UINT256.to_vec(), tx_data.expiry.to_string().into_bytes()));
+            full_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
+            full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
             let function = Function {
-                name: String::from_utf8(tx_data.function_name.clone())
+                name: String::from_utf8(tx_data.function_name.clone().into())
                     .unwrap_or_else(|_| "Invalid function name".to_string()),
-                inputs: full_args
+                inputs: full_params
                     .iter()
                     .map(|(type_bytes, _)| Param {
                         name: "".to_string(),
@@ -245,7 +260,7 @@ pub mod pallet {
                 constant: false,
             };
 
-            let tokens: Result<Vec<Token>, _> = full_args
+            let tokens: Result<Vec<Token>, _> = full_params
                 .iter()
                 .map(|(type_bytes, value_bytes)| {
                     Self::to_token_type(&Self::to_param_type(type_bytes).unwrap(), value_bytes)
@@ -286,8 +301,11 @@ pub mod pallet {
 
         pub fn generate_eth_transaction(tx_id: u32) -> Result<EthTransaction, ethabi::Error> {
             // TODO: CHECK CONFIRMATIONS > QUORUM
-            let author: [u8; 32] = [0u8; 32]; // TODO: Get chosen sender
-             // TODO: Replace with AVN bridge contract getter and remove H160 and hex:
+
+            // TODO: Get chosen sender:
+            let author: [u8; 32] = [0u8; 32];
+            
+            // TODO: Replace with AVN bridge contract getter and remove H160 and hex:
             let bridge_contract = H160(hex!("F05Df39f745A240fb133cC4a11E42467FAB10f1F"));
 
             let mut tx_data = Transactions::<T>::get(tx_id);
