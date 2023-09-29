@@ -23,6 +23,7 @@ pub use pallet::*;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
+// TODO: Should we enable all Ethereum types (here and in to_token_type() and to_param_type()) from the outset?
 const UINT256: &[u8] = b"uint256";
 const UINT128: &[u8] = b"uint128";
 const UINT32: &[u8] = b"uint32";
