@@ -59,7 +59,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for GrowthVot
         return Err(DispatchError::Other("Growth data is not found in votes repository"))
     }
 
-    fn is_valid(&self) -> bool {        
+    fn is_valid(&self) -> bool {
         let voting_session_data = self.state();
         let growth_info_result = ParachainStaking::<T>::try_get_growth_data(&self.growth_id.period);
         let growth_is_pending_approval =
@@ -74,17 +74,17 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for GrowthVot
         {
             return false
         }
-                                
+
         let pending_approval_growth_ingress_counter =
             <ParachainStaking<T> as Store>::PendingApproval::get(self.growth_id.period);
         let vote_is_for_correct_ingress_counter =
             pending_approval_growth_ingress_counter == self.growth_id.ingress_counter;
-        
+
         let voting_session_is_finalised =
             AVN::<T>::is_block_finalised(voting_session_data.expect("checked").created_at_block);
 
         return vote_is_for_correct_ingress_counter &&
-            voting_session_is_finalised            
+            voting_session_is_finalised
     }
 
     fn is_active(&self) -> bool {
@@ -131,25 +131,25 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for GrowthVot
 
 /***************** Functions that run in an offchain worker context  **************** */
 
-fn growth_is_valid<T: Config>(growth_id: &GrowthId) -> bool {    
-    let growth_info_result = ParachainStaking::<T>::try_get_growth_data(&growth_id.period);      
+fn growth_is_valid<T: Config>(growth_id: &GrowthId) -> bool {
+    let growth_info_result = ParachainStaking::<T>::try_get_growth_data(&growth_id.period);
 
-    if growth_info_result.is_err() 
+    if growth_info_result.is_err()
     {
         return false
     }
 
     let growth_info = growth_info_result.expect("checked for error");
-    let growth_values_are_valid = growth_info.total_staker_reward > BalanceOf::<T>::zero() && 
+    let growth_values_are_valid = growth_info.total_staker_reward > BalanceOf::<T>::zero() &&
         growth_info.total_stake_accumulated > BalanceOf::<T>::zero();
     let growth_already_processed =
-        <ParachainStaking<T> as Store>::ProcessedGrowthPeriods::contains_key(growth_id.period) || 
+        <ParachainStaking<T> as Store>::ProcessedGrowthPeriods::contains_key(growth_id.period) ||
         growth_info.triggered == Some(true);
-    let growth_period_is_complete = 
+    let growth_period_is_complete =
         growth_id.period < <ParachainStaking<T> as Store>::GrowthPeriod::get().index;
-    
+
     return !growth_already_processed &&
-        growth_period_is_complete &&                
+        growth_period_is_complete &&
         growth_values_are_valid
 }
 
@@ -190,18 +190,20 @@ pub fn cast_votes_if_required<T: Config>(
             log::trace!(target: "avn", "🤷 Unable to acquire local lock for growth {:?}. Lock probably exists already", &growth_id);
             continue
         }
-        
+
         if growth_is_valid::<T>(&growth_id) {
+            println!("Valid: {:?}", growth_id);
             if send_approve_vote::<T>(&growth_id, this_validator).is_err() {
                 // TODO: should we output any error message here?
                 continue
             }
         } else {
+            println!("Invalid: {:?}", growth_id);
             if send_reject_vote::<T>(&growth_id, this_validator).is_err() {
                 // TODO: should we output any error message here?
                 continue
             }
-        }        
+        }
     }
 }
 
@@ -210,7 +212,7 @@ pub fn end_voting_if_required<T: Config>(
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
     let growth_ids: Vec<GrowthId> = <ParachainStaking<T> as Store>::PendingApproval::iter()
-        .filter(|(period, ingress_counter)| {            
+        .filter(|(period, ingress_counter)| {
             block_number > ParachainStaking::<T>::get_vote(GrowthId::new(*period, *ingress_counter)).end_of_voting_period
         })
         .take(MAX_VOTING_SESSIONS_RETURNED)
@@ -283,7 +285,7 @@ fn send_approve_vote<T: Config>(
     )?;
 
     log::trace!(target: "avn", "🖊️  Worker sends approval vote for triggering growth: {:?}]", &growth_id);
-    
+
     if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
         Call::approve_growth {
             growth_id: growth_id.clone(),
@@ -359,7 +361,7 @@ fn send_reject_vote<T: Config>(
     };
 
     log::trace!(target: "avn", "🖊️  Worker sends reject vote for triggering growth: {:?}]", &growth_id);
-       
+
     if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
         Call::reject_growth {
             growth_id: growth_id.clone(),

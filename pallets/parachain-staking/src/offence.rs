@@ -16,8 +16,8 @@ use sp_std::prelude::*;
 #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum GrowthOffenceType {
     InvalidSignatureSubmitted,
-    InvalidVoteSubmitted,        
-    RejectedValidGrowth,    
+    InvalidVoteSubmitted,
+    RejectedValidGrowth,
     ApprovedInvalidGrowth,
 }
 use crate::Event;
