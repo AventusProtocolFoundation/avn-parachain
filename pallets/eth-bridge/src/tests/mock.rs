@@ -4,7 +4,7 @@ use frame_support::{parameter_types, traits::GenesisBuild};
 use frame_system as system;
 use sp_core::{ConstU64, H256};
 use sp_runtime::{
-    testing::Header,
+    testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, IdentityLookup},
 };
 
@@ -20,6 +20,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        AVN: pallet_avn::{Pallet, Storage},
         EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -68,6 +69,14 @@ impl pallet_timestamp::Config for TestRuntime {
     type OnTimestampSet = ();
     type MinimumPeriod = ConstU64<12000>;
     type WeightInfo = ();
+}
+
+impl avn::Config for TestRuntime {
+    type AuthorityId = UintAuthorityId;
+    type EthereumPublicKeyChecker = ();
+    type NewSessionHandler = ();
+    type DisabledValidatorChecker = ();
+    type FinalisedBlockChecker = ();
 }
 
 pub struct ExtBuilder {

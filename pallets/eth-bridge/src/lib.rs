@@ -12,16 +12,20 @@ use alloc::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use ethabi::{Function, Int, Param, ParamType, Token};
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::IsSubType, BoundedVec};
-use frame_system::{ensure_root, pallet_prelude::OriginFor};
+use frame_system::{ensure_none, ensure_root, pallet_prelude::OriginFor};
 use hex_literal::hex;
+use pallet_avn::{self as avn};
 use sp_avn_common::EthTransaction;
 use sp_core::{H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::traits::Dispatchable;
+use sp_avn_common::calculate_two_third_quorum;
 
 pub use pallet::*;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
+
+pub type AVN<T> = avn::Pallet<T>;
 
 // TODO: Should we enable all Ethereum types (here and in to_token_type() and to_param_type()) from the outset?
 const UINT256: &[u8] = b"uint256";
@@ -36,7 +40,7 @@ pub mod pallet {
     use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
 
     #[pallet::config]
-    pub trait Config: frame_system::Config {
+    pub trait Config: frame_system::Config + avn::Config {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -89,6 +93,13 @@ pub mod pallet {
         }
     }
 
+    #[pallet::error]
+    pub enum Error<T> {
+        TxIdNotFound,
+        DuplicateConfirmation,
+        ExceedsConfirmationLimit,
+    }
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
@@ -102,6 +113,34 @@ pub mod pallet {
             TimeoutDuration::<T>::put(tx_lifetime_secs);
             Ok(().into())
         }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(10_000)] // TODO: set weight
+        pub fn add_confirmation(
+            origin: OriginFor<T>,
+            tx_id: u32,
+            confirmation: [u8; 65],
+        ) -> DispatchResultWithPostInfo {
+            ensure_none(origin)?;
+    
+            Transactions::<T>::try_mutate_exists(tx_id, |maybe_tx_data| -> DispatchResultWithPostInfo {
+                let tx_data = maybe_tx_data.as_mut().ok_or(Error::<T>::TxIdNotFound)?;
+    
+                if tx_data.confirmations.iter().any(|&conf| conf == confirmation) {
+                    return Err(Error::<T>::DuplicateConfirmation.into());
+                }
+    
+                tx_data.confirmations.try_push(confirmation).map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+
+                if tx_data.confirmations.len() >= calculate_two_third_quorum(AVN::<T>::validators().len() as u32).try_into().unwrap() {
+                    // TODO: Get chosen author
+                    let author: [u8; 32] = [0u8; 32];
+                    tx_data.author = Some(author);
+                }
+
+                Ok(().into())
+            })
+        }
     }
 
     #[pallet::storage]
@@ -112,8 +151,7 @@ pub mod pallet {
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub enum TransactionStatus {
         #[default]
-        Unsent,
-        Sent,
+        Unsettled,
         Succeeded,
         Failed,
     }
@@ -163,7 +201,7 @@ pub mod pallet {
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
                 author: None,
                 eth_tx_hash: H256::zero(),
-                status: TransactionStatus::Unsent,
+                status: TransactionStatus::Unsettled,
             };
 
             <Transactions<T>>::insert(tx_id, tx_data);
