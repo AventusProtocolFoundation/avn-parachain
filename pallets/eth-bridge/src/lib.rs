@@ -158,7 +158,7 @@ pub mod pallet {
 
     pub type FunctionLimit = ConstU32<32>; // Max chars in T1 function name
     pub type ParamsLimit = ConstU32<5>; // Max params (not including expiry, t2TxId, confirmations)
-    pub type TypeLimit = ConstU32<7>; // Max chars in a type name
+    pub type TypeLimit = ConstU32<7>; // Max chars in a T1 type name
     pub type ValueLimit = ConstU32<130>; // Max chars in a value
     pub type ConfirmationsLimit = ConstU32<1000>; // Max Confirmations - TODO: Review this
 
@@ -339,16 +339,14 @@ pub mod pallet {
         }
 
         pub fn generate_eth_transaction(tx_id: u32) -> Result<EthTransaction, ethabi::Error> {
-            // TODO: CHECK CONFIRMATIONS > QUORUM
-            // TODO: Get chosen sender:
-            let author: [u8; 32] = [0u8; 32];
             // TODO: Replace with AVN bridge contract getter and remove H160 and hex:
             let bridge_contract = H160(hex!("F05Df39f745A240fb133cC4a11E42467FAB10f1F"));
-
-            let mut tx_data = Transactions::<T>::get(tx_id);
-            tx_data.author = Some(author);
-            <Transactions<T>>::insert(tx_id, tx_data);
-
+            let tx_data = Transactions::<T>::get(tx_id);
+            // let author = match tx_data.author {
+            //     Some(a) => a,
+            //     None => return Err(ethabi::Error::InvalidData),
+            // };
+            let author = tx_data.author.unwrap_or([0u8; 32]); // TODO: This is temporary whilst we create the flow
             let calldata = Self::generate_calldata(tx_id)?;
 
             Ok(EthTransaction::new(author, bridge_contract, calldata))
