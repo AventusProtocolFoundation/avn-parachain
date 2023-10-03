@@ -84,9 +84,8 @@ fn run_checks(
         let msg_hash = hex::encode(transaction_data.msg_hash);
         assert_eq!(msg_hash, expected_msg_hash);
 
-        let dummy_account: [u8; 32] = [0u8; 32];
-        let eth_transaction = EthBridge::generate_eth_transaction(tx_id, dummy_account).unwrap();
-        let calldata = hex::encode(eth_transaction.data);
+        let calldata = EthBridge::generate_transaction_calldata(tx_id).unwrap();
+        let calldata = hex::encode(calldata);
         assert_eq!(calldata, expected_calldata);
     })
 }
