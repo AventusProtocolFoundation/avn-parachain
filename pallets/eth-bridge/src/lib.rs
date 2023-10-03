@@ -64,6 +64,7 @@ pub mod pallet {
         type MaxUnresolvedTx: Get<u32>;
     }
 
+    // TODO: Pallet needs more events
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -108,6 +109,7 @@ pub mod pallet {
         }
     }
 
+    // TODO: Pallet needs better errors and less unwraps
     #[pallet::error]
     pub enum Error<T> {
         TxIdNotFound,
@@ -330,6 +332,7 @@ pub mod pallet {
         pub confirmations: BoundedVec<[u8; 65], ConfirmationsLimit>,
         pub sending_author: Option<[u8; 32]>,
         pub eth_tx_hash: H256,
+        // TODO: Move the corroborations into their own (temp) structure?
         pub success_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
         pub failure_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
         pub status: EthTxState,
