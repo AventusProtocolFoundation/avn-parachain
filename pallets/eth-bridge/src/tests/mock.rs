@@ -4,12 +4,13 @@ use frame_support::{parameter_types, traits::GenesisBuild};
 use frame_system as system;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::{
-    testing::{Header, UintAuthorityId},
+    testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
-type Block = frame_system::mocking::MockBlock<TestRuntime>;
+pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
+pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 use crate::{self as eth_bridge};
 frame_support::construct_runtime!(
@@ -24,6 +25,14 @@ frame_support::construct_runtime!(
         EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>},
     }
 );
+
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type OverarchingCall = RuntimeCall;
+    type Extrinsic = Extrinsic;
+}
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;

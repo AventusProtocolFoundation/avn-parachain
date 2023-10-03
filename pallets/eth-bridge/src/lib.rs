@@ -13,7 +13,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use ethabi::{Function, Int, Param, ParamType, Token};
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::IsSubType, BoundedVec};
-use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::OriginFor};
+use frame_system::{ensure_none, ensure_root, ensure_signed, offchain::{SendTransactionTypes, SubmitTransaction}, pallet_prelude::OriginFor};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
 use sp_avn_common::EthTransaction;
@@ -39,9 +39,10 @@ const BYTES32: &[u8] = b"bytes32";
 pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
+    use frame_system::pallet_prelude::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + avn::Config {
+    pub trait Config: frame_system::Config + avn::Config + SendTransactionTypes<Call<Self>> {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -136,12 +137,6 @@ pub mod pallet {
     
                 tx_data.confirmations.try_push(confirmation).map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                if tx_data.confirmations.len() >= calculate_two_third_quorum(AVN::<T>::validators().len() as u32).try_into().unwrap() {
-                    // TODO: Get chosen author
-                    let author: [u8; 32] = [0u8; 32];
-                    tx_data.author = Some(author);
-                }
-
                 Ok(().into())
             })
         }
@@ -194,6 +189,84 @@ pub mod pallet {
         }
     }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn offchain_worker(block_number: T::BlockNumber) {
+            let this_account: [u8; 32] = [0u8; 32];
+            let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32).try_into().unwrap();
+        
+            for tx_id in UnsettledTxList::<T>::get() {
+                let tx_data = Transactions::<T>::get(tx_id);
+                let this_account_is_sender = tx_data.sending_author.unwrap() == this_account;
+
+                if tx_data.confirmations.len() < quorum && !this_account_is_sender {
+                    let signature = sign(tx_data.msg_hash);
+                    let call = Call::<T>::add_confirmation { tx_id: tx_id, confirmation: signature };
+                    let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+                } else if tx_data.confirmations.len() >= quorum {
+                    if this_account_is_sender {
+                        Self::generate_eth_transaction(tx_id, this_account);
+                    } else {
+                        match EthTxState::check_ethereum(tx_id, tx_data.expiry) {
+                            EthTxState::Unresolved => {
+                            },
+                            EthTxState::Succeeded => {
+                                let call = Call::<T>::add_corroboration { tx_id: tx_id, succeeded: true };
+                                let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+                            },
+                            EthTxState::Failed => {
+                                let call = Call::<T>::add_corroboration { tx_id: tx_id, succeeded: false };
+                                let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+                            },
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    enum EthTxState {
+        Unresolved,
+        Succeeded,
+        Failed,
+    }
+
+    impl EthTxState {
+        fn check_ethereum(tx_id: u32, expiry: u64) -> EthTxState {
+            // TODO: Call "corroborate" on contract
+            EthTxState::Unresolved
+        }
+    }
+
+    fn sign(msg_hash: H256) -> [u8; 65] {
+        let signature: [u8; 65] = [0u8; 65];
+        signature
+    }
+    
+
+    #[pallet::validate_unsigned]
+    impl<T: Config> ValidateUnsigned for Pallet<T> {
+        type Call = Call<T>;
+        
+        fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            match call {
+                Call::add_confirmation { tx_id, confirmation } => {
+                    ValidTransaction::with_tag_prefix("EthBridgeAddConfirmation")
+                        .and_provides((call, tx_id))
+                        .priority(TransactionPriority::max_value())
+                        .build()
+                },
+                Call::add_corroboration { tx_id, succeeded } => {
+                    ValidTransaction::with_tag_prefix("EthBridgeAddCorroboration")
+                        .and_provides((call, tx_id))
+                        .priority(TransactionPriority::max_value())
+                        .build()
+                },
+                _ => InvalidTransaction::Call.into(),
+            }
+        }
+    }
+
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]
     pub type Transactions<T: Config> =
@@ -220,7 +293,7 @@ pub mod pallet {
         pub expiry: u64,
         pub msg_hash: H256,
         pub confirmations: BoundedVec<[u8; 65], ConfirmationsLimit>,
-        pub author: Option<[u8; 32]>,
+        pub sending_author: Option<[u8; 32]>,
         pub eth_tx_hash: H256,
         pub success_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
         pub failure_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
@@ -252,7 +325,7 @@ pub mod pallet {
                 expiry,
                 msg_hash,
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
-                author: None,
+                sending_author: None,
                 eth_tx_hash: H256::zero(),
                 success_corroborations: BoundedVec::default(),
                 failure_corroborations: BoundedVec::default(),
@@ -409,18 +482,11 @@ pub mod pallet {
             Ok(())
         }
 
-        pub fn generate_eth_transaction(tx_id: u32) -> Result<EthTransaction, ethabi::Error> {
+        pub fn generate_eth_transaction(tx_id: u32, sending_author: [u8; 32]) -> Result<EthTransaction, ethabi::Error> {
             // TODO: Replace with AVN bridge contract getter and remove H160 and hex:
             let bridge_contract = H160(hex!("F05Df39f745A240fb133cC4a11E42467FAB10f1F"));
-            let tx_data = Transactions::<T>::get(tx_id);
-            // let author = match tx_data.author {
-            //     Some(a) => a,
-            //     None => return Err(ethabi::Error::InvalidData),
-            // };
-            let author = tx_data.author.unwrap_or([0u8; 32]); // TODO: This is temporary whilst we create the flow
             let calldata = Self::generate_calldata(tx_id)?;
-
-            Ok(EthTransaction::new(author, bridge_contract, calldata))
+            Ok(EthTransaction::new(sending_author, bridge_contract, calldata))
         }
     }
 }
