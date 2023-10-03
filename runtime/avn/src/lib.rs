@@ -664,6 +664,7 @@ impl pallet_avn_transaction_payment::Config for Runtime {
 }
 
 impl pallet_eth_bridge::Config for Runtime {
+    type MaxUnsettledTx = ConstU32<1000>;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;

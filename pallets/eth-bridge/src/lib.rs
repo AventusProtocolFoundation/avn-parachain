@@ -10,9 +10,10 @@ use alloc::{
     vec::Vec,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::convert::TryInto;
 use ethabi::{Function, Int, Param, ParamType, Token};
 use frame_support::{dispatch::DispatchResultWithPostInfo, traits::IsSubType, BoundedVec};
-use frame_system::{ensure_none, ensure_root, pallet_prelude::OriginFor};
+use frame_system::{ensure_none, ensure_root, ensure_signed, pallet_prelude::OriginFor};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
 use sp_avn_common::EthTransaction;
@@ -46,11 +47,11 @@ pub mod pallet {
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type TimeProvider: UnixTime;
         type WeightInfo: WeightInfo;
-
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
+        type MaxUnsettledTx: Get<u32>;
     }
 
     #[pallet::event]
@@ -70,6 +71,9 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_eth_tx_lifetime_secs)]
     pub type TimeoutDuration<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+    #[pallet::storage]
+    pub type UnsettledTxList<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxUnsettledTx>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -141,6 +145,53 @@ pub mod pallet {
                 Ok(().into())
             })
         }
+
+        #[pallet::call_index(2)]
+        #[pallet::weight(10_000)] // TODO: set weight
+        pub fn add_corroboration(
+            origin: OriginFor<T>,
+            tx_id: u32,
+            succeeded: bool
+        ) -> DispatchResultWithPostInfo {
+            let author = ensure_signed(origin)?;
+            let author: [u8; 32] = author.encode().try_into().expect("AccountId should be 32 bytes");
+        
+            if !UnsettledTxList::<T>::get().contains(&tx_id) {
+                return Ok(().into());
+            }
+        
+            let mut tx_data = Transactions::<T>::get(tx_id);
+            
+            if succeeded {
+                if !tx_data.success_corroborations.contains(&author) {
+                    let mut tmp_vec = Vec::new();
+                    tmp_vec.push(author);
+                    tx_data.success_corroborations.try_append(&mut tmp_vec).map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+                }
+        
+                if tx_data.success_corroborations.len() >= calculate_two_third_quorum(AVN::<T>::validators().len() as u32).try_into().unwrap() {
+                    tx_data.status = TransactionStatus::Succeeded;
+                    // TODO: run COMMIT callback
+                    Self::remove_from_unsettled(tx_id).unwrap();
+                }
+            } else {
+                if !tx_data.failure_corroborations.contains(&author) {
+                    let mut tmp_vec = Vec::new();
+                    tmp_vec.push(author);
+                    tx_data.failure_corroborations.try_append(&mut tmp_vec).map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+                }
+        
+                if tx_data.failure_corroborations.len() >= calculate_two_third_quorum(AVN::<T>::validators().len() as u32).try_into().unwrap() {
+                    tx_data.status = TransactionStatus::Failed;
+                    // TODO: run ROLLBACK callback
+                    Self::remove_from_unsettled(tx_id).unwrap();
+                }
+            }
+        
+            <Transactions<T>>::insert(tx_id, tx_data);
+        
+            Ok(().into())    
+        }
     }
 
     #[pallet::storage]
@@ -160,7 +211,7 @@ pub mod pallet {
     pub type ParamsLimit = ConstU32<5>; // Max params (not including expiry, t2TxId, confirmations)
     pub type TypeLimit = ConstU32<7>; // Max chars in a T1 type name
     pub type ValueLimit = ConstU32<130>; // Max chars in a value
-    pub type ConfirmationsLimit = ConstU32<1000>; // Max Confirmations - TODO: Review this
+    pub type ConfirmationsLimit = ConstU32<1000>; // TODO: Review this
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub struct TransactionData {
@@ -171,6 +222,8 @@ pub mod pallet {
         pub confirmations: BoundedVec<[u8; 65], ConfirmationsLimit>,
         pub author: Option<[u8; 32]>,
         pub eth_tx_hash: H256,
+        pub success_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
+        pub failure_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
         pub status: TransactionStatus,
     }
 
@@ -201,10 +254,13 @@ pub mod pallet {
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
                 author: None,
                 eth_tx_hash: H256::zero(),
+                success_corroborations: BoundedVec::default(),
+                failure_corroborations: BoundedVec::default(),
                 status: TransactionStatus::Unsettled,
             };
 
             <Transactions<T>>::insert(tx_id, tx_data);
+            Self::add_to_unsettled(tx_id).unwrap();
 
             Ok(tx_id)
         }
@@ -336,6 +392,21 @@ pub mod pallet {
                 },
                 _ => Err(ethabi::Error::InvalidData),
             }
+        }
+
+        fn add_to_unsettled(tx_id: u32) -> DispatchResult {
+            UnsettledTxList::<T>::try_mutate(|txs| -> DispatchResult {
+                txs.try_push(tx_id).map_err(|_| DispatchError::Other("Unsettled TX limit reached"))
+            })
+        }
+        
+        fn remove_from_unsettled(tx_id: u32) -> DispatchResult {
+            UnsettledTxList::<T>::mutate(|txs| {
+                if let Some(pos) = txs.iter().position(|&x| x == tx_id) {
+                    txs.remove(pos);
+                }
+            });
+            Ok(())
         }
 
         pub fn generate_eth_transaction(tx_id: u32) -> Result<EthTransaction, ethabi::Error> {

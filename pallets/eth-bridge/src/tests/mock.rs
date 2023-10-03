@@ -2,7 +2,7 @@ use super::*;
 use crate::{self as pallet_eth_bridge};
 use frame_support::{parameter_types, traits::GenesisBuild};
 use frame_system as system;
-use sp_core::{ConstU64, H256};
+use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, IdentityLookup},
@@ -31,6 +31,7 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
+    type MaxUnsettledTx = ConstU32<1000>;
     type RuntimeEvent = RuntimeEvent;
     type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
     type RuntimeCall = RuntimeCall;
