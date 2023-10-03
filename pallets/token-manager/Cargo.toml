@@ -38,6 +38,7 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-parachain-staking = { path = "../parachain-staking" }
 pallet-session = { features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
+pallet-ethereum-transactions = { default-features = false, path = "../ethereum-transactions" }
 
 [features]
 default = ["std"]

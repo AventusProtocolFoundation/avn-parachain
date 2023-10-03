@@ -150,7 +150,7 @@ fn avn_test_lower_all_avt_token_succeed() {
         .as_externality();
 
     ext.execute_with(|| {
-        let (_, from_account_id, to_account_id, t1_recipient) =
+        let (_, from_account_id, _to_account_id, t1_recipient) =
             MockData::setup_lower_request_data();
         let from_account_balance_before = Balances::free_balance(from_account_id);
         let amount = from_account_balance_before;
@@ -179,7 +179,7 @@ fn avn_test_lower_some_avt_token_succeed() {
         .as_externality();
 
     ext.execute_with(|| {
-        let (_, from_account_id, to_account_id, t1_recipient) =
+        let (_, from_account_id, _to_account_id, t1_recipient) =
             MockData::setup_lower_request_data();
         let from_account_balance_before = Balances::free_balance(from_account_id);
         let amount = from_account_balance_before / 2;
@@ -235,7 +235,7 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         .as_externality();
 
     ext.execute_with(|| {
-        let (_, from_account_id, to_account_id, _) = MockData::setup_lower_request_data();
+        let (_, from_account_id, _to_account_id, _) = MockData::setup_lower_request_data();
         let mut from_account_balance_before = Balances::free_balance(from_account_id);
         let mut amount = from_account_balance_before;
         let t1_recipient = H160(hex!("0000000000000000000000000000000000000001"));

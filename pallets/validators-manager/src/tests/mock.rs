@@ -428,9 +428,9 @@ impl parachain_staking::Config for TestRuntime {
     type ProcessedEventsChecker = ();
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
-    type AccountToBytesConvert = Avn;
-    type CandidateTransactionSubmitter = EthereumTransactions;
-    type ReportGrowthOffence = OffenceHandler;
+    type AccountToBytesConvert = AVN;
+    type CandidateTransactionSubmitter = Self;
+    type ReportGrowthOffence = ();
 }
 
 /// A mock offence report handler.
