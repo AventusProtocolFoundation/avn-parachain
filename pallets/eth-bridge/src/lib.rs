@@ -200,8 +200,8 @@ pub mod pallet {
                 let this_account_is_sender = tx_data.sending_author.unwrap() == this_account;
 
                 if tx_data.confirmations.len() < quorum && !this_account_is_sender {
-                    let signature = sign(tx_data.msg_hash);
-                    let call = Call::<T>::add_confirmation { tx_id: tx_id, confirmation: signature };
+                    let confirmation = generate_signed_ethereum_confirmation::<T>(tx_data.msg_hash).unwrap();
+                    let call = Call::<T>::add_confirmation { tx_id: tx_id, confirmation: confirmation };
                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                 } else if tx_data.confirmations.len() >= quorum {
                     if this_account_is_sender {
@@ -225,9 +225,11 @@ pub mod pallet {
         }
     }
 
-    fn sign(msg_hash: H256) -> [u8; 65] {
-        let signature: [u8; 65] = [0u8; 65];
-        signature
+    fn generate_signed_ethereum_confirmation<T: Config>(msg_hash: H256)  -> Result<[u8; 65], DispatchError> {
+        let msg_hash_string = msg_hash.to_string();
+        let signature = AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
+        let signature_bytes: [u8; 65] = signature.into();
+        Ok(signature_bytes)
     }
     
 
