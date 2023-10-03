@@ -5,6 +5,7 @@
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{
+    format,
     string::{String, ToString},
     vec,
     vec::Vec,
@@ -20,7 +21,7 @@ use frame_system::{
 };
 use hex_literal::hex;
 use pallet_avn::{self as avn};
-use sp_avn_common::{calculate_two_third_quorum, EthTransaction};
+use sp_avn_common::{calculate_one_third_quorum, EthTransaction};
 use sp_core::{H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{
@@ -225,6 +226,7 @@ pub mod pallet {
             let this_account: [u8; 32] = [0u8; 32];
 
             for tx_id in UnresolvedTxList::<T>::get() {
+
                 let mut tx_data = Transactions::<T>::get(tx_id);
                 let this_account_is_sender = tx_data.sending_author.unwrap() == this_account;
 
@@ -234,13 +236,18 @@ pub mod pallet {
                     let call = Call::<T>::add_confirmation { tx_id, confirmation };
                     let _ =
                         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+
                 } else if Self::quorum_is_reached(tx_data.confirmations.len()) {
+
                     if this_account_is_sender {
+
                         let calldata = Self::generate_transaction_calldata(tx_id).unwrap();
                         let eth_tx_hash: H256 = Self::call_avn_bridge_contract_send_method(calldata).unwrap();
                         tx_data.eth_tx_hash = eth_tx_hash;
                         <Transactions<T>>::insert(tx_id, tx_data);
+
                     } else if tx_data.eth_tx_hash != H256::zero() {
+
                         match Self::check_ethereum(tx_id, tx_data.expiry) {
                             EthTxState::Unresolved => {},
                             EthTxState::Succeeded => {
@@ -333,7 +340,7 @@ pub mod pallet {
             function_name: Vec<u8>,
             params: Vec<(Vec<u8>, Vec<u8>)>,
         ) -> Result<u32, ethabi::Error> {
-            let expiry = T::TimeProvider::now().as_secs() + Self::get_eth_tx_lifetime_secs();
+            let expiry = <T as pallet::Config>::TimeProvider::now().as_secs() + Self::get_eth_tx_lifetime_secs();
             let tx_id = Self::get_and_update_next_tx_id();
 
             Self::deposit_event(Event::<T>::PublishToEthereum {
@@ -373,8 +380,7 @@ pub mod pallet {
         }
 
         fn quorum_is_reached(entries: usize) -> bool {
-            // TODO: Use new quorum method
-            let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32);
+            let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
             entries as u32 >= quorum
         }
 

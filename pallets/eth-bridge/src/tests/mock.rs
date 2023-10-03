@@ -87,6 +87,8 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
+    type WeightInfo = ();
 }
 
 pub struct ExtBuilder {
