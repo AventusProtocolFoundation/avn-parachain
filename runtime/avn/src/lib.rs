@@ -148,7 +148,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (pallet_parachain_staking::migration::EnableStaking<Runtime>, RemoveMigrationStatus),
+    (pallet_parachain_staking::migration::EnableAutomaticGrwoth<Runtime>, RemoveMigrationStatus),
 >;
 
 pub struct RemoveMigrationStatus;
@@ -188,7 +188,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 42,
+    spec_version: 43,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -720,7 +720,7 @@ construct_runtime!(
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
         Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
         AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
-        ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 96,
+        ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 96,
 
         // Since the ValidatorsManager integrates with the ParachainStaking pallet, we want to initialise after it.
         ValidatorsManager: pallet_validators_manager = 18,

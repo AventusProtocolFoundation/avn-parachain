@@ -7,8 +7,8 @@
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    weights::WeightInfo, BalanceOf, Config, Delay, Era, EraInfo, Event, Growth, GrowthInfo,
-    MinCollatorStake, MinTotalNominatorStake, Pallet, Staked, Total, TotalSelected,
+    BalanceOf, Config, Growth, GrowthInfo,
+    Pallet, ProcessedGrowthPeriods, LastTriggeredGrowthPeriod, Vec, VotingPeriod,
 };
 use frame_support::{
     dispatch::GetStorageVersion,
@@ -17,143 +17,70 @@ use frame_support::{
     weights::Weight,
 };
 
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
-pub fn enable_staking<T: Config>() -> Weight {
-    let initial_delay: u32 = 2;
-    let initial_min_collator_stake = 5_000_000_000_000_000_000_000u128; //5000AVT
-    let initial_min_user_stake = 10_000_000_000_000_000_000u128; // 10 AVT (100 in total)
-    let intial_blocks_per_era = 7_200u32; // 24 HOURS (12sec per block)
-    let intial_era_index = 1u32;
-    let initial_growth_period_index = 0u32;
-    let current_block_number = frame_system::Pallet::<T>::block_number();
-
+pub fn enable_automatic_growth<T: Config>() -> Weight {        
+    let initial_voting_period: T::BlockNumber = 100u32.into();
     let mut consumed_weight: Weight = Weight::from_ref_time(0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
     };
+    
+    log::info!("🚧 🚧 Running migration to enable automatic growths");
+        
+    // We only have a handfull of these so performance is not an issue here.
+    let mut processed_growth_periods: Vec<u32> = <ProcessedGrowthPeriods<T>>::iter_keys().collect::<Vec<_>>();
+    processed_growth_periods.sort();
+    processed_growth_periods.reverse();
+    let latest_processed_growth_period: u32 = processed_growth_periods.into_iter().nth(0).or_else(|| Some(0)).expect("we have a default value");
+    
+    <LastTriggeredGrowthPeriod<T>>::put(latest_processed_growth_period);
+    <VotingPeriod<T>>::put(initial_voting_period);
+        
+    Growth::<T>::translate::<GrowthInfo<T::AccountId, BalanceOf<T>>, _>(
+        |period, mut growth_info| {
+            add_weight(1, 1, Weight::from_ref_time(0));                        
+            growth_info.added_by = None;
+            growth_info.tx_id = None;
+            growth_info.triggered = None;
 
-    let to_balance = |b| {
-        if let Ok(balance) = <BalanceOf<T> as TryFrom<u128>>::try_from(b).or_else(|e| Err(e)) {
-            return Ok(balance)
-        }
+            if period <= latest_processed_growth_period {                
+                growth_info.tx_id = Some(0);
+                growth_info.triggered = Some(true);
+            }
 
-        log::error!("💔 Error converting amount to balance: {:?}", b);
-        return Err(())
-    };
+            Some(growth_info)
+        },
+    );
 
-    log::info!("🚧 🚧 Running migration to enable parachain staking");
-
-    // Since we are hardcoding the amount, this will probably never fail, but we want to be 100%
-    // sure.
-    if let Err(_) = to_balance(initial_min_collator_stake) {
-        log::error!("Exiting migration script due to previous errors");
-        return consumed_weight
-    }
-
-    if let Err(_) = to_balance(initial_min_user_stake) {
-        log::error!("Exiting migration script due to previous errors");
-        return consumed_weight
-    }
-
-    let initial_min_collator_stake_balance =
-        to_balance(initial_min_collator_stake).expect("Asserted");
-    let mut candidate_count = 0u32;
-
-    //Reads: [validators]
-    add_weight(1, 0, Weight::from_ref_time(0));
-
-    // Initialize the candidates
-    for validator in pallet_avn::Pallet::<T>::validators() {
-        //Reads: [get_collator_stakable_free_balance]
-        add_weight(1, 0, Weight::from_ref_time(0));
-
-        assert!(
-            <Pallet<T>>::get_collator_stakable_free_balance(&validator.account_id) >=
-                initial_min_collator_stake_balance,
-            "Account does not have enough balance to bond as a candidate."
-        );
-
-        candidate_count = candidate_count.saturating_add(1u32);
-
-        if let Err(error) = <Pallet<T>>::join_candidates(
-            T::RuntimeOrigin::from(Some(validator.account_id).into()),
-            initial_min_collator_stake_balance,
-            candidate_count,
-        ) {
-            log::error!("💔 Join candidates failed in genesis with error {:?}", error);
-            continue
-        }
-
-        add_weight(0, 0, <T as Config>::WeightInfo::join_candidates(candidate_count));
-    }
-
-    log::info!("    - Converted {:?} collator as stakers", candidate_count);
-
-    // Validate and set delay
-    assert!(initial_delay > 0, "Delay must be greater than 0.");
-
-    //Write: [Delay]
-    add_weight(0, 1, Weight::from_ref_time(0));
-    <Delay<T>>::put(initial_delay);
-
-    // Set min staking values
-    //Write: [MinCollatorStake, MinTotalNominatorStake, TotalSelected]
-    add_weight(0, 3, Weight::from_ref_time(0));
-    <MinCollatorStake<T>>::put(initial_min_collator_stake_balance);
-    <MinTotalNominatorStake<T>>::put(to_balance(initial_min_user_stake).expect("Asserted"));
-    <TotalSelected<T>>::put(T::MinSelectedCandidates::get());
-
-    // Choose top TotalSelected collator candidates
-    let (collator_count, _, total_staked) = <Pallet<T>>::select_top_candidates(intial_era_index);
-    //Call: [select_top_candidates()]
-    add_weight(0, 0, <T as Config>::WeightInfo::select_top_candidates());
-
-    // Calculate the first era info.
-    let era: EraInfo<T::BlockNumber> =
-        EraInfo::new(intial_era_index, current_block_number.into(), intial_blocks_per_era);
-
-    //Write: [Era, Staked, Growth]
-    add_weight(0, 3, Weight::from_ref_time(0));
-    // Set the first era info.
-    <Era<T>>::put(era);
-    // Snapshot total stake
-    <Staked<T>>::insert(intial_era_index, <Total<T>>::get());
-    // Set the first GrowthInfo
-    <Growth<T>>::insert(initial_growth_period_index, GrowthInfo::new(1u32));
-
-    <Pallet<T>>::deposit_event(Event::NewEra {
-        starting_block: current_block_number,
-        era: intial_era_index,
-        selected_collators_number: collator_count,
-        total_balance: total_staked,
-    });
+    //Reads: [ProcessedGrowthPeriod], Writes: [LastTriggeredGrowthPeriod]
+    add_weight(1, 1, Weight::from_ref_time(0));
 
     //Write: [STORAGE_VERSION]
     add_weight(0, 1, Weight::from_ref_time(0));
     STORAGE_VERSION.put::<Pallet<T>>();
 
-    log::info!("✅ Migration completed successfully");
+    log::info!("✅ Automatic growth migration completed successfully");
 
     // add a bit extra as safety margin for computation
     return consumed_weight + Weight::from_ref_time(25_000_000_000)
 }
 
 /// Migration to enable staking pallet
-pub struct EnableStaking<T>(PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for EnableStaking<T> {
+pub struct EnableAutomaticGrwoth<T>(PhantomData<T>);
+impl<T: Config> OnRuntimeUpgrade for EnableAutomaticGrwoth<T> {
     fn on_runtime_upgrade() -> Weight {
         let current = Pallet::<T>::current_storage_version();
         let onchain = Pallet::<T>::on_chain_storage_version();
 
-        if onchain < 1 {
+        if onchain < 2 {
             log::info!(
                 "💽 Running migration with current storage version {:?} / onchain {:?}",
                 current,
                 onchain
             );
-            return enable_staking::<T>()
+            return enable_automatic_growth::<T>()
         }
 
         Weight::zero()
