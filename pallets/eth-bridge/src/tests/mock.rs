@@ -40,7 +40,7 @@ parameter_types! {
 }
 
 impl Config for TestRuntime {
-    type MaxUnsettledTx = ConstU32<1000>;
+    type MaxUnresolvedTx = ConstU32<1000>;
     type RuntimeEvent = RuntimeEvent;
     type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
     type RuntimeCall = RuntimeCall;

@@ -52,7 +52,7 @@ pub mod pallet {
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
-        type MaxUnsettledTx: Get<u32>;
+        type MaxUnresolvedTx: Get<u32>;
     }
 
     #[pallet::event]
@@ -74,7 +74,7 @@ pub mod pallet {
     pub type TimeoutDuration<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::storage]
-    pub type UnsettledTxList<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxUnsettledTx>, ValueQuery>;
+    pub type UnresolvedTxList<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxUnresolvedTx>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -151,7 +151,7 @@ pub mod pallet {
             let author = ensure_signed(origin)?;
             let author: [u8; 32] = author.encode().try_into().expect("AccountId should be 32 bytes");
         
-            if !UnsettledTxList::<T>::get().contains(&tx_id) {
+            if !UnresolvedTxList::<T>::get().contains(&tx_id) {
                 return Ok(().into());
             }
         
@@ -165,9 +165,9 @@ pub mod pallet {
                 }
         
                 if tx_data.success_corroborations.len() >= calculate_two_third_quorum(AVN::<T>::validators().len() as u32).try_into().unwrap() {
-                    tx_data.status = TransactionStatus::Succeeded;
+                    tx_data.status = EthTxState::Succeeded;
                     // TODO: run COMMIT callback
-                    Self::remove_from_unsettled(tx_id).unwrap();
+                    Self::remove_from_unresolved(tx_id).unwrap();
                 }
             } else {
                 if !tx_data.failure_corroborations.contains(&author) {
@@ -177,9 +177,9 @@ pub mod pallet {
                 }
         
                 if tx_data.failure_corroborations.len() >= calculate_two_third_quorum(AVN::<T>::validators().len() as u32).try_into().unwrap() {
-                    tx_data.status = TransactionStatus::Failed;
+                    tx_data.status = EthTxState::Failed;
                     // TODO: run ROLLBACK callback
-                    Self::remove_from_unsettled(tx_id).unwrap();
+                    Self::remove_from_unresolved(tx_id).unwrap();
                 }
             }
         
@@ -195,7 +195,7 @@ pub mod pallet {
             let this_account: [u8; 32] = [0u8; 32];
             let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32).try_into().unwrap();
         
-            for tx_id in UnsettledTxList::<T>::get() {
+            for tx_id in UnresolvedTxList::<T>::get() {
                 let tx_data = Transactions::<T>::get(tx_id);
                 let this_account_is_sender = tx_data.sending_author.unwrap() == this_account;
 
@@ -222,19 +222,6 @@ pub mod pallet {
                     }
                 }
             }
-        }
-    }
-
-    enum EthTxState {
-        Unresolved,
-        Succeeded,
-        Failed,
-    }
-
-    impl EthTxState {
-        fn check_ethereum(tx_id: u32, expiry: u64) -> EthTxState {
-            // TODO: Call "corroborate" on contract
-            EthTxState::Unresolved
         }
     }
 
@@ -273,11 +260,18 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, u32, TransactionData, ValueQuery>;
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub enum TransactionStatus {
+    pub enum EthTxState {
         #[default]
-        Unsettled,
+        Unresolved,
         Succeeded,
         Failed,
+    }
+
+    impl EthTxState {
+        fn check_ethereum(tx_id: u32, expiry: u64) -> EthTxState {
+            // TODO: Call "corroborate" on contract
+            EthTxState::Unresolved
+        }
     }
 
     pub type FunctionLimit = ConstU32<32>; // Max chars in T1 function name
@@ -297,7 +291,7 @@ pub mod pallet {
         pub eth_tx_hash: H256,
         pub success_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
         pub failure_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
-        pub status: TransactionStatus,
+        pub status: EthTxState,
     }
 
     impl<T: Config> Pallet<T> {
@@ -329,11 +323,11 @@ pub mod pallet {
                 eth_tx_hash: H256::zero(),
                 success_corroborations: BoundedVec::default(),
                 failure_corroborations: BoundedVec::default(),
-                status: TransactionStatus::Unsettled,
+                status: EthTxState::Unresolved,
             };
 
             <Transactions<T>>::insert(tx_id, tx_data);
-            Self::add_to_unsettled(tx_id).unwrap();
+            Self::add_to_unresolved(tx_id).unwrap();
 
             Ok(tx_id)
         }
@@ -467,14 +461,14 @@ pub mod pallet {
             }
         }
 
-        fn add_to_unsettled(tx_id: u32) -> DispatchResult {
-            UnsettledTxList::<T>::try_mutate(|txs| -> DispatchResult {
-                txs.try_push(tx_id).map_err(|_| DispatchError::Other("Unsettled TX limit reached"))
+        fn add_to_unresolved(tx_id: u32) -> DispatchResult {
+            UnresolvedTxList::<T>::try_mutate(|txs| -> DispatchResult {
+                txs.try_push(tx_id).map_err(|_| DispatchError::Other("Unresolved TX limit reached"))
             })
         }
         
-        fn remove_from_unsettled(tx_id: u32) -> DispatchResult {
-            UnsettledTxList::<T>::mutate(|txs| {
+        fn remove_from_unresolved(tx_id: u32) -> DispatchResult {
+            UnresolvedTxList::<T>::mutate(|txs| {
                 if let Some(pos) = txs.iter().position(|&x| x == tx_id) {
                     txs.remove(pos);
                 }
