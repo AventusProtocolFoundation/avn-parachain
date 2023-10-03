@@ -16,6 +16,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
+
 //! Benchmarking
 use super::*;
 use crate::{
@@ -39,9 +40,10 @@ use sp_core::{bounded::BoundedVec, ConstU32, ecdsa};
 use sp_runtime::{traits::StaticLookup, RuntimeAppPublic, WeakBoundedVec};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use hex_literal::hex;
+use pallet_ethereum_transactions::{CandidateTransactionSubmitter, ethereum_transaction::{TriggerGrowthData, EthTransactionType}};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
-pub type MaxNominations = ConstU32<100>;
+
 mod app_sr25519 {
     use super::BENCH_KEY_TYPE_ID;
     use sp_application_crypto::{app_crypto, sr25519};
@@ -202,6 +204,15 @@ fn set_session_key<T: Config>(user: &T::AccountId, index: u32) -> Result<(), &'s
     Ok(())
 }
 
+fn get_avn_validators_and_update_keys<T: Config>(sender_to_exclude: &Validator<T::AuthorityId, T::AccountId>) -> Vec<Validator<T::AuthorityId, T::AccountId>> {
+    return AVN::<T>::validators().to_vec().into_iter().filter(|v| v.account_id != sender_to_exclude.account_id).map(|v|{
+        Validator::new(
+            v.account_id.clone(),
+            <T as avn::Config>::AuthorityId::generate_pair(None).into()
+        )
+    }).collect::<_>();
+}
+
 // Simulate staking on finalize by manually setting points
 fn parachain_staking_on_finalize<T: Config>(author: T::AccountId) {
     let now = <Era<T>>::get().current;
@@ -267,6 +278,17 @@ fn get_collator_count<T: Config>() -> u32 {
     return Pallet::<T>::selected_candidates().len() as u32
 }
 
+fn get_allowed_max_collators<T: Config>(max_collators: u32) -> u32 {
+    let mut actual_max_collators: u32 = max_collators.min(<<T as Config>::MaxCandidates as Get<u32>>::get() -1 );
+
+    let existing_collators = Pallet::<T>::selected_candidates().len() as u32;
+    if actual_max_collators > existing_collators {
+        actual_max_collators -= existing_collators;
+    }
+
+    return actual_max_collators;
+}
+
 fn setup_nomination<T: Config>(
     max_collators: u32,
     max_nominators: u32,
@@ -278,7 +300,7 @@ fn setup_nomination<T: Config>(
     let initial_collators_count = get_collator_count::<T>();
 
     // Initialize MaxNominationsPerNominator collator candidates
-    for i in 2..max_collators {
+    for i in 2..get_allowed_max_collators::<T>(max_collators) {
         let seed = USER_SEED - i;
         let collator = create_funded_collator::<T>(
             "collator",
@@ -372,7 +394,7 @@ fn setup_leave_nominator_state<T: Config>(
     let mut collators: Vec<T::AccountId> = Vec::new();
     let initial_candidate_count = get_collator_count::<T>();
     // Initialize MaxNominationsPerNominator collator candidates
-    for i in 1..num_of_collators {
+    for i in 1..get_allowed_max_collators::<T>(num_of_collators) {
         let seed = USER_SEED - i;
         let collator = create_funded_collator::<T>(
             "leave_collator",
@@ -435,7 +457,7 @@ fn setup_voting_parameters<T: Config>() -> (
 ) {
 
     let growth_id: GrowthId = GrowthId::new(0u32, 1);
-    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("3a0490e7d4325d3baa39b3011284e9758f9e370477e6b9e98713b2303da7427f71919f2757f62a01909391aeb3e89991539fdcb2d02ad45f7c64eb129c96f37100")).unwrap().into();
+    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("18cd0839a916d8bbd445225aaf45d155bb5e78473432460072184e6d9611e11b3f4fb6a1e3480a2de78315fd921fe0359f89c42b4df45212b5023b2917a563c71c")).unwrap().into();
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
 
     // If the DEV chainspec doesn't use Ferdie, change this to the correct default validator
@@ -452,8 +474,7 @@ fn generate_signature<T: pallet_avn::Config>(
 ) -> <<T as avn::Config>::AuthorityId as RuntimeAppPublic>::Signature {
     let encoded_data = 0.encode();
     let authority_id = T::AuthorityId::generate_pair(None);
-    let signature = authority_id.sign(&encoded_data).expect("able to make signature");
-    return signature
+    return authority_id.sign(&encoded_data).expect("able to make signature");
 }
 
 fn setup_voting_session<T: Config>(growth_id: &GrowthId) -> u32 {
@@ -554,7 +575,7 @@ benchmarks! {
     // USER DISPATCHABLES
 
     join_candidates {
-        let x in 3..100;
+        let x in 3..get_allowed_max_collators::<T>(<<T as Config>::MaxCandidates as Get<u32>>::get());
         // Worst Case Complexity is insertion into an ordered list so \exists full list before call
         let mut candidate_count = get_collator_count::<T>();
         for i in 2..x {
@@ -579,7 +600,7 @@ benchmarks! {
     // This call schedules the collator's exit and removes them from the candidate pool
     // -> it retains the self-bond and nominator bonds
     schedule_leave_candidates {
-        let x in 3..100;
+        let x in 3..get_allowed_max_collators::<T>(<<T as Config>::MaxCandidates as Get<u32>>::get());
         // Worst Case Complexity is removal from an ordered list so \exists full list before call
         let mut candidate_count = get_collator_count::<T>();
         for i in 2..x {
@@ -682,7 +703,7 @@ benchmarks! {
     }
 
     cancel_leave_candidates {
-        let x in 3..100;
+        let x in 3..get_allowed_max_collators::<T>(<<T as Config>::MaxCandidates as Get<u32>>::get());
         // Worst Case Complexity is removal from an ordered list so \exists full list before call
         let mut candidate_count = get_collator_count::<T>();
         for i in 2..x {
@@ -1542,8 +1563,8 @@ benchmarks! {
             assert!(T::Currency::free_balance(&col) > initial);
         }
         // Nominators have been paid
-        for (col, initial) in nominator_starting_balances {
-            assert!(T::Currency::free_balance(&col) > initial);
+        for (nom, initial) in nominator_starting_balances {
+            assert!(T::Currency::free_balance(&nom) > initial, "Free balance: {:?} should be greater than initial balance: {:?}", T::Currency::free_balance(&nom), initial);
         }
         // Era transitions
         assert_eq!(Pallet::<T>::era().current, before_running_era_index + reward_delay);
@@ -1663,7 +1684,7 @@ benchmarks! {
     select_top_candidates {
         // Setup collators first
         let mut candidate_count = get_collator_count::<T>();
-        for i in 2..100 {
+        for i in 2..get_allowed_max_collators::<T>(100) {
             let seed = USER_SEED - i;
             let collator = create_funded_collator::<T>(
                 "collator",
@@ -1713,7 +1734,7 @@ benchmarks! {
     }
 
     approve_growth_without_end_voting {
-        let x in 3..MAX_COLLATOR_ACCOUNT_IDS;
+        let x in 3..get_allowed_max_collators::<T>(<<T as Config>::MaxCandidates as Get<u32>>::get());
 
         let mut collator_count = get_collator_count::<T>();
         let mut validators: Vec<Validator<T::AuthorityId, T::AccountId>> = vec![];
@@ -1731,14 +1752,18 @@ benchmarks! {
         }
 
         let (sender, growth_id, approval_signature, signature) = setup_voting_parameters::<T>();
+
+        #[cfg(test)]
         set_account_as_collator::<T>(&sender.account_id, 1000u32.into(), collator_count)?;
+        #[cfg(not(test))]
+        add_collator_to_avn::<T>(&sender.account_id)?;
+
         let _ = setup_voting_session::<T>(&growth_id);
 
-        setup_growths::<T>(&sender.account_id, 2, None);
+        setup_growths::<T>(&sender.account_id, 2, Some(10u32.into()));
 
         #[cfg(test)]
         set_recovered_account_for_tests::<T>(&sender.account_id);
-
     }: approve_growth(RawOrigin::None, growth_id, sender.clone(), approval_signature.clone(), signature)
     verify {
         let vote = VotesRepository::<T>::get(&growth_id);
@@ -1756,11 +1781,9 @@ benchmarks! {
     }
 
     approve_growth_with_end_voting {
-        let x in 3..MAX_COLLATOR_ACCOUNT_IDS;
-        let o in 1 .. MAX_OFFENDERS;
+        let x in 4..get_allowed_max_collators::<T>(<<T as Config>::MaxCandidates as Get<u32>>::get());
 
         let mut collator_count = get_collator_count::<T>();
-        let mut validators: Vec<Validator<T::AuthorityId, T::AccountId>> = vec![];
         for i in 1..=x {
             let seed = USER_SEED - i;
             let collator = create_funded_authority::<T>(
@@ -1771,24 +1794,39 @@ benchmarks! {
                 collator_count
             )?;
             collator_count += 1u32;
-            validators.push(collator);
         }
 
         let (sender, growth_id, approval_signature, signature) = setup_voting_parameters::<T>();
+
+        #[cfg(test)]
         set_account_as_collator::<T>(&sender.account_id, 1000u32.into(), collator_count)?;
+        #[cfg(not(test))]
+        add_collator_to_avn::<T>(&sender.account_id)?;
+
         let quorum = setup_voting_session::<T>(&growth_id);
 
-        setup_growths::<T>(&sender.account_id, 2, None);
+        setup_growths::<T>(&sender.account_id, 2, Some(10u32.into()));
 
-        // Setup votes more than quorum to trigger end voting period
-        setup_approval_votes::<T>(&validators, quorum, &growth_id);
+        let validators: Vec<Validator<T::AuthorityId, T::AccountId>> = get_avn_validators_and_update_keys::<T>(&sender).to_vec();
+        // Setup votes 1 less than quorum to trigger end voting period when the sender sends the approval vote
+        setup_approval_votes::<T>(&validators, quorum-1, &growth_id);
 
-        let mut reject_voters = validators.clone();
+        let mut reject_voters:Vec<Validator<T::AuthorityId, T::AccountId>> = validators.iter().cloned().collect();
         reject_voters.reverse();
-        setup_reject_votes::<T>(&reject_voters, o, &growth_id);
+        let number_of_reject_votes = validators.len() - (quorum-1) as usize;
+        setup_reject_votes::<T>(&reject_voters[0..number_of_reject_votes].to_vec(), number_of_reject_votes as u32, &growth_id);
 
         #[cfg(test)]
         set_recovered_account_for_tests::<T>(&sender.account_id);
+
+        let candidate_tx = EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
+            10u32.into(),
+            10u32.into(),
+            0u32
+        ));
+
+        #[cfg(not(test))]
+        <T as pallet::Config>::CandidateTransactionSubmitter::set_transaction_id(&candidate_tx.clone(), 0);
 
     }: approve_growth(RawOrigin::None, growth_id, sender.clone(), approval_signature.clone(), signature)
     verify {
@@ -1822,7 +1860,7 @@ benchmarks! {
     }
 
     reject_growth_without_end_voting {
-        let x in 3..MAX_COLLATOR_ACCOUNT_IDS;
+        let x in 3..get_allowed_max_collators::<T>(<<T as Config>::MaxCandidates as Get<u32>>::get());
 
         let mut collator_count = get_collator_count::<T>();
         let mut validators: Vec<Validator<T::AuthorityId, T::AccountId>> = vec![];
@@ -1840,7 +1878,10 @@ benchmarks! {
         }
 
         let (sender, growth_id, _, signature) = setup_voting_parameters::<T>();
+
+        #[cfg(test)]
         set_account_as_collator::<T>(&sender.account_id, 1000u32.into(), collator_count)?;
+
         let _ = setup_voting_session::<T>(&growth_id);
 
         let bad_staker_reward: BalanceOf<T> = 0u32.into();
@@ -1864,7 +1905,7 @@ benchmarks! {
     }
 
     reject_growth_with_end_voting {
-        let x in 3..MAX_COLLATOR_ACCOUNT_IDS;
+        let x in 4..get_allowed_max_collators::<T>(<<T as Config>::MaxCandidates as Get<u32>>::get());
         let o in 1 .. MAX_OFFENDERS;
 
         let mut collator_count = get_collator_count::<T>();
@@ -1883,7 +1924,10 @@ benchmarks! {
         }
 
         let (sender, growth_id, _, signature) = setup_voting_parameters::<T>();
+
+        #[cfg(test)]
         set_account_as_collator::<T>(&sender.account_id, 1000u32.into(), collator_count)?;
+
         let quorum = setup_voting_session::<T>(&growth_id);
 
         let bad_staker_reward: BalanceOf<T> = 0u32.into();
@@ -1932,7 +1976,7 @@ benchmarks! {
 
         let mut collator_count = get_collator_count::<T>();
         let mut validators: Vec<Validator<T::AuthorityId, T::AccountId>> = vec![];
-        for i in 1..=MAX_COLLATOR_ACCOUNT_IDS {
+        for i in 1..=<<T as Config>::MaxCandidates as Get<u32>>::get() - 10 {
             let seed = USER_SEED - i;
             let collator = create_funded_authority::<T>(
                 "collator",
@@ -1946,10 +1990,15 @@ benchmarks! {
         }
 
         let (sender, growth_id, approval_signature, signature) = setup_voting_parameters::<T>();
+
+        #[cfg(test)]
         set_account_as_collator::<T>(&sender.account_id, 1000u32.into(), collator_count)?;
+        #[cfg(not(test))]
+        add_collator_to_avn::<T>(&sender.account_id)?;
+
         let quorum = setup_voting_session::<T>(&growth_id);
 
-        setup_growths::<T>(&sender.account_id, 2, None);
+        setup_growths::<T>(&sender.account_id, 2, Some(10u32.into()));
 
         // Setup votes more than quorum to trigger end voting period
         setup_approval_votes::<T>(&validators, quorum, &growth_id);
@@ -1958,6 +2007,15 @@ benchmarks! {
         let (_, offenders) = validators.split_at(quorum as usize);
         let number_of_reject_votes = o;
         setup_reject_votes::<T>(&offenders.to_vec(), number_of_reject_votes, &growth_id);
+
+        let candidate_tx = EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
+            10u32.into(),
+            10u32.into(),
+            0u32
+        ));
+
+        #[cfg(not(test))]
+        <T as pallet::Config>::CandidateTransactionSubmitter::set_transaction_id(&candidate_tx.clone(), 0);
     }: end_voting_period(RawOrigin::None, growth_id.clone(), sender.clone(), signature)
     verify {
         assert_eq!(Some(true), Growth::<T>::get(growth_id.period).triggered);
@@ -1982,7 +2040,7 @@ benchmarks! {
 
         let mut collator_count = get_collator_count::<T>();
         let mut validators: Vec<Validator<T::AuthorityId, T::AccountId>> = vec![];
-        for i in 1..=MAX_COLLATOR_ACCOUNT_IDS {
+        for i in 1..=<<T as Config>::MaxCandidates as Get<u32>>::get() - 10 {
             let seed = USER_SEED - i;
             let collator = create_funded_authority::<T>(
                 "collator",
@@ -1996,10 +2054,13 @@ benchmarks! {
         }
 
         let (sender, growth_id, approval_signature, signature) = setup_voting_parameters::<T>();
+
+        #[cfg(test)]
         set_account_as_collator::<T>(&sender.account_id, 1000u32.into(), collator_count)?;
+
         let quorum = setup_voting_session::<T>(&growth_id);
 
-        setup_growths::<T>(&sender.account_id, 2, None);
+        setup_growths::<T>(&sender.account_id, 2, Some(10u32.into()));
 
         // Setup votes more than quorum to trigger end voting period
         let number_of_reject_votes = quorum;

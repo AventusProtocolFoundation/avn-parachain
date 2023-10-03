@@ -49,6 +49,7 @@
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+
 pub mod calls;
 pub mod migration;
 mod nomination_requests;
@@ -110,8 +111,7 @@ pub mod offence;
 pub type AVN<T> = pallet_avn::Pallet<T>;
 pub use pallet_ethereum_transactions::ethereum_transaction::TransactionId;
 
-const MAX_OFFENDERS: u32 = 2;
-const MAX_COLLATOR_ACCOUNT_IDS: u32 = 10;
+pub const MAX_OFFENDERS: u32 = 2;
 
 #[pallet]
 pub mod pallet {
@@ -138,6 +138,7 @@ pub mod pallet {
         WeightInfo,
         AVN,
         vote::*,
+        MAX_OFFENDERS
     };
     use crate::GrowthVotingSession;
     pub use frame_support::{
@@ -1768,8 +1769,9 @@ pub mod pallet {
             Ok(())
         }
 
-        // TODO: Benchmark me
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::approve_growth_with_end_voting(<T as Config>::MaxCandidates::get()).max(
+            <T as Config>::WeightInfo::approve_growth_without_end_voting(<T as Config>::MaxCandidates::get())
+        ))]
         #[pallet::call_index(33)]
         pub fn approve_growth(
             origin: OriginFor<T>,
@@ -1808,7 +1810,9 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::reject_growth_with_end_voting(<T as Config>::MaxCandidates::get(), MAX_OFFENDERS).max(
+            <T as Config>::WeightInfo::reject_growth_without_end_voting(<T as Config>::MaxCandidates::get())
+        ))]
         #[pallet::call_index(34)]
         pub fn reject_growth(
             origin: OriginFor<T>,
@@ -1829,7 +1833,9 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::end_voting_period_with_rejected_valid_votes(MAX_OFFENDERS).max(
+            <T as Config>::WeightInfo::end_voting_period_with_approved_invalid_votes(MAX_OFFENDERS)
+        ))]
         #[pallet::call_index(35)]
         pub fn end_voting_period(
             origin: OriginFor<T>,
@@ -2706,7 +2712,6 @@ pub mod pallet {
 
         pub fn convert_data_to_eth_compatible_encoding(growth_period: &u32) -> Result<String, DispatchError> {
             let growth_info = Self::try_get_growth_data(growth_period)?;
-            println!("\ngrowth for period {:?} is: {:?}", growth_period, growth_info);
             let rewards_in_period_128 = TryInto::<u128>::try_into(growth_info.total_staker_reward)
                 .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
 

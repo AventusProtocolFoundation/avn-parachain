@@ -192,13 +192,11 @@ pub fn cast_votes_if_required<T: Config>(
         }
 
         if growth_is_valid::<T>(&growth_id) {
-            println!("Valid: {:?}", growth_id);
             if send_approve_vote::<T>(&growth_id, this_validator).is_err() {
                 // TODO: should we output any error message here?
                 continue
             }
         } else {
-            println!("Invalid: {:?}", growth_id);
             if send_reject_vote::<T>(&growth_id, this_validator).is_err() {
                 // TODO: should we output any error message here?
                 continue
