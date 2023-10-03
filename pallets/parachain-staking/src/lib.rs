@@ -549,7 +549,6 @@ pub mod pallet {
             cast_votes_if_required::<T>(block_number, &this_validator);
             end_voting_if_required::<T>(block_number, &this_validator);
         }
-
     }
 
     #[pallet::storage]
