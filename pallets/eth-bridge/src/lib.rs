@@ -190,7 +190,7 @@ pub mod pallet {
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
 
-                if Self::quorum_reached(tx_data.success_corroborations.len()) {
+                if Self::quorum_is_reached(tx_data.success_corroborations.len()) {
                     tx_data.status = EthTxState::Succeeded;
                     // TODO: run COMMIT callback here
                     Self::remove_from_unresolved(tx_id).unwrap();
@@ -205,7 +205,7 @@ pub mod pallet {
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
 
-                if Self::quorum_reached(tx_data.failure_corroborations.len()) {
+                if Self::quorum_is_reached(tx_data.failure_corroborations.len()) {
                     tx_data.status = EthTxState::Failed;
                     // TODO: run ROLLBACK callback here
                     Self::remove_from_unresolved(tx_id).unwrap();
@@ -228,13 +228,13 @@ pub mod pallet {
                 let mut tx_data = Transactions::<T>::get(tx_id);
                 let this_account_is_sender = tx_data.sending_author.unwrap() == this_account;
 
-                if !this_account_is_sender && Self::quorum_reached(tx_data.confirmations.len()) {
+                if !this_account_is_sender && Self::quorum_is_reached(tx_data.confirmations.len()) {
                     let confirmation =
                         generate_signed_ethereum_confirmation::<T>(tx_data.msg_hash).unwrap();
                     let call = Call::<T>::add_confirmation { tx_id, confirmation };
                     let _ =
                         SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-                } else if Self::quorum_reached(tx_data.confirmations.len()) {
+                } else if Self::quorum_is_reached(tx_data.confirmations.len()) {
                     if this_account_is_sender {
                         let calldata = Self::generate_transaction_calldata(tx_id).unwrap();
                         let eth_tx_hash: H256 = Self::call_avn_bridge_contract_send_method(calldata).unwrap();
@@ -345,7 +345,7 @@ pub mod pallet {
             let mut extended_params = params.clone();
             extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
             extended_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
-            let msg_hash = Self::generate_msg_hash(&extended_params)?;
+            let msg_hash = Self::create_msg_hash(&extended_params)?;
 
             let tx_data = TransactionData {
                 function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name).unwrap(),
@@ -364,6 +364,18 @@ pub mod pallet {
             Self::add_to_unresolved(tx_id).unwrap();
 
             Ok(tx_id)
+        }
+
+        fn get_and_update_next_tx_id() -> u32 {
+            let tx_id = NextTxId::<T>::get();
+            NextTxId::<T>::put(tx_id + 1);
+            tx_id
+        }
+
+        fn quorum_is_reached(entries: usize) -> bool {
+            // TODO: Use new quorum method
+            let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32);
+            entries as u32 >= quorum
         }
 
         fn bound_params(
@@ -399,13 +411,31 @@ pub mod pallet {
                 .collect()
         }
 
-        fn get_and_update_next_tx_id() -> u32 {
-            let tx_id = NextTxId::<T>::get();
-            NextTxId::<T>::put(tx_id + 1);
-            tx_id
+        fn check_ethereum(tx_id: u32, expiry: u64) -> EthTxState {
+            if let Ok(calldata) = Self::generate_corroboration_check_calldata(tx_id, expiry) {
+                if let Ok(result) = Self::call_avn_bridge_contract_view_method(calldata) {
+                    match result {
+                        0 => return EthTxState::Unresolved,
+                        1 => return EthTxState::Succeeded,
+                        -1 => return EthTxState::Failed,
+                        _ => {
+                            log::error!(
+                                "Invalid ethereum check response for tx_id {} and expiry {}: {}",
+                                tx_id,
+                                expiry,
+                                result
+                            );
+                            return EthTxState::Unresolved
+                        },
+                    }
+                }
+            }
+
+            log::error!("Invalid calldata generation for tx_id {} and expiry {}", tx_id, expiry);
+            EthTxState::Unresolved
         }
 
-        fn generate_msg_hash(params: &Vec<(Vec<u8>, Vec<u8>)>) -> Result<H256, ethabi::Error> {
+        fn create_msg_hash(params: &Vec<(Vec<u8>, Vec<u8>)>) -> Result<H256, ethabi::Error> {
             let (types, values): (Vec<&Vec<u8>>, Vec<&Vec<u8>>) =
                 params.iter().map(|(a, b)| (a, b)).unzip();
 
@@ -428,6 +458,7 @@ pub mod pallet {
             Ok(H256::from(msg_hash))
         }
 
+        // TODO: Make function private once the tests are configured to trigger the OCW
         pub fn generate_transaction_calldata(tx_id: u32) -> Result<Vec<u8>, ethabi::Error> {
             let tx_data = Transactions::<T>::get(tx_id);
 
@@ -445,24 +476,19 @@ pub mod pallet {
             let function_name = String::from_utf8(tx_data.function_name.clone().into())
                 .unwrap_or_else(|_| "Invalid function name".to_string());
 
-            Self::encode_function_input(&function_name, &full_params)
+            Self::encode_eth_function_input(&function_name, &full_params)
         }
 
-        fn generate_check_calldata(tx_id: u32, expiry: u64) -> Result<Vec<u8>, ethabi::Error> {
+        fn generate_corroboration_check_calldata(tx_id: u32, expiry: u64) -> Result<Vec<u8>, ethabi::Error> {
             let params = vec![
                 (UINT32.to_vec(), tx_id.to_string().into_bytes()),
                 (UINT256.to_vec(), expiry.to_string().into_bytes()),
             ];
 
-            Self::encode_function_input(&"corroborate".to_string(), &params)
+            Self::encode_eth_function_input(&"corroborate".to_string(), &params)
         }
 
-        fn quorum_reached(entries: usize) -> bool {
-            let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32);
-            entries as u32 >= quorum
-        }
-    
-        fn encode_function_input(
+        fn encode_eth_function_input(
             function_name: &String,
             params: &Vec<(Vec<u8>, Vec<u8>)>,
         ) -> Result<Vec<u8>, ethabi::Error> {
@@ -534,41 +560,17 @@ pub mod pallet {
             Ok(())
         }
 
-        fn check_ethereum(tx_id: u32, expiry: u64) -> EthTxState {
-            if let Ok(calldata) = Self::generate_check_calldata(tx_id, expiry) {
-                if let Ok(result) = Self::call_avn_bridge_contract_view_method(calldata) {
-                    match result {
-                        0 => return EthTxState::Unresolved,
-                        1 => return EthTxState::Succeeded,
-                        -1 => return EthTxState::Failed,
-                        _ => {
-                            log::error!(
-                                "Invalid ethereum check response for tx_id {} and expiry {}: {}",
-                                tx_id,
-                                expiry,
-                                result
-                            );
-                            return EthTxState::Unresolved
-                        },
-                    }
-                }
-            }
-
-            log::error!("Invalid calldata generation for tx_id {} and expiry {}", tx_id, expiry);
-            EthTxState::Unresolved
-        }
-
-        pub fn call_avn_bridge_contract_send_method(calldata: Vec<u8>) -> Result<H256, DispatchError> {
+        fn call_avn_bridge_contract_send_method(calldata: Vec<u8>) -> Result<H256, DispatchError> {
             Self::execute_avn_bridge_request(calldata, "send", Self::process_send_response)
         }
 
-        pub fn call_avn_bridge_contract_view_method(
+        fn call_avn_bridge_contract_view_method(
             calldata: Vec<u8>,
         ) -> Result<i8, DispatchError> {
             Self::execute_avn_bridge_request(calldata, "view", Self::process_view_response)
         }
 
-        pub fn execute_avn_bridge_request<R>(
+        fn execute_avn_bridge_request<R>(
             calldata: Vec<u8>,
             endpoint: &str,
             process_response: fn(Vec<u8>) -> Result<R, DispatchError>,
@@ -607,7 +609,7 @@ pub mod pallet {
             process_response(result)
         }
 
-        pub fn process_send_response(result: Vec<u8>) -> Result<H256, DispatchError> {
+        fn process_send_response(result: Vec<u8>) -> Result<H256, DispatchError> {
             if result.len() != 64 {
                 log::error!("❌ Ethereum transaction hash is not valid: {:?}", result);
                 return Err(Error::<T>::InvalidHashLength)?
@@ -625,7 +627,7 @@ pub mod pallet {
             Ok(H256::from_slice(&data))
         }
 
-        pub fn process_view_response(result: Vec<u8>) -> Result<i8, DispatchError> {
+        fn process_view_response(result: Vec<u8>) -> Result<i8, DispatchError> {
             if result.len() != 1 {
                 log::error!("❌ Invalid data length for int8: {:?}", result);
                 return Err(Error::<T>::InvalidDataLength)?
