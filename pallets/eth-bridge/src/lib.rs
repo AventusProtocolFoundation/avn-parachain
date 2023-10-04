@@ -108,23 +108,31 @@ pub mod pallet {
         }
     }
 
-    // TODO: Pallet needs better errors and less unwraps
     #[pallet::error]
     pub enum Error<T> {
-        ConversionFailed,
-        ParamsError,
-        MsgHashError,
-        TxIdNotFound,
+        DeadlineReached,
         DuplicateConfirmation,
         ExceedsConfirmationLimit,
-        RequestTimedOut,
-        DeadlineReached,
-        UnexpectedStatusCode,
-        InvalidHashLength,
-        InvalidUTF8Bytes,
-        InvalidHexString,
+        ExceedsFunctionNameLimit,
+        FunctionEncodingError,
+        FunctionNameError,
+        InvalidBytes,
+        InvalidData,
         InvalidDataLength,
+        InvalidHashLength,
+        InvalidHexString,
+        InvalidUint,
+        InvalidUTF8Bytes,
+        MsgHashError,
+        ParamsLimitExceeded,
+        ParamTypeEncodingError,
+        ParamValueEncodingError,
+        RequestTimedOut,
+        TxIdNotFound,
+        TypeNameLengthExceeded,
+        UnexpectedStatusCode,
         UnresolvedTxLimitReached,
+        ValueLengthExceeded,
     }
 
     #[pallet::call]
@@ -230,6 +238,7 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        // TODO: log errors
         fn offchain_worker(_block_number: T::BlockNumber) {
             // TODO: use actual self account
             let this_account: [u8; 32] = [0u8; 32];
@@ -373,8 +382,8 @@ pub mod pallet {
             let msg_hash = Self::create_msg_hash(&extended_params)?;
         
             let tx_data = TransactionData {
-                function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec()).map_err(|_| Error::<T>::ConversionFailed)?,
-                params: Self::bound_params(params.to_vec()).map_err(|_| Error::<T>::ParamsError)?,
+                function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec()).map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
+                params: Self::bound_params(params.to_vec())?,
                 expiry,
                 msg_hash,
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
@@ -408,24 +417,21 @@ pub mod pallet {
 
         fn bound_params(
             params: Vec<(Vec<u8>, Vec<u8>)>,
-        ) -> Result<
-            BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-            DispatchError,
-        > {
+        ) -> Result<BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>, Error<T>> {
             let result: Result<Vec<_>, _> = params
                 .into_iter()
                 .map(|(type_vec, value_vec)| {
                     let type_bounded = BoundedVec::try_from(type_vec)
-                        .map_err(|_| DispatchError::Other("Type name length"))?;
+                        .map_err(|_| Error::<T>::TypeNameLengthExceeded)?;
                     let value_bounded = BoundedVec::try_from(value_vec)
-                        .map_err(|_| DispatchError::Other("Value length"))?;
-                    Ok::<_, DispatchError>((type_bounded, value_bounded))
+                        .map_err(|_| Error::<T>::ValueLengthExceeded)?;
+                    Ok::<_, Error<T>>((type_bounded, value_bounded))
                 })
                 .collect();
-
+        
             BoundedVec::<_, ParamsLimit>::try_from(result?)
-                .map_err(|_| DispatchError::Other("Number of params"))
-        }
+                .map_err(|_| Error::<T>::ParamsLimitExceeded)
+        }        
 
         fn unbound_params(
             params: BoundedVec<
@@ -468,16 +474,14 @@ pub mod pallet {
         
             let types = types
                 .iter()
-                .map(|s| Self::to_param_type(s).ok_or(ethabi::Error::InvalidName(hex::encode(s))))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| Error::<T>::MsgHashError)?;
+                .map(|s| Self::to_param_type(s).ok_or_else(|| Error::<T>::MsgHashError))
+                .collect::<Result<Vec<_>, _>>()?;
         
             let tokens = types
                 .into_iter()
                 .zip(values.iter())
                 .map(|(kind, value)| Self::to_token_type(&kind, value))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| Error::<T>::MsgHashError)?;
+                .collect::<Result<Vec<_>, _>>()?;
         
             let encoded = ethabi::encode(&tokens);
             let msg_hash = keccak_256(&encoded);
@@ -485,30 +489,28 @@ pub mod pallet {
             Ok(H256::from(msg_hash))
         }
         
-        
-
         // TODO: Make function private once the tests are configured to trigger the OCW
-        pub fn generate_transaction_calldata(tx_id: u32) -> Result<Vec<u8>, ethabi::Error> {
+        pub fn generate_transaction_calldata(tx_id: u32) -> Result<Vec<u8>, Error<T>> {
             let tx_data = Transactions::<T>::get(tx_id);
-
+        
             let concatenated_confirmations =
                 tx_data.confirmations.iter().fold(Vec::new(), |mut acc, conf| {
                     acc.extend_from_slice(conf);
                     acc
                 });
-
+        
             let mut full_params = Self::unbound_params(tx_data.params.clone());
             full_params.push((UINT256.to_vec(), tx_data.expiry.to_string().into_bytes()));
             full_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
             full_params.push((BYTES.to_vec(), concatenated_confirmations));
-
+        
             let function_name = String::from_utf8(tx_data.function_name.clone().into())
-                .unwrap_or_else(|_| "Invalid function name".to_string());
-
+                .map_err(|_| Error::<T>::FunctionNameError)?;
+        
             Self::encode_eth_function_input(&function_name, &full_params)
         }
 
-        fn generate_corroboration_check_calldata(tx_id: u32, expiry: u64) -> Result<Vec<u8>, ethabi::Error> {
+        fn generate_corroboration_check_calldata(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
             let params = vec![
                 (UINT32.to_vec(), tx_id.to_string().into_bytes()),
                 (UINT256.to_vec(), expiry.to_string().into_bytes()),
@@ -518,30 +520,35 @@ pub mod pallet {
         }
 
         fn encode_eth_function_input(
-            function_name: &String,
-            params: &Vec<(Vec<u8>, Vec<u8>)>,
-        ) -> Result<Vec<u8>, ethabi::Error> {
-            let function = Function {
-                name: function_name.clone(),
-                inputs: params
-                    .iter()
-                    .map(|(type_bytes, _)| Param {
+            function_name: &str,
+            params: &[(Vec<u8>, Vec<u8>)],
+        ) -> Result<Vec<u8>, Error<T>> {
+            let inputs = params
+                .iter()
+                .filter_map(|(type_bytes, _)| {
+                    Self::to_param_type(type_bytes).map(|kind| Param {
                         name: "".to_string(),
-                        kind: Self::to_param_type(type_bytes).unwrap(),
+                        kind,
                     })
-                    .collect(),
+                })
+                .collect::<Vec<_>>();
+        
+            let tokens: Result<Vec<_>, _> = params
+                .iter()
+                .map(|(type_bytes, value_bytes)| {
+                    let param_type = Self::to_param_type(type_bytes).ok_or_else(|| Error::<T>::ParamTypeEncodingError)?;
+                    Self::to_token_type(&param_type, value_bytes)
+                })
+                .collect();
+        
+            let function = Function {
+                name: function_name.to_string(),
+                inputs,
                 outputs: Vec::<Param>::new(),
                 constant: false,
             };
-
-            let tokens: Result<Vec<Token>, _> = params
-                .iter()
-                .map(|(type_bytes, value_bytes)| {
-                    Self::to_token_type(&Self::to_param_type(type_bytes).unwrap(), value_bytes)
-                })
-                .collect();
-
-            function.encode_input(&tokens?)
+        
+            function.encode_input(&tokens?).map_err(|_| Error::<T>::FunctionEncodingError)
         }
 
         fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
@@ -555,23 +562,24 @@ pub mod pallet {
             }
         }
 
-        fn to_token_type(kind: &ParamType, value: &Vec<u8>) -> Result<Token, ethabi::Error> {
+        fn to_token_type(kind: &ParamType, value: &Vec<u8>) -> Result<Token, Error<T>> {
             match kind {
                 ParamType::Uint(_) => {
                     let dec_value = Int::from_dec_str(&String::from_utf8(value.clone()).unwrap())
-                        .map_err(|_| ethabi::Error::InvalidData)?;
+                        .map_err(|_| Error::<T>::InvalidUint)?;
                     Ok(Token::Uint(dec_value))
                 },
                 ParamType::Bytes => Ok(Token::Bytes(value.clone())),
                 ParamType::FixedBytes(size) => {
                     if value.len() != *size {
-                        return Err(ethabi::Error::InvalidData)
+                        return Err(Error::<T>::InvalidBytes)
                     }
                     Ok(Token::FixedBytes(value.clone()))
                 },
-                _ => Err(ethabi::Error::InvalidData),
+                _ => Err(Error::<T>::InvalidData),
             }
         }
+        
 
         fn add_to_unresolved(tx_id: u32) -> Result<(), Error<T>> {
             UnresolvedTxList::<T>::try_mutate(|txs| -> Result<(), Error<T>> {
