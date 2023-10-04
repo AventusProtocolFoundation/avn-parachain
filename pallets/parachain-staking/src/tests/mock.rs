@@ -36,7 +36,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::{self as system, limits};
-use pallet_avn::CollatorPayoutDustHandler;
+use pallet_avn::{CollatorPayoutDustHandler, EthereumPublicKeyChecker, FinalisedBlockChecker};
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
@@ -78,7 +78,7 @@ construct_runtime!(
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
         AVN: pallet_avn::{Pallet, Storage},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-        AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},        
+        AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
     }
 );
@@ -252,7 +252,7 @@ impl Config for Test {
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
     type CandidateTransactionSubmitter = Self;
-    type ReportGrowthOffence = ();
+    type ReportGrowthOffence = TestOffenceHandler;
 }
 
 const GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR: u32 = 3u32;
@@ -269,7 +269,7 @@ impl CandidateTransactionSubmitter<AccountId> for Test {
         if candidate_type !=
             EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
                 TOTAL_REWARD_IN_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,
-                AVERAGE_STAKE_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,                
+                AVERAGE_STAKE_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,
                 GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,
             ))
         {
@@ -280,11 +280,9 @@ impl CandidateTransactionSubmitter<AccountId> for Test {
 
     fn reserve_transaction_id(
         _candidate_type: &EthTransactionType,
-    ) -> Result<TransactionId, DispatchError> {        
+    ) -> Result<TransactionId, DispatchError> {
         return Ok(0)
     }
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 
@@ -305,6 +303,8 @@ impl pallet_session::historical::Config for Test {
 
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
+    static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
+    static MOCK_RECOVERED_ACCOUNT_ID: RefCell<AccountId>  = RefCell::new(TestAccount::new(0).account_id());
 }
 
 /// A mock offence report handler.
@@ -368,11 +368,11 @@ impl WeightToFeeT for TransactionByteFee {
 }
 
 impl pallet_avn::Config for Test {
-    type AuthorityId = UintAuthorityId;
-    type EthereumPublicKeyChecker = ();
+    type AuthorityId = pallet_avn::sr25519::AuthorityId;
+    type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
-    type FinalisedBlockChecker = ();
+    type FinalisedBlockChecker = Self;
 }
 
 impl session::Config for Test {
@@ -533,6 +533,28 @@ impl Staker {
     }
 }
 
+impl EthereumPublicKeyChecker<AccountId> for Test {
+    fn get_validator_for_eth_public_key(_eth_public_key: &ecdsa::Public) -> Option<AccountId> {
+        match ETH_PUBLIC_KEY_VALID.with(|pk| *pk.borrow()) {
+            true => Some(MOCK_RECOVERED_ACCOUNT_ID.with(|pk| *pk.borrow())),
+            _ => None,
+        }
+    }
+}
+
+impl FinalisedBlockChecker<BlockNumber> for Test {
+    fn is_finalised(_block_number: BlockNumber) -> bool {
+        true
+    }
+}
+
+pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 32]) {
+    let account_id = AccountId::decode(&mut account_id_bytes.to_vec().as_slice()).unwrap();
+    MOCK_RECOVERED_ACCOUNT_ID.with(|acc_id| {
+        *acc_id.borrow_mut() = account_id;
+    });
+}
+
 pub(crate) struct ExtBuilder {
     // endowed accounts with balances
     balances: Vec<(AccountId, Balance)>,
@@ -599,6 +621,7 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: self.min_collator_stake,
             min_total_nominator_stake: self.min_total_nominator_stake,
+            voting_period: 100,
         }
         .assimilate_storage(&mut t)
         .expect("Parachain Staking's storage can be assimilated");

@@ -42,12 +42,12 @@ pub struct MaxCloneableNominations;
 
 impl Get<u32> for MaxCloneableNominations {
     fn get() -> u32 {
-        const MAX_NOMINATIONS: u32 = 100;
+        const MAX_NOMINATIONS: u32 = 300;
         MAX_NOMINATIONS
     }
 }
 
-pub type MaxNominations = ConstU32<100>;
+pub type MaxNominations = ConstU32<300>;
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bond<AccountId, Balance> {

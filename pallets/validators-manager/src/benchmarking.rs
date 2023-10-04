@@ -84,7 +84,7 @@ fn setup_additional_validators<T: Config>(number_of_additional_validators: u32) 
     }
 
     // Setup validators in avn pallet
-    let mut new_avn_validators = avn::Validators::<T>::get();
+    let new_avn_validators = avn::Validators::<T>::get();
     // new_avn_validators.append(&mut avn_validators.clone());
     let combined_avn_validators: Vec<_> =
         new_avn_validators.iter().chain(avn_validators.iter()).cloned().collect();
@@ -144,9 +144,9 @@ fn setup_resignation_action_data<T: Config>(sender: T::AccountId, ingress_counte
     ));
 
     #[cfg(test)]
-    T::CandidateTransactionSubmitter::reserve_transaction_id(&candidate_tx.clone()).unwrap();
+    <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(&candidate_tx.clone()).unwrap();
     #[cfg(not(test))]
-    T::CandidateTransactionSubmitter::set_transaction_id(&candidate_tx.clone(), eth_transaction_id);
+    <T as pallet::Config>::CandidateTransactionSubmitter::set_transaction_id(&candidate_tx.clone(), eth_transaction_id);
 
     ValidatorActions::<T>::insert(
         action_account_id,
