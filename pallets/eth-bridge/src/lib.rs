@@ -35,7 +35,6 @@ pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
 
-// TODO: Enable all Ethereum types (including in to_token_type() and to_param_type()) from the off?
 const UINT256: &[u8] = b"uint256";
 const UINT128: &[u8] = b"uint128";
 const UINT32: &[u8] = b"uint32";
@@ -181,41 +180,45 @@ pub mod pallet {
                 return Ok(().into())
             }
 
+            let mut corroborations = Corroborations::<T>::get(tx_id);
             let mut tx_data = Transactions::<T>::get(tx_id);
 
             if succeeded {
-                if !tx_data.success_corroborations.contains(&author) {
+                if !corroborations.success.contains(&author) {
                     let mut tmp_vec = Vec::new();
                     tmp_vec.push(author);
-                    tx_data
-                        .success_corroborations
+                    corroborations
+                        .success
                         .try_append(&mut tmp_vec)
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
 
-                if Self::quorum_is_reached(tx_data.success_corroborations.len()) {
-                    tx_data.status = EthTxState::Succeeded;
+                if Self::quorum_is_reached(corroborations.success.len()) {
+                    tx_data.state = EthTxState::Succeeded;
                     // TODO: run COMMIT callback here
                     Self::remove_from_unresolved(tx_id).unwrap();
+                    Corroborations::<T>::remove(tx_id);
                 }
             } else {
-                if !tx_data.failure_corroborations.contains(&author) {
+                if !corroborations.failure.contains(&author) {
                     let mut tmp_vec = Vec::new();
                     tmp_vec.push(author);
-                    tx_data
-                        .failure_corroborations
+                    corroborations
+                        .failure
                         .try_append(&mut tmp_vec)
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
 
-                if Self::quorum_is_reached(tx_data.failure_corroborations.len()) {
-                    tx_data.status = EthTxState::Failed;
+                if Self::quorum_is_reached(corroborations.failure.len()) {
+                    tx_data.state = EthTxState::Failed;
                     // TODO: run ROLLBACK callback here
                     Self::remove_from_unresolved(tx_id).unwrap();
+                    Corroborations::<T>::remove(tx_id);
                 }
             }
 
             <Transactions<T>>::insert(tx_id, tx_data);
+            <Corroborations<T>>::insert(tx_id, corroborations);
 
             Ok(().into())
         }
@@ -303,11 +306,6 @@ pub mod pallet {
         }
     }
 
-    #[pallet::storage]
-    #[pallet::getter(fn get_transaction_data)]
-    pub type Transactions<T: Config> =
-        StorageMap<_, Blake2_128Concat, u32, TransactionData, ValueQuery>;
-
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub enum EthTxState {
         #[default]
@@ -320,7 +318,12 @@ pub mod pallet {
     pub type ParamsLimit = ConstU32<5>; // Max params (not including expiry, t2TxId, confirmations)
     pub type TypeLimit = ConstU32<7>; // Max chars in a T1 type name
     pub type ValueLimit = ConstU32<130>; // Max chars in a value
-    pub type ConfirmationsLimit = ConstU32<1000>; // TODO: Review this value
+    pub type ConfirmationsLimit = ConstU32<100>; // Confirmations/corroborations limit
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_transaction_data)]
+    pub type Transactions<T: Config> =
+        StorageMap<_, Blake2_128Concat, u32, TransactionData, ValueQuery>;
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub struct TransactionData {
@@ -332,10 +335,18 @@ pub mod pallet {
         pub confirmations: BoundedVec<[u8; 65], ConfirmationsLimit>,
         pub sending_author: Option<[u8; 32]>,
         pub eth_tx_hash: H256,
-        // TODO: Move the corroborations into their own (temp) structure?
-        pub success_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
-        pub failure_corroborations: BoundedVec<[u8; 32], ConfirmationsLimit>,
-        pub status: EthTxState,
+        pub state: EthTxState,
+    }
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_corroboration_data)]
+    pub type Corroborations<T: Config> =
+        StorageMap<_, Blake2_128Concat, u32, CorroborationData, ValueQuery>;
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+    pub struct CorroborationData {
+        pub success: BoundedVec<[u8; 32], ConfirmationsLimit>,
+        pub failure: BoundedVec<[u8; 32], ConfirmationsLimit>,
     }
 
     impl<T: Config> Pallet<T> {
@@ -365,12 +376,16 @@ pub mod pallet {
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
                 sending_author: None,
                 eth_tx_hash: H256::zero(),
-                success_corroborations: BoundedVec::default(),
-                failure_corroborations: BoundedVec::default(),
-                status: EthTxState::Unresolved,
+                state: EthTxState::Unresolved,
+            };
+
+            let corroborations = CorroborationData {
+                success: BoundedVec::default(),
+                failure: BoundedVec::default(),
             };
 
             <Transactions<T>>::insert(tx_id, tx_data);
+            <Corroborations<T>>::insert(tx_id, corroborations);
             Self::add_to_unresolved(tx_id).unwrap();
 
             Ok(tx_id)
