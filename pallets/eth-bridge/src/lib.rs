@@ -29,11 +29,19 @@ use sp_runtime::{
     traits::Dispatchable,
 };
 
+mod benchmarking;
+
 pub use pallet::*;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
+
+pub const CONFIRMATIONS_LIMIT: u32 = 100; // Max confirmations or corroborations
+pub const FUNCTION_NAME_CHAR_LIMIT: u32 = 32; // Max chars in T1 function name
+pub const PARAMS_LIMIT: u32 = 5; // Max T1 function params (not including expiry, t2TxId, and confirmations)
+pub const TYPE_CHAR_LIMIT: u32 = 7; // Max chars in a T1 type name
+pub const VALUE_CHAR_LIMIT: u32 = 130; // Max chars in a value
 
 const UINT256: &[u8] = b"uint256";
 const UINT128: &[u8] = b"uint128";
@@ -333,11 +341,11 @@ pub mod pallet {
         Failed,
     }
 
-    pub type FunctionLimit = ConstU32<32>; // Max chars in T1 function name
-    pub type ParamsLimit = ConstU32<5>; // Max params (not including expiry, t2TxId, confirmations)
-    pub type TypeLimit = ConstU32<7>; // Max chars in a T1 type name
-    pub type ValueLimit = ConstU32<130>; // Max chars in a value
-    pub type ConfirmationsLimit = ConstU32<100>; // Confirmations/corroborations limit
+    pub type FunctionLimit = ConstU32<FUNCTION_NAME_CHAR_LIMIT>; // Max chars in T1 function name
+    pub type ParamsLimit = ConstU32<PARAMS_LIMIT>; // Max params (not including expiry, t2TxId, confirmations)
+    pub type TypeLimit = ConstU32<TYPE_CHAR_LIMIT>; // Max chars in a T1 type name
+    pub type ValueLimit = ConstU32<VALUE_CHAR_LIMIT>; // Max chars in a value
+    pub type ConfirmationsLimit = ConstU32<CONFIRMATIONS_LIMIT>; // Confirmations/corroborations limit
 
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]

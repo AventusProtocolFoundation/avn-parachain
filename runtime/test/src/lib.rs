@@ -675,6 +675,14 @@ impl pallet_avn_proxy::Config for Runtime {
     type WeightInfo = pallet_avn_proxy::default_weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_eth_bridge::Config for Runtime {
+    type MaxUnresolvedTx = ConstU32<1000>;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
+    type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
+}
+
 // Other pallets
 parameter_types! {
     pub const AssetDeposit: Balance = 10 * MILLI_AVT;
@@ -761,6 +769,7 @@ construct_runtime!(
         TokenManager: pallet_token_manager = 87,
         Summary: pallet_summary = 88,
         AvnProxy: pallet_avn_proxy = 89,
+        EthBridge: pallet_eth_bridge = 91,
     }
 );
 
@@ -777,6 +786,7 @@ mod benches {
         [pallet_avn_finality_tracker, AvnFinalityTracker]
         [pallet_avn_offence_handler, AvnOffenceHandler]
         [pallet_avn_proxy, AvnProxy]
+        [pallet_eth_bridge, EthBridge]
         [pallet_ethereum_events, EthereumEvents]
         [pallet_ethereum_transactions, EthereumTransactions]
         [pallet_nft_manager, NftManager]
