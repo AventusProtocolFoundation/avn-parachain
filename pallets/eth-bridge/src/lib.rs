@@ -111,6 +111,9 @@ pub mod pallet {
     // TODO: Pallet needs better errors and less unwraps
     #[pallet::error]
     pub enum Error<T> {
+        ConversionFailed,
+        ParamsError,
+        MsgHashError,
         TxIdNotFound,
         DuplicateConfirmation,
         ExceedsConfirmationLimit,
@@ -121,6 +124,7 @@ pub mod pallet {
         InvalidUTF8Bytes,
         InvalidHexString,
         InvalidDataLength,
+        UnresolvedTxLimitReached,
     }
 
     #[pallet::call]
@@ -196,7 +200,7 @@ pub mod pallet {
                 if Self::quorum_is_reached(corroborations.success.len()) {
                     tx_data.state = EthTxState::Succeeded;
                     // TODO: run COMMIT callback here
-                    Self::remove_from_unresolved(tx_id).unwrap();
+                    Self::remove_from_unresolved(tx_id)?;
                     Corroborations::<T>::remove(tx_id);
                 }
             } else {
@@ -212,7 +216,7 @@ pub mod pallet {
                 if Self::quorum_is_reached(corroborations.failure.len()) {
                     tx_data.state = EthTxState::Failed;
                     // TODO: run ROLLBACK callback here
-                    Self::remove_from_unresolved(tx_id).unwrap();
+                    Self::remove_from_unresolved(tx_id)?;
                     Corroborations::<T>::remove(tx_id);
                 }
             }
@@ -351,26 +355,26 @@ pub mod pallet {
 
     impl<T: Config> Pallet<T> {
         pub fn publish_to_ethereum(
-            function_name: Vec<u8>,
-            params: Vec<(Vec<u8>, Vec<u8>)>,
-        ) -> Result<u32, ethabi::Error> {
+            function_name: &[u8],
+            params: &[(Vec<u8>, Vec<u8>)],
+        ) -> Result<u32, Error<T>> {
             let expiry = <T as pallet::Config>::TimeProvider::now().as_secs() + Self::get_eth_tx_lifetime_secs();
             let tx_id = Self::get_and_update_next_tx_id();
-
+        
             Self::deposit_event(Event::<T>::PublishToEthereum {
                 tx_id,
-                function_name: function_name.clone(),
-                params: params.clone(),
+                function_name: function_name.to_vec(),
+                params: params.to_vec(),
             });
-
-            let mut extended_params = params.clone();
+        
+            let mut extended_params = params.to_vec();
             extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
             extended_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
             let msg_hash = Self::create_msg_hash(&extended_params)?;
-
+        
             let tx_data = TransactionData {
-                function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name).unwrap(),
-                params: Self::bound_params(params).unwrap(),
+                function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec()).map_err(|_| Error::<T>::ConversionFailed)?,
+                params: Self::bound_params(params.to_vec()).map_err(|_| Error::<T>::ParamsError)?,
                 expiry,
                 msg_hash,
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
@@ -378,19 +382,19 @@ pub mod pallet {
                 eth_tx_hash: H256::zero(),
                 state: EthTxState::Unresolved,
             };
-
+        
             let corroborations = CorroborationData {
                 success: BoundedVec::default(),
                 failure: BoundedVec::default(),
             };
-
+        
             <Transactions<T>>::insert(tx_id, tx_data);
             <Corroborations<T>>::insert(tx_id, corroborations);
-            Self::add_to_unresolved(tx_id).unwrap();
-
+            Self::add_to_unresolved(tx_id)?;
+        
             Ok(tx_id)
         }
-
+        
         fn get_and_update_next_tx_id() -> u32 {
             let tx_id = NextTxId::<T>::get();
             NextTxId::<T>::put(tx_id + 1);
@@ -459,28 +463,29 @@ pub mod pallet {
             EthTxState::Unresolved
         }
 
-        fn create_msg_hash(params: &Vec<(Vec<u8>, Vec<u8>)>) -> Result<H256, ethabi::Error> {
-            let (types, values): (Vec<&Vec<u8>>, Vec<&Vec<u8>>) =
-                params.iter().map(|(a, b)| (a, b)).unzip();
-
-            let types: Result<Vec<ParamType>, _> = types
+        fn create_msg_hash(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
+            let (types, values): (Vec<_>, Vec<_>) = params.iter().cloned().unzip();
+        
+            let types = types
                 .iter()
                 .map(|s| Self::to_param_type(s).ok_or(ethabi::Error::InvalidName(hex::encode(s))))
-                .collect();
-            let types = types?;
-
-            let tokens: Result<Vec<Token>, _> = types
-                .iter()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| Error::<T>::MsgHashError)?;
+        
+            let tokens = types
+                .into_iter()
                 .zip(values.iter())
-                .map(|(kind, value)| Self::to_token_type(kind, value))
-                .collect();
-            let tokens = tokens?;
-
+                .map(|(kind, value)| Self::to_token_type(&kind, value))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|_| Error::<T>::MsgHashError)?;
+        
             let encoded = ethabi::encode(&tokens);
             let msg_hash = keccak_256(&encoded);
-
+        
             Ok(H256::from(msg_hash))
         }
+        
+        
 
         // TODO: Make function private once the tests are configured to trigger the OCW
         pub fn generate_transaction_calldata(tx_id: u32) -> Result<Vec<u8>, ethabi::Error> {
@@ -568,10 +573,10 @@ pub mod pallet {
             }
         }
 
-        fn add_to_unresolved(tx_id: u32) -> DispatchResult {
-            UnresolvedTxList::<T>::try_mutate(|txs| -> DispatchResult {
+        fn add_to_unresolved(tx_id: u32) -> Result<(), Error<T>> {
+            UnresolvedTxList::<T>::try_mutate(|txs| -> Result<(), Error<T>> {
                 txs.try_push(tx_id)
-                    .map_err(|_| DispatchError::Other("Unresolved TX limit reached"))
+                    .map_err(|_| Error::<T>::UnresolvedTxLimitReached)
             })
         }
 
@@ -599,7 +604,7 @@ pub mod pallet {
             endpoint: &str,
             process_response: fn(Vec<u8>) -> Result<R, DispatchError>,
         ) -> Result<R, DispatchError> {
-            // TODO: use the new method to get contract address
+            // TODO: replace with AVN pallet's get_bridge_contract_address() 
             let contract_address = H160(hex!("F05Df39f745A240fb133cC4a11E42467FAB10f1F"));
             // TODO: use actual self account
             let this_account: [u8; 32] = [0u8; 32];

@@ -72,7 +72,7 @@ fn run_checks(
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
 
         let expected_tx_id = 1;
-        let tx_id = EthBridge::publish_to_ethereum(function_name.clone(), params.clone()).unwrap();
+        let tx_id = EthBridge::publish_to_ethereum(&function_name, &params).unwrap();
         assert_eq!(tx_id, expected_tx_id);
 
         let transaction_data = EthBridge::get_transaction_data(tx_id);
