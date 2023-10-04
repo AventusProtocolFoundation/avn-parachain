@@ -91,10 +91,12 @@ mod test_staking_pot;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
-
 #[cfg(test)]
 #[path = "tests/test_bounded_ordered_set.rs"]
 mod test_bounded_ordered_set;
+#[cfg(test)]
+#[path = "tests/tests_vote.rs"]
+mod tests_vote;
 
 use frame_support::pallet;
 pub use weights::WeightInfo;
