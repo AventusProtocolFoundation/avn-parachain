@@ -44,7 +44,7 @@ pub const PARAMS_LIMIT: u32 = 5; // Max T1 function params (not including expiry
 pub const TYPE_CHAR_LIMIT: u32 = 7; // Max chars in a T1 type name
 pub const VALUE_CHAR_LIMIT: u32 = 130; // Max chars in a value
 
-pub const NAME: &'static [u8] = b"EthBridge";
+pub const PALLET_NAME: &'static [u8] = b"EthBridge";
 pub const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 pub const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 
@@ -175,6 +175,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
+            // TODO: Add Eth sig checking
+
             Transactions::<T>::try_mutate_exists(
                 tx_id,
                 |maybe_tx_data| -> DispatchResultWithPostInfo {
@@ -258,7 +260,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
-            let setup_result = AVN::<T>::pre_run_setup(block_number, NAME.to_vec());
+            let setup_result = AVN::<T>::pre_run_setup(block_number, PALLET_NAME.to_vec());
         
             match setup_result {
                 Err(e) if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => return,
@@ -270,18 +272,18 @@ pub mod pallet {
             }
         
             let this_author = setup_result.expect("We have an author");
-            let this_author_account = T::AccountToBytesConvert::into_bytes(&this_author.account_id);
+            let this_author_account_id = T::AccountToBytesConvert::into_bytes(&this_author.account_id);
         
             for tx_id in UnresolvedTxList::<T>::get() {
                 let mut tx_data = Transactions::<T>::get(tx_id);
                 
                 if let Some(sending_author) = tx_data.sending_author {
-                    let self_is_sender = this_author_account == sending_author;
+                    let self_is_sender = this_author_account_id == sending_author;
         
                     if !Self::quorum_is_reached(tx_data.confirmations.len()) && !self_is_sender {
                         match sign_confirmation_msg_hash::<T>(tx_data.msg_hash) {
                             Ok(confirmation) => {
-                                let proof = Self::encode_add_confirmation_proof(tx_id, confirmation, this_author_account);
+                                let proof = Self::encode_add_confirmation_proof(tx_id, confirmation, this_author_account_id);
                                 let signature = this_author.key.sign(&proof).expect("Error signing proof");
                                 let call = Call::<T>::add_confirmation { tx_id, confirmation, author: this_author.clone(), signature };
                                 let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
@@ -312,13 +314,13 @@ pub mod pallet {
                             match Self::check_ethereum(tx_id, tx_data.expiry) {
                                 EthTxState::Unresolved => {},
                                 EthTxState::Succeeded => {
-                                    let proof = Self::encode_add_corroboration_proof(tx_id, true, this_author_account);
+                                    let proof = Self::encode_add_corroboration_proof(tx_id, true, this_author_account_id);
                                     let signature = this_author.key.sign(&proof).expect("Error signing proof");
                                     let call = Call::<T>::add_corroboration { tx_id, succeeded: true, author: this_author.clone(), signature };
                                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                                 },
                                 EthTxState::Failed => {
-                                    let proof = Self::encode_add_corroboration_proof(tx_id, false, this_author_account);
+                                    let proof = Self::encode_add_corroboration_proof(tx_id, false, this_author_account_id);
                                     let signature = this_author.key.sign(&proof).expect("Error signing proof");
                                     let call = Call::<T>::add_corroboration { tx_id, succeeded: false, author: this_author.clone(), signature }; // corrected `succeeded` value to `false`.
                                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
