@@ -301,6 +301,9 @@ impl CandidateTransactionSubmitter<AccountId> for Test {
     ) -> Result<TransactionId, DispatchError> {
         return Ok(0)
     }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 // Deal with any positive imbalance by sending it to the fake treasury
