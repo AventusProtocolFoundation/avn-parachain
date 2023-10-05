@@ -112,7 +112,7 @@ impl ExtBuilder {
     pub fn with_genesis_config(mut self) -> Self {
         let _ = pallet_eth_bridge::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
-            tx_lifetime_secs: 60 * 30,
+            eth_tx_lifetime_secs: 60 * 30,
             next_tx_id: 1,
         }
         .assimilate_storage(&mut self.storage);

@@ -75,6 +75,7 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PublishToEthereum { tx_id: u32, function_name: Vec<u8>, params: Vec<(Vec<u8>, Vec<u8>)> },
+        EthTxLifetimeUpdated { eth_tx_lifetime_secs: u64 },
     }
 
     #[pallet::pallet]
@@ -87,7 +88,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_eth_tx_lifetime_secs)]
-    pub type TimeoutDuration<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub type EthTxLifetimeSecs<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::storage]
     pub type UnresolvedTxList<T: Config> =
@@ -96,21 +97,21 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
-        pub tx_lifetime_secs: u64,
+        pub eth_tx_lifetime_secs: u64,
         pub next_tx_id: u32,
     }
 
     #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), tx_lifetime_secs: 0, next_tx_id: 0 }
+            Self { _phantom: Default::default(), eth_tx_lifetime_secs: 0, next_tx_id: 0 }
         }
     }
 
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            TimeoutDuration::<T>::put(self.tx_lifetime_secs);
+            EthTxLifetimeSecs::<T>::put(self.eth_tx_lifetime_secs);
             NextTxId::<T>::put(self.next_tx_id);
         }
     }
@@ -148,11 +149,12 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_lifetime_secs())]
         pub fn set_eth_tx_lifetime_secs(
             origin: OriginFor<T>,
-            tx_lifetime_secs: u64,
+            eth_tx_lifetime_secs: u64,
         ) -> DispatchResultWithPostInfo {
             // SUDO
             ensure_root(origin)?;
-            TimeoutDuration::<T>::put(tx_lifetime_secs);
+            EthTxLifetimeSecs::<T>::put(eth_tx_lifetime_secs);
+            Self::deposit_event(Event::<T>::EthTxLifetimeUpdated { eth_tx_lifetime_secs });
             Ok(().into())
         }
 
@@ -402,12 +404,6 @@ pub mod pallet {
                 Self::get_eth_tx_lifetime_secs();
             let tx_id = Self::get_and_update_next_tx_id();
 
-            Self::deposit_event(Event::<T>::PublishToEthereum {
-                tx_id,
-                function_name: function_name.to_vec(),
-                params: params.to_vec(),
-            });
-
             let mut extended_params = params.to_vec();
             extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
             extended_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
@@ -433,6 +429,12 @@ pub mod pallet {
             <Transactions<T>>::insert(tx_id, tx_data);
             <Corroborations<T>>::insert(tx_id, corroborations);
             Self::add_to_unresolved(tx_id)?;
+
+            Self::deposit_event(Event::<T>::PublishToEthereum {
+                tx_id,
+                function_name: function_name.to_vec(),
+                params: params.to_vec(),
+            });
 
             Ok(tx_id)
         }

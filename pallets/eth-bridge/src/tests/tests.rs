@@ -77,8 +77,8 @@ fn run_checks(
 
         let transaction_data = EthBridge::get_transaction_data(tx_id);
         let expiry = transaction_data.expiry;
-        let tx_lifetime = EthBridge::get_eth_tx_lifetime_secs();
-        let expected_expiry = current_time / 1000 + tx_lifetime;
+        let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
+        let expected_expiry = current_time / 1000 + eth_tx_lifetime_secs;
         assert_eq!(expiry, expected_expiry);
 
         let msg_hash = hex::encode(transaction_data.msg_hash);

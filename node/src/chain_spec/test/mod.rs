@@ -81,7 +81,7 @@ pub(crate) fn avn_test_runtime_genesis(
         assets: Default::default(),
         eth_bridge: EthBridgeConfig {
             _phantom: Default::default(),
-            tx_lifetime_secs: 60 * 30 as u64, // 30 minutes
+            eth_tx_lifetime_secs: 60 * 30 as u64, // 30 minutes
             next_tx_id: 1 as u32,
         },
         ethereum_events: EthereumEventsConfig {

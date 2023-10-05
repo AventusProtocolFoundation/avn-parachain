@@ -60,17 +60,17 @@ pub trait WeightInfo {
 /// Weights for pallet_eth_bridge using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	// Storage: EthBridge TimeoutDuration (r:0 w:1)
+	// Storage: EthBridge EthTxLifetimeSecs (r:0 w:1)
 	fn set_eth_tx_lifetime_secs() -> Weight {
-		Weight::from_ref_time(13_375_000)
+		Weight::from_ref_time(30_197_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: EthBridge Transactions (r:1 w:1)
 	/// The range of component `c` is `[0, 99]`.
 	fn add_confirmation(c: u32, ) -> Weight {
-		Weight::from_ref_time(14_767_656)
-			// Standard Error: 521
-			.saturating_add(Weight::from_ref_time(65_761).saturating_mul(c.into()))
+		Weight::from_ref_time(14_889_142)
+			// Standard Error: 1_129
+			.saturating_add(Weight::from_ref_time(61_855).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -79,7 +79,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge Transactions (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_corroboration() -> Weight {
-		Weight::from_ref_time(30_457_000)
+		Weight::from_ref_time(30_407_000)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -87,17 +87,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	// Storage: EthBridge TimeoutDuration (r:0 w:1)
+	// Storage: EthBridge EthTxLifetimeSecs (r:0 w:1)
 	fn set_eth_tx_lifetime_secs() -> Weight {
-		Weight::from_ref_time(13_375_000)
+		Weight::from_ref_time(30_197_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: EthBridge Transactions (r:1 w:1)
 	/// The range of component `c` is `[0, 99]`.
 	fn add_confirmation(c: u32, ) -> Weight {
-		Weight::from_ref_time(14_767_656)
-			// Standard Error: 521
-			.saturating_add(Weight::from_ref_time(65_761).saturating_mul(c.into()))
+		Weight::from_ref_time(14_889_142)
+			// Standard Error: 1_129
+			.saturating_add(Weight::from_ref_time(61_855).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -106,7 +106,7 @@ impl WeightInfo for () {
 	// Storage: EthBridge Transactions (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_corroboration() -> Weight {
-		Weight::from_ref_time(30_457_000)
+		Weight::from_ref_time(30_407_000)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}

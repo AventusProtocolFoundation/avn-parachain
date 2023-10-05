@@ -74,11 +74,11 @@ fn setup_corroborations<T: Config>(tx_id: u32, num_success: u32, num_failure: u3
 
 benchmarks! {
     set_eth_tx_lifetime_secs {
-        let tx_lifetime_secs = 300u64;
+        let eth_tx_lifetime_secs = 300u64;
 
-    }: _(RawOrigin::Root, tx_lifetime_secs)
+    }: _(RawOrigin::Root, eth_tx_lifetime_secs)
     verify {
-        assert_eq!(TimeoutDuration::<T>::get(), tx_lifetime_secs);
+        assert_eq!(EthTxLifetimeSecs::<T>::get(), eth_tx_lifetime_secs);
     }
 
     add_confirmation {
