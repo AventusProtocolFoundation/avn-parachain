@@ -35,14 +35,13 @@ mod benchmarking;
 pub use pallet::*;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
-
 pub type AVN<T> = avn::Pallet<T>;
 
-pub const CONFIRMATIONS_LIMIT: u32 = 100; // Max confirmations or corroborations
+pub const CONFIRMATIONS_LIMIT: u32 = 100; // Max confirmations or corroborations (must be > 1/3 of authors)
 pub const FUNCTION_NAME_CHAR_LIMIT: u32 = 32; // Max chars in T1 function name
-pub const PARAMS_LIMIT: u32 = 5; // Max T1 function params (not including expiry, t2TxId, and confirmations)
-pub const TYPE_CHAR_LIMIT: u32 = 7; // Max chars in a T1 type name
-pub const VALUE_CHAR_LIMIT: u32 = 130; // Max chars in a value
+pub const PARAMS_LIMIT: u32 = 5; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
+pub const TYPE_CHAR_LIMIT: u32 = 7; // Max chars in a param's type
+pub const VALUE_CHAR_LIMIT: u32 = 130; // Max chars in a param's value
 
 pub const PALLET_NAME: &'static [u8] = b"EthBridge";
 pub const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
@@ -157,7 +156,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             eth_tx_lifetime_secs: u64,
         ) -> DispatchResultWithPostInfo {
-            // SUDO
             ensure_root(origin)?;
             EthTxLifetimeSecs::<T>::put(eth_tx_lifetime_secs);
             Self::deposit_event(Event::<T>::EthTxLifetimeUpdated { eth_tx_lifetime_secs });
@@ -207,12 +205,11 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            let author = Some(T::AccountToBytesConvert::into_bytes(&author.account_id)).unwrap();
-
             if !UnresolvedTxList::<T>::get().contains(&tx_id) {
                 return Ok(().into())
             }
 
+            let author = Some(T::AccountToBytesConvert::into_bytes(&author.account_id)).unwrap();
             let mut corroborations = Corroborations::<T>::get(tx_id);
             let mut tx_data = Transactions::<T>::get(tx_id);
 
@@ -226,8 +223,8 @@ pub mod pallet {
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
 
-                if Self::quorum_is_reached(corroborations.success.len()) {
-                    tx_data.state = EthTxState::Succeeded;
+                if Self::consensus_is_reached(corroborations.success.len()) {
+                    tx_data.status = EthTxStatus::Succeeded;
                     // TODO: run COMMIT callback here
                     Self::remove_from_unresolved_tx_list(tx_id)?;
                     Corroborations::<T>::remove(tx_id);
@@ -242,8 +239,8 @@ pub mod pallet {
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
 
-                if Self::quorum_is_reached(corroborations.failure.len()) {
-                    tx_data.state = EthTxState::Failed;
+                if Self::consensus_is_reached(corroborations.failure.len()) {
+                    tx_data.status = EthTxStatus::Failed;
                     // TODO: run ROLLBACK callback here
                     Self::remove_from_unresolved_tx_list(tx_id)?;
                     Corroborations::<T>::remove(tx_id);
@@ -262,7 +259,7 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok(account) = setup_ocw::<T>(block_number) {
                 for tx_id in UnresolvedTxList::<T>::get() {
-                    Self::process_any_unresolved_transactions(tx_id, account.clone());
+                    Self::process_unresolved_transaction(tx_id, account.clone());
                 }
             }
         }
@@ -273,7 +270,7 @@ pub mod pallet {
     ) -> Result<Validator<<T as avn::Config>::AuthorityId, T::AccountId>, DispatchError> {
         AVN::<T>::pre_run_setup(block_number, PALLET_NAME.to_vec()).map_err(|e| {
             if e != DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) {
-                log::error!(":broken_heart:️ Unable to run offchain worker: {:?}", e);
+                log::error!("❌ Unable to run offchain worker: {:?}", e);
             }
             e
         })
@@ -317,7 +314,7 @@ pub mod pallet {
     }
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub enum EthTxState {
+    pub enum EthTxStatus {
         #[default]
         Unresolved,
         Succeeded,
@@ -345,7 +342,7 @@ pub mod pallet {
         pub confirmations: BoundedVec<[u8; 65], ConfirmationsLimit>,
         pub chosen_sender: Option<[u8; 32]>,
         pub eth_tx_hash: H256,
-        pub state: EthTxState,
+        pub status: EthTxStatus,
     }
 
     #[pallet::storage]
@@ -360,13 +357,15 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-        pub fn publish_to_ethereum(
+
+        // Single entry point to enable other pallets to call any author function on the avn-bridge
+        pub fn publish_to_avn_bridge(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<u32, Error<T>> {
             let expiry = <T as pallet::Config>::TimeProvider::now().as_secs() +
                 Self::get_eth_tx_lifetime_secs();
-            let tx_id = Self::get_and_update_next_tx_id();
+            let tx_id = Self::use_next_tx_id();
 
             let mut extended_params = params.to_vec();
             extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
@@ -382,7 +381,7 @@ pub mod pallet {
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
                 chosen_sender: None,
                 eth_tx_hash: H256::zero(),
-                state: EthTxState::Unresolved,
+                status: EthTxStatus::Unresolved,
             };
 
             let corroborations = CorroborationData {
@@ -403,7 +402,8 @@ pub mod pallet {
             Ok(tx_id)
         }
 
-        fn process_any_unresolved_transactions(
+        // The core logic being triggered by the OCW hook
+        fn process_unresolved_transaction(
             tx_id: u32,
             account: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) {
@@ -412,9 +412,10 @@ pub mod pallet {
 
             if let Some(chosen_sender) = tx_data.chosen_sender {
                 let self_is_sender = account_id == chosen_sender;
-                if !Self::quorum_is_reached(tx_data.confirmations.len()) && !self_is_sender {
+                // The sender's confirmation is implicit so we only collect confirmations from other authors
+                if !Self::consensus_is_reached(tx_data.confirmations.len()) && !self_is_sender {
                     Self::provide_signed_confirmation(tx_id, tx_data, account);
-                } else if Self::quorum_is_reached(tx_data.confirmations.len()) {
+                } else if Self::consensus_is_reached(tx_data.confirmations.len()) {
                     if self_is_sender {
                         Self::send_transaction_to_ethereum(tx_id, tx_data);
                     } else {
@@ -426,117 +427,30 @@ pub mod pallet {
             }
         }
 
-        fn send_transaction_to_ethereum(tx_id: u32, mut tx_data: TransactionData) {
-            match Self::generate_send_transaction_calldata(tx_id) {
-                Ok(calldata) => match Self::call_avn_bridge_contract_send_method(calldata) {
-                    Ok(eth_tx_hash) => {
-                        tx_data.eth_tx_hash = eth_tx_hash;
-                        <Transactions<T>>::insert(tx_id, tx_data);
-                    },
-                    Err(err) => {
-                        log::error!("❌ Error calling AVN bridge contract: {:?}", err);
-                    },
-                },
-                Err(err) => {
-                    log::error!("❌ Error generating transaction calldata: {:?}", err);
-                },
-            }
-        }
-
-        fn provide_signed_confirmation(
-            tx_id: u32,
-            tx_data: TransactionData,
-            account: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
-            match Self::sign_msg_hash(tx_data.msg_hash) {
-                Ok(confirmation) => {
-                    let account_id = T::AccountToBytesConvert::into_bytes(&account.account_id);
-                    let proof =
-                        Self::encode_add_confirmation_proof(tx_id, confirmation, account_id);
-                    let signature = account.key.sign(&proof).expect("Error signing proof");
-                    let call = Call::<T>::add_confirmation {
-                        tx_id,
-                        confirmation,
-                        author: account.clone(),
-                        signature,
-                    };
-                    let _ =
-                        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-                },
-                Err(err) => {
-                    log::error!("❌ Error signing confirmation: {:?}", err);
-                },
-            }
-        }
-
-        fn attempt_to_confirm_eth_tx_status(
-            tx_id: u32,
-            tx_data: TransactionData,
-            account: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
-            if tx_data.eth_tx_hash != H256::zero() {
-                match Self::check_tx_status_on_ethereum(tx_id, tx_data.expiry) {
-                    EthTxState::Unresolved => {},
-                    EthTxState::Succeeded => {
-                        Self::provide_corroboration(tx_id, true, &account);
-                    },
-                    EthTxState::Failed => {
-                        Self::provide_corroboration(tx_id, false, &account);
-                    },
-                }
-            }
-        }
-
-        fn provide_corroboration(
-            tx_id: u32,
-            succeeded: bool,
-            account: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
-            let account_id = T::AccountToBytesConvert::into_bytes(&account.account_id);
-            let proof = Self::encode_add_corroboration_proof(tx_id, succeeded, account_id);
-            let signature = account.key.sign(&proof).expect("Error signing proof");
-            let call = Call::<T>::add_corroboration {
-                tx_id,
-                succeeded,
-                author: account.clone(),
-                signature,
-            };
-            let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-        }
-
-        fn sign_msg_hash(msg_hash: H256) -> Result<[u8; 65], DispatchError> {
-            let msg_hash_string = msg_hash.to_string();
-            let signature =
-                AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
-            let signature_bytes: [u8; 65] = signature.into();
-            Ok(signature_bytes)
-        }
-
-        fn encode_add_confirmation_proof(
-            tx_id: u32,
-            confirmation: [u8; 65],
-            author: [u8; 32],
-        ) -> Vec<u8> {
-            return (ADD_CONFIRMATION_CONTEXT, tx_id.clone(), confirmation, author.clone()).encode()
-        }
-
-        fn encode_add_corroboration_proof(
-            tx_id: u32,
-            succeeded: bool,
-            author: [u8; 32],
-        ) -> Vec<u8> {
-            return (ADD_CONFIRMATION_CONTEXT, tx_id.clone(), succeeded, author.clone()).encode()
-        }
-
-        fn get_and_update_next_tx_id() -> u32 {
+        fn use_next_tx_id() -> u32 {
             let tx_id = NextTxId::<T>::get();
             NextTxId::<T>::put(tx_id + 1);
             tx_id
         }
 
-        fn quorum_is_reached(entries: usize) -> bool {
+        fn consensus_is_reached(entries: usize) -> bool {
             let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
             entries as u32 >= quorum
+        }
+
+        fn add_to_unresolved_tx_list(tx_id: u32) -> Result<(), Error<T>> {
+            UnresolvedTxList::<T>::try_mutate(|txs| -> Result<(), Error<T>> {
+                txs.try_push(tx_id).map_err(|_| Error::<T>::UnresolvedTxLimitReached)
+            })
+        }
+
+        fn remove_from_unresolved_tx_list(tx_id: u32) -> DispatchResult {
+            UnresolvedTxList::<T>::mutate(|txs| {
+                if let Some(pos) = txs.iter().position(|&x| x == tx_id) {
+                    txs.remove(pos);
+                }
+            });
+            Ok(())
         }
 
         fn bound_params(
@@ -572,30 +486,6 @@ pub mod pallet {
                 .collect()
         }
 
-        fn check_tx_status_on_ethereum(tx_id: u32, expiry: u64) -> EthTxState {
-            if let Ok(calldata) = Self::generate_corroboration_check_calldata(tx_id, expiry) {
-                if let Ok(result) = Self::call_avn_bridge_contract_view_method(calldata) {
-                    match result {
-                        0 => return EthTxState::Unresolved,
-                        1 => return EthTxState::Succeeded,
-                        -1 => return EthTxState::Failed,
-                        _ => {
-                            log::error!(
-                                "Invalid ethereum check response for tx_id {} and expiry {}: {}",
-                                tx_id,
-                                expiry,
-                                result
-                            );
-                            return EthTxState::Unresolved
-                        },
-                    }
-                }
-            }
-
-            log::error!("Invalid calldata generation for tx_id {} and expiry {}", tx_id, expiry);
-            EthTxState::Unresolved
-        }
-
         fn create_msg_hash(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
             let (types, values): (Vec<_>, Vec<_>) = params.iter().cloned().unzip();
 
@@ -616,7 +506,145 @@ pub mod pallet {
             Ok(H256::from(msg_hash))
         }
 
-        // TODO: Make function private once the tests are configured to trigger the OCW
+        fn provide_signed_confirmation(
+            tx_id: u32,
+            tx_data: TransactionData,
+            account: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+        ) {
+            match Self::sign_msg_hash(tx_data.msg_hash) {
+                Ok(confirmation) => {
+                    let account_id = T::AccountToBytesConvert::into_bytes(&account.account_id);
+                    let proof =
+                        Self::encode_add_confirmation_proof(tx_id, confirmation, account_id);
+                    let signature = account.key.sign(&proof).expect("Error signing proof");
+                    let call = Call::<T>::add_confirmation {
+                        tx_id,
+                        confirmation,
+                        author: account.clone(),
+                        signature,
+                    };
+                    let _ =
+                        SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+                },
+                Err(err) => {
+                    log::error!("❌ Error signing confirmation: {:?}", err);
+                },
+            }
+        }   
+
+        fn sign_msg_hash(msg_hash: H256) -> Result<[u8; 65], DispatchError> {
+            let msg_hash_string = msg_hash.to_string();
+            let signature =
+                AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
+            let signature_bytes: [u8; 65] = signature.into();
+            Ok(signature_bytes)
+        }
+
+        fn encode_add_confirmation_proof(
+            tx_id: u32,
+            confirmation: [u8; 65],
+            author: [u8; 32],
+        ) -> Vec<u8> {
+            return (ADD_CONFIRMATION_CONTEXT, tx_id.clone(), confirmation, author.clone()).encode()
+        }
+
+        fn attempt_to_confirm_eth_tx_status(
+            tx_id: u32,
+            tx_data: TransactionData,
+            account: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+        ) {
+            if tx_data.eth_tx_hash != H256::zero() {
+                match Self::check_tx_status_on_ethereum(tx_id, tx_data.expiry) {
+                    EthTxStatus::Unresolved => {},
+                    EthTxStatus::Succeeded => {
+                        Self::provide_corroboration(tx_id, true, &account);
+                    },
+                    EthTxStatus::Failed => {
+                        Self::provide_corroboration(tx_id, false, &account);
+                    },
+                }
+            }
+        }
+
+        fn check_tx_status_on_ethereum(tx_id: u32, expiry: u64) -> EthTxStatus {
+            if let Ok(calldata) = Self::generate_corroboration_check_calldata(tx_id, expiry) {
+                if let Ok(result) = Self::call_avn_bridge_contract_view_method(calldata) {
+                    match result {
+                        0 => return EthTxStatus::Unresolved,
+                        1 => return EthTxStatus::Succeeded,
+                        -1 => return EthTxStatus::Failed,
+                        _ => {
+                            log::error!(
+                                "Invalid ethereum check response for tx_id {} and expiry {}: {}",
+                                tx_id,
+                                expiry,
+                                result
+                            );
+                            return EthTxStatus::Unresolved
+                        },
+                    }
+                }
+            }
+
+            log::error!("Invalid calldata generation for tx_id {} and expiry {}", tx_id, expiry);
+            EthTxStatus::Unresolved
+        }
+
+        fn generate_corroboration_check_calldata(
+            tx_id: u32,
+            expiry: u64,
+        ) -> Result<Vec<u8>, Error<T>> {
+            let params = vec![
+                (UINT32.to_vec(), tx_id.to_string().into_bytes()),
+                (UINT256.to_vec(), expiry.to_string().into_bytes()),
+            ];
+
+            Self::encode_eth_function_input(&"corroborate".to_string(), &params)
+        }
+
+        fn provide_corroboration(
+            tx_id: u32,
+            succeeded: bool,
+            account: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+        ) {
+            let account_id = T::AccountToBytesConvert::into_bytes(&account.account_id);
+            let proof = Self::encode_add_corroboration_proof(tx_id, succeeded, account_id);
+            let signature = account.key.sign(&proof).expect("Error signing proof");
+            let call = Call::<T>::add_corroboration {
+                tx_id,
+                succeeded,
+                author: account.clone(),
+                signature,
+            };
+            let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+        }
+
+        fn encode_add_corroboration_proof(
+            tx_id: u32,
+            succeeded: bool,
+            author: [u8; 32],
+        ) -> Vec<u8> {
+            return (ADD_CONFIRMATION_CONTEXT, tx_id.clone(), succeeded, author.clone()).encode()
+        }
+
+        fn send_transaction_to_ethereum(tx_id: u32, mut tx_data: TransactionData) {
+            match Self::generate_send_transaction_calldata(tx_id) {
+                Ok(calldata) => match Self::call_avn_bridge_contract_send_method(calldata) {
+                    Ok(eth_tx_hash) => {
+                        tx_data.eth_tx_hash = eth_tx_hash;
+                        <Transactions<T>>::insert(tx_id, tx_data);
+                    },
+                    Err(err) => {
+                        log::error!("❌ Error calling AVN bridge contract: {:?}", err);
+                    },
+                },
+                Err(err) => {
+                    log::error!("❌ Error generating transaction calldata: {:?}", err);
+                },
+            }
+        }
+
+        // TODO: Make this function private once the tests are configured to trigger the OCW
         pub fn generate_send_transaction_calldata(tx_id: u32) -> Result<Vec<u8>, Error<T>> {
             let tx_data = Transactions::<T>::get(tx_id);
 
@@ -635,18 +663,6 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::FunctionNameError)?;
 
             Self::encode_eth_function_input(&function_name, &full_params)
-        }
-
-        fn generate_corroboration_check_calldata(
-            tx_id: u32,
-            expiry: u64,
-        ) -> Result<Vec<u8>, Error<T>> {
-            let params = vec![
-                (UINT32.to_vec(), tx_id.to_string().into_bytes()),
-                (UINT256.to_vec(), expiry.to_string().into_bytes()),
-            ];
-
-            Self::encode_eth_function_input(&"corroborate".to_string(), &params)
         }
 
         fn encode_eth_function_input(
@@ -706,21 +722,6 @@ pub mod pallet {
                 },
                 _ => Err(Error::<T>::InvalidData),
             }
-        }
-
-        fn add_to_unresolved_tx_list(tx_id: u32) -> Result<(), Error<T>> {
-            UnresolvedTxList::<T>::try_mutate(|txs| -> Result<(), Error<T>> {
-                txs.try_push(tx_id).map_err(|_| Error::<T>::UnresolvedTxLimitReached)
-            })
-        }
-
-        fn remove_from_unresolved_tx_list(tx_id: u32) -> DispatchResult {
-            UnresolvedTxList::<T>::mutate(|txs| {
-                if let Some(pos) = txs.iter().position(|&x| x == tx_id) {
-                    txs.remove(pos);
-                }
-            });
-            Ok(())
         }
 
         fn call_avn_bridge_contract_send_method(calldata: Vec<u8>) -> Result<H256, DispatchError> {
