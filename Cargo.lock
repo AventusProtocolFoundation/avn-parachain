@@ -7177,6 +7177,7 @@ dependencies = [
 name = "pallet-parachain-staking"
 version = "3.2.6"
 dependencies = [
+ "assert_matches",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -7191,6 +7192,7 @@ dependencies = [
  "pallet-session",
  "pallet-transaction-payment",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "rand 0.7.3",
  "scale-info",
  "serde",
