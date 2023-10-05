@@ -2,6 +2,7 @@ use super::*;
 use crate::{self as pallet_eth_bridge};
 use frame_support::{parameter_types, traits::GenesisBuild};
 use frame_system as system;
+use pallet_avn::testing::U64To32BytesConverter;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
@@ -45,6 +46,7 @@ impl Config for TestRuntime {
     type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
+    type AccountToBytesConvert = U64To32BytesConverter;
 }
 
 impl system::Config for TestRuntime {

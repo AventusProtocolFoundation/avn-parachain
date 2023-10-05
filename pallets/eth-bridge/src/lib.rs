@@ -20,8 +20,9 @@ use frame_system::{
     pallet_prelude::OriginFor,
 };
 use hex_literal::hex;
-use pallet_avn::{self as avn};
-use sp_avn_common::{calculate_one_third_quorum, EthTransaction};
+use pallet_avn::{self as avn, Error as avn_error, AccountToBytesConverter};
+use sp_application_crypto::RuntimeAppPublic;
+use sp_avn_common::{calculate_one_third_quorum, event_types::Validator, EthTransaction};
 use sp_core::{H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{
@@ -42,6 +43,10 @@ pub const FUNCTION_NAME_CHAR_LIMIT: u32 = 32; // Max chars in T1 function name
 pub const PARAMS_LIMIT: u32 = 5; // Max T1 function params (not including expiry, t2TxId, and confirmations)
 pub const TYPE_CHAR_LIMIT: u32 = 7; // Max chars in a T1 type name
 pub const VALUE_CHAR_LIMIT: u32 = 130; // Max chars in a value
+
+pub const NAME: &'static [u8] = b"EthBridge";
+pub const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
+pub const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 
 const UINT256: &[u8] = b"uint256";
 const UINT128: &[u8] = b"uint128";
@@ -69,6 +74,7 @@ pub mod pallet {
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
         type MaxUnresolvedTx: Get<u32>;
+        type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
     }
 
     #[pallet::event]
@@ -164,6 +170,8 @@ pub mod pallet {
             origin: OriginFor<T>,
             tx_id: u32,
             confirmation: [u8; 65],
+            _author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
@@ -191,10 +199,13 @@ pub mod pallet {
         pub fn add_corroboration(
             origin: OriginFor<T>,
             tx_id: u32,
-            author: [u8; 32],
             succeeded: bool,
+            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
+            
+            let author = Some(T::AccountToBytesConvert::into_bytes(&author.account_id)).unwrap();
 
             if !UnresolvedTxList::<T>::get().contains(&tx_id) {
                 return Ok(().into())
@@ -246,32 +257,41 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn offchain_worker(_block_number: T::BlockNumber) {
-            // TODO: use actual self account
-            let this_account: [u8; 32] = [0u8; 32];
-
+        fn offchain_worker(block_number: T::BlockNumber) {
+            let setup_result = AVN::<T>::pre_run_setup(block_number, NAME.to_vec());
+        
+            match setup_result {
+                Err(e) if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => return,
+                Err(e) => {
+                    log::error!(":broken_heart:️ Unable to run offchain worker: {:?}", e);
+                    return;
+                },
+                _ => {},
+            }
+        
+            let this_author = setup_result.expect("We have an author");
+            let this_author_account = T::AccountToBytesConvert::into_bytes(&this_author.account_id);
+        
             for tx_id in UnresolvedTxList::<T>::get() {
                 let mut tx_data = Transactions::<T>::get(tx_id);
+                
                 if let Some(sending_author) = tx_data.sending_author {
-                    let this_account_is_sender = sending_author == this_account;
-
-                    if !Self::quorum_is_reached(tx_data.confirmations.len()) &&
-                        !this_account_is_sender
-                    {
+                    let self_is_sender = this_author_account == sending_author;
+        
+                    if !Self::quorum_is_reached(tx_data.confirmations.len()) && !self_is_sender {
                         match sign_confirmation_msg_hash::<T>(tx_data.msg_hash) {
                             Ok(confirmation) => {
-                                let call = Call::<T>::add_confirmation { tx_id, confirmation };
-                                let _ =
-                                    SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-                                        call.into(),
-                                    );
+                                let proof = Self::encode_add_confirmation_proof(tx_id, confirmation, this_author_account);
+                                let signature = this_author.key.sign(&proof).expect("Error signing proof");
+                                let call = Call::<T>::add_confirmation { tx_id, confirmation, author: this_author.clone(), signature };
+                                let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                             },
                             Err(err) => {
                                 log::error!("❌ Error signing confirmation: {:?}", err);
                             },
                         }
                     } else if Self::quorum_is_reached(tx_data.confirmations.len()) {
-                        if this_account_is_sender {
+                        if self_is_sender {
                             match Self::generate_transaction_calldata(tx_id) {
                                 Ok(calldata) => {
                                     match Self::call_avn_bridge_contract_send_method(calldata) {
@@ -280,37 +300,27 @@ pub mod pallet {
                                             <Transactions<T>>::insert(tx_id, tx_data);
                                         },
                                         Err(err) => {
-                                            log::error!(
-                                                "❌ Error calling AVN bridge contract: {:?}",
-                                                err
-                                            );
+                                            log::error!("❌ Error calling AVN bridge contract: {:?}", err);
                                         },
                                     }
                                 },
                                 Err(err) => {
-                                    log::error!(
-                                        "❌ Error generating transaction calldata: {:?}",
-                                        err
-                                    );
+                                    log::error!("❌ Error generating transaction calldata: {:?}", err);
                                 },
                             }
                         } else if tx_data.eth_tx_hash != H256::zero() {
                             match Self::check_ethereum(tx_id, tx_data.expiry) {
                                 EthTxState::Unresolved => {},
                                 EthTxState::Succeeded => {
-                                    let call = Call::<T>::add_corroboration {
-                                        tx_id,
-                                        author: this_account,
-                                        succeeded: true,
-                                    };
+                                    let proof = Self::encode_add_corroboration_proof(tx_id, true, this_author_account);
+                                    let signature = this_author.key.sign(&proof).expect("Error signing proof");
+                                    let call = Call::<T>::add_corroboration { tx_id, succeeded: true, author: this_author.clone(), signature };
                                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                                 },
                                 EthTxState::Failed => {
-                                    let call = Call::<T>::add_corroboration {
-                                        tx_id,
-                                        author: this_account,
-                                        succeeded: false,
-                                    };
+                                    let proof = Self::encode_add_corroboration_proof(tx_id, false, this_author_account);
+                                    let signature = this_author.key.sign(&proof).expect("Error signing proof");
+                                    let call = Call::<T>::add_corroboration { tx_id, succeeded: false, author: this_author.clone(), signature }; // corrected `succeeded` value to `false`.
                                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                                 },
                             }
@@ -321,6 +331,7 @@ pub mod pallet {
                 }
             }
         }
+        
     }
 
     fn sign_confirmation_msg_hash<T: Config>(msg_hash: H256) -> Result<[u8; 65], DispatchError> {
@@ -333,24 +344,42 @@ pub mod pallet {
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
-
-        // TODO: Do more/better checks here
+    
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
-                Call::add_confirmation { tx_id, confirmation: _ } =>
-                    ValidTransaction::with_tag_prefix("EthBridgeAddConfirmation")
-                        .and_provides((call, tx_id))
-                        .priority(TransactionPriority::max_value())
-                        .build(),
-                Call::add_corroboration { tx_id, author: _, succeeded: _ } =>
-                    ValidTransaction::with_tag_prefix("EthBridgeAddCorroboration")
-                        .and_provides((call, tx_id))
-                        .priority(TransactionPriority::max_value())
-                        .build(),
+                Call::add_confirmation { tx_id, confirmation, author, signature } => {
+                    if AVN::<T>::signature_is_valid(
+                        &(ADD_CONFIRMATION_CONTEXT, tx_id.clone(), confirmation, author),
+                        &author,
+                        signature,
+                    ) {
+                        ValidTransaction::with_tag_prefix("EthBridgeAddConfirmation")
+                            .and_provides((call, tx_id))
+                            .priority(TransactionPriority::max_value())
+                            .build()
+                    } else {
+                        InvalidTransaction::Custom(1u8).into()
+                    }
+                },
+                Call::add_corroboration { tx_id, succeeded, author, signature } => {
+                    if AVN::<T>::signature_is_valid(
+                        &(ADD_CORROBORATION_CONTEXT, tx_id.clone(), succeeded, author),
+                        &author,
+                        signature,
+                    ) {
+                        ValidTransaction::with_tag_prefix("EthBridgeAddCorroboration")
+                            .and_provides((call, tx_id))
+                            .priority(TransactionPriority::max_value())
+                            .build()
+                    } else {
+                        InvalidTransaction::Custom(2u8).into()
+                    }
+                },
                 _ => InvalidTransaction::Call.into(),
             }
         }
     }
+    
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub enum EthTxState {
@@ -507,6 +536,32 @@ pub mod pallet {
             EthTxState::Unresolved
         }
 
+        fn encode_add_confirmation_proof(
+            tx_id: u32,
+            confirmation: [u8; 65],
+            author: [u8; 32],
+        ) -> Vec<u8> {
+            return (
+                ADD_CONFIRMATION_CONTEXT,
+                tx_id.clone(),
+                confirmation,
+                author.clone(),
+            ).encode()
+        }
+    
+        fn encode_add_corroboration_proof(
+            tx_id: u32,
+            succeeded: bool,
+            author: [u8; 32],
+        ) -> Vec<u8> {
+            return (
+                ADD_CONFIRMATION_CONTEXT,
+                tx_id.clone(),
+                succeeded,
+                author.clone(),
+            ).encode()
+        }
+
         fn create_msg_hash(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
             let (types, values): (Vec<_>, Vec<_>) = params.iter().cloned().unzip();
 
@@ -650,8 +705,8 @@ pub mod pallet {
             // TODO: replace with AVN pallet's get_bridge_contract_address()
             let contract_address = H160(hex!("F05Df39f745A240fb133cC4a11E42467FAB10f1F"));
             // TODO: use actual self account
-            let this_account: [u8; 32] = [0u8; 32];
-            let transaction_to_send = EthTransaction::new(this_account, contract_address, calldata);
+            let this_author: [u8; 32] = [0u8; 32];
+            let transaction_to_send = EthTransaction::new(this_author, contract_address, calldata);
 
             let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
             let external_service_port_number = AVN::<T>::get_external_service_port_number();

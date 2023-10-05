@@ -17,6 +17,7 @@ hex-literal = { version = "0.3.4", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-avn-common =  { default-features = false, path = "../../primitives/avn-common" }
 pallet-avn = { default-features = false, path = "../avn" }
+sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
@@ -40,6 +41,7 @@ std = [
 	"sp-std/std",
 	"sp-core/std",
 	"frame-support/std",
+	"sp-application-crypto/std",
 	"sp-runtime/std",
 	"frame-system/std",
 	"pallet-avn/std",
