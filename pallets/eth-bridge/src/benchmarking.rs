@@ -18,12 +18,14 @@ pub type TypeLimit = ConstU32<{ crate::TYPE_CHAR_LIMIT }>;
 pub type ValueLimit = ConstU32<{ crate::VALUE_CHAR_LIMIT }>;
 
 fn setup_author<T: Config>() -> Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId> {
-    let mnemonic: &str = "basic anxiety marine match castle rival moral whisper insane away avoid bike";
+    let mnemonic: &str =
+        "basic anxiety marine match castle rival moral whisper insane away avoid bike";
     let account: T::AccountId = account("dummy_validator", 0, 0);
     let key = <T as avn::Config>::AuthorityId::generate_pair(Some(mnemonic.as_bytes().to_vec()));
     let validator = Validator::new(account, key);
     // Update the account id to a predefined one (Alice stash in this case)
-    let account_bytes: [u8; 32] = hex_literal::hex!("be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25f");
+    let account_bytes: [u8; 32] =
+        hex_literal::hex!("be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25f");
     let account_id = T::AccountId::decode(&mut &account_bytes[..]).unwrap();
     let author = Validator::new(account_id, validator.key);
     // Setup validator in avn pallet
@@ -91,19 +93,11 @@ fn setup_corroborations<T: Config>(tx_id: u32, num_success: u32, num_failure: u3
     UnresolvedTxList::<T>::put(bounded_unresolved_txs);
 }
 
-fn encode_add_confirmation_proof(
-    tx_id: u32,
-    confirmation: [u8; 65],
-    author: [u8; 32],
-) -> Vec<u8> {
+fn encode_add_confirmation_proof(tx_id: u32, confirmation: [u8; 65], author: [u8; 32]) -> Vec<u8> {
     return (crate::ADD_CONFIRMATION_CONTEXT, tx_id.clone(), confirmation, author.clone()).encode()
 }
 
-fn encode_add_corroboration_proof(
-    tx_id: u32,
-    succeeded: bool,
-    author: [u8; 32],
-) -> Vec<u8> {
+fn encode_add_corroboration_proof(tx_id: u32, succeeded: bool, author: [u8; 32]) -> Vec<u8> {
     return (crate::ADD_CONFIRMATION_CONTEXT, tx_id.clone(), succeeded, author.clone()).encode()
 }
 

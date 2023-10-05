@@ -357,7 +357,6 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-
         // Single entry point to enable other pallets to call any author function on the avn-bridge
         pub fn publish_to_avn_bridge(
             function_name: &[u8],
@@ -412,7 +411,7 @@ pub mod pallet {
 
             if let Some(chosen_sender) = tx_data.chosen_sender {
                 let self_is_sender = account_id == chosen_sender;
-                // The sender's confirmation is implicit so we only collect confirmations from other authors
+                // The sender's confirmation is implicit so we only collect other authors
                 if !Self::consensus_is_reached(tx_data.confirmations.len()) && !self_is_sender {
                     Self::provide_signed_confirmation(tx_id, tx_data, account);
                 } else if Self::consensus_is_reached(tx_data.confirmations.len()) {
@@ -530,7 +529,7 @@ pub mod pallet {
                     log::error!("❌ Error signing confirmation: {:?}", err);
                 },
             }
-        }   
+        }
 
         fn sign_msg_hash(msg_hash: H256) -> Result<[u8; 65], DispatchError> {
             let msg_hash_string = msg_hash.to_string();
