@@ -62,15 +62,15 @@ pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge EthTxLifetimeSecs (r:0 w:1)
 	fn set_eth_tx_lifetime_secs() -> Weight {
-		Weight::from_ref_time(18_555_000)
+		Weight::from_ref_time(27_171_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: EthBridge Transactions (r:1 w:1)
 	/// The range of component `c` is `[0, 99]`.
 	fn add_confirmation(c: u32, ) -> Weight {
-		Weight::from_ref_time(15_018_644)
-			// Standard Error: 826
-			.saturating_add(Weight::from_ref_time(45_441).saturating_mul(c.into()))
+		Weight::from_ref_time(14_750_410)
+			// Standard Error: 480
+			.saturating_add(Weight::from_ref_time(48_055).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
@@ -79,7 +79,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge Transactions (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_corroboration() -> Weight {
-		Weight::from_ref_time(28_042_000)
+		Weight::from_ref_time(27_682_000)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -89,15 +89,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: EthBridge EthTxLifetimeSecs (r:0 w:1)
 	fn set_eth_tx_lifetime_secs() -> Weight {
-		Weight::from_ref_time(18_555_000)
+		Weight::from_ref_time(27_171_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: EthBridge Transactions (r:1 w:1)
 	/// The range of component `c` is `[0, 99]`.
 	fn add_confirmation(c: u32, ) -> Weight {
-		Weight::from_ref_time(15_018_644)
-			// Standard Error: 826
-			.saturating_add(Weight::from_ref_time(45_441).saturating_mul(c.into()))
+		Weight::from_ref_time(14_750_410)
+			// Standard Error: 480
+			.saturating_add(Weight::from_ref_time(48_055).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
@@ -106,7 +106,7 @@ impl WeightInfo for () {
 	// Storage: EthBridge Transactions (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_corroboration() -> Weight {
-		Weight::from_ref_time(28_042_000)
+		Weight::from_ref_time(27_682_000)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
