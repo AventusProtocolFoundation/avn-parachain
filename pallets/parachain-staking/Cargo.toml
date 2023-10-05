@@ -42,6 +42,8 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
+parking_lot = { version = "0.12.0" }
+assert_matches = "1.3.0"
 
 [features]
 default = [ "std" ]
