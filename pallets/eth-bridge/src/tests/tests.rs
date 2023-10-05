@@ -84,7 +84,7 @@ fn run_checks(
         let msg_hash = hex::encode(transaction_data.msg_hash);
         assert_eq!(msg_hash, expected_msg_hash);
 
-        let calldata = EthBridge::generate_transaction_calldata(tx_id).unwrap();
+        let calldata = EthBridge::generate_send_transaction_calldata(tx_id).unwrap();
         let calldata = hex::encode(calldata);
         assert_eq!(calldata, expected_calldata);
     })
