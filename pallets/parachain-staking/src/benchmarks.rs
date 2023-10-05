@@ -295,6 +295,13 @@ fn into_bytes<T: Config>(account: &<T as avn::Config>::AuthorityId) -> [u8; 32] 
     return vector
 }
 
+fn into_bytes_8<T: Config>(account: &<T as avn::Config>::AuthorityId) -> [u8; 8] {
+    let bytes = account.encode();
+    let mut vector: [u8; 8] = Default::default();
+    vector.copy_from_slice(&bytes[0..8]);
+    return vector
+}
+
 fn get_collator_count<T: Config>() -> u32 {
     return Pallet::<T>::selected_candidates().len() as u32
 }
@@ -485,8 +492,17 @@ fn setup_voting_parameters<T: Config>() -> (
     // If the DEV chainspec doesn't use Ferdie, change this to the correct default validator
     let key_pair =
         <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
+
+    #[cfg(not(test))]
     let account_bytes = into_bytes::<T>(&key_pair);
+    #[cfg(test)]
+    let account_bytes = into_bytes_8::<T>(&key_pair);
+
+    #[cfg(not(test))]
     let voter = T::AccountId::decode(&mut &account_bytes.encode()[..]).unwrap();
+    #[cfg(test)]
+    let voter = account("voter", 0, 0);
+
     fund_account::<T>(&voter, 1000u32.into());
     let sender =
         Validator::new(voter.clone(), <T as avn::Config>::AuthorityId::generate_pair(None).into());
