@@ -17,13 +17,10 @@
 //! Test utilities
 use crate as pallet_parachain_staking;
 use crate::{
-    pallet, AwardedPts, Config, Points, Proof, TypeInfo, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID, TransactionId, DispatchResult,
-    BoundedVec, Error, *
+    pallet, AwardedPts, BoundedVec, Config, DispatchResult, Error, Points, Proof, TransactionId,
+    TypeInfo, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID, *,
 };
-use std::{cell::RefCell, sync::Arc};
-use parking_lot::RwLock;
-use pallet_ethereum_transactions::{CandidateTransactionSubmitter, ethereum_transaction::{EthTransactionType, TriggerGrowthData}};
-use sp_staking::{SessionIndex, offence::{ReportOffence, OffenceError}};
+use codec::{Decode, Encode};
 use frame_support::{
     assert_ok, construct_runtime,
     dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
@@ -33,22 +30,26 @@ use frame_support::{
         OnFinalize, OnInitialize, OnUnbalanced, ValidatorRegistration,
     },
     weights::{Weight, WeightToFee as WeightToFeeT},
-    PalletId, BasicExternalities,
+    BasicExternalities, PalletId,
 };
 use frame_system::{self as system, limits};
 use pallet_avn::{CollatorPayoutDustHandler, EthereumPublicKeyChecker, FinalisedBlockChecker};
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
+use pallet_ethereum_transactions::{
+    ethereum_transaction::{EthTransactionType, TriggerGrowthData},
+    CandidateTransactionSubmitter,
+};
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
-use codec::{Decode, Encode};
-use sp_avn_common::{InnerCallValidator, bounds::MaximumValidatorsBound};
-use sp_core::{sr25519, Pair, H256, ecdsa,
+use parking_lot::RwLock;
+use sp_avn_common::{bounds::MaximumValidatorsBound, InnerCallValidator};
+use sp_core::{
+    ecdsa,
     offchain::{
-        testing::{
-            OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt,
-        },
+        testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
+    sr25519, Pair, H256,
 };
 use sp_io;
 use sp_runtime::{
@@ -56,6 +57,11 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     DispatchError, Perbill, SaturatedConversion,
 };
+use sp_staking::{
+    offence::{OffenceError, ReportOffence},
+    SessionIndex,
+};
+use std::{cell::RefCell, sync::Arc};
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
@@ -296,7 +302,6 @@ impl CandidateTransactionSubmitter<AccountId> for Test {
         return Ok(0)
     }
 }
-
 
 // Deal with any positive imbalance by sending it to the fake treasury
 pub struct TestCollatorPayoutDustHandler;
@@ -592,8 +597,7 @@ pub(crate) struct ExtBuilder {
 
 impl Default for ExtBuilder {
     fn default() -> ExtBuilder {
-        let storage =
-            frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         ExtBuilder {
             storage,
@@ -640,7 +644,9 @@ impl ExtBuilder {
         self
     }
 
-    pub(crate) fn as_externality_with_state(self) -> (sp_io::TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock<OffchainState>>) {
+    pub(crate) fn as_externality_with_state(
+        self,
+    ) -> (sp_io::TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock<OffchainState>>) {
         assert!(self.offchain_registered);
         self.build_default();
 
@@ -709,14 +715,19 @@ impl ExtBuilder {
             }
         });
         let _ = session::GenesisConfig::<Test> {
-            keys: validators.into_iter().enumerate().map(|(i, v)| (v, v, UintAuthorityId(i as u64))).collect(),
+            keys: validators
+                .into_iter()
+                .enumerate()
+                .map(|(i, v)| (v, v, UintAuthorityId(i as u64)))
+                .collect(),
         }
         .assimilate_storage(&mut self.storage);
         self
     }
 
     pub fn with_validator_count(self, count: u64) -> Self {
-        let validators_range: Vec<ValidatorId> = (1..=count).into_iter().map(|i| TestAccount::new(i).account_id()).collect();
+        let validators_range: Vec<ValidatorId> =
+            (1..=count).into_iter().map(|i| TestAccount::new(i).account_id()).collect();
         VALIDATORS.with(|l| *l.borrow_mut() = Some(validators_range));
 
         return self.with_validators()
@@ -737,11 +748,19 @@ impl ExtBuilder {
 
 /// Rolls forward one block. Returns the new block number.
 pub(crate) fn roll_one_block() -> u64 {
-    <pallet_balances::Pallet<mock::Test> as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
-    <frame_system::Pallet<mock::Test> as OnFinalize<BlockNumber>>::on_finalize(System::block_number());
+    <pallet_balances::Pallet<mock::Test> as OnFinalize<BlockNumber>>::on_finalize(
+        System::block_number(),
+    );
+    <frame_system::Pallet<mock::Test> as OnFinalize<BlockNumber>>::on_finalize(
+        System::block_number(),
+    );
     System::set_block_number(System::block_number() + 1);
-    <frame_system::Pallet<mock::Test> as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
-    <pallet_balances::Pallet<mock::Test> as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
+    <frame_system::Pallet<mock::Test> as OnInitialize<BlockNumber>>::on_initialize(
+        System::block_number(),
+    );
+    <pallet_balances::Pallet<mock::Test> as OnInitialize<BlockNumber>>::on_initialize(
+        System::block_number(),
+    );
     <pallet::Pallet<mock::Test> as OnInitialize<BlockNumber>>::on_initialize(System::block_number());
     System::block_number()
 }
@@ -797,7 +816,6 @@ pub(crate) fn events() -> Vec<pallet::Event<Test>> {
 }
 
 impl ParachainStaking {
-
     pub fn get_offence_record() -> Vec<(Vec<ValidatorId>, Offence)> {
         return OFFENCES.with(|o| o.borrow().to_vec())
     }
@@ -806,16 +824,12 @@ impl ParachainStaking {
         <TotalIngresses<Test>>::put(ingress_counter);
     }
 
-    pub fn set_voting_periods(
-        voting_period: BlockNumber,
-    ) {
+    pub fn set_voting_periods(voting_period: BlockNumber) {
         <VotingPeriod<Test>>::put(voting_period);
     }
 
     pub fn set_root_as_triggered(growth_id: &GrowthId) {
-        <Growth<Test>>::mutate(growth_id.period, |growth| {
-            growth.triggered = Some(true)
-        });
+        <Growth<Test>>::mutate(growth_id.period, |growth| growth.triggered = Some(true));
     }
 
     pub fn insert_pending_approval(growth_id: &GrowthId) {
@@ -826,11 +840,7 @@ impl ParachainStaking {
         <PendingApproval<Test>>::remove(period);
     }
 
-    pub fn register_growth_for_voting(
-        growth_id: &GrowthId,
-        quorum: u32,
-        voting_period_end: u64,
-    ) {
+    pub fn register_growth_for_voting(growth_id: &GrowthId, quorum: u32, voting_period_end: u64) {
         <VotesRepository<Test>>::insert(
             growth_id,
             VotingSessionData::new(growth_id.session_id(), quorum, voting_period_end, 0),

@@ -22,7 +22,11 @@ fn generate_deregister_validator_data(
     DeregisterCollatorData { t1_public_key, t2_public_key }
 }
 
-fn generate_trigger_growth_data(rewards_in_period: u128, average_staked_in_period: u128, period: u32) -> TriggerGrowthData {
+fn generate_trigger_growth_data(
+    rewards_in_period: u128,
+    average_staked_in_period: u128,
+    period: u32,
+) -> TriggerGrowthData {
     TriggerGrowthData { rewards_in_period, average_staked_in_period, period }
 }
 
@@ -61,19 +65,30 @@ fn generate_deregister_collator_eth_txn_desc(
     }
 }
 
-fn generate_trigger_growth_eth_txn_desc(rewards_in_period: u128, average_staked_in_period: u128, period: u32) -> EthTransactionDescription {
+fn generate_trigger_growth_eth_txn_desc(
+    rewards_in_period: u128,
+    average_staked_in_period: u128,
+    period: u32,
+) -> EthTransactionDescription {
     EthTransactionDescription {
         function_call: Function {
             name: String::from("triggerGrowth"),
             inputs: vec![
                 Param { name: String::from("rewards_in_period"), kind: ParamType::Uint(128) },
-                Param { name: String::from("average_staked_in_period"), kind: ParamType::Uint(128) },
+                Param {
+                    name: String::from("average_staked_in_period"),
+                    kind: ParamType::Uint(128),
+                },
                 Param { name: String::from("period"), kind: ParamType::Uint(32) },
             ],
             outputs: Vec::<Param>::new(),
             constant: false,
         },
-        call_values: vec![Token::Uint(rewards_in_period.into()), Token::Uint(average_staked_in_period.into()), Token::Uint(period.into())],
+        call_values: vec![
+            Token::Uint(rewards_in_period.into()),
+            Token::Uint(average_staked_in_period.into()),
+            Token::Uint(period.into()),
+        ],
     }
 }
 
@@ -95,8 +110,16 @@ mod eth_transaction_type {
         ))
     }
 
-    fn generate_trigger_growth_eth_txn_type(rewards_in_period: u128, average_staked_in_period: u128, period: u32) -> EthTransactionType {
-        EthTransactionType::TriggerGrowth(generate_trigger_growth_data(rewards_in_period, average_staked_in_period, period))
+    fn generate_trigger_growth_eth_txn_type(
+        rewards_in_period: u128,
+        average_staked_in_period: u128,
+        period: u32,
+    ) -> EthTransactionType {
+        EthTransactionType::TriggerGrowth(generate_trigger_growth_data(
+            rewards_in_period,
+            average_staked_in_period,
+            period,
+        ))
     }
 
     fn generate_unsupported_eth_txn_type() -> EthTransactionType {
@@ -139,10 +162,16 @@ mod eth_transaction_type {
 
             #[test]
             fn txn_is_trigger_growth() {
-                let trigger_growth_eth_txn_type =
-                    generate_trigger_growth_eth_txn_type(REWARDS_IN_PERIOD, AVERAGE_STAKED_IN_PERIOD, GROWTH_PERIOD);
-                let trigger_growth_eth_txn_desc =
-                    generate_trigger_growth_eth_txn_desc(REWARDS_IN_PERIOD, AVERAGE_STAKED_IN_PERIOD, GROWTH_PERIOD);
+                let trigger_growth_eth_txn_type = generate_trigger_growth_eth_txn_type(
+                    REWARDS_IN_PERIOD,
+                    AVERAGE_STAKED_IN_PERIOD,
+                    GROWTH_PERIOD,
+                );
+                let trigger_growth_eth_txn_desc = generate_trigger_growth_eth_txn_desc(
+                    REWARDS_IN_PERIOD,
+                    AVERAGE_STAKED_IN_PERIOD,
+                    GROWTH_PERIOD,
+                );
 
                 let result = trigger_growth_eth_txn_type.to_abi();
 
@@ -215,8 +244,11 @@ mod trigger_growth_data {
 
     #[test]
     fn new_succeeds() {
-        let expected_trigger_growth_data =
-            generate_trigger_growth_data(REWARDS_IN_PERIOD, AVERAGE_STAKED_IN_PERIOD, GROWTH_PERIOD);
+        let expected_trigger_growth_data = generate_trigger_growth_data(
+            REWARDS_IN_PERIOD,
+            AVERAGE_STAKED_IN_PERIOD,
+            GROWTH_PERIOD,
+        );
 
         assert_eq!(
             TriggerGrowthData::new(REWARDS_IN_PERIOD, AVERAGE_STAKED_IN_PERIOD, GROWTH_PERIOD),
@@ -226,9 +258,17 @@ mod trigger_growth_data {
 
     #[test]
     fn to_abi_succeeds() {
-        let trigger_growth_data = generate_trigger_growth_data(REWARDS_IN_PERIOD, AVERAGE_STAKED_IN_PERIOD, GROWTH_PERIOD);
+        let trigger_growth_data = generate_trigger_growth_data(
+            REWARDS_IN_PERIOD,
+            AVERAGE_STAKED_IN_PERIOD,
+            GROWTH_PERIOD,
+        );
         let expected_eth_transaction_desc: EthTransactionDescription =
-            generate_trigger_growth_eth_txn_desc(REWARDS_IN_PERIOD, AVERAGE_STAKED_IN_PERIOD, GROWTH_PERIOD);
+            generate_trigger_growth_eth_txn_desc(
+                REWARDS_IN_PERIOD,
+                AVERAGE_STAKED_IN_PERIOD,
+                GROWTH_PERIOD,
+            );
 
         assert_eq!(trigger_growth_data.to_abi(), expected_eth_transaction_desc);
     }

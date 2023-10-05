@@ -16,7 +16,6 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-
 //! Benchmarking
 use super::*;
 use crate::{
@@ -25,22 +24,26 @@ use crate::{
     encode_signed_execute_nomination_request_params, encode_signed_nominate_params,
     encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_leave_nominators_params,
     encode_signed_schedule_nominator_unbond_params,
-    encode_signed_schedule_revoke_nomination_params, AdminSettings, AwardedPts, BalanceOf, Call,
-    CandidateBondLessRequest, Config, Delay, Era, MinCollatorStake, MinTotalNominatorStake,
-    NominationAction, Pallet, Points, Proof, ScheduledRequest, offence::create_offenders_identification
+    encode_signed_schedule_revoke_nomination_params, offence::create_offenders_identification,
+    AdminSettings, AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config, Delay, Era,
+    MinCollatorStake, MinTotalNominatorStake, NominationAction, Pallet, Points, Proof,
+    ScheduledRequest,
 };
+use codec::{Decode, Encode};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec, Zero};
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
-use frame_system::{self as system, RawOrigin, EventRecord};
+use frame_system::{self as system, EventRecord, RawOrigin};
+use hex_literal::hex;
 use pallet_authorship::EventHandler;
-use codec::{Decode, Encode};
+use pallet_ethereum_transactions::{
+    ethereum_transaction::{EthTransactionType, TriggerGrowthData},
+    CandidateTransactionSubmitter,
+};
 use rand::{RngCore, SeedableRng};
 use sp_application_crypto::KeyTypeId;
-use sp_core::{bounded::BoundedVec, ConstU32, ecdsa};
+use sp_core::{bounded::BoundedVec, ecdsa, ConstU32};
 use sp_runtime::{traits::StaticLookup, RuntimeAppPublic, WeakBoundedVec};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
-use hex_literal::hex;
-use pallet_ethereum_transactions::{CandidateTransactionSubmitter, ethereum_transaction::{TriggerGrowthData, EthTransactionType}};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 
@@ -141,9 +144,7 @@ fn create_funded_authority<T: Config>(
 }
 
 #[cfg(test)]
-fn set_recovered_account_for_tests<T: Config>(
-    sender_account_id: &T::AccountId,
-) {
+fn set_recovered_account_for_tests<T: Config>(sender_account_id: &T::AccountId) {
     let bytes = sender_account_id.encode();
     let mut vector: [u8; 32] = Default::default();
     vector.copy_from_slice(&bytes[0..32]);
@@ -168,12 +169,19 @@ fn set_account_as_collator<T: Config>(
     Ok(())
 }
 
-fn add_collator_to_avn<T: Config>(collator: &T::AccountId) -> Result<Validator<T::AuthorityId, T::AccountId>, &'static str> {
+fn add_collator_to_avn<T: Config>(
+    collator: &T::AccountId,
+) -> Result<Validator<T::AuthorityId, T::AccountId>, &'static str> {
     let key = <T as avn::Config>::AuthorityId::generate_pair(None);
-    let validator: Validator<T::AuthorityId, T::AccountId> = Validator::new(collator.clone(), key.into());
+    let validator: Validator<T::AuthorityId, T::AccountId> =
+        Validator::new(collator.clone(), key.into());
 
     let current_collators = avn::Validators::<T>::get();
-    let new_collators: Vec<_> = current_collators.iter().chain(vec![validator.clone()].iter()).cloned().collect();
+    let new_collators: Vec<_> = current_collators
+        .iter()
+        .chain(vec![validator.clone()].iter())
+        .cloned()
+        .collect();
 
     avn::Validators::<T>::put(WeakBoundedVec::force_from(
         new_collators,
@@ -204,13 +212,20 @@ fn set_session_key<T: Config>(user: &T::AccountId, index: u32) -> Result<(), &'s
     Ok(())
 }
 
-fn get_avn_validators_and_update_keys<T: Config>(sender_to_exclude: &Validator<T::AuthorityId, T::AccountId>) -> Vec<Validator<T::AuthorityId, T::AccountId>> {
-    return AVN::<T>::validators().to_vec().into_iter().filter(|v| v.account_id != sender_to_exclude.account_id).map(|v|{
-        Validator::new(
-            v.account_id.clone(),
-            <T as avn::Config>::AuthorityId::generate_pair(None).into()
-        )
-    }).collect::<_>();
+fn get_avn_validators_and_update_keys<T: Config>(
+    sender_to_exclude: &Validator<T::AuthorityId, T::AccountId>,
+) -> Vec<Validator<T::AuthorityId, T::AccountId>> {
+    return AVN::<T>::validators()
+        .to_vec()
+        .into_iter()
+        .filter(|v| v.account_id != sender_to_exclude.account_id)
+        .map(|v| {
+            Validator::new(
+                v.account_id.clone(),
+                <T as avn::Config>::AuthorityId::generate_pair(None).into(),
+            )
+        })
+        .collect::<_>()
 }
 
 // Simulate staking on finalize by manually setting points
@@ -257,12 +272,18 @@ fn roll_to_and_author<T: Config>(era_delay: u32, author: T::AccountId) {
     let end = Pallet::<T>::era().first + (era_length * total_eras.into());
     while now < end {
         parachain_staking_on_finalize::<T>(author.clone());
-        <frame_system::Pallet<T> as OnFinalize<T::BlockNumber>>::on_finalize(<frame_system::Pallet<T>>::block_number());
+        <frame_system::Pallet<T> as OnFinalize<T::BlockNumber>>::on_finalize(
+            <frame_system::Pallet<T>>::block_number(),
+        );
         <frame_system::Pallet<T>>::set_block_number(
             <frame_system::Pallet<T>>::block_number() + 1u32.into(),
         );
-        <frame_system::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(<frame_system::Pallet<T>>::block_number());
-        <pallet::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(<frame_system::Pallet<T>>::block_number());
+        <frame_system::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(
+            <frame_system::Pallet<T>>::block_number(),
+        );
+        <pallet::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(
+            <frame_system::Pallet<T>>::block_number(),
+        );
         now += 1u32.into();
     }
 }
@@ -279,14 +300,15 @@ fn get_collator_count<T: Config>() -> u32 {
 }
 
 fn get_allowed_max_collators<T: Config>(max_collators: u32) -> u32 {
-    let mut actual_max_collators: u32 = max_collators.min(<<T as Config>::MaxCandidates as Get<u32>>::get() -1 );
+    let mut actual_max_collators: u32 =
+        max_collators.min(<<T as Config>::MaxCandidates as Get<u32>>::get() - 1);
 
     let existing_collators = Pallet::<T>::selected_candidates().len() as u32;
     if actual_max_collators > existing_collators {
         actual_max_collators -= existing_collators;
     }
 
-    return actual_max_collators;
+    return actual_max_collators
 }
 
 fn setup_nomination<T: Config>(
@@ -436,12 +458,13 @@ fn setup_leave_nominator_state<T: Config>(
 fn setup_growths<T: Config>(
     added_by: &T::AccountId,
     number_of_growths: u32,
-    total_staker_reward: Option<BalanceOf<T>>
+    total_staker_reward: Option<BalanceOf<T>>,
 ) {
     for i in 0..number_of_growths {
         let mut growth_info: GrowthInfo<T::AccountId, BalanceOf<T>> = GrowthInfo::new(1u32);
         growth_info.total_stake_accumulated = 10u32.into();
-        growth_info.total_staker_reward = total_staker_reward.or_else(|| Some(0u32.into())).expect("default value given");
+        growth_info.total_staker_reward =
+            total_staker_reward.or_else(|| Some(0u32.into())).expect("default value given");
         growth_info.total_points = 1000u32;
         growth_info.added_by = Some(added_by.clone());
         growth_info.tx_id = Some(i as u64);
@@ -455,17 +478,18 @@ fn setup_voting_parameters<T: Config>() -> (
     ecdsa::Signature,
     <T::AuthorityId as RuntimeAppPublic>::Signature,
 ) {
-
     let growth_id: GrowthId = GrowthId::new(0u32, 1);
     let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("18cd0839a916d8bbd445225aaf45d155bb5e78473432460072184e6d9611e11b3f4fb6a1e3480a2de78315fd921fe0359f89c42b4df45212b5023b2917a563c71c")).unwrap().into();
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
 
     // If the DEV chainspec doesn't use Ferdie, change this to the correct default validator
-    let key_pair = <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
+    let key_pair =
+        <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
     let account_bytes = into_bytes::<T>(&key_pair);
     let voter = T::AccountId::decode(&mut &account_bytes.encode()[..]).unwrap();
     fund_account::<T>(&voter, 1000u32.into());
-    let sender = Validator::new(voter.clone(), <T as avn::Config>::AuthorityId::generate_pair(None).into());
+    let sender =
+        Validator::new(voter.clone(), <T as avn::Config>::AuthorityId::generate_pair(None).into());
 
     (sender, growth_id, approval_signature, signature)
 }
@@ -474,7 +498,7 @@ fn generate_signature<T: pallet_avn::Config>(
 ) -> <<T as avn::Config>::AuthorityId as RuntimeAppPublic>::Signature {
     let encoded_data = 0.encode();
     let authority_id = T::AuthorityId::generate_pair(None);
-    return authority_id.sign(&encoded_data).expect("able to make signature");
+    return authority_id.sign(&encoded_data).expect("able to make signature")
 }
 
 fn setup_voting_session<T: Config>(growth_id: &GrowthId) -> u32 {

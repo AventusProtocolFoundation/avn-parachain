@@ -631,8 +631,9 @@ impl<T: Config> Pallet<T> {
             _ => Err(Error::<T>::ErrorGeneratingEthDescription)?,
         };
 
-        let sender =
-            <T as pallet::Config>::AccountToBytesConvert::into_bytes(&validators_action_data.primary_validator);
+        let sender = <T as pallet::Config>::AccountToBytesConvert::into_bytes(
+            &validators_action_data.primary_validator,
+        );
 
         // Now treat this as an bytes32 parameter and generate signing abi.
         let hex_encoded_confirmation_data =
@@ -761,8 +762,9 @@ impl<T: Config> Pallet<T> {
             decompressed_collator_eth_public_key,
             <T as pallet::Config>::AccountToBytesConvert::into_bytes(&collator_id),
         ));
-        let tx_id =
-            <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(&eth_transaction_type)?;
+        let tx_id = <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(
+            &eth_transaction_type,
+        )?;
 
         Ok((new_collator_id, eth_tx_sender, eth_transaction_type, tx_id))
     }
@@ -861,8 +863,9 @@ impl<T: Config> Pallet<T> {
             AVN::<T>::calculate_primary_validator(<system::Pallet<T>>::block_number())
                 .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
 
-        let tx_id =
-            <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(&eth_transaction_type)?;
+        let tx_id = <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(
+            &eth_transaction_type,
+        )?;
 
         TotalIngresses::<T>::put(ingress_counter);
         <ValidatorActions<T>>::insert(

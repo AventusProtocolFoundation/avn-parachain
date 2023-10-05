@@ -92,8 +92,7 @@ pub fn create_and_report_growth_offence<T: crate::Config>(
             &invalid_event_offence.time_slot(),
         ) {
             let reporters = vec![reporter.clone()];
-            if let Err(e) =
-                T::ReportGrowthOffence::report_offence(reporters, invalid_event_offence)
+            if let Err(e) = T::ReportGrowthOffence::report_offence(reporters, invalid_event_offence)
             {
                 log::info!(
                     target: "pallet-parachain-staking",

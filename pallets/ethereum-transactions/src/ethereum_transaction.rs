@@ -193,7 +193,11 @@ pub struct TriggerGrowthData {
 }
 
 impl TriggerGrowthData {
-    pub fn new(rewards_in_period: u128, average_staked_in_period: u128, period: u32) -> TriggerGrowthData {
+    pub fn new(
+        rewards_in_period: u128,
+        average_staked_in_period: u128,
+        period: u32,
+    ) -> TriggerGrowthData {
         TriggerGrowthData { rewards_in_period, average_staked_in_period, period }
     }
     pub fn to_abi(&self) -> EthTransactionDescription {
@@ -202,13 +206,20 @@ impl TriggerGrowthData {
                 name: String::from("triggerGrowth"),
                 inputs: vec![
                     Param { name: String::from("rewards_in_period"), kind: ParamType::Uint(128) },
-                    Param { name: String::from("average_staked_in_period"), kind: ParamType::Uint(128) },
+                    Param {
+                        name: String::from("average_staked_in_period"),
+                        kind: ParamType::Uint(128),
+                    },
                     Param { name: String::from("period"), kind: ParamType::Uint(32) },
                 ],
                 outputs: Vec::<Param>::new(),
                 constant: false,
             },
-            call_values: vec![Token::Uint(self.rewards_in_period.into()), Token::Uint(self.average_staked_in_period.into()), Token::Uint(self.period.into())],
+            call_values: vec![
+                Token::Uint(self.rewards_in_period.into()),
+                Token::Uint(self.average_staked_in_period.into()),
+                Token::Uint(self.period.into()),
+            ],
         }
     }
 }

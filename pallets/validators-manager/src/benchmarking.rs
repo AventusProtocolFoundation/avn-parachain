@@ -144,9 +144,15 @@ fn setup_resignation_action_data<T: Config>(sender: T::AccountId, ingress_counte
     ));
 
     #[cfg(test)]
-    <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(&candidate_tx.clone()).unwrap();
+    <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(
+        &candidate_tx.clone(),
+    )
+    .unwrap();
     #[cfg(not(test))]
-    <T as pallet::Config>::CandidateTransactionSubmitter::set_transaction_id(&candidate_tx.clone(), eth_transaction_id);
+    <T as pallet::Config>::CandidateTransactionSubmitter::set_transaction_id(
+        &candidate_tx.clone(),
+        eth_transaction_id,
+    );
 
     ValidatorActions::<T>::insert(
         action_account_id,
