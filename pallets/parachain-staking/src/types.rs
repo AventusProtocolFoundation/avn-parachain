@@ -19,13 +19,13 @@
 use crate::{
     set::BoundedOrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era,
     EraIndex, Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet,
-    RewardPoint, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID, TransactionId
+    RewardPoint, TopNominations, Total, TransactionId, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
+use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
     traits::{tokens::WithdrawReasons, LockableCurrency},
 };
-use codec::{Decode, Encode};
 use sp_runtime::{
     traits::{Saturating, Zero},
     RuntimeDebug,

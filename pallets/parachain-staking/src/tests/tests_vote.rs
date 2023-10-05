@@ -3,17 +3,25 @@
 #![cfg(test)]
 
 use super::*;
-use crate::mock::*;
-use frame_system as system;
+use crate::{mock::*, GrowthId, Store, TransactionId, AVN};
 use assert_matches::assert_matches;
 use frame_support::{assert_noop, assert_ok};
+use frame_system as system;
 use pallet_avn::Error as AvNError;
-use sp_runtime::{testing::{UintAuthorityId, TestSignature}, traits::BadOrigin, RuntimeAppPublic};
+use pallet_ethereum_transactions::{
+    ethereum_transaction::{EthTransactionType, TriggerGrowthData},
+    CandidateTransactionSubmitter,
+};
+use sp_core::{
+    ecdsa,
+    offchain::testing::{OffchainState, PendingRequest},
+};
+use sp_runtime::{
+    testing::{TestSignature, UintAuthorityId},
+    traits::BadOrigin,
+    RuntimeAppPublic,
+};
 use system::RawOrigin;
-use pallet_ethereum_transactions::{CandidateTransactionSubmitter, ethereum_transaction::{EthTransactionType, TriggerGrowthData}};
-use crate::{Store, AVN, GrowthId, TransactionId};
-use sp_core::{ecdsa};
-use sp_core::{offchain::{testing::{OffchainState, PendingRequest}}};
 
 const CURRENT_BLOCK_NUMBER: u64 = 10;
 pub const VOTING_PERIOD_END: u64 = 12;
@@ -31,7 +39,7 @@ pub struct Context {
     pub approval_signature: ecdsa::Signature,
     pub growth_id: GrowthId,
     pub tx_id: TransactionId,
-    pub sr_signature: TestSignature
+    pub sr_signature: TestSignature,
 }
 
 pub const DEFAULT_VOTING_PERIOD: u64 = 2;
@@ -44,7 +52,7 @@ fn to_bytes(account_id: AccountId) -> [u8; 32] {
     let bytes = account_id.encode();
     let mut vector: [u8; 32] = Default::default();
     vector.copy_from_slice(&bytes[0..32]);
-    return vector;
+    return vector
 }
 
 pub fn setup_context() -> Context {
@@ -59,7 +67,8 @@ pub fn setup_context() -> Context {
     let sr_signature = validator.key.sign(&(growth_id).encode()).expect("Signature is signed");
     let tx_id = Test::reserve_transaction_id(&EthTransactionType::TriggerGrowth(
         TriggerGrowthData::new(10u128, 10u128, 0u32),
-    )).unwrap();
+    ))
+    .unwrap();
 
     Context {
         current_block_number,
@@ -74,7 +83,7 @@ pub fn setup_context() -> Context {
 }
 
 pub fn get_sign_url_param(growth_id: GrowthId) -> String {
-    return ParachainStaking::convert_data_to_eth_compatible_encoding(&growth_id.period).unwrap();
+    return ParachainStaking::convert_data_to_eth_compatible_encoding(&growth_id.period).unwrap()
 }
 
 pub fn mock_response_of_get_ecdsa_signature(
@@ -130,10 +139,7 @@ fn setup_voting_for_growth_id(context: &Context, number_of_growths: Option<u32>)
     growth_info.tx_id = Some(context.tx_id);
     growth_info.added_by = Some(context.validator.account_id);
 
-    ParachainStaking::insert_growth_data(
-        context.growth_id.period,
-        growth_info,
-    );
+    ParachainStaking::insert_growth_data(context.growth_id.period, growth_info);
     ParachainStaking::insert_pending_approval(&context.growth_id);
     ParachainStaking::register_growth_for_voting(&context.growth_id, QUORUM, VOTING_PERIOD_END);
 
@@ -166,7 +172,10 @@ pub fn vote_to_approve_growth(
     .is_ok()
 }
 
-pub fn vote_to_reject_growth(validator: &Validator<UintAuthorityId, AccountId>, context: &Context) -> bool {
+pub fn vote_to_reject_growth(
+    validator: &Validator<UintAuthorityId, AccountId>,
+    context: &Context,
+) -> bool {
     ParachainStaking::reject_growth(
         RawOrigin::None.into(),
         context.growth_id,
@@ -185,7 +194,16 @@ pub fn get_signature_for_approve_cast_vote(
 ) -> TestSignature {
     signer
         .key
-        .sign(&(context, growth_id.encode(), APPROVE_ROOT, eth_data_to_sign.encode(), eth_signature.encode()).encode())
+        .sign(
+            &(
+                context,
+                growth_id.encode(),
+                APPROVE_ROOT,
+                eth_data_to_sign.encode(),
+                eth_signature.encode(),
+            )
+                .encode(),
+        )
         .expect("Signature is signed")
 }
 
@@ -490,17 +508,17 @@ mod approve_growth {
                 set_mock_recovered_account_id(to_bytes(get_non_validator().account_id));
 
                 let result = ParachainStaking::approve_growth(
-                        RawOrigin::None.into(),
-                        context.growth_id,
-                        get_non_validator(),
-                        context.approval_signature,
-                        context.sr_signature);
+                    RawOrigin::None.into(),
+                    context.growth_id,
+                    get_non_validator(),
+                    context.approval_signature,
+                    context.sr_signature,
+                );
 
                 // We can't use assert_noop here because we return an error after mutating storage
                 assert_matches!(
                     result,
                     Err(e) if e == DispatchError::from(AvNError::<Test>::InvalidECDSASignature));
-
             });
         }
 
@@ -540,7 +558,11 @@ mod approve_growth {
             ext.execute_with(|| {
                 let context = setup_context();
 
-                ParachainStaking::register_growth_for_voting(&context.growth_id, QUORUM, VOTING_PERIOD_END);
+                ParachainStaking::register_growth_for_voting(
+                    &context.growth_id,
+                    QUORUM,
+                    VOTING_PERIOD_END,
+                );
                 ParachainStaking::deregister_growth_for_voting(&context.growth_id);
 
                 assert_noop!(
@@ -567,7 +589,10 @@ mod approve_growth {
                 let context = setup_context();
 
                 setup_voting_for_growth_id(&context, None);
-                ParachainStaking::record_approve_vote(&context.growth_id, context.validator.account_id);
+                ParachainStaking::record_approve_vote(
+                    &context.growth_id,
+                    context.validator.account_id,
+                );
 
                 assert_noop!(
                     ParachainStaking::approve_growth(
@@ -593,7 +618,10 @@ mod approve_growth {
                 let context = setup_context();
 
                 setup_voting_for_growth_id(&context, None);
-                ParachainStaking::record_reject_vote(&context.growth_id, context.validator.account_id);
+                ParachainStaking::record_reject_vote(
+                    &context.growth_id,
+                    context.validator.account_id,
+                );
 
                 assert_noop!(
                     ParachainStaking::approve_growth(
@@ -889,7 +917,11 @@ mod reject_growth {
             ext.execute_with(|| {
                 let context = setup_context();
 
-                ParachainStaking::register_growth_for_voting(&context.growth_id, QUORUM, VOTING_PERIOD_END);
+                ParachainStaking::register_growth_for_voting(
+                    &context.growth_id,
+                    QUORUM,
+                    VOTING_PERIOD_END,
+                );
                 ParachainStaking::deregister_growth_for_voting(&context.growth_id);
 
                 assert_noop!(
@@ -915,7 +947,10 @@ mod reject_growth {
                 let context = setup_context();
 
                 setup_voting_for_growth_id(&context, None);
-                ParachainStaking::record_reject_vote(&context.growth_id, context.validator.account_id);
+                ParachainStaking::record_reject_vote(
+                    &context.growth_id,
+                    context.validator.account_id,
+                );
 
                 assert_noop!(
                     ParachainStaking::reject_growth(
@@ -940,7 +975,10 @@ mod reject_growth {
                 let context = setup_context();
 
                 setup_voting_for_growth_id(&context, None);
-                ParachainStaking::record_approve_vote(&context.growth_id, context.validator.account_id);
+                ParachainStaking::record_approve_vote(
+                    &context.growth_id,
+                    context.validator.account_id,
+                );
 
                 assert_noop!(
                     ParachainStaking::reject_growth(
@@ -1005,18 +1043,17 @@ mod cast_votes_if_required {
 
                 setup_voting_for_growth_id(&context, None);
 
-                assert!(set_vote_lock_with_expiry(context.current_block_number, &context.growth_id));
+                assert!(set_vote_lock_with_expiry(
+                    context.current_block_number,
+                    &context.growth_id
+                ));
 
                 let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
-                cast_votes_if_required::<Test>(
-                    context.current_block_number,
-                    &second_validator,
-                );
+                cast_votes_if_required::<Test>(context.current_block_number, &second_validator);
 
                 assert!(pool_state.read().transactions.is_empty());
             });
         }
-
     }
 
     #[test]
@@ -1078,7 +1115,8 @@ mod cast_votes_if_required {
             let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
             let bad_total_staker_reward = 0u128;
-            let mut growth_data = ParachainStaking::try_get_growth_data(&context.growth_id.period).unwrap();
+            let mut growth_data =
+                ParachainStaking::try_get_growth_data(&context.growth_id.period).unwrap();
             growth_data.total_staker_reward = bad_total_staker_reward;
             ParachainStaking::insert_growth_data(context.growth_id.period, growth_data);
 
@@ -1102,9 +1140,8 @@ mod cast_votes_if_required {
                 })
             );
         });
-   }
+    }
 }
-
 
 mod end_voting_period {
     use super::*;
@@ -1129,8 +1166,15 @@ mod end_voting_period {
                     context.sr_signature.clone(),
                 )
                 .is_ok());
-                assert_eq!(Some(true), ParachainStaking::try_get_growth_data(&context.growth_id.period).unwrap().triggered);
-                assert!(!<ParachainStaking as Store>::PendingApproval::contains_key(&context.growth_id.period));
+                assert_eq!(
+                    Some(true),
+                    ParachainStaking::try_get_growth_data(&context.growth_id.period)
+                        .unwrap()
+                        .triggered
+                );
+                assert!(!<ParachainStaking as Store>::PendingApproval::contains_key(
+                    &context.growth_id.period
+                ));
 
                 assert!(System::events().iter().any(|a| a.event ==
                     mock::RuntimeEvent::ParachainStaking(crate::Event::<Test>::VotingEnded {
@@ -1158,8 +1202,15 @@ mod end_voting_period {
                     context.sr_signature.clone(),
                 )
                 .is_ok());
-                assert_eq!(None, ParachainStaking::try_get_growth_data(&context.growth_id.period).unwrap().triggered);
-                assert!(!<ParachainStaking as Store>::PendingApproval::contains_key(&context.growth_id.period));
+                assert_eq!(
+                    None,
+                    ParachainStaking::try_get_growth_data(&context.growth_id.period)
+                        .unwrap()
+                        .triggered
+                );
+                assert!(!<ParachainStaking as Store>::PendingApproval::contains_key(
+                    &context.growth_id.period
+                ));
 
                 assert!(System::events().iter().any(|a| a.event ==
                     mock::RuntimeEvent::ParachainStaking(crate::Event::<Test>::VotingEnded {
@@ -1255,10 +1306,18 @@ mod end_voting_period {
 
                     setup_approved_growth(context.clone());
 
-                    let mut growth_data = ParachainStaking::try_get_growth_data(&GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR).unwrap();
-                    growth_data.total_staker_reward = TOTAL_REWARD_IN_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR;
-                    growth_data.total_stake_accumulated = AVERAGE_STAKE_THAT_CAUSES_SUBMISSION_TO_T1_ERROR;
-                    ParachainStaking::insert_growth_data(GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR, growth_data);
+                    let mut growth_data = ParachainStaking::try_get_growth_data(
+                        &GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,
+                    )
+                    .unwrap();
+                    growth_data.total_staker_reward =
+                        TOTAL_REWARD_IN_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR;
+                    growth_data.total_stake_accumulated =
+                        AVERAGE_STAKE_THAT_CAUSES_SUBMISSION_TO_T1_ERROR;
+                    ParachainStaking::insert_growth_data(
+                        GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR,
+                        growth_data,
+                    );
 
                     assert_noop!(
                         ParachainStaking::end_voting_period(
@@ -1332,7 +1391,12 @@ mod end_voting_period {
                         context.sr_signature.clone()
                     ));
                     assert_eq!(true, ParachainStaking::get_vote(context.growth_id).has_outcome());
-                    assert_eq!(Some(true), ParachainStaking::try_get_growth_data(&context.growth_id.period).unwrap().triggered);
+                    assert_eq!(
+                        Some(true),
+                        ParachainStaking::try_get_growth_data(&context.growth_id.period)
+                            .unwrap()
+                            .triggered
+                    );
                     assert_eq!(true, ParachainStaking::get_vote(context.growth_id).is_approved());
 
                     assert_eq!(
@@ -1402,7 +1466,12 @@ mod end_voting_period {
                         context.sr_signature.clone()
                     ));
                     assert_eq!(true, ParachainStaking::get_vote(context.growth_id).has_outcome());
-                    assert_eq!(None, ParachainStaking::try_get_growth_data(&context.growth_id.period).unwrap().triggered);
+                    assert_eq!(
+                        None,
+                        ParachainStaking::try_get_growth_data(&context.growth_id.period)
+                            .unwrap()
+                            .triggered
+                    );
                     assert_eq!(false, ParachainStaking::get_vote(context.growth_id).is_approved());
 
                     assert_eq!(
@@ -1474,9 +1543,20 @@ mod end_voting_period {
 
                     end_voting_without_outcome(&context);
 
-                    assert_eq!(false, ParachainStaking::get_vote(context.growth_id.clone()).has_outcome());
-                    assert_eq!(None, ParachainStaking::try_get_growth_data(&context.growth_id.period).unwrap().triggered);
-                    assert_eq!(false, ParachainStaking::get_vote(context.growth_id.clone()).is_approved());
+                    assert_eq!(
+                        false,
+                        ParachainStaking::get_vote(context.growth_id.clone()).has_outcome()
+                    );
+                    assert_eq!(
+                        None,
+                        ParachainStaking::try_get_growth_data(&context.growth_id.period)
+                            .unwrap()
+                            .triggered
+                    );
+                    assert_eq!(
+                        false,
+                        ParachainStaking::get_vote(context.growth_id.clone()).is_approved()
+                    );
                 });
             }
 
@@ -1530,6 +1610,6 @@ mod end_voting_period {
                     );
                 });
             }
-       }
+        }
     }
 }

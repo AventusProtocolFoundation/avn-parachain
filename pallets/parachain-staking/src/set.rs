@@ -15,8 +15,8 @@
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
 /* TODO: use orml_utilities::OrderedSet without leaking substrate v2.0 dependencies */
-use frame_support::traits::Get;
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::traits::Get;
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};

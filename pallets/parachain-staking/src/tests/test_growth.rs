@@ -8,8 +8,8 @@ use crate::{
     BalanceOf, CollatorScore, EraIndex, Error, Event, Growth, GrowthInfo, GrowthPeriod,
     GrowthPeriodInfo, ProcessedGrowthPeriods,
 };
-use frame_support::{assert_noop, assert_ok};
 use codec::{Decode, Encode};
+use frame_support::{assert_noop, assert_ok};
 use sp_runtime::Perbill;
 use std::collections::HashMap;
 

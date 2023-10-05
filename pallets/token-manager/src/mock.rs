@@ -24,19 +24,21 @@ use frame_support::{
     PalletId,
 };
 use frame_system::{self as system, limits};
+use pallet_ethereum_transactions::{
+    ethereum_transaction::EthTransactionType, CandidateTransactionSubmitter,
+};
 use pallet_transaction_payment::CurrencyAdapter;
-use pallet_ethereum_transactions::{CandidateTransactionSubmitter, ethereum_transaction::{EthTransactionType}};
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
+    bounds::MaximumValidatorsBound,
     event_types::{EthEventId, LiftedData, ValidEvents},
-    bounds::MaximumValidatorsBound
 };
-use sp_core::{sr25519, Pair, H256, ecdsa, bounded::BoundedVec};
+use sp_core::{bounded::BoundedVec, ecdsa, sr25519, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
-    testing::{Header, UintAuthorityId, TestXt},
+    testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
-    Perbill, SaturatedConversion, DispatchError,
+    DispatchError, Perbill, SaturatedConversion,
 };
 
 use hex_literal::hex;

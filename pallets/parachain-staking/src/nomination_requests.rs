@@ -19,8 +19,8 @@ use crate::{
     BalanceOf, CandidateInfo, Config, Delay, Era, EraIndex, Error, Event, MinTotalNominatorStake,
     NominationScheduledRequests, Nominator, NominatorState, Pallet, Total,
 };
-use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get, RuntimeDebug};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get, RuntimeDebug};
 use scale_info::TypeInfo;
 use sp_runtime::{traits::Saturating, BoundedVec};
 use sp_std::vec;

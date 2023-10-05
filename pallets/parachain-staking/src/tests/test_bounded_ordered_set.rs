@@ -2,8 +2,8 @@
 mod tests {
     use core::fmt::Debug;
 
-    use frame_support::traits::Get;
     use codec::{Decode, Encode, MaxEncodedLen};
+    use frame_support::traits::Get;
     use scale_info::TypeInfo;
     use sp_core::RuntimeDebug;
     use sp_runtime::BoundedVec;

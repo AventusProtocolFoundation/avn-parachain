@@ -7,8 +7,8 @@
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    BalanceOf, Config, Growth, GrowthInfo,
-    Pallet, ProcessedGrowthPeriods, LastTriggeredGrowthPeriod, Vec, VotingPeriod,
+    BalanceOf, Config, Growth, GrowthInfo, LastTriggeredGrowthPeriod, Pallet,
+    ProcessedGrowthPeriods, Vec, VotingPeriod,
 };
 use frame_support::{
     dispatch::GetStorageVersion,
@@ -19,33 +19,38 @@ use frame_support::{
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
-pub fn enable_automatic_growth<T: Config>() -> Weight {        
+pub fn enable_automatic_growth<T: Config>() -> Weight {
     let initial_voting_period: T::BlockNumber = 100u32.into();
     let mut consumed_weight: Weight = Weight::from_ref_time(0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
     };
-    
+
     log::info!("🚧 🚧 Running migration to enable automatic growths");
-        
+
     // We only have a handfull of these so performance is not an issue here.
-    let mut processed_growth_periods: Vec<u32> = <ProcessedGrowthPeriods<T>>::iter_keys().collect::<Vec<_>>();
+    let mut processed_growth_periods: Vec<u32> =
+        <ProcessedGrowthPeriods<T>>::iter_keys().collect::<Vec<_>>();
     processed_growth_periods.sort();
     processed_growth_periods.reverse();
-    let latest_processed_growth_period: u32 = processed_growth_periods.into_iter().nth(0).or_else(|| Some(0)).expect("we have a default value");
-    
+    let latest_processed_growth_period: u32 = processed_growth_periods
+        .into_iter()
+        .nth(0)
+        .or_else(|| Some(0))
+        .expect("we have a default value");
+
     <LastTriggeredGrowthPeriod<T>>::put(latest_processed_growth_period);
     <VotingPeriod<T>>::put(initial_voting_period);
-        
+
     Growth::<T>::translate::<GrowthInfo<T::AccountId, BalanceOf<T>>, _>(
         |period, mut growth_info| {
-            add_weight(1, 1, Weight::from_ref_time(0));                        
+            add_weight(1, 1, Weight::from_ref_time(0));
             growth_info.added_by = None;
             growth_info.tx_id = None;
             growth_info.triggered = None;
 
-            if period <= latest_processed_growth_period {                
+            if period <= latest_processed_growth_period {
                 growth_info.tx_id = Some(0);
                 growth_info.triggered = Some(true);
             }
