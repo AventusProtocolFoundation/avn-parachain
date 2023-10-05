@@ -247,21 +247,26 @@ pub mod pallet {
         fn offchain_worker(_block_number: T::BlockNumber) {
             // TODO: use actual self account
             let this_account: [u8; 32] = [0u8; 32];
-        
+
             for tx_id in UnresolvedTxList::<T>::get() {
                 let mut tx_data = Transactions::<T>::get(tx_id);
                 if let Some(sending_author) = tx_data.sending_author {
                     let this_account_is_sender = sending_author == this_account;
-        
-                    if !Self::quorum_is_reached(tx_data.confirmations.len()) && !this_account_is_sender {
+
+                    if !Self::quorum_is_reached(tx_data.confirmations.len()) &&
+                        !this_account_is_sender
+                    {
                         match sign_confirmation_msg_hash::<T>(tx_data.msg_hash) {
                             Ok(confirmation) => {
                                 let call = Call::<T>::add_confirmation { tx_id, confirmation };
-                                let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+                                let _ =
+                                    SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+                                        call.into(),
+                                    );
                             },
                             Err(err) => {
                                 log::error!("❌ Error signing confirmation: {:?}", err);
-                            }
+                            },
                         }
                     } else if Self::quorum_is_reached(tx_data.confirmations.len()) {
                         if this_account_is_sender {
@@ -273,23 +278,37 @@ pub mod pallet {
                                             <Transactions<T>>::insert(tx_id, tx_data);
                                         },
                                         Err(err) => {
-                                            log::error!("❌ Error calling AVN bridge contract: {:?}", err);
-                                        }
+                                            log::error!(
+                                                "❌ Error calling AVN bridge contract: {:?}",
+                                                err
+                                            );
+                                        },
                                     }
                                 },
                                 Err(err) => {
-                                    log::error!("❌ Error generating transaction calldata: {:?}", err);
-                                }
+                                    log::error!(
+                                        "❌ Error generating transaction calldata: {:?}",
+                                        err
+                                    );
+                                },
                             }
                         } else if tx_data.eth_tx_hash != H256::zero() {
                             match Self::check_ethereum(tx_id, tx_data.expiry) {
                                 EthTxState::Unresolved => {},
                                 EthTxState::Succeeded => {
-                                    let call = Call::<T>::add_corroboration { tx_id, author: this_account, succeeded: true };
+                                    let call = Call::<T>::add_corroboration {
+                                        tx_id,
+                                        author: this_account,
+                                        succeeded: true,
+                                    };
                                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                                 },
                                 EthTxState::Failed => {
-                                    let call = Call::<T>::add_corroboration { tx_id, author: this_account, succeeded: false };
+                                    let call = Call::<T>::add_corroboration {
+                                        tx_id,
+                                        author: this_account,
+                                        succeeded: false,
+                                    };
                                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                                 },
                             }
@@ -299,7 +318,7 @@ pub mod pallet {
                     log::error!("❌ No sending author found for the transaction.");
                 }
             }
-        }   
+        }
     }
 
     fn sign_confirmation_msg_hash<T: Config>(msg_hash: H256) -> Result<[u8; 65], DispatchError> {
@@ -339,11 +358,11 @@ pub mod pallet {
         Failed,
     }
 
-    pub type FunctionLimit = ConstU32<FUNCTION_NAME_CHAR_LIMIT>; // Max chars in T1 function name
-    pub type ParamsLimit = ConstU32<PARAMS_LIMIT>; // Max params (not including expiry, t2TxId, confirmations)
-    pub type TypeLimit = ConstU32<TYPE_CHAR_LIMIT>; // Max chars in a T1 type name
-    pub type ValueLimit = ConstU32<VALUE_CHAR_LIMIT>; // Max chars in a value
-    pub type ConfirmationsLimit = ConstU32<CONFIRMATIONS_LIMIT>; // Confirmations/corroborations limit
+    pub type FunctionLimit = ConstU32<FUNCTION_NAME_CHAR_LIMIT>;
+    pub type ParamsLimit = ConstU32<PARAMS_LIMIT>;
+    pub type TypeLimit = ConstU32<TYPE_CHAR_LIMIT>;
+    pub type ValueLimit = ConstU32<VALUE_CHAR_LIMIT>;
+    pub type ConfirmationsLimit = ConstU32<CONFIRMATIONS_LIMIT>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]

@@ -8,8 +8,8 @@
 use crate::*;
 
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
+use frame_support::{ensure, pallet_prelude::ConstU32, BoundedVec};
 use frame_system::RawOrigin;
-use frame_support::{BoundedVec, ensure, pallet_prelude::ConstU32};
 
 pub type FunctionLimit = ConstU32<{ crate::FUNCTION_NAME_CHAR_LIMIT }>;
 pub type ParamsLimit = ConstU32<{ crate::PARAMS_LIMIT }>;
@@ -18,12 +18,15 @@ pub type ValueLimit = ConstU32<{ crate::VALUE_CHAR_LIMIT }>;
 
 fn setup_tx_data<T: Config>(tx_id: u32, num_confirmations: u32) {
     let function_name: Vec<u8> = b"publishRoot".to_vec();
-    let function_name_bounded: BoundedVec<u8, FunctionLimit> = BoundedVec::try_from(function_name).unwrap();
+    let function_name_bounded: BoundedVec<u8, FunctionLimit> =
+        BoundedVec::try_from(function_name).unwrap();
     let param_type: Vec<u8> = b"bytes32".to_vec();
     let param_type_bounded: BoundedVec<u8, TypeLimit> = BoundedVec::try_from(param_type).unwrap();
     let param_value: Vec<u8> = b"bytes32".to_vec();
-    let param_value_bounded: BoundedVec<u8, ValueLimit> = BoundedVec::try_from(param_value).unwrap();
-    let params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit> = BoundedVec::try_from(vec![(param_type_bounded, param_value_bounded)]).unwrap();
+    let param_value_bounded: BoundedVec<u8, ValueLimit> =
+        BoundedVec::try_from(param_value).unwrap();
+    let params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit> =
+        BoundedVec::try_from(vec![(param_type_bounded, param_value_bounded)]).unwrap();
 
     let tx_data = TransactionData {
         function_name: function_name_bounded,
@@ -42,7 +45,7 @@ fn setup_tx_data<T: Config>(tx_id: u32, num_confirmations: u32) {
         eth_tx_hash: H256::repeat_byte(3),
         state: EthTxState::Unresolved,
     };
-    
+
     Transactions::<T>::insert(tx_id, tx_data);
 }
 
@@ -59,10 +62,8 @@ fn setup_corroborations<T: Config>(tx_id: u32, num_success: u32, num_failure: u3
         failure_corroborations.try_push(author).unwrap();
     }
 
-    let corroboration_data = CorroborationData {
-        success: success_corroborations,
-        failure: failure_corroborations,
-    };
+    let corroboration_data =
+        CorroborationData { success: success_corroborations, failure: failure_corroborations };
 
     Corroborations::<T>::insert(tx_id, corroboration_data);
 
@@ -70,7 +71,6 @@ fn setup_corroborations<T: Config>(tx_id: u32, num_success: u32, num_failure: u3
     let bounded_unresolved_txs = BoundedVec::try_from(unresolved_txs).unwrap();
     UnresolvedTxList::<T>::put(bounded_unresolved_txs);
 }
-
 
 benchmarks! {
     set_eth_tx_lifetime_secs {
@@ -92,14 +92,14 @@ benchmarks! {
         let tx_data = Transactions::<T>::get(tx_id);
         ensure!(tx_data.confirmations.contains(&new_confirmation), "Confirmation not added");
     }
-    
+
     add_corroboration {
         let tx_id = 1u32;
         let author: [u8; 32] = [4u8; 32];
         setup_tx_data::<T>(tx_id, 3);
         setup_corroborations::<T>(tx_id, 3, 3);
         let succeeded = true;
-        
+
     }: _(RawOrigin::None, tx_id, author, succeeded)
     verify {
         let corroboration_data = Corroborations::<T>::get(tx_id);
