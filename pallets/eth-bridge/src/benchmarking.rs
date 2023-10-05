@@ -98,7 +98,7 @@ fn encode_add_confirmation_proof(tx_id: u32, confirmation: [u8; 65], author: [u8
 }
 
 fn encode_add_corroboration_proof(tx_id: u32, succeeded: bool, author: [u8; 32]) -> Vec<u8> {
-    return (crate::ADD_CONFIRMATION_CONTEXT, tx_id.clone(), succeeded, author.clone()).encode()
+    return (crate::ADD_CORROBORATION_CONTEXT, tx_id.clone(), succeeded, author.clone()).encode()
 }
 
 benchmarks! {

@@ -623,7 +623,7 @@ pub mod pallet {
             succeeded: bool,
             author: [u8; 32],
         ) -> Vec<u8> {
-            return (ADD_CONFIRMATION_CONTEXT, tx_id.clone(), succeeded, author.clone()).encode()
+            return (ADD_CORROBORATION_CONTEXT, tx_id.clone(), succeeded, author.clone()).encode()
         }
 
         fn send_transaction_to_ethereum(tx_id: u32, mut tx_data: TransactionData) {
