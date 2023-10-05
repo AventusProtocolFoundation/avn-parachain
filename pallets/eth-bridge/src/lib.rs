@@ -31,6 +31,12 @@ use sp_runtime::{
 };
 
 mod benchmarking;
+#[cfg(test)]
+#[path = "tests/mock.rs"]
+mod mock;
+#[cfg(test)]
+#[path = "tests/tests.rs"]
+mod tests;
 
 pub use pallet::*;
 pub mod default_weights;
@@ -843,11 +849,3 @@ pub mod pallet {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "tests/mock.rs"]
-mod mock;
-
-#[cfg(test)]
-#[path = "tests/tests.rs"]
-pub mod tests;
