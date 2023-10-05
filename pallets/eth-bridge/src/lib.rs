@@ -15,7 +15,7 @@ use core::convert::TryInto;
 use ethabi::{Function, Int, Param, ParamType, Token};
 use frame_support::{dispatch::DispatchResultWithPostInfo, log, traits::IsSubType, BoundedVec};
 use frame_system::{
-    ensure_none, ensure_root, ensure_signed,
+    ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
     pallet_prelude::OriginFor,
 };
@@ -157,7 +157,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(10_000)] // TODO: set actual weight
+        #[pallet::weight(<T as Config>::WeightInfo::add_confirmation(CONFIRMATIONS_LIMIT))]
         pub fn add_confirmation(
             origin: OriginFor<T>,
             tx_id: u32,
@@ -185,15 +185,14 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(10_000)] // TODO: set actual weight
+        #[pallet::weight(<T as Config>::WeightInfo::add_corroboration())]
         pub fn add_corroboration(
             origin: OriginFor<T>,
             tx_id: u32,
+            author: [u8; 32],
             succeeded: bool,
         ) -> DispatchResultWithPostInfo {
-            let author = ensure_signed(origin)?;
-            let author: [u8; 32] =
-                author.encode().try_into().expect("AccountId should be 32 bytes");
+            ensure_none(origin)?;
 
             if !UnresolvedTxList::<T>::get().contains(&tx_id) {
                 return Ok(().into())
@@ -286,11 +285,11 @@ pub mod pallet {
                             match Self::check_ethereum(tx_id, tx_data.expiry) {
                                 EthTxState::Unresolved => {},
                                 EthTxState::Succeeded => {
-                                    let call = Call::<T>::add_corroboration { tx_id, succeeded: true };
+                                    let call = Call::<T>::add_corroboration { tx_id, author: this_account, succeeded: true };
                                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                                 },
                                 EthTxState::Failed => {
-                                    let call = Call::<T>::add_corroboration { tx_id, succeeded: false };
+                                    let call = Call::<T>::add_corroboration { tx_id, author: this_account, succeeded: false };
                                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
                                 },
                             }
@@ -300,8 +299,7 @@ pub mod pallet {
                     log::error!("❌ No sending author found for the transaction.");
                 }
             }
-        }
-        
+        }   
     }
 
     fn sign_confirmation_msg_hash<T: Config>(msg_hash: H256) -> Result<[u8; 65], DispatchError> {
@@ -323,7 +321,7 @@ pub mod pallet {
                         .and_provides((call, tx_id))
                         .priority(TransactionPriority::max_value())
                         .build(),
-                Call::add_corroboration { tx_id, succeeded: _ } =>
+                Call::add_corroboration { tx_id, author: _, succeeded: _ } =>
                     ValidTransaction::with_tag_prefix("EthBridgeAddCorroboration")
                         .and_provides((call, tx_id))
                         .priority(TransactionPriority::max_value())
