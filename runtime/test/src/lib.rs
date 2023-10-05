@@ -679,6 +679,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type MaxUnresolvedTx = ConstU32<1000>;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
+    type AccountToBytesConvert = Avn;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
 }
