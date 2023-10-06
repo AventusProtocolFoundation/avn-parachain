@@ -7,8 +7,9 @@
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    BalanceOf, Config, Growth, GrowthInfo, LastTriggeredGrowthPeriod, Pallet,
-    ProcessedGrowthPeriods, Vec, VotingPeriod,
+    BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32, Decode, Encode, Growth,
+    GrowthInfo, GrowthPeriodIndex, LastTriggeredGrowthPeriod, MaxEncodedLen, Pallet,
+    ProcessedGrowthPeriods, RewardPoint, RuntimeDebug, TypeInfo, Vec, VotingPeriod,
 };
 use frame_support::{
     dispatch::GetStorageVersion,
@@ -18,6 +19,15 @@ use frame_support::{
 };
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+
+#[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub struct OldGrowthInfo<AccountId, Balance> {
+    pub number_of_accumulations: GrowthPeriodIndex,
+    pub total_stake_accumulated: Balance,
+    pub total_staker_reward: Balance,
+    pub total_points: RewardPoint,
+    pub collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
+}
 
 pub fn enable_automatic_growth<T: Config>() -> Weight {
     let initial_voting_period: T::BlockNumber = 100u32.into();
@@ -43,19 +53,25 @@ pub fn enable_automatic_growth<T: Config>() -> Weight {
     <LastTriggeredGrowthPeriod<T>>::put(latest_processed_growth_period);
     <VotingPeriod<T>>::put(initial_voting_period);
 
-    Growth::<T>::translate::<GrowthInfo<T::AccountId, BalanceOf<T>>, _>(
-        |period, mut growth_info| {
+    Growth::<T>::translate::<OldGrowthInfo<T::AccountId, BalanceOf<T>>, _>(
+        |period, growth_info| {
             add_weight(1, 1, Weight::from_ref_time(0));
-            growth_info.added_by = None;
-            growth_info.tx_id = None;
-            growth_info.triggered = None;
+
+            let mut new_growth_info = GrowthInfo::new(growth_info.number_of_accumulations);
+            new_growth_info.total_stake_accumulated = growth_info.total_stake_accumulated;
+            new_growth_info.total_staker_reward = growth_info.total_staker_reward;
+            new_growth_info.total_points = growth_info.total_points;
+            new_growth_info.collator_scores = growth_info.collator_scores;
+            new_growth_info.added_by = None;
+            new_growth_info.tx_id = None;
+            new_growth_info.triggered = None;
 
             if period <= latest_processed_growth_period {
-                growth_info.tx_id = Some(0);
-                growth_info.triggered = Some(true);
+                new_growth_info.tx_id = Some(0);
+                new_growth_info.triggered = Some(true);
             }
 
-            Some(growth_info)
+            Some(new_growth_info)
         },
     );
 
