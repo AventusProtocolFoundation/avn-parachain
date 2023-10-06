@@ -64,6 +64,7 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 use pallet_avn_proxy::ProvableProxy;
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
 use sp_avn_common::{InnerCallValidator, Proof};
+use pallet_eth_bridge::HandleEthTxResult;
 
 use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -670,6 +671,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type AccountToBytesConvert = Avn;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
+    type HandleEthTxResult = Runtime;
 }
 
 // Other pallets
@@ -1020,4 +1022,10 @@ cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
     CheckInherents = CheckInherents,
+}
+
+impl HandleEthTxResult for Runtime {
+    fn result(_tx_id: u32, _succeeded: bool) {
+        // placeholder till other pallets implement it
+    }
 }

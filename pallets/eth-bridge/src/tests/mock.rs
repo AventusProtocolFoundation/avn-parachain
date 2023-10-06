@@ -47,6 +47,7 @@ impl Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type AccountToBytesConvert = U64To32BytesConverter;
+    type HandleEthTxResult = TestRuntime;
 }
 
 impl system::Config for TestRuntime {
@@ -119,5 +120,11 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut self.storage);
         self
+    }
+}
+
+impl HandleEthTxResult for TestRuntime {
+    fn result(tx_id: u32, succeeded: bool) {
+        println!("Tx ID: {}, Succeeded?: {}", tx_id, succeeded);
     }
 }

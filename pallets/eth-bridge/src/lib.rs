@@ -113,6 +113,11 @@ pub mod pallet {
             + From<Call<Self>>;
         type MaxUnresolvedTx: Get<u32>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
+        type HandleEthTxResult: HandleEthTxResult;
+    }
+
+    pub trait HandleEthTxResult {
+        fn result(tx_id: u32, tx_succeeded: bool);
     }
 
     #[pallet::event]
@@ -239,7 +244,7 @@ pub mod pallet {
         pub fn add_corroboration(
             origin: OriginFor<T>,
             tx_id: u32,
-            succeeded: bool,
+            tx_succeeded: bool,
             author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
@@ -252,9 +257,9 @@ pub mod pallet {
             let author_account_id =
                 Some(T::AccountToBytesConvert::into_bytes(&author.account_id)).unwrap();
             let mut corroborations = Corroborations::<T>::get(tx_id);
-            let mut tx_data = Transactions::<T>::get(tx_id);
+            let num_corroborations;
 
-            if succeeded {
+            if tx_succeeded {
                 if !corroborations.success.contains(&author_account_id) {
                     let mut tmp_vec = Vec::new();
                     tmp_vec.push(author_account_id);
@@ -263,13 +268,7 @@ pub mod pallet {
                         .try_append(&mut tmp_vec)
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
-
-                if Self::consensus_is_reached(corroborations.success.len()) {
-                    tx_data.status = EthTxStatus::Succeeded;
-                    // TODO: run COMMIT callback here
-                    Self::remove_from_unresolved_tx_list(tx_id)?;
-                    Corroborations::<T>::remove(tx_id);
-                }
+                num_corroborations = corroborations.success.len();       
             } else {
                 if !corroborations.failure.contains(&author_account_id) {
                     let mut tmp_vec = Vec::new();
@@ -279,17 +278,14 @@ pub mod pallet {
                         .try_append(&mut tmp_vec)
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
-
-                if Self::consensus_is_reached(corroborations.failure.len()) {
-                    tx_data.status = EthTxStatus::Failed;
-                    // TODO: run ROLLBACK callback here
-                    Self::remove_from_unresolved_tx_list(tx_id)?;
-                    Corroborations::<T>::remove(tx_id);
-                }
+                num_corroborations = corroborations.failure.len();
+            }  
+            
+            if Self::consensus_is_reached(num_corroborations) {
+                Self::finalize_state(tx_id, tx_succeeded)?;
+            } else {
+                <Corroborations<T>>::insert(tx_id, corroborations);
             }
-
-            <Transactions<T>>::insert(tx_id, tx_data);
-            <Corroborations<T>>::insert(tx_id, corroborations);
 
             Ok(().into())
         }
@@ -336,9 +332,9 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(1u8).into()
                     },
-                Call::add_corroboration { tx_id, succeeded, author, signature } =>
+                Call::add_corroboration { tx_id, tx_succeeded, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CORROBORATION_CONTEXT, tx_id.clone(), succeeded, author),
+                        &(ADD_CORROBORATION_CONTEXT, tx_id.clone(), tx_succeeded, author),
                         &author,
                         signature,
                     ) {
@@ -681,15 +677,15 @@ pub mod pallet {
 
         fn provide_corroboration(
             tx_id: u32,
-            succeeded: bool,
+            tx_succeeded: bool,
             author: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             author_account_id: [u8; 32],
         ) {
-            let proof = Self::encode_add_corroboration_proof(tx_id, succeeded, author_account_id);
+            let proof = Self::encode_add_corroboration_proof(tx_id, tx_succeeded, author_account_id);
             let signature = author.key.sign(&proof).expect("Error signing proof");
             let call = Call::<T>::add_corroboration {
                 tx_id,
-                succeeded,
+                tx_succeeded,
                 author: author.clone(),
                 signature,
             };
@@ -698,13 +694,14 @@ pub mod pallet {
 
         fn encode_add_corroboration_proof(
             tx_id: u32,
-            succeeded: bool,
+            tx_succeeded: bool,
             author_account_id: [u8; 32],
         ) -> Vec<u8> {
-            return (ADD_CORROBORATION_CONTEXT, tx_id.clone(), succeeded, author_account_id.clone())
+            return (ADD_CORROBORATION_CONTEXT, tx_id.clone(), tx_succeeded, author_account_id.clone())
                 .encode()
         }
 
+              
         fn send_transaction_to_ethereum(
             tx_id: u32,
             mut tx_data: TransactionData,
@@ -896,6 +893,17 @@ pub mod pallet {
             }
 
             Ok(result[0] as i8)
+        }
+
+        fn finalize_state(tx_id: u32, tx_succeeded: bool) -> Result<(), DispatchError> {
+            let mut tx_data = Transactions::<T>::get(tx_id);
+            tx_data.status = if tx_succeeded { EthTxStatus::Succeeded } else { EthTxStatus::Failed };
+            // Alert the originating pallet:
+            T::HandleEthTxResult::result(tx_id, tx_succeeded);
+            Self::remove_from_unresolved_tx_list(tx_id)?;
+            Corroborations::<T>::remove(tx_id);
+            <Transactions<T>>::insert(tx_id, tx_data);
+            Ok(())
         }
     }
 }

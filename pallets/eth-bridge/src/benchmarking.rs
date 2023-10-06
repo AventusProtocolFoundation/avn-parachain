@@ -97,8 +97,8 @@ fn encode_add_confirmation_proof(tx_id: u32, confirmation: [u8; 65], author: [u8
     return (crate::ADD_CONFIRMATION_CONTEXT, tx_id.clone(), confirmation, author.clone()).encode()
 }
 
-fn encode_add_corroboration_proof(tx_id: u32, succeeded: bool, author: [u8; 32]) -> Vec<u8> {
-    return (crate::ADD_CORROBORATION_CONTEXT, tx_id.clone(), succeeded, author.clone()).encode()
+fn encode_add_corroboration_proof(tx_id: u32, tx_succeeded: bool, author: [u8; 32]) -> Vec<u8> {
+    return (crate::ADD_CORROBORATION_CONTEXT, tx_id.clone(), tx_succeeded, author.clone()).encode()
 }
 
 benchmarks! {
@@ -130,10 +130,10 @@ benchmarks! {
         let tx_id = 1u32;
         setup_tx_data::<T>(tx_id, 3);
         setup_corroborations::<T>(tx_id, 3, 3);
-        let succeeded = true;
-        let proof = encode_add_corroboration_proof(tx_id, succeeded, author_account_id);
+        let tx_succeeded = true;
+        let proof = encode_add_corroboration_proof(tx_id, tx_succeeded, author_account_id);
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: _(RawOrigin::None, tx_id, succeeded, author, signature)
+    }: _(RawOrigin::None, tx_id, tx_succeeded, author, signature)
     verify {
         let corroboration_data = Corroborations::<T>::get(tx_id);
         ensure!(corroboration_data.success.contains(&author_account_id), "Corroboration not added to successes");
