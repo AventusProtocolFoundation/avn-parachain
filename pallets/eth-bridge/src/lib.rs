@@ -13,14 +13,14 @@
 //!
 //! - The packaging and encoding of the transaction to ensure Ethereum compatibility.
 //!
-//! - The addition of a timestamp, delineating the deadline by which the transaction must reach
-//!   the contract.
+//! - The addition of a timestamp, delineating the deadline by which the transaction must reach the
+//!   contract.
 //!
-//! - The addition of a unique transaction ID, against which request data can be stored on the
-//!   AvN and the transaction status in the avn-bridge contract can later be checked.
+//! - The addition of a unique transaction ID, against which request data can be stored on the AvN
+//!   and the transaction status in the avn-bridge contract can later be checked.
 //!
-//! - Collection of the necessary ECDSA signatures, labelled "confirmations", which serve to
-//!   prove the AvN consensus for the transaction to the avn-bridge.
+//! - Collection of the necessary ECDSA signatures, labelled "confirmations", which serve to prove
+//!   the AvN consensus for the transaction to the avn-bridge.
 //!
 //! - Appointing a designated author responsible for sending the transaction to Ethereum.
 //!
@@ -56,7 +56,7 @@ use hex_literal::hex;
 use pallet_avn::{self as avn, AccountToBytesConverter, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{calculate_one_third_quorum, event_types::Validator, EthTransaction};
-use sp_core::{H160, H256};
+use sp_core::{ecdsa, H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{
     offchain::{http, Duration},
@@ -177,6 +177,7 @@ pub mod pallet {
         InvalidBytes,
         InvalidData,
         InvalidDataLength,
+        InvalidECDSASignature,
         InvalidHashLength,
         InvalidHexString,
         InvalidUint,
@@ -212,20 +213,28 @@ pub mod pallet {
         pub fn add_confirmation(
             origin: OriginFor<T>,
             tx_id: u32,
-            confirmation: [u8; 65],
-            _author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            confirmation: ecdsa::Signature,
+            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            // TODO: Add Eth sig checking
+            let tx_data = Transactions::<T>::get(tx_id);
+            if !AVN::<T>::eth_signature_is_valid(
+                (&tx_data.msg_hash).to_string(),
+                &author,
+                &confirmation,
+            ) {
+                log::error!("❌ Invalid eth signature");
+                return Err(avn_error::<T>::InvalidECDSASignature)?
+            };
 
             Transactions::<T>::try_mutate_exists(
                 tx_id,
                 |maybe_tx_data| -> DispatchResultWithPostInfo {
                     let tx_data = maybe_tx_data.as_mut().ok_or(Error::<T>::TxIdNotFound)?;
 
-                    if tx_data.confirmations.iter().any(|&conf| conf == confirmation) {
+                    if tx_data.confirmations.contains(&confirmation) {
                         return Err(Error::<T>::DuplicateConfirmation.into())
                     }
 
@@ -268,7 +277,7 @@ pub mod pallet {
                         .try_append(&mut tmp_vec)
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
-                num_corroborations = corroborations.success.len();       
+                num_corroborations = corroborations.success.len();
             } else {
                 if !corroborations.failure.contains(&author_account_id) {
                     let mut tmp_vec = Vec::new();
@@ -279,8 +288,8 @@ pub mod pallet {
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
                 num_corroborations = corroborations.failure.len();
-            }  
-            
+            }
+
             if Self::consensus_is_reached(num_corroborations) {
                 Self::finalize_state(tx_id, tx_succeeded)?;
             } else {
@@ -376,7 +385,7 @@ pub mod pallet {
             BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
         pub expiry: u64,
         pub msg_hash: H256,
-        pub confirmations: BoundedVec<[u8; 65], ConfirmationsLimit>,
+        pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
         pub sender: Option<[u8; 32]>,
         pub eth_tx_hash: H256,
         pub status: EthTxStatus,
@@ -413,7 +422,7 @@ pub mod pallet {
                 params: Self::bound_params(params.to_vec())?,
                 expiry,
                 msg_hash,
-                confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
+                confirmations: BoundedVec::<ecdsa::Signature, ConfirmationsLimit>::default(),
                 sender: None,
                 eth_tx_hash: H256::zero(),
                 status: EthTxStatus::Unresolved,
@@ -572,10 +581,13 @@ pub mod pallet {
             author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             author_account_id: [u8; 32],
         ) {
-            match Self::sign_msg_hash(tx_data.msg_hash) {
+            match Self::sign_msg_hash_as_confirmation(tx_data.msg_hash) {
                 Ok(confirmation) => {
-                    let proof =
-                        Self::encode_add_confirmation_proof(tx_id, confirmation, author_account_id);
+                    let proof = Self::encode_add_confirmation_proof(
+                        tx_id.clone(),
+                        confirmation.clone(),
+                        author_account_id.clone(),
+                    );
                     let signature = author.key.sign(&proof).expect("Error signing proof");
                     let call = Call::<T>::add_confirmation {
                         tx_id,
@@ -592,26 +604,21 @@ pub mod pallet {
             }
         }
 
-        fn sign_msg_hash(msg_hash: H256) -> Result<[u8; 65], DispatchError> {
+        fn sign_msg_hash_as_confirmation(
+            msg_hash: H256,
+        ) -> Result<ecdsa::Signature, DispatchError> {
             let msg_hash_string = msg_hash.to_string();
-            let signature =
+            let confirmation =
                 AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
-            let signature_bytes: [u8; 65] = signature.into();
-            Ok(signature_bytes)
+            Ok(confirmation)
         }
 
         fn encode_add_confirmation_proof(
             tx_id: u32,
-            confirmation: [u8; 65],
+            confirmation: ecdsa::Signature,
             author_account_id: [u8; 32],
         ) -> Vec<u8> {
-            return (
-                ADD_CONFIRMATION_CONTEXT,
-                tx_id.clone(),
-                confirmation,
-                author_account_id.clone(),
-            )
-                .encode()
+            return (ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, author_account_id).encode()
         }
 
         fn attempt_to_confirm_eth_tx_status(
@@ -681,7 +688,11 @@ pub mod pallet {
             author: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             author_account_id: [u8; 32],
         ) {
-            let proof = Self::encode_add_corroboration_proof(tx_id, tx_succeeded, author_account_id);
+            let proof = Self::encode_add_corroboration_proof(
+                tx_id.clone(),
+                tx_succeeded,
+                author_account_id.clone(),
+            );
             let signature = author.key.sign(&proof).expect("Error signing proof");
             let call = Call::<T>::add_corroboration {
                 tx_id,
@@ -697,11 +708,9 @@ pub mod pallet {
             tx_succeeded: bool,
             author_account_id: [u8; 32],
         ) -> Vec<u8> {
-            return (ADD_CORROBORATION_CONTEXT, tx_id.clone(), tx_succeeded, author_account_id.clone())
-                .encode()
+            return (ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author_account_id).encode()
         }
 
-              
         fn send_transaction_to_ethereum(
             tx_id: u32,
             mut tx_data: TransactionData,
@@ -731,7 +740,7 @@ pub mod pallet {
 
             let concatenated_confirmations =
                 tx_data.confirmations.iter().fold(Vec::new(), |mut acc, conf| {
-                    acc.extend_from_slice(conf);
+                    acc.extend_from_slice(conf.as_ref());
                     acc
                 });
 
@@ -897,7 +906,8 @@ pub mod pallet {
 
         fn finalize_state(tx_id: u32, tx_succeeded: bool) -> Result<(), DispatchError> {
             let mut tx_data = Transactions::<T>::get(tx_id);
-            tx_data.status = if tx_succeeded { EthTxStatus::Succeeded } else { EthTxStatus::Failed };
+            tx_data.status =
+                if tx_succeeded { EthTxStatus::Succeeded } else { EthTxStatus::Failed };
             // Alert the originating pallet:
             T::HandleEthTxResult::result(tx_id, tx_succeeded);
             Self::remove_from_unresolved_tx_list(tx_id)?;
