@@ -82,9 +82,9 @@ impl ValidEvents {
             ValidEvents::AddedValidator =>
                 H256(hex!("ff083a6e395a67771f3c9108922bc274c27b38b48c210b0f6a8c5f4710c0494b")),
 
-            // hex string of Keccak-256 for LogLifted(address,bytes32,uint256)
+            // hex string of Keccak-256 for LogLifted(address,address,bytes32,uint256)
             ValidEvents::Lifted =>
-                H256(hex!("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")),
+                H256(hex!("8964776336bc2fa8ecaaf70b6f8e8450807efb1ff78f8b87980707aa821f0ec0")),
 
             // hex string of Keccak-256 for AvnMintTo(uint256,uint64,bytes32,string)
             ValidEvents::NftMint =>
@@ -208,6 +208,7 @@ impl AddedValidatorData {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct LiftedData {
     pub token_contract: H160,
+    pub sender_address: H160,
     pub receiver_address: H256,
     pub amount: u128,
     pub nonce: U256,
@@ -215,10 +216,13 @@ pub struct LiftedData {
 
 impl LiftedData {
     const TOPIC_CURRENCY_CONTRACT: usize = 1;
-    const TOPIC_INDEX_T2_ADDRESS: usize = 2;
+    const TOPIC_INDEX_T1_ADDRESS: usize = 2;
+    const TOPIC_INDEX_T2_ADDRESS: usize = 3;
 
     pub fn is_valid(&self) -> bool {
-        return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
+        return !self.token_contract.is_zero() &&
+            !self.sender_address.is_zero() &&
+            !self.receiver_address.is_zero()
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -239,11 +243,12 @@ impl LiftedData {
             return Err(Error::LiftedEventBadDataLength)
         }
 
-        if topics.len() != 3 {
+        if topics.len() != 4 {
             return Err(Error::LiftedEventWrongTopicCount)
         }
 
         if topics[Self::TOPIC_CURRENCY_CONTRACT].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_T1_ADDRESS].len() != WORD_LENGTH ||
             topics[Self::TOPIC_INDEX_T2_ADDRESS].len() != WORD_LENGTH
         {
             return Err(Error::LiftedEventBadTopicLength)
@@ -251,6 +256,9 @@ impl LiftedData {
 
         let token_contract = H160::from_slice(
             &topics[Self::TOPIC_CURRENCY_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
+        );
+        let sender_address = H160::from_slice(
+            &topics[Self::TOPIC_INDEX_T1_ADDRESS][DISCARDED_ZERO_BYTES..WORD_LENGTH],
         );
         let receiver_address = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
 
@@ -265,6 +273,7 @@ impl LiftedData {
         );
         return Ok(LiftedData {
             token_contract,
+            sender_address,
             receiver_address,
             amount,
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
