@@ -1,5 +1,36 @@
 // Copyright 2023 Aventus Network Services (UK) Ltd.
 
+//! This pallet provides a single interface, "publish_to_avn_bridge", which enables other
+//! pallets to execute any author-accessible function on the Ethereum-based "avn-bridge" contract.
+//! To do so, callers pass the desired avn-bridge function name, along with an array of
+//! parameter tuples, each comprising the data type and its corresponding value.
+//! Upon receipt of a request, this pallet takes charge of the entire transaction process.
+//! This culminates in the conclusive determination of the transaction's status on Ethereum,
+//! and the emission of an event the originating pallet can use to determine whether to
+//! commit or rollback its state.
+//!
+//! Specifically, the pallet manages:
+//!
+//! - The packaging and encoding of the transaction to ensure Ethereum compatibility.
+//!
+//! - The addition of a timestamp, delineating the deadline by which the transaction must reach the
+//!   contract.
+//!
+//! - The addition of a unique transaction ID, against which request data can be stored on the AvN
+//!   and the transaction status in the avn-bridge contract can later be checked.
+//!
+//! - Collection of the necessary ECDSA signatures, labelled "confirmations", which serve to prove
+//!   the AvN consensus for the transaction to the avn-bridge.
+//!
+//! - Appointing a designated author responsible for dispatching the transaction to Ethereum.
+//!
+//! - Ascertainment of a sent transaction's status on Ethereum via "corroborations", which utilise
+//!   the transaction ID and expiry to determine its ultimate state.
+//!
+//! To enable these operations, an off-chain worker continuously monitors every transaction with an
+//! as yet unresolved status. It actively aggregates either confirmations or corroborations as
+//! required, via their respective unsigned extrinsic re-entry methods.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -364,7 +395,6 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-        // Single entry point to enable other pallets to call any author function on the avn-bridge
         pub fn publish_to_avn_bridge(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
@@ -411,7 +441,7 @@ pub mod pallet {
             Ok(tx_id)
         }
 
-        // The core logic being triggered by the OCW hook
+        // The core logic being triggered by the OCW hook:
         fn process_unresolved_transaction(
             tx_id: u32,
             author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
@@ -433,7 +463,7 @@ pub mod pallet {
                         );
                     }
                 } else if !self_is_sender {
-                    // The sender's confirmation is implicit so we only collect others
+                    // The sender's confirmation is implicit so we only collect the others
                     Self::provide_signed_confirmation(tx_id, tx_data, author, author_account_id);
                 }
             } else {
