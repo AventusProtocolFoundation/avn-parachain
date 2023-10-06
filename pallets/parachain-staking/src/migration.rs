@@ -7,9 +7,9 @@
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    BalanceOf, Config, Growth, GrowthInfo, LastTriggeredGrowthPeriod, Pallet,
-    ProcessedGrowthPeriods, Vec, VotingPeriod, GrowthPeriodIndex, RewardPoint, BoundedVec, CollatorScore, ConstU32,
-    Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen,
+    BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32, Decode, Encode, Growth,
+    GrowthInfo, GrowthPeriodIndex, LastTriggeredGrowthPeriod, MaxEncodedLen, Pallet,
+    ProcessedGrowthPeriods, RewardPoint, RuntimeDebug, TypeInfo, Vec, VotingPeriod,
 };
 use frame_support::{
     dispatch::GetStorageVersion,
