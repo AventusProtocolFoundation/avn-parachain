@@ -162,6 +162,7 @@ pub mod pallet {
     pub enum Error<T> {
         DeadlineReached,
         DuplicateConfirmation,
+        ErrorCalculatingSender,
         ExceedsConfirmationLimit,
         ExceedsFunctionNameLimit,
         FunctionEncodingError,
@@ -297,7 +298,7 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok(author) = setup_ocw::<T>(block_number) {
                 for tx_id in UnresolvedTxList::<T>::get() {
-                    Self::process_unresolved_transaction(tx_id, author.clone());
+                    Self::process_unresolved_transaction(tx_id, author.clone(), block_number);
                 }
             }
         }
@@ -408,9 +409,6 @@ pub mod pallet {
             extended_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
             let msg_hash = Self::create_msg_hash(&extended_params)?;
 
-            // TODO: An actual sender account needs to be allocated
-            let chosen_sender = None;
-
             let tx_data = TransactionData {
                 function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
                     .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
@@ -418,7 +416,7 @@ pub mod pallet {
                 expiry,
                 msg_hash,
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
-                chosen_sender,
+                chosen_sender: None,
                 eth_tx_hash: H256::zero(),
                 status: EthTxStatus::Unresolved,
             };
@@ -445,29 +443,30 @@ pub mod pallet {
         fn process_unresolved_transaction(
             tx_id: u32,
             author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            block_number: T::BlockNumber,
         ) {
-            let tx_data = Transactions::<T>::get(tx_id);
             let author_account_id = T::AccountToBytesConvert::into_bytes(&author.account_id);
+            let chosen_sender = match Self::get_or_assign_sender(tx_id, block_number) {
+                Some(sender) => sender,
+                None => return,
+            };
+            let self_is_sender = author_account_id == chosen_sender;
+            let tx_data = Transactions::<T>::get(tx_id);
 
-            if let Some(chosen_sender) = tx_data.chosen_sender {
-                let self_is_sender = author_account_id == chosen_sender;
-                if Self::consensus_is_reached(tx_data.confirmations.len()) {
-                    if self_is_sender {
-                        Self::send_transaction_to_ethereum(tx_id, tx_data, author_account_id);
-                    } else {
-                        Self::attempt_to_confirm_eth_tx_status(
-                            tx_id,
-                            tx_data,
-                            author,
-                            author_account_id,
-                        );
-                    }
-                } else if !self_is_sender {
-                    // The sender's confirmation is implicit so we only collect the others
-                    Self::provide_signed_confirmation(tx_id, tx_data, author, author_account_id);
+            if Self::consensus_is_reached(tx_data.confirmations.len()) {
+                if self_is_sender {
+                    Self::send_transaction_to_ethereum(tx_id, tx_data, author_account_id);
+                } else {
+                    Self::attempt_to_confirm_eth_tx_status(
+                        tx_id,
+                        tx_data,
+                        author,
+                        author_account_id,
+                    );
                 }
-            } else {
-                log::error!("❌ No sending author found for the transaction.");
+            } else if !self_is_sender {
+                // The sender's confirmation is implicit so we only collect the others
+                Self::provide_signed_confirmation(tx_id, tx_data, author, author_account_id);
             }
         }
 
@@ -528,6 +527,25 @@ pub mod pallet {
                 .into_iter()
                 .map(|(type_bounded, value_bounded)| (type_bounded.into(), value_bounded.into()))
                 .collect()
+        }
+
+        fn get_or_assign_sender(tx_id: u32, block_number: T::BlockNumber) -> Option<[u8; 32]> {
+            let mut tx_data = Transactions::<T>::get(tx_id);
+            match tx_data.chosen_sender {
+                Some(sender) => Some(sender),
+                None => match AVN::<T>::calculate_primary_validator(block_number) {
+                    Ok(primary_validator) => {
+                        let sender = T::AccountToBytesConvert::into_bytes(&primary_validator);
+                        tx_data.chosen_sender = Some(sender.clone());
+                        <Transactions<T>>::insert(tx_id, tx_data);
+                        Some(sender)
+                    },
+                    Err(_) => {
+                        log::error!("❌ Error choosing sender.");
+                        None
+                    },
+                },
+            }
         }
 
         fn create_msg_hash(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
