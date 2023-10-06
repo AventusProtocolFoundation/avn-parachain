@@ -13,22 +13,24 @@
 //!
 //! - The packaging and encoding of the transaction to ensure Ethereum compatibility.
 //!
-//! - The addition of a timestamp, delineating the deadline by which the transaction must reach the
-//!   contract.
+//! - The addition of a timestamp, delineating the deadline by which the transaction must reach
+//!   the contract.
 //!
-//! - The addition of a unique transaction ID, against which request data can be stored on the AvN
-//!   and the transaction status in the avn-bridge contract can later be checked.
+//! - The addition of a unique transaction ID, against which request data can be stored on the
+//!   AvN and the transaction status in the avn-bridge contract can later be checked.
 //!
-//! - Collection of the necessary ECDSA signatures, labelled "confirmations", which serve to prove
-//!   the AvN consensus for the transaction to the avn-bridge.
+//! - Collection of the necessary ECDSA signatures, labelled "confirmations", which serve to
+//!   prove the AvN consensus for the transaction to the avn-bridge.
 //!
-//! - Appointing a designated author responsible for dispatching the transaction to Ethereum.
+//! - Appointing a designated author responsible for sending the transaction to Ethereum.
 //!
-//! - Ascertainment of a sent transaction's status on Ethereum via "corroborations", which utilise
-//!   the transaction ID and expiry to determine its ultimate state.
+//! - Utilising the transaction ID and expiry to determine the status of a sent transaction and
+//!   provide consensus via "corroborations".
 //!
-//! To enable these operations, an off-chain worker continuously monitors every transaction with an
-//! as yet unresolved status. It actively aggregates either confirmations or corroborations as
+//! - Alerting the originating pallet to the final outcome via a callback.
+//!
+//! To enable these operations, an off-chain worker continuously monitors all transactions with
+//! as yet unresolved statuses. It actively aggregates either confirmations or corroborations as
 //! required, via their respective unsigned extrinsic re-entry methods.
 
 #![cfg_attr(not(feature = "std"), no_std)]
