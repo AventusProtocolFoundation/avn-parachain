@@ -4,9 +4,9 @@
 //! pallets to execute any author-accessible function on the Ethereum-based "avn-bridge" contract.
 //! To do so, callers pass the desired avn-bridge function name, along with an array of
 //! parameter tuples, each comprising the data type and its corresponding value.
-//! Upon receipt of a request, this pallet takes charge of the entire transaction process.
-//! This culminates in the conclusive determination of the transaction's status on Ethereum,
-//! and the emission of an event the originating pallet can use to determine whether to
+//! Upon receipt of a publishing request this pallet takes charge of the entire transaction process,
+//! culminating in the conclusive determination of the transaction's status on Ethereum.
+//! A callback is then made to the originating pallet which it can use to determine whether to
 //! commit or rollback its state.
 //!
 //! Specifically, the pallet manages:
@@ -17,15 +17,15 @@
 //!   contract.
 //!
 //! - The addition of a unique transaction ID, against which request data can be stored on the AvN
-//!   and the transaction status in the avn-bridge contract can later be checked.
+//!   and the transaction's status in the avn-bridge contract be later checked.
 //!
 //! - Collection of the necessary ECDSA signatures, labelled "confirmations", which serve to prove
-//!   the AvN consensus for the transaction to the avn-bridge.
+//!   AvN consensus for the transaction to the avn-bridge.
 //!
-//! - Appointing a designated author responsible for sending the transaction to Ethereum.
+//! - Appointing an author responsible for sending the transaction to Ethereum.
 //!
-//! - Utilising the transaction ID and expiry to determine the status of a sent transaction and
-//!   provide consensus via "corroborations".
+//! - Utilising the transaction ID and expiry to conclusively determine the status of a sent transaction
+//!   and arrive at a consensus of the state via "corroborations".
 //!
 //! - Alerting the originating pallet to the final outcome via a callback.
 //!
