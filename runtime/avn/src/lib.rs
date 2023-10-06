@@ -63,8 +63,8 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 use pallet_avn_proxy::ProvableProxy;
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
-use sp_avn_common::{InnerCallValidator, Proof};
 use pallet_eth_bridge::HandleEthTxResult;
+use sp_avn_common::{InnerCallValidator, Proof};
 
 use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<

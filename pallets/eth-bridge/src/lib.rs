@@ -24,14 +24,15 @@
 //!
 //! - Appointing an author responsible for sending the transaction to Ethereum.
 //!
-//! - Utilising the transaction ID and expiry to conclusively determine the status of a sent transaction
-//!   and arrive at a consensus of the state via "corroborations".
+//! - Utilising the transaction ID and expiry to conclusively determine the status of a sent
+//!   transaction and arrive at a consensus of the state via "corroborations".
 //!
-//! - Alerting the originating pallet to the final outcome via a callback.
+//! - Alerting the originating pallet to the final outcome via its HandleEthTxResult callback.
 //!
 //! To enable these operations, an off-chain worker continuously monitors all transactions with
-//! as yet unresolved statuses. It actively aggregates either confirmations or corroborations as
-//! required, via their respective unsigned extrinsic re-entry methods.
+//! unresolved statuses. It determines whether transactions are awaiting dispatch or have already
+//! been sent and aggregates confirmations or corroborations as required, adding them in via
+//! their respective unsigned extrinsics.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
@@ -202,6 +203,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             eth_tx_lifetime_secs: u64,
         ) -> DispatchResultWithPostInfo {
+            // SUDO
             ensure_root(origin)?;
             EthTxLifetimeSecs::<T>::put(eth_tx_lifetime_secs);
             Self::deposit_event(Event::<T>::EthTxLifetimeUpdated { eth_tx_lifetime_secs });
@@ -403,6 +405,7 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
+        // The sole entry point for other pallets:
         pub fn publish_to_avn_bridge(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
@@ -473,7 +476,7 @@ pub mod pallet {
                 }
             } else if !self_is_sender {
                 // The sender's confirmation is implicit so we only collect the others
-                Self::provide_signed_confirmation(tx_id, tx_data, author, author_account_id);
+                Self::provide_confirmation(tx_id, tx_data, author, author_account_id);
             }
         }
 
@@ -575,13 +578,13 @@ pub mod pallet {
             Ok(H256::from(msg_hash))
         }
 
-        fn provide_signed_confirmation(
+        fn provide_confirmation(
             tx_id: u32,
             tx_data: TransactionData,
             author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             author_account_id: [u8; 32],
         ) {
-            match Self::sign_msg_hash_as_confirmation(tx_data.msg_hash) {
+            match Self::sign_msg_hash_to_create_confirmation(tx_data.msg_hash) {
                 Ok(confirmation) => {
                     let proof = Self::encode_add_confirmation_proof(
                         tx_id.clone(),
@@ -604,7 +607,7 @@ pub mod pallet {
             }
         }
 
-        fn sign_msg_hash_as_confirmation(
+        fn sign_msg_hash_to_create_confirmation(
             msg_hash: H256,
         ) -> Result<ecdsa::Signature, DispatchError> {
             let msg_hash_string = msg_hash.to_string();
