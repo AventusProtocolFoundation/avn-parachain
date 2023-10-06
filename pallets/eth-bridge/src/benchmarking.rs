@@ -62,7 +62,7 @@ fn setup_tx_data<T: Config>(tx_id: u32, num_confirmations: u32) {
             }
             confirmations
         },
-        chosen_sender: Some([2u8; 32]),
+        sender: Some([2u8; 32]),
         eth_tx_hash: H256::repeat_byte(3),
         status: EthTxStatus::Unresolved,
     };

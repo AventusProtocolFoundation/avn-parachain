@@ -379,7 +379,7 @@ pub mod pallet {
         pub expiry: u64,
         pub msg_hash: H256,
         pub confirmations: BoundedVec<[u8; 65], ConfirmationsLimit>,
-        pub chosen_sender: Option<[u8; 32]>,
+        pub sender: Option<[u8; 32]>,
         pub eth_tx_hash: H256,
         pub status: EthTxStatus,
     }
@@ -416,7 +416,7 @@ pub mod pallet {
                 expiry,
                 msg_hash,
                 confirmations: BoundedVec::<[u8; 65], ConfirmationsLimit>::default(),
-                chosen_sender: None,
+                sender: None,
                 eth_tx_hash: H256::zero(),
                 status: EthTxStatus::Unresolved,
             };
@@ -446,11 +446,11 @@ pub mod pallet {
             block_number: T::BlockNumber,
         ) {
             let author_account_id = T::AccountToBytesConvert::into_bytes(&author.account_id);
-            let chosen_sender = match Self::get_or_assign_sender(tx_id, block_number) {
+            let sender = match Self::get_or_assign_sender(tx_id, block_number) {
                 Some(sender) => sender,
                 None => return,
             };
-            let self_is_sender = author_account_id == chosen_sender;
+            let self_is_sender = author_account_id == sender;
             let tx_data = Transactions::<T>::get(tx_id);
 
             if Self::consensus_is_reached(tx_data.confirmations.len()) {
@@ -531,12 +531,12 @@ pub mod pallet {
 
         fn get_or_assign_sender(tx_id: u32, block_number: T::BlockNumber) -> Option<[u8; 32]> {
             let mut tx_data = Transactions::<T>::get(tx_id);
-            match tx_data.chosen_sender {
+            match tx_data.sender {
                 Some(sender) => Some(sender),
                 None => match AVN::<T>::calculate_primary_validator(block_number) {
                     Ok(primary_validator) => {
                         let sender = T::AccountToBytesConvert::into_bytes(&primary_validator);
-                        tx_data.chosen_sender = Some(sender.clone());
+                        tx_data.sender = Some(sender.clone());
                         <Transactions<T>>::insert(tx_id, tx_data);
                         Some(sender)
                     },
