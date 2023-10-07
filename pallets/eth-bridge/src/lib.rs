@@ -24,24 +24,24 @@
 //!
 //! - Appointing an author responsible for sending the transaction to Ethereum.
 //!
-//! - Utilising the transaction ID and expiry to determine the status of a sent transaction and
-//!   arrive at a consensus of that status via **corroborations**.
+//! - Utilising the transaction ID and expiry to check the status of a sent transaction on Ethereum
+//!   and arrive at a consensus of that status by providing **corroborations**.
 //!
-//! - Alerting the originating pallet to the final outcome via the HandleAvnBridgeResult callback.
+//! - Alerting the originating pallet to the outcome via the HandleAvnBridgeResult callback.
 //!
 //! The core of the pallet resides in the off-chain worker. The OCW monitors all unresolved
 //! transactions, prompting authors to resolve them by invoking one of three unsigned extrinsics:
 //!
-//! 1. If a transaction is yet to be dispatched, confirmations are accumulated from non-sending
-//!    authors via the **add_confirmation** extrinsic until consensus is reached. Note: the sender's
-//!    confirmation is implicit.
+//! 1. Before a transaction can be dispatched, confirmations are accumulated from non-sending
+//!    authors via the **add_confirmation** extrinsic until a consensus is reached. Note: the
+//!    sender's confirmation is implicit.
 //!
-//! 2. If a transaction has received sufficient confirmations, the chosen sender is prompted to
-//!    dispatch the transaction and then tag it as sent using the **add_receipt** extrinsic.
+//! 2. Once a transaction has received sufficient confirmations, the chosen sender is prompted to
+//!    dispatch it to Ethereum and tag it as sent using the **add_receipt** extrinsic.
 //!
-//! 3. Once a transaction possesses a receipt, or if its expiration time has elapsed without a
-//!    definitive outcome, all authors except the sender are requested to **add_corroboration**s, in
-//!    order to determine the final transaction status.
+//! 3. Finally, when a transaction possesses a receipt, or if its expiration time has elapsed
+//!    without a definitive outcome, all authors except the sender are requested to
+//!    **add_corroboration**s which will determine the final state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
