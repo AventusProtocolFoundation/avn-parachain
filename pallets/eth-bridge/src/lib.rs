@@ -805,9 +805,7 @@ pub mod pallet {
             return (ADD_RECEIPT_CONTEXT, tx_id, eth_tx_hash, author_account_id).encode()
         }
 
-        // TODO: Make function private and pass TransactionData in once tests are configured to
-        // trigger OCW
-        pub fn generate_send_transaction_calldata(tx_id: u32) -> Result<Vec<u8>, Error<T>> {
+        fn generate_send_transaction_calldata(tx_id: u32) -> Result<Vec<u8>, Error<T>> {
             let tx_data = Transactions::<T>::get(tx_id);
 
             let concatenated_confirmations =
