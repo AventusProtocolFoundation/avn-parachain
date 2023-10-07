@@ -1,13 +1,13 @@
 // Copyright 2023 Aventus Network Services (UK) Ltd.
 
-//! This pallet provides a single interface, "publish_to_avn_bridge", which enables other
-//! pallets to execute any author-accessible function on the Ethereum-based "avn-bridge" contract.
-//! To do so, callers pass the desired avn-bridge function name, along with an array of
-//! parameter tuples, each comprising the data type and its corresponding value.
-//! Upon receipt of a publishing request this pallet takes charge of the entire transaction process,
-//! culminating in the conclusive determination of the transaction's status on Ethereum.
-//! A callback is then made to the originating pallet which it can use to determine whether to
-//! commit or rollback state.
+//! This pallet provides a single interface, **publish_to_avn_bridge**, which enables other pallets
+//! to execute any author-accessible function on the Ethereum-based **avn-bridge** contract. To do
+//! so, callers pass the desired avn-bridge function name, along with an array of parameter tuples,
+//! each comprising the data type and its corresponding value. Upon receipt of a
+//! **publish_to_avn_bridge** request this pallet takes charge of the entire transaction process,
+//! culminating in the conclusive determination of the transaction's status on Ethereum. A callback
+//! is then made to the originating pallet which it can use to determine whether to commit or
+//! rollback state.
 //!
 //! Specifically, the pallet manages:
 //!
@@ -17,31 +17,32 @@
 //!   contract.
 //!
 //! - The addition of a unique transaction ID, against which request data can be stored on the AvN
-//!   and the transaction's status in the avn-bridge can later be checked.
+//!   and the transaction's status in the avn-bridge can be later checked.
 //!
-//! - Collection of the necessary ECDSA signatures from authors, labelled "confirmations", which
+//! - Collection of the necessary ECDSA signatures from authors, labelled **confirmations**, which
 //!   serve to prove AvN consensus for the transaction to the avn-bridge.
 //!
 //! - Appointing an author responsible for sending the transaction to Ethereum.
 //!
 //! - Utilising the transaction ID and expiry to determine the status of a sent transaction and
-//!   arrive at a consensus of that status via "corroborations".
+//!   arrive at a consensus of that status via **corroborations**.
 //!
 //! - Alerting the originating pallet to the final outcome via the HandleAvnBridgeResult callback.
 //!
 //! The core of the pallet resides in the off-chain worker. The OCW monitors all unresolved
 //! transactions, prompting authors to resolve them by invoking one of three unsigned extrinsics:
 //!
-//! - If a transaction is yet to be dispatched, confirmations are accumulated from non-sending
-//!   authors via the "add_confirmation" extrinsic until consensus is reached. Note: the sender's
-//!   confirmation is taken as implicit.
+//! 1. If a transaction is yet to be dispatched, confirmations are accumulated from non-sending
+//!    authors via the **add_confirmation** extrinsic until consensus is reached.
+//!    Note: the sender's confirmation is taken as implicit.
 //!
-//! - If a transaction has received sufficient confirmations, the chosen sender is prompted to
-//!   dispatch the transaction, before tagging it as sent using the add_receipt extrinsic.
+//! 2. If a transaction has received sufficient confirmations, the chosen sender is prompted to
+//!    dispatch the transaction, before tagging it as sent using the **add_receipt** extrinsic.
 //!
-//! - Lastly, if a transaction possesses a receipt, or in instances where its expiration time has
-//!   elapsed without a definitive outcome, corroborations are sought from all authors, excluding
-//!   the sender, to arrive at the final transaction status.
+//! 3. Lastly, if a transaction possesses a receipt, or in instances where its expiration time has
+//!    elapsed without a definitive outcome, all authors excluding the sender are requested to
+//!    **add_corroboration**s, in order to arrive at the final transaction status.
+
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
@@ -379,18 +380,18 @@ pub mod pallet {
                         InvalidTransaction::Custom(1u8).into()
                     },
                 Call::add_receipt { tx_id, eth_tx_hash, author, signature } =>
-                if AVN::<T>::signature_is_valid(
-                    &(ADD_RECEIPT_CONTEXT, tx_id.clone(), eth_tx_hash, author),
-                    &author,
-                    signature,
-                ) {
-                    ValidTransaction::with_tag_prefix("EthBridgeAddReceipt")
-                        .and_provides((call, tx_id))
-                        .priority(TransactionPriority::max_value())
-                        .build()
-                } else {
-                    InvalidTransaction::Custom(3u8).into()
-                },
+                    if AVN::<T>::signature_is_valid(
+                        &(ADD_RECEIPT_CONTEXT, tx_id.clone(), eth_tx_hash, author),
+                        &author,
+                        signature,
+                    ) {
+                        ValidTransaction::with_tag_prefix("EthBridgeAddReceipt")
+                            .and_provides((call, tx_id))
+                            .priority(TransactionPriority::max_value())
+                            .build()
+                    } else {
+                        InvalidTransaction::Custom(3u8).into()
+                    },
                 Call::add_corroboration { tx_id, tx_succeeded, author, signature } =>
                     if AVN::<T>::signature_is_valid(
                         &(ADD_CORROBORATION_CONTEXT, tx_id.clone(), tx_succeeded, author),
