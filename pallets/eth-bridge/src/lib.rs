@@ -501,18 +501,6 @@ pub mod pallet {
             Ok(tx_id)
         }
 
-        fn assign_sender() -> Result<[u8; 32], Error<T>> {
-            let current_block_number = <frame_system::Pallet<T>>::block_number();
-
-            match AVN::<T>::calculate_primary_validator(current_block_number) {
-                Ok(primary_validator) => {
-                    let sender = T::AccountToBytesConvert::into_bytes(&primary_validator);
-                    Ok(sender)
-                },
-                Err(_) => Err(Error::<T>::ErrorAssigningSender),
-            }
-        }
-
         // The core logic being triggered by the OCW hook:
         fn process_unresolved_transaction(
             tx_id: u32,
@@ -537,6 +525,18 @@ pub mod pallet {
             } else if !self_is_sender {
                 // The sender's confirmation is implicit so we only collect others
                 Self::provide_confirmation(tx_id, tx_data, author, author_account_id);
+            }
+        }
+
+        fn assign_sender() -> Result<[u8; 32], Error<T>> {
+            let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+            match AVN::<T>::calculate_primary_validator(current_block_number) {
+                Ok(primary_validator) => {
+                    let sender = T::AccountToBytesConvert::into_bytes(&primary_validator);
+                    Ok(sender)
+                },
+                Err(_) => Err(Error::<T>::ErrorAssigningSender),
             }
         }
 
