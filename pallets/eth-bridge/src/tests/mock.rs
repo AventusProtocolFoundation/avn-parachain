@@ -47,7 +47,7 @@ impl Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type AccountToBytesConvert = U64To32BytesConverter;
-    type HandleEthTxResult = TestRuntime;
+    type HandleAvnBridgeResult = TestRuntime;
 }
 
 impl system::Config for TestRuntime {
@@ -123,7 +123,7 @@ impl ExtBuilder {
     }
 }
 
-impl HandleEthTxResult for TestRuntime {
+impl HandleAvnBridgeResult for TestRuntime {
     fn result(tx_id: u32, succeeded: bool) {
         println!("Tx ID: {}, Succeeded?: {}", tx_id, succeeded);
     }
