@@ -313,7 +313,11 @@ where
 
             let hashed_message = hash_with_ethereum_prefix(&data_to_sign);
 
-            log::info!("ℹ️ avn-service: data to sign: {:?},\n hashed data to sign: {:?}", hex::encode(data_to_sign), hex::encode(hashed_message));
+            log::info!(
+                "ℹ️ avn-service: data to sign: {:?},\n hashed data to sign: {:?}",
+                hex::encode(data_to_sign),
+                hex::encode(hashed_message)
+            );
             let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
             let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
 

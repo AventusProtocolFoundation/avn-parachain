@@ -178,6 +178,7 @@ pub mod pallet {
         offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
         safe_add_block_numbers, verify_signature, IngressCounter, Proof,
     };
+    use sp_io::hashing::keccak_256;
     pub use sp_runtime::{
         traits::{
             AccountIdConversion, Bounded, CheckedAdd, CheckedDiv, CheckedSub, Dispatchable,
@@ -186,7 +187,6 @@ pub mod pallet {
         Perbill,
     };
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
-    use sp_io::hashing::keccak_256;
 
     /// Pallet for parachain staking
     #[pallet::pallet]
@@ -2775,11 +2775,12 @@ pub mod pallet {
                     .expect("Non-Empty growths have a reserved TransactionId"),
             };
 
-            let hex_encoded_confirmation_data = hex::encode(EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
-                &growth_param_hash,
-                eth_transaction_id,
-                &sender,
-            ));
+            let hex_encoded_confirmation_data =
+                hex::encode(EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
+                    &growth_param_hash,
+                    eth_transaction_id,
+                    &sender,
+                ));
 
             log::info!(
                 "📩 Data used for abi encode: \n(encoded growth params: {:?}, encoded growth params hash: {:?}, tx_id: {:?}, encoded sender: {:?}). Output: {:?}",
