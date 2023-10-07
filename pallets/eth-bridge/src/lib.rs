@@ -132,6 +132,9 @@ pub mod pallet {
         fn result(tx_id: u32, tx_succeeded: bool);
     }
 
+    pub type Author<T> =
+        Validator<<T as avn::Config>::AuthorityId, <T as frame_system::Config>::AccountId>;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -229,7 +232,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             tx_id: u32,
             confirmation: ecdsa::Signature,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
@@ -268,7 +271,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             tx_id: u32,
             eth_tx_hash: H256,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
@@ -290,7 +293,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             tx_id: u32,
             tx_succeeded: bool,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
@@ -345,9 +348,7 @@ pub mod pallet {
         }
     }
 
-    fn setup_ocw<T: Config>(
-        block_number: T::BlockNumber,
-    ) -> Result<Validator<<T as avn::Config>::AuthorityId, T::AccountId>, DispatchError> {
+    fn setup_ocw<T: Config>(block_number: T::BlockNumber) -> Result<Author<T>, DispatchError> {
         AVN::<T>::pre_run_setup(block_number, PALLET_NAME.to_vec()).map_err(|e| {
             if e != DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) {
                 log::error!("❌ Unable to run offchain worker: {:?}", e);
@@ -470,7 +471,7 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
                 params: Self::bound_params(params.to_vec())?,
                 expiry,
-                msg_hash: Self::create_msg_hash(&extended_params)?,
+                msg_hash: Self::generate_msg_hash(&extended_params)?,
                 confirmations: BoundedVec::<ecdsa::Signature, ConfirmationsLimit>::default(),
                 sender: Self::assign_sender()?,
                 eth_tx_hash: H256::zero(),
@@ -496,10 +497,7 @@ pub mod pallet {
         }
 
         // The core logic being triggered by the OCW hook:
-        fn process_unresolved_transaction(
-            tx_id: u32,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
+        fn process_unresolved_transaction(tx_id: u32, author: Author<T>) {
             let tx_data = Transactions::<T>::get(tx_id).unwrap();
             let this_author_is_sender = author.account_id == tx_data.sender;
             let num_confirmations = 1 + tx_data.confirmations.len() as u32; // The sender's confirmation is implicit
@@ -586,7 +584,7 @@ pub mod pallet {
                 .collect()
         }
 
-        fn create_msg_hash(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
+        fn generate_msg_hash(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
             let (types, values): (Vec<_>, Vec<_>) = params.iter().cloned().unzip();
 
             let types = types
@@ -606,11 +604,7 @@ pub mod pallet {
             Ok(H256::from(msg_hash))
         }
 
-        fn provide_confirmation(
-            tx_id: u32,
-            tx_data: TransactionData<T>,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
+        fn provide_confirmation(tx_id: u32, tx_data: TransactionData<T>, author: Author<T>) {
             match Self::sign_msg_hash_to_create_confirmation(tx_data.msg_hash) {
                 Ok(confirmation) => {
                     let proof = Self::encode_add_confirmation_proof(
@@ -650,7 +644,7 @@ pub mod pallet {
         fn attempt_to_confirm_eth_tx_status(
             tx_id: u32,
             tx_data: TransactionData<T>,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            author: Author<T>,
         ) {
             let expired_and_must_be_finalized =
                 tx_data.expiry > <T as pallet::Config>::TimeProvider::now().as_secs();
@@ -668,11 +662,7 @@ pub mod pallet {
             }
         }
 
-        fn check_tx_status_on_ethereum(
-            tx_id: u32,
-            expiry: u64,
-            author: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) -> EthTxStatus {
+        fn check_tx_status_on_ethereum(tx_id: u32, expiry: u64, author: &Author<T>) -> EthTxStatus {
             if let Ok(calldata) = Self::generate_corroboration_check_calldata(tx_id, expiry) {
                 if let Ok(result) = Self::call_avn_bridge_contract_view_method(calldata, &author) {
                     match result {
@@ -708,11 +698,7 @@ pub mod pallet {
             Self::encode_eth_function_input(&"corroborate".to_string(), &params)
         }
 
-        fn provide_corroboration(
-            tx_id: u32,
-            tx_succeeded: bool,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
+        fn provide_corroboration(tx_id: u32, tx_succeeded: bool, author: Author<T>) {
             let proof =
                 Self::encode_add_corroboration_proof(tx_id.clone(), tx_succeeded, author.clone());
             let signature = author.key.sign(&proof).expect("Error signing proof");
@@ -723,15 +709,12 @@ pub mod pallet {
         fn encode_add_corroboration_proof(
             tx_id: u32,
             tx_succeeded: bool,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            author: Author<T>,
         ) -> Vec<u8> {
             (ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id).encode()
         }
 
-        fn send_transaction_to_ethereum(
-            tx_id: u32,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
+        fn send_transaction_to_ethereum(tx_id: u32, author: Author<T>) {
             match Self::generate_send_transaction_calldata(tx_id) {
                 Ok(calldata) => match Self::call_avn_bridge_contract_send_method(calldata, &author)
                 {
@@ -748,22 +731,14 @@ pub mod pallet {
             }
         }
 
-        fn provide_receipt(
-            tx_id: u32,
-            eth_tx_hash: H256,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) {
+        fn provide_receipt(tx_id: u32, eth_tx_hash: H256, author: Author<T>) {
             let proof = Self::encode_add_receipt_proof(tx_id.clone(), eth_tx_hash, author.clone());
             let signature = author.key.sign(&proof).expect("Error signing proof");
             let call = Call::<T>::add_receipt { tx_id, eth_tx_hash, author, signature };
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
 
-        fn encode_add_receipt_proof(
-            tx_id: u32,
-            eth_tx_hash: H256,
-            author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-        ) -> Vec<u8> {
+        fn encode_add_receipt_proof(tx_id: u32, eth_tx_hash: H256, author: Author<T>) -> Vec<u8> {
             (ADD_RECEIPT_CONTEXT, tx_id, eth_tx_hash, author.account_id).encode()
         }
 
@@ -848,21 +823,21 @@ pub mod pallet {
 
         fn call_avn_bridge_contract_send_method(
             calldata: Vec<u8>,
-            author: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            author: &Author<T>,
         ) -> Result<H256, DispatchError> {
             Self::execute_avn_bridge_request(calldata, author, "send", Self::process_send_response)
         }
 
         fn call_avn_bridge_contract_view_method(
             calldata: Vec<u8>,
-            author: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            author: &Author<T>,
         ) -> Result<i8, DispatchError> {
             Self::execute_avn_bridge_request(calldata, author, "view", Self::process_view_response)
         }
 
         fn execute_avn_bridge_request<R>(
             calldata: Vec<u8>,
-            author: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
+            author: &Author<T>,
             endpoint: &str,
             process_response: fn(Vec<u8>) -> Result<R, DispatchError>,
         ) -> Result<R, DispatchError> {
