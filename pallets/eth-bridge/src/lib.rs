@@ -390,7 +390,7 @@ pub mod pallet {
                             .priority(TransactionPriority::max_value())
                             .build()
                     } else {
-                        InvalidTransaction::Custom(3u8).into()
+                        InvalidTransaction::Custom(2u8).into()
                     },
                 Call::add_corroboration { tx_id, tx_succeeded, author, signature } =>
                     if AVN::<T>::signature_is_valid(
@@ -403,7 +403,7 @@ pub mod pallet {
                             .priority(TransactionPriority::max_value())
                             .build()
                     } else {
-                        InvalidTransaction::Custom(2u8).into()
+                        InvalidTransaction::Custom(3u8).into()
                     },
 
                 _ => InvalidTransaction::Call.into(),
