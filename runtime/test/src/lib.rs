@@ -1035,7 +1035,8 @@ cumulus_pallet_parachain_system::register_validate_block! {
 }
 
 impl HandleAvnBridgeResult for Runtime {
-    fn result(_tx_id: u32, _succeeded: bool) {
+    type Error = UpdateFailed;
+    fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error> {
         // placeholder till other pallets implement it
     }
 }

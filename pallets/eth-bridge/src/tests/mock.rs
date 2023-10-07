@@ -124,7 +124,9 @@ impl ExtBuilder {
 }
 
 impl HandleAvnBridgeResult for TestRuntime {
-    fn result(tx_id: u32, succeeded: bool) {
-        println!("Tx ID: {}, Succeeded?: {}", tx_id, succeeded);
+    type Error = UpdateFailed;
+    fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error> {
+        println!("Tx ID: {}, Succeeded?: {}", tx_id, tx_succeeded);
+        Ok(())
     }
 }
