@@ -34,14 +34,14 @@
 //!
 //! 1. If a transaction is yet to be dispatched, confirmations are accumulated from non-sending
 //!    authors via the **add_confirmation** extrinsic until consensus is reached. Note: the sender's
-//!    confirmation is taken as implicit.
+//!    confirmation is implicit.
 //!
 //! 2. If a transaction has received sufficient confirmations, the chosen sender is prompted to
 //!    dispatch the transaction and then tag it as sent using the **add_receipt** extrinsic.
 //!
-//! 3. Lastly, if a transaction possesses a receipt, or in instances where its expiration time has
-//!    elapsed without a definitive outcome, all authors excluding the sender are requested to
-//!    **add_corroboration**s, in order to arrive at the final transaction status.
+//! 3. Once a transaction possesses a receipt, or if its expiration time has elapsed without a
+//!    definitive outcome, all authors except the sender are requested to **add_corroboration**s, in
+//!    order to determine the final transaction status.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]

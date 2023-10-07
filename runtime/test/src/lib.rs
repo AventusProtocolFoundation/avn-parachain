@@ -1034,9 +1034,10 @@ cumulus_pallet_parachain_system::register_validate_block! {
     CheckInherents = CheckInherents,
 }
 
+// Placeholder until other pallets use eth-bridge
 impl HandleAvnBridgeResult for Runtime {
-    type Error = UpdateFailed;
-    fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error> {
-        // placeholder till other pallets implement it
+    type Error = sp_runtime::DispatchError;
+    fn result(_tx_id: u32, _tx_succeeded: bool) -> Result<(), Self::Error> {
+        Ok(())
     }
 }
