@@ -170,7 +170,7 @@ pub mod pallet {
     pub enum Error<T> {
         DeadlineReached,
         DuplicateConfirmation,
-        ErrorCalculatingSender,
+        ErrorAssigningSender,
         ExceedsConfirmationLimit,
         ExceedsFunctionNameLimit,
         FunctionEncodingError,
@@ -307,7 +307,7 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok(author) = setup_ocw::<T>(block_number) {
                 for tx_id in UnresolvedTxList::<T>::get() {
-                    Self::process_unresolved_transaction(tx_id, author.clone(), block_number);
+                    Self::process_unresolved_transaction(tx_id, author.clone());
                 }
             }
         }
@@ -388,7 +388,7 @@ pub mod pallet {
         pub expiry: u64,
         pub msg_hash: H256,
         pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-        pub sender: Option<[u8; 32]>,
+        pub sender: [u8; 32],
         pub eth_tx_hash: H256,
         pub status: EthTxStatus,
     }
@@ -410,14 +410,17 @@ pub mod pallet {
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<u32, Error<T>> {
+            let tx_id = Self::use_next_tx_id();
+
             let expiry = <T as pallet::Config>::TimeProvider::now().as_secs() +
                 Self::get_eth_tx_lifetime_secs();
-            let tx_id = Self::use_next_tx_id();
 
             let mut extended_params = params.to_vec();
             extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
             extended_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
             let msg_hash = Self::create_msg_hash(&extended_params)?;
+
+            let sender = Self::assign_sender()?;
 
             let tx_data = TransactionData {
                 function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
@@ -426,7 +429,7 @@ pub mod pallet {
                 expiry,
                 msg_hash,
                 confirmations: BoundedVec::<ecdsa::Signature, ConfirmationsLimit>::default(),
-                sender: None,
+                sender: sender,
                 eth_tx_hash: H256::zero(),
                 status: EthTxStatus::Unresolved,
             };
@@ -449,20 +452,27 @@ pub mod pallet {
             Ok(tx_id)
         }
 
+        fn assign_sender() -> Result<[u8; 32], Error<T>> {
+            let current_block_number = <frame_system::Pallet<T>>::block_number();
+        
+            match AVN::<T>::calculate_primary_validator(current_block_number) {
+                Ok(primary_validator) => {
+                    let sender = T::AccountToBytesConvert::into_bytes(&primary_validator);
+                    Ok(sender)
+                },
+                Err(_) => Err(Error::<T>::ErrorAssigningSender),
+            }
+        }
+
         // The core logic being triggered by the OCW hook:
         fn process_unresolved_transaction(
             tx_id: u32,
             author: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-            block_number: T::BlockNumber,
         ) {
-            let author_account_id = T::AccountToBytesConvert::into_bytes(&author.account_id);
-            let sender = match Self::get_or_assign_sender(tx_id, block_number) {
-                Some(sender) => sender,
-                None => return,
-            };
-            let self_is_sender = author_account_id == sender;
             let tx_data = Transactions::<T>::get(tx_id);
-
+            let author_account_id = T::AccountToBytesConvert::into_bytes(&author.account_id);
+            let self_is_sender = author_account_id == tx_data.sender;
+            
             if Self::consensus_is_reached(tx_data.confirmations.len()) {
                 if self_is_sender {
                     Self::send_transaction_to_ethereum(tx_id, tx_data, author_account_id);
@@ -537,25 +547,6 @@ pub mod pallet {
                 .into_iter()
                 .map(|(type_bounded, value_bounded)| (type_bounded.into(), value_bounded.into()))
                 .collect()
-        }
-
-        fn get_or_assign_sender(tx_id: u32, block_number: T::BlockNumber) -> Option<[u8; 32]> {
-            let mut tx_data = Transactions::<T>::get(tx_id);
-            match tx_data.sender {
-                Some(sender) => Some(sender),
-                None => match AVN::<T>::calculate_primary_validator(block_number) {
-                    Ok(primary_validator) => {
-                        let sender = T::AccountToBytesConvert::into_bytes(&primary_validator);
-                        tx_data.sender = Some(sender.clone());
-                        <Transactions<T>>::insert(tx_id, tx_data);
-                        Some(sender)
-                    },
-                    Err(_) => {
-                        log::error!("❌ Error choosing sender.");
-                        None
-                    },
-                },
-            }
         }
 
         fn create_msg_hash(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
