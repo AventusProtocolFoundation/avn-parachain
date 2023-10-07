@@ -378,6 +378,19 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(1u8).into()
                     },
+                Call::add_receipt { tx_id, eth_tx_hash, author, signature } =>
+                if AVN::<T>::signature_is_valid(
+                    &(ADD_RECEIPT_CONTEXT, tx_id.clone(), eth_tx_hash, author),
+                    &author,
+                    signature,
+                ) {
+                    ValidTransaction::with_tag_prefix("EthBridgeAddReceipt")
+                        .and_provides((call, tx_id))
+                        .priority(TransactionPriority::max_value())
+                        .build()
+                } else {
+                    InvalidTransaction::Custom(3u8).into()
+                },
                 Call::add_corroboration { tx_id, tx_succeeded, author, signature } =>
                     if AVN::<T>::signature_is_valid(
                         &(ADD_CORROBORATION_CONTEXT, tx_id.clone(), tx_succeeded, author),
@@ -391,19 +404,7 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(2u8).into()
                     },
-                Call::add_receipt { tx_id, eth_tx_hash, author, signature } =>
-                    if AVN::<T>::signature_is_valid(
-                        &(ADD_RECEIPT_CONTEXT, tx_id.clone(), eth_tx_hash, author),
-                        &author,
-                        signature,
-                    ) {
-                        ValidTransaction::with_tag_prefix("EthBridgeAddReceipt")
-                            .and_provides((call, tx_id))
-                            .priority(TransactionPriority::max_value())
-                            .build()
-                    } else {
-                        InvalidTransaction::Custom(3u8).into()
-                    },
+
                 _ => InvalidTransaction::Call.into(),
             }
         }
