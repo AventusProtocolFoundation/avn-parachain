@@ -112,10 +112,10 @@ pub fn server_error(message: String) -> TideError {
     return TideError::from_str(StatusCode::InternalServerError, format!("{:?}", message))
 }
 
-pub fn hash_with_ethereum_prefix(data_to_sign: Vec<u8>) -> [u8; 32] {
+pub fn hash_with_ethereum_prefix(data_to_sign: &Vec<u8>) -> [u8; 32] {
     // T1 Solidity code expects "packed" encoding of the signed message & prefix so we concatenate
     let mut prefixed_message = b"\x19Ethereum Signed Message:\n32".to_vec();
-    let hashed_message = keccak_256(&data_to_sign);
+    let hashed_message = keccak_256(data_to_sign);
     prefixed_message.append(&mut hashed_message.to_vec());
     keccak_256(&prefixed_message)
 }
@@ -311,8 +311,9 @@ where
                     server_error(format!("Error converting data_to_sign into hex string {:?}", e))
                 })?;
 
-            let hashed_message = hash_with_ethereum_prefix(data_to_sign);
+            let hashed_message = hash_with_ethereum_prefix(&data_to_sign);
 
+            log::info!("ℹ️ avn-service: data to sign: {:?},\n hashed data to sign: {:?}", hex::encode(data_to_sign), hex::encode(hashed_message));
             let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
             let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
 

@@ -186,6 +186,8 @@ pub mod pallet {
         Perbill,
     };
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+    use sp_io::hashing::keccak_256;
+
     /// Pallet for parachain staking
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
@@ -2751,29 +2753,44 @@ pub mod pallet {
                 growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into(),
             )
             .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
-            let eth_description =
-                EthAbiHelper::generate_ethereum_description_for_signature_request(
-                    &T::AccountToBytesConvert::into_bytes(
-                        growth_info.added_by.as_ref().ok_or(Error::<T>::PrimaryCollatorNotFound)?,
-                    ),
-                    &EthTransactionType::TriggerGrowth(TriggerGrowthData::new(
-                        rewards_in_period_128,
-                        average_staked_in_period_128,
-                        *growth_period,
-                    )),
-                    match growth_info.tx_id {
-                        None => EMPTY_GROWTH_TRANSACTION_ID,
-                        _ => *growth_info
-                            .tx_id
-                            .as_ref()
-                            .expect("Non-Empty growths have a reserved TransactionId"),
-                    },
-                )
-                .map_err(|_| Error::<T>::InvalidGrowthData)?;
 
-            Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(
-                &eth_description,
-            )))
+            let growth_data = TriggerGrowthData::new(
+                rewards_in_period_128,
+                average_staked_in_period_128,
+                *growth_period,
+            );
+
+            let encoded_growth_param = growth_data.abi_encode_params();
+            let growth_param_hash = keccak_256(&encoded_growth_param);
+
+            let sender = T::AccountToBytesConvert::into_bytes(
+                growth_info.added_by.as_ref().ok_or(Error::<T>::PrimaryCollatorNotFound)?,
+            );
+
+            let eth_transaction_id = match growth_info.tx_id {
+                None => EMPTY_GROWTH_TRANSACTION_ID,
+                _ => *growth_info
+                    .tx_id
+                    .as_ref()
+                    .expect("Non-Empty growths have a reserved TransactionId"),
+            };
+
+            let hex_encoded_confirmation_data = hex::encode(EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
+                &growth_param_hash,
+                eth_transaction_id,
+                &sender,
+            ));
+
+            log::info!(
+                "📩 Data used for abi encode: \n(encoded growth params: {:?}, encoded growth params hash: {:?}, tx_id: {:?}, encoded sender: {:?}). Output: {:?}",
+                hex::encode(encoded_growth_param),
+                hex::encode(growth_param_hash),
+                eth_transaction_id,
+                hex::encode(&sender),
+                &hex_encoded_confirmation_data
+            );
+
+            return Ok(hex_encoded_confirmation_data)
         }
 
         pub fn lock_till_request_expires() -> OcwOperationExpiration {
