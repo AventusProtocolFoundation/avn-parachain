@@ -621,7 +621,7 @@ pub mod pallet {
                     let proof = Self::encode_add_confirmation_proof(
                         tx_id,
                         confirmation.clone(),
-                        author.account_id.clone(),
+                        author.clone(),
                     );
 
                     if let Some(signature) = author.key.sign(&proof) {
@@ -653,12 +653,12 @@ pub mod pallet {
             Ok(confirmation)
         }
 
-        fn encode_add_confirmation_proof(
+        pub(crate) fn encode_add_confirmation_proof(
             tx_id: u32,
             confirmation: ecdsa::Signature,
-            author_account_id: T::AccountId,
+            author: Author<T>,
         ) -> Vec<u8> {
-            (ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, author_account_id).encode()
+            (ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, author.account_id).encode()
         }
 
         fn attempt_to_confirm_eth_tx_status(
@@ -722,7 +722,7 @@ pub mod pallet {
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
 
-        fn encode_add_corroboration_proof(
+        pub(crate) fn encode_add_corroboration_proof(
             tx_id: u32,
             tx_succeeded: bool,
             author: Author<T>,
@@ -753,7 +753,7 @@ pub mod pallet {
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
 
-        fn encode_add_receipt_proof(tx_id: u32, eth_tx_hash: H256, author: Author<T>) -> Vec<u8> {
+        pub(crate) fn encode_add_receipt_proof(tx_id: u32, eth_tx_hash: H256, author: Author<T>) -> Vec<u8> {
             (ADD_RECEIPT_CONTEXT, tx_id, eth_tx_hash, author.account_id).encode()
         }
 
