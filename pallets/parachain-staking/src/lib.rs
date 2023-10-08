@@ -2783,7 +2783,7 @@ pub mod pallet {
                 ));
 
             log::info!(
-                "📩 Data used for abi encode: \n(encoded growth params: {:?}, encoded growth params hash: {:?}, tx_id: {:?}, encoded sender: {:?}). Output: {:?}",
+                "📄 Data used for abi encode: \n(encoded growth params: {:?}, encoded growth params hash: {:?}, tx_id: {:?}, encoded sender: {:?}). Output: {:?}",
                 hex::encode(encoded_growth_param),
                 hex::encode(growth_param_hash),
                 eth_transaction_id,
