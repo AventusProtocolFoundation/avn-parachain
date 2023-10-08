@@ -229,7 +229,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_confirmation(CONFIRMATIONS_LIMIT))]
+        #[pallet::weight(<T as Config>::WeightInfo::add_confirmation())]
         pub fn add_confirmation(
             origin: OriginFor<T>,
             tx_id: u32,
@@ -653,7 +653,7 @@ pub mod pallet {
             Ok(confirmation)
         }
 
-        pub(crate) fn encode_add_confirmation_proof(
+        fn encode_add_confirmation_proof(
             tx_id: u32,
             confirmation: ecdsa::Signature,
             author: Author<T>,
@@ -722,7 +722,7 @@ pub mod pallet {
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
 
-        pub(crate) fn encode_add_corroboration_proof(
+        fn encode_add_corroboration_proof(
             tx_id: u32,
             tx_succeeded: bool,
             author: Author<T>,
@@ -753,7 +753,7 @@ pub mod pallet {
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
 
-        pub(crate) fn encode_add_receipt_proof(tx_id: u32, eth_tx_hash: H256, author: Author<T>) -> Vec<u8> {
+        fn encode_add_receipt_proof(tx_id: u32, eth_tx_hash: H256, author: Author<T>) -> Vec<u8> {
             (ADD_RECEIPT_CONTEXT, tx_id, eth_tx_hash, author.account_id).encode()
         }
 
