@@ -46,7 +46,7 @@ impl Web3Data {
         ensure!(self.nonce.is_some(), "Invalid nonce (None)");
 
         let nonce = self.nonce.expect("already checked");
-        log::info!("⛓️ avn-service: web3 nonce value: {}", nonce);
+        log::info!("⛓️  avn-service: web3 nonce value: {}", nonce);
         Ok(nonce)
     }
 
