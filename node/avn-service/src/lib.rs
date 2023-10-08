@@ -383,7 +383,7 @@ where
 
     app.at("/latest_finalised_block").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            log::info!("ℹ️ avn-service latest finalised block");
+            log::info!("ℹ️  avn-service latest finalised block");
             let finalised_block_number = get_latest_finalised_block(&req.state().client);
             Ok(hex::encode(finalised_block_number.encode()))
         },
