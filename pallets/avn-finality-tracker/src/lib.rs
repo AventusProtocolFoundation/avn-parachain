@@ -31,6 +31,7 @@ pub use pallet::*;
 use pallet_avn::{self as avn, Error as avn_error, FinalisedBlockChecker};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
+    calculate_one_third_quorum,
     event_types::Validator,
     offchain_worker_storage_lock::{self as OcwLock},
 };
@@ -232,10 +233,10 @@ impl<BlockNumber: Member + AtLeast32Bit> SubmissionData<BlockNumber> {
 }
 
 impl<T: Config> Pallet<T> {
-    /// This function will only update the finalised block if there are 2/3rd or more
+    /// This function will only update the finalised block if there are 1/3rd or more
     /// submissions from distinct validators
     pub fn update_latest_finalised_block_if_required() {
-        let quorum = AVN::<T>::calculate_two_third_quorum();
+        let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
         let current_block_number = <frame_system::Pallet<T>>::block_number();
         let last_finalised_block_submission = Self::last_finalised_block_submission();
 
