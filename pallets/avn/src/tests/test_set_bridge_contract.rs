@@ -6,15 +6,10 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::traits::BadOrigin;
 
-pub fn event_emitted(
-    old_contract: H160,
-    new_contract: H160,
-) -> bool {
+pub fn event_emitted(old_contract: H160, new_contract: H160) -> bool {
     return System::events().iter().any(|a| {
-        return a.event == RuntimeEvent::Avn(Event::AvnBridgeContractUpdated {
-            old_contract,
-            new_contract,
-        })
+        return a.event ==
+            RuntimeEvent::Avn(Event::AvnBridgeContractUpdated { old_contract, new_contract })
     })
 }
 

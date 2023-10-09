@@ -77,10 +77,7 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(crate) fn deposit_event)]
     pub enum Event {
-        AvnBridgeContractUpdated {
-            old_contract: H160,
-            new_contract: H160,
-        }
+        AvnBridgeContractUpdated { old_contract: H160, new_contract: H160 },
     }
 
     #[pallet::config]
@@ -179,7 +176,10 @@ pub mod pallet {
 
             let old_contract = <AvnBridgeContractAddress<T>>::get();
             <AvnBridgeContractAddress<T>>::put(contract_address);
-            Self::deposit_event(Event::AvnBridgeContractUpdated { old_contract, new_contract: contract_address });
+            Self::deposit_event(Event::AvnBridgeContractUpdated {
+                old_contract,
+                new_contract: contract_address,
+            });
             Ok(())
         }
     }
