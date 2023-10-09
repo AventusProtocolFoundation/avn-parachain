@@ -6,6 +6,18 @@ use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
 use sp_runtime::traits::BadOrigin;
 
+pub fn event_emitted(
+    old_contract: H160,
+    new_contract: H160,
+) -> bool {
+    return System::events().iter().any(|a| {
+        return a.event == RuntimeEvent::Avn(Event::AvnBridgeContractUpdated {
+            old_contract,
+            new_contract,
+        })
+    })
+}
+
 mod test_set_bridge_contract {
 
     use super::*;
@@ -38,6 +50,7 @@ mod test_set_bridge_contract {
                 assert_ne!(new_address, AVN::get_bridge_contract_address());
                 assert_ok!(context.dispatch_set_bridge_contract(new_address));
                 assert_eq!(new_address, AVN::get_bridge_contract_address());
+                assert_eq!(true, event_emitted(CUSTOM_BRIDGE_CONTRACT, new_address));
             });
         }
     }

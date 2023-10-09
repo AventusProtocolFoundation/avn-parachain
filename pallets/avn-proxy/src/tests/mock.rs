@@ -34,11 +34,12 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         NftManager: pallet_nft_manager::{Pallet, Call, Storage, Event<T>},
         AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
+        AVN: pallet_avn::{Pallet, Storage, Event, Config<T>},
     }
 );
 
 impl Config for TestRuntime {
-    type RuntimeEvent = mock::RuntimeEvent;
+    type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type Public = AccountId;
@@ -117,6 +118,7 @@ impl pallet_nft_manager::Config for TestRuntime {
 }
 
 impl pallet_avn::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();

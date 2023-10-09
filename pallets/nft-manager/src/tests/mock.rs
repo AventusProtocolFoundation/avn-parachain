@@ -48,7 +48,7 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        AVN: pallet_avn::{Pallet, Storage},
+        AVN: pallet_avn::{Pallet, Storage, Event},
         NftManager: nft_manager::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -95,6 +95,7 @@ impl system::Config for TestRuntime {
 }
 
 impl avn::Config for TestRuntime {
+    type RuntimeEvent = mock::RuntimeEvent;
     type AuthorityId = avn::sr25519::AuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();

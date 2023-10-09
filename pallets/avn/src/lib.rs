@@ -74,8 +74,20 @@ pub mod pallet {
 
     use super::*;
 
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(crate) fn deposit_event)]
+    pub enum Event {
+        AvnBridgeContractUpdated {
+            old_contract: H160,
+            new_contract: H160,
+        }
+    }
+
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        /// Overarching event type
+        type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
         /// The identifier type for an authority.
         type AuthorityId: Member
             + Parameter
@@ -165,7 +177,9 @@ pub mod pallet {
             ensure_root(origin)?;
             ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
 
+            let old_contract = <AvnBridgeContractAddress<T>>::get();
             <AvnBridgeContractAddress<T>>::put(contract_address);
+            Self::deposit_event(Event::AvnBridgeContractUpdated { old_contract, new_contract: contract_address });
             Ok(())
         }
     }

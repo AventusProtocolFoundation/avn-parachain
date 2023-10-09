@@ -1712,14 +1712,14 @@ pub mod migrations {
         if AvnBridgeContractAddress::<T>::get().is_zero() {
             <AvnBridgeContractAddress<T>>::put(get_migration_address::<T>());
             log::info!("ℹ️  Updated bridge contract address successfully in ethereum events");
-            consumed_weight.saturating_add(T::DbWeight::get().reads_writes(4, 1));
+            consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().reads_writes(4, 1));
         }
 
         LiftingContractAddress::<T>::kill();
         ValidatorManagerContractAddress::<T>::kill();
 
         StorageVersion::<T>::put(Releases::V4_0_0);
-        consumed_weight.saturating_add(T::DbWeight::get().writes(4));
+        consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().writes(4));
 
         return consumed_weight
     }

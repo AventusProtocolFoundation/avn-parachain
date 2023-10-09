@@ -116,7 +116,7 @@ frame_support::construct_runtime!(
         ValidatorManager: validators_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        AVN: pallet_avn::{Pallet, Storage},
+        AVN: pallet_avn::{Pallet, Storage, Event},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
     }
 );
@@ -315,6 +315,7 @@ impl system::Config for TestRuntime {
 }
 
 impl avn::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ValidatorManager;

@@ -560,6 +560,7 @@ impl pallet_avn_offence_handler::Config for Runtime {
 }
 
 impl pallet_avn::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = AvnId;
     type EthereumPublicKeyChecker = ValidatorsManager;
     type NewSessionHandler = ValidatorsManager;
