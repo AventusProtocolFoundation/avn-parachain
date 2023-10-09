@@ -76,12 +76,12 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
     pub async fn initialise_web3(&self) -> Result<(), TideError> {
         if let Some(mut web3_data_mutex) = self.web3_data_mutex.try_lock() {
             if web3_data_mutex.web3.is_some() {
-                log::info!("👾 web3 connection has already been initialised, skipping");
+                log::info!("⛓️  avn-service: web3 connection has already been initialised, skipping");
                 return Ok(())
             }
 
             let web3_init_time = Instant::now();
-            log::info!("👾 web3 initialisation start");
+            log::info!("⛓️  avn-service: web3 initialisation start");
 
             let web3 = setup_web3_connection(&self.eth_node_url);
             if web3.is_none() {
@@ -112,10 +112,10 @@ pub fn server_error(message: String) -> TideError {
     return TideError::from_str(StatusCode::InternalServerError, format!("{:?}", message))
 }
 
-pub fn hash_with_ethereum_prefix(data_to_sign: Vec<u8>) -> [u8; 32] {
+pub fn hash_with_ethereum_prefix(data_to_sign: &Vec<u8>) -> [u8; 32] {
     // T1 Solidity code expects "packed" encoding of the signed message & prefix so we concatenate
     let mut prefixed_message = b"\x19Ethereum Signed Message:\n32".to_vec();
-    let hashed_message = keccak_256(&data_to_sign);
+    let hashed_message = keccak_256(data_to_sign);
     prefixed_message.append(&mut hashed_message.to_vec());
     keccak_256(&prefixed_message)
 }
@@ -188,7 +188,7 @@ async fn send_main<Block: BlockT, ClientT>(
 where
     ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
-    log::info!("ℹ️ avn-service send Request");
+    log::info!("⛓️  avn-service: send Request");
     let post_body = req.body_bytes().await?;
     let send_request = &EthTransaction::decode(&mut &post_body[..])?;
 
@@ -245,7 +245,7 @@ async fn root_hash_main<Block: BlockT, ClientT>(
 where
     ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
-    log::info!("ℹ️ avn-service eth events");
+    log::info!("⛓️  avn-service: eth events");
     let tx_hash: H256 = H256::from_slice(&to_bytes32(
         req.param("txHash")
             .map_err(|_| {
@@ -302,7 +302,7 @@ where
 
     app.at("/eth/sign/:data_to_sign").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            log::info!("ℹ️ avn-service sign Request");
+            log::info!("⛓️  avn-service: sign Request");
             let secp = Secp256k1::new();
             let keystore_path = &req.state().keystore_path;
 
@@ -311,8 +311,13 @@ where
                     server_error(format!("Error converting data_to_sign into hex string {:?}", e))
                 })?;
 
-            let hashed_message = hash_with_ethereum_prefix(data_to_sign);
+            let hashed_message = hash_with_ethereum_prefix(&data_to_sign);
 
+            log::info!(
+                "⛓️  avn-service: data to sign: {:?},\n hashed data to sign: {:?}",
+                hex::encode(data_to_sign),
+                hex::encode(hashed_message)
+            );
             let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
             let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
 
@@ -339,7 +344,7 @@ where
 
     app.at("/roothash/:from_block/:to_block").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            log::info!("ℹ️ avn-service roothash");
+            log::info!("⛓️  avn-service: roothash");
             // We cannot use a number bigger than a u32, but with block times of 12 sec it would
             // take of few hundred years before we reach it.
             let from_block_number: u32 = req.param("from_block")?.parse()?;
@@ -378,7 +383,7 @@ where
 
     app.at("/latest_finalised_block").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            log::info!("ℹ️ avn-service latest finalised block");
+            log::info!("⛓️  avn-service: latest finalised block");
             let finalised_block_number = get_latest_finalised_block(&req.state().client);
             Ok(hex::encode(finalised_block_number.encode()))
         },

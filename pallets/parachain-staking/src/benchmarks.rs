@@ -486,7 +486,7 @@ fn setup_voting_parameters<T: Config>() -> (
     <T::AuthorityId as RuntimeAppPublic>::Signature,
 ) {
     let growth_id: GrowthId = GrowthId::new(0u32, 1);
-    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("18cd0839a916d8bbd445225aaf45d155bb5e78473432460072184e6d9611e11b3f4fb6a1e3480a2de78315fd921fe0359f89c42b4df45212b5023b2917a563c71c")).unwrap().into();
+    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("f825dec3df421141e5439f088c6cbd9db270fcfef21f15d48185883a817f60c451b5d9114feb1afd0e5489e08105dfd2887a775b96a1d7d3bdbfaec93e4f411b1b")).unwrap().into();
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
 
     // If the DEV chainspec doesn't use Ferdie, change this to the correct default validator

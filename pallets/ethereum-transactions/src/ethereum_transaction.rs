@@ -222,6 +222,15 @@ impl TriggerGrowthData {
             ],
         }
     }
+
+    pub fn abi_encode_params(&self) -> Vec<u8> {
+        let call_values: Vec<Token> = vec![
+            Token::Uint(self.rewards_in_period.into()),
+            Token::Uint(self.average_staked_in_period.into()),
+            Token::Uint(self.period.into()),
+        ];
+        return ethabi::encode(&call_values)
+    }
 }
 
 pub type TransactionId = u64;
