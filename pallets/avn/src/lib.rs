@@ -71,6 +71,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The identifier type for an authority.
         type AuthorityId: Member
             + Parameter
@@ -94,6 +95,12 @@ pub mod pallet {
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
     pub struct Pallet<T>(_);
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T> {
+        EthTimeoutDurationSet { eth_timeout_duration: u64 },
+    }
 
     #[pallet::error]
     pub enum Error<T> {
@@ -165,6 +172,10 @@ pub mod pallet {
 
             // Update the timeout_duration storage item
             TimeoutDuration::<T>::put(timeout_duration);
+
+            Self::deposit_event(Event::<T>::EthTimeoutDurationSet {
+                eth_timeout_duration: timeout_duration,
+            });
 
             Ok(().into())
         }
