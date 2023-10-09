@@ -33,7 +33,7 @@ fn test_parse_tier1_event_valid_case_lifted() {
         let mut token_contract = vec![0; 12];
         token_contract.extend(vec![1; 20]);
 
-        let topics = vec![vec![20; 32], token_contract, vec![40; 32]];
+        let topics = vec![vec![20; 32], token_contract, vec![30; 32], vec![40; 32]];
 
         let validator_event_to_parse = EthEventId {
             signature: ValidEvents::Lifted.signature(),
