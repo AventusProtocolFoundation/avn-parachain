@@ -10,6 +10,7 @@ use crate::*;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{ensure, pallet_prelude::ConstU32, BoundedVec};
 use frame_system::RawOrigin;
+use sp_core::H256;
 use sp_runtime::WeakBoundedVec;
 
 pub type FunctionLimit = ConstU32<{ crate::FUNCTION_NAME_CHAR_LIMIT }>;
@@ -37,74 +38,77 @@ fn setup_author<T: Config>() -> Validator<<T as pallet_avn::Config>::AuthorityId
     author
 }
 
-fn setup_tx_data<T: Config>(tx_id: u32, num_confirmations: u32) {
-    let function_name: Vec<u8> = b"publishRoot".to_vec();
-    let function_name_bounded: BoundedVec<u8, FunctionLimit> =
-        BoundedVec::try_from(function_name).unwrap();
-    let param_type: Vec<u8> = b"bytes32".to_vec();
-    let param_type_bounded: BoundedVec<u8, TypeLimit> = BoundedVec::try_from(param_type).unwrap();
-    let param_value: Vec<u8> = b"bytes32".to_vec();
-    let param_value_bounded: BoundedVec<u8, ValueLimit> =
-        BoundedVec::try_from(param_value).unwrap();
-    let params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit> =
-        BoundedVec::try_from(vec![(param_type_bounded, param_value_bounded)]).unwrap();
+fn generate_dummy_ecdsa_signature(i: u8) -> ecdsa::Signature {
+    let mut bytes: [u8; 65] = [0; 65];
+    let first_64_bytes: [u8; 64] = [i; 64];
+    bytes[0..64].copy_from_slice(&first_64_bytes);
+    return ecdsa::Signature::from_raw(bytes)
+}
+
+
+fn bound_params(
+    params: Vec<(Vec<u8>, Vec<u8>)>,
+) -> BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit> {
+    
+    let intermediate: Vec<_> = params
+        .into_iter()
+        .map(|(type_vec, value_vec)| {
+            let type_bounded = BoundedVec::try_from(type_vec)
+                .expect("TypeNameLengthExceeded");
+            let value_bounded = BoundedVec::try_from(value_vec)
+                .expect("ValueLengthExceeded");
+            (type_bounded, value_bounded)
+        })
+        .collect();
+
+    BoundedVec::<_, ParamsLimit>::try_from(intermediate)
+        .expect("ParamsLimitExceeded")
+}
+
+fn setup_tx_data<T: Config>(tx_id: u32, num_confirmations: u8, author: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>) {
+    let expiry = 438269973u64;
+    let function_name = BoundedVec::<u8, FunctionLimit>::try_from(b"sampleFunction".to_vec()).expect("Failed to create BoundedVec");
+    let params = vec![
+        (b"bytes32".to_vec(), hex::decode("30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0").unwrap()),
+        (b"uint256".to_vec(), expiry.to_string().into_bytes()),
+        (b"uint32".to_vec(), tx_id.to_string().into_bytes())
+    ];
 
     let tx_data = TransactionData {
-        function_name: function_name_bounded,
-        params,
-        expiry: 1438269973u64,
+        function_name,
+        params: bound_params(params),
+        expiry,
         msg_hash: H256::repeat_byte(1),
         confirmations: {
             let mut confirmations = BoundedVec::default();
             for i in 0..num_confirmations {
-                let confirmation: [u8; 65] = [i as u8; 65];
+                let confirmation = generate_dummy_ecdsa_signature(i);
                 confirmations.try_push(confirmation).unwrap();
             }
             confirmations
         },
-        sender: Some([2u8; 32]),
-        eth_tx_hash: H256::repeat_byte(3),
+        sender: author.account_id,
+        eth_tx_hash: H256::zero(),
         status: EthTxStatus::Unresolved,
     };
 
     Transactions::<T>::insert(tx_id, tx_data);
-}
 
-fn setup_corroborations<T: Config>(tx_id: u32, num_success: u32, num_failure: u32) {
-    let mut success_corroborations = BoundedVec::default();
-    for i in 0..num_success {
-        let author: [u8; 32] = [i as u8; 32];
-        success_corroborations.try_push(author).unwrap();
-    }
+    let corroborations = CorroborationData {
+        success: BoundedVec::default(),
+        failure: BoundedVec::default(),
+    };
 
-    let mut failure_corroborations = BoundedVec::default();
-    for i in 0..num_failure {
-        let author: [u8; 32] = [(i + num_success) as u8; 32];
-        failure_corroborations.try_push(author).unwrap();
-    }
-
-    let corroboration_data =
-        CorroborationData { success: success_corroborations, failure: failure_corroborations };
-
-    Corroborations::<T>::insert(tx_id, corroboration_data);
-
-    let unresolved_txs = vec![tx_id];
-    let bounded_unresolved_txs = BoundedVec::try_from(unresolved_txs).unwrap();
-    UnresolvedTxList::<T>::put(bounded_unresolved_txs);
-}
-
-fn encode_add_confirmation_proof(tx_id: u32, confirmation: [u8; 65], author: [u8; 32]) -> Vec<u8> {
-    return (crate::ADD_CONFIRMATION_CONTEXT, tx_id.clone(), confirmation, author.clone()).encode()
-}
-
-fn encode_add_corroboration_proof(tx_id: u32, tx_succeeded: bool, author: [u8; 32]) -> Vec<u8> {
-    return (crate::ADD_CORROBORATION_CONTEXT, tx_id.clone(), tx_succeeded, author.clone()).encode()
+    Corroborations::<T>::insert(tx_id, corroborations);
+    
+    let _ = UnresolvedTxList::<T>::try_mutate(|txs| {
+        txs.try_push(tx_id)
+    });
 }
 
 benchmarks! {
     set_eth_tx_lifetime_secs {
         let eth_tx_lifetime_secs = 300u64;
-
     }: _(RawOrigin::Root, eth_tx_lifetime_secs)
     verify {
         assert_eq!(EthTxLifetimeSecs::<T>::get(), eth_tx_lifetime_secs);
@@ -113,30 +117,43 @@ benchmarks! {
     add_confirmation {
         let author = setup_author::<T>();
         let tx_id = 1u32;
-        let c in 0 .. crate::CONFIRMATIONS_LIMIT - 1;
-        setup_tx_data::<T>(tx_id, c);
-        let new_confirmation: [u8; 65] = [99u8; 65];
-        let proof = encode_add_confirmation_proof(tx_id, new_confirmation, T::AccountToBytesConvert::into_bytes(&author.account_id));
+        setup_tx_data::<T>(tx_id, 1, author.clone());
+        let tx_data = Transactions::<T>::get(tx_id).expect("Transaction should exist");
+        let msg_hash_string = tx_data.msg_hash.to_string();
+        let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("3a0490e7d4325d3baa39b3011284e9758f9e370477e6b9e98713b2303da7427f71919f2757f62a01909391aeb3e89991539fdcb2d02ad45f7c64eb129c96f37100")).unwrap().into();
+        let proof = (crate::ADD_CONFIRMATION_CONTEXT, tx_id, new_confirmation.clone(), author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: _(RawOrigin::None, tx_id, new_confirmation, author, signature)
+    }: _(RawOrigin::None, tx_id, new_confirmation.clone(), author.clone(), signature)
     verify {
-        let tx_data = Transactions::<T>::get(tx_id);
+        let tx_data = Transactions::<T>::get(tx_id).expect("Transaction should exist");
         ensure!(tx_data.confirmations.contains(&new_confirmation), "Confirmation not added");
+    }
+
+    add_receipt {
+        let author = setup_author::<T>();
+        let tx_id = 2u32;
+        setup_tx_data::<T>(tx_id, 1, author.clone());
+        let tx_data = Transactions::<T>::get(tx_id).expect("Transaction should exist");
+        let eth_tx_hash = H256::repeat_byte(1);
+        let proof = (crate::ADD_RECEIPT_CONTEXT, tx_id, eth_tx_hash.clone(), author.account_id.clone()).encode();
+        let signature = author.key.sign(&proof).expect("Error signing proof");
+    }: _(RawOrigin::None, tx_id, eth_tx_hash.clone(), author.clone(), signature)
+    verify {
+        let tx_data = Transactions::<T>::get(tx_id).expect("Transaction should exist");
+        assert_eq!(tx_data.eth_tx_hash, eth_tx_hash, "Receipt not added");
     }
 
     add_corroboration {
         let author = setup_author::<T>();
-        let author_account_id = T::AccountToBytesConvert::into_bytes(&author.account_id);
-        let tx_id = 1u32;
-        setup_tx_data::<T>(tx_id, 3);
-        setup_corroborations::<T>(tx_id, 3, 3);
-        let tx_succeeded = true;
-        let proof = encode_add_corroboration_proof(tx_id, tx_succeeded, author_account_id);
+        let tx_id = 3u32;
+        setup_tx_data::<T>(tx_id, 1, author.clone());
+        let succeeded = true;
+        let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: _(RawOrigin::None, tx_id, tx_succeeded, author, signature)
+    }: _(RawOrigin::None, tx_id, succeeded, author.clone(), signature)
     verify {
-        let corroboration_data = Corroborations::<T>::get(tx_id);
-        ensure!(corroboration_data.success.contains(&author_account_id), "Corroboration not added to successes");
+        let corroboration = Corroborations::<T>::get(tx_id).unwrap();
+        ensure!(corroboration.success.contains(&author.account_id), "Corroboration not added");
     }
 }
 

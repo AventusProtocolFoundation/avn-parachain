@@ -183,6 +183,7 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        CorroborationNotFound,
         DeadlineReached,
         DuplicateConfirmation,
         ErrorAssigningSender,
@@ -268,7 +269,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(10_000)] // TODO: set weight
+        #[pallet::weight(<T as Config>::WeightInfo::add_receipt())]
         pub fn add_receipt(
             origin: OriginFor<T>,
             tx_id: u32,
@@ -304,7 +305,7 @@ pub mod pallet {
                 return Ok(().into())
             }
 
-            let mut corroborations = Corroborations::<T>::get(tx_id).unwrap();
+            let mut corroborations = Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
             let num_corroborations;
 
             if tx_succeeded {

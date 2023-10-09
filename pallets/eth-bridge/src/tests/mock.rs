@@ -125,8 +125,19 @@ impl ExtBuilder {
 
 impl HandleAvnBridgeResult for TestRuntime {
     type Error = UpdateFailed;
+
     fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error> {
         println!("Tx ID: {}, Succeeded?: {}", tx_id, tx_succeeded);
         Ok(())
     }
 }
+
+pub struct UpdateFailed;
+
+impl Into<sp_runtime::DispatchError> for UpdateFailed {
+    fn into(self) -> sp_runtime::DispatchError {
+        sp_runtime::DispatchError::Other("UpdateFailed")
+    }
+}
+
+
