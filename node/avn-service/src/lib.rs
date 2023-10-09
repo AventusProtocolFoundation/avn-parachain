@@ -76,7 +76,9 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
     pub async fn initialise_web3(&self) -> Result<(), TideError> {
         if let Some(mut web3_data_mutex) = self.web3_data_mutex.try_lock() {
             if web3_data_mutex.web3.is_some() {
-                log::info!("⛓️  avn-service: web3 connection has already been initialised, skipping");
+                log::info!(
+                    "⛓️  avn-service: web3 connection has already been initialised, skipping"
+                );
                 return Ok(())
             }
 
