@@ -29,7 +29,8 @@ use sp_staking::{
     SessionIndex,
 };
 
-use avn::FinalisedBlockChecker;
+use avn::{AvnBridgeContractAddress, FinalisedBlockChecker};
+use pallet_avn::{self as avn, Error as avn_error};
 use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent};
 use sp_io::TestExternalities;
 use sp_runtime::{bounded_vec, BoundedVec};
@@ -54,7 +55,7 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        AVN: pallet_avn::{Pallet, Storage},
+        AVN: pallet_avn::{Pallet, Storage, Config<T>},
         AvnProxy: pallet_avn_proxy::{Pallet, Call, Storage, Event<T>},
         EthereumEvents: pallet_ethereum_events::{Pallet, Call, Storage, Event<T>, Config<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
@@ -192,6 +193,7 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = Self;
+    type WeightInfo = ();
 }
 
 pub struct TestSessionManager;
@@ -285,9 +287,7 @@ impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
     }
 }
 
-pub static CUSTOM_VALIDATOR_MANAGER_CONTRACT: H160 =
-    H160(hex!("11111AAAAA22222BBBBB11111AAAAA22222BBBBB"));
-pub static CUSTOM_LIFTING_CONTRACT: H160 = H160(hex!("33333CCCCC44444DDDDD33333CCCCC44444DDDDD"));
+pub static CUSTOM_BRIDGE_CONTRACT: H160 = H160(hex!("11111AAAAA22222BBBBB11111AAAAA22222BBBBB"));
 
 #[allow(dead_code)]
 pub const INDEX_RESULT: usize = 2;
@@ -314,8 +314,7 @@ impl EthereumEvents {
     }
 
     pub fn setup_mock_ethereum_contracts_address() {
-        <ValidatorManagerContractAddress<TestRuntime>>::put(CUSTOM_VALIDATOR_MANAGER_CONTRACT);
-        <LiftingContractAddress<TestRuntime>>::put(CUSTOM_LIFTING_CONTRACT);
+        AvnBridgeContractAddress::<TestRuntime>::put(CUSTOM_BRIDGE_CONTRACT);
     }
 
     pub fn set_ingress_counter(new_value: IngressCounter) {
@@ -618,7 +617,7 @@ pub fn simulate_http_response(
         Some(test_json(
             &unchecked_event.transaction_hash,
             &unchecked_event.signature,
-            &EthereumEvents::validator_manager_contract_address(),
+            &AVN::get_bridge_contract_address(),
             log_data,
             event_topics,
             status,
@@ -629,8 +628,7 @@ pub fn simulate_http_response(
 
 // ==========================================================
 
-pub const VALIDATORS_MANAGER_CONTRACT: [u8; 20] = [8u8; 20];
-pub const LIFTING_CONTRACT: [u8; 20] = [9u8; 20];
+pub const BRIDGE_CONTRACT: [u8; 20] = [9u8; 20];
 pub static NFT_CONTRACT: [u8; 20] = [10u8; 20];
 
 pub const INITIAL_LIFTS: [[u8; 32]; 4] = [[10u8; 32], [11u8; 32], [12u8; 32], [13u8; 32]];
@@ -687,8 +685,6 @@ impl ExtBuilder {
     #[allow(dead_code)]
     pub fn with_genesis_config(mut self) -> Self {
         let _ = pallet_ethereum_events::GenesisConfig::<TestRuntime> {
-            validator_manager_contract_address: H160::from(VALIDATORS_MANAGER_CONTRACT),
-            lifting_contract_address: H160::from(LIFTING_CONTRACT),
             nft_t1_contracts: vec![(H160::from(NFT_CONTRACT), ())],
             processed_events: vec![],
             lift_tx_hashes: vec![],
@@ -696,13 +692,18 @@ impl ExtBuilder {
             event_challenge_period: EVENT_CHALLENGE_PERIOD,
         }
         .assimilate_storage(&mut self.storage);
+
+        let _ = pallet_avn::GenesisConfig::<TestRuntime> {
+            _phantom: Default::default(),
+            bridge_contract_address: H160::from(BRIDGE_CONTRACT),
+        }
+        .assimilate_storage(&mut self.storage);
+
         self
     }
 
     pub fn with_genesis_and_initial_lifts(mut self) -> Self {
         let _ = pallet_ethereum_events::GenesisConfig::<TestRuntime> {
-            validator_manager_contract_address: H160::from(VALIDATORS_MANAGER_CONTRACT),
-            lifting_contract_address: H160::from(LIFTING_CONTRACT),
             nft_t1_contracts: vec![(H160::from(NFT_CONTRACT), ())],
             processed_events: create_initial_processed_events(),
             lift_tx_hashes: vec![
@@ -715,6 +716,13 @@ impl ExtBuilder {
             event_challenge_period: EVENT_CHALLENGE_PERIOD,
         }
         .assimilate_storage(&mut self.storage);
+
+        let _ = pallet_avn::GenesisConfig::<TestRuntime> {
+            _phantom: Default::default(),
+            bridge_contract_address: H160::from(BRIDGE_CONTRACT),
+        }
+        .assimilate_storage(&mut self.storage);
+
         self
     }
 

@@ -18,7 +18,13 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 
-use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
+use frame_support::{
+    dispatch::DispatchResult,
+    ensure,
+    log::*,
+    traits::{Get, OneSessionHandler},
+};
+use frame_system::{ensure_root, pallet_prelude::OriginFor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
@@ -27,6 +33,7 @@ use sp_avn_common::{
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
+use sp_core::{ecdsa, H160};
 use sp_runtime::{
     offchain::{http, storage::StorageValueRef, Duration},
     traits::Member,
@@ -37,11 +44,17 @@ use sp_std::prelude::*;
 use codec::{Decode, Encode};
 use core::convert::TryInto;
 pub use pallet::*;
-use sp_core::ecdsa;
 
 #[path = "tests/testing.rs"]
 pub mod testing;
 pub mod vote;
+
+pub mod default_weights;
+pub use default_weights::WeightInfo;
+
+#[cfg(test)]
+#[path = "tests/test_set_bridge_contract.rs"]
+mod test_set_bridge_contract;
 
 // Definition of the crypto to use for signing
 pub mod sr25519 {
@@ -70,6 +83,7 @@ pub mod pallet {
             + Ord
             + MaybeSerializeDeserialize
             + MaxEncodedLen;
+
         type EthereumPublicKeyChecker: EthereumPublicKeyChecker<Self::AccountId>;
         /// A handler that will notify other pallets when a new session starts
         type NewSessionHandler: NewSessionHandler<Self::AuthorityId, Self::AccountId>;
@@ -77,6 +91,8 @@ pub mod pallet {
         type DisabledValidatorChecker: DisabledValidatorChecker<Self::AccountId>;
         /// trait that allows the runtime to check if a block is finalised
         type FinalisedBlockChecker: FinalisedBlockChecker<Self::BlockNumber>;
+
+        type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
@@ -98,6 +114,7 @@ pub mod pallet {
         DeadlineReached,
         UnexpectedStatusCode,
         InvalidVotingSession,
+        InvalidContractAddress,
         DuplicateVote,
         InvalidVote,
         ErrorRecoveringPublicKeyFromSignature,
@@ -115,6 +132,43 @@ pub mod pallet {
         WeakBoundedVec<Validator<T::AuthorityId, T::AccountId>, MaximumValidatorsBound>,
         ValueQuery,
     >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_bridge_contract_address)]
+    pub type AvnBridgeContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub _phantom: sp_std::marker::PhantomData<T>,
+        pub bridge_contract_address: H160,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self { _phantom: Default::default(), bridge_contract_address: H160::zero() }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            AvnBridgeContractAddress::<T>::put(self.bridge_contract_address);
+        }
+    }
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::call_index(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_bridge_contract_storage())]
+        pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
+
+            <AvnBridgeContractAddress<T>>::put(contract_address);
+            Ok(())
+        }
+    }
 }
 
 impl<T: Config> Pallet<T> {
@@ -553,7 +607,6 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
 }
 
 #[cfg(test)]
-#[path = "tests/mock.rs"]
 mod mock;
 
 #[cfg(test)]

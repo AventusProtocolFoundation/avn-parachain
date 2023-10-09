@@ -144,13 +144,6 @@ benchmarks! {
         assert_eq!(<Repository<T>>::get(candidate_tx_id).get_eth_tx_hash(), Some(eth_tx_hash));
         assert_last_event::<T>(Event::<T>::EthereumTransactionHashAdded{ transaction_id: candidate_tx_id, transaction_hash: eth_tx_hash }.into());
     }
-
-    set_publish_root_contract {
-        let contract_address = H160::from([1; 20]);
-    }: set_publish_root_contract(RawOrigin::Root, contract_address.clone())
-    verify {
-        assert_eq!(<PublishRootContract<T>>::get(), contract_address);
-    }
 }
 
 impl_benchmark_test_suite!(

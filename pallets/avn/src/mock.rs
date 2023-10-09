@@ -5,6 +5,7 @@
 use crate::{self as pallet_avn, *};
 use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities};
 use frame_system as system;
+use hex_literal::hex;
 use pallet_session as session;
 use sp_core::{
     offchain::testing::{OffchainState, PendingRequest},
@@ -41,6 +42,7 @@ impl Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -91,6 +93,8 @@ thread_local! {
 
 pub type SessionIndex = u32;
 
+pub static CUSTOM_BRIDGE_CONTRACT: H160 = H160(hex!("11111AAAAA22222BBBBB11111AAAAA22222BBBBB"));
+
 pub struct TestSessionManager;
 impl session::SessionManager<u64> for TestSessionManager {
     fn new_session(_new_index: SessionIndex) -> Option<Vec<u64>> {
@@ -121,6 +125,15 @@ impl ExtBuilder {
         let storage =
             frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
         Self { storage }
+    }
+
+    pub fn with_genesis_config(mut self) -> Self {
+        let _ = pallet_avn::GenesisConfig::<TestRuntime> {
+            _phantom: Default::default(),
+            bridge_contract_address: H160::from(CUSTOM_BRIDGE_CONTRACT),
+        }
+        .assimilate_storage(&mut self.storage);
+        self
     }
 
     pub fn as_externality(self) -> sp_io::TestExternalities {

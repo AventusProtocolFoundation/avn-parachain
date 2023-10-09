@@ -42,10 +42,7 @@ mod test_add_validator_log {
                 RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                     eth_event_id: validator_event.clone(),
                     added_by: account_id_0(),
-                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                        &ValidEvents::AddedValidator,
-                    )
-                    .unwrap(),
+                    t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address(),
                 });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());
@@ -111,11 +108,7 @@ mod test_add_validator_log {
                     RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                         eth_event_id: validator_event_1.clone(),
                         added_by: account_id_0(),
-                        t1_contract_address:
-                            EthereumEvents::get_contract_address_for_non_nft_event(
-                                &ValidEvents::AddedValidator,
-                            )
-                            .unwrap(),
+                        t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address(),
                     });
                 assert!(EthereumEvents::event_emitted(&event));
 
@@ -123,11 +116,7 @@ mod test_add_validator_log {
                     RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                         eth_event_id: validator_event_2.clone(),
                         added_by: account_id_0(),
-                        t1_contract_address:
-                            EthereumEvents::get_contract_address_for_non_nft_event(
-                                &ValidEvents::AddedValidator,
-                            )
-                            .unwrap(),
+                        t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address(),
                     });
                 assert!(EthereumEvents::event_emitted(&event));
 
@@ -219,10 +208,7 @@ mod test_add_lift_log {
                 RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                     eth_event_id: lift_event.clone(),
                     added_by: account_id_0(),
-                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                        &ValidEvents::Lifted,
-                    )
-                    .unwrap(),
+                    t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address(),
                 });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());
@@ -367,11 +353,7 @@ mod test_add_ethereum_log {
                     RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                         eth_event_id: ethereum_event.clone(),
                         added_by: account_id_0(),
-                        t1_contract_address:
-                            EthereumEvents::get_contract_address_for_non_nft_event(
-                                &context.nft_event_type,
-                            )
-                            .unwrap(),
+                        t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address(),
                     });
             }
 
@@ -583,10 +565,7 @@ mod add_event {
                 RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                     eth_event_id: lift_event.clone(),
                     added_by: account_id,
-                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                        &ValidEvents::Lifted,
-                    )
-                    .unwrap(),
+                    t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address(),
                 });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());
@@ -620,10 +599,7 @@ mod add_event {
                 RuntimeEvent::EthereumEvents(crate::Event::<TestRuntime>::EthereumEventAdded {
                     eth_event_id: validator_event.clone(),
                     added_by: account_id,
-                    t1_contract_address: EthereumEvents::get_contract_address_for_non_nft_event(
-                        &ValidEvents::AddedValidator,
-                    )
-                    .unwrap(),
+                    t1_contract_address: AVN::<TestRuntime>::get_bridge_contract_address(),
                 });
             assert!(EthereumEvents::event_emitted(&event));
             assert_eq!(1, System::events().len());

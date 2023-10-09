@@ -562,6 +562,7 @@ impl pallet_avn::Config for Runtime {
     type NewSessionHandler = ValidatorsManager;
     type DisabledValidatorChecker = ValidatorsManager;
     type FinalisedBlockChecker = AvnFinalityTracker;
+    type WeightInfo = pallet_avn::default_weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -580,15 +581,10 @@ impl pallet_ethereum_events::Config for Runtime {
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-    pub ValidatorManagerContractAddress: H160 = pallet_ethereum_events::ValidatorManagerContractAddress::<Runtime>::get();
-}
-
 impl pallet_ethereum_transactions::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type AccountToBytesConvert = Avn;
-    type ValidatorManagerContractAddress = ValidatorManagerContractAddress;
     type WeightInfo = pallet_ethereum_transactions::default_weights::SubstrateWeight<Runtime>;
 }
 

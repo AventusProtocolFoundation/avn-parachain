@@ -17,13 +17,13 @@ mod test_get_contract_address_for {
 
     fn get_contract_for_event_from_genesis(event_type: &ValidEvents) -> H160 {
         return match event_type {
-            ValidEvents::AddedValidator => H160::from(VALIDATORS_MANAGER_CONTRACT),
-            ValidEvents::Lifted => H160::from(LIFTING_CONTRACT),
+            ValidEvents::AddedValidator => H160::from(BRIDGE_CONTRACT),
+            ValidEvents::Lifted => H160::from(BRIDGE_CONTRACT),
             ValidEvents::NftMint => H160::from(NFT_CONTRACT),
             ValidEvents::NftTransferTo => H160::from(NFT_CONTRACT),
             ValidEvents::NftCancelListing => H160::from(NFT_CONTRACT),
             ValidEvents::NftEndBatchListing => H160::from(NFT_CONTRACT),
-            ValidEvents::AvtGrowthLifted => H160::from(LIFTING_CONTRACT),
+            ValidEvents::AvtGrowthLifted => H160::from(BRIDGE_CONTRACT),
         }
     }
 
@@ -33,7 +33,7 @@ mod test_get_contract_address_for {
         ext.execute_with(|| {
             let event = ValidEvents::AddedValidator;
             assert_eq!(
-                EthereumEvents::get_contract_address_for_non_nft_event(&event).unwrap(),
+                AVN::<TestRuntime>::get_bridge_contract_address(),
                 get_contract_for_event_from_genesis(&event),
             );
         });
@@ -45,7 +45,7 @@ mod test_get_contract_address_for {
         ext.execute_with(|| {
             let event = ValidEvents::Lifted;
             assert_eq!(
-                EthereumEvents::get_contract_address_for_non_nft_event(&event).unwrap(),
+                AVN::<TestRuntime>::get_bridge_contract_address(),
                 get_contract_for_event_from_genesis(&event),
             );
         });
@@ -371,7 +371,7 @@ fn test_compute_result_ok() {
         let json = test_json(
             &unchecked_event.transaction_hash,
             &unchecked_event.signature,
-            &EthereumEvents::validator_manager_contract_address(),
+            &AVN::<TestRuntime>::get_bridge_contract_address(),
             log_data,
             event_topics,
             GOOD_STATUS,
@@ -407,7 +407,6 @@ fn test_compute_result_ok() {
 fn test_compute_result_invalid_event_signature() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
-        EthereumEvents::setup_mock_ethereum_contracts_address();
         let block_number = 1;
         let tx_validator_hash: H256 = H256::random();
         let unchecked_event = &EthEventId {
@@ -422,7 +421,7 @@ fn test_compute_result_invalid_event_signature() {
         let json = test_json(
             &unchecked_event.transaction_hash,
             &invalid_event_signature,
-            &EthereumEvents::validator_manager_contract_address(),
+            &AVN::<TestRuntime>::get_bridge_contract_address(),
             log_data,
             event_topics,
             GOOD_STATUS,
@@ -447,7 +446,6 @@ fn test_compute_result_invalid_event_signature() {
 fn test_compute_result_invalid_contract_address() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
-        EthereumEvents::setup_mock_ethereum_contracts_address();
         let block_number = 1;
         let tx_validator_hash: H256 = H256::random();
         let unchecked_event = &EthEventId {
@@ -487,7 +485,6 @@ fn test_compute_result_invalid_contract_address() {
 fn test_compute_result_invalid_log_data() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
-        EthereumEvents::setup_mock_ethereum_contracts_address();
         let block_number = 1;
         let tx_validator_hash: H256 = H256::random();
         let unchecked_event = &EthEventId {
@@ -501,7 +498,7 @@ fn test_compute_result_invalid_log_data() {
         let json = test_json(
             &unchecked_event.transaction_hash,
             &unchecked_event.signature,
-            &EthereumEvents::validator_manager_contract_address(),
+            &AVN::<TestRuntime>::get_bridge_contract_address(),
             invalid_log_data,
             event_topics,
             GOOD_STATUS,
@@ -525,7 +522,6 @@ fn test_compute_result_invalid_log_data() {
 fn test_compute_result_invalid_event_topics() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
-        EthereumEvents::setup_mock_ethereum_contracts_address();
         let block_number = 1;
         let tx_validator_hash: H256 = H256::random();
         let unchecked_event = &EthEventId {
@@ -538,7 +534,7 @@ fn test_compute_result_invalid_event_topics() {
         let json = test_json(
             &unchecked_event.transaction_hash,
             &unchecked_event.signature,
-            &EthereumEvents::validator_manager_contract_address(),
+            &AVN::<TestRuntime>::get_bridge_contract_address(),
             log_data,
             invalid_event_topics,
             GOOD_STATUS,
@@ -562,7 +558,6 @@ fn test_compute_result_invalid_event_topics() {
 fn test_compute_result_empty_json() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
-        EthereumEvents::setup_mock_ethereum_contracts_address();
         let block_number = 1;
         let tx_validator_hash: H256 = H256::random();
         let unchecked_event = &EthEventId {
@@ -588,7 +583,6 @@ fn test_compute_result_empty_json() {
 fn test_compute_result_invalid_json() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
-        EthereumEvents::setup_mock_ethereum_contracts_address();
         let block_number = 1;
         let tx_validator_hash: H256 = H256::random();
         let unchecked_event = &EthEventId {
@@ -631,23 +625,6 @@ fn initialize_keys(keys: &[T::AuthorityId]) {
     [don't test for now]
 }
 */
-
-#[test]
-fn test_get_contract_address_for_event() {
-    let mut ext = ExtBuilder::build_default().as_externality();
-    ext.execute_with(|| {
-        EthereumEvents::setup_mock_ethereum_contracts_address();
-        assert!(
-            EthereumEvents::get_contract_address_for_non_nft_event(&ValidEvents::AddedValidator)
-                .unwrap() ==
-                CUSTOM_VALIDATOR_MANAGER_CONTRACT
-        );
-        assert!(
-            EthereumEvents::get_contract_address_for_non_nft_event(&ValidEvents::Lifted).unwrap() ==
-                CUSTOM_LIFTING_CONTRACT
-        );
-    });
-}
 
 mod signature_in {
     use super::*;

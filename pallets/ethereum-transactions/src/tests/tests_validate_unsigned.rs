@@ -89,10 +89,7 @@ mod input_is_set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn result_is_valid_transaction() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
                 let transaction_call = Call::<TestRuntime>::set_eth_tx_hash_for_dispatched_tx {
@@ -118,10 +115,7 @@ mod input_is_set_eth_tx_hash_for_dispatched_tx {
 
         #[test]
         fn submitter_is_not_a_validator() {
-            let mut ext = ExtBuilder::build_default()
-                .with_genesis_config()
-                .with_validators()
-                .as_externality();
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
                 let transaction_call = Call::<TestRuntime>::set_eth_tx_hash_for_dispatched_tx {
@@ -145,10 +139,7 @@ mod input_is_set_eth_tx_hash_for_dispatched_tx {
 
             #[test]
             fn candidate_tx_id() {
-                let mut ext = ExtBuilder::build_default()
-                    .with_genesis_config()
-                    .with_validators()
-                    .as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
                 ext.execute_with(|| {
                     let context: Context = Default::default();
                     let other_tx_id = context.tx_id + 1;
@@ -170,10 +161,7 @@ mod input_is_set_eth_tx_hash_for_dispatched_tx {
 
             #[test]
             fn submitter() {
-                let mut ext = ExtBuilder::build_default()
-                    .with_genesis_config()
-                    .with_validators()
-                    .as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
                 ext.execute_with(|| {
                     let context: Context = Default::default();
                     let transaction_call = Call::<TestRuntime>::set_eth_tx_hash_for_dispatched_tx {
@@ -194,10 +182,7 @@ mod input_is_set_eth_tx_hash_for_dispatched_tx {
 
             #[test]
             fn eth_tx_hash() {
-                let mut ext = ExtBuilder::build_default()
-                    .with_genesis_config()
-                    .with_validators()
-                    .as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
                 ext.execute_with(|| {
                     let context: Context = Default::default();
                     let other_tx_hash = H256::from([2; 32]);
@@ -220,10 +205,7 @@ mod input_is_set_eth_tx_hash_for_dispatched_tx {
 
             #[test]
             fn context() {
-                let mut ext = ExtBuilder::build_default()
-                    .with_genesis_config()
-                    .with_validators()
-                    .as_externality();
+                let mut ext = ExtBuilder::build_default().with_validators().as_externality();
                 ext.execute_with(|| {
                     let context: Context = Default::default();
                     let transaction_call = Call::<TestRuntime>::set_eth_tx_hash_for_dispatched_tx {

@@ -102,6 +102,7 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type WeightInfo = ();
 }
 
 impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {
