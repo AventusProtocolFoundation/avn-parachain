@@ -19,13 +19,13 @@
 use crate::{
     set::BoundedOrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era,
     EraIndex, Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet,
-    RewardPoint, TopNominations, Total, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    RewardPoint, TopNominations, Total, TransactionId, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
+use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
     traits::{tokens::WithdrawReasons, LockableCurrency},
 };
-use parity_scale_codec::{Decode, Encode};
 use sp_runtime::{
     traits::{Saturating, Zero},
     RuntimeDebug,
@@ -42,12 +42,12 @@ pub struct MaxCloneableNominations;
 
 impl Get<u32> for MaxCloneableNominations {
     fn get() -> u32 {
-        const MAX_NOMINATIONS: u32 = 100;
+        const MAX_NOMINATIONS: u32 = 300;
         MAX_NOMINATIONS
     }
 }
 
-pub type MaxNominations = ConstU32<100>;
+pub type MaxNominations = ConstU32<300>;
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct Bond<AccountId, Balance> {
@@ -1367,6 +1367,9 @@ pub struct GrowthInfo<AccountId, Balance> {
     pub total_staker_reward: Balance,
     pub total_points: RewardPoint,
     pub collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
+    pub added_by: Option<AccountId>,
+    pub tx_id: Option<TransactionId>,
+    pub triggered: Option<bool>,
 }
 
 impl<
@@ -1389,6 +1392,9 @@ impl<
             total_staker_reward: Balance::zero(),
             total_points: 0u32.into(),
             collator_scores: BoundedVec::default(),
+            added_by: None,
+            tx_id: None,
+            triggered: None,
         }
     }
 }
@@ -1401,6 +1407,9 @@ impl<A: Decode, B: Default> Default for GrowthInfo<A, B> {
             total_staker_reward: B::default(),
             total_points: Default::default(),
             collator_scores: BoundedVec::default(),
+            added_by: None,
+            tx_id: None,
+            triggered: None,
         }
     }
 }

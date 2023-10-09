@@ -24,17 +24,21 @@ use frame_support::{
     PalletId,
 };
 use frame_system::{self as system, limits};
+use pallet_ethereum_transactions::{
+    ethereum_transaction::EthTransactionType, CandidateTransactionSubmitter,
+};
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
+    bounds::MaximumValidatorsBound,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{sr25519, Pair, H256};
+use sp_core::{bounded::BoundedVec, ecdsa, sr25519, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
-    testing::{Header, UintAuthorityId},
+    testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
-    Perbill, SaturatedConversion,
+    DispatchError, Perbill, SaturatedConversion,
 };
 
 use hex_literal::hex;
@@ -46,6 +50,7 @@ use std::{cell::RefCell, sync::Arc};
 pub type Signature = sr25519::Signature;
 /// An identifier for an account on this system.
 pub type AccountId = <Signature as Verify>::Signer;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 pub const AVT_TOKEN_CONTRACT: H160 = H160(hex!("dB1Cff52f66195f0a5Bd3db91137db98cfc54AE6"));
 pub const ONE_TOKEN: u128 = 1_000000_000000_000000u128;
@@ -59,6 +64,7 @@ const TOPIC_RECEIVER_INDEX: usize = 3;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
+type TransactionId = u64;
 
 frame_support::construct_runtime!(
     pub enum TestRuntime where
@@ -73,6 +79,7 @@ frame_support::construct_runtime!(
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Historical: pallet_session::historical::{Pallet, Storage},
     }
 );
 
@@ -107,6 +114,14 @@ impl avn::Config for TestRuntime {
 
 impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {
     type Public = <mock::TestRuntime as avn::Config>::AuthorityId;
+}
+
+impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type OverarchingCall = RuntimeCall;
+    type Extrinsic = Extrinsic;
 }
 
 pub const BASE_FEE: u64 = 12;
@@ -238,6 +253,33 @@ impl parachain_staking::Config for TestRuntime {
     type ProcessedEventsChecker = ();
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
+    type AccountToBytesConvert = AVN;
+    type CandidateTransactionSubmitter = Self;
+    type ReportGrowthOffence = ();
+}
+
+impl pallet_session::historical::Config for TestRuntime {
+    type FullIdentification = AccountId;
+    type FullIdentificationOf = ConvertInto;
+}
+
+impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
+    fn submit_candidate_transaction_to_tier1(
+        _candidate_type: EthTransactionType,
+        _tx_id: TransactionId,
+        _submitter: AccountId,
+        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
+    ) -> DispatchResult {
+        Ok(())
+    }
+
+    fn reserve_transaction_id(
+        _candidate_type: &EthTransactionType,
+    ) -> Result<TransactionId, DispatchError> {
+        return Ok(0)
+    }
+    #[cfg(feature = "runtime-benchmarks")]
+    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -356,6 +398,7 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: 10,
             min_total_nominator_stake: 5,
+            voting_period: 100,
         }
         .assimilate_storage(&mut self.storage);
 

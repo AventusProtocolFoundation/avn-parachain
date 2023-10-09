@@ -429,6 +429,9 @@ impl parachain_staking::Config for TestRuntime {
     type ProcessedEventsChecker = ();
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
+    type AccountToBytesConvert = AVN;
+    type CandidateTransactionSubmitter = Self;
+    type ReportGrowthOffence = ();
 }
 
 /// A mock offence report handler.
@@ -625,6 +628,7 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: 10,
             min_total_nominator_stake: 5,
+            voting_period: 100,
         }
         .assimilate_storage(&mut self.storage);
 

@@ -13,21 +13,27 @@ rust-version = { workspace = true }
 log = { version = "0.4.17", default-features = false }
 serde = { version = "1.0.101", optional = true }
 rand = { version = "0.7.2", default-features = false }
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+hex-literal = { version = "0.3.4", default-features = false }
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 # Substrate
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true, default-features = false }
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
-parity-scale-codec = { version = "3.0.0", default-features = false, features = [ "derive" ] }
+
 scale-info = { version = "2.0", default-features = false, features = [ "derive" ] }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
 sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
 sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
 sp-application-crypto = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
+sp-staking = {default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 substrate-fixed = { git = "https://github.com/encointer/substrate-fixed", default-features = false }
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 pallet-avn = { default-features = false, path = "../avn" }
 pallet-session = {features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
+pallet-ethereum-transactions = { default-features = false, path = "../ethereum-transactions" }
 
 [dev-dependencies]
 similar-asserts = "1.1.0"
@@ -35,8 +41,9 @@ similar-asserts = "1.1.0"
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
+parking_lot = { version = "0.12.0" }
+assert_matches = "1.3.0"
 
 [features]
 default = [ "std" ]
@@ -44,15 +51,17 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
-	"parity-scale-codec/std",
+	"codec/std",
 	"scale-info/std",
 	"serde",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-core/std",
+	"sp-staking/std",
 	"pallet-authorship/std",
 	"pallet-avn/std",
 	"pallet-session/std",
+	"pallet-ethereum-transactions/std",
 	"log/std",
 
 ]

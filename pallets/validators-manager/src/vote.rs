@@ -151,7 +151,7 @@ fn is_not_own_activation<T: Config>(
             action_data.reserved_eth_transaction
         {
             return activation_data.t2_public_key !=
-                T::AccountToBytesConvert::into_bytes(&account_id)
+                <T as Config>::AccountToBytesConvert::into_bytes(&account_id)
         }
         // If None, treat as it isn't an own activation.
         return true

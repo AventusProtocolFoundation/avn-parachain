@@ -187,27 +187,49 @@ impl ActivateCollatorData {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
 pub struct TriggerGrowthData {
-    pub amount: u128,
+    pub rewards_in_period: u128,
+    pub average_staked_in_period: u128,
     pub period: u32,
 }
 
 impl TriggerGrowthData {
-    pub fn new(amount: u128, period: u32) -> TriggerGrowthData {
-        TriggerGrowthData { amount, period }
+    pub fn new(
+        rewards_in_period: u128,
+        average_staked_in_period: u128,
+        period: u32,
+    ) -> TriggerGrowthData {
+        TriggerGrowthData { rewards_in_period, average_staked_in_period, period }
     }
     pub fn to_abi(&self) -> EthTransactionDescription {
         EthTransactionDescription {
             function_call: Function {
                 name: String::from("triggerGrowth"),
                 inputs: vec![
-                    Param { name: String::from("amount"), kind: ParamType::Uint(128) },
+                    Param { name: String::from("rewards_in_period"), kind: ParamType::Uint(128) },
+                    Param {
+                        name: String::from("average_staked_in_period"),
+                        kind: ParamType::Uint(128),
+                    },
                     Param { name: String::from("period"), kind: ParamType::Uint(32) },
                 ],
                 outputs: Vec::<Param>::new(),
                 constant: false,
             },
-            call_values: vec![Token::Uint(self.amount.into()), Token::Uint(self.period.into())],
+            call_values: vec![
+                Token::Uint(self.rewards_in_period.into()),
+                Token::Uint(self.average_staked_in_period.into()),
+                Token::Uint(self.period.into()),
+            ],
         }
+    }
+
+    pub fn abi_encode_params(&self) -> Vec<u8> {
+        let call_values: Vec<Token> = vec![
+            Token::Uint(self.rewards_in_period.into()),
+            Token::Uint(self.average_staked_in_period.into()),
+            Token::Uint(self.period.into()),
+        ];
+        return ethabi::encode(&call_values)
     }
 }
 

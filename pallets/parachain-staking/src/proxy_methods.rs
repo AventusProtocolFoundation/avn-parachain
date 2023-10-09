@@ -5,8 +5,8 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
+use codec::Encode;
 use frame_support::traits::IsSubType;
-use parity_scale_codec::Encode;
 use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
 use sp_runtime::traits::StaticLookup;
 use sp_std::prelude::*;
