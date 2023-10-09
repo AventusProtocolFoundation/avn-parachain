@@ -68,6 +68,7 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 use pallet_avn_proxy::ProvableProxy;
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
+use pallet_eth_bridge::HandleAvnBridgeResult;
 use sp_avn_common::{InnerCallValidator, Proof};
 
 use pallet_parachain_staking;
@@ -666,6 +667,16 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_eth_bridge::Config for Runtime {
+    type MaxUnresolvedTx = ConstU32<1000>;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type AccountToBytesConvert = Avn;
+    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
+    type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
+    type HandleAvnBridgeResult = Runtime;
+}
+
 // Other pallets
 parameter_types! {
     pub const AssetDeposit: Balance = 10 * MILLI_AVT;
@@ -799,6 +810,7 @@ construct_runtime!(
         Summary: pallet_summary = 88,
         AvnProxy: pallet_avn_proxy = 89,
         AvnTransactionPayment: pallet_avn_transaction_payment = 90,
+        EthBridge: pallet_eth_bridge = 91,
 
         // OpenGov pallets
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 97,
@@ -823,6 +835,7 @@ mod benches {
         [pallet_avn_finality_tracker, AvnFinalityTracker]
         [pallet_avn_offence_handler, AvnOffenceHandler]
         [pallet_avn_proxy, AvnProxy]
+        [pallet_eth_bridge, EthBridge]
         [pallet_ethereum_events, EthereumEvents]
         [pallet_ethereum_transactions, EthereumTransactions]
         [pallet_nft_manager, NftManager]
@@ -1066,4 +1079,12 @@ cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
     CheckInherents = CheckInherents,
+}
+
+// Placeholder until other pallets use eth-bridge
+impl HandleAvnBridgeResult for Runtime {
+    type Error = sp_runtime::DispatchError;
+    fn result(_tx_id: u32, _tx_succeeded: bool) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }

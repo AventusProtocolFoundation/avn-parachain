@@ -594,6 +594,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-conviction-voting",
+ "pallet-eth-bridge",
  "pallet-ethereum-events",
  "pallet-ethereum-transactions",
  "pallet-im-online",
@@ -674,6 +675,7 @@ dependencies = [
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-conviction-voting",
+ "pallet-eth-bridge",
  "pallet-ethereum-events",
  "pallet-ethereum-transactions",
  "pallet-im-online",
@@ -6855,6 +6857,28 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-npos-elections",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-eth-bridge"
+version = "3.4.0"
+dependencies = [
+ "ethabi 13.0.0",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "pallet-avn",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec 3.2.1",
+ "scale-info",
+ "sp-application-crypto",
+ "sp-avn-common",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]
