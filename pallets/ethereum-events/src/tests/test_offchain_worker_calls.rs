@@ -1,6 +1,5 @@
 #![cfg(test)]
 use crate::{mock::*, Call, *};
-
 use codec::Decode;
 use sp_avn_common::event_types::EthEvent;
 use sp_runtime::testing::UintAuthorityId;
@@ -120,7 +119,7 @@ fn check_event_and_submit_result(
             Some(test_json(
                 &unchecked_event.transaction_hash,
                 &unchecked_event.signature,
-                &EthereumEvents::validator_manager_contract_address(),
+                &AVN::<TestRuntime>::get_bridge_contract_address(),
                 log_data,
                 event_topics,
                 status,
@@ -337,7 +336,7 @@ fn test_validate_event_ok() {
             Some(test_json(
                 &event.event_id.transaction_hash,
                 &event.event_id.signature,
-                &EthereumEvents::validator_manager_contract_address(),
+                &AVN::<TestRuntime>::get_bridge_contract_address(),
                 log_data,
                 event_topics,
                 GOOD_STATUS,

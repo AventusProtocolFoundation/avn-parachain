@@ -398,7 +398,8 @@ impl pallet_avn::Config for Test {
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
-    type FinalisedBlockChecker = Self;
+    type FinalisedBlockChecker = ();
+    type WeightInfo = ();
 }
 
 impl session::Config for Test {

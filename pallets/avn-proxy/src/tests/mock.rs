@@ -122,6 +122,7 @@ impl pallet_avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
+    type WeightInfo = ();
 }
 
 // Test Avn proxy configuration logic

@@ -16,6 +16,7 @@ use frame_support::{
     traits::{Get, IsSubType},
 };
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
+use pallet_avn::AvnBridgeContractAddress;
 use simple_json2::json::JsonValue;
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
@@ -107,8 +108,8 @@ mod test_parse_event;
 mod test_challenges;
 
 #[cfg(test)]
-#[path = "tests/test_set_ethereum_contract.rs"]
-mod test_set_ethereum_contract;
+#[path = "tests/test_insert_nft_contract.rs"]
+mod test_insert_nft_contract;
 
 #[cfg(test)]
 #[path = "tests/test_set_event_challenge_period.rs"]
@@ -122,10 +123,6 @@ mod test_initial_events;
 #[path = "tests/test_ethereum_logs.rs"]
 mod tests_ethereum_logs;
 
-#[cfg(test)]
-#[path = "tests/test_proxy_signed_add_ethereum_logs.rs"]
-mod test_proxy_signed_add_ethereum_logs;
-
 mod benchmarking;
 
 pub mod default_weights;
@@ -133,8 +130,7 @@ pub use default_weights::WeightInfo;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
 pub enum EthereumContracts {
-    ValidatorsManager,
-    Lifting,
+    AvnBridgeContract,
     NftMarketplace,
 }
 
@@ -286,9 +282,9 @@ pub mod pallet {
         DuplicateChallenge,
         ErrorSavingValidationToLocalDB,
         MalformedHash,
+        InvalidContractAddress,
         InvalidEventToProcess,
         ChallengingOwnEvent,
-        InvalidContractAddress,
         InvalidContractType,
         InvalidEventChallengePeriod,
         SenderIsNotSigner,
@@ -303,10 +299,12 @@ pub mod pallet {
     #[pallet::getter(fn validator_manager_contract_address)]
     // TODO [TYPE: refactoring][PRI: low]: replace these contract addresses by a map.
     // (note: low value. This is simple to use, and there are few contracts)
+    #[deprecated]
     pub type ValidatorManagerContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn lifting_contract_address)]
+    #[deprecated]
     pub type LiftingContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
     #[pallet::storage]
@@ -374,8 +372,6 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub validator_manager_contract_address: H160,
-        pub lifting_contract_address: H160,
         pub quorum_factor: u32,
         pub event_challenge_period: T::BlockNumber,
         pub lift_tx_hashes: Vec<H256>,
@@ -387,8 +383,6 @@ pub mod pallet {
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
-                validator_manager_contract_address: H160::zero(),
-                lifting_contract_address: H160::zero(),
                 quorum_factor: 4 as u32,
                 event_challenge_period: T::BlockNumber::from(300 as u32),
                 lift_tx_hashes: Vec::<H256>::new(),
@@ -401,11 +395,10 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            ValidatorManagerContractAddress::<T>::put(self.validator_manager_contract_address);
-            LiftingContractAddress::<T>::put(self.lifting_contract_address);
-
             assert_ne!(self.quorum_factor, 0, "Quorum factor cannot be 0");
             QuorumFactor::<T>::put(self.quorum_factor);
+
+            StorageVersion::<T>::put(Releases::default());
 
             EventChallengePeriod::<T>::put(self.event_challenge_period);
 
@@ -771,21 +764,11 @@ pub mod pallet {
         #[pallet::weight(
             <T as pallet::Config>::WeightInfo::set_ethereum_contract_map_storage().max(<T as Config>::WeightInfo::set_ethereum_contract_storage()
         ))]
-        pub fn set_ethereum_contract(
-            origin: OriginFor<T>,
-            contract_type: EthereumContracts,
-            contract_address: H160,
-        ) -> DispatchResult {
+        pub fn insert_nft_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
 
-            match contract_type {
-                EthereumContracts::ValidatorsManager =>
-                    <ValidatorManagerContractAddress<T>>::put(contract_address),
-                EthereumContracts::Lifting => <LiftingContractAddress<T>>::put(contract_address),
-                EthereumContracts::NftMarketplace =>
-                    <NftT1Contracts<T>>::insert(contract_address, ()),
-            };
+            <NftT1Contracts<T>>::insert(contract_address, ());
 
             Ok(())
         }
@@ -848,12 +831,12 @@ pub mod pallet {
         // migration logic should be done in a separate function so it can be tested
         // properly.
         fn on_runtime_upgrade() -> Weight {
-            if StorageVersion::<T>::get() == Releases::Unknown {
-                StorageVersion::<T>::put(Releases::V2_0_0);
-                return migrations::migrate_to_multi_nft_contract::<T>()
+            if StorageVersion::<T>::get() != Releases::V4_0_0 || !StorageVersion::<T>::exists() {
+                log::info!("Performing bridge contract migration");
+                return migrations::migrate_to_bridge_contract::<T>()
+            } else {
+                return Weight::from_ref_time(0)
             }
-
-            return Weight::from_ref_time(0)
         }
     }
 
@@ -1569,10 +1552,9 @@ impl<T: Config> Pallet<T> {
                 account_id: sender,
             });
         } else {
-            let eth_contract_address: H160 =
-                Self::get_contract_address_for_non_nft_event(&event_type)
-                    .or_else(|| Some(H160::zero()))
-                    .expect("Always return a default value");
+            let eth_contract_address: H160 = Some(AVN::<T>::get_bridge_contract_address())
+                .or_else(|| Some(H160::zero()))
+                .expect("Always return a default value");
             Self::deposit_event(Event::<T>::EthereumEventAdded {
                 eth_event_id: event_id,
                 added_by: sender,
@@ -1583,15 +1565,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn get_contract_address_for_non_nft_event(event_type: &ValidEvents) -> Option<H160> {
-        match event_type {
-            ValidEvents::AddedValidator => Some(Self::validator_manager_contract_address()),
-            ValidEvents::Lifted | ValidEvents::AvtGrowthLifted =>
-                Some(Self::lifting_contract_address()),
-            _ => None,
-        }
-    }
-
     fn is_event_contract_valid(contract_address: &H160, event_id: &EthEventId) -> bool {
         let event_type = ValidEvents::try_from(&event_id.signature);
         if let Some(event_type) = event_type {
@@ -1599,8 +1572,7 @@ impl<T: Config> Pallet<T> {
                 return <NftT1Contracts<T>>::contains_key(contract_address)
             }
 
-            let non_nft_contract_address =
-                Self::get_contract_address_for_non_nft_event(&event_type);
+            let non_nft_contract_address = Some(AVN::<T>::get_bridge_contract_address());
             return non_nft_contract_address.is_some() &&
                 non_nft_contract_address.expect("checked for none") == *contract_address
         }
@@ -1706,39 +1678,49 @@ enum Releases {
     Unknown,
     V2_0_0,
     V3_0_0,
+    V4_0_0,
 }
 
+//Todo: Change this once merged
 impl Default for Releases {
     fn default() -> Self {
-        Releases::V3_0_0
+        Releases::V4_0_0
     }
 }
 
 pub mod migrations {
     use super::*;
-    use frame_support::{migration::storage_key_iter, Blake2_128Concat};
-    pub type MarketplaceId = u32;
+    use frame_support::pallet_prelude::Weight;
 
-    pub fn migrate_to_multi_nft_contract<T: Config>() -> frame_support::weights::Weight {
+    pub fn get_migration_address<T: Config>() -> H160 {
+        let val_manager = ValidatorManagerContractAddress::<T>::get();
+        let lifting = LiftingContractAddress::<T>::get();
+
+        if !val_manager.is_zero() {
+            return val_manager
+        } else {
+            return lifting
+        }
+    }
+
+    pub fn migrate_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
         sp_runtime::runtime_logger::RuntimeLogger::init();
         log::info!("ℹ️  Ethereum events pallet data migration invoked");
 
-        let mut consumed_weight = T::DbWeight::get().reads_writes(1, 1);
+        let mut consumed_weight = Weight::from_ref_time(0);
 
-        for (_, address) in storage_key_iter::<MarketplaceId, H160, Blake2_128Concat>(
-            b"EthereumEvents",
-            b"NftContractAddresses",
-        )
-        .drain()
-        {
-            //Insert the address into the new storage item
-            <NftT1Contracts<T>>::insert(address, ());
-
-            //update weight
-            consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().reads_writes(0, 1));
+        if AvnBridgeContractAddress::<T>::get().is_zero() {
+            <AvnBridgeContractAddress<T>>::put(get_migration_address::<T>());
+            log::info!("ℹ️  Updated bridge contract address successfully in ethereum events");
+            consumed_weight.saturating_add(T::DbWeight::get().reads_writes(4, 1));
         }
 
-        log::info!("ℹ️  Migrated Ethereum event's NFT contract addresses successfully");
+        LiftingContractAddress::<T>::kill();
+        ValidatorManagerContractAddress::<T>::kill();
+
+        StorageVersion::<T>::put(Releases::V4_0_0);
+        consumed_weight.saturating_add(T::DbWeight::get().writes(4));
+
         return consumed_weight
     }
 }
