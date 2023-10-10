@@ -64,41 +64,35 @@ pub fn send_transaction<T: Config>(tx_id: u32, author: Author<T>) -> Result<H256
     match generate_send_calldata::<T>(tx_id) {
         Ok(calldata) => match make_send_call::<T>(calldata, &author) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
-            Err(err) => {
-                log::error!("❌ Error calling AVN bridge contract: {:?}", err);
-                Err(Error::<T>::ContractCallFailed.into())
-            },
+            Err(_) => Err(Error::<T>::ContractCallFailed.into()),
         },
-        Err(err) => {
-            log::error!("❌ Error generating transaction calldata: {:?}", err);
-            Err(Error::<T>::CalldataGenerationFailed.into())
-        },
+        Err(_) => Err(Error::<T>::CalldataGenerationFailed.into()),
     }
 }
 
-pub fn check_tx_status<T: Config>(tx_id: u32, expiry: u64, author: &Author<T>) -> EthStatus {
+pub fn check_tx_status<T: Config>(
+    tx_id: u32,
+    expiry: u64,
+    author: &Author<T>,
+) -> Result<EthStatus, DispatchError> {
     if let Ok(calldata) = generate_corroborate_calldata::<T>(tx_id, expiry) {
         if let Ok(result) = make_view_call::<T>(calldata, &author) {
             match result {
-                0 => return EthStatus::Unresolved,
-                1 => return EthStatus::Succeeded,
-                -1 => return EthStatus::Failed,
+                0 => return Ok(EthStatus::Unresolved),
+                1 => return Ok(EthStatus::Succeeded),
+                -1 => return Ok(EthStatus::Failed),
                 _ => {
-                    log::error!(
-                        "Invalid ethereum check response for tx_id {} and expiry {}: {}",
-                        tx_id,
-                        expiry,
-                        result
-                    );
-                    return EthStatus::Unresolved
+                    return Err(Error::<T>::InvalidEthereumCheckResponse.into())
                 },
             }
+        } else {
+            return Err(Error::<T>::CorroborateCallFailed.into());
         }
     }
 
-    log::error!("Invalid calldata generation for tx_id {} and expiry {}", tx_id, expiry);
-    EthStatus::Unresolved
+    Err(Error::<T>::InvalidCalldataGeneration.into())
 }
+
 
 fn generate_msg_hash<T: pallet::Config>(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
     let tokens: Result<Vec<_>, _> = params
@@ -239,7 +233,6 @@ fn execute_call<R, T: Config>(
         .map_err(|_| Error::<T>::DeadlineReached)?;
 
     if response.code != 200 {
-        log::error!("❌ Unexpected status code: {}", response.code);
         return Err(Error::<T>::UnexpectedStatusCode)?
     }
 
@@ -250,14 +243,11 @@ fn execute_call<R, T: Config>(
 
 fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchError> {
     if result.len() != 64 {
-        log::error!("❌ Ethereum transaction hash is not valid: {:?}", result);
-        return Err(Error::<T>::InvalidHashLength.into())
+        return Err(Error::<T>::InvalidHashLength.into());
     }
 
-    let tx_hash_string = core::str::from_utf8(&result).map_err(|e| {
-        log::error!("❌ Error converting txHash bytes to string: {:?}", e);
-        Error::<T>::InvalidUTF8Bytes
-    })?;
+    let tx_hash_string = core::str::from_utf8(&result)
+        .map_err(|_| Error::<T>::InvalidUTF8Bytes)?;
 
     let mut data: [u8; 32] = [0; 32];
     hex::decode_to_slice(tx_hash_string, &mut data[..])
@@ -266,9 +256,9 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
     Ok(H256::from_slice(&data))
 }
 
+
 fn process_view_response<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
     if result.len() != 1 {
-        log::error!("❌ Invalid data length for int8: {:?}", result);
         return Err(Error::<T>::InvalidDataLength.into())
     }
 

@@ -181,6 +181,7 @@ pub mod pallet {
     pub enum Error<T> {
         CalldataGenerationFailed,
         ContractCallFailed,
+        CorroborateCallFailed,
         CorroborationNotFound,
         DeadlineReached,
         DuplicateConfirmation,
@@ -193,6 +194,8 @@ pub mod pallet {
         FunctionNameError,
         HandleAvnBridgeResultFailed,
         InvalidBytes,
+        InvalidCalldataGeneration,
+        InvalidEthereumCheckResponse,
         InvalidData,
         InvalidDataLength,
         InvalidECDSASignature,
@@ -293,7 +296,9 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok(author) = setup_ocw::<T>(block_number) {
                 for tx_id in UnresolvedTxs::<T>::get() {
-                    process_unresolved_tx::<T>(tx_id, author.clone());
+                    if let Err(e) = process_unresolved_tx::<T>(tx_id, author.clone()) {
+                        log::error!("Error processing tx_id {}: {:?}", tx_id, e);
+                    }
                 }
             }
         }
@@ -309,40 +314,39 @@ pub mod pallet {
     }
 
     // The core logic being triggered by the OCW hook:
-    fn process_unresolved_tx<T: Config>(tx_id: u32, author: Author<T>) {
-        let tx_data = match Transactions::<T>::get(tx_id) {
-            Some(data) => data,
-            None => {
-                log::error!("Transaction not found for tx_id: {}", tx_id);
-                return
-            },
-        };
-
+    fn process_unresolved_tx<T: Config>(tx_id: u32, author: Author<T>) -> Result<(), DispatchError> {
+        let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
         let this_author_is_sender = author.account_id == tx_data.sender;
         let num_confirmations = 1 + tx_data.confirmations.len() as u32; // The sender's confirmation is implicit
-
+    
         if !utils::consensus_is_reached::<T>(num_confirmations) {
             if !this_author_is_sender {
-                let confirmation = eth::sign_msg_hash::<T>(tx_data.msg_hash).unwrap();
+                let confirmation = eth::sign_msg_hash::<T>(tx_data.msg_hash)?;
                 call::add_confirmation::<T>(tx_id, confirmation, author);
             }
         } else if this_author_is_sender {
-            let eth_tx_hash = eth::send_transaction::<T>(tx_id, author.clone()).unwrap();
+            let eth_tx_hash = eth::send_transaction::<T>(tx_id, author.clone())?;
             call::add_receipt::<T>(tx_id, eth_tx_hash, author);
         } else {
             if tx_data.eth_tx_hash != H256::zero() || tx_data.expiry > utils::time_now::<T>() {
                 match eth::check_tx_status::<T>(tx_id, tx_data.expiry, &author) {
-                    EthStatus::Unresolved => {},
-                    EthStatus::Succeeded => {
+                    Ok(EthStatus::Unresolved) => {},
+                    Ok(EthStatus::Succeeded) => {
                         call::add_corroboration::<T>(tx_id, true, author);
                     },
-                    EthStatus::Failed => {
+                    Ok(EthStatus::Failed) => {
                         call::add_corroboration::<T>(tx_id, false, author);
                     },
+                    Err(e) => {
+                        return Err(e);
+                    }
                 }
             }
         }
+    
+        Ok(())
     }
+    
 
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
