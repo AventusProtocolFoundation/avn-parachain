@@ -313,7 +313,7 @@ pub mod pallet {
         })
     }
 
-    // The core logic being triggered by the OCW hook:
+    // The core logic being triggered by the OCW until a tx gets resolved:
     fn process_unresolved_tx<T: Config>(
         tx_id: u32,
         author: Author<T>,

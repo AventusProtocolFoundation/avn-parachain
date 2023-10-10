@@ -8,34 +8,29 @@
 use crate::*;
 
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{ensure, pallet_prelude::ConstU32, BoundedVec};
+use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::WeakBoundedVec;
 
-pub type FunctionLimit = ConstU32<{ crate::FUNCTION_NAME_CHAR_LIMIT }>;
-pub type ParamsLimit = ConstU32<{ crate::PARAMS_LIMIT }>;
-pub type TypeLimit = ConstU32<{ crate::TYPE_CHAR_LIMIT }>;
-pub type ValueLimit = ConstU32<{ crate::VALUE_CHAR_LIMIT }>;
-
-fn setup_author<T: Config>() -> Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId> {
+fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
     let mnemonic: &str =
         "basic anxiety marine match castle rival moral whisper insane away avoid bike";
-    let account: T::AccountId = account("dummy_validator", 0, 0);
-    let key = <T as avn::Config>::AuthorityId::generate_pair(Some(mnemonic.as_bytes().to_vec()));
-    let validator = Validator::new(account, key);
-    // Update the account id to a predefined one (Alice stash in this case)
-    let account_bytes: [u8; 32] =
-        hex_literal::hex!("be5ddb1579b72e84524fc29e78609e3caf42e85aa118ebfe0b0ad404b5bdd25f");
-    let account_id = T::AccountId::decode(&mut &account_bytes[..]).unwrap();
-    let author = Validator::new(account_id, validator.key);
-    // Setup validator in avn pallet
+    let mut authors: Vec<crate::Author<T>> = Vec::new();
+    for i in 0..number_of_validator_account_ids {
+        let account = account("dummy_validator", i, i);
+        let key =
+            <T as avn::Config>::AuthorityId::generate_pair(Some(mnemonic.as_bytes().to_vec()));
+        authors.push(crate::Author::<T>::new(account, key));
+    }
+
+    // Setup authors in avn pallet
     avn::Validators::<T>::put(WeakBoundedVec::force_from(
-        vec![author.clone()],
-        Some("Too many validators for session"),
+        authors.clone(),
+        Some("Too many authors for session"),
     ));
 
-    author
+    return authors
 }
 
 fn generate_dummy_ecdsa_signature(i: u8) -> ecdsa::Signature {
@@ -47,7 +42,10 @@ fn generate_dummy_ecdsa_signature(i: u8) -> ecdsa::Signature {
 
 fn bound_params(
     params: Vec<(Vec<u8>, Vec<u8>)>,
-) -> BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit> {
+) -> BoundedVec<
+    (BoundedVec<u8, crate::TypeLimit>, BoundedVec<u8, crate::ValueLimit>),
+    crate::ParamsLimit,
+> {
     let intermediate: Vec<_> = params
         .into_iter()
         .map(|(type_vec, value_vec)| {
@@ -57,7 +55,7 @@ fn bound_params(
         })
         .collect();
 
-    BoundedVec::<_, ParamsLimit>::try_from(intermediate).expect("ParamsLimitExceeded")
+    BoundedVec::<_, crate::ParamsLimit>::try_from(intermediate).expect("crate::ParamsLimitExceeded")
 }
 
 fn setup_tx_data<T: Config>(
@@ -66,8 +64,9 @@ fn setup_tx_data<T: Config>(
     author: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
 ) {
     let expiry = 438269973u64;
-    let function_name = BoundedVec::<u8, FunctionLimit>::try_from(b"sampleFunction".to_vec())
-        .expect("Failed to create BoundedVec");
+    let function_name =
+        BoundedVec::<u8, crate::FunctionLimit>::try_from(b"sampleFunction".to_vec())
+            .expect("Failed to create BoundedVec");
     let params = vec![
         (
             b"bytes32".to_vec(),
@@ -115,12 +114,14 @@ benchmarks! {
     }
 
     add_confirmation {
-        let author = setup_author::<T>();
+        let authors = setup_authors::<T>(10);
+        let author: crate::Author<T> = authors[0].clone();
         let tx_id = 1u32;
         setup_tx_data::<T>(tx_id, 1, author.clone());
         let tx_data = Transactions::<T>::get(tx_id).expect("Transaction should exist");
         let msg_hash_string = tx_data.msg_hash.to_string();
-        let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("3a0490e7d4325d3baa39b3011284e9758f9e370477e6b9e98713b2303da7427f71919f2757f62a01909391aeb3e89991539fdcb2d02ad45f7c64eb129c96f37100")).unwrap().into();
+        let signature_bytes = hex::decode("3a0490e7d4325d3baa39b3011284e9758f9e370477e6b9e98713b2303da7427f71919f2757f62a01909391aeb3e89991539fdcb2d02ad45f7c64eb129c96f37100").expect("Decoding failed");
+        let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&signature_bytes).unwrap().into();
         let proof = (crate::ADD_CONFIRMATION_CONTEXT, tx_id, new_confirmation.clone(), author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: _(RawOrigin::None, tx_id, new_confirmation.clone(), author.clone(), signature)
@@ -130,7 +131,8 @@ benchmarks! {
     }
 
     add_receipt {
-        let author = setup_author::<T>();
+        let authors = setup_authors::<T>(10);
+        let author: crate::Author<T> = authors[0].clone();
         let tx_id = 2u32;
         setup_tx_data::<T>(tx_id, 1, author.clone());
         let tx_data = Transactions::<T>::get(tx_id).expect("Transaction should exist");
@@ -144,7 +146,8 @@ benchmarks! {
     }
 
     add_corroboration {
-        let author = setup_author::<T>();
+        let authors = setup_authors::<T>(10);
+        let author: crate::Author<T> = authors[0].clone();
         let tx_id = 3u32;
         setup_tx_data::<T>(tx_id, 1, author.clone());
         let tx_succeeded = true;
