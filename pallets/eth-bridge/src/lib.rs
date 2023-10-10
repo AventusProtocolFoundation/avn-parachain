@@ -129,7 +129,7 @@ pub mod pallet {
 
     pub trait HandleAvnBridgeResult {
         type Error: Into<sp_runtime::DispatchError>;
-        fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error>;
+        fn result(tx_id: u32, eth_tx_succeeded: bool) -> Result<(), Self::Error>;
     }
 
     pub type Author<T> =
@@ -294,7 +294,7 @@ pub mod pallet {
         pub fn add_corroboration(
             origin: OriginFor<T>,
             tx_id: u32,
-            tx_succeeded: bool,
+            eth_tx_succeeded: bool,
             author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
@@ -307,30 +307,30 @@ pub mod pallet {
             let mut corroborations = Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
             let num_corroborations;
 
-            if tx_succeeded {
-                if !corroborations.success.contains(&author.account_id) {
+            if eth_tx_succeeded {
+                if !corroborations.eth_tx_succeeded.contains(&author.account_id) {
                     let mut tmp_vec = Vec::new();
                     tmp_vec.push(author.account_id);
                     corroborations
-                        .success
+                        .eth_tx_succeeded
                         .try_append(&mut tmp_vec)
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
-                num_corroborations = corroborations.success.len() as u32;
+                num_corroborations = corroborations.eth_tx_succeeded.len() as u32;
             } else {
-                if !corroborations.failure.contains(&author.account_id) {
+                if !corroborations.eth_tx_failed.contains(&author.account_id) {
                     let mut tmp_vec = Vec::new();
                     tmp_vec.push(author.account_id);
                     corroborations
-                        .failure
+                        .eth_tx_failed
                         .try_append(&mut tmp_vec)
                         .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
                 }
-                num_corroborations = corroborations.failure.len() as u32;
+                num_corroborations = corroborations.eth_tx_failed.len() as u32;
             }
 
             if Self::consensus_is_reached(num_corroborations) {
-                Self::finalize_state(tx_id, tx_succeeded)?;
+                Self::finalize_state(tx_id, eth_tx_succeeded)?;
             } else {
                 <Corroborations<T>>::insert(tx_id, corroborations);
             }
@@ -391,9 +391,9 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(2u8).into()
                     },
-                Call::add_corroboration { tx_id, tx_succeeded, author, signature } =>
+                Call::add_corroboration { tx_id, eth_tx_succeeded, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author),
+                        &(ADD_CORROBORATION_CONTEXT, tx_id, eth_tx_succeeded, author),
                         &author,
                         signature,
                     ) {
@@ -449,8 +449,8 @@ pub mod pallet {
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub struct CorroborationData<T: Config> {
-        pub success: BoundedVec<T::AccountId, ConfirmationsLimit>,
-        pub failure: BoundedVec<T::AccountId, ConfirmationsLimit>,
+        pub eth_tx_succeeded: BoundedVec<T::AccountId, ConfirmationsLimit>,
+        pub eth_tx_failed: BoundedVec<T::AccountId, ConfirmationsLimit>,
     }
 
     impl<T: Config> Pallet<T> {
@@ -483,8 +483,8 @@ pub mod pallet {
             };
 
             let corroborations = CorroborationData {
-                success: BoundedVec::default(),
-                failure: BoundedVec::default(),
+                eth_tx_succeeded: BoundedVec::default(),
+                eth_tx_failed: BoundedVec::default(),
             };
 
             <Transactions<T>>::insert(tx_id, tx_data);
@@ -715,19 +715,19 @@ pub mod pallet {
             Self::encode_eth_function_input(&"corroborate".to_string(), &params)
         }
 
-        fn provide_corroboration(tx_id: u32, tx_succeeded: bool, author: Author<T>) {
-            let proof = Self::encode_add_corroboration_proof(tx_id, tx_succeeded, author.clone());
+        fn provide_corroboration(tx_id: u32, eth_tx_succeeded: bool, author: Author<T>) {
+            let proof = Self::encode_add_corroboration_proof(tx_id, eth_tx_succeeded, author.clone());
             let signature = author.key.sign(&proof).expect("Error signing proof");
-            let call = Call::<T>::add_corroboration { tx_id, tx_succeeded, author, signature };
+            let call = Call::<T>::add_corroboration { tx_id, eth_tx_succeeded, author, signature };
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
 
         fn encode_add_corroboration_proof(
             tx_id: u32,
-            tx_succeeded: bool,
+            eth_tx_succeeded: bool,
             author: Author<T>,
         ) -> Vec<u8> {
-            (ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id).encode()
+            (ADD_CORROBORATION_CONTEXT, tx_id, eth_tx_succeeded, author.account_id).encode()
         }
 
         fn send_transaction_to_ethereum(tx_id: u32, author: Author<T>) {
@@ -914,14 +914,14 @@ pub mod pallet {
             Ok(result[0] as i8)
         }
 
-        fn finalize_state(tx_id: u32, tx_succeeded: bool) -> Result<(), DispatchError> {
+        fn finalize_state(tx_id: u32, eth_tx_succeeded: bool) -> Result<(), DispatchError> {
             // Alert the originating pallet first:
-            T::HandleAvnBridgeResult::result(tx_id, tx_succeeded)
+            T::HandleAvnBridgeResult::result(tx_id, eth_tx_succeeded)
                 .map_err(|_| Error::<T>::HandleAvnBridgeResultFailed)?;
 
             let mut tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
             tx_data.status =
-                if tx_succeeded { EthTxStatus::Succeeded } else { EthTxStatus::Failed };
+                if eth_tx_succeeded { EthTxStatus::Succeeded } else { EthTxStatus::Failed };
             Self::remove_from_unresolved_tx_list(tx_id)?;
             Corroborations::<T>::remove(tx_id);
             <Transactions<T>>::insert(tx_id, tx_data);

@@ -90,7 +90,6 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
-    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
     type WeightInfo = ();
 }
 
@@ -126,8 +125,8 @@ impl ExtBuilder {
 impl HandleAvnBridgeResult for TestRuntime {
     type Error = UpdateFailed;
 
-    fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error> {
-        println!("Tx ID: {}, Succeeded?: {}", tx_id, tx_succeeded);
+    fn result(tx_id: u32, eth_tx_succeeded: bool) -> Result<(), Self::Error> {
+        println!("Tx ID: {}, Succeeded?: {}", tx_id, eth_tx_succeeded);
         Ok(())
     }
 }

@@ -95,8 +95,8 @@ fn setup_tx_data<T: Config>(tx_id: u32, num_confirmations: u8, author: Validator
     Transactions::<T>::insert(tx_id, tx_data);
 
     let corroborations = CorroborationData {
-        success: BoundedVec::default(),
-        failure: BoundedVec::default(),
+        eth_tx_succeeded: BoundedVec::default(),
+        eth_tx_failed: BoundedVec::default(),
     };
 
     Corroborations::<T>::insert(tx_id, corroborations);
@@ -147,13 +147,13 @@ benchmarks! {
         let author = setup_author::<T>();
         let tx_id = 3u32;
         setup_tx_data::<T>(tx_id, 1, author.clone());
-        let succeeded = true;
-        let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, succeeded, author.account_id.clone()).encode();
+        let eth_tx_succeeded = true;
+        let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, eth_tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: _(RawOrigin::None, tx_id, succeeded, author.clone(), signature)
+    }: _(RawOrigin::None, tx_id, eth_tx_succeeded, author.clone(), signature)
     verify {
         let corroboration = Corroborations::<T>::get(tx_id).unwrap();
-        ensure!(corroboration.success.contains(&author.account_id), "Corroboration not added");
+        ensure!(corroboration.eth_tx_succeeded.contains(&author.account_id), "Corroboration not added");
     }
 }
 
