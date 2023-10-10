@@ -192,7 +192,7 @@ pub mod pallet {
         ExceedsFunctionNameLimit,
         FunctionEncodingError,
         FunctionNameError,
-        HandleAvnBridgeResultFailed,
+        HandleResultFailed,
         InvalidBytes,
         InvalidCalldataGeneration,
         InvalidEthereumCheckResponse,
@@ -314,11 +314,14 @@ pub mod pallet {
     }
 
     // The core logic being triggered by the OCW hook:
-    fn process_unresolved_tx<T: Config>(tx_id: u32, author: Author<T>) -> Result<(), DispatchError> {
+    fn process_unresolved_tx<T: Config>(
+        tx_id: u32,
+        author: Author<T>,
+    ) -> Result<(), DispatchError> {
         let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
         let this_author_is_sender = author.account_id == tx_data.sender;
         let num_confirmations = 1 + tx_data.confirmations.len() as u32; // The sender's confirmation is implicit
-    
+
         if !utils::consensus_is_reached::<T>(num_confirmations) {
             if !this_author_is_sender {
                 let confirmation = eth::sign_msg_hash::<T>(tx_data.msg_hash)?;
@@ -337,16 +340,13 @@ pub mod pallet {
                     Ok(EthStatus::Failed) => {
                         call::add_corroboration::<T>(tx_id, false, author);
                     },
-                    Err(e) => {
-                        return Err(e);
-                    }
+                    Err(e) => return Err(e),
                 }
             }
         }
-    
+
         Ok(())
     }
-    
 
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {

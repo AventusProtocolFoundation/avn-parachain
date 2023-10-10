@@ -81,18 +81,15 @@ pub fn check_tx_status<T: Config>(
                 0 => return Ok(EthStatus::Unresolved),
                 1 => return Ok(EthStatus::Succeeded),
                 -1 => return Ok(EthStatus::Failed),
-                _ => {
-                    return Err(Error::<T>::InvalidEthereumCheckResponse.into())
-                },
+                _ => return Err(Error::<T>::InvalidEthereumCheckResponse.into()),
             }
         } else {
-            return Err(Error::<T>::CorroborateCallFailed.into());
+            return Err(Error::<T>::CorroborateCallFailed.into())
         }
     }
 
     Err(Error::<T>::InvalidCalldataGeneration.into())
 }
-
 
 fn generate_msg_hash<T: pallet::Config>(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
     let tokens: Result<Vec<_>, _> = params
@@ -243,11 +240,10 @@ fn execute_call<R, T: Config>(
 
 fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchError> {
     if result.len() != 64 {
-        return Err(Error::<T>::InvalidHashLength.into());
+        return Err(Error::<T>::InvalidHashLength.into())
     }
 
-    let tx_hash_string = core::str::from_utf8(&result)
-        .map_err(|_| Error::<T>::InvalidUTF8Bytes)?;
+    let tx_hash_string = core::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidUTF8Bytes)?;
 
     let mut data: [u8; 32] = [0; 32];
     hex::decode_to_slice(tx_hash_string, &mut data[..])
@@ -255,7 +251,6 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
 
     Ok(H256::from_slice(&data))
 }
-
 
 fn process_view_response<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
     if result.len() != 1 {
