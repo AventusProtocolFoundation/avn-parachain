@@ -715,13 +715,13 @@ pub mod migrations {
         if AvnBridgeContractAddress::<T>::get().is_zero() {
             <AvnBridgeContractAddress<T>>::put(PublishRootContract::<T>::get());
             log::info!("ℹ️  Updated bridge contract address successfully in ethereum transactions");
-            consumed_weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
+            consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
         }
 
         PublishRootContract::<T>::kill();
 
         StorageVersion::<T>::put(Releases::V4_0_0);
-        consumed_weight.saturating_add(T::DbWeight::get().writes(2));
+        consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().writes(2));
 
         return consumed_weight
     }

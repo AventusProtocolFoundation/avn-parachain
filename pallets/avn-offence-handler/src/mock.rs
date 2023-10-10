@@ -32,7 +32,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-        AVN: pallet_avn::{Pallet, Storage},
+        AVN: pallet_avn::{Pallet, Storage, Event},
         AvnOffenceHandler: avn_offence_handler::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -51,6 +51,7 @@ impl pallet_session::historical::Config for TestRuntime {
 }
 
 impl pallet_avn::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
