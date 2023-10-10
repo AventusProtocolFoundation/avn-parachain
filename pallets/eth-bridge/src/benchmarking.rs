@@ -155,7 +155,7 @@ benchmarks! {
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: _(RawOrigin::None, tx_id, tx_succeeded, author.clone(), signature)
     verify {
-        let corroboration = Corroborations::<T>::get(tx_id).unwrap();
+        let corroboration = Corroborations::<T>::get(tx_id).expect("Corroboration should exist");
         ensure!(corroboration.tx_succeeded.contains(&author.account_id), "Corroboration not added");
     }
 }

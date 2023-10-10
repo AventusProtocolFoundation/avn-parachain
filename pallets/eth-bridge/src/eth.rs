@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    utils::{assign_sender, bound_params, unbound_params},
+    util::{assign_sender, bound_params, unbound_params},
     Author, Config, AVN,
 };
 use ethabi::{Function, Int, Param, ParamType, Token};

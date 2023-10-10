@@ -74,7 +74,7 @@ use sp_runtime::{
 
 mod call;
 mod eth;
-mod utils;
+mod util;
 
 mod benchmarking;
 #[cfg(test)]
@@ -242,7 +242,7 @@ pub mod pallet {
 
             let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
             eth::verify_signature(tx_data, &author, &confirmation)?;
-            utils::update_confirmations::<T>(tx_id, &confirmation)
+            util::update_confirmations::<T>(tx_id, &confirmation)
         }
 
         #[pallet::call_index(2)]
@@ -281,10 +281,10 @@ pub mod pallet {
             }
 
             let num_corroborations =
-                utils::update_corroborations::<T>(tx_id, tx_succeeded, &author)?;
+                util::update_corroborations::<T>(tx_id, tx_succeeded, &author)?;
 
-            if utils::consensus_is_reached::<T>(num_corroborations) {
-                utils::finalize::<T>(tx_id, tx_succeeded)?;
+            if util::consensus_is_reached::<T>(num_corroborations) {
+                util::finalize::<T>(tx_id, tx_succeeded)?;
             }
 
             Ok(().into())
@@ -322,7 +322,7 @@ pub mod pallet {
         let this_author_is_sender = author.account_id == tx_data.sender;
         let num_confirmations = 1 + tx_data.confirmations.len() as u32; // The sender's confirmation is implicit
 
-        if !utils::consensus_is_reached::<T>(num_confirmations) {
+        if !util::consensus_is_reached::<T>(num_confirmations) {
             if !this_author_is_sender {
                 let confirmation = eth::sign_msg_hash::<T>(tx_data.msg_hash)?;
                 call::add_confirmation::<T>(tx_id, confirmation, author);
@@ -331,7 +331,7 @@ pub mod pallet {
             let eth_tx_hash = eth::send_transaction::<T>(tx_id, author.clone())?;
             call::add_receipt::<T>(tx_id, eth_tx_hash, author);
         } else {
-            if tx_data.eth_tx_hash != H256::zero() || tx_data.expiry > utils::time_now::<T>() {
+            if tx_data.eth_tx_hash != H256::zero() || tx_data.expiry > util::time_now::<T>() {
                 match eth::check_tx_status::<T>(tx_id, tx_data.expiry, &author) {
                     Ok(EthStatus::Unresolved) => {},
                     Ok(EthStatus::Succeeded) => {
@@ -441,10 +441,10 @@ pub mod pallet {
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<u32, Error<T>> {
-            let tx_id = utils::use_next_tx_id::<T>();
-            let expiry = utils::time_now::<T>() + Self::get_eth_tx_lifetime_secs();
+            let tx_id = util::use_next_tx_id::<T>();
+            let expiry = util::time_now::<T>() + Self::get_eth_tx_lifetime_secs();
             let tx_data = eth::create_tx_data(function_name, params, expiry, tx_id)?;
-            utils::add_new_tx_request::<T>(tx_id, tx_data)?;
+            util::add_new_tx_request::<T>(tx_id, tx_data)?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {
                 tx_id,
