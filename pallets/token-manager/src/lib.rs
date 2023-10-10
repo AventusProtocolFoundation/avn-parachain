@@ -177,6 +177,12 @@ pub mod pallet {
             amount: u128,
             t1_recipient: H160,
         },
+        AvtLowered {
+            sender: T::AccountId,
+            recipient: T::AccountId,
+            amount: u128,
+            t1_recipient: H160,
+        },
         AvtTransferredFromTreasury {
             recipient: T::AccountId,
             amount: BalanceOf<T>,
@@ -504,6 +510,13 @@ impl<T: Config> Pallet<T> {
             // Decreases the total issued AVT when this negative imbalance is dropped
             // so that total issued AVT becomes equal to total supply once again.
             drop(imbalance);
+
+            Self::deposit_event(Event::<T>::AvtLowered {
+                sender: from.clone(),
+                recipient: to.clone(),
+                amount,
+                t1_recipient,
+            });
         } else {
             let lower_amount = <T::TokenBalance as TryFrom<u128>>::try_from(amount)
                 .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
