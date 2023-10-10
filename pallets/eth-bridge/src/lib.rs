@@ -55,23 +55,26 @@ use alloc::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
-use ethabi::{Function, Int, Param, ParamType, Token};
 use frame_support::{dispatch::DispatchResultWithPostInfo, log, traits::IsSubType, BoundedVec};
 use frame_system::{
     ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
     pallet_prelude::OriginFor,
 };
-use pallet_avn::{self as avn, AccountToBytesConverter, Error as avn_error};
+use pallet_avn::{self as avn, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{calculate_one_third_quorum, event_types::Validator, EthTransaction};
-use sp_core::{ecdsa, H256};
+use sp_avn_common::event_types::Validator;
+use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{
     offchain::{http, Duration},
     scale_info::TypeInfo,
     traits::Dispatchable,
 };
+
+mod call;
+mod eth;
+mod utils;
 
 mod benchmarking;
 #[cfg(test)]
@@ -84,24 +87,21 @@ mod tests;
 pub use pallet::*;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
-pub type AVN<T> = avn::Pallet<T>;
 
-pub const CONFIRMATIONS_LIMIT: u32 = 100; // Max confirmations or corroborations (must be > 1/3 of authors)
-pub const FUNCTION_NAME_CHAR_LIMIT: u32 = 32; // Max chars in T1 function name
-pub const PARAMS_LIMIT: u32 = 5; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
-pub const TYPE_CHAR_LIMIT: u32 = 7; // Max chars in a param's type
-pub const VALUE_CHAR_LIMIT: u32 = 130; // Max chars in a param's value
+pub type AVN<T> = avn::Pallet<T>;
+pub type Author<T> =
+    Validator<<T as avn::Config>::AuthorityId, <T as frame_system::Config>::AccountId>;
+
+pub type ConfirmationsLimit = ConstU32<100>; // Max confirmations or corroborations (must be > 1/3 of authors)
+pub type FunctionLimit = ConstU32<32>; // Max chars in T1 function name
+pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
+pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
+pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_RECEIPT_CONTEXT: &'static [u8] = b"EthBridgeReceipt";
-
-const UINT256: &[u8] = b"uint256";
-const UINT128: &[u8] = b"uint128";
-const UINT32: &[u8] = b"uint32";
-const BYTES: &[u8] = b"bytes";
-const BYTES32: &[u8] = b"bytes32";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -129,11 +129,8 @@ pub mod pallet {
 
     pub trait HandleAvnBridgeResult {
         type Error: Into<sp_runtime::DispatchError>;
-        fn result(tx_id: u32, eth_tx_succeeded: bool) -> Result<(), Self::Error>;
+        fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error>;
     }
-
-    pub type Author<T> =
-        Validator<<T as avn::Config>::AuthorityId, <T as frame_system::Config>::AccountId>;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -155,7 +152,7 @@ pub mod pallet {
     pub type EthTxLifetimeSecs<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::storage]
-    pub type UnresolvedTxList<T: Config> =
+    pub type UnresolvedTxs<T: Config> =
         StorageValue<_, BoundedVec<u32, T::MaxUnresolvedTx>, ValueQuery>;
 
     #[pallet::genesis_config]
@@ -182,6 +179,8 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        CalldataGenerationFailed,
+        ContractCallFailed,
         CorroborationNotFound,
         DeadlineReached,
         DuplicateConfirmation,
@@ -221,7 +220,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             eth_tx_lifetime_secs: u64,
         ) -> DispatchResultWithPostInfo {
-            // SUDO
             ensure_root(origin)?;
             EthTxLifetimeSecs::<T>::put(eth_tx_lifetime_secs);
             Self::deposit_event(Event::<T>::EthTxLifetimeUpdated { eth_tx_lifetime_secs });
@@ -240,31 +238,8 @@ pub mod pallet {
             ensure_none(origin)?;
 
             let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
-            if !AVN::<T>::eth_signature_is_valid(
-                (&tx_data.msg_hash).to_string(),
-                &author,
-                &confirmation,
-            ) {
-                return Err(avn_error::<T>::InvalidECDSASignature)?
-            };
-
-            Transactions::<T>::try_mutate_exists(
-                tx_id,
-                |maybe_tx_data| -> DispatchResultWithPostInfo {
-                    let tx_data = maybe_tx_data.as_mut().ok_or(Error::<T>::TxIdNotFound)?;
-
-                    if tx_data.confirmations.contains(&confirmation) {
-                        return Err(Error::<T>::DuplicateConfirmation.into())
-                    }
-
-                    tx_data
-                        .confirmations
-                        .try_push(confirmation)
-                        .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
-
-                    Ok(().into())
-                },
-            )
+            eth::verify_signature(tx_data, &author, &confirmation)?;
+            utils::update_confirmations::<T>(tx_id, &confirmation)
         }
 
         #[pallet::call_index(2)]
@@ -279,10 +254,8 @@ pub mod pallet {
             ensure_none(origin)?;
 
             let mut tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
-
             ensure!(tx_data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
             ensure!(tx_data.sender == author.account_id, Error::<T>::EthTxHashMustBeSetBySender);
-
             tx_data.eth_tx_hash = eth_tx_hash;
             <Transactions<T>>::insert(tx_id, tx_data);
 
@@ -294,45 +267,21 @@ pub mod pallet {
         pub fn add_corroboration(
             origin: OriginFor<T>,
             tx_id: u32,
-            eth_tx_succeeded: bool,
+            tx_succeeded: bool,
             author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if !UnresolvedTxList::<T>::get().contains(&tx_id) {
+            if !UnresolvedTxs::<T>::get().contains(&tx_id) {
                 return Ok(().into())
             }
 
-            let mut corroborations = Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
-            let num_corroborations;
+            let num_corroborations =
+                utils::update_corroborations::<T>(tx_id, tx_succeeded, &author)?;
 
-            if eth_tx_succeeded {
-                if !corroborations.eth_tx_succeeded.contains(&author.account_id) {
-                    let mut tmp_vec = Vec::new();
-                    tmp_vec.push(author.account_id);
-                    corroborations
-                        .eth_tx_succeeded
-                        .try_append(&mut tmp_vec)
-                        .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
-                }
-                num_corroborations = corroborations.eth_tx_succeeded.len() as u32;
-            } else {
-                if !corroborations.eth_tx_failed.contains(&author.account_id) {
-                    let mut tmp_vec = Vec::new();
-                    tmp_vec.push(author.account_id);
-                    corroborations
-                        .eth_tx_failed
-                        .try_append(&mut tmp_vec)
-                        .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
-                }
-                num_corroborations = corroborations.eth_tx_failed.len() as u32;
-            }
-
-            if Self::consensus_is_reached(num_corroborations) {
-                Self::finalize_state(tx_id, eth_tx_succeeded)?;
-            } else {
-                <Corroborations<T>>::insert(tx_id, corroborations);
+            if utils::consensus_is_reached::<T>(num_corroborations) {
+                utils::finalize::<T>(tx_id, tx_succeeded)?;
             }
 
             Ok(().into())
@@ -343,8 +292,8 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok(author) = setup_ocw::<T>(block_number) {
-                for tx_id in UnresolvedTxList::<T>::get() {
-                    Self::process_unresolved_transaction(tx_id, author.clone());
+                for tx_id in UnresolvedTxs::<T>::get() {
+                    process_unresolved_tx::<T>(tx_id, author.clone());
                 }
             }
         }
@@ -357,6 +306,42 @@ pub mod pallet {
             }
             e
         })
+    }
+
+    // The core logic being triggered by the OCW hook:
+    fn process_unresolved_tx<T: Config>(tx_id: u32, author: Author<T>) {
+        let tx_data = match Transactions::<T>::get(tx_id) {
+            Some(data) => data,
+            None => {
+                log::error!("Transaction not found for tx_id: {}", tx_id);
+                return
+            },
+        };
+
+        let this_author_is_sender = author.account_id == tx_data.sender;
+        let num_confirmations = 1 + tx_data.confirmations.len() as u32; // The sender's confirmation is implicit
+
+        if !utils::consensus_is_reached::<T>(num_confirmations) {
+            if !this_author_is_sender {
+                let confirmation = eth::sign_msg_hash::<T>(tx_data.msg_hash).unwrap();
+                call::add_confirmation::<T>(tx_id, confirmation, author);
+            }
+        } else if this_author_is_sender {
+            let eth_tx_hash = eth::send_transaction::<T>(tx_id, author.clone()).unwrap();
+            call::add_receipt::<T>(tx_id, eth_tx_hash, author);
+        } else {
+            if tx_data.eth_tx_hash != H256::zero() || tx_data.expiry > utils::time_now::<T>() {
+                match eth::check_tx_status::<T>(tx_id, tx_data.expiry, &author) {
+                    EthStatus::Unresolved => {},
+                    EthStatus::Succeeded => {
+                        call::add_corroboration::<T>(tx_id, true, author);
+                    },
+                    EthStatus::Failed => {
+                        call::add_corroboration::<T>(tx_id, false, author);
+                    },
+                }
+            }
+        }
     }
 
     #[pallet::validate_unsigned]
@@ -391,9 +376,9 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(2u8).into()
                     },
-                Call::add_corroboration { tx_id, eth_tx_succeeded, author, signature } =>
+                Call::add_corroboration { tx_id, tx_succeeded, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CORROBORATION_CONTEXT, tx_id, eth_tx_succeeded, author),
+                        &(ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author),
                         &author,
                         signature,
                     ) {
@@ -411,18 +396,12 @@ pub mod pallet {
     }
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub enum EthTxStatus {
+    pub enum EthStatus {
         #[default]
         Unresolved,
         Succeeded,
         Failed,
     }
-
-    pub type FunctionLimit = ConstU32<FUNCTION_NAME_CHAR_LIMIT>;
-    pub type ParamsLimit = ConstU32<PARAMS_LIMIT>;
-    pub type TypeLimit = ConstU32<TYPE_CHAR_LIMIT>;
-    pub type ValueLimit = ConstU32<VALUE_CHAR_LIMIT>;
-    pub type ConfirmationsLimit = ConstU32<CONFIRMATIONS_LIMIT>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]
@@ -439,7 +418,7 @@ pub mod pallet {
         pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
         pub sender: T::AccountId,
         pub eth_tx_hash: H256,
-        pub status: EthTxStatus,
+        pub status: EthStatus,
     }
 
     #[pallet::storage]
@@ -449,47 +428,19 @@ pub mod pallet {
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub struct CorroborationData<T: Config> {
-        pub eth_tx_succeeded: BoundedVec<T::AccountId, ConfirmationsLimit>,
-        pub eth_tx_failed: BoundedVec<T::AccountId, ConfirmationsLimit>,
+        pub tx_succeeded: BoundedVec<T::AccountId, ConfirmationsLimit>,
+        pub tx_failed: BoundedVec<T::AccountId, ConfirmationsLimit>,
     }
 
     impl<T: Config> Pallet<T> {
-        // The sole entry point for other pallets:
         pub fn publish_to_avn_bridge(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<u32, Error<T>> {
-            // Quick sanity check:
-            _ = String::from_utf8(function_name.to_vec())
-                .map_err(|_| Error::<T>::FunctionNameError)?;
-
-            let tx_id = Self::use_next_tx_id();
-            let expiry = Self::time_now() + Self::get_eth_tx_lifetime_secs();
-
-            let mut extended_params = params.to_vec();
-            extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
-            extended_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
-
-            let tx_data = TransactionData {
-                function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
-                    .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
-                params: Self::bound_params(params.to_vec())?,
-                expiry,
-                msg_hash: Self::generate_msg_hash(&extended_params)?,
-                confirmations: BoundedVec::<ecdsa::Signature, ConfirmationsLimit>::default(),
-                sender: Self::assign_sender()?,
-                eth_tx_hash: H256::zero(),
-                status: EthTxStatus::Unresolved,
-            };
-
-            let corroborations = CorroborationData {
-                eth_tx_succeeded: BoundedVec::default(),
-                eth_tx_failed: BoundedVec::default(),
-            };
-
-            <Transactions<T>>::insert(tx_id, tx_data);
-            <Corroborations<T>>::insert(tx_id, corroborations);
-            Self::add_to_unresolved_tx_list(tx_id)?;
+            let tx_id = utils::use_next_tx_id::<T>();
+            let expiry = utils::time_now::<T>() + Self::get_eth_tx_lifetime_secs();
+            let tx_data = eth::create_tx_data(function_name, params, expiry, tx_id)?;
+            utils::add_new_tx_request::<T>(tx_id, tx_data)?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {
                 tx_id,
@@ -498,434 +449,6 @@ pub mod pallet {
             });
 
             Ok(tx_id)
-        }
-
-        // The core logic being triggered by the OCW hook:
-        fn process_unresolved_transaction(tx_id: u32, author: Author<T>) {
-            let tx_data = match Transactions::<T>::get(tx_id) {
-                Some(data) => data,
-                None => {
-                    log::error!("Transaction not found for tx_id: {}", tx_id);
-                    return
-                },
-            };
-
-            let this_author_is_sender = author.account_id == tx_data.sender;
-            let num_confirmations = 1 + tx_data.confirmations.len() as u32; // The sender's confirmation is implicit
-
-            if !Self::consensus_is_reached(num_confirmations) {
-                if !this_author_is_sender {
-                    Self::provide_confirmation(tx_id, tx_data, author);
-                }
-            } else if this_author_is_sender {
-                Self::send_transaction_to_ethereum(tx_id, author);
-            } else {
-                Self::attempt_to_confirm_eth_tx_status(tx_id, tx_data, author);
-            }
-        }
-
-        fn assign_sender() -> Result<T::AccountId, Error<T>> {
-            let current_block_number = <frame_system::Pallet<T>>::block_number();
-
-            match AVN::<T>::calculate_primary_validator(current_block_number) {
-                Ok(primary_validator) => {
-                    let sender = primary_validator;
-                    Ok(sender)
-                },
-                Err(_) => Err(Error::<T>::ErrorAssigningSender),
-            }
-        }
-
-        fn use_next_tx_id() -> u32 {
-            let tx_id = NextTxId::<T>::get();
-            NextTxId::<T>::put(tx_id + 1);
-            tx_id
-        }
-
-        fn consensus_is_reached(entries: u32) -> bool {
-            let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
-            entries >= quorum
-        }
-
-        fn time_now() -> u64 {
-            <T as pallet::Config>::TimeProvider::now().as_secs()
-        }
-
-        fn add_to_unresolved_tx_list(tx_id: u32) -> Result<(), Error<T>> {
-            UnresolvedTxList::<T>::try_mutate(|txs| -> Result<(), Error<T>> {
-                txs.try_push(tx_id).map_err(|_| Error::<T>::UnresolvedTxLimitReached)
-            })
-        }
-
-        fn remove_from_unresolved_tx_list(tx_id: u32) -> DispatchResult {
-            UnresolvedTxList::<T>::mutate(|txs| {
-                if let Some(pos) = txs.iter().position(|&x| x == tx_id) {
-                    txs.remove(pos);
-                }
-            });
-            Ok(())
-        }
-
-        fn bound_params(
-            params: Vec<(Vec<u8>, Vec<u8>)>,
-        ) -> Result<
-            BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-            Error<T>,
-        > {
-            let result: Result<Vec<_>, _> = params
-                .into_iter()
-                .map(|(type_vec, value_vec)| {
-                    let type_bounded = BoundedVec::try_from(type_vec)
-                        .map_err(|_| Error::<T>::TypeNameLengthExceeded)?;
-                    let value_bounded = BoundedVec::try_from(value_vec)
-                        .map_err(|_| Error::<T>::ValueLengthExceeded)?;
-                    Ok::<_, Error<T>>((type_bounded, value_bounded))
-                })
-                .collect();
-
-            BoundedVec::<_, ParamsLimit>::try_from(result?)
-                .map_err(|_| Error::<T>::ParamsLimitExceeded)
-        }
-
-        fn unbound_params(
-            params: BoundedVec<
-                (BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>),
-                ParamsLimit,
-            >,
-        ) -> Vec<(Vec<u8>, Vec<u8>)> {
-            params
-                .into_iter()
-                .map(|(type_bounded, value_bounded)| (type_bounded.into(), value_bounded.into()))
-                .collect()
-        }
-
-        fn generate_msg_hash(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
-            let tokens: Result<Vec<_>, _> = params
-                .iter()
-                .map(|(type_bytes, value_bytes)| {
-                    let param_type =
-                        Self::to_param_type(type_bytes).ok_or_else(|| Error::<T>::MsgHashError)?;
-                    Self::to_token_type(&param_type, value_bytes)
-                })
-                .collect();
-
-            let encoded = ethabi::encode(&tokens?);
-            let msg_hash = keccak_256(&encoded);
-
-            Ok(H256::from(msg_hash))
-        }
-
-        fn provide_confirmation(tx_id: u32, tx_data: TransactionData<T>, author: Author<T>) {
-            match Self::sign_msg_hash_to_create_confirmation(tx_data.msg_hash) {
-                Ok(confirmation) => {
-                    let proof = Self::encode_add_confirmation_proof(
-                        tx_id,
-                        confirmation.clone(),
-                        author.clone(),
-                    );
-
-                    if let Some(signature) = author.key.sign(&proof) {
-                        let call =
-                            Call::<T>::add_confirmation { tx_id, confirmation, author, signature };
-                        if SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-                            .is_err()
-                        {
-                            log::error!(
-                                "❌ Error submitting unsigned transaction for confirmation."
-                            );
-                        }
-                    } else {
-                        log::error!("❌ Error signing proof.");
-                    }
-                },
-                Err(err) => {
-                    log::error!("❌ Error signing confirmation: {:?}", err);
-                },
-            }
-        }
-
-        fn sign_msg_hash_to_create_confirmation(
-            msg_hash: H256,
-        ) -> Result<ecdsa::Signature, DispatchError> {
-            let msg_hash_string = msg_hash.to_string();
-            let confirmation =
-                AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
-            Ok(confirmation)
-        }
-
-        fn encode_add_confirmation_proof(
-            tx_id: u32,
-            confirmation: ecdsa::Signature,
-            author: Author<T>,
-        ) -> Vec<u8> {
-            (ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, author.account_id).encode()
-        }
-
-        fn attempt_to_confirm_eth_tx_status(
-            tx_id: u32,
-            tx_data: TransactionData<T>,
-            author: Author<T>,
-        ) {
-            if tx_data.eth_tx_hash != H256::zero() || tx_data.expiry > Self::time_now() {
-                match Self::check_tx_status_on_ethereum(tx_id, tx_data.expiry, &author) {
-                    EthTxStatus::Unresolved => {},
-                    EthTxStatus::Succeeded => {
-                        Self::provide_corroboration(tx_id, true, author);
-                    },
-                    EthTxStatus::Failed => {
-                        Self::provide_corroboration(tx_id, false, author);
-                    },
-                }
-            }
-        }
-
-        fn check_tx_status_on_ethereum(tx_id: u32, expiry: u64, author: &Author<T>) -> EthTxStatus {
-            if let Ok(calldata) = Self::generate_corroboration_check_calldata(tx_id, expiry) {
-                if let Ok(result) = Self::make_contract_view_call(calldata, &author) {
-                    match result {
-                        0 => return EthTxStatus::Unresolved,
-                        1 => return EthTxStatus::Succeeded,
-                        -1 => return EthTxStatus::Failed,
-                        _ => {
-                            log::error!(
-                                "Invalid ethereum check response for tx_id {} and expiry {}: {}",
-                                tx_id,
-                                expiry,
-                                result
-                            );
-                            return EthTxStatus::Unresolved
-                        },
-                    }
-                }
-            }
-
-            log::error!("Invalid calldata generation for tx_id {} and expiry {}", tx_id, expiry);
-            EthTxStatus::Unresolved
-        }
-
-        fn generate_corroboration_check_calldata(
-            tx_id: u32,
-            expiry: u64,
-        ) -> Result<Vec<u8>, Error<T>> {
-            let params = vec![
-                (UINT32.to_vec(), tx_id.to_string().into_bytes()),
-                (UINT256.to_vec(), expiry.to_string().into_bytes()),
-            ];
-
-            Self::encode_eth_function_input(&"corroborate".to_string(), &params)
-        }
-
-        fn provide_corroboration(tx_id: u32, eth_tx_succeeded: bool, author: Author<T>) {
-            let proof = Self::encode_add_corroboration_proof(tx_id, eth_tx_succeeded, author.clone());
-            let signature = author.key.sign(&proof).expect("Error signing proof");
-            let call = Call::<T>::add_corroboration { tx_id, eth_tx_succeeded, author, signature };
-            let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-        }
-
-        fn encode_add_corroboration_proof(
-            tx_id: u32,
-            eth_tx_succeeded: bool,
-            author: Author<T>,
-        ) -> Vec<u8> {
-            (ADD_CORROBORATION_CONTEXT, tx_id, eth_tx_succeeded, author.account_id).encode()
-        }
-
-        fn send_transaction_to_ethereum(tx_id: u32, author: Author<T>) {
-            match Self::generate_send_transaction_calldata(tx_id) {
-                Ok(calldata) => match Self::make_contract_send_call(calldata, &author) {
-                    Ok(eth_tx_hash) => {
-                        Self::provide_receipt(tx_id, eth_tx_hash, author);
-                    },
-                    Err(err) => {
-                        log::error!("❌ Error calling AVN bridge contract: {:?}", err);
-                    },
-                },
-                Err(err) => {
-                    log::error!("❌ Error generating transaction calldata: {:?}", err);
-                },
-            }
-        }
-
-        fn provide_receipt(tx_id: u32, eth_tx_hash: H256, author: Author<T>) {
-            let proof = Self::encode_add_receipt_proof(tx_id, eth_tx_hash, author.clone());
-            let signature = author.key.sign(&proof).expect("Error signing proof");
-            let call = Call::<T>::add_receipt { tx_id, eth_tx_hash, author, signature };
-            let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
-        }
-
-        fn encode_add_receipt_proof(tx_id: u32, eth_tx_hash: H256, author: Author<T>) -> Vec<u8> {
-            (ADD_RECEIPT_CONTEXT, tx_id, eth_tx_hash, author.account_id).encode()
-        }
-
-        fn generate_send_transaction_calldata(tx_id: u32) -> Result<Vec<u8>, Error<T>> {
-            let tx_data = Transactions::<T>::get(tx_id).unwrap();
-
-            let concatenated_confirmations =
-                tx_data.confirmations.iter().fold(Vec::new(), |mut acc, conf| {
-                    acc.extend_from_slice(conf.as_ref());
-                    acc
-                });
-
-            let mut full_params = Self::unbound_params(tx_data.params);
-            full_params.push((UINT256.to_vec(), tx_data.expiry.to_string().into_bytes()));
-            full_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
-            full_params.push((BYTES.to_vec(), concatenated_confirmations));
-
-            let function_name = String::from_utf8(tx_data.function_name.into()).unwrap();
-
-            Self::encode_eth_function_input(&function_name, &full_params)
-        }
-
-        fn encode_eth_function_input(
-            function_name: &str,
-            params: &[(Vec<u8>, Vec<u8>)],
-        ) -> Result<Vec<u8>, Error<T>> {
-            let inputs = params
-                .iter()
-                .filter_map(|(type_bytes, _)| {
-                    Self::to_param_type(type_bytes).map(|kind| Param { name: "".to_string(), kind })
-                })
-                .collect::<Vec<_>>();
-
-            let tokens: Result<Vec<_>, _> = params
-                .iter()
-                .map(|(type_bytes, value_bytes)| {
-                    let param_type = Self::to_param_type(type_bytes)
-                        .ok_or_else(|| Error::<T>::ParamTypeEncodingError)?;
-                    Self::to_token_type(&param_type, value_bytes)
-                })
-                .collect();
-
-            let function = Function {
-                name: function_name.to_string(),
-                inputs,
-                outputs: Vec::<Param>::new(),
-                constant: false,
-            };
-
-            function.encode_input(&tokens?).map_err(|_| Error::<T>::FunctionEncodingError)
-        }
-
-        fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
-            match key.as_slice() {
-                UINT256 => Some(ParamType::Uint(256)),
-                UINT128 => Some(ParamType::Uint(128)),
-                UINT32 => Some(ParamType::Uint(32)),
-                BYTES => Some(ParamType::Bytes),
-                BYTES32 => Some(ParamType::FixedBytes(32)),
-                _ => None,
-            }
-        }
-
-        fn to_token_type(kind: &ParamType, value: &Vec<u8>) -> Result<Token, Error<T>> {
-            match kind {
-                ParamType::Uint(_) => {
-                    let dec_value = Int::from_dec_str(&String::from_utf8(value.clone()).unwrap())
-                        .map_err(|_| Error::<T>::InvalidUint)?;
-                    Ok(Token::Uint(dec_value))
-                },
-                ParamType::Bytes => Ok(Token::Bytes(value.clone())),
-                ParamType::FixedBytes(size) => {
-                    if value.len() != *size {
-                        return Err(Error::<T>::InvalidBytes)
-                    }
-                    Ok(Token::FixedBytes(value.clone()))
-                },
-                _ => Err(Error::<T>::InvalidData),
-            }
-        }
-
-        fn make_contract_send_call(
-            calldata: Vec<u8>,
-            author: &Author<T>,
-        ) -> Result<H256, DispatchError> {
-            Self::execute_contract_call(calldata, author, "send", Self::process_send_response)
-        }
-
-        fn make_contract_view_call(
-            calldata: Vec<u8>,
-            author: &Author<T>,
-        ) -> Result<i8, DispatchError> {
-            Self::execute_contract_call(calldata, author, "view", Self::process_view_response)
-        }
-
-        fn execute_contract_call<R>(
-            calldata: Vec<u8>,
-            author: &Author<T>,
-            endpoint: &str,
-            process_response: fn(Vec<u8>) -> Result<R, DispatchError>,
-        ) -> Result<R, DispatchError> {
-            let contract_address = AVN::<T>::get_bridge_contract_address();
-            let sender = T::AccountToBytesConvert::into_bytes(&author.account_id);
-            let transaction_to_send = EthTransaction::new(sender, contract_address, calldata);
-
-            let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
-            let external_service_port_number = AVN::<T>::get_external_service_port_number();
-
-            let url = format!("http://127.0.0.1:{}/eth/{}", external_service_port_number, endpoint);
-
-            let pending = http::Request::default()
-                .deadline(deadline)
-                .method(http::Method::Post)
-                .url(&url)
-                .body(vec![transaction_to_send.encode()])
-                .send()
-                .map_err(|_| Error::<T>::RequestTimedOut)?;
-
-            let response = pending
-                .try_wait(deadline)
-                .map_err(|_| Error::<T>::DeadlineReached)?
-                .map_err(|_| Error::<T>::DeadlineReached)?;
-
-            if response.code != 200 {
-                log::error!("❌ Unexpected status code: {}", response.code);
-                return Err(Error::<T>::UnexpectedStatusCode)?
-            }
-
-            let result: Vec<u8> = response.body().collect::<Vec<u8>>();
-
-            process_response(result)
-        }
-
-        fn process_send_response(result: Vec<u8>) -> Result<H256, DispatchError> {
-            if result.len() != 64 {
-                log::error!("❌ Ethereum transaction hash is not valid: {:?}", result);
-                return Err(Error::<T>::InvalidHashLength.into())
-            }
-
-            let tx_hash_string = core::str::from_utf8(&result).map_err(|e| {
-                log::error!("❌ Error converting txHash bytes to string: {:?}", e);
-                Error::<T>::InvalidUTF8Bytes
-            })?;
-
-            let mut data: [u8; 32] = [0; 32];
-            hex::decode_to_slice(tx_hash_string, &mut data[..])
-                .map_err(|_| Error::<T>::InvalidHexString)?;
-
-            Ok(H256::from_slice(&data))
-        }
-
-        fn process_view_response(result: Vec<u8>) -> Result<i8, DispatchError> {
-            if result.len() != 1 {
-                log::error!("❌ Invalid data length for int8: {:?}", result);
-                return Err(Error::<T>::InvalidDataLength.into())
-            }
-
-            Ok(result[0] as i8)
-        }
-
-        fn finalize_state(tx_id: u32, eth_tx_succeeded: bool) -> Result<(), DispatchError> {
-            // Alert the originating pallet first:
-            T::HandleAvnBridgeResult::result(tx_id, eth_tx_succeeded)
-                .map_err(|_| Error::<T>::HandleAvnBridgeResultFailed)?;
-
-            let mut tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
-            tx_data.status =
-                if eth_tx_succeeded { EthTxStatus::Succeeded } else { EthTxStatus::Failed };
-            Self::remove_from_unresolved_tx_list(tx_id)?;
-            Corroborations::<T>::remove(tx_id);
-            <Transactions<T>>::insert(tx_id, tx_data);
-            Ok(())
         }
     }
 }

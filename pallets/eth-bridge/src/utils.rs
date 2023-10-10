@@ -1,0 +1,147 @@
+use super::*;
+use crate::{Config, AVN};
+use frame_support::{traits::UnixTime, BoundedVec};
+use sp_avn_common::calculate_one_third_quorum;
+
+pub fn use_next_tx_id<T: Config>() -> u32 {
+    let tx_id = NextTxId::<T>::get();
+    NextTxId::<T>::put(tx_id + 1);
+    tx_id
+}
+
+pub fn time_now<T: Config>() -> u64 {
+    <T as pallet::Config>::TimeProvider::now().as_secs()
+}
+
+pub fn consensus_is_reached<T: Config>(entries: u32) -> bool {
+    let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
+    entries >= quorum
+}
+
+pub fn add_new_tx_request<T: pallet::Config>(
+    tx_id: u32,
+    tx_data: TransactionData<T>,
+) -> Result<(), Error<T>> {
+    let corroborations =
+        CorroborationData { tx_succeeded: BoundedVec::default(), tx_failed: BoundedVec::default() };
+
+    Transactions::<T>::insert(tx_id, tx_data);
+    Corroborations::<T>::insert(tx_id, corroborations);
+    UnresolvedTxs::<T>::try_mutate(|txs| {
+        txs.try_push(tx_id).map_err(|_| Error::<T>::UnresolvedTxLimitReached)
+    })
+}
+
+pub fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
+    let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+    match AVN::<T>::calculate_primary_validator(current_block_number) {
+        Ok(primary_validator) => {
+            let sender = primary_validator;
+            Ok(sender)
+        },
+        Err(_) => Err(Error::<T>::ErrorAssigningSender),
+    }
+}
+
+pub fn update_confirmations<T: Config>(
+    tx_id: u32,
+    confirmation: &ecdsa::Signature,
+) -> DispatchResultWithPostInfo {
+    Transactions::<T>::try_mutate_exists(tx_id, |maybe_tx_data| -> DispatchResultWithPostInfo {
+        let tx_data = maybe_tx_data.as_mut().ok_or(Error::<T>::TxIdNotFound)?;
+
+        if tx_data.confirmations.contains(confirmation) {
+            return Err(Error::<T>::DuplicateConfirmation.into())
+        }
+
+        tx_data
+            .confirmations
+            .try_push(confirmation.clone())
+            .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+
+        Ok(().into())
+    })
+}
+
+pub fn update_corroborations<T: Config>(
+    tx_id: u32,
+    tx_succeeded: bool,
+    author: &Author<T>,
+) -> Result<u32, Error<T>> {
+    let mut corroborations =
+        Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
+
+    let num_corroborations;
+    if tx_succeeded {
+        if !corroborations.tx_succeeded.contains(&author.account_id) {
+            let mut tmp_vec = Vec::new();
+            tmp_vec.push(author.account_id.clone());
+            corroborations
+                .tx_succeeded
+                .try_append(&mut tmp_vec)
+                .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+        }
+        num_corroborations = corroborations.tx_succeeded.len() as u32;
+    } else {
+        if !corroborations.tx_failed.contains(&author.account_id) {
+            let mut tmp_vec = Vec::new();
+            tmp_vec.push(author.account_id.clone());
+            corroborations
+                .tx_failed
+                .try_append(&mut tmp_vec)
+                .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+        }
+        num_corroborations = corroborations.tx_failed.len() as u32;
+    }
+
+    Corroborations::<T>::insert(tx_id, corroborations);
+    Ok(num_corroborations)
+}
+
+pub fn bound_params<T>(
+    params: Vec<(Vec<u8>, Vec<u8>)>,
+) -> Result<
+    BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    Error<T>,
+> {
+    let result: Result<Vec<_>, _> = params
+        .into_iter()
+        .map(|(type_vec, value_vec)| {
+            let type_bounded =
+                BoundedVec::try_from(type_vec).map_err(|_| Error::<T>::TypeNameLengthExceeded)?;
+            let value_bounded =
+                BoundedVec::try_from(value_vec).map_err(|_| Error::<T>::ValueLengthExceeded)?;
+            Ok::<_, Error<T>>((type_bounded, value_bounded))
+        })
+        .collect();
+
+    BoundedVec::<_, ParamsLimit>::try_from(result?).map_err(|_| Error::<T>::ParamsLimitExceeded)
+}
+
+pub fn unbound_params(
+    params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+) -> Vec<(Vec<u8>, Vec<u8>)> {
+    params
+        .into_iter()
+        .map(|(type_bounded, value_bounded)| (type_bounded.into(), value_bounded.into()))
+        .collect()
+}
+
+pub fn finalize<T: Config>(tx_id: u32, success: bool) -> DispatchResultWithPostInfo {
+    // Alert the originating pallet and handle any error.
+    T::HandleAvnBridgeResult::result(tx_id, success)
+        .map_err(|_| Error::<T>::HandleAvnBridgeResultFailed)?;
+
+    let mut tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
+    tx_data.status = if success { EthStatus::Succeeded } else { EthStatus::Failed };
+
+    UnresolvedTxs::<T>::mutate(|txs| {
+        txs.retain(|&stored_tx_id| stored_tx_id != tx_id);
+    });
+
+    Corroborations::<T>::remove(tx_id);
+    Transactions::<T>::insert(tx_id, tx_data);
+
+    Ok(().into())
+}

@@ -78,7 +78,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// Storage: EthBridge UnresolvedTxList (r:1 w:0)
+	// Storage: EthBridge UnresolvedTxs (r:1 w:0)
 	// Storage: EthBridge Corroborations (r:1 w:1)
 	fn add_corroboration() -> Weight {
 		Weight::from_ref_time(16_431_000)
@@ -106,7 +106,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
-	// Storage: EthBridge UnresolvedTxList (r:1 w:0)
+	// Storage: EthBridge UnresolvedTxs (r:1 w:0)
 	// Storage: EthBridge Corroborations (r:1 w:1)
 	fn add_corroboration() -> Weight {
 		Weight::from_ref_time(16_431_000)

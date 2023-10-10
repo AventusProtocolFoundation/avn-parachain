@@ -45,33 +45,37 @@ fn generate_dummy_ecdsa_signature(i: u8) -> ecdsa::Signature {
     return ecdsa::Signature::from_raw(bytes)
 }
 
-
 fn bound_params(
     params: Vec<(Vec<u8>, Vec<u8>)>,
 ) -> BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit> {
-    
     let intermediate: Vec<_> = params
         .into_iter()
         .map(|(type_vec, value_vec)| {
-            let type_bounded = BoundedVec::try_from(type_vec)
-                .expect("TypeNameLengthExceeded");
-            let value_bounded = BoundedVec::try_from(value_vec)
-                .expect("ValueLengthExceeded");
+            let type_bounded = BoundedVec::try_from(type_vec).expect("TypeNameLengthExceeded");
+            let value_bounded = BoundedVec::try_from(value_vec).expect("ValueLengthExceeded");
             (type_bounded, value_bounded)
         })
         .collect();
 
-    BoundedVec::<_, ParamsLimit>::try_from(intermediate)
-        .expect("ParamsLimitExceeded")
+    BoundedVec::<_, ParamsLimit>::try_from(intermediate).expect("ParamsLimitExceeded")
 }
 
-fn setup_tx_data<T: Config>(tx_id: u32, num_confirmations: u8, author: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>) {
+fn setup_tx_data<T: Config>(
+    tx_id: u32,
+    num_confirmations: u8,
+    author: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
+) {
     let expiry = 438269973u64;
-    let function_name = BoundedVec::<u8, FunctionLimit>::try_from(b"sampleFunction".to_vec()).expect("Failed to create BoundedVec");
+    let function_name = BoundedVec::<u8, FunctionLimit>::try_from(b"sampleFunction".to_vec())
+        .expect("Failed to create BoundedVec");
     let params = vec![
-        (b"bytes32".to_vec(), hex::decode("30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0").unwrap()),
+        (
+            b"bytes32".to_vec(),
+            hex::decode("30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0")
+                .unwrap(),
+        ),
         (b"uint256".to_vec(), expiry.to_string().into_bytes()),
-        (b"uint32".to_vec(), tx_id.to_string().into_bytes())
+        (b"uint32".to_vec(), tx_id.to_string().into_bytes()),
     ];
 
     let tx_data = TransactionData {
@@ -89,21 +93,17 @@ fn setup_tx_data<T: Config>(tx_id: u32, num_confirmations: u8, author: Validator
         },
         sender: author.account_id,
         eth_tx_hash: H256::zero(),
-        status: EthTxStatus::Unresolved,
+        status: EthStatus::Unresolved,
     };
 
     Transactions::<T>::insert(tx_id, tx_data);
 
-    let corroborations = CorroborationData {
-        eth_tx_succeeded: BoundedVec::default(),
-        eth_tx_failed: BoundedVec::default(),
-    };
+    let corroborations =
+        CorroborationData { tx_succeeded: BoundedVec::default(), tx_failed: BoundedVec::default() };
 
     Corroborations::<T>::insert(tx_id, corroborations);
-    
-    let _ = UnresolvedTxList::<T>::try_mutate(|txs| {
-        txs.try_push(tx_id)
-    });
+
+    let _ = UnresolvedTxs::<T>::try_mutate(|txs| txs.try_push(tx_id));
 }
 
 benchmarks! {
@@ -147,13 +147,13 @@ benchmarks! {
         let author = setup_author::<T>();
         let tx_id = 3u32;
         setup_tx_data::<T>(tx_id, 1, author.clone());
-        let eth_tx_succeeded = true;
-        let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, eth_tx_succeeded, author.account_id.clone()).encode();
+        let tx_succeeded = true;
+        let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: _(RawOrigin::None, tx_id, eth_tx_succeeded, author.clone(), signature)
+    }: _(RawOrigin::None, tx_id, tx_succeeded, author.clone(), signature)
     verify {
         let corroboration = Corroborations::<T>::get(tx_id).unwrap();
-        ensure!(corroboration.eth_tx_succeeded.contains(&author.account_id), "Corroboration not added");
+        ensure!(corroboration.tx_succeeded.contains(&author.account_id), "Corroboration not added");
     }
 }
 
