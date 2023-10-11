@@ -5,8 +5,8 @@
 //! any author functions on the Ethereum-based **avn-bridge** contract. They do so
 //! by passing the name of the desired avn-bridge function, along with an array of data type and
 //! value parameter tuples. Upon receipt of a **publish** request, this pallet takes charge of the
-//! entire transaction process. The process culminates in a callback to the originating pallet detailing the
-//! final outcome, which may be used to commit or rollback state.
+//! entire transaction process. The process culminates in a callback to the originating pallet
+//! detailing the final outcome, which may be used to commit or rollback state.
 //!
 //! Specifically, the pallet manages:
 //!
@@ -293,7 +293,7 @@ pub mod pallet {
         let self_is_sender = author.account_id == tx_data.sender;
         let tx_is_sent = tx_data.eth_tx_hash != H256::zero();
         let tx_is_past_expiry = tx_data.expiry > util::time_now::<T>();
-        let num_confirmations = tx_data.confirmations.len() as u32 + 1; // include sender
+        let num_confirmations = tx_data.confirmations.len() as u32 + 1; // includes the sender
         let tx_requires_confirmations = util::quorum_reached::<T>(num_confirmations) == false;
 
         if !self_is_sender && tx_requires_confirmations {
@@ -325,7 +325,7 @@ pub mod pallet {
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
-
+        // Runs identity checks before the extrinsics enter the pool:
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
                 Call::add_confirmation { tx_id, confirmation, author, signature } =>
@@ -419,10 +419,10 @@ pub mod pallet {
             let expiry = util::time_now::<T>() + Self::get_eth_tx_lifetime_secs();
 
             let tx_data = eth::create_tx_data(function_name, params, expiry, tx_id)
-                .map_err(|_| DispatchError::Other("Failed to create tx data"))?;
+                .map_err(|e| DispatchError::Other(e.into()))?;
 
             util::add_new_tx_request::<T>(tx_id, tx_data)
-                .map_err(|_| DispatchError::Other("Failed to add new tx request"))?;
+                .map_err(|e| DispatchError::Other(e.into()))?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {
                 tx_id,
