@@ -1,13 +1,12 @@
 // Copyright 2023 Aventus Network Services (UK) Ltd.
 
-//! This pallet provides a single interface, **publish_to_avn_bridge**, which enables other pallets
-//! to execute any author-accessible function on the Ethereum-based **avn-bridge** contract. Pallets
-//! do so by passing the desired avn-bridge function name, along with an array of parameter tuples,
-//! each comprising the data type and its corresponding value. Upon receipt of a
-//! **publish_to_avn_bridge** request this pallet takes charge of the entire transaction process,
-//! culminating in the conclusive determination of the transaction's status on Ethereum. A callback
-//! is then made to the originating pallet which it can use to determine whether to commit or
-//! rollback state.
+//! This pallet implements the AvN pallet's **BridgePublisher** interface, providing a **publish**
+//! method which other pallets, implementing the **OnPublishingResultHandler**, can use to execute
+//! any author functions on the Ethereum-based **avn-bridge** contract. They do so
+//! by passing the name of the desired avn-bridge function, along with an array of data type and
+//! value parameter tuples. Upon receipt of a **publish** request, this pallet takes charge of the
+//! entire transaction process. The process culminates in a callback to the originating pallet detailing the
+//! final outcome, which may be used to commit or rollback state.
 //!
 //! Specifically, the pallet manages:
 //!
@@ -17,7 +16,7 @@
 //!   contract.
 //!
 //! - The addition of a unique transaction ID, against which request data can be stored on the AvN
-//!   and the transaction's status in the avn-bridge can be later checked.
+//!   and the transaction's status in the avn-bridge be later checked.
 //!
 //! - Collection of the necessary ECDSA signatures from authors, labelled **confirmations**, which
 //!   serve to prove AvN consensus for the transaction to the avn-bridge.
@@ -27,21 +26,21 @@
 //! - Utilising the transaction ID and expiry to check the status of a sent transaction on Ethereum
 //!   and arrive at a consensus of that status by providing **corroborations**.
 //!
-//! - Alerting the originating pallet to the outcome via the HandleAvnBridgeResult callback.
+//! - Alerting the originating pallet to the outcome via the OnPublishingResultHandler callback.
 //!
 //! The core of the pallet resides in the off-chain worker. The OCW monitors all unresolved
 //! transactions, prompting authors to resolve them by invoking one of three unsigned extrinsics:
 //!
 //! 1. Before a transaction can be dispatched, confirmations are accumulated from non-sending
 //!    authors via the **add_confirmation** extrinsic until a consensus is reached. Note: the
-//!    sender's confirmation is taken as implicit by the avn-bridge and therefore not requested.
+//!    sender's confirmation is taken as implicit by the avn-bridge and is therefore not requested.
 //!
 //! 2. Once a transaction has received sufficient confirmations, the chosen sender is prompted to
 //!    dispatch it to Ethereum and tag it as sent using the **add_receipt** extrinsic.
 //!
 //! 3. Finally, when a transaction possesses a receipt, or if its expiration time has elapsed
 //!    without a definitive outcome, all authors are requested to **add_corroboration**s which, upon
-//!    reaching consensus, determine the final state.
+//!    reaching consensus, conclusively determine the final state to report.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
@@ -61,7 +60,7 @@ use frame_system::{
     offchain::{SendTransactionTypes, SubmitTransaction},
     pallet_prelude::OriginFor,
 };
-use pallet_avn::{self as avn, Error as avn_error};
+use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnPublishingResultHandler};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::event_types::Validator;
 use sp_core::{ecdsa, ConstU32, H256};
@@ -120,12 +119,7 @@ pub mod pallet {
             + From<Call<Self>>;
         type MaxUnresolvedTx: Get<u32>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
-        type HandleAvnBridgeResult: HandleAvnBridgeResult;
-    }
-
-    pub trait HandleAvnBridgeResult {
-        type Error: Into<sp_runtime::DispatchError>;
-        fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error>;
+        type OnPublishingResultHandler: avn::OnPublishingResultHandler;
     }
 
     #[pallet::event]
@@ -188,7 +182,7 @@ pub mod pallet {
         ExceedsFunctionNameLimit,
         FunctionEncodingError,
         FunctionNameError,
-        HandleResultFailed,
+        HandlePublishingResultFailed,
         InvalidBytes,
         InvalidCalldataGeneration,
         InvalidEthereumCheckResponse,
@@ -416,15 +410,19 @@ pub mod pallet {
         pub tx_failed: BoundedVec<T::AccountId, ConfirmationsLimit>,
     }
 
-    impl<T: Config> Pallet<T> {
-        pub fn publish_to_avn_bridge(
+    impl<T: Config> BridgePublisher for Pallet<T> {
+        fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
-        ) -> Result<u32, Error<T>> {
+        ) -> Result<u32, DispatchError> {
             let tx_id = util::use_next_tx_id::<T>();
             let expiry = util::time_now::<T>() + Self::get_eth_tx_lifetime_secs();
-            let tx_data = eth::create_tx_data(function_name, params, expiry, tx_id)?;
-            util::add_new_tx_request::<T>(tx_id, tx_data)?;
+
+            let tx_data = eth::create_tx_data(function_name, params, expiry, tx_id)
+                .map_err(|_| DispatchError::Other("Failed to create tx data"))?;
+
+            util::add_new_tx_request::<T>(tx_id, tx_data)
+                .map_err(|_| DispatchError::Other("Failed to add new tx request"))?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {
                 tx_id,

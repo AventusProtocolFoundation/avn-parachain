@@ -67,7 +67,6 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use pallet_avn::sr25519::AuthorityId as AvnId;
 
 use pallet_avn_proxy::ProvableProxy;
-use pallet_eth_bridge::HandleAvnBridgeResult;
 use sp_avn_common::{InnerCallValidator, Proof};
 
 use pallet_parachain_staking;
@@ -640,6 +639,7 @@ impl pallet_summary::Config for Runtime {
     type ReportSummaryOffence = Offences;
     type FinalityReportLatency = MaxAllowedReportLatency;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
+    type BridgePublisher = EthBridge;
 }
 
 pub type EthAddress = H160;
@@ -686,7 +686,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type AccountToBytesConvert = Avn;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type HandleAvnBridgeResult = Runtime;
+    type OnPublishingResultHandler = Summary;
 }
 
 // Other pallets
@@ -1089,12 +1089,4 @@ cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
     CheckInherents = CheckInherents,
-}
-
-// Placeholder until other pallets use eth-bridge
-impl HandleAvnBridgeResult for Runtime {
-    type Error = sp_runtime::DispatchError;
-    fn result(_tx_id: u32, _eth_tx_succeeded: bool) -> Result<(), Self::Error> {
-        Ok(())
-    }
 }

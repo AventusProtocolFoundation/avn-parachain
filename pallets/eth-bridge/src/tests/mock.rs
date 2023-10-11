@@ -1,5 +1,5 @@
 use super::*;
-use crate::{self as pallet_eth_bridge};
+use crate::{self as eth_bridge};
 use frame_support::{parameter_types, traits::GenesisBuild};
 use frame_system as system;
 use pallet_avn::testing::U64To32BytesConverter;
@@ -13,7 +13,6 @@ pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
-use crate::{self as eth_bridge};
 frame_support::construct_runtime!(
     pub enum TestRuntime where
         Block = Block,
@@ -22,7 +21,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        AVN: pallet_avn::{Pallet, Storage},
+        AVN: pallet_avn::{Pallet, Storage, Event},
         EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -47,7 +46,7 @@ impl Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type AccountToBytesConvert = U64To32BytesConverter;
-    type HandleAvnBridgeResult = TestRuntime;
+    type OnPublishingResultHandler = TestRuntime;
 }
 
 impl system::Config for TestRuntime {
@@ -91,6 +90,7 @@ impl avn::Config for TestRuntime {
     type DisabledValidatorChecker = ();
     type FinalisedBlockChecker = ();
     type WeightInfo = ();
+    type RuntimeEvent = RuntimeEvent;
 }
 
 pub struct ExtBuilder {
@@ -112,7 +112,7 @@ impl ExtBuilder {
 
     #[allow(dead_code)]
     pub fn with_genesis_config(mut self) -> Self {
-        let _ = pallet_eth_bridge::GenesisConfig::<TestRuntime> {
+        let _ = eth_bridge::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
             eth_tx_lifetime_secs: 60 * 30,
             next_tx_id: 1,
@@ -122,19 +122,8 @@ impl ExtBuilder {
     }
 }
 
-impl HandleAvnBridgeResult for TestRuntime {
-    type Error = UpdateFailed;
-
-    fn result(tx_id: u32, tx_succeeded: bool) -> Result<(), Self::Error> {
-        println!("Tx ID: {}, Succeeded?: {}", tx_id, tx_succeeded);
+impl OnPublishingResultHandler for TestRuntime {
+    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
-    }
-}
-
-pub struct UpdateFailed;
-
-impl Into<sp_runtime::DispatchError> for UpdateFailed {
-    fn into(self) -> sp_runtime::DispatchError {
-        sp_runtime::DispatchError::Other("UpdateFailed")
     }
 }

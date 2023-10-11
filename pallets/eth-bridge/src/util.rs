@@ -160,7 +160,8 @@ pub fn unbound_params(
 
 pub fn finalize<T: Config>(tx_id: u32, success: bool) -> Result<(), Error<T>> {
     // Alert the originating pallet and handle any error:
-    T::HandleAvnBridgeResult::result(tx_id, success).map_err(|_| Error::<T>::HandleResultFailed)?;
+    T::OnPublishingResultHandler::process_result(tx_id, success)
+        .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     let mut tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
     tx_data.status = if success { EthStatus::Succeeded } else { EthStatus::Failed };
