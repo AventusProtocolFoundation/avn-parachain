@@ -40,8 +40,8 @@
 //!    dispatch it to Ethereum and tag it as sent using the **add_receipt** extrinsic.
 //!
 //! 3. Finally, when a transaction possesses a receipt, or if its expiration time has elapsed
-//!    without a definitive outcome, all authors are requested to
-//!    **add_corroboration**s which, upon reaching consensus, determine the final state.
+//!    without a definitive outcome, all authors are requested to **add_corroboration**s which, upon
+//!    reaching consensus, determine the final state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]

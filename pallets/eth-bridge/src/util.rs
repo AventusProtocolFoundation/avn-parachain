@@ -99,11 +99,11 @@ pub fn update_corroborations<T: Config>(
     author: &Author<T>,
 ) -> Result<(), Error<T>> {
     if !UnresolvedTxs::<T>::get().contains(&tx_id) {
-        return Ok(());
+        return Ok(())
     }
 
-    let mut corroborations = Corroborations::<T>::get(tx_id)
-        .ok_or_else(|| Error::<T>::CorroborationNotFound)?;
+    let mut corroborations =
+        Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
 
     let (corroborations_that_agree, corroborations_that_disagree) = if tx_succeeded {
         (&mut corroborations.tx_succeeded, &corroborations.tx_failed)
@@ -111,7 +111,9 @@ pub fn update_corroborations<T: Config>(
         (&mut corroborations.tx_failed, &corroborations.tx_succeeded)
     };
 
-    if !corroborations_that_agree.contains(&author.account_id) && !corroborations_that_disagree.contains(&author.account_id) {
+    if !corroborations_that_agree.contains(&author.account_id) &&
+        !corroborations_that_disagree.contains(&author.account_id)
+    {
         corroborations_that_agree
             .try_push(author.account_id.clone())
             .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
