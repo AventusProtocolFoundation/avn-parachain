@@ -34,13 +34,13 @@
 //!
 //! 1. Before a transaction can be dispatched, confirmations are accumulated from non-sending
 //!    authors via the **add_confirmation** extrinsic until a consensus is reached. Note: the
-//!    sender's confirmation is implicit and not requested.
+//!    sender's confirmation is taken as implicit by the avn-bridge and therefore not requested.
 //!
 //! 2. Once a transaction has received sufficient confirmations, the chosen sender is prompted to
 //!    dispatch it to Ethereum and tag it as sent using the **add_receipt** extrinsic.
 //!
 //! 3. Finally, when a transaction possesses a receipt, or if its expiration time has elapsed
-//!    without a definitive outcome, all authors except the sender are requested to
+//!    without a definitive outcome, all authors are requested to
 //!    **add_corroboration**s which, upon reaching consensus, determine the final state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
