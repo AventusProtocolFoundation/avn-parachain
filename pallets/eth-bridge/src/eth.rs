@@ -49,11 +49,11 @@ pub fn sign_msg_hash<T: Config>(msg_hash: H256) -> Result<ecdsa::Signature, Disp
 }
 
 pub fn verify_signature<T: Config>(
-    tx_data: TransactionData<T>,
+    msg_hash: H256,
     author: &Author<T>,
     confirmation: &ecdsa::Signature,
 ) -> Result<(), Error<T>> {
-    if !AVN::<T>::eth_signature_is_valid(tx_data.msg_hash.to_string(), &author, &confirmation) {
+    if !AVN::<T>::eth_signature_is_valid(msg_hash.to_string(), &author, &confirmation) {
         Err(Error::<T>::InvalidECDSASignature)
     } else {
         Ok(())

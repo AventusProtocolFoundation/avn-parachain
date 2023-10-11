@@ -239,10 +239,8 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-
-            let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
-            eth::verify_signature(tx_data, &author, &confirmation)?;
-            util::update_confirmations::<T>(tx_id, &confirmation)
+            util::update_confirmations::<T>(tx_id, &confirmation, &author)?;
+            Ok(().into())
         }
 
         #[pallet::call_index(2)]
@@ -255,13 +253,7 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-
-            let mut tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
-            ensure!(tx_data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
-            ensure!(tx_data.sender == author.account_id, Error::<T>::EthTxHashMustBeSetBySender);
-            tx_data.eth_tx_hash = eth_tx_hash;
-            <Transactions<T>>::insert(tx_id, tx_data);
-
+            util::set_eth_tx_hash::<T>(tx_id, eth_tx_hash, &author)?;
             Ok(().into())
         }
 
@@ -275,18 +267,7 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-
-            if !UnresolvedTxs::<T>::get().contains(&tx_id) {
-                return Ok(().into())
-            }
-
-            let num_corroborations =
-                util::update_corroborations::<T>(tx_id, tx_succeeded, &author)?;
-
-            if util::consensus_is_reached::<T>(num_corroborations) {
-                util::finalize::<T>(tx_id, tx_succeeded)?;
-            }
-
+            util::update_corroborations::<T>(tx_id, tx_succeeded, &author)?;
             Ok(().into())
         }
     }
@@ -319,19 +300,22 @@ pub mod pallet {
         author: Author<T>,
     ) -> Result<(), DispatchError> {
         let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
-        let this_author_is_sender = author.account_id == tx_data.sender;
-        let num_confirmations = 1 + tx_data.confirmations.len() as u32; // The sender's confirmation is implicit
+        let self_is_sender = author.account_id == tx_data.sender;
+        let tx_is_sent = tx_data.eth_tx_hash != H256::zero();
+        let tx_is_past_expiry = tx_data.expiry > util::time_now::<T>();
+        let num_confirmations = tx_data.confirmations.len() as u32 + 1; // include sender
+        let tx_requires_confirmations = util::quorum_reached::<T>(num_confirmations) == false;
 
-        if !util::consensus_is_reached::<T>(num_confirmations) {
-            if !this_author_is_sender {
-                let confirmation = eth::sign_msg_hash::<T>(tx_data.msg_hash)?;
+        if !self_is_sender && tx_requires_confirmations {
+            let confirmation = eth::sign_msg_hash::<T>(tx_data.msg_hash)?;
+            if !tx_data.confirmations.contains(&confirmation) {
                 call::add_confirmation::<T>(tx_id, confirmation, author);
             }
-        } else if this_author_is_sender {
+        } else if self_is_sender && !tx_is_sent {
             let eth_tx_hash = eth::send_transaction::<T>(tx_id, author.clone())?;
             call::add_receipt::<T>(tx_id, eth_tx_hash, author);
-        } else {
-            if tx_data.eth_tx_hash != H256::zero() || tx_data.expiry > util::time_now::<T>() {
+        } else if tx_is_sent || tx_is_past_expiry {
+            if util::awaiting_corroboration::<T>(tx_id, &author)? {
                 match eth::check_tx_status::<T>(tx_id, tx_data.expiry, &author) {
                     Ok(EthStatus::Unresolved) => {},
                     Ok(EthStatus::Succeeded) => {

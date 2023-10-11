@@ -1,7 +1,8 @@
 use super::*;
 use crate::{Config, AVN};
-use frame_support::{traits::UnixTime, BoundedVec};
+use frame_support::{ensure, traits::UnixTime, BoundedVec};
 use sp_avn_common::calculate_one_third_quorum;
+use sp_core::H256;
 
 pub fn use_next_tx_id<T: Config>() -> u32 {
     let tx_id = NextTxId::<T>::get();
@@ -13,7 +14,7 @@ pub fn time_now<T: Config>() -> u64 {
     <T as pallet::Config>::TimeProvider::now().as_secs()
 }
 
-pub fn consensus_is_reached<T: Config>(entries: u32) -> bool {
+pub fn quorum_reached<T: Config>(entries: u32) -> bool {
     let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
     entries >= quorum
 }
@@ -47,28 +48,60 @@ pub fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
 pub fn update_confirmations<T: Config>(
     tx_id: u32,
     confirmation: &ecdsa::Signature,
-) -> DispatchResultWithPostInfo {
-    Transactions::<T>::try_mutate_exists(tx_id, |maybe_tx_data| -> DispatchResultWithPostInfo {
-        let tx_data = maybe_tx_data.as_mut().ok_or(Error::<T>::TxIdNotFound)?;
+    author: &Author<T>,
+) -> Result<(), Error<T>> {
+    let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
 
-        if tx_data.confirmations.contains(confirmation) {
-            return Err(Error::<T>::DuplicateConfirmation.into())
-        }
+    if !UnresolvedTxs::<T>::get().contains(&tx_id) ||
+        quorum_reached::<T>(tx_data.confirmations.len() as u32)
+    {
+        return Ok(())
+    }
 
-        tx_data
-            .confirmations
-            .try_push(confirmation.clone())
-            .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+    eth::verify_signature::<T>(tx_data.msg_hash, &author, &confirmation)?;
+    ensure!(!tx_data.confirmations.contains(confirmation), Error::<T>::DuplicateConfirmation);
 
-        Ok(().into())
-    })
+    let mut updated_tx_data = tx_data;
+    updated_tx_data
+        .confirmations
+        .try_push(confirmation.clone())
+        .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+
+    Transactions::<T>::insert(tx_id, updated_tx_data);
+
+    Ok(())
+}
+
+pub fn set_eth_tx_hash<T: Config>(
+    tx_id: u32,
+    eth_tx_hash: H256,
+    author: &Author<T>,
+) -> Result<(), Error<T>> {
+    let mut tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
+    ensure!(tx_data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
+    ensure!(tx_data.sender == author.account_id, Error::<T>::EthTxHashMustBeSetBySender);
+    tx_data.eth_tx_hash = eth_tx_hash;
+    Transactions::<T>::insert(tx_id, tx_data);
+    Ok(())
+}
+
+pub fn awaiting_corroboration<T: Config>(tx_id: u32, author: &Author<T>) -> Result<bool, Error<T>> {
+    let corroboration =
+        Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
+    let not_in_succeeded = !corroboration.tx_succeeded.contains(&author.account_id);
+    let not_in_falied = !corroboration.tx_failed.contains(&author.account_id);
+    Ok(not_in_succeeded && not_in_falied)
 }
 
 pub fn update_corroborations<T: Config>(
     tx_id: u32,
     tx_succeeded: bool,
     author: &Author<T>,
-) -> Result<u32, Error<T>> {
+) -> Result<(), Error<T>> {
+    if !UnresolvedTxs::<T>::get().contains(&tx_id) {
+        return Ok(())
+    }
+
     let mut corroborations =
         Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
 
@@ -95,8 +128,13 @@ pub fn update_corroborations<T: Config>(
         num_corroborations = corroborations.tx_failed.len() as u32;
     }
 
-    Corroborations::<T>::insert(tx_id, corroborations);
-    Ok(num_corroborations)
+    if quorum_reached::<T>(num_corroborations) {
+        finalize::<T>(tx_id, tx_succeeded)?;
+    } else {
+        Corroborations::<T>::insert(tx_id, corroborations);
+    }
+
+    Ok(())
 }
 
 pub fn bound_params<T>(
@@ -128,7 +166,7 @@ pub fn unbound_params(
         .collect()
 }
 
-pub fn finalize<T: Config>(tx_id: u32, success: bool) -> DispatchResultWithPostInfo {
+pub fn finalize<T: Config>(tx_id: u32, success: bool) -> Result<(), Error<T>> {
     // Alert the originating pallet and handle any error.
     T::HandleAvnBridgeResult::result(tx_id, success).map_err(|_| Error::<T>::HandleResultFailed)?;
 
@@ -142,5 +180,5 @@ pub fn finalize<T: Config>(tx_id: u32, success: bool) -> DispatchResultWithPostI
     Corroborations::<T>::remove(tx_id);
     Transactions::<T>::insert(tx_id, tx_data);
 
-    Ok(().into())
+    Ok(())
 }
