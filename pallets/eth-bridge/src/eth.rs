@@ -107,7 +107,7 @@ fn generate_msg_hash<T: pallet::Config>(params: &[(Vec<u8>, Vec<u8>)]) -> Result
 }
 
 fn generate_send_calldata<T: Config>(tx_id: u32) -> Result<Vec<u8>, Error<T>> {
-    let tx_data = Transactions::<T>::get(tx_id).unwrap();
+    let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
 
     let concatenated_confirmations =
         tx_data.confirmations.iter().fold(Vec::new(), |mut acc, conf| {
@@ -120,6 +120,7 @@ fn generate_send_calldata<T: Config>(tx_id: u32) -> Result<Vec<u8>, Error<T>> {
     full_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
+    // the function_name was checked on entry so we can just unwrap here
     let function_name = String::from_utf8(tx_data.function_name.into()).unwrap();
 
     encode_function(&function_name, &full_params)

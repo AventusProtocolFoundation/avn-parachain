@@ -85,7 +85,7 @@ pub fn set_eth_tx_hash<T: Config>(
     Ok(())
 }
 
-pub fn awaiting_corroboration<T: Config>(tx_id: u32, author: &Author<T>) -> Result<bool, Error<T>> {
+pub fn requires_corroboration<T: Config>(tx_id: u32, author: &Author<T>) -> Result<bool, Error<T>> {
     let corroboration =
         Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
     let not_in_succeeded = !corroboration.tx_succeeded.contains(&author.account_id);
@@ -99,36 +99,25 @@ pub fn update_corroborations<T: Config>(
     author: &Author<T>,
 ) -> Result<(), Error<T>> {
     if !UnresolvedTxs::<T>::get().contains(&tx_id) {
-        return Ok(())
+        return Ok(());
     }
 
-    let mut corroborations =
-        Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
+    let mut corroborations = Corroborations::<T>::get(tx_id)
+        .ok_or_else(|| Error::<T>::CorroborationNotFound)?;
 
-    let num_corroborations;
-    if tx_succeeded {
-        if !corroborations.tx_succeeded.contains(&author.account_id) {
-            let mut tmp_vec = Vec::new();
-            tmp_vec.push(author.account_id.clone());
-            corroborations
-                .tx_succeeded
-                .try_append(&mut tmp_vec)
-                .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
-        }
-        num_corroborations = corroborations.tx_succeeded.len() as u32;
+    let (corroborations_that_agree, corroborations_that_disagree) = if tx_succeeded {
+        (&mut corroborations.tx_succeeded, &corroborations.tx_failed)
     } else {
-        if !corroborations.tx_failed.contains(&author.account_id) {
-            let mut tmp_vec = Vec::new();
-            tmp_vec.push(author.account_id.clone());
-            corroborations
-                .tx_failed
-                .try_append(&mut tmp_vec)
-                .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
-        }
-        num_corroborations = corroborations.tx_failed.len() as u32;
+        (&mut corroborations.tx_failed, &corroborations.tx_succeeded)
+    };
+
+    if !corroborations_that_agree.contains(&author.account_id) && !corroborations_that_disagree.contains(&author.account_id) {
+        corroborations_that_agree
+            .try_push(author.account_id.clone())
+            .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
     }
 
-    if quorum_reached::<T>(num_corroborations) {
+    if quorum_reached::<T>(corroborations_that_agree.len() as u32) {
         finalize::<T>(tx_id, tx_succeeded)?;
     } else {
         Corroborations::<T>::insert(tx_id, corroborations);
@@ -167,7 +156,7 @@ pub fn unbound_params(
 }
 
 pub fn finalize<T: Config>(tx_id: u32, success: bool) -> Result<(), Error<T>> {
-    // Alert the originating pallet and handle any error.
+    // Alert the originating pallet and handle any error:
     T::HandleAvnBridgeResult::result(tx_id, success).map_err(|_| Error::<T>::HandleResultFailed)?;
 
     let mut tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;

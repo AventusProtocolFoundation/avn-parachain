@@ -315,7 +315,7 @@ pub mod pallet {
             let eth_tx_hash = eth::send_transaction::<T>(tx_id, author.clone())?;
             call::add_receipt::<T>(tx_id, eth_tx_hash, author);
         } else if tx_is_sent || tx_is_past_expiry {
-            if util::awaiting_corroboration::<T>(tx_id, &author)? {
+            if util::requires_corroboration::<T>(tx_id, &author)? {
                 match eth::check_tx_status::<T>(tx_id, tx_data.expiry, &author) {
                     Ok(EthStatus::Unresolved) => {},
                     Ok(EthStatus::Succeeded) => {
