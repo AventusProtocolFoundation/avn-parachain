@@ -66,11 +66,7 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::event_types::Validator;
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
-use sp_runtime::{
-    offchain::{http, Duration},
-    scale_info::TypeInfo,
-    traits::Dispatchable,
-};
+use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
 
 mod call;
 mod eth;

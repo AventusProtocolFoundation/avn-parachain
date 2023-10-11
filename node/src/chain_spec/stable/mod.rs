@@ -9,8 +9,9 @@ use crate::chain_spec::{
     ImOnlineId, ParaId,
 };
 use avn_parachain_runtime::{
-    self as avn_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig, ImOnlineConfig,
-    ParachainStakingConfig, SudoConfig, SummaryConfig, TokenManagerConfig, ValidatorsManagerConfig,
+    self as avn_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig,
+    ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig, TokenManagerConfig,
+    ValidatorsManagerConfig,
 };
 use node_primitives::AccountId;
 

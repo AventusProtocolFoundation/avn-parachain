@@ -208,34 +208,12 @@ fn execute_call<R, T: Config>(
     endpoint: &str,
     process_response: fn(Vec<u8>) -> Result<R, DispatchError>,
 ) -> Result<R, DispatchError> {
+    let url_path = format!("/eth/{}", endpoint);
     let contract_address = AVN::<T>::get_bridge_contract_address();
     let sender = T::AccountToBytesConvert::into_bytes(&author.account_id);
     let transaction_to_send = EthTransaction::new(sender, contract_address, calldata);
 
-    let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
-    let external_service_port_number = AVN::<T>::get_external_service_port_number();
-
-    let url = format!("http://127.0.0.1:{}/eth/{}", external_service_port_number, endpoint);
-
-    let pending = http::Request::default()
-        .deadline(deadline)
-        .method(http::Method::Post)
-        .url(&url)
-        .body(vec![transaction_to_send.encode()])
-        .send()
-        .map_err(|_| Error::<T>::RequestTimedOut)?;
-
-    let response = pending
-        .try_wait(deadline)
-        .map_err(|_| Error::<T>::DeadlineReached)?
-        .map_err(|_| Error::<T>::DeadlineReached)?;
-
-    if response.code != 200 {
-        return Err(Error::<T>::UnexpectedStatusCode)?
-    }
-
-    let result: Vec<u8> = response.body().collect::<Vec<u8>>();
-
+    let result = AVN::<T>::post_data_to_service(url_path, transaction_to_send.encode())?;
     process_response(result)
 }
 

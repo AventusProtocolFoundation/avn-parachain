@@ -108,6 +108,14 @@ pub async fn build_raw_transaction(
     })
 }
 
+pub async fn build_call_request(view_request: &EthTransaction) -> anyhow::Result<CallRequest> {
+    Ok(CallRequest {
+        to: Some(H160::from_slice(view_request.to.as_bytes())),
+        data: Some(Bytes(view_request.data.clone())),
+        ..Default::default()
+    })
+}
+
 #[allow(dead_code)]
 pub async fn get_chain_id(web3: &Web3<Http>) -> anyhow::Result<u64> {
     Ok(web3
