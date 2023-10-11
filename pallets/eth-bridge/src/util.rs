@@ -53,7 +53,8 @@ pub fn update_confirmations<T: Config>(
     let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
 
     if !UnresolvedTxs::<T>::get().contains(&tx_id) ||
-        quorum_reached::<T>(tx_data.confirmations.len() as u32)
+        author.account_id == tx_data.sender ||
+        quorum_reached::<T>(tx_data.confirmations.len() as u32 + 1)
     {
         return Ok(())
     }
