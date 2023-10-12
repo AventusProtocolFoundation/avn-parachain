@@ -49,6 +49,9 @@ pub use pallet::*;
 pub mod testing;
 pub mod vote;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
