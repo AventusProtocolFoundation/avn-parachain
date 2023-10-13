@@ -602,6 +602,14 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
     fn handle_dust(_imbalance: Balance) {}
 }
 
+pub trait BridgePublisher {
+    fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
+}
+
+pub trait OnPublishingResultHandler {
+    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult;
+}
+
 #[cfg(test)]
 mod mock;
 

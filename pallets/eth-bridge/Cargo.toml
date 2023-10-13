@@ -1,0 +1,52 @@
+[package]
+name = "pallet-eth-bridge"
+description = "Enables author communication with Ethereum"
+license = "GPL-3.0"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+ethabi = { default-features = false, git = "https://github.com/Aventus-Network-Services/ethabi.git", branch = "v13.0.0-no-std-avn" }
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+scale-info = { version = "2.0", default-features = false, features = ["derive"] }
+sp-avn-common =  { default-features = false, path = "../../primitives/avn-common" }
+pallet-avn = { default-features = false, path = "../avn" }
+sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+
+# Optional imports for benchmarking
+frame-benchmarking = {  default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }
+
+[dev-dependencies]
+pallet-session = { features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
+
+[features]
+migrate = []
+default = ["std"]
+std = [
+	"frame-benchmarking?/std",
+	"codec/std",
+	"sp-std/std",
+	"sp-core/std",
+	"frame-support/std",
+	"sp-application-crypto/std",
+	"sp-runtime/std",
+	"frame-system/std",
+	"pallet-avn/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]

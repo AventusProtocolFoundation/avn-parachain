@@ -247,6 +247,40 @@ where
 }
 
 #[tokio::main]
+async fn view_main<Block: BlockT, ClientT>(
+    mut req: tide::Request<Arc<Config<Block, ClientT>>>,
+) -> Result<String, TideError>
+where
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+{
+    log::info!("⛓️  avn-service: view Request");
+    let post_body = req.body_bytes().await?;
+    let view_request = &EthTransaction::decode(&mut &post_body[..])?;
+
+    if let Some(mutex_web3_data) = req.state().web3_data_mutex.try_lock() {
+        if mutex_web3_data.web3.is_none() {
+            return Err(server_error("Web3 connection not setup".to_string()))
+        }
+
+        let call_request = build_call_request(view_request).await?;
+
+        let result = mutex_web3_data
+            .web3
+            .as_ref()
+            .unwrap()
+            .eth()
+            .call(call_request, None)
+            .await
+            .map_err(|e| server_error(format!("Error calling view method on Ethereum: {:?}", e)))?;
+
+        Ok(hex::encode(result.0))
+    } else {
+        log::error!("💔 Failed to acquire web3 mutex");
+        Err(TideError::from_str(StatusCode::FailedDependency, "Failed to get web3"))
+    }
+}
+
+#[tokio::main]
 async fn root_hash_main<Block: BlockT, ClientT>(
     req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
@@ -341,6 +375,12 @@ where
         .post(|req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             // Methods that require web3 must be run within the tokio runtime (#[tokio::main])
             return send_main(req)
+        });
+
+    app.at("/eth/view")
+        .post(|req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
+            // Methods that require web3 must be run within the tokio runtime (#[tokio::main])
+            return view_main(req)
         });
 
     app.at("/eth/events/:txHash").get(

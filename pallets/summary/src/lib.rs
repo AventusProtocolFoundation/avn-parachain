@@ -24,7 +24,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use avn::AccountToBytesConverter;
+use avn::{AccountToBytesConverter, OnPublishingResultHandler};
 use core::convert::TryInto;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, weights::Weight};
 use frame_system::{
@@ -129,6 +129,8 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+
+        type BridgePublisher: avn::BridgePublisher;
     }
 
     #[pallet::pallet]
@@ -1420,6 +1422,12 @@ impl<AccountId> Default for RootData<AccountId> {
             is_finalised: false,
             tx_id: None,
         }
+    }
+}
+
+impl<T: Config> OnPublishingResultHandler for Pallet<T> {
+    fn process_result(_tx_id: u32, _succeeded: bool) -> DispatchResult {
+       Ok(()) 
     }
 }
 

@@ -617,6 +617,7 @@ impl pallet_summary::Config for Runtime {
     type AccountToBytesConvert = Avn;
     type ReportSummaryOffence = Offences;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
+    type BridgePublisher = EthBridge;
 }
 
 pub type EthAddress = H160;
@@ -661,6 +662,16 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_eth_bridge::Config for Runtime {
+    type MaxUnresolvedTx = ConstU32<1000>;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type AccountToBytesConvert = Avn;
+    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
+    type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
+    type OnPublishingResultHandler = Summary;
 }
 
 // Other pallets
@@ -795,6 +806,7 @@ construct_runtime!(
         Summary: pallet_summary = 88,
         AvnProxy: pallet_avn_proxy = 89,
         AvnTransactionPayment: pallet_avn_transaction_payment = 90,
+        EthBridge: pallet_eth_bridge = 91,
 
         // OpenGov pallets
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 97,
@@ -819,6 +831,7 @@ mod benches {
         [pallet_avn_offence_handler, AvnOffenceHandler]
         [pallet_avn_proxy, AvnProxy]
         [pallet_avn, Avn]
+        [pallet_eth_bridge, EthBridge]
         [pallet_ethereum_events, EthereumEvents]
         [pallet_ethereum_transactions, EthereumTransactions]
         [pallet_nft_manager, NftManager]
