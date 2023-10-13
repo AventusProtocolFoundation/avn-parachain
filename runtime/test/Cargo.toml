@@ -167,10 +167,10 @@ std = [
 	"pallet-parachain-staking/std",
 	# Avn Common Runtime
 	"runtime-common/std",
-	"pallet-referenda/std", 
-	"pallet-conviction-voting/std", 
-	"pallet-whitelist/std", 
-	"pallet-scheduler/std", 
+	"pallet-referenda/std",
+	"pallet-conviction-voting/std",
+	"pallet-whitelist/std",
+	"pallet-scheduler/std",
 	"pallet-preimage/std",
 ]
 
@@ -195,6 +195,7 @@ runtime-benchmarks = [
 	"pallet-avn-offence-handler/runtime-benchmarks",
 	"pallet-ethereum-events/runtime-benchmarks",
 	"pallet-ethereum-transactions/runtime-benchmarks",
+	"pallet-avn/runtime-benchmarks",
 	"pallet-nft-manager/runtime-benchmarks",
 	"pallet-summary/runtime-benchmarks",
 	"pallet-token-manager/runtime-benchmarks",
@@ -204,10 +205,10 @@ runtime-benchmarks = [
 	# Avn Common Runtime
 	"runtime-common/runtime-benchmarks",
 	# OpenGov
-	"pallet-referenda/runtime-benchmarks", 
-	"pallet-conviction-voting/runtime-benchmarks", 
-	"pallet-whitelist/runtime-benchmarks", 
-	"pallet-scheduler/runtime-benchmarks", 
+	"pallet-referenda/runtime-benchmarks",
+	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-whitelist/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 ]
 
