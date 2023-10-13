@@ -364,15 +364,6 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    pub fn calculate_two_third_quorum() -> u32 {
-        let len = Self::active_validators().len() as u32;
-        if len < 3 {
-            return len
-        } else {
-            return (2 * len / 3) + 1
-        }
-    }
-
     pub fn is_block_finalised(block_number: T::BlockNumber) -> bool {
         return T::FinalisedBlockChecker::is_finalised(block_number)
     }
