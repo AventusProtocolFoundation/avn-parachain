@@ -168,6 +168,13 @@ fn avn_test_lower_all_avt_token_succeed() {
                 who: from_account_id,
                 amount
             })));
+        assert!(System::events().iter().any(|a| a.event ==
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AvtLowered {
+                sender: from_account_id,
+                recipient: to_account_id,
+                amount,
+                t1_recipient
+            })));
     });
 }
 
@@ -196,6 +203,13 @@ fn avn_test_lower_some_avt_token_succeed() {
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw {
                 who: from_account_id,
                 amount
+            })));
+        assert!(System::events().iter().any(|a| a.event ==
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AvtLowered {
+                sender: from_account_id,
+                recipient: to_account_id,
+                amount,
+                t1_recipient
             })));
     });
 }
@@ -253,6 +267,13 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
                 who: from_account_id,
                 amount
             })));
+        assert!(System::events().iter().any(|a| a.event ==
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AvtLowered {
+                sender: from_account_id,
+                recipient: to_account_id,
+                amount,
+                t1_recipient
+            })));
 
         // Lift and lower AVT tokens again
         amount = u128::max_value();
@@ -271,6 +292,13 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw {
                 who: from_account_id,
                 amount
+            })));
+        assert!(System::events().iter().any(|a| a.event ==
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AvtLowered {
+                sender: from_account_id,
+                recipient: to_account_id,
+                amount,
+                t1_recipient
             })));
     });
 }
