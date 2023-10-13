@@ -90,7 +90,7 @@ pub fn requires_corroboration<T: Config>(tx_id: u32, author: &Author<T>) -> Resu
     let corroboration =
         Corroborations::<T>::get(tx_id).ok_or_else(|| Error::<T>::CorroborationNotFound)?;
     let not_in_succeeded = !corroboration.tx_succeeded.contains(&author.account_id);
-    let not_in_falied = !corroboration.tx_failed.contains(&author.account_id);
+    let not_in_failed = !corroboration.tx_failed.contains(&author.account_id);
     Ok(not_in_succeeded && not_in_falied)
 }
 
