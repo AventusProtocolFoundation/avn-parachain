@@ -173,7 +173,7 @@ pub mod pallet {
     use sp_application_crypto::RuntimeAppPublic;
     pub use sp_avn_common::{
         bounds::VotingSessionIdBound,
-        calculate_two_third_quorum,
+        calculate_one_third_quorum,
         event_types::Validator,
         offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
         safe_add_block_numbers, verify_signature, IngressCounter, Proof,
@@ -2698,7 +2698,7 @@ pub mod pallet {
                 AVN::<T>::calculate_primary_validator(<frame_system::Pallet<T>>::block_number())
                     .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
 
-            let quorum = calculate_two_third_quorum(AVN::<T>::validators().len() as u32);
+            let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
             let ingress_counter = Self::get_ingress_counter();
             let current_block_number = <frame_system::Pallet<T>>::block_number();
             let voting_period_end =

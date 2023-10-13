@@ -29,6 +29,7 @@ use sp_std::prelude::*;
 use pallet_avn::AvnBridgeContractAddress;
 
 use sp_avn_common::{
+    calculate_one_third_quorum,
     event_types::Validator,
     offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
     EthTransaction,
@@ -630,7 +631,7 @@ impl<T: Config> CandidateTransactionSubmitter<T::AccountId> for Pallet<T> {
         // Ensure the signatures count satisfy quorum before accepting
         let quorum = signatures.len() as u32;
         ensure!(
-            quorum >= AVN::<T>::calculate_two_third_quorum(),
+            quorum >= calculate_one_third_quorum(AVN::<T>::validators().len() as u32),
             Error::<T>::NotEnoughConfirmations
         );
 
