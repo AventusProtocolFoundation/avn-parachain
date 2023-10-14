@@ -54,7 +54,7 @@ use sp_std::marker::PhantomData;
 pub trait WeightInfo {
 	fn set_eth_tx_lifetime_secs() -> Weight;
 	fn add_confirmation() -> Weight;
-	fn add_receipt() -> Weight;
+	fn add_eth_tx_hash() -> Weight;
 	fn add_corroboration() -> Weight;
 }
 
@@ -74,7 +74,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: EthBridge Transactions (r:1 w:1)
-	fn add_receipt() -> Weight {
+	fn add_eth_tx_hash() -> Weight {
 		Weight::from_ref_time(15_449_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -104,7 +104,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: EthBridge Transactions (r:1 w:1)
-	fn add_receipt() -> Weight {
+	fn add_eth_tx_hash() -> Weight {
 		Weight::from_ref_time(15_449_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))

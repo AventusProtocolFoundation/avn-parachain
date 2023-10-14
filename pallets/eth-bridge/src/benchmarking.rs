@@ -130,14 +130,14 @@ benchmarks! {
         ensure!(tx_data.confirmations.contains(&new_confirmation), "Confirmation not added");
     }
 
-    add_receipt {
+    add_eth_tx_hash {
         let authors = setup_authors::<T>(10);
         let author: crate::Author<T> = authors[0].clone();
         let tx_id = 2u32;
         setup_tx_data::<T>(tx_id, 1, author.clone());
         let tx_data = Transactions::<T>::get(tx_id).expect("Transaction should exist");
         let eth_tx_hash = H256::repeat_byte(1);
-        let proof = (crate::ADD_RECEIPT_CONTEXT, tx_id, eth_tx_hash.clone(), author.account_id.clone()).encode();
+        let proof = (crate::ADD_ETH_TX_HASH_CONTEXT, tx_id, eth_tx_hash.clone(), author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: _(RawOrigin::None, tx_id, eth_tx_hash.clone(), author.clone(), signature)
     verify {
