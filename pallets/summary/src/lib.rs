@@ -127,9 +127,6 @@ pub mod pallet {
             SummaryOffence<IdentificationTuple<Self>>,
         >;
 
-        /// The delay after which point things become suspicious. Default is 100.
-        type FinalityReportLatency: Get<Self::BlockNumber>;
-
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
     }
@@ -227,7 +224,6 @@ pub mod pallet {
         SchedulePeriodIsTooShort,
         VotingPeriodIsTooShort,
         VotingPeriodIsTooLong,
-        VotingPeriodIsLessThanFinalityReportLatency,
         VotingPeriodIsEqualOrLongerThanSchedulePeriod,
         CurrentSlotValidatorNotFound,
     }
@@ -742,10 +738,6 @@ pub mod pallet {
             voting_period_in_blocks: T::BlockNumber,
             schedule_period_in_blocks: T::BlockNumber,
         ) -> DispatchResult {
-            ensure!(
-                voting_period_in_blocks >= T::FinalityReportLatency::get(),
-                Error::<T>::VotingPeriodIsLessThanFinalityReportLatency
-            );
             ensure!(
                 voting_period_in_blocks >= MIN_VOTING_PERIOD.into(),
                 Error::<T>::VotingPeriodIsTooShort

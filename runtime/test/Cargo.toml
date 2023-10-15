@@ -87,7 +87,6 @@ parachain-info = { git = "https://github.com/paritytech/cumulus.git", branch = "
 # AvN pallets
 sp-avn-common = {  path = "../../primitives/avn-common", default-features = false }
 pallet-avn-offence-handler = { path = "../../pallets/avn-offence-handler", default-features = false }
-pallet-avn-finality-tracker = { path = "../../pallets/avn-finality-tracker", default-features = false }
 pallet-validators-manager = { path = "../../pallets/validators-manager", default-features = false }
 pallet-ethereum-events = { path = "../../pallets/ethereum-events", default-features = false }
 pallet-avn = { path = "../../pallets/avn", default-features = false }
@@ -155,7 +154,6 @@ std = [
 	# AvN pallets
 	"sp-avn-common/std",
 	"pallet-avn/std",
-	"pallet-avn-finality-tracker/std",
 	"pallet-avn-offence-handler/std",
 	"pallet-ethereum-events/std",
 	"pallet-ethereum-transactions/std",
@@ -167,10 +165,10 @@ std = [
 	"pallet-parachain-staking/std",
 	# Avn Common Runtime
 	"runtime-common/std",
-	"pallet-referenda/std", 
-	"pallet-conviction-voting/std", 
-	"pallet-whitelist/std", 
-	"pallet-scheduler/std", 
+	"pallet-referenda/std",
+	"pallet-conviction-voting/std",
+	"pallet-whitelist/std",
+	"pallet-scheduler/std",
 	"pallet-preimage/std",
 ]
 
@@ -191,7 +189,6 @@ runtime-benchmarks = [
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	# AvN pallets
 	"pallet-avn-proxy/runtime-benchmarks",
-	"pallet-avn-finality-tracker/runtime-benchmarks",
 	"pallet-avn-offence-handler/runtime-benchmarks",
 	"pallet-ethereum-events/runtime-benchmarks",
 	"pallet-ethereum-transactions/runtime-benchmarks",
@@ -204,10 +201,10 @@ runtime-benchmarks = [
 	# Avn Common Runtime
 	"runtime-common/runtime-benchmarks",
 	# OpenGov
-	"pallet-referenda/runtime-benchmarks", 
-	"pallet-conviction-voting/runtime-benchmarks", 
-	"pallet-whitelist/runtime-benchmarks", 
-	"pallet-scheduler/runtime-benchmarks", 
+	"pallet-referenda/runtime-benchmarks",
+	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-whitelist/runtime-benchmarks",
+	"pallet-scheduler/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 ]
 

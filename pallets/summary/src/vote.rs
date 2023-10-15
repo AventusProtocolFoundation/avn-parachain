@@ -24,7 +24,7 @@ use sp_runtime::scale_info::TypeInfo;
 use sp_std::fmt::Debug;
 
 use super::{Call, Config};
-use crate::{Pallet as Summary, RootId, Store, AVN};
+use crate::{Pallet as Summary, RootId, Store};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"root_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"root_end_voting_period";
@@ -79,12 +79,9 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotin
             <Summary<T> as Store>::PendingApproval::get(self.root_id.range);
         let vote_is_for_correct_version_of_root_range =
             pending_approval_root_ingress_counter == self.root_id.ingress_counter;
-        let voting_session_is_finalised =
-            AVN::<T>::is_block_finalised(voting_session_data.expect("checked").created_at_block);
 
         return !root_already_accepted &&
-            vote_is_for_correct_version_of_root_range &&
-            voting_session_is_finalised
+            vote_is_for_correct_version_of_root_range
     }
 
     fn is_active(&self) -> bool {

@@ -24,7 +24,7 @@ use sp_std::fmt::Debug;
 
 use crate::{
     ActionId, Call, Config, IngressCounter, Pallet as ValidatorsManager, Store,
-    ValidatorsActionStatus, AVN,
+    ValidatorsActionStatus,
 };
 use pallet_ethereum_transactions::ethereum_transaction::EthTransactionType;
 
@@ -69,10 +69,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber>
             <ValidatorsManager<T> as Store>::PendingApprovals::contains_key(
                 &self.action_id.action_account_id,
             ) &&
-            <ValidatorsManager<T> as Store>::VotesRepository::contains_key(&self.action_id) &&
-            AVN::<T>::is_block_finalised(
-                voting_session_data.expect("checked already").created_at_block,
-            )
+            <ValidatorsManager<T> as Store>::VotesRepository::contains_key(&self.action_id)
     }
 
     fn is_active(&self) -> bool {

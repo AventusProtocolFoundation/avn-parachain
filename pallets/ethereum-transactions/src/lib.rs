@@ -406,16 +406,6 @@ impl<T: Config> Pallet<T> {
                 return None
             }
 
-            // It is only safe to proceed if the block number the dispatch request was added is
-            // finalised. Otherwise we might be vulnerable to re-orgs
-            if !AVN::<T>::is_block_finalised(dispatched_data.submitted_at_block) {
-                log::error!(
-                    "Block number {:?} is not finalised yet",
-                    dispatched_data.submitted_at_block
-                );
-                return None
-            }
-
             return Some((transaction.tx_id, eth_transaction.expect("Checked for error")))
         }
 
