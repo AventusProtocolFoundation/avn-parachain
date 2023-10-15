@@ -167,7 +167,10 @@ impl frame_support::traits::OnRuntimeUpgrade for RemoveFinalityTracker {
         key[0..32].copy_from_slice(&storage_prefix);
         let res = unhashed::clear_prefix(&key[0..16], None, None);
 
-        log::info!("✅ Cleared '{}' backend values from 'AvnFinalityTracker' storage prefix", res.backend);
+        log::info!(
+            "✅ Cleared '{}' backend values from 'AvnFinalityTracker' storage prefix",
+            res.backend
+        );
 
         log::info!("✅ Cleared '{}' entries from 'AvnFinalityTracker' storage prefix", res.unique);
 

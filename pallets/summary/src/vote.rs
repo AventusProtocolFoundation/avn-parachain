@@ -80,8 +80,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotin
         let vote_is_for_correct_version_of_root_range =
             pending_approval_root_ingress_counter == self.root_id.ingress_counter;
 
-        return !root_already_accepted &&
-            vote_is_for_correct_version_of_root_range
+        return !root_already_accepted && vote_is_for_correct_version_of_root_range
     }
 
     fn is_active(&self) -> bool {

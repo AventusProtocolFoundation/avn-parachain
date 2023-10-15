@@ -1118,9 +1118,7 @@ impl<T: Config> Pallet<T> {
             return None
         }
 
-        return Self::unchecked_events()
-            .into_iter()
-            .nth(0)
+        return Self::unchecked_events().into_iter().nth(0)
     }
 
     fn get_next_event_to_validate(
