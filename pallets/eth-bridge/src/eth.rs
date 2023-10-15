@@ -204,14 +204,14 @@ fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<To
 }
 
 fn make_send_call<T: Config>(calldata: Vec<u8>, author: &Author<T>) -> Result<H256, DispatchError> {
-    execute_call::<H256, T>(calldata, author, "send", process_send_response::<T>)
+    make_call::<H256, T>(calldata, author, "send", process_send_response::<T>)
 }
 
 fn make_view_call<T: Config>(calldata: Vec<u8>, author: &Author<T>) -> Result<i8, DispatchError> {
-    execute_call::<i8, T>(calldata, author, "view", process_view_response::<T>)
+    make_call::<i8, T>(calldata, author, "view", process_view_response::<T>)
 }
 
-fn execute_call<R, T: Config>(
+fn make_call<R, T: Config>(
     calldata: Vec<u8>,
     author: &Author<T>,
     endpoint: &str,

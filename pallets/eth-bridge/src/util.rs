@@ -12,13 +12,17 @@ pub fn quorum_reached<T: Config>(entries: u32) -> bool {
     entries >= quorum
 }
 
+pub fn has_enough_confirmations<T: Config>(active_tx: &ActiveTransactionData<T>) -> bool {
+    let num_confirmations_with_sender = active_tx.data.confirmations.len() as u32 + 1;
+    quorum_reached::<T>(num_confirmations_with_sender)
+}
+
 pub fn requires_corroboration<T: Config>(
     active_tx: &ActiveTransactionData<T>,
     author: &Author<T>,
-) -> Result<bool, Error<T>> {
-    let not_in_succeeded = !active_tx.success_corroborations.contains(&author.account_id);
-    let not_in_failed = !active_tx.failure_corroborations.contains(&author.account_id);
-    Ok(not_in_succeeded && not_in_failed)
+) -> bool {
+    !active_tx.success_corroborations.contains(&author.account_id) &&
+        !active_tx.failure_corroborations.contains(&author.account_id)
 }
 
 pub fn bound_params<T>(

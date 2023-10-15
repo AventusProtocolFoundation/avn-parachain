@@ -40,6 +40,7 @@ pub fn finalize_state<T: Config>(
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     active_tx.data.tx_succeeded = success;
+    // Write the tx details to permanent storage:
     SettledTransactions::<T>::insert(active_tx.id, active_tx.data);
 
     if let Some(tx_request) = dequeue_tx_request::<T>() {
