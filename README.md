@@ -135,6 +135,7 @@ Using the new binary that was built from the script above, you can now do a dry 
 
 2. `./<avn-binary> try-runtime --runtime <path to new wasm that was built on step 1> on-runtime-upgrade --checks live --uri <websocket url of staging/production chain with port number>`
 
+You can enable more logging by prefixing the command with `RUST_LOG=info,runtime=debug ` \
 If you pass in the `--checks` options, this will execute the `pre_upgrade` and `post_upgrade` functions of your migration code.
 
  - `pre_upgrade`: Function that runs before the storage migration has executed. This function can return data.
