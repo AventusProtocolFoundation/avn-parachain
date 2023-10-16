@@ -24,7 +24,7 @@ use sp_runtime::{scale_info::TypeInfo, traits::Zero};
 use sp_std::fmt::Debug;
 
 use super::{Call, Config};
-use crate::{BalanceOf, GrowthId, Pallet as ParachainStaking, Store, AVN};
+use crate::{BalanceOf, GrowthId, Pallet as ParachainStaking, Store};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"growth_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"growth_end_voting_period";
@@ -76,13 +76,8 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for GrowthVot
 
         let pending_approval_growth_ingress_counter =
             <ParachainStaking<T> as Store>::PendingApproval::get(self.growth_id.period);
-        let vote_is_for_correct_ingress_counter =
-            pending_approval_growth_ingress_counter == self.growth_id.ingress_counter;
 
-        let voting_session_is_finalised =
-            AVN::<T>::is_block_finalised(voting_session_data.expect("checked").created_at_block);
-
-        return vote_is_for_correct_ingress_counter && voting_session_is_finalised
+        return pending_approval_growth_ingress_counter == self.growth_id.ingress_counter
     }
 
     fn is_active(&self) -> bool {

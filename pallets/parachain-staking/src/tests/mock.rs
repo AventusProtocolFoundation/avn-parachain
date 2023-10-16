@@ -33,7 +33,7 @@ use frame_support::{
     BasicExternalities, PalletId,
 };
 use frame_system::{self as system, limits};
-use pallet_avn::{CollatorPayoutDustHandler, EthereumPublicKeyChecker, FinalisedBlockChecker};
+use pallet_avn::{CollatorPayoutDustHandler, EthereumPublicKeyChecker};
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_ethereum_transactions::{
     ethereum_transaction::{EthTransactionType, TriggerGrowthData},
@@ -399,7 +399,6 @@ impl pallet_avn::Config for Test {
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
-    type FinalisedBlockChecker = Self;
     type WeightInfo = ();
 }
 
@@ -567,12 +566,6 @@ impl EthereumPublicKeyChecker<AccountId> for Test {
             true => Some(MOCK_RECOVERED_ACCOUNT_ID.with(|pk| *pk.borrow())),
             _ => None,
         }
-    }
-}
-
-impl FinalisedBlockChecker<BlockNumber> for Test {
-    fn is_finalised(_block_number: BlockNumber) -> bool {
-        true
     }
 }
 

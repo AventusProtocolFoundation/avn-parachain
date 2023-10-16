@@ -29,7 +29,7 @@ use sp_staking::{
     SessionIndex,
 };
 
-use avn::{AvnBridgeContractAddress, FinalisedBlockChecker};
+use avn::AvnBridgeContractAddress;
 use pallet_avn::{self as avn, Error as avn_error};
 use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent};
 use sp_io::TestExternalities;
@@ -193,7 +193,6 @@ impl avn::Config for TestRuntime {
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
-    type FinalisedBlockChecker = Self;
     type WeightInfo = ();
 }
 
@@ -258,12 +257,6 @@ impl ProcessedEventHandler for TestRuntime {
             true => return Ok(()),
             _ => Err(Error::<TestRuntime>::InvalidEventToProcess)?,
         }
-    }
-}
-
-impl FinalisedBlockChecker<BlockNumber> for TestRuntime {
-    fn is_finalised(_block_number: BlockNumber) -> bool {
-        true
     }
 }
 
