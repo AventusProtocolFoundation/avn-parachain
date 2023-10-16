@@ -131,14 +131,15 @@ AvN binaries are built on Ubuntu 20.04 (focal), which is a Long Term Support (LT
 If you are working on functionality that requires storage migration, you must test the migration logic using the chain state of your staging and/or production chain to ensure you don't have any unexpected errors due to the state being different. To perform this test you should:
 1. Compile the code using the try-runtime feature by running: \
 `cargo b -r --features try-runtime` \
-Using the new binary that was built from the script above, you can now run do a dry run of the migration
+Using the new binary that was built from the script above, you can now do a dry run of the migration
 
 2. `./<avn-binary> try-runtime --runtime <path to new wasm that was built on step 1> on-runtime-upgrade --checks live --uri <websocket url of staging/production chain with port number>`
 
 If you pass in the `--checks` options, this will execute the `pre_upgrade` and `post_upgrade` functions of your migration code.
 
  - `pre_upgrade`: Function that runs before the storage migration has executed. This function can return data.
- - `post_upgrade`: Function that runs after the storage migration has executed. This functiion will take the output of pre_upgrade and use it to validate.
+ - `post_upgrade`: Function that runs after the storage migration has executed. This functiion will take the output of pre_upgrade and can use it to validate the migration. \
+
 When possible, it is recommended to implement these functions to verify the outcome of the migration.
 
 Example implementation:
