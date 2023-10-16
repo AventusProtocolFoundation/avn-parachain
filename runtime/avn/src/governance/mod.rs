@@ -7,6 +7,7 @@ pub use origins::{
 };
 
 pub mod tracks;
+use pallet_token_manager;
 pub use tracks::TracksInfo;
 
 parameter_types! {
@@ -32,6 +33,20 @@ parameter_types! {
 
 impl pallet_custom_origins::Config for Runtime {}
 
+pub struct ToTreasury<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<NegativeImbalance<R>> for ToTreasury<R>
+where
+    R: pallet_balances::Config + pallet_token_manager::Config,
+    <R as frame_system::Config>::AccountId: From<AccountId>,
+    <R as frame_system::Config>::AccountId: Into<AccountId>,
+    <R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
+{
+    fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
+        let treasury_address = <pallet_token_manager::Pallet<R>>::compute_treasury_account_id();
+        <pallet_balances::Pallet<R>>::resolve_creating(&treasury_address, amount);
+    }
+}
+
 impl pallet_whitelist::Config for Runtime {
     type WeightInfo = pallet_whitelist::weights::SubstrateWeight<Runtime>;
     type RuntimeCall = RuntimeCall;
@@ -50,7 +65,7 @@ impl pallet_referenda::Config for Runtime {
     type SubmitOrigin = frame_system::EnsureSigned<AccountId>;
     type CancelOrigin = EitherOf<EnsureRoot<AccountId>, ReferendumCanceller>;
     type KillOrigin = EitherOf<EnsureRoot<AccountId>, ReferendumKiller>;
-    type Slash = ();
+    type Slash = ToTreasury<Runtime>;
     type Votes = pallet_conviction_voting::VotesOf<Runtime>;
     type Tally = pallet_conviction_voting::TallyOf<Runtime>;
     type SubmissionDeposit = SubmissionDeposit;
