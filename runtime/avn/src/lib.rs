@@ -180,6 +180,16 @@ impl frame_support::traits::OnRuntimeUpgrade for RemoveFinalityTracker {
 
         <Runtime as frame_system::Config>::DbWeight::get().writes(1)
     }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        Ok(vec![])
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
+        Ok(())
+    }
 }
 
 impl_opaque_keys! {
