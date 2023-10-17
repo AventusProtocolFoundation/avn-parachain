@@ -411,7 +411,7 @@ pub mod pallet {
                     call::add_confirmation::<T>(tx_id, confirmation, author);
                 }
             } else if self_is_sender && !tx_is_sent {
-                let eth_tx_hash = eth::send_transaction::<T>(tx_id, &tx, &author)?;
+                let eth_tx_hash = eth::send_transaction::<T>(&tx, &author)?;
                 call::add_eth_tx_hash::<T>(tx_id, eth_tx_hash, author);
             } else if tx_is_sent || tx_is_past_expiry {
                 if util::requires_corroboration::<T>(&active_tx, &author) {

@@ -54,11 +54,10 @@ pub fn verify_signature<T: Config>(
 }
 
 pub fn send_transaction<T: Config>(
-    tx_id: u32,
     tx_data: &TransactionData<T>,
     author: &Author<T>,
 ) -> Result<H256, DispatchError> {
-    match generate_send_calldata::<T>(tx_id, tx_data) {
+    match generate_send_calldata::<T>(tx_data) {
         Ok(calldata) => match make_send_call::<T>(calldata, author) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
             Err(_) => Err(Error::<T>::ContractCallFailed.into()),
@@ -115,8 +114,7 @@ fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
     }
 }
 
-fn generate_send_calldata<T: Config>(
-    tx_id: u32,
+pub fn generate_send_calldata<T: Config>(
     tx_data: &TransactionData<T>,
 ) -> Result<Vec<u8>, Error<T>> {
     let mut concatenated_confirmations = Vec::new();
@@ -125,14 +123,9 @@ fn generate_send_calldata<T: Config>(
     }
 
     let mut full_params = unbound_params(&tx_data.params);
-    full_params.push((UINT256.to_vec(), tx_data.expiry.to_string().into_bytes()));
-    full_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
-    let function_name =
-        core::str::from_utf8(&tx_data.function_name).map_err(|_| Error::<T>::InvalidUtf8)?;
-
-    encode_function(function_name, &full_params)
+    encode_function(&tx_data.function_name.as_slice(), &full_params)
 }
 
 fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
@@ -141,11 +134,11 @@ fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<V
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
     ];
 
-    encode_function(&"corroborate".to_string(), &params)
+    encode_function(b"corroborate", &params)
 }
 
 fn encode_function<T: pallet::Config>(
-    function_name: &str,
+    function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<Vec<u8>, Error<T>> {
     let inputs = params
@@ -165,7 +158,7 @@ fn encode_function<T: pallet::Config>(
         .collect();
 
     let function = Function {
-        name: function_name.to_string(),
+        name: core::str::from_utf8(function_name).unwrap().to_string(),
         inputs,
         outputs: Vec::<Param>::new(),
         constant: false,
