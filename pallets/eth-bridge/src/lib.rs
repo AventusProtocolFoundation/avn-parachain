@@ -216,6 +216,7 @@ pub mod pallet {
         ContractCallFailed,
         CorroborateCallFailed,
         DuplicateConfirmation,
+        EmptyFunctionName,
         ErrorAssigningSender,
         EthTxHashAlreadySet,
         EthTxHashMustBeSetBySender,
@@ -270,6 +271,7 @@ pub mod pallet {
             if tx::is_active::<T>(&tx_id) {
                 let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
 
+                // The sender's confirmation is implicit so we only collect them from other authors:
                 if author.account_id == active_tx.data.sender ||
                     util::has_enough_confirmations(&active_tx)
                 {
@@ -345,13 +347,13 @@ pub mod pallet {
                     return Ok(().into())
                 }
 
-                let corroborations_that_agree = if tx_succeeded {
+                let matching_corroborations = if tx_succeeded {
                     &mut active_tx.success_corroborations
                 } else {
                     &mut active_tx.failure_corroborations
                 };
 
-                corroborations_that_agree
+                matching_corroborations
                     .try_push(author.account_id.clone())
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
@@ -362,7 +364,7 @@ pub mod pallet {
                     author: author.account_id,
                 });
 
-                if util::quorum_reached::<T>(corroborations_that_agree.len() as u32) {
+                if util::quorum_reached::<T>(matching_corroborations.len() as u32) {
                     tx::finalize_state::<T>(active_tx, tx_succeeded)?;
                 } else {
                     ActiveTransaction::<T>::put(active_tx);

@@ -7,7 +7,11 @@ pub fn add_new_request<T: Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<u32, Error<T>> {
-    _ = String::from_utf8(function_name.to_vec()).map_err(|_| Error::<T>::FunctionNameError)?;
+    let function_name_string =
+        String::from_utf8(function_name.to_vec()).map_err(|_| Error::<T>::FunctionNameError)?;
+    if function_name_string.is_empty() {
+        return Err(Error::<T>::EmptyFunctionName)
+    }
 
     let tx_id = use_next_tx_id::<T>();
 
