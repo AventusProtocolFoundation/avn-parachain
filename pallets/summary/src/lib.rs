@@ -1427,7 +1427,7 @@ impl<AccountId> Default for RootData<AccountId> {
 
 impl<T: Config> OnPublishingResultHandler for Pallet<T> {
     fn process_result(_tx_id: u32, _succeeded: bool) -> DispatchResult {
-       Ok(()) 
+        Ok(())
     }
 }
 
