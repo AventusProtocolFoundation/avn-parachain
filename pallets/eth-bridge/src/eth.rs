@@ -141,11 +141,11 @@ fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<V
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
     ];
 
-    encode_function(&"corroborate".to_string(), &params)
+    encode_function(b"corroborate", &params)
 }
 
 fn encode_function<T: pallet::Config>(
-    function_name: &str,
+    function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<Vec<u8>, Error<T>> {
     let inputs = params
@@ -165,7 +165,7 @@ fn encode_function<T: pallet::Config>(
         .collect();
 
     let function = Function {
-        name: function_name.to_string(),
+        name: core::str::from_utf8(function_name).unwrap().to_string(),
         inputs,
         outputs: Vec::<Param>::new(),
         constant: false,

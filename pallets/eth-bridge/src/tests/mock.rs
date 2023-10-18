@@ -1,13 +1,16 @@
 use super::*;
 use crate::{self as eth_bridge};
-use frame_support::{parameter_types, traits::GenesisBuild};
+use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
 use pallet_avn::testing::U64To32BytesConverter;
+use pallet_session as session;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, IdentityLookup},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    Perbill,
 };
+use std::cell::RefCell;
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -23,6 +26,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         AVN: pallet_avn::{Pallet, Storage, Event},
         EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>},
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
     }
 );
 
@@ -93,6 +97,40 @@ impl avn::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
 }
 
+parameter_types! {
+    pub const Period: u64 = 1;
+    pub const Offset: u64 = 0;
+    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+}
+
+thread_local! {
+    // validator accounts (aka public addresses, public keys-ish)
+    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3]));
+}
+
+pub type SessionIndex = u32;
+
+pub struct TestSessionManager;
+impl session::SessionManager<u64> for TestSessionManager {
+    fn new_session(_new_index: SessionIndex) -> Option<Vec<u64>> {
+        VALIDATORS.with(|l| l.borrow_mut().take())
+    }
+    fn end_session(_: SessionIndex) {}
+    fn start_session(_: SessionIndex) {}
+}
+
+impl session::Config for TestRuntime {
+    type SessionManager = TestSessionManager;
+    type Keys = UintAuthorityId;
+    type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+    type SessionHandler = (AVN,);
+    type RuntimeEvent = RuntimeEvent;
+    type ValidatorId = u64;
+    type ValidatorIdOf = ConvertInto;
+    type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
+    type WeightInfo = ();
+}
+
 pub struct ExtBuilder {
     storage: sp_runtime::Storage,
 }
@@ -116,6 +154,22 @@ impl ExtBuilder {
             _phantom: Default::default(),
             eth_tx_lifetime_secs: 60 * 30,
             next_tx_id: 1,
+        }
+        .assimilate_storage(&mut self.storage);
+        self
+    }
+
+    pub fn with_validators(mut self) -> Self {
+        let validators: Vec<u64> = VALIDATORS.with(|l| l.borrow_mut().take().unwrap());
+
+        BasicExternalities::execute_with_storage(&mut self.storage, || {
+            for ref k in &validators {
+                frame_system::Pallet::<TestRuntime>::inc_providers(k);
+            }
+        });
+
+        let _ = pallet_session::GenesisConfig::<TestRuntime> {
+            keys: validators.into_iter().map(|v| (v, v, UintAuthorityId(v))).collect(),
         }
         .assimilate_storage(&mut self.storage);
         self
