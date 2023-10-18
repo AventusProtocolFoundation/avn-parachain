@@ -153,29 +153,30 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (pallet_parachain_staking::migration::EnableAutomaticGrwoth<Runtime>, RemoveMigrationStatus),
+    (pallet_parachain_staking::migration::EnableAutomaticGrwoth<Runtime>, SeedAvnBridgeTransactionMigration),
 >;
 
-pub struct RemoveMigrationStatus;
-impl frame_support::traits::OnRuntimeUpgrade for RemoveMigrationStatus {
+pub struct SeedAvnBridgeTransactionMigration;
+impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigration {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        use frame_support::storage::unhashed;
+        let pre_upgrade_transaction_id: u32 = pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce().try_into().unwrap();
+        log::info!("✅ Seeding transaction Id to");
 
-        use frame_support::storage;
-        let storage_prefix = storage::storage_prefix(b"Migration", b"");
-        let mut key = vec![0u8; 32];
-        key[0..32].copy_from_slice(&storage_prefix);
-        let res = unhashed::clear_prefix(&key[0..16], None, None);
-
-        log::info!("✅ Cleared '{}' backend values from 'Migration' storage prefix", res.backend);
-
-        log::info!("✅ Cleared '{}' entries from 'Migration' storage prefix", res.unique);
-
-        if res.maybe_cursor.is_some() {
-            log::error!("Storage prefix 'Migration' is not completely cleared.");
-        }
-
+        <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(pre_upgrade_transaction_id + 1u32);
         <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        let pre_upgrade_transaction_id: u32 = pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+        Ok((current_transaction_id + 1u32).encode())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
+        let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
+        assert_eq!(next_tx_id.encode(), new_transaction_id_bytes);
+        Ok(())
     }
 }
 
