@@ -36,7 +36,7 @@ use frame_support::{
     parameter_types,
     traits::{
         AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Imbalance, OnUnbalanced,
-        PrivilegeCmp,
+        PrivilegeCmp, Defensive
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
@@ -159,23 +159,27 @@ pub type Executive = frame_executive::Executive<
 pub struct SeedAvnBridgeTransactionMigration;
 impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigration {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        let pre_upgrade_transaction_id: u32 = pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce().try_into().unwrap();
-        log::info!("✅ Seeding transaction Id to");
+        let pre_upgrade_transaction_id: u64 = pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+        log::info!("✅ Running migration to seed transaction Id");
 
-        <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(pre_upgrade_transaction_id + 1u32);
-        <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+        if let Ok(tx_id) = <u64 as TryInto<u32>>::try_into(pre_upgrade_transaction_id).defensive() {
+            <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(tx_id + 1u32);
+            return <Runtime as frame_system::Config>::DbWeight::get().writes(1);
+        }
+
+        Weight::zero()
     }
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        let pre_upgrade_transaction_id: u32 = pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
-        Ok((current_transaction_id + 1u32).encode())
+        let pre_upgrade_transaction_id: u64 = pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+        Ok((pre_upgrade_transaction_id + 1u64).encode())
     }
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
         let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
-        assert_eq!(next_tx_id.encode(), new_transaction_id_bytes);
+        assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
         Ok(())
     }
 }
@@ -194,7 +198,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 51,
+    spec_version: 52,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -548,7 +552,6 @@ impl pallet_avn::Config for Runtime {
     type EthereumPublicKeyChecker = ValidatorsManager;
     type NewSessionHandler = ValidatorsManager;
     type DisabledValidatorChecker = ValidatorsManager;
-    type FinalisedBlockChecker = AvnFinalityTracker;
     type WeightInfo = pallet_avn::default_weights::SubstrateWeight<Runtime>;
 }
 
@@ -591,21 +594,6 @@ impl pallet_validators_manager::Config for Runtime {
 }
 
 parameter_types! {
-    // TODO [TYPE: review][PRI: high]: review this value.
-    pub const CacheAge: BlockNumber = 10;
-    pub const SubmissionInterval: BlockNumber = 5;
-    pub const MaxAllowedReportLatency: BlockNumber = 5 * MINUTES;
-}
-
-impl pallet_avn_finality_tracker::pallet::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type CacheAge = CacheAge;
-    type SubmissionInterval = SubmissionInterval;
-    type ReportLatency = MaxAllowedReportLatency;
-    type WeightInfo = pallet_avn_finality_tracker::default_weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
     pub const AdvanceSlotGracePeriod: BlockNumber = 5;
     pub const MinBlockAge: BlockNumber = 5;
     pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
@@ -619,7 +607,6 @@ impl pallet_summary::Config for Runtime {
     type CandidateTransactionSubmitter = EthereumTransactions;
     type AccountToBytesConvert = Avn;
     type ReportSummaryOffence = Offences;
-    type FinalityReportLatency = MaxAllowedReportLatency;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
     type BridgePublisher = EthBridge;
 }
@@ -802,7 +789,6 @@ construct_runtime!(
 
         // Rest of AvN pallets
         Avn: pallet_avn = 81,
-        AvnFinalityTracker: pallet_avn_finality_tracker = 82,
         AvnOffenceHandler: pallet_avn_offence_handler = 83,
         EthereumEvents: pallet_ethereum_events = 84,
         EthereumTransactions: pallet_ethereum_transactions = 85,
@@ -833,7 +819,6 @@ mod benches {
         [frame_system, SystemBench::<Runtime>]
         [pallet_assets, Assets]
         [pallet_balances, Balances]
-        [pallet_avn_finality_tracker, AvnFinalityTracker]
         [pallet_avn_offence_handler, AvnOffenceHandler]
         [pallet_avn_proxy, AvnProxy]
         [pallet_eth_bridge, EthBridge]
