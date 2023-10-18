@@ -364,11 +364,7 @@ impl<T: Config> Pallet<T> {
             }
         });
     }
-
-    pub fn is_block_finalised(block_number: T::BlockNumber) -> bool {
-        return T::FinalisedBlockChecker::is_finalised(block_number)
-    }
-
+    
     pub fn get_external_service_port_number() -> String {
         let stored_value =
             StorageValueRef::persistent(EXTERNAL_SERVICE_PORT_NUMBER_KEY).get::<Vec<u8>>();
