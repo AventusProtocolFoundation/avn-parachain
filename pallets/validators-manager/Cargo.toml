@@ -77,3 +77,4 @@ runtime-benchmarks = [
     "libsecp256k1",
     "sha3",
 ]
+try-runtime = [ "frame-support/try-runtime" ]
