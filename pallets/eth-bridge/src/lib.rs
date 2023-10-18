@@ -198,7 +198,7 @@ pub mod pallet {
     #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), eth_tx_lifetime_secs: 0, next_tx_id: 0 }
+            Self { _phantom: Default::default(), eth_tx_lifetime_secs: 60 * 30, next_tx_id: 0 }
         }
     }
 
