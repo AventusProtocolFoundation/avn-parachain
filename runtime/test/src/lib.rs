@@ -666,7 +666,7 @@ impl pallet_avn_proxy::Config for Runtime {
 }
 
 impl pallet_eth_bridge::Config for Runtime {
-    type MaxUnresolvedTx = ConstU32<1000>;
+    type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type AccountToBytesConvert = Avn;

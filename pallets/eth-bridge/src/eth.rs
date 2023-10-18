@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    util::{assign_sender, bound_params, unbound_params},
+    util::{bound_params, unbound_params},
     Author, Config, AVN,
 };
 use ethabi::{Function, Int, Param, ParamType, Token};
@@ -15,34 +15,27 @@ const UINT32: &[u8] = b"uint32";
 const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
 
-pub fn create_tx_data<T: Config>(
-    function_name: &[u8],
-    params: &[(Vec<u8>, Vec<u8>)],
-    expiry: u64,
-    tx_id: u32,
-) -> Result<TransactionData<T>, Error<T>> {
-    _ = String::from_utf8(function_name.to_vec()).map_err(|_| Error::<T>::FunctionNameError)?;
-
-    let mut extended_params = params.to_vec();
+pub fn create_tx_data<T: Config>(tx_request: &RequestData) -> Result<TransactionData<T>, Error<T>> {
+    let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
+    let mut extended_params = unbound_params(&tx_request.params);
     extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
-    extended_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
+    extended_params.push((UINT32.to_vec(), tx_request.tx_id.to_string().into_bytes()));
 
     let tx_data = TransactionData {
-        function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
-            .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
-        params: bound_params(params.to_vec())?,
+        function_name: tx_request.function_name.clone(),
+        params: bound_params(&extended_params)?,
         expiry,
         msg_hash: generate_msg_hash(&extended_params)?,
         confirmations: BoundedVec::<ecdsa::Signature, ConfirmationsLimit>::default(),
         sender: assign_sender()?,
         eth_tx_hash: H256::zero(),
-        status: EthStatus::Unresolved,
+        tx_succeeded: false,
     };
 
     Ok(tx_data)
 }
 
-pub fn sign_msg_hash<T: Config>(msg_hash: H256) -> Result<ecdsa::Signature, DispatchError> {
+pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = msg_hash.to_string();
     let confirmation = AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
     Ok(confirmation)
@@ -60,9 +53,12 @@ pub fn verify_signature<T: Config>(
     }
 }
 
-pub fn send_transaction<T: Config>(tx_id: u32, author: Author<T>) -> Result<H256, DispatchError> {
-    match generate_send_calldata::<T>(tx_id) {
-        Ok(calldata) => match make_send_call::<T>(calldata, &author) {
+pub fn send_transaction<T: Config>(
+    tx_data: &TransactionData<T>,
+    author: &Author<T>,
+) -> Result<H256, DispatchError> {
+    match generate_send_calldata::<T>(tx_data) {
+        Ok(calldata) => match make_send_call::<T>(calldata, author) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
             Err(_) => Err(Error::<T>::ContractCallFailed.into()),
         },
@@ -74,13 +70,13 @@ pub fn check_tx_status<T: Config>(
     tx_id: u32,
     expiry: u64,
     author: &Author<T>,
-) -> Result<EthStatus, DispatchError> {
+) -> Result<Option<bool>, DispatchError> {
     if let Ok(calldata) = generate_corroborate_calldata::<T>(tx_id, expiry) {
         if let Ok(result) = make_view_call::<T>(calldata, &author) {
             match result {
-                0 => return Ok(EthStatus::Unresolved),
-                1 => return Ok(EthStatus::Succeeded),
-                -1 => return Ok(EthStatus::Failed),
+                0 => return Ok(None),
+                1 => return Ok(Some(true)),
+                -1 => return Ok(Some(false)),
                 _ => return Err(Error::<T>::InvalidEthereumCheckResponse.into()),
             }
         } else {
@@ -106,24 +102,30 @@ fn generate_msg_hash<T: pallet::Config>(params: &[(Vec<u8>, Vec<u8>)]) -> Result
     Ok(H256::from(msg_hash))
 }
 
-fn generate_send_calldata<T: Config>(tx_id: u32) -> Result<Vec<u8>, Error<T>> {
-    let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
+fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
+    let current_block_number = <frame_system::Pallet<T>>::block_number();
 
-    let concatenated_confirmations =
-        tx_data.confirmations.iter().fold(Vec::new(), |mut acc, conf| {
-            acc.extend_from_slice(conf.as_ref());
-            acc
-        });
+    match AVN::<T>::calculate_primary_validator(current_block_number) {
+        Ok(primary_validator) => {
+            let sender = primary_validator;
+            Ok(sender)
+        },
+        Err(_) => Err(Error::<T>::ErrorAssigningSender),
+    }
+}
 
-    let mut full_params = unbound_params(tx_data.params);
-    full_params.push((UINT256.to_vec(), tx_data.expiry.to_string().into_bytes()));
-    full_params.push((UINT32.to_vec(), tx_id.to_string().into_bytes()));
+pub fn generate_send_calldata<T: Config>(
+    tx_data: &TransactionData<T>,
+) -> Result<Vec<u8>, Error<T>> {
+    let mut concatenated_confirmations = Vec::new();
+    for conf in &tx_data.confirmations {
+        concatenated_confirmations.extend_from_slice(conf.as_ref());
+    }
+
+    let mut full_params = unbound_params(&tx_data.params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
-    // the function_name was checked on entry so we can just unwrap here
-    let function_name = String::from_utf8(tx_data.function_name.into()).unwrap();
-
-    encode_function(&function_name, &full_params)
+    encode_function(&tx_data.function_name.as_slice(), &full_params)
 }
 
 fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
@@ -132,11 +134,11 @@ fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<V
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
     ];
 
-    encode_function(&"corroborate".to_string(), &params)
+    encode_function(b"corroborate", &params)
 }
 
 fn encode_function<T: pallet::Config>(
-    function_name: &str,
+    function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<Vec<u8>, Error<T>> {
     let inputs = params
@@ -156,7 +158,7 @@ fn encode_function<T: pallet::Config>(
         .collect();
 
     let function = Function {
-        name: function_name.to_string(),
+        name: core::str::from_utf8(function_name).unwrap().to_string(),
         inputs,
         outputs: Vec::<Param>::new(),
         constant: false,
@@ -176,33 +178,33 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     }
 }
 
-fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &Vec<u8>) -> Result<Token, Error<T>> {
+fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
     match kind {
         ParamType::Uint(_) => {
-            let dec_value = Int::from_dec_str(&String::from_utf8(value.clone()).unwrap())
-                .map_err(|_| Error::<T>::InvalidUint)?;
+            let dec_str = core::str::from_utf8(value).map_err(|_| Error::<T>::InvalidUtf8)?;
+            let dec_value = Int::from_dec_str(dec_str).map_err(|_| Error::<T>::InvalidUint)?;
             Ok(Token::Uint(dec_value))
         },
-        ParamType::Bytes => Ok(Token::Bytes(value.clone())),
+        ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
         ParamType::FixedBytes(size) => {
             if value.len() != *size {
                 return Err(Error::<T>::InvalidBytes)
             }
-            Ok(Token::FixedBytes(value.clone()))
+            Ok(Token::FixedBytes(value.to_vec()))
         },
         _ => Err(Error::<T>::InvalidData),
     }
 }
 
 fn make_send_call<T: Config>(calldata: Vec<u8>, author: &Author<T>) -> Result<H256, DispatchError> {
-    execute_call::<H256, T>(calldata, author, "send", process_send_response::<T>)
+    make_call::<H256, T>(calldata, author, "send", process_send_response::<T>)
 }
 
 fn make_view_call<T: Config>(calldata: Vec<u8>, author: &Author<T>) -> Result<i8, DispatchError> {
-    execute_call::<i8, T>(calldata, author, "view", process_view_response::<T>)
+    make_call::<i8, T>(calldata, author, "view", process_view_response::<T>)
 }
 
-fn execute_call<R, T: Config>(
+fn make_call<R, T: Config>(
     calldata: Vec<u8>,
     author: &Author<T>,
     endpoint: &str,
@@ -222,7 +224,7 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
         return Err(Error::<T>::InvalidHashLength.into())
     }
 
-    let tx_hash_string = core::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidUTF8Bytes)?;
+    let tx_hash_string = core::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidUtf8)?;
 
     let mut data: [u8; 32] = [0; 32];
     hex::decode_to_slice(tx_hash_string, &mut data[..])
