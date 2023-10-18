@@ -2,24 +2,27 @@
 
 //! This pallet implements the AvN pallet's **BridgePublisher** interface, providing a **publish**
 //! method which other pallets, implementing the **OnPublishingResultHandler**, can use to execute
-//! any author functions on the Ethereum-based **avn-bridge** contract. They do so
+//! any author function on the Ethereum-based **avn-bridge** contract. They do so
 //! by passing the name of the desired avn-bridge function, along with an array of data type and
-//! value parameter tuples. Upon receipt of a **publish** request, this pallet takes charge of the
-//! entire transaction process. The process culminates in a callback to the originating pallet
-//! detailing the final outcome, which may be used to commit or rollback state.
+//! value parameter tuples. Upon receipt of a **publish** request, this pallet takes charge of
+//! the entire transaction process. The process culminates in a callback to the originating pallet
+//! detailing the final outcome, which can be used to commit or rollback state. Transaction requests
+//! are handled sequentially and requests are queued if required.
 //!
 //! Specifically, the pallet manages:
+//! - Accepting and managing external pallet requests to be processed to completion in the order
+//!   they arrive.
 //!
-//! - The packaging and encoding of the transaction to ensure Ethereum compatibility.
+//! - The packaging and encoding of each transaction to ensure Ethereum compatibility.
 //!
-//! - The addition of a timestamp, delineating the deadline by which the transaction must reach the
+//! - The addition of a timestamp, delineating the deadline by which a transaction must reach the
 //!   contract.
 //!
 //! - The addition of a unique transaction ID, against which request data can be stored on the AvN
 //!   and the transaction's status in the avn-bridge be later checked.
 //!
 //! - Collection of the necessary ECDSA signatures from authors, labelled **confirmations**, which
-//!   serve to prove AvN consensus for the transaction to the avn-bridge.
+//!   serve to prove AvN consensus for a transaction to the avn-bridge.
 //!
 //! - Appointing an author responsible for sending the transaction to Ethereum.
 //!
@@ -33,14 +36,15 @@
 //!
 //! 1. Before a transaction can be dispatched, confirmations are accumulated from non-sending
 //!    authors via the **add_confirmation** extrinsic until a consensus is reached. Note: the
-//!    sender's confirmation is taken as implicit by the avn-bridge and is therefore not requested.
+//!    sender's confirmation is taken as implicit by the avn-bridge and therefore not requested.
 //!
 //! 2. Once a transaction has received sufficient confirmations, the chosen sender is prompted to
-//!    dispatch it to Ethereum and tag it as sent using the **add_receipt** extrinsic.
+//!    dispatch it to Ethereum and tag it as sent using the **add_eth_tx_hash** extrinsic.
 //!
-//! 3. Finally, when a transaction possesses a receipt, or if its expiration time has elapsed
-//!    without a definitive outcome, all authors are requested to **add_corroboration**s which, upon
-//!    reaching consensus, conclusively determine the final state to report.
+//! 3. When a transaction possesses an Ethereum tx hash, or if its expiration time has elapsed
+//!    without a definitive outcome, all authors are requested to **add_corroboration**s. Achieiving
+//!    consensus of corroborations determines the final state which is reported back to the
+//!    originating pallet.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
@@ -69,6 +73,7 @@ use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
 
 mod call;
 mod eth;
+mod tx;
 mod util;
 
 mod benchmarking;
@@ -96,7 +101,7 @@ pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
-const ADD_RECEIPT_CONTEXT: &'static [u8] = b"EthBridgeReceipt";
+const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -117,7 +122,7 @@ pub mod pallet {
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
-        type MaxUnresolvedTx: Get<u32>;
+        type MaxQueuedTxRequests: Get<u32>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
         type OnPublishingResultHandler: avn::OnPublishingResultHandler;
     }
@@ -127,6 +132,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         PublishToEthereum { tx_id: u32, function_name: Vec<u8>, params: Vec<(Vec<u8>, Vec<u8>)> },
         EthTxLifetimeUpdated { eth_tx_lifetime_secs: u64 },
+        CorroborationAdded { tx_id: u32, tx_succeeded: bool, author: T::AccountId },
     }
 
     #[pallet::pallet]
@@ -142,8 +148,45 @@ pub mod pallet {
     pub type EthTxLifetimeSecs<T: Config> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::storage]
-    pub type UnresolvedTxs<T: Config> =
-        StorageValue<_, BoundedVec<u32, T::MaxUnresolvedTx>, ValueQuery>;
+    pub type RequestQueue<T: Config> =
+        StorageValue<_, BoundedVec<RequestData, T::MaxQueuedTxRequests>, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_transaction_data)]
+    pub type SettledTransactions<T: Config> =
+        StorageMap<_, Blake2_128Concat, u32, TransactionData<T>, OptionQuery>;
+
+    #[pallet::storage]
+    pub type ActiveTransaction<T: Config> = StorageValue<_, ActiveTransactionData<T>, OptionQuery>;
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+    pub struct RequestData {
+        pub tx_id: u32,
+        pub function_name: BoundedVec<u8, FunctionLimit>,
+        pub params:
+            BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    }
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+    pub struct TransactionData<T: Config> {
+        pub function_name: BoundedVec<u8, FunctionLimit>,
+        pub params:
+            BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+        pub expiry: u64,
+        pub msg_hash: H256,
+        pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
+        pub sender: T::AccountId,
+        pub eth_tx_hash: H256,
+        pub tx_succeeded: bool,
+    }
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+    pub struct ActiveTransactionData<T: Config> {
+        pub id: u32,
+        pub data: TransactionData<T>,
+        pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+        pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    }
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -172,9 +215,8 @@ pub mod pallet {
         CalldataGenerationFailed,
         ContractCallFailed,
         CorroborateCallFailed,
-        CorroborationNotFound,
-        DeadlineReached,
         DuplicateConfirmation,
+        EmptyFunctionName,
         ErrorAssigningSender,
         EthTxHashAlreadySet,
         EthTxHashMustBeSetBySender,
@@ -192,16 +234,12 @@ pub mod pallet {
         InvalidHashLength,
         InvalidHexString,
         InvalidUint,
-        InvalidUTF8Bytes,
+        InvalidUtf8,
         MsgHashError,
         ParamsLimitExceeded,
         ParamTypeEncodingError,
-        ParamValueEncodingError,
-        RequestTimedOut,
-        TxIdNotFound,
+        TxRequestQueueFull,
         TypeNameLengthExceeded,
-        UnexpectedStatusCode,
-        UnresolvedTxLimitReached,
         ValueLengthExceeded,
     }
 
@@ -229,13 +267,39 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            util::update_confirmations::<T>(tx_id, &confirmation, &author)?;
+
+            if tx::is_active::<T>(&tx_id) {
+                let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
+
+                // The sender's confirmation is implicit so we only collect them from other authors:
+                if author.account_id == active_tx.data.sender ||
+                    util::has_enough_confirmations(&active_tx)
+                {
+                    return Ok(().into())
+                }
+
+                eth::verify_signature::<T>(active_tx.data.msg_hash, &author, &confirmation)?;
+
+                ensure!(
+                    !active_tx.data.confirmations.contains(&confirmation),
+                    Error::<T>::DuplicateConfirmation
+                );
+
+                active_tx
+                    .data
+                    .confirmations
+                    .try_push(confirmation)
+                    .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+
+                ActiveTransaction::<T>::put(active_tx);
+            }
+
             Ok(().into())
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_receipt())]
-        pub fn add_receipt(
+        #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
+        pub fn add_eth_tx_hash(
             origin: OriginFor<T>,
             tx_id: u32,
             eth_tx_hash: H256,
@@ -243,7 +307,25 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            util::set_eth_tx_hash::<T>(tx_id, eth_tx_hash, &author)?;
+
+            if tx::is_active::<T>(&tx_id) {
+                let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
+
+                ensure!(
+                    active_tx.data.eth_tx_hash == H256::zero(),
+                    Error::<T>::EthTxHashAlreadySet
+                );
+
+                ensure!(
+                    active_tx.data.sender == author.account_id,
+                    Error::<T>::EthTxHashMustBeSetBySender
+                );
+
+                active_tx.data.eth_tx_hash = eth_tx_hash;
+
+                ActiveTransaction::<T>::put(active_tx);
+            }
+
             Ok(().into())
         }
 
@@ -257,7 +339,38 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            util::update_corroborations::<T>(tx_id, tx_succeeded, &author)?;
+
+            if tx::is_active::<T>(&tx_id) {
+                let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
+
+                if !util::requires_corroboration(&active_tx, &author) {
+                    return Ok(().into())
+                }
+
+                let matching_corroborations = if tx_succeeded {
+                    &mut active_tx.success_corroborations
+                } else {
+                    &mut active_tx.failure_corroborations
+                };
+
+                matching_corroborations
+                    .try_push(author.account_id.clone())
+                    .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+
+                // Emit an event since corroborations aren't stored:
+                Self::deposit_event(Event::<T>::CorroborationAdded {
+                    tx_id,
+                    tx_succeeded,
+                    author: author.account_id,
+                });
+
+                if util::quorum_reached::<T>(matching_corroborations.len() as u32) {
+                    tx::finalize_state::<T>(active_tx, tx_succeeded)?;
+                } else {
+                    ActiveTransaction::<T>::put(active_tx);
+                }
+            }
+
             Ok(().into())
         }
     }
@@ -266,10 +379,8 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok(author) = setup_ocw::<T>(block_number) {
-                for tx_id in UnresolvedTxs::<T>::get() {
-                    if let Err(e) = process_unresolved_tx::<T>(tx_id, author.clone()) {
-                        log::error!("Error processing tx_id {}: {:?}", tx_id, e);
-                    }
+                if let Err(e) = process_active_transaction::<T>(author) {
+                    log::error!("Error processing currently active transaction: {:?}", e);
                 }
             }
         }
@@ -284,37 +395,31 @@ pub mod pallet {
         })
     }
 
-    // The core logic being triggered by the OCW until a tx gets resolved:
-    fn process_unresolved_tx<T: Config>(
-        tx_id: u32,
-        author: Author<T>,
-    ) -> Result<(), DispatchError> {
-        let tx_data = Transactions::<T>::get(tx_id).ok_or(Error::<T>::TxIdNotFound)?;
-        let self_is_sender = author.account_id == tx_data.sender;
-        let tx_is_sent = tx_data.eth_tx_hash != H256::zero();
-        let tx_is_past_expiry = tx_data.expiry > util::time_now::<T>();
-        let num_confirmations = tx_data.confirmations.len() as u32 + 1; // includes the sender
-        let tx_requires_confirmations = util::quorum_reached::<T>(num_confirmations) == false;
+    // The core logic the OCW employs to fully resolve any currently active transaction:
+    fn process_active_transaction<T: Config>(author: Author<T>) -> Result<(), DispatchError> {
+        if let Some(active_tx) = ActiveTransaction::<T>::get() {
+            let tx_id = active_tx.id;
+            let tx = &active_tx.data;
+            let self_is_sender = author.account_id == tx.sender;
+            let tx_requires_confirmations = !util::has_enough_confirmations(&active_tx);
+            let tx_is_sent = tx.eth_tx_hash != H256::zero();
+            let tx_is_past_expiry = tx.expiry > util::time_now::<T>();
 
-        if !self_is_sender && tx_requires_confirmations {
-            let confirmation = eth::sign_msg_hash::<T>(tx_data.msg_hash)?;
-            if !tx_data.confirmations.contains(&confirmation) {
-                call::add_confirmation::<T>(tx_id, confirmation, author);
-            }
-        } else if self_is_sender && !tx_is_sent {
-            let eth_tx_hash = eth::send_transaction::<T>(tx_id, author.clone())?;
-            call::add_receipt::<T>(tx_id, eth_tx_hash, author);
-        } else if tx_is_sent || tx_is_past_expiry {
-            if util::requires_corroboration::<T>(tx_id, &author)? {
-                match eth::check_tx_status::<T>(tx_id, tx_data.expiry, &author) {
-                    Ok(EthStatus::Unresolved) => {},
-                    Ok(EthStatus::Succeeded) => {
-                        call::add_corroboration::<T>(tx_id, true, author);
-                    },
-                    Ok(EthStatus::Failed) => {
-                        call::add_corroboration::<T>(tx_id, false, author);
-                    },
-                    Err(e) => return Err(e),
+            if !self_is_sender && tx_requires_confirmations {
+                let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
+                if !tx.confirmations.contains(&confirmation) {
+                    call::add_confirmation::<T>(tx_id, confirmation, author);
+                }
+            } else if self_is_sender && !tx_is_sent {
+                let eth_tx_hash = eth::send_transaction::<T>(&tx, &author)?;
+                call::add_eth_tx_hash::<T>(tx_id, eth_tx_hash, author);
+            } else if tx_is_sent || tx_is_past_expiry {
+                if util::requires_corroboration::<T>(&active_tx, &author) {
+                    match eth::check_tx_status::<T>(tx_id, tx.expiry, &author)? {
+                        Some(true) => call::add_corroboration::<T>(tx_id, true, author),
+                        Some(false) => call::add_corroboration::<T>(tx_id, false, author),
+                        None => {},
+                    }
                 }
             }
         }
@@ -325,7 +430,7 @@ pub mod pallet {
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
-        // Runs identity checks before the extrinsics enter the pool:
+        // Confirm that the call comes from an author before it can enter the pool:
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
                 Call::add_confirmation { tx_id, confirmation, author, signature } =>
@@ -341,9 +446,9 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(1u8).into()
                     },
-                Call::add_receipt { tx_id, eth_tx_hash, author, signature } =>
+                Call::add_eth_tx_hash { tx_id, eth_tx_hash, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_RECEIPT_CONTEXT, tx_id, eth_tx_hash, author),
+                        &(ADD_ETH_TX_HASH_CONTEXT, tx_id, eth_tx_hash, author),
                         &author,
                         signature,
                     ) {
@@ -373,55 +478,12 @@ pub mod pallet {
         }
     }
 
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub enum EthStatus {
-        #[default]
-        Unresolved,
-        Succeeded,
-        Failed,
-    }
-
-    #[pallet::storage]
-    #[pallet::getter(fn get_transaction_data)]
-    pub type Transactions<T: Config> =
-        StorageMap<_, Blake2_128Concat, u32, TransactionData<T>, OptionQuery>;
-
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub struct TransactionData<T: Config> {
-        pub function_name: BoundedVec<u8, FunctionLimit>,
-        pub params:
-            BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-        pub expiry: u64,
-        pub msg_hash: H256,
-        pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-        pub sender: T::AccountId,
-        pub eth_tx_hash: H256,
-        pub status: EthStatus,
-    }
-
-    #[pallet::storage]
-    #[pallet::getter(fn get_corroboration_data)]
-    pub type Corroborations<T: Config> =
-        StorageMap<_, Blake2_128Concat, u32, CorroborationData<T>, OptionQuery>;
-
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub struct CorroborationData<T: Config> {
-        pub tx_succeeded: BoundedVec<T::AccountId, ConfirmationsLimit>,
-        pub tx_failed: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    }
-
     impl<T: Config> BridgePublisher for Pallet<T> {
         fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<u32, DispatchError> {
-            let tx_id = util::use_next_tx_id::<T>();
-            let expiry = util::time_now::<T>() + Self::get_eth_tx_lifetime_secs();
-
-            let tx_data = eth::create_tx_data(function_name, params, expiry, tx_id)
-                .map_err(|e| DispatchError::Other(e.into()))?;
-
-            util::add_new_tx_request::<T>(tx_id, tx_data)
+            let tx_id = tx::add_new_request::<T>(function_name, params)
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {

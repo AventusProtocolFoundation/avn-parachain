@@ -1,7 +1,7 @@
 // Copyright 2023 Aventus Network Systems (UK) Ltd.
 
 #![cfg(test)]
-use crate::mock::*;
+use crate::{eth::generate_send_calldata, mock::*, tx::add_new_request, ActiveTransaction};
 
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 const REWARDS: &[u8] = b"15043665996000000000";
@@ -66,26 +66,27 @@ fn run_checks(
     expected_msg_hash: &str,
     expected_calldata: &str,
 ) {
-    let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+    let mut ext = ExtBuilder::build_default()
+        .with_validators()
+        .with_genesis_config()
+        .as_externality();
     ext.execute_with(|| {
         let current_time = 1_695_809_729_000;
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
 
-        // let expected_tx_id = 1;
-        // let tx_id = EthBridge::publish(&function_name, &params).unwrap();
-        // assert_eq!(tx_id, expected_tx_id);
+        let tx_id = add_new_request::<TestRuntime>(&function_name, &params).unwrap();
+        let active_tx = ActiveTransaction::<TestRuntime>::get().expect("is active");
+        assert_eq!(tx_id, active_tx.id);
 
-        // let transaction_data = EthBridge::get_transaction_data(tx_id).unwrap();
-        // let expiry = transaction_data.expiry;
-        // let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
-        // let expected_expiry = current_time / 1000 + eth_tx_lifetime_secs;
-        // assert_eq!(expiry, expected_expiry);
+        let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
+        let expected_expiry = current_time / 1000 + eth_tx_lifetime_secs;
+        assert_eq!(active_tx.data.expiry, expected_expiry);
 
-        // let msg_hash = hex::encode(transaction_data.msg_hash);
-        // assert_eq!(msg_hash, expected_msg_hash);
+        let msg_hash = hex::encode(active_tx.data.msg_hash);
+        assert_eq!(msg_hash, expected_msg_hash);
 
-        // let calldata = EthBridge::generate_send_calldata(tx_id).unwrap();
-        // let calldata = hex::encode(calldata);
-        // assert_eq!(calldata, expected_calldata);
+        let calldata = generate_send_calldata::<TestRuntime>(tx_id, &active_tx.data).unwrap();
+        let calldata = hex::encode(calldata);
+        assert_eq!(calldata, expected_calldata);
     })
 }
