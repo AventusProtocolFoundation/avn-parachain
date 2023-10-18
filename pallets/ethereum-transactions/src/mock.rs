@@ -28,7 +28,7 @@ use pallet_session as session;
 use parking_lot::RwLock;
 
 use crate::{self as pallet_ethereum_transactions, *};
-use pallet_avn::{testing::U64To32BytesConverter, FinalisedBlockChecker};
+use pallet_avn::testing::U64To32BytesConverter;
 
 pub type AccountId = <TestRuntime as system::Config>::AccountId;
 pub type AuthorityId = <TestRuntime as avn::Config>::AuthorityId;
@@ -123,7 +123,6 @@ impl avn::Config for TestRuntime {
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
-    type FinalisedBlockChecker = Self;
     type WeightInfo = ();
 }
 
@@ -153,12 +152,6 @@ impl session::Config for TestRuntime {
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
     type WeightInfo = ();
-}
-
-impl FinalisedBlockChecker<BlockNumber> for TestRuntime {
-    fn is_finalised(_block_number: BlockNumber) -> bool {
-        true
-    }
 }
 
 impl EthereumTransactions {

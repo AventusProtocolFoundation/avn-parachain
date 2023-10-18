@@ -1,7 +1,6 @@
 // Copyright 2022 Aventus Network Services (UK) Ltd.
 
 pub use crate::{self as summary, *};
-use avn::FinalisedBlockChecker;
 use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{
@@ -262,7 +261,6 @@ frame_support::construct_runtime!(
 parameter_types! {
     pub const AdvanceSlotGracePeriod: u64 = 5;
     pub const MinBlockAge: u64 = 5;
-    pub const FinalityReportLatency: u64 = 80;
 }
 
 pub type ValidatorId = u64;
@@ -296,7 +294,6 @@ impl Config for TestRuntime {
     type CandidateTransactionSubmitter = Self;
     type AccountToBytesConvert = U64To32BytesConverter;
     type ReportSummaryOffence = OffenceHandler;
-    type FinalityReportLatency = FinalityReportLatency;
     type WeightInfo = ();
 }
 
@@ -345,7 +342,6 @@ impl avn::Config for TestRuntime {
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
-    type FinalisedBlockChecker = Self;
     type WeightInfo = ();
 }
 
@@ -537,12 +533,6 @@ impl EthereumPublicKeyChecker<u64> for TestRuntime {
             true => Some(MOCK_RECOVERED_ACCOUNT_ID.with(|pk| *pk.borrow())),
             _ => None,
         }
-    }
-}
-
-impl FinalisedBlockChecker<BlockNumber> for TestRuntime {
-    fn is_finalised(_block_number: BlockNumber) -> bool {
-        true
     }
 }
 

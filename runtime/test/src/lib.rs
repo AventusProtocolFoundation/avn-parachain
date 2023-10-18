@@ -152,26 +152,29 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (pallet_parachain_staking::migration::EnableAutomaticGrwoth<Runtime>, RemoveMigrationStatus),
+    RemoveFinalityTracker,
 >;
 
-pub struct RemoveMigrationStatus;
-impl frame_support::traits::OnRuntimeUpgrade for RemoveMigrationStatus {
+pub struct RemoveFinalityTracker;
+impl frame_support::traits::OnRuntimeUpgrade for RemoveFinalityTracker {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
         use frame_support::storage::unhashed;
 
         use frame_support::storage;
-        let storage_prefix = storage::storage_prefix(b"Migration", b"");
+        let storage_prefix = storage::storage_prefix(b"AvnFinalityTracker", b"");
         let mut key = vec![0u8; 32];
         key[0..32].copy_from_slice(&storage_prefix);
         let res = unhashed::clear_prefix(&key[0..16], None, None);
 
-        log::info!("✅ Cleared '{}' backend values from 'Migration' storage prefix", res.backend);
+        log::info!(
+            "✅ Cleared '{}' backend values from 'AvnFinalityTracker' storage prefix",
+            res.backend
+        );
 
-        log::info!("✅ Cleared '{}' entries from 'Migration' storage prefix", res.unique);
+        log::info!("✅ Cleared '{}' entries from 'AvnFinalityTracker' storage prefix", res.unique);
 
         if res.maybe_cursor.is_some() {
-            log::error!("Storage prefix 'Migration' is not completely cleared.");
+            log::error!("Storage prefix 'AvnFinalityTracker' is not completely cleared.");
         }
 
         <Runtime as frame_system::Config>::DbWeight::get().writes(1)
@@ -192,7 +195,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 51,
+    spec_version: 52,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -565,7 +568,6 @@ impl pallet_avn::Config for Runtime {
     type EthereumPublicKeyChecker = ValidatorsManager;
     type NewSessionHandler = ValidatorsManager;
     type DisabledValidatorChecker = ValidatorsManager;
-    type FinalisedBlockChecker = AvnFinalityTracker;
     type WeightInfo = pallet_avn::default_weights::SubstrateWeight<Runtime>;
 }
 
@@ -608,21 +610,6 @@ impl pallet_validators_manager::Config for Runtime {
 }
 
 parameter_types! {
-    // TODO [TYPE: review][PRI: high]: review this value.
-    pub const CacheAge: BlockNumber = 10;
-    pub const SubmissionInterval: BlockNumber = 5;
-    pub const MaxAllowedReportLatency: BlockNumber = 5 * MINUTES;
-}
-
-impl pallet_avn_finality_tracker::pallet::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type CacheAge = CacheAge;
-    type SubmissionInterval = SubmissionInterval;
-    type ReportLatency = MaxAllowedReportLatency;
-    type WeightInfo = pallet_avn_finality_tracker::default_weights::SubstrateWeight<Runtime>;
-}
-
-parameter_types! {
     // TODO [TYPE: review][PRI: high][CRITICAL][JIRA: 434]: review this value.
     pub const AdvanceSlotGracePeriod: BlockNumber = 5;
     pub const MinBlockAge: BlockNumber = 5;
@@ -637,7 +624,6 @@ impl pallet_summary::Config for Runtime {
     type CandidateTransactionSubmitter = EthereumTransactions;
     type AccountToBytesConvert = Avn;
     type ReportSummaryOffence = Offences;
-    type FinalityReportLatency = MaxAllowedReportLatency;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
     type BridgePublisher = EthBridge;
 }
@@ -813,7 +799,6 @@ construct_runtime!(
 
         // Rest of AvN pallets
         Avn: pallet_avn = 81,
-        AvnFinalityTracker: pallet_avn_finality_tracker = 82,
         AvnOffenceHandler: pallet_avn_offence_handler = 83,
         EthereumEvents: pallet_ethereum_events = 84,
         EthereumTransactions: pallet_ethereum_transactions = 85,
@@ -843,7 +828,6 @@ mod benches {
         [frame_system, SystemBench::<Runtime>]
         [pallet_assets, Assets]
         [pallet_balances, Balances]
-        [pallet_avn_finality_tracker, AvnFinalityTracker]
         [pallet_avn_offence_handler, AvnOffenceHandler]
         [pallet_avn_proxy, AvnProxy]
         [pallet_eth_bridge, EthBridge]
