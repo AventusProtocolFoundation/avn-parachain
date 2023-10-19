@@ -80,12 +80,12 @@ fn run_checks(
 
         let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
         let expected_expiry = current_time / 1000 + eth_tx_lifetime_secs;
-        assert_eq!(active_tx.data.expiry, expected_expiry);
+        assert_eq!(active_tx.expiry, expected_expiry);
 
-        let msg_hash = hex::encode(active_tx.data.msg_hash);
+        let msg_hash = hex::encode(active_tx.msg_hash);
         assert_eq!(msg_hash, expected_msg_hash);
 
-        let calldata = generate_send_calldata::<TestRuntime>(tx_id, &active_tx.data).unwrap();
+        let calldata = generate_send_calldata::<TestRuntime>(&active_tx).unwrap();
         let calldata = hex::encode(calldata);
         assert_eq!(calldata, expected_calldata);
     })

@@ -63,7 +63,7 @@ fn setup_active_tx<T: Config>(
     num_confirmations: u8,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    let expiry = 438269973u64;
+    let expiry = 1438269973u64;
     let function_name =
         BoundedVec::<u8, crate::FunctionLimit>::try_from(b"sampleFunction".to_vec())
             .expect("Failed to create BoundedVec");
@@ -80,6 +80,14 @@ fn setup_active_tx<T: Config>(
     let tx_data = TransactionData {
         function_name,
         params: bound_params(params),
+        sender: sender.account_id,
+        eth_tx_hash: H256::zero(),
+        tx_succeeded: false,
+    };
+
+    ActiveTransaction::<T>::put(ActiveTransactionData {
+        id: tx_id,
+        data: tx_data,
         expiry,
         msg_hash: H256::repeat_byte(1),
         confirmations: {
@@ -90,14 +98,6 @@ fn setup_active_tx<T: Config>(
             }
             confirmations
         },
-        sender: sender.account_id,
-        eth_tx_hash: H256::zero(),
-        tx_succeeded: false,
-    };
-
-    ActiveTransaction::<T>::put(ActiveTransactionData {
-        id: tx_id,
-        data: tx_data,
         success_corroborations: BoundedVec::default(),
         failure_corroborations: BoundedVec::default(),
     });
@@ -118,7 +118,7 @@ benchmarks! {
         let tx_id = 1u32;
         setup_active_tx::<T>(tx_id, 1, sender.clone());
         let active_tx = ActiveTransaction::<T>::get().expect("is active");
-        let msg_hash_string = active_tx.data.msg_hash.to_string();
+        let msg_hash_string = active_tx.msg_hash.to_string();
         // TODO: We need a real signature as this benchmark fails at present
         let signature_bytes = hex::decode("3a0490e7d4325d3baa39b3011284e9758f9e370477e6b9e98713b2303da7427f71919f2757f62a01909391aeb3e89991539fdcb2d02ad45f7c64eb129c96f37100").expect("Decoding failed");
         let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&signature_bytes).unwrap().into();
@@ -127,7 +127,7 @@ benchmarks! {
     }: _(RawOrigin::None, tx_id, new_confirmation.clone(), author.clone(), signature)
     verify {
         let active_tx = ActiveTransaction::<T>::get().expect("is active");
-        ensure!(active_tx.data.confirmations.contains(&new_confirmation), "Confirmation not added");
+        ensure!(active_tx.confirmations.contains(&new_confirmation), "Confirmation not added");
     }
 
     add_eth_tx_hash {
