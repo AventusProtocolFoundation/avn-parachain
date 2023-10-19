@@ -160,7 +160,7 @@ fn abi_encode_function<T: pallet::Config>(
             to_token_type(&param_type, value_bytes)
         })
         .collect();
-    
+
     let outputs: Vec<Param> = output_type
         .into_iter()
         .filter_map(|type_bytes| {
@@ -178,7 +178,6 @@ fn abi_encode_function<T: pallet::Config>(
     function.encode_input(&tokens?).map_err(|_| Error::<T>::FunctionEncodingError)
 }
 
-
 fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     match key.as_slice() {
         BYTES => Some(ParamType::Bytes),
@@ -187,7 +186,7 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
         UINT32 => Some(ParamType::Uint(32)),
         UINT128 => Some(ParamType::Uint(128)),
         UINT256 => Some(ParamType::Uint(256)),
-        
+
         _ => None,
     }
 }
