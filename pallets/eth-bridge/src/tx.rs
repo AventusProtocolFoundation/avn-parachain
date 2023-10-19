@@ -47,6 +47,15 @@ pub fn finalize_state<T: Config>(
     // Write the tx data to permanent storage:
     SettledTransactions::<T>::insert(tx.id, tx.data);
 
+    // Check for offences:
+    if success {
+        if !tx.failure_corroborations.is_empty() {
+            // TODO: raise offences for all authors in failure_corroborations
+        } else if !tx.success_corroborations.is_empty() {
+            // TODO: raise offences for all authors in success_corroborations
+        }
+    }
+
     if let Some(tx_request) = dequeue_tx_request::<T>() {
         set_up_active_tx(tx_request)?;
     } else {
