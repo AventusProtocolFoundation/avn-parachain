@@ -185,7 +185,7 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
                 storage_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
                 log::info!("✅ Transaction Id seeded successfully to {}", tx_id + 1u32);
                 return <Runtime as frame_system::Config>::DbWeight::get().reads(1) +
-                    <Runtime as frame_system::Config>::DbWeight::get().writes(1);
+                    <Runtime as frame_system::Config>::DbWeight::get().writes(1)
             } else {
                 log::info!("💔 Failed to seed transaction Id");
             }
