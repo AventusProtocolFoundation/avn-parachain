@@ -114,7 +114,7 @@ impl<T: Config> OnRuntimeUpgrade for EnableAutomaticGrwoth<T> {
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
+    fn post_upgrade(_input: Vec<u8>) -> Result<(), &'static str> {
         Ok(())
     }
 }

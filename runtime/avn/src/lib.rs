@@ -32,7 +32,8 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
     construct_runtime,
-    dispatch::DispatchClass,
+    dispatch::{DispatchClass, GetStorageVersion},
+    pallet_prelude::StorageVersion,
     parameter_types,
     traits::{
         AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Defensive, Imbalance,
@@ -162,15 +163,33 @@ pub type Executive = frame_executive::Executive<
 pub struct SeedAvnBridgeTransactionMigration;
 impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigration {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        let pre_upgrade_transaction_id: u64 =
-            pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
-        log::info!("✅ Running migration to seed transaction Id");
+        let storage_version: StorageVersion = StorageVersion::new(1);
 
-        if let Ok(tx_id) = <u64 as TryInto<u32>>::try_into(pre_upgrade_transaction_id).defensive() {
-            <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(
-                tx_id + 1u32,
+        let current = pallet_eth_bridge::Pallet::<Runtime>::current_storage_version();
+        let onchain = pallet_eth_bridge::Pallet::<Runtime>::on_chain_storage_version();
+
+        if onchain < 1 {
+            log::info!(
+                "🚧 🚧 Running migration to seed transaction Id. Current storage version: {:?}, onchain version: {:?}",
+                current,
+                onchain
             );
-            return <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+            let pre_upgrade_transaction_id: u64 =
+                pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+
+            if let Ok(tx_id) =
+                <u64 as TryInto<u32>>::try_into(pre_upgrade_transaction_id).defensive()
+            {
+                <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(
+                    tx_id + 1u32,
+                );
+                storage_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
+                log::info!("✅ Transaction Id seeded successfully to {}", tx_id + 1u32);
+                return <Runtime as frame_system::Config>::DbWeight::get().reads(1) +
+                    <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+            } else {
+                log::info!("💔 Failed to seed transaction Id");
+            }
         }
 
         Weight::zero()
@@ -187,16 +206,6 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
     fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
         let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
         assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
-        Ok(())
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        Ok(vec![])
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
         Ok(())
     }
 }

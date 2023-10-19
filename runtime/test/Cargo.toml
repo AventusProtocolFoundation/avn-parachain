@@ -241,6 +241,7 @@ try-runtime = [
 	"pallet-nft-manager/try-runtime",
 	"pallet-avn-proxy/try-runtime",
 	"pallet-parachain-staking/try-runtime",
+	"pallet-eth-bridge/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-offences/try-runtime",
