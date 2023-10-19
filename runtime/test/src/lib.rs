@@ -32,7 +32,7 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
     construct_runtime,
-    dispatch::DispatchClass,
+    dispatch::{DispatchClass, GetStorageVersion},
     parameter_types,
     traits::{
         AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Defensive, Imbalance, OnUnbalanced,
@@ -40,6 +40,7 @@ use frame_support::{
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
+    pallet_prelude::StorageVersion,
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},

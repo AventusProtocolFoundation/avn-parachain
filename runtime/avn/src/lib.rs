@@ -170,7 +170,7 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
 
         if onchain < 1 {
             log::info!(
-                "💽 Running migration to seed transaction Id. Current storage version {:?} / onchain {:?}",
+                "💽 Running migration to seed transaction Id. Current storage version: {:?}, onchain version: {:?}",
                 current,
                 onchain
             );
