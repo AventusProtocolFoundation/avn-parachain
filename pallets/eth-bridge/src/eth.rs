@@ -125,7 +125,7 @@ pub fn generate_send_calldata<T: Config>(
     let mut full_params = unbound_params(&tx_data.params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
-    encode_function(&tx_data.function_name.as_slice(), &full_params)
+    abi_encode_function(&tx_data.function_name.as_slice(), &full_params)
 }
 
 fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
@@ -134,10 +134,10 @@ fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<V
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
     ];
 
-    encode_function(b"corroborate", &params)
+    abi_encode_function(b"corroborate", &params)
 }
 
-fn encode_function<T: pallet::Config>(
+fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<Vec<u8>, Error<T>> {
@@ -234,9 +234,9 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
 }
 
 fn process_view_response<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
-    if result.len() != 1 {
-        return Err(Error::<T>::InvalidDataLength.into())
+    if result.len() == 1 {
+        Ok(result[0] as i8)
+    } else {
+        Err(Error::<T>::InvalidDataLength.into())
     }
-
-    Ok(result[0] as i8)
 }
