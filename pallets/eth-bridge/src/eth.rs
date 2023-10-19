@@ -15,8 +15,10 @@ const UINT32: &[u8] = b"uint32";
 const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
 
-pub fn create_tx_data<T: Config>(tx_request: &RequestData) -> Result<TransactionData<T>, Error<T>> {
-    let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
+pub fn create_tx_data<T: Config>(
+    tx_request: &RequestData,
+    expiry: u64,
+) -> Result<TransactionData<T>, Error<T>> {
     let mut extended_params = unbound_params(&tx_request.params);
     extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
     extended_params.push((UINT32.to_vec(), tx_request.tx_id.to_string().into_bytes()));
@@ -24,9 +26,6 @@ pub fn create_tx_data<T: Config>(tx_request: &RequestData) -> Result<Transaction
     let tx_data = TransactionData {
         function_name: tx_request.function_name.clone(),
         params: bound_params(&extended_params)?,
-        expiry,
-        msg_hash: generate_msg_hash(&extended_params)?,
-        confirmations: BoundedVec::<ecdsa::Signature, ConfirmationsLimit>::default(),
         sender: assign_sender()?,
         eth_tx_hash: H256::zero(),
         tx_succeeded: false,
@@ -54,10 +53,10 @@ pub fn verify_signature<T: Config>(
 }
 
 pub fn send_transaction<T: Config>(
-    tx_data: &TransactionData<T>,
+    tx: &ActiveTransactionData<T>,
     author: &Author<T>,
 ) -> Result<H256, DispatchError> {
-    match generate_send_calldata::<T>(tx_data) {
+    match generate_send_calldata::<T>(tx) {
         Ok(calldata) => match make_send_call::<T>(calldata, author) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
             Err(_) => Err(Error::<T>::ContractCallFailed.into()),
@@ -87,7 +86,10 @@ pub fn check_tx_status<T: Config>(
     Err(Error::<T>::InvalidCalldataGeneration.into())
 }
 
-fn generate_msg_hash<T: pallet::Config>(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
+pub fn generate_msg_hash<T: pallet::Config>(
+    tx_data: &TransactionData<T>,
+) -> Result<H256, Error<T>> {
+    let params = unbound_params(&tx_data.params);
     let tokens: Result<Vec<_>, _> = params
         .iter()
         .map(|(type_bytes, value_bytes)| {
@@ -102,6 +104,29 @@ fn generate_msg_hash<T: pallet::Config>(params: &[(Vec<u8>, Vec<u8>)]) -> Result
     Ok(H256::from(msg_hash))
 }
 
+pub fn generate_send_calldata<T: Config>(
+    tx: &ActiveTransactionData<T>,
+) -> Result<Vec<u8>, Error<T>> {
+    let mut concatenated_confirmations = Vec::new();
+    for conf in &tx.confirmations {
+        concatenated_confirmations.extend_from_slice(conf.as_ref());
+    }
+
+    let mut full_params = unbound_params(&tx.data.params);
+    full_params.push((BYTES.to_vec(), concatenated_confirmations));
+
+    abi_encode_function(&tx.data.function_name.as_slice(), &full_params)
+}
+
+fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
+    let params = vec![
+        (UINT32.to_vec(), tx_id.to_string().into_bytes()),
+        (UINT256.to_vec(), expiry.to_string().into_bytes()),
+    ];
+
+    abi_encode_function(b"corroborate", &params)
+}
+
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
     let current_block_number = <frame_system::Pallet<T>>::block_number();
 
@@ -112,29 +137,6 @@ fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
         },
         Err(_) => Err(Error::<T>::ErrorAssigningSender),
     }
-}
-
-pub fn generate_send_calldata<T: Config>(
-    tx_data: &TransactionData<T>,
-) -> Result<Vec<u8>, Error<T>> {
-    let mut concatenated_confirmations = Vec::new();
-    for conf in &tx_data.confirmations {
-        concatenated_confirmations.extend_from_slice(conf.as_ref());
-    }
-
-    let mut full_params = unbound_params(&tx_data.params);
-    full_params.push((BYTES.to_vec(), concatenated_confirmations));
-
-    abi_encode_function(&tx_data.function_name.as_slice(), &full_params)
-}
-
-fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
-    let params = vec![
-        (UINT32.to_vec(), tx_id.to_string().into_bytes()),
-        (UINT256.to_vec(), expiry.to_string().into_bytes()),
-    ];
-
-    abi_encode_function(b"corroborate", &params)
 }
 
 fn abi_encode_function<T: pallet::Config>(

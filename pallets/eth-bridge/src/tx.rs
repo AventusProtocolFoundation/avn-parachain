@@ -25,7 +25,7 @@ pub fn add_new_request<T: Config>(
     if ActiveTransaction::<T>::get().is_some() {
         queue_tx_request(tx_request)?;
     } else {
-        set_as_active_tx(tx_request)?;
+        set_up_active_tx(tx_request)?;
     }
 
     Ok(tx_id)
@@ -36,19 +36,19 @@ pub fn is_active<T: Config>(tx_id: u32) -> bool {
 }
 
 pub fn finalize_state<T: Config>(
-    mut active_tx: ActiveTransactionData<T>,
+    mut tx: ActiveTransactionData<T>,
     success: bool,
 ) -> Result<(), Error<T>> {
     // Alert the originating pallet:
-    T::OnPublishingResultHandler::process_result(active_tx.id, success)
+    T::OnPublishingResultHandler::process_result(tx.id, success)
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
-    active_tx.data.tx_succeeded = success;
-    // Write the tx details to permanent storage:
-    SettledTransactions::<T>::insert(active_tx.id, active_tx.data);
+    tx.data.tx_succeeded = success;
+    // Write the tx data to permanent storage:
+    SettledTransactions::<T>::insert(tx.id, tx.data);
 
     if let Some(tx_request) = dequeue_tx_request::<T>() {
-        set_as_active_tx(tx_request)?;
+        set_up_active_tx(tx_request)?;
     } else {
         ActiveTransaction::<T>::kill();
     }
@@ -89,10 +89,17 @@ fn dequeue_tx_request<T: Config>() -> Option<RequestData> {
     next_tx_request
 }
 
-fn set_as_active_tx<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> {
+fn set_up_active_tx<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> {
+    let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
+    let data = eth::create_tx_data(&tx_request, expiry)?;
+    let msg_hash = eth::generate_msg_hash(&data)?;
+
     ActiveTransaction::<T>::put(ActiveTransactionData {
         id: tx_request.tx_id,
-        data: eth::create_tx_data(&tx_request)?,
+        data,
+        expiry,
+        msg_hash,
+        confirmations: BoundedVec::default(),
         success_corroborations: BoundedVec::default(),
         failure_corroborations: BoundedVec::default(),
     });

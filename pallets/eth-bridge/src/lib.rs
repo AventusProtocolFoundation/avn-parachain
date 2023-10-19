@@ -171,9 +171,6 @@ pub mod pallet {
         pub function_name: BoundedVec<u8, FunctionLimit>,
         pub params:
             BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-        pub expiry: u64,
-        pub msg_hash: H256,
-        pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
         pub sender: T::AccountId,
         pub eth_tx_hash: H256,
         pub tx_succeeded: bool,
@@ -183,6 +180,9 @@ pub mod pallet {
     pub struct ActiveTransactionData<T: Config> {
         pub id: u32,
         pub data: TransactionData<T>,
+        pub expiry: u64,
+        pub msg_hash: H256,
+        pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
         pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
         pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
     }
@@ -268,29 +268,25 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active::<T>(tx_id) {
-                let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
+                let mut tx = ActiveTransaction::<T>::get().expect("is active");
 
                 // The sender's confirmation is implicit so we only collect them from other authors:
-                if author.account_id == active_tx.data.sender ||
-                    util::has_enough_confirmations(&active_tx)
-                {
+                if author.account_id == tx.data.sender || util::has_enough_confirmations(&tx) {
                     return Ok(().into())
                 }
 
-                eth::verify_signature::<T>(active_tx.data.msg_hash, &author, &confirmation)?;
+                eth::verify_signature::<T>(tx.msg_hash, &author, &confirmation)?;
 
                 ensure!(
-                    !active_tx.data.confirmations.contains(&confirmation),
+                    !tx.confirmations.contains(&confirmation),
                     Error::<T>::DuplicateConfirmation
                 );
 
-                active_tx
-                    .data
-                    .confirmations
+                tx.confirmations
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                ActiveTransaction::<T>::put(active_tx);
+                ActiveTransaction::<T>::put(tx);
             }
 
             Ok(().into())
@@ -308,21 +304,18 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active::<T>(tx_id) {
-                let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
+                let mut tx = ActiveTransaction::<T>::get().expect("is active");
+
+                ensure!(tx.data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
 
                 ensure!(
-                    active_tx.data.eth_tx_hash == H256::zero(),
-                    Error::<T>::EthTxHashAlreadySet
-                );
-
-                ensure!(
-                    active_tx.data.sender == author.account_id,
+                    tx.data.sender == author.account_id,
                     Error::<T>::EthTxHashMustBeSetBySender
                 );
 
-                active_tx.data.eth_tx_hash = eth_tx_hash;
+                tx.data.eth_tx_hash = eth_tx_hash;
 
-                ActiveTransaction::<T>::put(active_tx);
+                ActiveTransaction::<T>::put(tx);
             }
 
             Ok(().into())
@@ -340,16 +333,16 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active::<T>(tx_id) {
-                let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
+                let mut tx = ActiveTransaction::<T>::get().expect("is active");
 
-                if !util::requires_corroboration(&active_tx, &author) {
+                if !util::requires_corroboration(&tx, &author) {
                     return Ok(().into())
                 }
 
                 let matching_corroborations = if tx_succeeded {
-                    &mut active_tx.success_corroborations
+                    &mut tx.success_corroborations
                 } else {
-                    &mut active_tx.failure_corroborations
+                    &mut tx.failure_corroborations
                 };
 
                 matching_corroborations
@@ -357,9 +350,9 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
                 if util::quorum_reached::<T>(matching_corroborations.len() as u32) {
-                    tx::finalize_state::<T>(active_tx, tx_succeeded)?;
+                    tx::finalize_state::<T>(tx, tx_succeeded)?;
                 } else {
-                    ActiveTransaction::<T>::put(active_tx);
+                    ActiveTransaction::<T>::put(tx);
                 }
             }
 
@@ -389,27 +382,25 @@ pub mod pallet {
 
     // The core logic the OCW employs to fully resolve any currently active transaction:
     fn process_active_transaction<T: Config>(author: Author<T>) -> Result<(), DispatchError> {
-        if let Some(active_tx) = ActiveTransaction::<T>::get() {
-            let tx_id = active_tx.id;
-            let tx = &active_tx.data;
-            let self_is_sender = author.account_id == tx.sender;
-            let tx_requires_confirmations = !util::has_enough_confirmations(&active_tx);
-            let tx_is_sent = tx.eth_tx_hash != H256::zero();
+        if let Some(tx) = ActiveTransaction::<T>::get() {
+            let self_is_sender = author.account_id == tx.data.sender;
+            let tx_requires_confirmations = !util::has_enough_confirmations(&tx);
+            let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
             let tx_is_past_expiry = tx.expiry > util::time_now::<T>();
 
             if !self_is_sender && tx_requires_confirmations {
                 let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
                 if !tx.confirmations.contains(&confirmation) {
-                    call::add_confirmation::<T>(tx_id, confirmation, author);
+                    call::add_confirmation::<T>(tx.id, confirmation, author);
                 }
             } else if self_is_sender && !tx_is_sent {
                 let eth_tx_hash = eth::send_transaction::<T>(&tx, &author)?;
-                call::add_eth_tx_hash::<T>(tx_id, eth_tx_hash, author);
+                call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
             } else if tx_is_sent || tx_is_past_expiry {
-                if util::requires_corroboration::<T>(&active_tx, &author) {
-                    match eth::check_tx_status::<T>(tx_id, tx.expiry, &author)? {
-                        Some(true) => call::add_corroboration::<T>(tx_id, true, author),
-                        Some(false) => call::add_corroboration::<T>(tx_id, false, author),
+                if util::requires_corroboration::<T>(&tx, &author) {
+                    match eth::check_tx_status::<T>(tx.id, tx.expiry, &author)? {
+                        Some(true) => call::add_corroboration::<T>(tx.id, true, author),
+                        Some(false) => call::add_corroboration::<T>(tx.id, false, author),
                         None => {},
                     }
                 }
