@@ -14,6 +14,7 @@ const UINT128: &[u8] = b"uint128";
 const UINT32: &[u8] = b"uint32";
 const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
+const INT8: &[u8] = b"int8";
 
 pub fn create_tx_data<T: Config>(
     tx_request: &RequestData,
@@ -115,7 +116,7 @@ pub fn generate_send_calldata<T: Config>(
     let mut full_params = unbound_params(&tx.data.params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
-    abi_encode_function(&tx.data.function_name.as_slice(), &full_params)
+    abi_encode_function(&tx.data.function_name.as_slice(), &full_params, None)
 }
 
 fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
@@ -124,7 +125,7 @@ fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<V
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
     ];
 
-    abi_encode_function(b"corroborate", &params)
+    abi_encode_function(b"corroborate", &params, Some(INT8.to_vec()))
 }
 
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
@@ -142,6 +143,7 @@ fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
 fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
+    output_type: Option<Vec<u8>>,
 ) -> Result<Vec<u8>, Error<T>> {
     let inputs = params
         .iter()
@@ -158,36 +160,46 @@ fn abi_encode_function<T: pallet::Config>(
             to_token_type(&param_type, value_bytes)
         })
         .collect();
+    
+    let outputs: Vec<Param> = output_type
+        .into_iter()
+        .filter_map(|type_bytes| {
+            to_param_type(&type_bytes).map(|kind| Param { name: "".to_string(), kind })
+        })
+        .collect();
 
     let function = Function {
         name: core::str::from_utf8(function_name).unwrap().to_string(),
         inputs,
-        outputs: Vec::<Param>::new(),
+        outputs,
         constant: false,
     };
 
     function.encode_input(&tokens?).map_err(|_| Error::<T>::FunctionEncodingError)
 }
 
+
 fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     match key.as_slice() {
-        UINT256 => Some(ParamType::Uint(256)),
-        UINT128 => Some(ParamType::Uint(128)),
-        UINT32 => Some(ParamType::Uint(32)),
         BYTES => Some(ParamType::Bytes),
         BYTES32 => Some(ParamType::FixedBytes(32)),
+        INT8 => Some(ParamType::Int(8)),
+        UINT32 => Some(ParamType::Uint(32)),
+        UINT128 => Some(ParamType::Uint(128)),
+        UINT256 => Some(ParamType::Uint(256)),
+        
         _ => None,
     }
 }
 
 fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
     match kind {
+        ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
         ParamType::Uint(_) => {
             let dec_str = core::str::from_utf8(value).map_err(|_| Error::<T>::InvalidUtf8)?;
             let dec_value = Int::from_dec_str(dec_str).map_err(|_| Error::<T>::InvalidUint)?;
             Ok(Token::Uint(dec_value))
         },
-        ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
         ParamType::FixedBytes(size) => {
             if value.len() != *size {
                 return Err(Error::<T>::InvalidBytes)
