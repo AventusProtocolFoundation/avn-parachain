@@ -31,8 +31,8 @@ pub fn add_new_request<T: Config>(
     Ok(tx_id)
 }
 
-pub fn is_active<T: Config>(tx_id: &u32) -> bool {
-    ActiveTransaction::<T>::get().map_or(false, |active_tx| active_tx.id == *tx_id)
+pub fn is_active<T: Config>(tx_id: u32) -> bool {
+    ActiveTransaction::<T>::get().map_or(false, |active_tx| active_tx.id == tx_id)
 }
 
 pub fn finalize_state<T: Config>(

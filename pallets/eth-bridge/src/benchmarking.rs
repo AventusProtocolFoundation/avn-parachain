@@ -63,7 +63,7 @@ fn setup_active_tx<T: Config>(
     num_confirmations: u8,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    let expiry = 438269973u64;
+    let expiry = 1438269973u64;
     let function_name =
         BoundedVec::<u8, crate::FunctionLimit>::try_from(b"sampleFunction".to_vec())
             .expect("Failed to create BoundedVec");

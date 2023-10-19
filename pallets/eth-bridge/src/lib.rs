@@ -132,7 +132,6 @@ pub mod pallet {
     pub enum Event<T: Config> {
         PublishToEthereum { tx_id: u32, function_name: Vec<u8>, params: Vec<(Vec<u8>, Vec<u8>)> },
         EthTxLifetimeUpdated { eth_tx_lifetime_secs: u64 },
-        CorroborationAdded { tx_id: u32, tx_succeeded: bool, author: T::AccountId },
     }
 
     #[pallet::pallet]
@@ -268,7 +267,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active::<T>(&tx_id) {
+            if tx::is_active::<T>(tx_id) {
                 let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
 
                 // The sender's confirmation is implicit so we only collect them from other authors:
@@ -308,7 +307,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active::<T>(&tx_id) {
+            if tx::is_active::<T>(tx_id) {
                 let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
 
                 ensure!(
@@ -340,7 +339,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active::<T>(&tx_id) {
+            if tx::is_active::<T>(tx_id) {
                 let mut active_tx = ActiveTransaction::<T>::get().expect("is active");
 
                 if !util::requires_corroboration(&active_tx, &author) {
@@ -356,13 +355,6 @@ pub mod pallet {
                 matching_corroborations
                     .try_push(author.account_id.clone())
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
-
-                // Emit an event since corroborations aren't stored:
-                Self::deposit_event(Event::<T>::CorroborationAdded {
-                    tx_id,
-                    tx_succeeded,
-                    author: author.account_id,
-                });
 
                 if util::quorum_reached::<T>(matching_corroborations.len() as u32) {
                     tx::finalize_state::<T>(active_tx, tx_succeeded)?;
