@@ -35,7 +35,7 @@ use frame_support::{
     dispatch::DispatchClass,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Imbalance, OnUnbalanced,
+        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Defensive, Imbalance, OnUnbalanced,
         PrivilegeCmp,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
@@ -152,32 +152,53 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    RemoveFinalityTracker,
+    (pallet_parachain_staking::migration::EnableAutomaticGrwoth<Runtime>,
+    SeedAvnBridgeTransactionMigration,)
 >;
 
-pub struct RemoveFinalityTracker;
-impl frame_support::traits::OnRuntimeUpgrade for RemoveFinalityTracker {
+pub struct SeedAvnBridgeTransactionMigration;
+impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigration {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        use frame_support::storage::unhashed;
+        let storage_version: StorageVersion = StorageVersion::new(1);
 
-        use frame_support::storage;
-        let storage_prefix = storage::storage_prefix(b"AvnFinalityTracker", b"");
-        let mut key = vec![0u8; 32];
-        key[0..32].copy_from_slice(&storage_prefix);
-        let res = unhashed::clear_prefix(&key[0..16], None, None);
+        let current = pallet_eth_bridge::Pallet::<Runtime>::current_storage_version();
+        let onchain = pallet_eth_bridge::Pallet::<Runtime>::on_chain_storage_version();
 
-        log::info!(
-            "✅ Cleared '{}' backend values from 'AvnFinalityTracker' storage prefix",
-            res.backend
-        );
+        if onchain < 1 {
+            log::info!(
+                "💽 Running migration to seed transaction Id. Current storage version {:?} / onchain {:?}",
+                current,
+                onchain
+            );
+            let pre_upgrade_transaction_id: u64 =
+            pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
 
-        log::info!("✅ Cleared '{}' entries from 'AvnFinalityTracker' storage prefix", res.unique);
-
-        if res.maybe_cursor.is_some() {
-            log::error!("Storage prefix 'AvnFinalityTracker' is not completely cleared.");
+            if let Ok(tx_id) = <u64 as TryInto<u32>>::try_into(pre_upgrade_transaction_id).defensive() {
+                <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(
+                    tx_id + 1u32,
+                );
+                storage_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
+                log::info!("✅ Running migration to seed transaction Id");
+                return <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+            } else {
+                log::info!("💔 Failed to seed transaction Id");
+            }
         }
+        Weight::zero()
+    }
 
-        <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        let pre_upgrade_transaction_id: u64 =
+            pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+        Ok((pre_upgrade_transaction_id + 1u64).encode())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
+        let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
+        assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
+        Ok(())
     }
 }
 
