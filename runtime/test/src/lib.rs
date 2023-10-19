@@ -169,7 +169,7 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
 
         if onchain < 1 {
             log::info!(
-                "💽 Running migration to seed transaction Id. Current storage version {:?} / onchain {:?}",
+                "💽 Running migration to seed transaction Id. Current storage version: {:?}, onchain version: {:?}",
                 current,
                 onchain
             );
@@ -183,12 +183,14 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
                     tx_id + 1u32,
                 );
                 storage_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
-                log::info!("✅ Running migration to seed transaction Id");
-                return <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+                log::info!("✅ Transaction Id seeded successfully to {}", tx_id + 1u32);
+                return <Runtime as frame_system::Config>::DbWeight::get().reads(1) +
+                    <Runtime as frame_system::Config>::DbWeight::get().writes(1);
             } else {
                 log::info!("💔 Failed to seed transaction Id");
             }
         }
+
         Weight::zero()
     }
 
