@@ -14,9 +14,12 @@ const UINT128: &[u8] = b"uint128";
 const UINT32: &[u8] = b"uint32";
 const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
+const INT8: &[u8] = b"int8";
 
-pub fn create_tx_data<T: Config>(tx_request: &RequestData) -> Result<TransactionData<T>, Error<T>> {
-    let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
+pub fn create_tx_data<T: Config>(
+    tx_request: &RequestData,
+    expiry: u64,
+) -> Result<TransactionData<T>, Error<T>> {
     let mut extended_params = unbound_params(&tx_request.params);
     extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
     extended_params.push((UINT32.to_vec(), tx_request.tx_id.to_string().into_bytes()));
@@ -24,9 +27,6 @@ pub fn create_tx_data<T: Config>(tx_request: &RequestData) -> Result<Transaction
     let tx_data = TransactionData {
         function_name: tx_request.function_name.clone(),
         params: bound_params(&extended_params)?,
-        expiry,
-        msg_hash: generate_msg_hash(&extended_params)?,
-        confirmations: BoundedVec::<ecdsa::Signature, ConfirmationsLimit>::default(),
         sender: assign_sender()?,
         eth_tx_hash: H256::zero(),
         tx_succeeded: false,
@@ -54,10 +54,10 @@ pub fn verify_signature<T: Config>(
 }
 
 pub fn send_transaction<T: Config>(
-    tx_data: &TransactionData<T>,
+    tx: &ActiveTransactionData<T>,
     author: &Author<T>,
 ) -> Result<H256, DispatchError> {
-    match generate_send_calldata::<T>(tx_data) {
+    match generate_send_calldata::<T>(tx) {
         Ok(calldata) => match make_send_call::<T>(calldata, author) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
             Err(_) => Err(Error::<T>::ContractCallFailed.into()),
@@ -87,7 +87,10 @@ pub fn check_tx_status<T: Config>(
     Err(Error::<T>::InvalidCalldataGeneration.into())
 }
 
-fn generate_msg_hash<T: pallet::Config>(params: &[(Vec<u8>, Vec<u8>)]) -> Result<H256, Error<T>> {
+pub fn generate_msg_hash<T: pallet::Config>(
+    tx_data: &TransactionData<T>,
+) -> Result<H256, Error<T>> {
+    let params = unbound_params(&tx_data.params);
     let tokens: Result<Vec<_>, _> = params
         .iter()
         .map(|(type_bytes, value_bytes)| {
@@ -102,6 +105,29 @@ fn generate_msg_hash<T: pallet::Config>(params: &[(Vec<u8>, Vec<u8>)]) -> Result
     Ok(H256::from(msg_hash))
 }
 
+pub fn generate_send_calldata<T: Config>(
+    tx: &ActiveTransactionData<T>,
+) -> Result<Vec<u8>, Error<T>> {
+    let mut concatenated_confirmations = Vec::new();
+    for conf in &tx.confirmations {
+        concatenated_confirmations.extend_from_slice(conf.as_ref());
+    }
+
+    let mut full_params = unbound_params(&tx.data.params);
+    full_params.push((BYTES.to_vec(), concatenated_confirmations));
+
+    abi_encode_function(&tx.data.function_name.as_slice(), &full_params, None)
+}
+
+fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
+    let params = vec![
+        (UINT32.to_vec(), tx_id.to_string().into_bytes()),
+        (UINT256.to_vec(), expiry.to_string().into_bytes()),
+    ];
+
+    abi_encode_function(b"corroborate", &params, Some(INT8.to_vec()))
+}
+
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
     let current_block_number = <frame_system::Pallet<T>>::block_number();
 
@@ -114,32 +140,10 @@ fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
     }
 }
 
-pub fn generate_send_calldata<T: Config>(
-    tx_data: &TransactionData<T>,
-) -> Result<Vec<u8>, Error<T>> {
-    let mut concatenated_confirmations = Vec::new();
-    for conf in &tx_data.confirmations {
-        concatenated_confirmations.extend_from_slice(conf.as_ref());
-    }
-
-    let mut full_params = unbound_params(&tx_data.params);
-    full_params.push((BYTES.to_vec(), concatenated_confirmations));
-
-    encode_function(&tx_data.function_name.as_slice(), &full_params)
-}
-
-fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
-    let params = vec![
-        (UINT32.to_vec(), tx_id.to_string().into_bytes()),
-        (UINT256.to_vec(), expiry.to_string().into_bytes()),
-    ];
-
-    encode_function(b"corroborate", &params)
-}
-
-fn encode_function<T: pallet::Config>(
+fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
+    output_type: Option<Vec<u8>>,
 ) -> Result<Vec<u8>, Error<T>> {
     let inputs = params
         .iter()
@@ -157,10 +161,17 @@ fn encode_function<T: pallet::Config>(
         })
         .collect();
 
+    let outputs: Vec<Param> = output_type
+        .into_iter()
+        .filter_map(|type_bytes| {
+            to_param_type(&type_bytes).map(|kind| Param { name: "".to_string(), kind })
+        })
+        .collect();
+
     let function = Function {
         name: core::str::from_utf8(function_name).unwrap().to_string(),
         inputs,
-        outputs: Vec::<Param>::new(),
+        outputs,
         constant: false,
     };
 
@@ -169,23 +180,25 @@ fn encode_function<T: pallet::Config>(
 
 fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     match key.as_slice() {
-        UINT256 => Some(ParamType::Uint(256)),
-        UINT128 => Some(ParamType::Uint(128)),
-        UINT32 => Some(ParamType::Uint(32)),
         BYTES => Some(ParamType::Bytes),
         BYTES32 => Some(ParamType::FixedBytes(32)),
+        INT8 => Some(ParamType::Int(8)),
+        UINT32 => Some(ParamType::Uint(32)),
+        UINT128 => Some(ParamType::Uint(128)),
+        UINT256 => Some(ParamType::Uint(256)),
+
         _ => None,
     }
 }
 
 fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
     match kind {
+        ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
         ParamType::Uint(_) => {
             let dec_str = core::str::from_utf8(value).map_err(|_| Error::<T>::InvalidUtf8)?;
             let dec_value = Int::from_dec_str(dec_str).map_err(|_| Error::<T>::InvalidUint)?;
             Ok(Token::Uint(dec_value))
         },
-        ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
         ParamType::FixedBytes(size) => {
             if value.len() != *size {
                 return Err(Error::<T>::InvalidBytes)
@@ -234,9 +247,9 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
 }
 
 fn process_view_response<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
-    if result.len() != 1 {
-        return Err(Error::<T>::InvalidDataLength.into())
+    if result.len() == 1 {
+        Ok(result[0] as i8)
+    } else {
+        Err(Error::<T>::InvalidDataLength.into())
     }
-
-    Ok(result[0] as i8)
 }

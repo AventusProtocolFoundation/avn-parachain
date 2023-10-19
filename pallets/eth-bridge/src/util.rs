@@ -13,7 +13,7 @@ pub fn quorum_reached<T: Config>(entries: u32) -> bool {
 }
 
 pub fn has_enough_confirmations<T: Config>(active_tx: &ActiveTransactionData<T>) -> bool {
-    let num_confirmations_with_sender = active_tx.data.confirmations.len() as u32 + 1;
+    let num_confirmations_with_sender = active_tx.confirmations.len() as u32 + 1;
     quorum_reached::<T>(num_confirmations_with_sender)
 }
 
