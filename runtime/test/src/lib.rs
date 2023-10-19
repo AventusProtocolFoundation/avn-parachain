@@ -33,14 +33,14 @@ use sp_version::RuntimeVersion;
 use frame_support::{
     construct_runtime,
     dispatch::{DispatchClass, GetStorageVersion},
+    pallet_prelude::StorageVersion,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Defensive, Imbalance, OnUnbalanced,
-        PrivilegeCmp,
+        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Defensive, Imbalance,
+        OnUnbalanced, PrivilegeCmp,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
-    pallet_prelude::StorageVersion,
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
@@ -153,8 +153,10 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (pallet_parachain_staking::migration::EnableAutomaticGrwoth<Runtime>,
-    SeedAvnBridgeTransactionMigration,)
+    (
+        pallet_parachain_staking::migration::EnableAutomaticGrwoth<Runtime>,
+        SeedAvnBridgeTransactionMigration,
+    ),
 >;
 
 pub struct SeedAvnBridgeTransactionMigration;
@@ -172,9 +174,11 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
                 onchain
             );
             let pre_upgrade_transaction_id: u64 =
-            pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+                pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
 
-            if let Ok(tx_id) = <u64 as TryInto<u32>>::try_into(pre_upgrade_transaction_id).defensive() {
+            if let Ok(tx_id) =
+                <u64 as TryInto<u32>>::try_into(pre_upgrade_transaction_id).defensive()
+            {
                 <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(
                     tx_id + 1u32,
                 );
