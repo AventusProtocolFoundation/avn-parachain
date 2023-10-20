@@ -45,7 +45,6 @@ use pallet_ethereum_transactions::{
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, VotingSessionIdBound},
-    calculate_one_third_quorum,
     eth_key_actions::decompress_eth_public_key,
     event_types::Validator,
     safe_add_block_numbers, IngressCounter,
@@ -1084,7 +1083,7 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
     ) {
         log::trace!("Validators manager on_new_session");
         if <ValidatorActions<T>>::iter().count() > 0 {
-            let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
+            let quorum = AVN::<T>::quorum();
             let voting_period_end =
                 safe_add_block_numbers(<system::Pallet<T>>::block_number(), T::VotingPeriod::get());
 
@@ -1121,7 +1120,7 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
                     Self::setup_voting_to_activate_validator(
                         ingress_counter,
                         &action_account_id,
-                        calculate_one_third_quorum(active_validators.len() as u32),
+                        AVN::<T>::quorum(),
                         voting_period_end,
                     );
                 }
