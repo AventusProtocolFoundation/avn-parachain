@@ -349,7 +349,7 @@ pub mod pallet {
                     .try_push(author.account_id.clone())
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                if util::quorum_reached::<T>(matching_corroborations.len() as u32) {
+                if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
                     tx::finalize_state::<T>(tx, tx_succeeded)?;
                 } else {
                     ActiveTransaction::<T>::put(tx);
@@ -384,16 +384,16 @@ pub mod pallet {
     fn process_active_transaction<T: Config>(author: Author<T>) -> Result<(), DispatchError> {
         if let Some(tx) = ActiveTransaction::<T>::get() {
             let self_is_sender = author.account_id == tx.data.sender;
-            let tx_requires_confirmations = !util::has_enough_confirmations(&tx);
+            let tx_has_enough_confirmations = util::has_enough_confirmations(&tx);
             let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
             let tx_is_past_expiry = tx.expiry > util::time_now::<T>();
 
-            if !self_is_sender && tx_requires_confirmations {
+            if !self_is_sender && !tx_has_enough_confirmations {
                 let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
                 if !tx.confirmations.contains(&confirmation) {
                     call::add_confirmation::<T>(tx.id, confirmation, author);
                 }
-            } else if self_is_sender && !tx_is_sent {
+            } else if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
                 let eth_tx_hash = eth::send_transaction::<T>(&tx, &author)?;
                 call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
             } else if tx_is_sent || tx_is_past_expiry {

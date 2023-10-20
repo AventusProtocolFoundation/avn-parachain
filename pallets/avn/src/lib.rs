@@ -18,12 +18,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 
-use frame_support::{
-    dispatch::DispatchResult,
-    ensure,
-    log::*,
-    traits::{Get, OneSessionHandler},
-};
+use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
 use frame_system::{ensure_root, pallet_prelude::OriginFor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
@@ -259,6 +254,11 @@ impl<T: Config> Pallet<T> {
                 local_keys.binary_search(&validator.key).ok().map(|_| validator)
             })
             .nth(0)
+    }
+
+    pub fn quorum() -> u32 {
+        let total_num_of_validators = Self::validators().len() as u32;
+        total_num_of_validators - total_num_of_validators * 2 / 3
     }
 
     pub fn get_data_from_service(url_path: String) -> Result<Vec<u8>, DispatchError> {

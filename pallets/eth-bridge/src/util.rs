@@ -1,20 +1,18 @@
 use super::*;
 use crate::{Config, AVN};
 use frame_support::{traits::UnixTime, BoundedVec};
-use sp_avn_common::calculate_one_third_quorum;
 
 pub fn time_now<T: Config>() -> u64 {
     <T as pallet::Config>::TimeProvider::now().as_secs()
 }
 
-pub fn quorum_reached<T: Config>(entries: u32) -> bool {
-    let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
-    entries >= quorum
+pub fn has_enough_corroborations<T: Config>(corroborations: usize) -> bool {
+    corroborations as u32 >= AVN::<T>::quorum()
 }
 
 pub fn has_enough_confirmations<T: Config>(active_tx: &ActiveTransactionData<T>) -> bool {
-    let num_confirmations_with_sender = active_tx.confirmations.len() as u32 + 1;
-    quorum_reached::<T>(num_confirmations_with_sender)
+    let num_confirmations_including_sender = active_tx.confirmations.len() as u32 + 1;
+    num_confirmations_including_sender >= AVN::<T>::quorum()
 }
 
 pub fn requires_corroboration<T: Config>(
