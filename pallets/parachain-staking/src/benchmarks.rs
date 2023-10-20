@@ -520,7 +520,7 @@ fn generate_signature<T: pallet_avn::Config>(
 fn setup_voting_session<T: Config>(growth_id: &GrowthId) -> u32 {
     PendingApproval::<T>::insert(growth_id.period, growth_id.ingress_counter);
 
-    let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
+    let quorum = AVN::<T>::quorum();
     let voting_period_end =
         safe_add_block_numbers(<system::Pallet<T>>::block_number(), VotingPeriod::<T>::get());
     let current_block_number: T::BlockNumber = 0u32.into();

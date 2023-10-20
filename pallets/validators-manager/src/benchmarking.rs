@@ -170,7 +170,7 @@ fn setup_resignation_action_data<T: Config>(sender: T::AccountId, ingress_counte
 fn setup_voting_session<T: Config>(action_id: &ActionId<T::AccountId>) -> u32 {
     PendingApprovals::<T>::insert(action_id.action_account_id.clone(), action_id.ingress_counter);
 
-    let quorum = calculate_one_third_quorum(AVN::<T>::validators().len() as u32);
+    let quorum = AVN::<T>::quorum();
     let voting_period_end =
         safe_add_block_numbers(<system::Pallet<T>>::block_number(), T::VotingPeriod::get());
     VotesRepository::<T>::insert(

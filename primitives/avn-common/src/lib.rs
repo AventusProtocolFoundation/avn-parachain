@@ -123,10 +123,6 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
     Ok(left.checked_sub(&right).ok_or(())?.into())
 }
 
-pub fn calculate_one_third_quorum(total_num_of_validators: u32) -> u32 {
-    return total_num_of_validators - total_num_of_validators * 2 / 3
-}
-
 pub fn recover_public_key_from_ecdsa_signature(
     signature: ecdsa::Signature,
     message: String,
