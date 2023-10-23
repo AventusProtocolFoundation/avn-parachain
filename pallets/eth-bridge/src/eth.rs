@@ -14,7 +14,6 @@ const UINT128: &[u8] = b"uint128";
 const UINT32: &[u8] = b"uint32";
 const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
-const INT8: &[u8] = b"int8";
 
 pub fn create_tx_data<T: Config>(
     tx_request: &RequestData,
@@ -116,7 +115,7 @@ pub fn generate_send_calldata<T: Config>(
     let mut full_params = unbound_params(&tx.data.params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
-    abi_encode_function(&tx.data.function_name.as_slice(), &full_params, None)
+    abi_encode_function(&tx.data.function_name.as_slice(), &full_params)
 }
 
 fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
@@ -125,7 +124,7 @@ fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<V
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
     ];
 
-    abi_encode_function(b"corroborate", &params, Some(INT8.to_vec()))
+    abi_encode_function(b"corroborate", &params)
 }
 
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
@@ -143,7 +142,6 @@ fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
 fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
-    output_type: Option<Vec<u8>>,
 ) -> Result<Vec<u8>, Error<T>> {
     let inputs = params
         .iter()
@@ -161,17 +159,10 @@ fn abi_encode_function<T: pallet::Config>(
         })
         .collect();
 
-    let outputs: Vec<Param> = output_type
-        .into_iter()
-        .filter_map(|type_bytes| {
-            to_param_type(&type_bytes).map(|kind| Param { name: "".to_string(), kind })
-        })
-        .collect();
-
     let function = Function {
         name: core::str::from_utf8(function_name).unwrap().to_string(),
         inputs,
-        outputs,
+        outputs: Vec::<Param>::new(),
         constant: false,
     };
 
@@ -182,7 +173,6 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     match key.as_slice() {
         BYTES => Some(ParamType::Bytes),
         BYTES32 => Some(ParamType::FixedBytes(32)),
-        INT8 => Some(ParamType::Int(8)),
         UINT32 => Some(ParamType::Uint(32)),
         UINT128 => Some(ParamType::Uint(128)),
         UINT256 => Some(ParamType::Uint(256)),
@@ -247,9 +237,8 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
 }
 
 fn process_view_response<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
-    if result.len() == 1 {
-        Ok(result[0] as i8)
-    } else {
-        Err(Error::<T>::InvalidDataLength.into())
+    if result.is_empty() {
+        return Err(Error::<T>::InvalidDataLength.into())
     }
+    Ok(result[result.len() - 1] as i8)
 }
