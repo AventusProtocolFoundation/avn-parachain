@@ -23,7 +23,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use avn::{AccountToBytesConverter, OnPublishingResultHandler};
+use avn::{AccountToBytesConverter, OnBridgePublisherResult};
 use core::convert::TryInto;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, weights::Weight};
 use frame_system::{
@@ -1424,7 +1424,7 @@ impl<AccountId> Default for RootData<AccountId> {
     }
 }
 
-impl<T: Config> OnPublishingResultHandler for Pallet<T> {
+impl<T: Config> OnBridgePublisherResult for Pallet<T> {
     fn process_result(_tx_id: u32, _succeeded: bool) -> DispatchResult {
         Ok(())
     }

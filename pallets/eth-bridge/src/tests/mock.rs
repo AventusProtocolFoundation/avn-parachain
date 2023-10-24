@@ -50,7 +50,7 @@ impl Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type AccountToBytesConvert = U64To32BytesConverter;
-    type OnPublishingResultHandler = TestRuntime;
+    type OnBridgePublisherResult = TestRuntime;
 }
 
 impl system::Config for TestRuntime {
@@ -175,7 +175,7 @@ impl ExtBuilder {
     }
 }
 
-impl OnPublishingResultHandler for TestRuntime {
+impl OnBridgePublisherResult for TestRuntime {
     fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }

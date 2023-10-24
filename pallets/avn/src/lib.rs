@@ -16,7 +16,10 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 
 use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
 use frame_system::{ensure_root, pallet_prelude::OriginFor};
@@ -112,9 +115,8 @@ pub mod pallet {
         ErrorDecodingHex,
         ErrorRecordingOffchainWorkerRun,
         NoValidatorsFound,
-        RequestTimedOut,
-        DeadlineReached,
         UnexpectedStatusCode,
+        InvalidResponse,
         InvalidVotingSession,
         InvalidContractAddress,
         DuplicateVote,
@@ -123,6 +125,8 @@ pub mod pallet {
         InvalidECDSASignature,
         VectorBoundsExceeded,
         MaxValidatorsExceeded,
+        ResponseFailed,
+        RequestFailed,
     }
 
     #[pallet::storage]
@@ -398,31 +402,36 @@ impl<T: Config> Pallet<T> {
     ) -> Result<Vec<u8>, DispatchError> {
         // TODO: Make this configurable
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(300_000));
-        let external_service_port_number = Self::get_external_service_port_number();
+        let url = format!(
+            "http://127.0.0.1:{}/{}",
+            Self::get_external_service_port_number(),
+            url_path.trim_start_matches('/')
+        );
 
-        let mut url = String::from("http://127.0.0.1:");
-        url.push_str(&external_service_port_number);
-        url.push_str(&"/".to_string());
-        url.push_str(&url_path);
-
-        let pending = request
+        let response = request
             .deadline(deadline)
             .url(&url)
             .send()
-            .map_err(|_| Error::<T>::RequestTimedOut)?;
-
-        let response = pending
+            .map_err(|e| {
+                error!("❌ Request failed: {:?}", e);
+                Error::<T>::RequestFailed
+            })?
             .try_wait(deadline)
-            .map_err(|_| Error::<T>::DeadlineReached)?
-            .map_err(|_| Error::<T>::DeadlineReached)?;
+            .map_err(|e| {
+                error!("❌ Response failed: {:?}", e);
+                Error::<T>::ResponseFailed
+            })?
+            .map_err(|e| {
+                error!("❌ Invalid response: {:?}", e);
+                Error::<T>::InvalidResponse
+            })?;
 
         if response.code != 200 {
             error!("❌ Unexpected status code: {}", response.code);
             return Err(Error::<T>::UnexpectedStatusCode)?
         }
 
-        let result: Vec<u8> = response.body().collect::<Vec<u8>>();
-        return Ok(result)
+        Ok(response.body().collect())
     }
 }
 
@@ -599,7 +608,7 @@ pub trait BridgePublisher {
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
 }
 
-pub trait OnPublishingResultHandler {
+pub trait OnBridgePublisherResult {
     fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult;
 }
 
