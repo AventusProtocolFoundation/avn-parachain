@@ -700,7 +700,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type AccountToBytesConvert = Avn;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type OnPublishingResultHandler = Summary;
+    type OnBridgePublisherResult = Summary;
 }
 
 // Other pallets

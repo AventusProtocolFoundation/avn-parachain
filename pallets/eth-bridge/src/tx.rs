@@ -40,7 +40,7 @@ pub fn finalize_state<T: Config>(
     success: bool,
 ) -> Result<(), Error<T>> {
     // Alert the originating pallet:
-    T::OnPublishingResultHandler::process_result(tx.id, success)
+    T::OnBridgePublisherResult::process_result(tx.id, success)
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     tx.data.tx_succeeded = success;
