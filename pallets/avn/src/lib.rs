@@ -16,7 +16,10 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 
 use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
 use frame_system::{ensure_root, pallet_prelude::OriginFor};
@@ -403,7 +406,7 @@ impl<T: Config> Pallet<T> {
             Self::get_external_service_port_number(),
             url_path.trim_start_matches('/')
         );
-    
+
         let response = request
             .deadline(deadline)
             .url(&url)
@@ -421,14 +424,14 @@ impl<T: Config> Pallet<T> {
                 error!("❌ Invalid response: {:?}", e);
                 Error::<T>::InvalidResponse
             })?;
-    
+
         if response.code != 200 {
             error!("❌ Unexpected status code: {}", response.code);
-            return Err(Error::<T>::UnexpectedStatusCode.into());
+            return Err(Error::<T>::UnexpectedStatusCode)?
         }
-    
+
         Ok(response.body().collect())
-    }    
+    }
 }
 
 // Session pallet interface
