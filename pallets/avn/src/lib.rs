@@ -400,6 +400,7 @@ impl<T: Config> Pallet<T> {
         request: http::Request<Vec<Vec<u8>>>,
         url_path: String,
     ) -> Result<Vec<u8>, DispatchError> {
+        // TODO: Make this configurable
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(300_000));
         let url = format!(
             "http://127.0.0.1:{}/{}",
