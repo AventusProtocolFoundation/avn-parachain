@@ -112,9 +112,8 @@ pub mod pallet {
         ErrorDecodingHex,
         ErrorRecordingOffchainWorkerRun,
         NoValidatorsFound,
-        RequestTimedOut,
-        DeadlineReached,
         UnexpectedStatusCode,
+        InvalidResponse,
         InvalidVotingSession,
         InvalidContractAddress,
         DuplicateVote,
@@ -123,6 +122,8 @@ pub mod pallet {
         InvalidECDSASignature,
         VectorBoundsExceeded,
         MaxValidatorsExceeded,
+        ResponseFailed,
+        RequestFailed,
     }
 
     #[pallet::storage]
@@ -396,36 +397,38 @@ impl<T: Config> Pallet<T> {
         request: http::Request<Vec<Vec<u8>>>,
         url_path: String,
     ) -> Result<Vec<u8>, DispatchError> {
-        // TODO: Make this configurable
         let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(300_000));
-        let external_service_port_number = Self::get_external_service_port_number();
-
-        let mut url = String::from("http://127.0.0.1:");
-        url.push_str(&external_service_port_number);
-        if !url_path.starts_with('/') {
-            url.push_str("/");
-        }
-        url.push_str(&url_path);
-
-        let pending = request
+        let url = format!(
+            "http://127.0.0.1:{}/{}",
+            Self::get_external_service_port_number(),
+            url_path.trim_start_matches('/')
+        );
+    
+        let response = request
             .deadline(deadline)
             .url(&url)
             .send()
-            .map_err(|_| Error::<T>::RequestTimedOut)?;
-
-        let response = pending
+            .map_err(|e| {
+                error!("❌ Request failed: {:?}", e);
+                Error::<T>::RequestFailed
+            })?
             .try_wait(deadline)
-            .map_err(|_| Error::<T>::DeadlineReached)?
-            .map_err(|_| Error::<T>::DeadlineReached)?;
-
+            .map_err(|e| {
+                error!("❌ Response failed: {:?}", e);
+                Error::<T>::ResponseFailed
+            })?
+            .map_err(|e| {
+                error!("❌ Invalid response: {:?}", e);
+                Error::<T>::InvalidResponse
+            })?;
+    
         if response.code != 200 {
             error!("❌ Unexpected status code: {}", response.code);
-            return Err(Error::<T>::UnexpectedStatusCode)?
+            return Err(Error::<T>::UnexpectedStatusCode.into());
         }
-
-        let result: Vec<u8> = response.body().collect::<Vec<u8>>();
-        return Ok(result)
-    }
+    
+        Ok(response.body().collect())
+    }    
 }
 
 // Session pallet interface
