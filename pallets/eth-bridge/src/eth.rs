@@ -237,15 +237,15 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
 }
 
 fn process_view_response<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
-    if result.len() != 32 {
-        return Err(Error::<T>::InvalidViewResponseLength.into());
+    let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidViewResponseData)?;
+
+    if result_bytes.len() != 32 {
+        return Err(Error::<T>::InvalidViewResponseLength.into())
     }
 
-    for &byte in &result[0..31] {
-        if byte != 0 && byte != 0xFF {
-            return Err(Error::<T>::InvalidViewResponseValue.into());
-        }
+    if !result_bytes[..31].iter().all(|&byte| byte == 0 || byte == 0xFF) {
+        return Err(Error::<T>::InvalidViewResponseValue.into())
     }
 
-    Ok(result[31] as i8)
+    Ok(result_bytes[31] as i8)
 }

@@ -233,6 +233,7 @@ pub mod pallet {
         InvalidHexString,
         InvalidUint,
         InvalidUTF8,
+        InvalidViewResponseData,
         InvalidViewResponseLength,
         InvalidViewResponseValue,
         MsgHashError,
