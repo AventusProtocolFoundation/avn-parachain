@@ -402,7 +402,9 @@ impl<T: Config> Pallet<T> {
 
         let mut url = String::from("http://127.0.0.1:");
         url.push_str(&external_service_port_number);
-        url.push_str(&"/".to_string());
+        if !url_path.starts_with('/') {
+            url.push_str("/");
+        }
         url.push_str(&url_path);
 
         let pending = request
@@ -599,7 +601,7 @@ pub trait BridgePublisher {
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
 }
 
-pub trait OnPublishingResultHandler {
+pub trait OnBridgePublisherResult {
     fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult;
 }
 

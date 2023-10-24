@@ -1,7 +1,7 @@
 // Copyright 2023 Aventus Network Services (UK) Ltd.
 
 //! This pallet implements the AvN pallet's **BridgePublisher** interface, providing a **publish**
-//! method which other pallets, implementing the **OnPublishingResultHandler**, can use to execute
+//! method which other pallets, implementing the **OnBridgePublisherResult**, can use to execute
 //! any author function on the Ethereum-based **avn-bridge** contract. They do so
 //! by passing the name of the desired avn-bridge function, along with an array of data type and
 //! value parameter tuples. Upon receipt of a **publish** request, this pallet takes charge of
@@ -29,7 +29,7 @@
 //! - Utilising the transaction ID and expiry to check the status of a sent transaction on Ethereum
 //!   and arrive at a consensus of that status by providing **corroborations**.
 //!
-//! - Alerting the originating pallet to the outcome via the OnPublishingResultHandler callback.
+//! - Alerting the originating pallet to the outcome via the OnBridgePublisherResult callback.
 //!
 //! The core of the pallet resides in the off-chain worker. The OCW monitors all unresolved
 //! transactions, prompting authors to resolve them by invoking one of three unsigned extrinsics:
@@ -64,7 +64,7 @@ use frame_system::{
     offchain::{SendTransactionTypes, SubmitTransaction},
     pallet_prelude::OriginFor,
 };
-use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnPublishingResultHandler};
+use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnBridgePublisherResult};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::event_types::Validator;
 use sp_core::{ecdsa, ConstU32, H256};
@@ -124,7 +124,7 @@ pub mod pallet {
             + From<Call<Self>>;
         type MaxQueuedTxRequests: Get<u32>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
-        type OnPublishingResultHandler: avn::OnPublishingResultHandler;
+        type OnBridgePublisherResult: avn::OnBridgePublisherResult;
     }
 
     #[pallet::event]
@@ -226,14 +226,15 @@ pub mod pallet {
         HandlePublishingResultFailed,
         InvalidBytes,
         InvalidCalldataGeneration,
-        InvalidEthereumCheckResponse,
         InvalidData,
-        InvalidDataLength,
         InvalidECDSASignature,
+        InvalidEthereumCheckResponse,
         InvalidHashLength,
         InvalidHexString,
         InvalidUint,
-        InvalidUtf8,
+        InvalidUTF8,
+        InvalidViewResponseLength,
+        InvalidViewResponseValue,
         MsgHashError,
         ParamsLimitExceeded,
         ParamTypeEncodingError,
@@ -418,7 +419,7 @@ pub mod pallet {
             match call {
                 Call::add_confirmation { tx_id, confirmation, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, author),
+                        &(ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, &author.account_id),
                         &author,
                         signature,
                     ) {
@@ -431,7 +432,7 @@ pub mod pallet {
                     },
                 Call::add_eth_tx_hash { tx_id, eth_tx_hash, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_ETH_TX_HASH_CONTEXT, tx_id, eth_tx_hash, author),
+                        &(ADD_ETH_TX_HASH_CONTEXT, tx_id, eth_tx_hash, &author.account_id),
                         &author,
                         signature,
                     ) {
@@ -444,7 +445,7 @@ pub mod pallet {
                     },
                 Call::add_corroboration { tx_id, tx_succeeded, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author),
+                        &(ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, &author.account_id),
                         &author,
                         signature,
                     ) {

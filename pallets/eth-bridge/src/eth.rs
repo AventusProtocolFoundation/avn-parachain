@@ -185,7 +185,7 @@ fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<To
     match kind {
         ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
         ParamType::Uint(_) => {
-            let dec_str = core::str::from_utf8(value).map_err(|_| Error::<T>::InvalidUtf8)?;
+            let dec_str = core::str::from_utf8(value).map_err(|_| Error::<T>::InvalidUTF8)?;
             let dec_value = Int::from_dec_str(dec_str).map_err(|_| Error::<T>::InvalidUint)?;
             Ok(Token::Uint(dec_value))
         },
@@ -227,7 +227,7 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
         return Err(Error::<T>::InvalidHashLength.into())
     }
 
-    let tx_hash_string = core::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidUtf8)?;
+    let tx_hash_string = core::str::from_utf8(&result).map_err(|_| Error::<T>::InvalidUTF8)?;
 
     let mut data: [u8; 32] = [0; 32];
     hex::decode_to_slice(tx_hash_string, &mut data[..])
@@ -237,8 +237,15 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
 }
 
 fn process_view_response<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
-    if result.is_empty() {
-        return Err(Error::<T>::InvalidDataLength.into())
+    if result.len() != 32 {
+        return Err(Error::<T>::InvalidViewResponseLength.into());
     }
-    Ok(result[result.len() - 1] as i8)
+
+    for &byte in &result[0..31] {
+        if byte != 0 && byte != 0xFF {
+            return Err(Error::<T>::InvalidViewResponseValue.into());
+        }
+    }
+
+    Ok(result[31] as i8)
 }
