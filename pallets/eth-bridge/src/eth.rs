@@ -45,7 +45,7 @@ pub fn verify_signature<T: Config>(
     author: &Author<T>,
     confirmation: &ecdsa::Signature,
 ) -> Result<(), Error<T>> {
-    if !AVN::<T>::eth_signature_is_valid(msg_hash.to_string(), &author, &confirmation) {
+    if !AVN::<T>::eth_signature_is_valid(msg_hash.to_string(), author, confirmation) {
         Err(Error::<T>::InvalidECDSASignature)
     } else {
         Ok(())
@@ -71,7 +71,7 @@ pub fn check_tx_status<T: Config>(
     author: &Author<T>,
 ) -> Result<Option<bool>, DispatchError> {
     if let Ok(calldata) = generate_corroborate_calldata::<T>(tx_id, expiry) {
-        if let Ok(result) = call_corroborate_method::<T>(calldata, &author) {
+        if let Ok(result) = call_corroborate_method::<T>(calldata, author) {
             match result {
                 0 => return Ok(None),
                 1 => return Ok(Some(true)),
@@ -203,28 +203,27 @@ fn send_transaction<T: Config>(
     calldata: Vec<u8>,
     author: &Author<T>,
 ) -> Result<H256, DispatchError> {
-    make_call::<H256, T>(calldata, author, "send", process_tx_hash::<T>)
+    make_ethereum_call::<H256, T>(author, "send", calldata, process_tx_hash::<T>)
 }
 
 fn call_corroborate_method<T: Config>(
     calldata: Vec<u8>,
     author: &Author<T>,
 ) -> Result<i8, DispatchError> {
-    make_call::<i8, T>(calldata, author, "view", process_corroborate_result::<T>)
+    make_ethereum_call::<i8, T>(author, "view", calldata, process_corroborate_result::<T>)
 }
 
-fn make_call<R, T: Config>(
-    calldata: Vec<u8>,
+fn make_ethereum_call<R, T: Config>(
     author: &Author<T>,
     endpoint: &str,
+    calldata: Vec<u8>,
     process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
 ) -> Result<R, DispatchError> {
-    let url_path = format!("/eth/{}", endpoint);
-    let contract_address = AVN::<T>::get_bridge_contract_address();
     let sender = T::AccountToBytesConvert::into_bytes(&author.account_id);
-    let transaction_to_send = EthTransaction::new(sender, contract_address, calldata);
-
-    let result = AVN::<T>::post_data_to_service(url_path, transaction_to_send.encode())?;
+    let contract_address = AVN::<T>::get_bridge_contract_address();
+    let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
+    let url_path = format!("/eth/{}", endpoint);
+    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
 }
 
