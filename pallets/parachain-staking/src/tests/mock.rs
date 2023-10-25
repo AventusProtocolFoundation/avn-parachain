@@ -265,7 +265,6 @@ impl Config for Test {
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
     type CandidateTransactionSubmitter = Self;
-    type ReportGrowthOffence = TestOffenceHandler;
 }
 
 pub const GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR: u32 = 0u32;
