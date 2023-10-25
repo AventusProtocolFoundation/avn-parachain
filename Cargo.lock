@@ -6485,6 +6485,7 @@ dependencies = [
 name = "pallet-avn"
 version = "3.4.3"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",

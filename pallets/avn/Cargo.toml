@@ -24,6 +24,7 @@ sp-io = { default-features = false, git = "https://github.com/paritytech/substra
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }
 pallet-session = {features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
 
 [dev-dependencies]
@@ -37,6 +38,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 migrate = []
 default = ["std"]
 std = [
+	"frame-benchmarking?/std",
 	"serde",
 	"codec/std",
 	"sp-std/std",
@@ -47,5 +49,10 @@ std = [
 	"sp-avn-common/std",
 	"pallet-session/std",
 	"sp-application-crypto/std",
+]
+runtime-benchmarks = [
+    "frame-benchmarking/runtime-benchmarks",
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
 ]
 try-runtime = [ "frame-support/try-runtime" ]

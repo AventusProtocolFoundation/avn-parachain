@@ -817,6 +817,7 @@ mod benches {
         [pallet_balances, Balances]
         [pallet_avn_offence_handler, AvnOffenceHandler]
         [pallet_avn_proxy, AvnProxy]
+        [pallet_avn, Avn]
         [pallet_ethereum_events, EthereumEvents]
         [pallet_ethereum_transactions, EthereumTransactions]
         [pallet_nft_manager, NftManager]
