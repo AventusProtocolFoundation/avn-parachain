@@ -116,9 +116,6 @@ pub mod pallet {
     #[cfg(not(feature = "std"))]
     use alloc::string::{String, ToString};
 
-    const EMPTY_GROWTH_TRANSACTION_ID: TransactionId = 0;
-    const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
-
     pub use crate::{
         calls::*,
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
@@ -148,19 +145,13 @@ pub mod pallet {
     };
 
     pub use crate::GrowthId;
-    use pallet_ethereum_transactions::{
-        ethereum_transaction::{
-            EthAbiHelper, TransactionId, TriggerGrowthData,
-        },
-        CandidateTransactionSubmitter,
-    };
+    use pallet_ethereum_transactions::CandidateTransactionSubmitter;
     pub use sp_avn_common::{
         bounds::VotingSessionIdBound,
         event_types::Validator,
         offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
         safe_add_block_numbers, verify_signature, IngressCounter, Proof,
     };
-    use sp_io::hashing::keccak_256;
     pub use sp_runtime::{
         traits::{
             AccountIdConversion, Bounded, CheckedAdd, CheckedDiv, CheckedSub, Dispatchable,
@@ -179,6 +170,7 @@ pub mod pallet {
     pub type EraIndex = u32;
     pub type GrowthPeriodIndex = u32;
     pub type RewardPoint = u32;
+    pub type EthereumTransactionId = u32;
     pub type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
     pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
@@ -188,7 +180,7 @@ pub mod pallet {
     pub const COLLATOR_LOCK_ID: LockIdentifier = *b"stkngcol";
     pub const NOMINATOR_LOCK_ID: LockIdentifier = *b"stkngnom";
 
-    const MAX_GROWTHS_TO_PROCESS: usize = 5;
+    const MAX_GROWTHS_TO_PROCESS: usize = 10;
 
     pub type CollatorMaxScores = ConstU32<10000>;
 
@@ -327,17 +319,9 @@ pub mod pallet {
         CandidateSessionKeysNotFound,
         FailedToWithdrawFullAmount,
         GrowthDataNotFound,
-        AccumulationIsZero,
-        ErrorCalculatingPrimaryValidator,
-        PrimaryCollatorNotFound,
         InvalidGrowthData,
         ErrorConvertingBalance,
-        GrowthTxSenderNotFound,
-        ErrorEndingVotingPeriod,
-        VotingSessionIsNotValid,
-        ErrorReservingId,
         Overflow,
-        ErrorSubmitCandidateTxnToTier1,
         ErrorPublishingGrowth,
     }
 
@@ -690,16 +674,21 @@ pub mod pallet {
     pub type PendingApproval<T: Config> =
         StorageMap<_, Blake2_128Concat, GrowthPeriodIndex, IngressCounter, ValueQuery>;
 
-    /// A period (in block number) where authors are allowed to vote on the validity of a growth
-    /// hash
-    #[pallet::storage]
-    #[pallet::getter(fn voting_period)]
-    pub type VotingPeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
-
     /// The last period we triggered growth
     #[pallet::storage]
     #[pallet::getter(fn last_triggered_growth_period)]
     pub type LastTriggeredGrowthPeriod<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn published_growth)]
+    /// Map to keep track of growth we have published on Ethereum
+    pub type PublishedGrowth<T: Config> = StorageMap<
+        _,
+        Twox64Concat,
+        EthereumTransactionId,
+        GrowthPeriodIndex,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -710,7 +699,6 @@ pub mod pallet {
         pub delay: EraIndex,
         pub min_collator_stake: BalanceOf<T>,
         pub min_total_nominator_stake: BalanceOf<T>,
-        pub voting_period: T::BlockNumber,
     }
 
     #[cfg(feature = "std")]
@@ -722,7 +710,6 @@ pub mod pallet {
                 delay: Default::default(),
                 min_collator_stake: Default::default(),
                 min_total_nominator_stake: Default::default(),
-                voting_period: T::BlockNumber::from(DEFAULT_VOTING_PERIOD),
             }
         }
     }
@@ -806,12 +793,6 @@ pub mod pallet {
 
             // Set the first GrowthInfo
             <Growth<T>>::insert(0u32, GrowthInfo::new(1u32));
-
-            let mut voting_period_in_blocks = self.voting_period;
-            if voting_period_in_blocks == 0u32.into() {
-                voting_period_in_blocks = DEFAULT_VOTING_PERIOD.into();
-            }
-            <VotingPeriod<T>>::put(voting_period_in_blocks);
 
             <Pallet<T>>::deposit_event(Event::NewEra {
                 starting_block: T::BlockNumber::zero(),
@@ -2424,10 +2405,10 @@ pub mod pallet {
                     let growth_info = <Growth<T>>::get(growth_period);
 
                     if <ProcessedGrowthPeriods<T>>::contains_key(growth_period) ||
-                        growth_info.added_by.is_some() ||
-                        growth_info.tx_id.is_some()
+                        growth_info.tx_id.is_some() ||
+                        growth_info.triggered.is_some()
                     {
-                        log::warn!("Growth for period {:?} is already processed. Added by: {:?}, Tx id: {:?}", growth_period, growth_info.added_by, growth_info.tx_id);
+                        log::warn!("Growth for period {:?} is already processed. Tx id: {:?}, triggered: {:?}", growth_period, growth_info.tx_id, growth_info.triggered);
                         continue
                     }
 
@@ -2479,6 +2460,7 @@ pub mod pallet {
 
 
             <LastTriggeredGrowthPeriod<T>>::put(growth_period);
+            <PublishedGrowth<T>>::insert(tx_id, growth_period);
             <Growth<T>>::mutate(growth_period, |growth| {
                 growth.tx_id = Some(tx_id.into());
             });
@@ -2499,58 +2481,6 @@ pub mod pallet {
             }
 
             Err(Error::<T>::GrowthDataNotFound)?
-        }
-
-        pub fn convert_data_to_eth_compatible_encoding(
-            growth_period: &u32,
-        ) -> Result<String, DispatchError> {
-            let growth_info = Self::try_get_growth_data(growth_period)?;
-            let rewards_in_period_128 = TryInto::<u128>::try_into(growth_info.total_staker_reward)
-                .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
-
-            let average_staked_in_period_128 = TryInto::<u128>::try_into(
-                growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into(),
-            )
-            .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
-
-            let growth_data = TriggerGrowthData::new(
-                rewards_in_period_128,
-                average_staked_in_period_128,
-                *growth_period,
-            );
-
-            let encoded_growth_param = growth_data.abi_encode_params();
-            let growth_param_hash = keccak_256(&encoded_growth_param);
-
-            let sender = T::AccountToBytesConvert::into_bytes(
-                growth_info.added_by.as_ref().ok_or(Error::<T>::PrimaryCollatorNotFound)?,
-            );
-
-            let eth_transaction_id = match growth_info.tx_id {
-                None => EMPTY_GROWTH_TRANSACTION_ID,
-                _ => *growth_info
-                    .tx_id
-                    .as_ref()
-                    .expect("Non-Empty growths have a reserved TransactionId"),
-            };
-
-            let hex_encoded_confirmation_data =
-                hex::encode(EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
-                    &growth_param_hash,
-                    eth_transaction_id,
-                    &sender,
-                ));
-
-            log::info!(
-                "📄 Data used for abi encode: \n(encoded growth params: {:?}, encoded growth params hash: {:?}, tx_id: {:?}, encoded sender: {:?}). Output: {:?}",
-                hex::encode(encoded_growth_param),
-                hex::encode(growth_param_hash),
-                eth_transaction_id,
-                hex::encode(&sender),
-                &hex_encoded_confirmation_data
-            );
-
-            return Ok(hex_encoded_confirmation_data)
         }
 
         pub fn lock_till_request_expires() -> OcwOperationExpiration {
@@ -2605,7 +2535,13 @@ impl GrowthId {
 }
 
 impl<T: Config> OnBridgePublisherResult for Pallet<T> {
-    fn process_result(_tx_id: u32, _succeeded: bool) -> DispatchResult {
+    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
+        // The tx_id might not be relevant for this pallet so we must not error if we don't know it.
+        if <PublishedGrowth<T>>::contains_key(tx_id) {
+            let growth_period = <PublishedGrowth<T>>::get(tx_id);
+            <Growth<T>>::mutate(growth_period, |growth| growth.triggered = Some(succeeded));
+        }
+
         Ok(())
     }
 }

@@ -118,7 +118,6 @@ pub(crate) fn testnet_genesis(
             min_collator_stake: COLLATOR_DEPOSIT,
             min_total_nominator_stake: 10 * AVT,
             delay: 2,
-            voting_period: 100,
         },
         polkadot_xcm: avn_runtime::PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
         sudo: SudoConfig { key: Some(sudo_account) },

@@ -9,7 +9,7 @@
 use crate::{
     BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32, Decode, Encode, Growth,
     GrowthInfo, GrowthPeriodIndex, LastTriggeredGrowthPeriod, MaxEncodedLen, Pallet,
-    ProcessedGrowthPeriods, RewardPoint, RuntimeDebug, TypeInfo, Vec, VotingPeriod,
+    ProcessedGrowthPeriods, RewardPoint, RuntimeDebug, TypeInfo, Vec,
 };
 use frame_support::{
     dispatch::GetStorageVersion,
@@ -31,7 +31,6 @@ pub struct OldGrowthInfo<AccountId, Balance> {
 }
 
 pub fn enable_automatic_growth<T: Config>() -> Weight {
-    let initial_voting_period: T::BlockNumber = 100u32.into();
     let mut consumed_weight: Weight = Weight::from_ref_time(0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -52,7 +51,6 @@ pub fn enable_automatic_growth<T: Config>() -> Weight {
         .expect("we have a default value");
 
     <LastTriggeredGrowthPeriod<T>>::put(latest_processed_growth_period);
-    <VotingPeriod<T>>::put(initial_voting_period);
 
     Growth::<T>::translate::<OldGrowthInfo<T::AccountId, BalanceOf<T>>, _>(
         |period, growth_info| {
