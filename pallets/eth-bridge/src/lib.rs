@@ -211,8 +211,6 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        CalldataGenerationFailed,
-        ContractCallFailed,
         CorroborateCallFailed,
         DuplicateConfirmation,
         EmptyFunctionName,
@@ -225,20 +223,20 @@ pub mod pallet {
         FunctionNameError,
         HandlePublishingResultFailed,
         InvalidBytes,
-        InvalidCalldataGeneration,
-        InvalidData,
+        InvalidBytesLength,
+        InvalidCorroborateCalldata,
+        InvalidCorroborateResult,
         InvalidECDSASignature,
-        InvalidEthereumCheckResponse,
         InvalidHashLength,
         InvalidHexString,
+        InvalidParamData,
+        InvalidSendCalldata,
         InvalidUint,
         InvalidUTF8,
-        InvalidViewResponseData,
-        InvalidViewResponseLength,
-        InvalidViewResponseValue,
         MsgHashError,
         ParamsLimitExceeded,
         ParamTypeEncodingError,
+        SendTransactionFailed,
         TxRequestQueueFull,
         TypeNameLengthExceeded,
         ValueLengthExceeded,
@@ -396,7 +394,7 @@ pub mod pallet {
                     call::add_confirmation::<T>(tx.id, confirmation, author);
                 }
             } else if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
-                let eth_tx_hash = eth::send_transaction::<T>(&tx, &author)?;
+                let eth_tx_hash = eth::send_tx::<T>(&tx, &author)?;
                 call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
             } else if tx_is_sent || tx_is_past_expiry {
                 if util::requires_corroboration::<T>(&tx, &author) {

@@ -52,16 +52,16 @@ pub fn verify_signature<T: Config>(
     }
 }
 
-pub fn send_transaction<T: Config>(
+pub fn send_tx<T: Config>(
     tx: &ActiveTransactionData<T>,
     author: &Author<T>,
 ) -> Result<H256, DispatchError> {
     match generate_send_calldata::<T>(tx) {
-        Ok(calldata) => match make_send_call::<T>(calldata, author) {
+        Ok(calldata) => match send_transaction::<T>(calldata, author) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
-            Err(_) => Err(Error::<T>::ContractCallFailed.into()),
+            Err(_) => Err(Error::<T>::SendTransactionFailed.into()),
         },
-        Err(_) => Err(Error::<T>::CalldataGenerationFailed.into()),
+        Err(_) => Err(Error::<T>::InvalidSendCalldata.into()),
     }
 }
 
@@ -71,19 +71,19 @@ pub fn check_tx_status<T: Config>(
     author: &Author<T>,
 ) -> Result<Option<bool>, DispatchError> {
     if let Ok(calldata) = generate_corroborate_calldata::<T>(tx_id, expiry) {
-        if let Ok(result) = make_view_call::<T>(calldata, &author) {
+        if let Ok(result) = call_corroborate_method::<T>(calldata, &author) {
             match result {
                 0 => return Ok(None),
                 1 => return Ok(Some(true)),
                 -1 => return Ok(Some(false)),
-                _ => return Err(Error::<T>::InvalidEthereumCheckResponse.into()),
+                _ => return Err(Error::<T>::InvalidCorroborateResult.into()),
             }
         } else {
             return Err(Error::<T>::CorroborateCallFailed.into())
         }
     }
 
-    Err(Error::<T>::InvalidCalldataGeneration.into())
+    Err(Error::<T>::InvalidCorroborateCalldata.into())
 }
 
 pub fn generate_msg_hash<T: pallet::Config>(
@@ -195,23 +195,29 @@ fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<To
             }
             Ok(Token::FixedBytes(value.to_vec()))
         },
-        _ => Err(Error::<T>::InvalidData),
+        _ => Err(Error::<T>::InvalidParamData),
     }
 }
 
-fn make_send_call<T: Config>(calldata: Vec<u8>, author: &Author<T>) -> Result<H256, DispatchError> {
-    make_call::<H256, T>(calldata, author, "send", process_send_response::<T>)
+fn send_transaction<T: Config>(
+    calldata: Vec<u8>,
+    author: &Author<T>,
+) -> Result<H256, DispatchError> {
+    make_call::<H256, T>(calldata, author, "send", process_tx_hash::<T>)
 }
 
-fn make_view_call<T: Config>(calldata: Vec<u8>, author: &Author<T>) -> Result<i8, DispatchError> {
-    make_call::<i8, T>(calldata, author, "view", process_view_response::<T>)
+fn call_corroborate_method<T: Config>(
+    calldata: Vec<u8>,
+    author: &Author<T>,
+) -> Result<i8, DispatchError> {
+    make_call::<i8, T>(calldata, author, "view", process_corroborate_result::<T>)
 }
 
 fn make_call<R, T: Config>(
     calldata: Vec<u8>,
     author: &Author<T>,
     endpoint: &str,
-    process_response: fn(Vec<u8>) -> Result<R, DispatchError>,
+    process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
 ) -> Result<R, DispatchError> {
     let url_path = format!("/eth/{}", endpoint);
     let contract_address = AVN::<T>::get_bridge_contract_address();
@@ -219,10 +225,10 @@ fn make_call<R, T: Config>(
     let transaction_to_send = EthTransaction::new(sender, contract_address, calldata);
 
     let result = AVN::<T>::post_data_to_service(url_path, transaction_to_send.encode())?;
-    process_response(result)
+    process_result(result)
 }
 
-fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchError> {
+fn process_tx_hash<T: Config>(result: Vec<u8>) -> Result<H256, DispatchError> {
     if result.len() != 64 {
         return Err(Error::<T>::InvalidHashLength.into())
     }
@@ -236,15 +242,11 @@ fn process_send_response<T: Config>(result: Vec<u8>) -> Result<H256, DispatchErr
     Ok(H256::from_slice(&data))
 }
 
-fn process_view_response<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
-    let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidViewResponseData)?;
+fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, DispatchError> {
+    let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
 
     if result_bytes.len() != 32 {
-        return Err(Error::<T>::InvalidViewResponseLength.into())
-    }
-
-    if !result_bytes[..31].iter().all(|&byte| byte == 0 || byte == 0xFF) {
-        return Err(Error::<T>::InvalidViewResponseValue.into())
+        return Err(Error::<T>::InvalidBytesLength.into())
     }
 
     Ok(result_bytes[31] as i8)
