@@ -1,7 +1,6 @@
 //Copyright 2022 Aventus Network Services (UK) Ltd.
 
 use crate::{self as validators_manager, *};
-use avn::FinalisedBlockChecker;
 use frame_support::{
     parameter_types,
     traits::{Currency, GenesisBuild, OnFinalize, OnInitialize},
@@ -320,7 +319,6 @@ impl avn::Config for TestRuntime {
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ValidatorManager;
     type DisabledValidatorChecker = ValidatorManager;
-    type FinalisedBlockChecker = Self;
     type WeightInfo = ();
 }
 
@@ -445,12 +443,6 @@ impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
 
     fn is_known_offence(_offenders: &[IdentificationTuple], _time_slot: &SessionIndex) -> bool {
         false
-    }
-}
-
-impl FinalisedBlockChecker<BlockNumber> for TestRuntime {
-    fn is_finalised(_block_number: BlockNumber) -> bool {
-        true
     }
 }
 

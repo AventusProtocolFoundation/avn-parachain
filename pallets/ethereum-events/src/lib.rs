@@ -1118,10 +1118,7 @@ impl<T: Config> Pallet<T> {
             return None
         }
 
-        return Self::unchecked_events()
-            .into_iter()
-            .filter(|e| AVN::<T>::is_block_finalised(e.2))
-            .nth(0)
+        return Self::unchecked_events().into_iter().nth(0)
     }
 
     fn get_next_event_to_validate(
@@ -1144,13 +1141,13 @@ impl<T: Config> Pallet<T> {
 
         return Self::events_pending_challenge()
             .into_iter()
-            .filter(|(checked, _counter, submitted_at_block)| {
+            .filter(|(checked, _counter, _submitted_at_block)| {
                 Self::can_validate_this_event(
                     checked,
                     validator_account_id,
                     &stored_validated_events,
                     node_has_never_validated_events,
-                ) && AVN::<T>::is_block_finalised(*submitted_at_block)
+                )
             })
             .nth(0)
     }
@@ -1180,9 +1177,8 @@ impl<T: Config> Pallet<T> {
     {
         return Self::events_pending_challenge()
             .into_iter()
-            .filter(|(checked, _counter, submitted_at_block)| {
-                block_number > checked.ready_for_processing_after_block &&
-                    AVN::<T>::is_block_finalised(*submitted_at_block)
+            .filter(|(checked, _counter, _submitted_at_block)| {
+                block_number > checked.ready_for_processing_after_block
             })
             .last()
     }

@@ -109,7 +109,6 @@ impl avn::Config for TestRuntime {
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
-    type FinalisedBlockChecker = ();
     type WeightInfo = ();
 }
 

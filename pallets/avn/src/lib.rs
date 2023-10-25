@@ -101,8 +101,6 @@ pub mod pallet {
         type NewSessionHandler: NewSessionHandler<Self::AuthorityId, Self::AccountId>;
         /// trait that allows the system to check for disabled validators
         type DisabledValidatorChecker: DisabledValidatorChecker<Self::AccountId>;
-        /// trait that allows the runtime to check if a block is finalised
-        type FinalisedBlockChecker: FinalisedBlockChecker<Self::BlockNumber>;
 
         type WeightInfo: WeightInfo;
     }
@@ -376,10 +374,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn is_block_finalised(block_number: T::BlockNumber) -> bool {
-        return T::FinalisedBlockChecker::is_finalised(block_number)
-    }
-
     pub fn get_external_service_port_number() -> String {
         let stored_value =
             StorageValueRef::persistent(EXTERNAL_SERVICE_PORT_NUMBER_KEY).get::<Vec<u8>>();
@@ -581,16 +575,6 @@ pub trait Enforcer<ValidatorId: Member> {
 impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
     fn slash_validator(_slashed_validator_id: &ValidatorId) -> DispatchResult {
         Ok(())
-    }
-}
-
-pub trait FinalisedBlockChecker<BlockNumber: Member> {
-    fn is_finalised(block_number: BlockNumber) -> bool;
-}
-
-impl<BlockNumber: Member> FinalisedBlockChecker<BlockNumber> for () {
-    fn is_finalised(_block_number: BlockNumber) -> bool {
-        false
     }
 }
 

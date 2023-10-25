@@ -186,28 +186,6 @@ mod test_set_periods {
             }
 
             #[test]
-            fn less_than_report_latency_should_fail() {
-                let mut ext = ExtBuilder::build_default()
-                    .with_validators()
-                    .with_genesis_config()
-                    .as_externality();
-                ext.execute_with(|| {
-                    let context: Context = Context {
-                        new_voting_period: (<TestRuntime as Config>::FinalityReportLatency::get() -
-                            1)
-                        .into(),
-                        ..Default::default()
-                    };
-
-                    assert_noop!(
-                        context.dispatch_set_voting_period(),
-                        Error::<TestRuntime>::VotingPeriodIsLessThanFinalityReportLatency
-                    );
-                    assert_ne!(context.new_voting_period, Summary::voting_period());
-                });
-            }
-
-            #[test]
             fn less_than_minimum_value_should_fail() {
                 let mut ext = ExtBuilder::build_default()
                     .with_validators()
