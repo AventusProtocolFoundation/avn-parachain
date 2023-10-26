@@ -522,7 +522,7 @@ impl pallet_parachain_staking::Config for Runtime {
     type MaxCandidates = ConstU32<100>;
     type AccountToBytesConvert = Avn;
     type CandidateTransactionSubmitter = EthereumTransactions;
-    type ReportGrowthOffence = Offences;
+    type BridgePublisher = EthBridge;
 }
 
 // Substrate pallets that AvN has dependency
@@ -805,7 +805,7 @@ construct_runtime!(
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
         Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
         AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
-        ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 96,
+        ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 96,
 
         // Since the ValidatorsManager integrates with the ParachainStaking pallet, we want to initialise after it.
         ValidatorsManager: pallet_validators_manager = 18,

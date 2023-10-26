@@ -265,7 +265,6 @@ impl Config for Test {
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
     type CandidateTransactionSubmitter = Self;
-    type ReportGrowthOffence = TestOffenceHandler;
 }
 
 pub const GROWTH_PERIOD_THAT_CAUSES_SUBMISSION_TO_T1_ERROR: u32 = 0u32;
@@ -673,7 +672,6 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: self.min_collator_stake.clone(),
             min_total_nominator_stake: self.min_total_nominator_stake.clone(),
-            voting_period: 100,
         }
         .assimilate_storage(&mut t)
         .expect("Parachain Staking's storage can be assimilated");
@@ -695,7 +693,6 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: self.min_collator_stake,
             min_total_nominator_stake: self.min_total_nominator_stake,
-            voting_period: 100,
         }
         .assimilate_storage(&mut t)
         .expect("Parachain Staking's storage can be assimilated");
