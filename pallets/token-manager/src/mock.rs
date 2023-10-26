@@ -25,7 +25,7 @@ use frame_support::{
 };
 use frame_system::{self as system, limits};
 use pallet_ethereum_transactions::{
-    ethereum_transaction::EthTransactionType, CandidateTransactionSubmitter,
+    ethereum_transaction::EthTransactionType,
 };
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_avn_common::{
@@ -254,31 +254,11 @@ impl parachain_staking::Config for TestRuntime {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
-    type CandidateTransactionSubmitter = Self;
 }
 
 impl pallet_session::historical::Config for TestRuntime {
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
-}
-
-impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
-    fn submit_candidate_transaction_to_tier1(
-        _candidate_type: EthTransactionType,
-        _tx_id: TransactionId,
-        _submitter: AccountId,
-        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
-    ) -> DispatchResult {
-        Ok(())
-    }
-
-    fn reserve_transaction_id(
-        _candidate_type: &EthTransactionType,
-    ) -> Result<TransactionId, DispatchError> {
-        return Ok(0)
-    }
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 impl WeightToFeeT for WeightToFee {

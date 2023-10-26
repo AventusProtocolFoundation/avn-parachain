@@ -429,7 +429,6 @@ impl parachain_staking::Config for TestRuntime {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
-    type CandidateTransactionSubmitter = Self;
 }
 
 /// A mock offence report handler.
