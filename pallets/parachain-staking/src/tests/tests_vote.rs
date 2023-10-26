@@ -10,7 +10,6 @@ use frame_system as system;
 use pallet_avn::Error as AvNError;
 use pallet_ethereum_transactions::{
     ethereum_transaction::{EthTransactionType, TriggerGrowthData},
-    CandidateTransactionSubmitter,
 };
 use sp_core::{
     ecdsa,
