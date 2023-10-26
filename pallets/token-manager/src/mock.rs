@@ -255,7 +255,6 @@ impl parachain_staking::Config for TestRuntime {
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
     type CandidateTransactionSubmitter = Self;
-    type ReportGrowthOffence = ();
 }
 
 impl pallet_session::historical::Config for TestRuntime {

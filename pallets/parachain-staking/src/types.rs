@@ -1367,6 +1367,7 @@ pub struct GrowthInfo<AccountId, Balance> {
     pub total_staker_reward: Balance,
     pub total_points: RewardPoint,
     pub collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
+    #[deprecated(note = "must only be used for backwards compatibility reasons")]
     pub added_by: Option<AccountId>,
     pub tx_id: Option<TransactionId>,
     pub triggered: Option<bool>,
