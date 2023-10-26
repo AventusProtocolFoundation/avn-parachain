@@ -33,6 +33,7 @@ use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
 };
+use pallet_avn::OnBridgePublisherResult;
 
 use codec::alloc::sync::Arc;
 use parking_lot::RwLock;
@@ -117,6 +118,8 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
+        EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
 
@@ -349,6 +352,22 @@ impl timestamp::Config for TestRuntime {
     type WeightInfo = ();
 }
 
+impl pallet_eth_bridge::Config for TestRuntime {
+    type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type TimeProvider = Timestamp;
+    type RuntimeCall = RuntimeCall;
+    type WeightInfo = ();
+    type AccountToBytesConvert = AVN;
+    type OnBridgePublisherResult = Self;
+}
+
+impl OnBridgePublisherResult for TestRuntime {
+    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+        Ok(())
+    }
+}
+
 parameter_types! {
     pub const Period: u64 = 1;
     pub const Offset: u64 = 0;
@@ -429,6 +448,7 @@ impl parachain_staking::Config for TestRuntime {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
+    type BridgePublisher = EthBridge;
 }
 
 /// A mock offence report handler.
@@ -619,7 +639,6 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: 10,
             min_total_nominator_stake: 5,
-            voting_period: 100,
         }
         .assimilate_storage(&mut self.storage);
 
