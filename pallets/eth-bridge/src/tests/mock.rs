@@ -2,7 +2,7 @@ use super::*;
 use crate::{self as eth_bridge};
 use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
-use pallet_avn::testing::U64To32BytesConverter;
+use pallet_avn::{EthereumPublicKeyChecker, testing::U64To32BytesConverter};
 use pallet_session as session;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::{
@@ -15,7 +15,7 @@ use std::cell::RefCell;
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
-
+pub type AccountId = u64;
 frame_support::construct_runtime!(
     pub enum TestRuntime where
         Block = Block,
@@ -64,7 +64,7 @@ impl system::Config for TestRuntime {
     type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
-    type AccountId = u64;
+    type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type RuntimeEvent = RuntimeEvent;
@@ -89,11 +89,28 @@ impl pallet_timestamp::Config for TestRuntime {
 
 impl avn::Config for TestRuntime {
     type AuthorityId = UintAuthorityId;
-    type EthereumPublicKeyChecker = ();
+    type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type WeightInfo = ();
     type RuntimeEvent = RuntimeEvent;
+}
+
+impl EthereumPublicKeyChecker<AccountId> for TestRuntime {
+    fn get_validator_for_eth_public_key(_eth_public_key: &ecdsa::Public) -> Option<AccountId> {
+        match ETH_PUBLIC_KEY_VALID.with(|pk| *pk.borrow()) {
+            true => Some(MOCK_RECOVERED_ACCOUNT_ID.with(|pk| *pk.borrow())),
+            _ => None,
+        }
+    }
+}
+
+pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 8]) {
+    let account_id = AccountId::decode(&mut account_id_bytes.to_vec().as_slice()).unwrap();
+    println!("Setting mock recovered account id to {}", account_id);
+    MOCK_RECOVERED_ACCOUNT_ID.with(|acc_id| {
+        *acc_id.borrow_mut() = account_id;
+    });
 }
 
 parameter_types! {
@@ -105,6 +122,8 @@ parameter_types! {
 thread_local! {
     // validator accounts (aka public addresses, public keys-ish)
     pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3]));
+    static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
+    static MOCK_RECOVERED_ACCOUNT_ID: RefCell<AccountId> = RefCell::new(1);
 }
 
 pub type SessionIndex = u32;

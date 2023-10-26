@@ -13,6 +13,7 @@ rust-version = { workspace = true }
 codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
 ethabi = { default-features = false, git = "https://github.com/Aventus-Network-Services/ethabi.git", branch = "v13.0.0-no-std-avn" }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+hex-literal = { version = "0.3.4", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 sp-avn-common =  { default-features = false, path = "../../primitives/avn-common" }
 pallet-avn = { default-features = false, path = "../avn" }
