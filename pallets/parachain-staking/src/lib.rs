@@ -93,9 +93,6 @@ mod test_staking_pot;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
-#[cfg(test)]
-#[path = "tests/tests_vote.rs"]
-mod tests_vote;
 
 use frame_support::pallet;
 pub use weights::WeightInfo;
@@ -145,7 +142,6 @@ pub mod pallet {
     };
 
     pub use crate::GrowthId;
-    use pallet_ethereum_transactions::CandidateTransactionSubmitter;
     pub use sp_avn_common::{
         bounds::VotingSessionIdBound,
         event_types::Validator,
@@ -253,8 +249,6 @@ pub mod pallet {
         type MaxCandidates: Get<u32>;
 
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
-
-        type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
 
         type BridgePublisher: pallet_avn::BridgePublisher;
     }
