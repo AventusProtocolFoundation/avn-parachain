@@ -12,6 +12,7 @@ use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::WeakBoundedVec;
+use hex_literal::hex;
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
     let mnemonic: &str =
@@ -103,6 +104,15 @@ fn setup_active_tx<T: Config>(
     });
 }
 
+#[cfg(test)]
+fn set_recovered_account_for_tests<T: Config>(sender_account_id: &T::AccountId) {
+    let bytes = sender_account_id.encode();
+    let mut vector: [u8; 8] = Default::default();
+    vector.copy_from_slice(&bytes[0..8]);
+    println!("set_recovered_account_for_tests {}", sender_account_id);
+    mock::set_mock_recovered_account_id(vector);
+}
+
 benchmarks! {
     set_eth_tx_lifetime_secs {
         let eth_tx_lifetime_secs = 300u64;
@@ -120,10 +130,12 @@ benchmarks! {
         let active_tx = ActiveTransaction::<T>::get().expect("is active");
         let msg_hash_string = active_tx.msg_hash.to_string();
         // TODO: We need a real signature as this benchmark fails at present
-        let signature_bytes = hex::decode("3a0490e7d4325d3baa39b3011284e9758f9e370477e6b9e98713b2303da7427f71919f2757f62a01909391aeb3e89991539fdcb2d02ad45f7c64eb129c96f37100").expect("Decoding failed");
-        let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&signature_bytes).unwrap().into();
+        let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("f825dec3df421141e5439f088c6cbd9db270fcfef21f15d48185883a817f60c451b5d9114feb1afd0e5489e08105dfd2887a775b96a1d7d3bdbfaec93e4f411b1b")).unwrap().into();
         let proof = (crate::ADD_CONFIRMATION_CONTEXT, tx_id, new_confirmation.clone(), author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
+
+        #[cfg(test)]
+        set_recovered_account_for_tests::<T>(&author.account_id);
     }: _(RawOrigin::None, tx_id, new_confirmation.clone(), author.clone(), signature)
     verify {
         let active_tx = ActiveTransaction::<T>::get().expect("is active");

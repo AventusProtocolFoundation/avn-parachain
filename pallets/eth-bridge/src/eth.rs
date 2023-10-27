@@ -35,7 +35,7 @@ pub fn create_tx_data<T: Config>(
 }
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
-    let msg_hash_string = msg_hash.to_string();
+    let msg_hash_string = hex::encode(msg_hash);
     let confirmation = AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
     Ok(confirmation)
 }
@@ -45,7 +45,7 @@ pub fn verify_signature<T: Config>(
     author: &Author<T>,
     confirmation: &ecdsa::Signature,
 ) -> Result<(), Error<T>> {
-    if !AVN::<T>::eth_signature_is_valid(msg_hash.to_string(), author, confirmation) {
+    if !AVN::<T>::eth_signature_is_valid(hex::encode(msg_hash), author, confirmation) {
         Err(Error::<T>::InvalidECDSASignature)
     } else {
         Ok(())
