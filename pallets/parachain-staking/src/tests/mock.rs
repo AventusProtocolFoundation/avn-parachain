@@ -343,7 +343,7 @@ impl avn_proxy::Config for Test {
 impl pallet_eth_bridge::Config for Test {
     type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
-    type TimeProvider = pallet_timestamp::Pallet<Test>;
+    type TimeProvider = Timestamp;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type AccountToBytesConvert = AVN;

@@ -40,6 +40,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
     DispatchError, Perbill, SaturatedConversion,
 };
+use pallet_avn::OnBridgePublisherResult;
 
 use hex_literal::hex;
 use pallet_parachain_staking::{self as parachain_staking};
@@ -80,6 +81,8 @@ frame_support::construct_runtime!(
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
+        EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
 
@@ -254,11 +257,35 @@ impl parachain_staking::Config for TestRuntime {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
+    type BridgePublisher = EthBridge;
 }
 
 impl pallet_session::historical::Config for TestRuntime {
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
+}
+
+impl pallet_eth_bridge::Config for TestRuntime {
+    type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type TimeProvider = Timestamp;
+    type RuntimeCall = RuntimeCall;
+    type WeightInfo = ();
+    type AccountToBytesConvert = AVN;
+    type OnBridgePublisherResult = Self;
+}
+
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = frame_support::traits::ConstU64<12000>;
+    type WeightInfo = ();
+}
+
+impl OnBridgePublisherResult for TestRuntime {
+    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+        Ok(())
+    }
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -377,7 +404,6 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: 10,
             min_total_nominator_stake: 5,
-            voting_period: 100,
         }
         .assimilate_storage(&mut self.storage);
 
