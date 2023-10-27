@@ -6844,6 +6844,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "hex-literal",
  "pallet-avn",
  "pallet-session",
  "pallet-timestamp",
