@@ -46,7 +46,7 @@ parameter_types! {
 impl Config for TestRuntime {
     type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
-    type TimeProvider = pallet_timestamp::Pallet<TestRuntime>;
+    type TimeProvider = Timestamp;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type AccountToBytesConvert = U64To32BytesConverter;

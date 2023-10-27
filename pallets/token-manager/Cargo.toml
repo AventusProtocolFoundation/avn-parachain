@@ -39,6 +39,9 @@ sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polka
 pallet-parachain-staking = { path = "../parachain-staking" }
 pallet-session = { features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
 pallet-ethereum-transactions = { default-features = false, path = "../ethereum-transactions" }
+pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
+
 
 [features]
 default = ["std"]

@@ -255,6 +255,8 @@ frame_support::construct_runtime!(
         AVN: pallet_avn::{Pallet, Storage, Event},
         Summary: summary::{Pallet, Call, Storage, Event<T>, Config<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
+        EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
 
@@ -295,6 +297,7 @@ impl Config for TestRuntime {
     type AccountToBytesConvert = U64To32BytesConverter;
     type ReportSummaryOffence = OffenceHandler;
     type WeightInfo = ();
+    type BridgePublisher = EthBridge;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -343,6 +346,29 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type WeightInfo = ();
+}
+
+impl pallet_eth_bridge::Config for TestRuntime {
+    type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type TimeProvider = Timestamp;
+    type RuntimeCall = RuntimeCall;
+    type WeightInfo = ();
+    type AccountToBytesConvert = AVN;
+    type OnBridgePublisherResult = Self;
+}
+
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = frame_support::traits::ConstU64<12000>;
+    type WeightInfo = ();
+}
+
+impl OnBridgePublisherResult for TestRuntime {
+    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+        Ok(())
+    }
 }
 
 parameter_types! {
