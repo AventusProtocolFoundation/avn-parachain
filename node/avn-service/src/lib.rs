@@ -117,8 +117,7 @@ pub fn server_error(message: String) -> TideError {
 pub fn hash_with_ethereum_prefix(data_to_sign: &Vec<u8>) -> [u8; 32] {
     // T1 Solidity code expects "packed" encoding of the signed message & prefix so we concatenate
     let mut prefixed_message = b"\x19Ethereum Signed Message:\n32".to_vec();
-    let hashed_message = keccak_256(data_to_sign);
-    prefixed_message.append(&mut hashed_message.to_vec());
+    prefixed_message.append(&mut data_to_sign.clone());
     keccak_256(&prefixed_message)
 }
 

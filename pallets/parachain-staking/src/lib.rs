@@ -111,7 +111,7 @@ pub mod pallet {
     #[cfg(not(feature = "std"))]
     extern crate alloc;
     #[cfg(not(feature = "std"))]
-    use alloc::string::{String, ToString};
+    use alloc::{format, string::{String, ToString}};
 
     pub use crate::{
         calls::*,
@@ -2434,24 +2434,23 @@ pub mod pallet {
         pub fn trigger_growth_on_t1(
             growth_period: &u32,
             growth_info: GrowthInfo<T::AccountId, BalanceOf<T>>,
-        ) -> Result<(), Error<T>> {
+        ) -> Result<(), DispatchError> {
             let rewards_in_period_128 = TryInto::<u128>::try_into(growth_info.total_staker_reward)
-                .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
+                .map_err(|_| DispatchError::Other(Error::<T>::ErrorConvertingBalance.into()))?;
 
             let average_staked_in_period_128 = TryInto::<u128>::try_into(
                 growth_info.total_stake_accumulated / growth_info.number_of_accumulations.into(),
             )
-            .map_err(|_| Error::<T>::ErrorConvertingBalance)?;
+            .map_err(|_| DispatchError::Other(Error::<T>::ErrorConvertingBalance.into()))?;
 
             let function_name: &[u8] = b"triggerGrowth";
             let params =
                 vec![
-                    (b"uint128".to_vec(), rewards_in_period_128.to_be_bytes().to_vec()),
-                    (b"uint128".to_vec(), average_staked_in_period_128.to_be_bytes().to_vec()),
-                    (b"uint32".to_vec(), growth_period.to_be_bytes().to_vec())
+                    (b"uint128".to_vec(), format!("{}", rewards_in_period_128).as_bytes().to_vec()),
+                    (b"uint128".to_vec(), format!("{}", average_staked_in_period_128).as_bytes().to_vec()),
+                    (b"uint32".to_vec(), format!("{}", growth_period).as_bytes().to_vec())
                 ];
-            let tx_id = T::BridgePublisher::publish(function_name, &params).map_err(|_| Error::<T>::ErrorPublishingGrowth)?;
-
+            let tx_id = T::BridgePublisher::publish(function_name, &params).map_err(|e| DispatchError::Other(e.into()))?;
 
             <LastTriggeredGrowthPeriod<T>>::put(growth_period);
             <PublishedGrowth<T>>::insert(tx_id, growth_period);
