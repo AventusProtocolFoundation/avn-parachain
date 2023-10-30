@@ -68,7 +68,7 @@ use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::event_types::Validator;
+use sp_avn_common::{event_types::Validator, ocw_lock::{self as OcwLock}};
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};

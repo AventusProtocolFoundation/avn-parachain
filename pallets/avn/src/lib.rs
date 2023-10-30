@@ -421,12 +421,8 @@ impl<T: Config> Pallet<T> {
         // TODO: Make this configurable
         let deadline =
             sp_io::offchain::timestamp().add(Duration::from_millis(AVN_SERVICE_CALL_EXPIRY as u64));
-        let url = format!(
             "http://127.0.0.1:{}/{}",
             Self::get_external_service_port_number(),
-            url_path.trim_start_matches('/')
-        );
-
         let response = request
             .deadline(deadline)
             .url(&url)
