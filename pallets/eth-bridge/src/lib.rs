@@ -53,8 +53,6 @@ extern crate alloc;
 use alloc::{
     format,
     string::{String, ToString},
-    vec,
-    vec::Vec,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
@@ -66,10 +64,11 @@ use frame_system::{
 };
 use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnBridgePublisherResult};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::event_types::Validator;
+use sp_avn_common::{event_types::Validator, ocw_lock::{self as OcwLock}};
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
+use sp_std::prelude::*;
 
 mod call;
 mod eth;
@@ -365,7 +364,7 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok(author) = setup_ocw::<T>(block_number) {
                 if let Err(e) = process_active_transaction::<T>(author) {
-                    log::error!("Error processing currently active transaction: {:?}", e);
+                    log::error!("❌ Error processing currently active transaction: {:?}", e);
                 }
             }
         }
@@ -386,7 +385,7 @@ pub mod pallet {
             let self_is_sender = author.account_id == tx.data.sender;
             let tx_has_enough_confirmations = util::has_enough_confirmations(&tx);
             let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
-            let tx_is_past_expiry = tx.expiry > util::time_now::<T>();
+            let tx_is_past_expiry = tx.expiry < util::time_now::<T>();
 
             if !self_is_sender && !tx_has_enough_confirmations {
                 let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
@@ -394,8 +393,20 @@ pub mod pallet {
                     call::add_confirmation::<T>(tx.id, confirmation, author);
                 }
             } else if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
-                let eth_tx_hash = eth::send_tx::<T>(&tx, &author)?;
-                call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
+                let lock_name = format!("eth_bridge_ocw::send::{}", tx.id).as_bytes().to_vec();
+                let mut lock = OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(
+                    &lock_name,
+                    AVN::<T>::get_default_ocw_lock_expiry()
+                );
+
+                // Protect against sending more than once
+                if let Ok(guard) = lock.try_lock() {
+                    let eth_tx_hash = eth::send_tx::<T>(&tx, &author)?;
+                    call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
+                    guard.forget();
+                } else {
+                    log::info!("👷 Skipping sending txId: {:?} because ocw is locked already.", tx.id);
+                };
             } else if tx_is_sent || tx_is_past_expiry {
                 if util::requires_corroboration::<T>(&tx, &author) {
                     match eth::check_tx_status::<T>(tx.id, tx.expiry, &author)? {

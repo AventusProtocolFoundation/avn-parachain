@@ -27,7 +27,7 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
     event_types::{EthEventId, Validator},
-    offchain_worker_storage_lock::{self as OcwLock, OcwStorageError},
+    ocw_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
@@ -64,6 +64,8 @@ pub mod sr25519 {
     // An identifier using sr25519 as its crypto.
     pub type AuthorityId = app_sr25519::Public;
 }
+
+const AVN_SERVICE_CALL_EXPIRY: u32 = 300_000;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -200,20 +202,26 @@ impl<T: Config> Pallet<T> {
         // so we need to make sure we only run this once per block
         OcwLock::record_block_run(block_number, caller_id).map_err(|e| match e {
             OcwStorageError::OffchainWorkerAlreadyRun => {
-                info!("** Offchain worker has already run for block number: {:?}", block_number);
+                info!("❌ Offchain worker has already run for block number: {:?}", block_number);
                 Error::<T>::OffchainWorkerAlreadyRun
             },
             OcwStorageError::ErrorRecordingOffchainWorkerRun => {
                 error!(
-                    "** Unable to record offchain worker run for block {:?}, skipping",
+                    "❌ Unable to record offchain worker run for block {:?}, skipping",
                     block_number
                 );
                 Error::<T>::ErrorRecordingOffchainWorkerRun
             },
         })?;
-        OcwLock::cleanup_expired_entries(&block_number);
 
         Ok(maybe_validator.expect("Already checked"))
+    }
+
+    pub fn get_default_ocw_lock_expiry() -> u32 {
+        let avn_block_generation_in_millisec = 12_000 as u32;
+        let delay: u32 = 10;
+        let lock_expiry_in_blocks = (AVN_SERVICE_CALL_EXPIRY / avn_block_generation_in_millisec) + delay;
+        return lock_expiry_in_blocks;
     }
 
     // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
@@ -401,7 +409,7 @@ impl<T: Config> Pallet<T> {
         url_path: String,
     ) -> Result<Vec<u8>, DispatchError> {
         // TODO: Make this configurable
-        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(300_000));
+        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(AVN_SERVICE_CALL_EXPIRY as u64));
         let url = format!(
             "http://127.0.0.1:{}/{}",
             Self::get_external_service_port_number(),
