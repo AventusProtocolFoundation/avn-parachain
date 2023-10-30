@@ -127,7 +127,6 @@ fn setup_voting_for_growth_id(context: &Context, number_of_growths: Option<u32>)
         growth_info.total_staker_reward = context.rewards_in_period;
         growth_info.total_stake_accumulated = context.total_stake_accumulated;
         growth_info.tx_id = Some(context.tx_id);
-        growth_info.added_by = Some(context.validator.account_id);
 
         ParachainStaking::insert_growth_data(i, growth_info);
     }
@@ -136,7 +135,6 @@ fn setup_voting_for_growth_id(context: &Context, number_of_growths: Option<u32>)
     growth_info.total_staker_reward = context.rewards_in_period;
     growth_info.total_stake_accumulated = context.total_stake_accumulated;
     growth_info.tx_id = Some(context.tx_id);
-    growth_info.added_by = Some(context.validator.account_id);
 
     ParachainStaking::insert_growth_data(context.growth_id.period, growth_info);
     ParachainStaking::insert_pending_approval(&context.growth_id);

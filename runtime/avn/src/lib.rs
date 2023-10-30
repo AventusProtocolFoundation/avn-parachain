@@ -156,7 +156,7 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
     (
-        pallet_parachain_staking::migration::EnableAutomaticGrwoth<Runtime>,
+        pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
         SeedAvnBridgeTransactionMigration,
     ),
 >;
