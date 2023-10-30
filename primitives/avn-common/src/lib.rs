@@ -143,8 +143,7 @@ pub fn hash_with_ethereum_prefix(hex_message: String) -> Result<[u8; 32], ECDSAV
         .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
     let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
-    let hashed_message = keccak_256(&message_bytes);
-    prefixed_message.append(&mut hashed_message.to_vec());
+    prefixed_message.append(&mut message_bytes.to_vec());
     Ok(keccak_256(&prefixed_message))
 }
 

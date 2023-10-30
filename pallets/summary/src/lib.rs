@@ -47,7 +47,7 @@ use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ecdsa, H256};
 use sp_staking::offence::ReportOffence;
-
+use sp_io::hashing::keccak_256;
 pub use pallet::*;
 
 pub mod offence;
@@ -894,9 +894,10 @@ pub mod pallet {
                 )
                 .map_err(|_| Error::<T>::InvalidRoot)?;
 
-            Ok(hex::encode(EthAbiHelper::generate_eth_abi_encoding_for_params_only(
-                &eth_description,
-            )))
+            let encoded_data = EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description);
+            let msg_hash = keccak_256(&encoded_data);
+
+            Ok(hex::encode(msg_hash))
         }
 
         pub fn sign_root_for_ethereum(
@@ -904,6 +905,7 @@ pub mod pallet {
         ) -> Result<(String, ecdsa::Signature), DispatchError> {
             let root_data = Self::try_get_root_data(&root_id)?;
             let data = Self::convert_data_to_eth_compatible_encoding(&root_data)?;
+
             return Ok((
                 data.clone(),
                 AVN::<T>::request_ecdsa_signature_from_external_service(&data)?,

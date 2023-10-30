@@ -76,7 +76,7 @@ pub fn enable_eth_bridge_wire_up<T: Config>() -> Weight {
 
     // Remove unused `added_by` field
     Growth::<T>::translate::<OldGrowthInfo<T::AccountId, BalanceOf<T>>, _>(
-        |period, growth_info| {
+        |_period, growth_info| {
             add_weight(1, 1, Weight::from_ref_time(0));
 
             let mut new_growth_info = GrowthInfo::new(growth_info.number_of_accumulations);
