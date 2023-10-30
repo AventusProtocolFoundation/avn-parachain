@@ -1367,8 +1367,6 @@ pub struct GrowthInfo<AccountId, Balance> {
     pub total_staker_reward: Balance,
     pub total_points: RewardPoint,
     pub collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
-    #[deprecated(note = "must only be used for backwards compatibility reasons")]
-    pub added_by: Option<AccountId>,
     pub tx_id: Option<TransactionId>,
     pub triggered: Option<bool>,
 }
@@ -1393,7 +1391,6 @@ impl<
             total_staker_reward: Balance::zero(),
             total_points: 0u32.into(),
             collator_scores: BoundedVec::default(),
-            added_by: None,
             tx_id: None,
             triggered: None,
         }
@@ -1408,7 +1405,6 @@ impl<A: Decode, B: Default> Default for GrowthInfo<A, B> {
             total_staker_reward: B::default(),
             total_points: Default::default(),
             collator_scores: BoundedVec::default(),
-            added_by: None,
             tx_id: None,
             triggered: None,
         }

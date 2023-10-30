@@ -10,16 +10,19 @@ use crate::{
     BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32, Decode, Encode, Growth,
     GrowthInfo, GrowthPeriodIndex, LastTriggeredGrowthPeriod, MaxEncodedLen, Pallet,
     ProcessedGrowthPeriods, RewardPoint, RuntimeDebug, TypeInfo, Vec,
+    IngressCounter, avn::vote::VotingSessionData, GrowthId, TransactionId
 };
+use crate::migration::storage_with_voting::*;
 use frame_support::{
     dispatch::GetStorageVersion,
-    pallet_prelude::{PhantomData, StorageVersion},
+    pallet_prelude::*,
     traits::{Get, OnRuntimeUpgrade},
-    weights::Weight,
+    weights::Weight, storage_alias,
+    storage::unhashed,
 };
 use sp_std::prelude::*;
 
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 #[derive(Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub struct OldGrowthInfo<AccountId, Balance> {
@@ -28,30 +31,50 @@ pub struct OldGrowthInfo<AccountId, Balance> {
     pub total_staker_reward: Balance,
     pub total_points: RewardPoint,
     pub collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
+    pub added_by: Option<AccountId>,
+    pub tx_id: Option<TransactionId>,
+    pub triggered: Option<bool>,
 }
 
-pub fn enable_automatic_growth<T: Config>() -> Weight {
+/// The original data layout of the storage with voting logic included
+mod storage_with_voting {
+	use super::*;
+
+    #[storage_alias]
+    pub type VotesRepository<T: Config> = StorageMap<
+        Pallet<T>,
+        Blake2_128Concat,
+        GrowthId,
+        VotingSessionData<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber>,
+        ValueQuery,
+        >;
+
+    #[storage_alias]
+    pub type TotalIngresses<T: Config> = StorageValue<Pallet<T>, IngressCounter, ValueQuery>;
+
+    #[storage_alias]
+    pub type VotingPeriod<T: Config> = StorageValue<Pallet<T>, <T as frame_system::Config>::BlockNumber, ValueQuery>;
+}
+
+pub fn enable_eth_bridge_wire_up<T: Config>() -> Weight {
     let mut consumed_weight: Weight = Weight::from_ref_time(0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
     };
 
-    log::info!("🚧 🚧 Running migration to enable automatic growths");
+    log::info!("🚧 🚧 Running migration to wire up eth bridge with auto growth");
 
-    // We only have a handfull of these so performance is not an issue here.
-    let mut processed_growth_periods: Vec<u32> =
-        <ProcessedGrowthPeriods<T>>::iter_keys().collect::<Vec<_>>();
-    processed_growth_periods.sort();
-    processed_growth_periods.reverse();
-    let latest_processed_growth_period: u32 = processed_growth_periods
-        .into_iter()
-        .nth(0)
-        .or_else(|| Some(0))
-        .expect("we have a default value");
+    // Delete storage items we don't need
+    storage_with_voting::TotalIngresses::<T>::kill();
+    storage_with_voting::VotingPeriod::<T>::kill();
 
-    <LastTriggeredGrowthPeriod<T>>::put(latest_processed_growth_period);
+    let votes_repo_prefix = storage::storage_prefix(b"ParachainStaking", b"VotesRepository");
+    let mut key = vec![0u8; 32];
+    key[0..32].copy_from_slice(&votes_repo_prefix);
+    let res = unhashed::clear_prefix(&key[0..32], None, None);
 
+    // Remove unused `added_by` field
     Growth::<T>::translate::<OldGrowthInfo<T::AccountId, BalanceOf<T>>, _>(
         |period, growth_info| {
             add_weight(1, 1, Weight::from_ref_time(0));
@@ -61,46 +84,37 @@ pub fn enable_automatic_growth<T: Config>() -> Weight {
             new_growth_info.total_staker_reward = growth_info.total_staker_reward;
             new_growth_info.total_points = growth_info.total_points;
             new_growth_info.collator_scores = growth_info.collator_scores;
-            new_growth_info.added_by = None;
-            new_growth_info.tx_id = None;
-            new_growth_info.triggered = None;
-
-            if period <= latest_processed_growth_period {
-                new_growth_info.tx_id = Some(0);
-                new_growth_info.triggered = Some(true);
-            }
+            new_growth_info.tx_id = growth_info.tx_id;
+            new_growth_info.triggered = growth_info.triggered;
 
             Some(new_growth_info)
         },
     );
 
-    //Reads: [ProcessedGrowthPeriod], Writes: [LastTriggeredGrowthPeriod]
-    add_weight(1, 1, Weight::from_ref_time(0));
-
     //Write: [STORAGE_VERSION]
     add_weight(0, 1, Weight::from_ref_time(0));
     STORAGE_VERSION.put::<Pallet<T>>();
 
-    log::info!("✅ Automatic growth migration completed successfully");
+    log::info!("✅ Eth bridge wire up migration completed successfully");
 
     // add a bit extra as safety margin for computation
     return consumed_weight + Weight::from_ref_time(25_000_000_000)
 }
 
 /// Migration to enable staking pallet
-pub struct EnableAutomaticGrwoth<T>(PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for EnableAutomaticGrwoth<T> {
+pub struct EnableEthBridgeWireUp<T>(PhantomData<T>);
+impl<T: Config> OnRuntimeUpgrade for EnableEthBridgeWireUp<T> {
     fn on_runtime_upgrade() -> Weight {
         let current = Pallet::<T>::current_storage_version();
         let onchain = Pallet::<T>::on_chain_storage_version();
 
-        if onchain < 2 {
+        if onchain == 2 && current == 3 {
             log::info!(
-                "💽 Running migration with current storage version {:?} / onchain {:?}",
+                "ℹ️  Parachain staking data migration invoked with current storage version {:?} / onchain {:?}",
                 current,
                 onchain
             );
-            return enable_automatic_growth::<T>()
+            return enable_eth_bridge_wire_up::<T>()
         }
 
         Weight::zero()
@@ -108,11 +122,29 @@ impl<T: Config> OnRuntimeUpgrade for EnableAutomaticGrwoth<T> {
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        assert_eq!(true, storage_with_voting::VotingPeriod::<T>::exists());
+
         Ok(vec![])
     }
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_input: Vec<u8>) -> Result<(), &'static str> {
+        let current_version = Pallet::<T>::current_storage_version();
+        let onchain_version = Pallet::<T>::on_chain_storage_version();
+
+        frame_support::ensure!(current_version == 3, "must_upgrade");
+        assert_eq!(
+            current_version, onchain_version,
+            "after migration, the current_version and onchain_version should be the same"
+        );
+
+        assert_eq!(false, storage_with_voting::TotalIngresses::<T>::exists());
+        assert_eq!(false, storage_with_voting::VotingPeriod::<T>::exists());
+
+        let votes_repo_prefix = storage::storage_prefix(b"ParachainStaking", b"VotesRepository");
+        let map = unhashed::get_raw(&votes_repo_prefix);
+        assert_eq!(None, map);
+
         Ok(())
     }
 }
