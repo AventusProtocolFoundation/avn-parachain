@@ -12,6 +12,7 @@ use sp_avn_common::{
     ocw_lock::{self as OcwLock},
     safe_add_block_numbers, safe_sub_block_numbers, IngressCounter,
 };
+use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::AtLeast32Bit,
@@ -40,15 +41,16 @@ use pallet_avn::{
     Error as avn_error,
 };
 use pallet_ethereum_transactions::{
-    ethereum_transaction::{EthAbiHelper, EthTransactionType, PublishRootData, TransactionId},
+    ethereum_transaction::{EthAbiHelper, TransactionId},
     CandidateTransactionSubmitter,
 };
+// use pallet_ethereum_transactions::CandidateTransactionSubmitter;
+pub use pallet::*;
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ecdsa, H256};
 use sp_staking::offence::ReportOffence;
-use sp_io::hashing::keccak_256;
-pub use pallet::*;
+pub type EthereumTransactionId = u32;
 
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
@@ -64,7 +66,7 @@ const ERROR_CODE_INVALID_ROOT_RANGE: u8 = 30;
 
 // This value is used only when generating a signature for an empty root.
 // Empty roots shouldn't be submitted to ethereum-transactions so we can use any value we want.
-const EMPTY_ROOT_TRANSACTION_ID: TransactionId = 0;
+const EMPTY_ROOT_TRANSACTION_ID: EthereumTransactionId = 0;
 
 // used in benchmarks and weights calculation only
 const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
@@ -83,6 +85,8 @@ use crate::vote::*;
 pub mod challenge;
 use crate::challenge::*;
 
+use pallet_avn::BridgePublisher;
+
 mod benchmarking;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
@@ -94,6 +98,7 @@ pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
+    use pallet_ethereum_transactions::ethereum_transaction::{EthTransactionType, PublishRootData};
 
     // Public interface of this pallet
     #[pallet::config]
@@ -227,6 +232,7 @@ pub mod pallet {
         VotingPeriodIsTooLong,
         VotingPeriodIsEqualOrLongerThanSchedulePeriod,
         CurrentSlotValidatorNotFound,
+        ErrorPublishingSummary,
     }
 
     // Note for SYS-152 (see notes in fn end_voting)):
@@ -428,20 +434,15 @@ pub mod pallet {
                 safe_add_block_numbers(current_block_number, Self::voting_period())
                     .map_err(|_| Error::<T>::Overflow)?;
 
-            let tx_id = if root_hash != Self::empty_root() {
-                let publish_root = EthTransactionType::PublishRoot(PublishRootData::new(
-                    *root_hash.as_fixed_bytes(),
-                ));
-                Some(T::CandidateTransactionSubmitter::reserve_transaction_id(&publish_root)?)
-            } else {
-                None
-            };
-
             <TotalIngresses<T>>::put(ingress_counter);
             <Roots<T>>::insert(
                 &root_id.range,
                 ingress_counter,
-                RootData::new(root_hash, validator.account_id.clone(), tx_id),
+                RootData::new(
+                    root_hash,
+                    validator.account_id.clone(),
+                    Some(T::BridgePublisher::get_next_tx_id()),
+                ),
             );
             <PendingApproval<T>>::insert(root_id.range, ingress_counter);
             <VotesRepository<T>>::insert(
@@ -873,28 +874,16 @@ pub mod pallet {
         pub fn convert_data_to_eth_compatible_encoding(
             root_data: &RootData<T::AccountId>,
         ) -> Result<String, DispatchError> {
-            let eth_description =
-                EthAbiHelper::generate_ethereum_description_for_signature_request(
-                    &T::AccountToBytesConvert::into_bytes(
-                        root_data
-                            .added_by
-                            .as_ref()
-                            .ok_or(Error::<T>::CurrentSlotValidatorNotFound)?,
-                    ),
-                    &EthTransactionType::PublishRoot(PublishRootData::new(
-                        *root_data.root_hash.as_fixed_bytes(),
-                    )),
-                    match root_data.tx_id {
-                        None => EMPTY_ROOT_TRANSACTION_ID,
-                        _ => *root_data
-                            .tx_id
-                            .as_ref()
-                            .expect("Non-Empty roots have a reserved TransactionId"),
-                    },
-                )
-                .map_err(|_| Error::<T>::InvalidRoot)?;
-
-            let encoded_data = EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description);
+            let root_hash = *root_data.root_hash.as_fixed_bytes();
+            let tx_id = match root_data.tx_id {
+                None => EMPTY_ROOT_TRANSACTION_ID,
+                _ => *root_data
+                    .tx_id
+                    .as_ref()
+                    .expect("Non-Empty roots have a reserved TransactionId"),
+            };
+            let expiry = 1000000; //T::BridgePublisher::get_eth_tx_lifetime_secs();
+            let encoded_data = EthAbiHelper::encode_summary_data(&root_hash, expiry, tx_id);
             let msg_hash = keccak_256(&encoded_data);
 
             Ok(hex::encode(msg_hash))
@@ -903,7 +892,9 @@ pub mod pallet {
         pub fn sign_root_for_ethereum(
             root_id: &RootId<T::BlockNumber>,
         ) -> Result<(String, ecdsa::Signature), DispatchError> {
+            log::info!("HELP SIGN ROOT FOR ETHEREUM !!!");
             let root_data = Self::try_get_root_data(&root_id)?;
+            log::info!("HELP ROOT DATA !!! {:?}", root_data);
             let data = Self::convert_data_to_eth_compatible_encoding(&root_data)?;
 
             return Ok((
@@ -1164,20 +1155,18 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    let result =
-                        T::CandidateTransactionSubmitter::submit_candidate_transaction_to_tier1(
-                            EthTransactionType::PublishRoot(PublishRootData::new(
-                                *root_data.root_hash.as_fixed_bytes(),
-                            )),
-                            *root_data.tx_id.as_ref().expect("Non empty roots have valid hash"),
-                            root_data.added_by.ok_or(Error::<T>::CurrentSlotValidatorNotFound)?,
-                            voting_session.state()?.confirmations,
-                        );
+                    let function_name: &[u8] = b"publishRoot";
+                    let params =
+                        vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
+                    let tx_id = Some(
+                        T::BridgePublisher::publish(function_name, &params)
+                            .map_err(|_| Error::<T>::ErrorPublishingSummary)?,
+                    );
 
-                    if let Err(result) = result {
-                        log::error!("❌ Error Submitting Tx: {:?}", result);
-                        Err(result)?
-                    }
+                    <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
+                        root.tx_id = tx_id
+                    });
+
                     // There are a couple possible reasons for failure.
                     // 1. We fail before sending to T1: likely a bug on our part
                     // 2. Quorum mismatch. There is no guarantee that between accepting a root and
@@ -1386,12 +1375,17 @@ pub struct RootData<AccountId> {
     pub is_validated: bool, // This is set to true when 2/3 of validators approve it
     pub is_finalised: bool, /* This is set to true when EthEvents confirms Tier1 has received
                              * the root */
-    pub tx_id: Option<TransactionId>, /* This is the TransacionId that will be used to submit
-                                       * the tx */
+    pub tx_id: Option<EthereumTransactionId>, /* This is the TransacionId that will be used to
+                                               * submit
+                                               * the tx */
 }
 
 impl<AccountId> RootData<AccountId> {
-    fn new(root_hash: H256, added_by: AccountId, transaction_id: Option<TransactionId>) -> Self {
+    fn new(
+        root_hash: H256,
+        added_by: AccountId,
+        transaction_id: Option<EthereumTransactionId>,
+    ) -> Self {
         return RootData::<AccountId> {
             root_hash,
             added_by: Some(added_by),
@@ -1413,9 +1407,21 @@ impl<AccountId> Default for RootData<AccountId> {
         }
     }
 }
-
 impl<T: Config> OnBridgePublisherResult for Pallet<T> {
-    fn process_result(_tx_id: u32, _succeeded: bool) -> DispatchResult {
+    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
+        // Handle the result based on whether it succeeded or not
+        if succeeded {
+            // ✅ The publishing was successful
+            log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
+            // You can perform additional actions here if needed.
+        } else {
+            // ❌ The publishing failed
+            log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+            // You can take appropriate actions to handle the failure, e.g., retry or log the error.
+        }
+
+        // You can return an appropriate result or error here if necessary.
+        // For now, we'll just return Ok() for demonstration purposes.
         Ok(())
     }
 }

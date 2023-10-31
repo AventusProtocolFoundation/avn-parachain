@@ -6,6 +6,7 @@ use frame_system as system;
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,
 };
+use pallet_eth_bridge;
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{
@@ -19,7 +20,7 @@ use sp_core::{
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    H256,
+    ConstU32, ConstU64, H256,
 };
 use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},

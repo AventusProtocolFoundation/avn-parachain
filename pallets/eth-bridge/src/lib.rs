@@ -131,6 +131,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         PublishToEthereum { tx_id: u32, function_name: Vec<u8>, params: Vec<(Vec<u8>, Vec<u8>)> },
         EthTxLifetimeUpdated { eth_tx_lifetime_secs: u64 },
+        EthTxIdUpdated { eth_tx_id: u32 },
     }
 
     #[pallet::pallet]
@@ -256,6 +257,15 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_id())]
+        pub fn set_eth_tx_id(origin: OriginFor<T>, eth_tx_id: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            NextTxId::<T>::put(eth_tx_id);
+            Self::deposit_event(Event::<T>::EthTxIdUpdated { eth_tx_id });
+            Ok(().into())
+        }
+
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::add_confirmation())]
         pub fn add_confirmation(
             origin: OriginFor<T>,
@@ -268,6 +278,7 @@ pub mod pallet {
 
             if tx::is_active::<T>(tx_id) {
                 let mut tx = ActiveTransaction::<T>::get().expect("is active");
+                log::info!("CONFIRMATIONS 1 !!! {:?}", tx.confirmations);
 
                 // The sender's confirmation is implicit so we only collect them from other authors:
                 if author.account_id == tx.data.sender || util::has_enough_confirmations(&tx) {
@@ -280,18 +291,20 @@ pub mod pallet {
                     !tx.confirmations.contains(&confirmation),
                     Error::<T>::DuplicateConfirmation
                 );
+                log::info!("CONFIRMATIONS 1.5 !!! {:?}", confirmation);
 
                 tx.confirmations
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
+                log::info!("CONFIRMATIONS 2 !!! {:?}", tx.confirmations);
                 ActiveTransaction::<T>::put(tx);
             }
 
             Ok(().into())
         }
 
-        #[pallet::call_index(2)]
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
         pub fn add_eth_tx_hash(
             origin: OriginFor<T>,
@@ -320,7 +333,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(3)]
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::add_corroboration())]
         pub fn add_corroboration(
             origin: OriginFor<T>,
@@ -390,6 +403,7 @@ pub mod pallet {
             if !self_is_sender && !tx_has_enough_confirmations {
                 let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
                 if !tx.confirmations.contains(&confirmation) {
+                    log::info!("ADDING CONFIRMATION !!! {:?}", confirmation);
                     call::add_confirmation::<T>(tx.id, confirmation, author);
                 }
             } else if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
@@ -406,7 +420,9 @@ pub mod pallet {
                 };
             } else if tx_is_sent || tx_is_past_expiry {
                 if util::requires_corroboration::<T>(&tx, &author) {
-                    match eth::check_tx_status::<T>(tx.id, tx.expiry, &author)? {
+                    let tx_status = eth::check_tx_status::<T>(tx.id, tx.expiry, &author)?;
+                    log::info!("HELP process_active_transaction !!! {:?}", tx_status);
+                    match tx_status {
                         Some(true) => call::add_corroboration::<T>(tx.id, true, author),
                         Some(false) => call::add_corroboration::<T>(tx.id, false, author),
                         None => {},
@@ -470,6 +486,12 @@ pub mod pallet {
     }
 
     impl<T: Config> BridgePublisher for Pallet<T> {
+        fn get_eth_tx_lifetime_secs() -> u64 {
+            EthTxLifetimeSecs::<T>::get()
+        }
+        fn get_next_tx_id() -> u32 {
+            NextTxId::<T>::get()
+        }
         fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
