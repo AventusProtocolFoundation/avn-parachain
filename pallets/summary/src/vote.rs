@@ -154,10 +154,7 @@ pub fn cast_votes_if_required<T: Config>(
     // try to send 1 of MAX_VOTING_SESSIONS_RETURNED votes
     for root_id in root_ids {
         let vote_lock_name = create_vote_lock_name::<T>(&root_id);
-        let mut lock = OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(
-            &vote_lock_name,
-            AVN::<T>::get_default_ocw_lock_expiry()
-        );
+        let mut lock = AVN::<T>::get_ocw_locker(&vote_lock_name);
 
         if let Ok(guard) = lock.try_lock() {
             let root_hash =

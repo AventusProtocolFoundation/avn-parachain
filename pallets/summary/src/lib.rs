@@ -949,13 +949,10 @@ pub mod pallet {
             if Self::can_process_summary(block_number, last_block_in_range, this_validator)
             {
                 let root_lock_name = Self::create_root_lock_name(last_block_in_range);
-                let mut lock = OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(
-                    &root_lock_name,
-                    AVN::<T>::get_default_ocw_lock_expiry()
-                );
+                let mut lock = AVN::<T>::get_ocw_locker(&root_lock_name);
 
                 // Protect against sending more than once. When guard is out of scope the lock will be released.
-                if let Ok(_guard) = lock.try_lock() {
+                if let Ok(guard) = lock.try_lock() {
                     log::warn!(
                         "ℹ️  Processing summary for range {:?} - {:?}. Slot {:?}",
                         Self::get_next_block_to_process(),
@@ -967,7 +964,13 @@ pub mod pallet {
 
                     if let Err(e) = summary {
                         log::warn!("💔️ Error processing summary: {:?}", e);
+                        //free the lock so we can potentially retry
+                        drop(guard);
+                        return;
                     }
+
+                    // If there are no errors, keep the lock to prevent doing the same logic again
+                    guard.forget();
                 };
             }
         }

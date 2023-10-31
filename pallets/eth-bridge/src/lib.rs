@@ -394,16 +394,13 @@ pub mod pallet {
                 }
             } else if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
                 let lock_name = format!("eth_bridge_ocw::send::{}", tx.id).as_bytes().to_vec();
-                let mut lock = OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(
-                    &lock_name,
-                    AVN::<T>::get_default_ocw_lock_expiry()
-                );
+                let mut lock = AVN::<T>::get_ocw_locker(&lock_name);
 
                 // Protect against sending more than once
                 if let Ok(guard) = lock.try_lock() {
                     let eth_tx_hash = eth::send_tx::<T>(&tx, &author)?;
                     call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
-                    guard.forget();
+                    guard.forget(); // keep the lock so we don't send again
                 } else {
                     log::info!("👷 Skipping sending txId: {:?} because ocw is locked already.", tx.id);
                 };
