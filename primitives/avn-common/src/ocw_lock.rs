@@ -42,10 +42,10 @@ pub fn record_block_run<BlockNumber: Member + Codec + AtLeast32Bit>(
     }
 }
 
-pub fn get_offchain_worker_locker<Provider: BlockNumberProvider>(lock_name: &[u8], expiry: u32)
+pub fn get_offchain_worker_locker<Provider: BlockNumberProvider>(lock_name: &[u8], expiry_in_blocks: u32)
     -> StorageLock<'_, BlockAndTime<Provider>>
 {
-    StorageLock::<BlockAndTime<Provider>>::with_block_deadline(lock_name, expiry)
+    StorageLock::<BlockAndTime<Provider>>::with_block_deadline(lock_name, expiry_in_blocks)
 }
 
 pub fn is_locked<Provider: BlockNumberProvider>(lock_name: &[u8]) -> bool {

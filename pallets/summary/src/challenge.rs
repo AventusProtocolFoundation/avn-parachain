@@ -168,11 +168,8 @@ fn send_challenge_transaction<T: Config>(
         return Err(())
     }
 
-    let challenge_name = challenge_lock_name::<T>(challenge);
-    let mut lock = OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(
-        &challenge_name,
-        AVN::<T>::get_default_ocw_lock_expiry()
-    );
+    let challenge_lock_name = challenge_lock_name::<T>(challenge);
+    let mut lock = AVN::<T>::get_ocw_locker(&challenge_lock_name);
 
     // Add a lock to record the fact that we have sent a challenge.
     if let Ok(guard) = lock.try_lock() {
