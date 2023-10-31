@@ -614,6 +614,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
+            log::info!("🚧 🚧 Running offchain worker for block: {:?}", block_number);
             let setup_result = AVN::<T>::pre_run_setup(block_number, NAME.to_vec());
             if let Err(e) = setup_result {
                 match e {
@@ -915,7 +916,7 @@ pub mod pallet {
             if this_validator.account_id == current_slot_validator.expect("Checked for none") &&
                 block_number >= Self::block_number_for_next_slot()
             {
-                log::info!("HELP !!! before dispatch advance slot ");
+                log::info!("🚧 HELP !!! before dispatch advance slot. Block: {:?} ", block_number);
                 let result = Self::dispatch_advance_slot(this_validator);
                 if let Err(e) = result {
                     log::warn!("💔️ Error starting a new summary creation slot: {:?}", e);
@@ -935,7 +936,7 @@ pub mod pallet {
             let last_block_in_range = target_block.expect("Valid block number");
 
             if Self::can_process_summary(block_number, last_block_in_range, this_validator) {
-                log::info!("HELP !!! processign summary ");
+                log::info!("🚧 HELP !!! processign summary. Block: {:?}", block_number);
                 let root_lock_name = Self::create_root_lock_name(last_block_in_range);
                 let mut lock = AVN::<T>::get_ocw_locker(&root_lock_name);
 
