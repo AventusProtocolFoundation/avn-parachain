@@ -33,7 +33,12 @@ use sp_avn_common::{
 };
 use sp_core::{ecdsa, H160};
 use sp_runtime::{
-    offchain::{http, storage::StorageValueRef, Duration, storage_lock::{BlockAndTime, StorageLock}},
+    offchain::{
+        http,
+        storage::StorageValueRef,
+        storage_lock::{BlockAndTime, StorageLock},
+        Duration,
+    },
     traits::Member,
     DispatchError, WeakBoundedVec,
 };
@@ -129,6 +134,8 @@ pub mod pallet {
         MaxValidatorsExceeded,
         ResponseFailed,
         RequestFailed,
+        RequestTest1,
+        RequestTest2,
     }
 
     #[pallet::storage]
@@ -220,8 +227,9 @@ impl<T: Config> Pallet<T> {
     pub fn get_default_ocw_lock_expiry() -> u32 {
         let avn_block_generation_in_millisec = 12_000 as u32;
         let delay: u32 = 5;
-        let lock_expiry_in_blocks = (AVN_SERVICE_CALL_EXPIRY / avn_block_generation_in_millisec) + delay;
-        return lock_expiry_in_blocks;
+        let lock_expiry_in_blocks =
+            (AVN_SERVICE_CALL_EXPIRY / avn_block_generation_in_millisec) + delay;
+        return lock_expiry_in_blocks
     }
 
     // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
@@ -297,6 +305,7 @@ impl<T: Config> Pallet<T> {
         info!(target: "avn-service", "avn-service sign request (ecdsa) for hex-encoded data {:?}", data_to_sign);
 
         let ecdsa_signature_utf8 = Self::get_data_from_service(url)?;
+        info!("HELP request_ecdsa_signature_from_external_service !!! {:?}", ecdsa_signature_utf8);
         let ecdsa_signature_bytes = core::str::from_utf8(&ecdsa_signature_utf8)
             .map_err(|_| Error::<T>::ErrorConvertingUtf8)?;
 
@@ -412,45 +421,80 @@ impl<T: Config> Pallet<T> {
         request: http::Request<Vec<Vec<u8>>>,
         url_path: String,
     ) -> Result<Vec<u8>, DispatchError> {
-        // TODO: Make this configurable
-        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(AVN_SERVICE_CALL_EXPIRY as u64));
-        let url = format!(
-            "http://127.0.0.1:{}/{}",
-            Self::get_external_service_port_number(),
-            url_path.trim_start_matches('/')
-        );
+        // // TODO: Make this configurable
+        // let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(300_000));
+        // let url = format!(
+        //     "http://127.0.0.1:{}/{}",
+        //     Self::get_external_service_port_number(),
+        //     url_path.trim_start_matches('/')
+        // );
 
-        let response = request
+        // info!("HELP URL !!! {}", url);
+
+        // let response = request
+        //     .deadline(deadline)
+        //     .url(&url)
+        //     .send()
+        //     .map_err(|e| {
+        //         error!("❌ Request failed: {:?}", e);
+        //         Error::<T>::RequestFailed
+        //     })?
+        //     .try_wait(deadline)
+        //     .map_err(|e| {
+        //         error!("❌ Response failed: {:?}", e);
+        //         Error::<T>::ResponseFailed
+        //     })?
+        //     .map_err(|e| {
+        //         error!("❌ Invalid response: {:?}", e);
+        //         Error::<T>::InvalidResponse
+        //     })?;
+
+        // if response.code != 200 {
+        //     error!("❌ Unexpected status code: {}", response.code);
+        //     return Err(Error::<T>::UnexpectedStatusCode)?
+        // }
+
+        // Ok(response.body().collect())
+        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(300_000));
+        let external_service_port_number = Self::get_external_service_port_number();
+
+        let mut url = String::from("http://127.0.0.1:");
+        url.push_str(&external_service_port_number);
+        url.push_str(&"/".to_string());
+        url.push_str(&url_path);
+
+        info!("HELP URL !!! {}", url);
+
+        let pending = request
             .deadline(deadline)
             .url(&url)
             .send()
-            .map_err(|e| {
-                error!("❌ Request failed: {:?}", e);
-                Error::<T>::RequestFailed
-            })?
+            .map_err(|_| Error::<T>::RequestTest1)?;
+
+        let response = pending
             .try_wait(deadline)
-            .map_err(|e| {
-                error!("❌ Response failed: {:?}", e);
-                Error::<T>::ResponseFailed
-            })?
-            .map_err(|e| {
-                error!("❌ Invalid response: {:?}", e);
-                Error::<T>::InvalidResponse
-            })?;
+            .map_err(|_| Error::<T>::RequestTest2)?
+            .map_err(|_| Error::<T>::RequestTest2)?;
 
         if response.code != 200 {
             error!("❌ Unexpected status code: {}", response.code);
             return Err(Error::<T>::UnexpectedStatusCode)?
         }
 
-        Ok(response.body().collect())
+        let result: Vec<u8> = response.body().collect::<Vec<u8>>();
+        return Ok(result)
     }
 
-    pub fn get_ocw_locker<'a>(lock_name: &'a [u8]) -> StorageLock<'a, BlockAndTime<frame_system::Pallet<T>>> {
+    pub fn get_ocw_locker<'a>(
+        lock_name: &'a [u8],
+    ) -> StorageLock<'a, BlockAndTime<frame_system::Pallet<T>>> {
         Self::get_ocw_locker_with_custom_expiry(lock_name, Self::get_default_ocw_lock_expiry())
     }
 
-    pub fn get_ocw_locker_with_custom_expiry<'a>(lock_name: &'a [u8], expiry_in_blocks: u32) -> StorageLock<'a, BlockAndTime<frame_system::Pallet<T>>> {
+    pub fn get_ocw_locker_with_custom_expiry<'a>(
+        lock_name: &'a [u8],
+        expiry_in_blocks: u32,
+    ) -> StorageLock<'a, BlockAndTime<frame_system::Pallet<T>>> {
         OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(&lock_name, expiry_in_blocks)
     }
 }
@@ -625,6 +669,8 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
 }
 
 pub trait BridgePublisher {
+    fn get_eth_tx_lifetime_secs() -> u64;
+    fn get_next_tx_id() -> u32;
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
 }
 

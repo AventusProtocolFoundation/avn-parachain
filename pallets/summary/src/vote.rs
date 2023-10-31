@@ -268,6 +268,7 @@ fn send_approve_vote<T: Config>(
 ) -> Result<(), ()> {
     let (eth_encoded_data, eth_signature) =
         Summary::<T>::sign_root_for_ethereum(&root_id).map_err(|_| ())?;
+    log::info!("HELP SEND APPROVE VOTE !!! {}", eth_encoded_data);
 
     let approve_vote_extrinsic_signature = sign_for_approve_vote_extrinsic::<T>(
         root_id,

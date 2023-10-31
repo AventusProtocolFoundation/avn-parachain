@@ -12,6 +12,8 @@ use sp_std::prelude::*;
 
 use ethabi::{Error as EthAbiError, Function, Param, ParamType, Token};
 
+pub type EthereumTransactionId = u32;
+
 // ================================= Ethereum Transaction Types ====================================
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
@@ -413,6 +415,21 @@ impl EthAbiHelper {
     ) -> Result<EthTransaction, ethabi::Error> {
         let encoded_data = EthAbiHelper::generate_eth_abi_encoding(transaction_description)?;
         Ok(EthTransaction::new(from, to, encoded_data))
+    }
+
+    pub fn encode_summary_data(
+        hash_data: &[u8; 32],
+        expiry: u64,
+        transaction_id: EthereumTransactionId,
+    ) -> Vec<u8> {
+        let call_values: Vec<Token> = vec![
+            ethabi::Token::FixedBytes(hash_data.to_vec()),
+            ethabi::Token::Uint(EthAbiHelper::u256_to_big_endian(&U256::from(expiry)).into()),
+            ethabi::Token::Uint(
+                EthAbiHelper::u256_to_big_endian(&U256::from(transaction_id)).into(),
+            ),
+        ];
+        ethabi::encode(&call_values)
     }
 }
 
