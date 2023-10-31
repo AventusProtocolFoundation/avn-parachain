@@ -73,9 +73,9 @@ const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
 const MAX_OFFENDERS: u32 = 2; // maximum of offenders need to be less one third of minimum validators so the benchmark won't panic
 const MAX_NUMBER_OF_ROOT_DATA_PER_RANGE: u32 = 2;
 
-const MIN_SCHEDULE_PERIOD: u32 = 120; // 6 MINUTES
-const DEFAULT_SCHEDULE_PERIOD: u32 = 28800; // 1 DAY
-const MIN_VOTING_PERIOD: u32 = 100; // 5 MINUTES
+const MIN_SCHEDULE_PERIOD: u32 = 0; // 6 MINUTES
+const DEFAULT_SCHEDULE_PERIOD: u32 = 10; // 1 DAY
+const MIN_VOTING_PERIOD: u32 = 0; // 5 MINUTES
 const MAX_VOTING_PERIOD: u32 = 28800; // 1 DAY
 const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
 
@@ -332,7 +332,7 @@ pub mod pallet {
         fn build(&self) {
             let mut schedule_period_in_blocks = self.schedule_period;
             if schedule_period_in_blocks == 0u32.into() {
-                schedule_period_in_blocks = MIN_SCHEDULE_PERIOD.into();
+                schedule_period_in_blocks = DEFAULT_SCHEDULE_PERIOD.into();
             }
             assert!(
                 Pallet::<T>::validate_schedule_period(schedule_period_in_blocks).is_ok(),
@@ -438,11 +438,7 @@ pub mod pallet {
             <Roots<T>>::insert(
                 &root_id.range,
                 ingress_counter,
-                RootData::new(
-                    root_hash,
-                    validator.account_id.clone(),
-                    Some(T::BridgePublisher::get_next_tx_id()),
-                ),
+                RootData::new(root_hash, validator.account_id.clone(), None),
             );
             <PendingApproval<T>>::insert(root_id.range, ingress_counter);
             <VotesRepository<T>>::insert(
@@ -919,6 +915,7 @@ pub mod pallet {
             if this_validator.account_id == current_slot_validator.expect("Checked for none") &&
                 block_number >= Self::block_number_for_next_slot()
             {
+                log::info!("HELP !!! before dispatch advance slot ");
                 let result = Self::dispatch_advance_slot(this_validator);
                 if let Err(e) = result {
                     log::warn!("💔️ Error starting a new summary creation slot: {:?}", e);
@@ -937,8 +934,8 @@ pub mod pallet {
             }
             let last_block_in_range = target_block.expect("Valid block number");
 
-            if Self::can_process_summary(block_number, last_block_in_range, this_validator)
-            {
+            if Self::can_process_summary(block_number, last_block_in_range, this_validator) {
+                log::info!("HELP !!! processign summary ");
                 let root_lock_name = Self::create_root_lock_name(last_block_in_range);
                 let mut lock = AVN::<T>::get_ocw_locker(&root_lock_name);
 
@@ -1001,7 +998,9 @@ pub mod pallet {
             last_block_in_range: T::BlockNumber,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) -> bool {
-            if OcwLock::is_locked::<frame_system::Pallet<T>>(&Self::create_root_lock_name(last_block_in_range)) {
+            if OcwLock::is_locked::<frame_system::Pallet<T>>(&Self::create_root_lock_name(
+                last_block_in_range,
+            )) {
                 return false
             }
 
