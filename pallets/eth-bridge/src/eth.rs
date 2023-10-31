@@ -225,7 +225,7 @@ fn make_ethereum_call<R, T: Config>(
     let sender = T::AccountToBytesConvert::into_bytes(&author.account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
     let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
-    let url_path = format!("/eth/{}", endpoint);
+    let url_path = format!("eth/{}", endpoint);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
 }
@@ -250,6 +250,8 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     if result_bytes.len() != 32 {
         return Err(Error::<T>::InvalidBytesLength.into())
     }
+
+    log::info!("PROCESS SEND RESPONSE !!! {:?}", result_bytes);
 
     Ok(result_bytes[31] as i8)
 }
