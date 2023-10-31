@@ -64,7 +64,7 @@ use frame_system::{
 };
 use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnBridgePublisherResult};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{event_types::Validator, ocw_lock::{self as OcwLock}};
+use sp_avn_common::{event_types::Validator};
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};

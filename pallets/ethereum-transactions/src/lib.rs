@@ -81,11 +81,6 @@ const MAX_TXS_PER_ACCOUNT: u32 = 1_000_000; // used in benchmarks and weights ca
 // TODO [TYPE: business logic][PRI: high][CRITICAL][JIRA: 354] investigate the time needed for an
 // ethereum transaction to become stale.
 
-// TODO [JIRA: SYS-598] Will make this a configurable item for a node, so the validator can choose
-// the frequency of resend. As a default value we set 10 minutes: 10 * 60 = 600 seconds
-// AvN Parachain blocks are every 12 seconds therefore 600 / 12 = 50
-const ETHEREUM_SEND_BLOCKS_EXPIRY: u32 = 50;
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
