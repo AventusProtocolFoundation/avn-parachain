@@ -8,7 +8,7 @@ use alloc::string::{String, ToString};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_transaction::SignaturesLimit;
-use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get};
+use frame_support::{dispatch::DispatchResult, ensure, log};
 use frame_system::{
     self as system, ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
@@ -26,13 +26,11 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use pallet_avn::AvnBridgeContractAddress;
-
 use sp_avn_common::{
     event_types::Validator,
     EthTransaction,
 };
-use sp_core::{ecdsa, H160, H256};
+use sp_core::{ecdsa, H256};
 
 use core::convert::TryInto;
 pub use pallet::*;
@@ -179,14 +177,6 @@ pub mod pallet {
     pub type ReservedTransactions<T: Config> =
         StorageMap<_, Blake2_128Concat, EthTransactionType, TransactionId, ValueQuery>;
 
-    // TODO [TYPE: refactoring][PRI: low] use a map to store all contract address
-    // pub ContractAddresses get(fn get_contract_address): map hasher(blake2_128_concat)
-    // TransactionId => H160;
-    #[pallet::storage]
-    #[pallet::getter(fn get_publish_root_contract)]
-    #[deprecated]
-    pub type PublishRootContract<T: Config> = StorageValue<_, H160, ValueQuery>;
-
     #[pallet::storage]
     #[pallet::getter(fn get_nonce)]
     pub type Nonce<T: Config> = StorageValue<_, TransactionId, ValueQuery>;
@@ -295,20 +285,11 @@ pub mod pallet {
             let this_validator = setup_result.expect("We have a validator");
 
             // ====================== Choose Offchain-Worker Action ===============
-            Self::send_transaction_candidates(&this_validator, block_number);
+            Self::send_transaction_candidates(&this_validator);
 
             // TODO [TYPE: review][PRI: high][CRITICAL][JIRA: 352] add the rest offchain worker
             // logic here, corresponding to the confirmation loop (eg transactions sent
             // to Ethereum)
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            if StorageVersion::<T>::get() != Releases::V4_0_0 || !StorageVersion::<T>::exists() {
-                log::info!("Performing bridge contract migration");
-                return migrations::migrate_pb_to_bridge_contract::<T>()
-            } else {
-                return Weight::from_ref_time(0)
-            }
         }
     }
 
@@ -525,7 +506,6 @@ impl<T: Config> Pallet<T> {
 
     fn send_transaction_candidates(
         authority: &Validator<T::AuthorityId, T::AccountId>,
-        block_number: T::BlockNumber,
     ) {
         for (tx_id, eth_transaction) in Self::transactions_ready_to_be_sent(&authority.account_id) {
             // TODO: Removed because the pallet will be removed
@@ -665,30 +645,5 @@ enum Releases {
 impl Default for Releases {
     fn default() -> Self {
         Releases::V4_0_0
-    }
-}
-
-pub mod migrations {
-    use super::*;
-    use frame_support::pallet_prelude::Weight;
-
-    pub fn migrate_pb_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-        log::info!("ℹ️  Ethereum Transactions pallet data migration invoked");
-
-        let mut consumed_weight = Weight::from_ref_time(0);
-
-        if AvnBridgeContractAddress::<T>::get().is_zero() {
-            <AvnBridgeContractAddress<T>>::put(PublishRootContract::<T>::get());
-            log::info!("ℹ️  Updated bridge contract address successfully in ethereum transactions");
-            consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().reads_writes(2, 1));
-        }
-
-        PublishRootContract::<T>::kill();
-
-        StorageVersion::<T>::put(Releases::V4_0_0);
-        consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().writes(2));
-
-        return consumed_weight
     }
 }

@@ -141,7 +141,6 @@ pub mod pallet {
         OnGrowthLiftedHandler, ProcessedEventsChecker, OnBridgePublisherResult,
     };
 
-    pub use crate::GrowthId;
     pub use sp_avn_common::{
         bounds::VotingSessionIdBound,
         event_types::Validator,
@@ -2501,18 +2500,6 @@ pub mod pallet {
         fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
             return Self::payout_collators(amount, growth_period)
         }
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct GrowthId {
-    pub period: GrowthPeriodIndex,
-    pub ingress_counter: IngressCounter,
-}
-
-impl GrowthId {
-    fn new(period: GrowthPeriodIndex, ingress_counter: IngressCounter) -> Self {
-        return GrowthId { period, ingress_counter }
     }
 }
 
