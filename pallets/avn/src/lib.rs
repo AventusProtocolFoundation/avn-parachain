@@ -33,7 +33,7 @@ use sp_avn_common::{
 };
 use sp_core::{ecdsa, H160};
 use sp_runtime::{
-    offchain::{http, storage::StorageValueRef, Duration},
+    offchain::{http, storage::StorageValueRef, Duration, storage_lock::{BlockAndTime, StorageLock}},
     traits::Member,
     DispatchError, WeakBoundedVec,
 };
@@ -222,7 +222,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_default_ocw_lock_expiry() -> u32 {
         let avn_block_generation_in_millisec = 12_000 as u32;
-        let delay: u32 = 10;
+        let delay: u32 = 5;
         let lock_expiry_in_blocks = (AVN_SERVICE_CALL_EXPIRY / avn_block_generation_in_millisec) + delay;
         return lock_expiry_in_blocks;
     }
@@ -443,6 +443,14 @@ impl<T: Config> Pallet<T> {
         }
 
         Ok(response.body().collect())
+    }
+
+    pub fn get_ocw_locker<'a>(lock_name: &'a [u8]) -> StorageLock<'a, BlockAndTime<frame_system::Pallet<T>>> {
+        Self::get_ocw_locker_with_custom_expiry(lock_name, Self::get_default_ocw_lock_expiry())
+    }
+
+    pub fn get_ocw_locker_with_custom_expiry<'a>(lock_name: &'a [u8], expiry_in_blocks: u32) -> StorageLock<'a, BlockAndTime<frame_system::Pallet<T>>> {
+        OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(&lock_name, expiry_in_blocks)
     }
 }
 
