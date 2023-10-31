@@ -30,7 +30,6 @@ use pallet_avn::AvnBridgeContractAddress;
 
 use sp_avn_common::{
     event_types::Validator,
-    offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
     EthTransaction,
 };
 use sp_core::{ecdsa, H160, H256};
@@ -383,8 +382,7 @@ impl<T: Config> Pallet<T> {
         dispatched_data: DispatchedData<T::BlockNumber>,
         account_id: &T::AccountId,
     ) -> Option<(TransactionId, EthTransaction)> {
-        if !<Repository<T>>::contains_key(dispatched_data.transaction_id) ||
-            Self::is_transaction_locked_for_sending(&dispatched_data.transaction_id)
+        if !<Repository<T>>::contains_key(dispatched_data.transaction_id)
         {
             return None
         }
@@ -525,31 +523,12 @@ impl<T: Config> Pallet<T> {
     // ================================= Offchain Worker Helpers
     // ========================================
 
-    fn generate_sending_lock_name(candidate_id: TransactionId) -> OcwLock::PersistentId {
-        let mut name = b"eth_transactions::lock::tx_id::".to_vec();
-        name.extend_from_slice(&mut &candidate_id.to_le_bytes()[..]);
-        name
-    }
-
-    fn is_transaction_locked_for_sending(candidate_id: &TransactionId) -> bool {
-        let persistent_data = Self::generate_sending_lock_name(*candidate_id);
-        return OcwLock::is_locked(&persistent_data)
-    }
-
     fn send_transaction_candidates(
         authority: &Validator<T::AuthorityId, T::AccountId>,
         block_number: T::BlockNumber,
     ) {
         for (tx_id, eth_transaction) in Self::transactions_ready_to_be_sent(&authority.account_id) {
-            if OcwLock::set_lock_with_expiry(
-                block_number,
-                OcwOperationExpiration::Custom(ETHEREUM_SEND_BLOCKS_EXPIRY),
-                Self::generate_sending_lock_name(tx_id),
-            )
-            .is_err()
-            {
-                continue
-            }
+            // TODO: Removed because the pallet will be removed
 
             // We don't send that often so an info log here should be ok.
             log::info!("ℹ️ Sending transaction (tx Id: {:?}) to Ethereum", tx_id);

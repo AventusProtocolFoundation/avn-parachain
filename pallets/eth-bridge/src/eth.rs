@@ -181,6 +181,8 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     }
 }
 
+/// Please note: `value` will accept any bytes and its up to the caller to ensure the bytes are valid for `kind`.
+/// The compiler will not catch these errors at compile time, but can error at runtime.
 fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
     match kind {
         ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
