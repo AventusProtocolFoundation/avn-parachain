@@ -614,6 +614,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
+            log::info!("🚧 🚧 Running offchain worker for block: {:?}", block_number);
             let setup_result = AVN::<T>::pre_run_setup(block_number, NAME.to_vec());
             if let Err(e) = setup_result {
                 match e {
