@@ -385,7 +385,7 @@ pub mod pallet {
             let self_is_sender = author.account_id == tx.data.sender;
             let tx_has_enough_confirmations = util::has_enough_confirmations(&tx);
             let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
-            let tx_is_past_expiry = tx.expiry < util::time_now::<T>();
+            let tx_is_past_expiry = util::time_now::<T>() > tx.expiry;
 
             if !self_is_sender && !tx_has_enough_confirmations {
                 let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
