@@ -12,6 +12,7 @@ use sp_avn_common::{
     ocw_lock::{self as OcwLock},
     safe_add_block_numbers, safe_sub_block_numbers, IngressCounter,
 };
+use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::AtLeast32Bit,
@@ -88,6 +89,7 @@ pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
+    use pallet_ethereum_transactions::ethereum_transaction::{EthTransactionType, PublishRootData};
 
     // Public interface of this pallet
     #[pallet::config]
