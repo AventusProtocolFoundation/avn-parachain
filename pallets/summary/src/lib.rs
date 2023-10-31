@@ -64,9 +64,9 @@ const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
 const MAX_OFFENDERS: u32 = 2; // maximum of offenders need to be less one third of minimum validators so the benchmark won't panic
 const MAX_NUMBER_OF_ROOT_DATA_PER_RANGE: u32 = 2;
 
-const MIN_SCHEDULE_PERIOD: u32 = 120; // 6 MINUTES
-const DEFAULT_SCHEDULE_PERIOD: u32 = 28800; // 1 DAY
-const MIN_VOTING_PERIOD: u32 = 100; // 5 MINUTES
+const MIN_SCHEDULE_PERIOD: u32 = 0; // 6 MINUTES
+const DEFAULT_SCHEDULE_PERIOD: u32 = 10; // 1 DAY
+const MIN_VOTING_PERIOD: u32 = 0; // 5 MINUTES
 const MAX_VOTING_PERIOD: u32 = 28800; // 1 DAY
 const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
 
