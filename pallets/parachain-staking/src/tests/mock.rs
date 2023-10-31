@@ -645,8 +645,8 @@ pub(crate) fn events() -> Vec<pallet::Event<Test>> {
 }
 
 impl ParachainStaking {
-    pub fn set_root_as_triggered(growth_id: &GrowthId) {
-        <Growth<Test>>::mutate(growth_id.period, |growth| growth.triggered = Some(true));
+    pub fn set_root_as_triggered(period: u32) {
+        <Growth<Test>>::mutate(period, |growth| growth.triggered = Some(true));
     }
 
     pub fn insert_growth_data(period: u32, growth_info: GrowthInfo<AccountId, Balance>) {

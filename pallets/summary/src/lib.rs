@@ -9,7 +9,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::{
     bounds::VotingSessionIdBound,
     event_types::Validator,
-    offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
+    ocw_lock::{self as OcwLock},
     safe_add_block_numbers, safe_sub_block_numbers, IngressCounter,
 };
 use sp_runtime::{
@@ -634,7 +634,7 @@ pub mod pallet {
 
             Self::advance_slot_if_required(block_number, &this_validator);
             Self::process_summary_if_required(block_number, &this_validator);
-            cast_votes_if_required::<T>(block_number, &this_validator);
+            cast_votes_if_required::<T>(&this_validator);
             end_voting_if_required::<T>(block_number, &this_validator);
             challenge_slot_if_required::<T>(block_number, &this_validator);
         }
@@ -864,7 +864,7 @@ pub mod pallet {
             return Ok(root_hash)
         }
 
-        pub fn create_root_lock_name(block_number: T::BlockNumber) -> OcwLock::PersistentId {
+        pub fn create_root_lock_name(block_number: T::BlockNumber) -> Vec<u8> {
             let mut name = b"create_summary::".to_vec();
             name.extend_from_slice(&mut block_number.encode());
             name
@@ -912,16 +912,6 @@ pub mod pallet {
             ))
         }
 
-        // TODO [Low Priority] Review if the lock period should be configurable
-        pub fn lock_till_request_expires() -> OcwOperationExpiration {
-            let avn_service_expiry_in_millisec = 300_000 as u32;
-            let avn_block_generation_in_millisec = 3_000 as u32;
-            let delay = 10 as u32;
-            let lock_expiration_in_blocks =
-                avn_service_expiry_in_millisec / avn_block_generation_in_millisec + delay;
-            return OcwOperationExpiration::Custom(lock_expiration_in_blocks)
-        }
-
         pub fn advance_slot_if_required(
             block_number: T::BlockNumber,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
@@ -956,34 +946,29 @@ pub mod pallet {
             }
             let last_block_in_range = target_block.expect("Valid block number");
 
-            let root_lock_name = Self::create_root_lock_name(last_block_in_range);
-            let expiration = Self::lock_till_request_expires();
-
-            if Self::can_process_summary(block_number, last_block_in_range, this_validator) &&
-                OcwLock::set_lock_with_expiry(block_number, expiration, root_lock_name.clone())
-                    .is_ok()
+            if Self::can_process_summary(block_number, last_block_in_range, this_validator)
             {
-                log::warn!(
-                    "ℹ️  Processing summary for range {:?} - {:?}. Slot {:?}",
-                    Self::get_next_block_to_process(),
-                    last_block_in_range,
-                    Self::current_slot()
+                let root_lock_name = Self::create_root_lock_name(last_block_in_range);
+                let mut lock = OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(
+                    &root_lock_name,
+                    AVN::<T>::get_default_ocw_lock_expiry()
                 );
 
-                let summary = Self::process_summary(last_block_in_range, this_validator);
+                // Protect against sending more than once. When guard is out of scope the lock will be released.
+                if let Ok(_guard) = lock.try_lock() {
+                    log::warn!(
+                        "ℹ️  Processing summary for range {:?} - {:?}. Slot {:?}",
+                        Self::get_next_block_to_process(),
+                        last_block_in_range,
+                        Self::current_slot()
+                    );
 
-                if let Err(e) = summary {
-                    log::warn!("💔️ Error processing summary: {:?}", e);
-                }
+                    let summary = Self::process_summary(last_block_in_range, this_validator);
 
-                // Ignore the remove storage lock error as the lock will be unlocked after the
-                // expiration period
-                match OcwLock::remove_storage_lock(block_number, expiration, root_lock_name) {
-                    Ok(_) => {},
-                    Err(e) => {
-                        log::warn!("💔️ Error removing root lock: {:?}", e);
-                    },
-                }
+                    if let Err(e) = summary {
+                        log::warn!("💔️ Error processing summary: {:?}", e);
+                    }
+                };
             }
         }
 
@@ -1022,7 +1007,7 @@ pub mod pallet {
             last_block_in_range: T::BlockNumber,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) -> bool {
-            if OcwLock::is_locked(&Self::create_root_lock_name(last_block_in_range)) {
+            if OcwLock::is_locked::<frame_system::Pallet<T>>(&Self::create_root_lock_name(last_block_in_range)) {
                 return false
             }
 

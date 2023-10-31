@@ -145,7 +145,6 @@ pub mod pallet {
     pub use sp_avn_common::{
         bounds::VotingSessionIdBound,
         event_types::Validator,
-        offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
         safe_add_block_numbers, verify_signature, IngressCounter, Proof,
     };
     pub use sp_runtime::{
@@ -2475,16 +2474,6 @@ pub mod pallet {
 
             Err(Error::<T>::GrowthDataNotFound)?
         }
-
-        pub fn lock_till_request_expires() -> OcwOperationExpiration {
-            let avn_service_expiry_in_millisec = 300_000 as u32;
-            let avn_block_generation_in_millisec = 12_000 as u32;
-            let delay = 10 as u32;
-            let lock_expiration_in_blocks =
-                avn_service_expiry_in_millisec / avn_block_generation_in_millisec + delay;
-            return OcwOperationExpiration::Custom(lock_expiration_in_blocks)
-        }
-
     }
 
     /// Keep track of number of authored blocks per authority, uncles are counted as well since

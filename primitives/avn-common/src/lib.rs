@@ -21,7 +21,7 @@ pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
 pub mod avn_tests_helpers;
 pub mod eth_key_actions;
 pub mod event_types;
-pub mod offchain_worker_storage_lock;
+pub mod ocw_lock;
 
 /// Ingress counter type for a counter that can sign the same message with a different signature
 /// each time

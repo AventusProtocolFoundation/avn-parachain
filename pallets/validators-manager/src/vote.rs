@@ -8,7 +8,7 @@ use alloc::string::String;
 use codec::{Decode, Encode};
 use sp_avn_common::{
     event_types::Validator,
-    offchain_worker_storage_lock::{self as OcwLock, OcwOperationExpiration},
+    ocw_lock::{self as OcwLock},
 };
 use sp_std::prelude::*;
 
@@ -24,7 +24,7 @@ use sp_std::fmt::Debug;
 
 use crate::{
     ActionId, Call, Config, IngressCounter, Pallet as ValidatorsManager, Store,
-    ValidatorsActionStatus,
+    ValidatorsActionStatus, AVN
 };
 use pallet_ethereum_transactions::ethereum_transaction::EthTransactionType;
 
@@ -123,7 +123,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber>
 
 pub fn create_vote_lock_name<T: Config>(
     action_id: &ActionId<T::AccountId>,
-) -> OcwLock::PersistentId {
+) -> Vec<u8> {
     let mut name = b"vote_val_man::hash::".to_vec();
     name.extend_from_slice(&mut action_id.action_account_id.encode());
     name.extend_from_slice(&mut action_id.ingress_counter.encode());
@@ -132,7 +132,7 @@ pub fn create_vote_lock_name<T: Config>(
 
 fn is_vote_in_transaction_pool<T: Config>(action_id: &ActionId<T::AccountId>) -> bool {
     let persistent_data = create_vote_lock_name::<T>(action_id);
-    return OcwLock::is_locked(&persistent_data)
+    return OcwLock::is_locked::<frame_system::Pallet<T>>(&persistent_data)
 }
 
 // TODO this will not filter cases where another validator that is not activated, submits a
@@ -157,7 +157,6 @@ fn is_not_own_activation<T: Config>(
 }
 
 pub fn cast_votes_if_required<T: Config>(
-    block_number: T::BlockNumber,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
     let pending_actions_ids: Vec<ActionId<T::AccountId>> =
@@ -180,35 +179,38 @@ pub fn cast_votes_if_required<T: Config>(
 
     // try to send 1 of MAX_VOTING_SESSIONS_RETURNED votes
     for action_id in pending_actions_ids {
-        if OcwLock::set_lock_with_expiry(
-            block_number,
-            OcwOperationExpiration::Fast,
-            create_vote_lock_name::<T>(&action_id),
-        )
-        .is_err()
-        {
-            continue
-        }
+        let vote_lock_name = create_vote_lock_name::<T>(&action_id);
+        let mut lock = OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(
+            &vote_lock_name,
+            AVN::<T>::get_default_ocw_lock_expiry()
+        );
 
-        let validators_action_data_result =
-            ValidatorsManager::<T>::try_get_validators_action_data(&action_id);
-        if validators_action_data_result.is_err() {
-            continue
-        }
-
-        if validators_action_data_result.expect("action data is valid").status ==
-            ValidatorsActionStatus::Confirmed
-        {
-            if let Err(_) = send_approve_vote::<T>(&action_id, this_validator) {
+        if let Ok(guard) = lock.try_lock() {
+            let validators_action_data_result =
+                ValidatorsManager::<T>::try_get_validators_action_data(&action_id);
+            if validators_action_data_result.is_err() {
                 continue
             }
+
+            if validators_action_data_result.expect("action data is valid").status ==
+                ValidatorsActionStatus::Confirmed
+            {
+                if let Err(_) = send_approve_vote::<T>(&action_id, this_validator) {
+                    continue
+                }
+            } else {
+                if let Err(_) = send_reject_vote::<T>(&action_id, this_validator) {
+                    continue
+                }
+            }
+
+            // keep the lock until it expires
+            guard.forget();
+            return
         } else {
-            if let Err(_) = send_reject_vote::<T>(&action_id, this_validator) {
-                continue
-            }
-        }
-
-        return
+            log::trace!(target: "avn", "🤷 Unable to acquire local lock for action_id {:?}", &action_id);
+            continue
+        };
     }
 }
 
