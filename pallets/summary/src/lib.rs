@@ -68,9 +68,9 @@ const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
 const MAX_OFFENDERS: u32 = 2; // maximum of offenders need to be less one third of minimum validators so the benchmark won't panic
 const MAX_NUMBER_OF_ROOT_DATA_PER_RANGE: u32 = 2;
 
-const MIN_SCHEDULE_PERIOD: u32 = 120; // 6 MINUTES
-const DEFAULT_SCHEDULE_PERIOD: u32 = 28800; // 1 DAY
-const MIN_VOTING_PERIOD: u32 = 100; // 5 MINUTES
+const MIN_SCHEDULE_PERIOD: u32 = 0; // 6 MINUTES
+const DEFAULT_SCHEDULE_PERIOD: u32 = 10; // 1 DAY
+const MIN_VOTING_PERIOD: u32 = 0; // 5 MINUTES
 const MAX_VOTING_PERIOD: u32 = 28800; // 1 DAY
 const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
 
@@ -95,6 +95,7 @@ pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
+    use pallet_ethereum_transactions::ethereum_transaction::{EthTransactionType, PublishRootData};
 
     // Public interface of this pallet
     #[pallet::config]
@@ -883,6 +884,7 @@ pub mod pallet {
             };
             let expiry = T::BridgePublisher::get_eth_tx_lifetime_secs();
             let encoded_data = util::encode_summary_data(&root_hash, expiry, tx_id);
+
             let msg_hash = keccak_256(&encoded_data);
 
             Ok(hex::encode(msg_hash))
@@ -935,6 +937,7 @@ pub mod pallet {
                     // If there are no errors, keep the lock to prevent doing the same logic again
                     guard.forget();
                 };
+
             }
         }
         // called from OCW - no storage changes allowed here
@@ -950,6 +953,7 @@ pub mod pallet {
             let last_block_in_range = target_block.expect("Valid block number");
 
             if Self::can_process_summary(block_number, last_block_in_range, this_validator) {
+
                 let root_lock_name = Self::create_root_lock_name(last_block_in_range);
                 let mut lock = AVN::<T>::get_ocw_locker(&root_lock_name);
 
@@ -1177,6 +1181,7 @@ pub mod pallet {
 
                     <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
                         root.tx_id = Some(tx_id)
+
                     });
 
                     // There are a couple possible reasons for failure.
@@ -1426,6 +1431,7 @@ impl<T: Config> OnBridgePublisherResult for Pallet<T> {
         } else {
             log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
         }
+
 
         Ok(())
     }
