@@ -2,17 +2,16 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, system};
+use crate::mock::*;
 use codec::alloc::sync::Arc;
-use frame_support::{assert_noop, assert_ok, traits::Hooks};
+use frame_support::traits::Hooks;
 use parking_lot::RwLock;
-use sp_core::offchain::testing::PoolState;
+use sp_core::offchain::testing::{PoolState, OffchainState};
 use sp_runtime::{
     offchain::storage::StorageValueRef,
     testing::{TestSignature, UintAuthorityId},
     traits::BadOrigin,
 };
-use system::RawOrigin;
 
 type MockValidator = Validator<UintAuthorityId, u64>;
 
@@ -24,6 +23,8 @@ pub struct LocalContext {
     pub slot_number: BlockNumber,
     pub grace_period: BlockNumber,
     pub summary_last_block_in_range: BlockNumber,
+    pub block_after_grace_period: BlockNumber,
+    pub challenge_reason: SummaryChallengeReason,
 }
 
 pub fn setup_success_preconditions() -> LocalContext {
@@ -34,18 +35,13 @@ pub fn setup_success_preconditions() -> LocalContext {
     let arbitrary_margin = 3;
     let next_block_to_process = 2;
     let summary_last_block_in_range = next_block_to_process + schedule_period - 1;
-
     let current_block = summary_last_block_in_range + min_block_age + arbitrary_margin;
-    let slot_number = 6;
+    let slot_number = 3;
     let block_number_for_next_slot = current_block;
-
-    // index - Validators:
-    // 0 - FIRST_VALIDATOR_INDEX
-    // 1 - SECOND_VALIDATOR_INDEX
-    // 2 - THIRD_VALIDATOR_INDEX
-    // 3 - FOURTH_VALIDATOR_INDEX
     let slot_validator = get_validator(SIXTH_VALIDATOR_INDEX);
     let other_validator = get_validator(FIRST_VALIDATOR_INDEX);
+    let challenge_reason = SummaryChallengeReason::SlotNotAdvanced(slot_number.try_into().unwrap());
+    let block_after_grace_period = block_number_for_next_slot + grace_period + 5;
 
     assert!(slot_validator != other_validator);
 
@@ -66,6 +62,8 @@ pub fn setup_success_preconditions() -> LocalContext {
         block_number_for_next_slot,
         grace_period,
         summary_last_block_in_range,
+        block_after_grace_period,
+        challenge_reason,
     }
 }
 
@@ -236,17 +234,17 @@ mod record_summary_locks {
             setup_total_ingresses(&context);
 
             // Fails at the default current block
-            let fake_failure_response = b"0".to_vec();
+            let bad_failure_response = b"0".to_vec();
             mock_response_of_get_roothash(
                 &mut offchain_state.write(),
                 context.url_param.clone(),
-                Some(fake_failure_response),
+                Some(bad_failure_response),
             );
             assert!(pool_state.read().transactions.is_empty());
 
             Summary::offchain_worker(context.current_block_number);
 
-            // Due to the error caused by "fake_failure_response", there is no transaction
+            // Due to the error caused by "bad_failure_response", there is no transaction
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
             // Fix the error and try again without reseting the lock
