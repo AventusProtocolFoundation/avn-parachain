@@ -932,8 +932,10 @@ mod end_voting_period {
 
         #[test]
         fn when_a_vote_reached_quorum() {
-            let (mut ext, _pool_state, _offchain_state) =
-                ExtBuilder::build_default().for_offchain_worker().as_externality_with_state();
+            let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
+                .with_validators()
+                .for_offchain_worker()
+                .as_externality_with_state();
 
             ext.execute_with(|| {
                 let context = setup_context();
@@ -941,37 +943,40 @@ mod end_voting_period {
                 setup_approved_root(context.clone());
                 Summary::set_current_slot(10);
                 Summary::set_previous_summary_slot(5);
-                // TODO: fix tests
-                // assert!(Summary::end_voting_period(
-                //     RawOrigin::None.into(),
-                //     context.root_id,
-                //     context.validator.clone(),
-                //     context.record_summary_calculation_signature.clone(),
-                // )
-                // .is_ok());
-                // assert!(Summary::get_root_data(&context.root_id).is_validated);
-                // assert!(!<Summary as
-                // Store>::PendingApproval::contains_key(&context.root_id.range));
-                // assert_eq!(
-                //     Summary::get_next_block_to_process(),
-                //     context.next_block_to_process + Summary::schedule_period()
-                // );
-                // assert_eq!(Summary::last_summary_slot(), Summary::current_slot());
 
-                // assert!(System::events().iter().any(|a| a.event ==
-                //     mock::RuntimeEvent::Summary(
-                //         crate::Event::<TestRuntime>::SummaryRootValidated {
-                //             block_range: context.root_id.range,
-                //             root_hash: context.root_hash_h256,
-                //             ingress_counter: context.root_id.ingress_counter
-                //         }
-                //     )));
+                let primary_validator_id =
+                    AVN::<TestRuntime>::calculate_primary_validator(context.current_block_number)
+                        .expect("TEST !!!");
+                let primary_validator = get_validator(primary_validator_id);
 
-                // assert!(System::events().iter().any(|a| a.event ==
-                //     mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VotingEnded {
-                //         root_id: context.root_id,
-                //         vote_approved: true
-                //     })));
+                assert_ok!(Summary::end_voting_period(
+                    RawOrigin::None.into(),
+                    context.root_id,
+                    primary_validator.clone(),
+                    context.record_summary_calculation_signature.clone(),
+                ));
+                assert!(Summary::get_root_data(&context.root_id).is_validated);
+                assert!(!<Summary as Store>::PendingApproval::contains_key(&context.root_id.range));
+                assert_eq!(
+                    Summary::get_next_block_to_process(),
+                    context.next_block_to_process + Summary::schedule_period()
+                );
+                assert_eq!(Summary::last_summary_slot(), Summary::current_slot());
+
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::Summary(
+                        crate::Event::<TestRuntime>::SummaryRootValidated {
+                            block_range: context.root_id.range,
+                            root_hash: context.root_hash_h256,
+                            ingress_counter: context.root_id.ingress_counter
+                        }
+                    )));
+
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::Summary(crate::Event::<TestRuntime>::VotingEnded {
+                        root_id: context.root_id,
+                        vote_approved: true
+                    })));
             });
         }
 
