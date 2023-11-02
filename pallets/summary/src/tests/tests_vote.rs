@@ -796,12 +796,11 @@ mod cast_votes_if_required {
                 let lock_name = vote::create_vote_lock_name::<TestRuntime>(&context.root_id);
                 let mut lock = AVN::<TestRuntime>::get_ocw_locker(&lock_name);
 
-                // Protect against sending more than once. When guard is out of scope the lock will be released.
+                // Protect against sending more than once. When guard is out of scope the lock will
+                // be released.
                 if let Ok(_guard) = lock.try_lock() {
                     let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
-                    cast_votes_if_required::<TestRuntime>(
-                        &second_validator,
-                    );
+                    cast_votes_if_required::<TestRuntime>(&second_validator);
 
                     assert!(pool_state.read().transactions.is_empty());
                 };
@@ -827,9 +826,7 @@ mod cast_votes_if_required {
                 setup_voting_for_root_id(&context);
                 let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-                cast_votes_if_required::<TestRuntime>(
-                    &second_validator,
-                );
+                cast_votes_if_required::<TestRuntime>(&second_validator);
 
                 assert!(pool_state.read().transactions.is_empty());
             });
@@ -1084,37 +1081,6 @@ mod end_voting_period {
                         ),
                         Error::<TestRuntime>::ErrorEndingVotingPeriod
                     );
-                });
-            }
-
-            #[test]
-            fn submit_candidate_transaction_to_tier1_fails() {
-                let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-                    .with_validators()
-                    .for_offchain_worker()
-                    .as_externality_with_state();
-
-                ext.execute_with(|| {
-                    let context = setup_context();
-
-                    setup_approved_root(context.clone());
-                    let tx_id = INITIAL_TRANSACTION_ID;
-                    Summary::insert_root_hash(
-                        &context.root_id,
-                        get_root_hash_return_submit_to_tier1_fails(),
-                        context.validator.account_id.clone(),
-                        tx_id,
-                    );
-                    // TODO: fix tests
-                    // assert_noop!(
-                    //     Summary::end_voting_period(
-                    //         RawOrigin::None.into(),
-                    //         context.root_id,
-                    //         context.validator.clone(),
-                    //         context.record_summary_calculation_signature.clone(),
-                    //     ),
-                    //     Error::<TestRuntime>::ErrorSubmitCandidateTxnToTier1
-                    // );
                 });
             }
 

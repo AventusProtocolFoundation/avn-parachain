@@ -752,11 +752,10 @@ mod cases_for_no_summary_created_offences {
         pub fn setup_approved_root(context: &LocalContext, root_context: RootContext) {
             let root_id = root_context.root_id;
             let root_hash = root_context.root_hash;
-            let tx_id = root_context.tx_id;
             let validator = &context.slot_validator;
 
             // Setup voting data
-            Summary::insert_root_hash(&root_id, root_hash, validator.account_id, tx_id);
+            Summary::insert_root_hash(&root_id, root_hash, validator.account_id, 0);
             Summary::insert_pending_approval(&root_id);
             Summary::register_root_for_voting(&root_id, QUORUM, VOTING_PERIOD_END);
             assert_eq!(Summary::get_vote(&root_id).ayes.is_empty(), true);
