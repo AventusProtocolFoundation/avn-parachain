@@ -1,16 +1,3 @@
-// Self::advance_slot_if_required(block_number, &this_validator);
-// Self::process_summary_if_required(block_number, &this_validator);
-// cast_votes_if_required::<T>(&this_validator);
-// end_voting_if_required::<T>(block_number, &this_validator);
-// challenge_slot_if_required::<T>(block_number, &this_validator);
-
-/*
-advance_slot_if_required
- - Prevent multiple advance slot transactions in the same block
- - Wait for a successfully sent transaction to be executed and prevent duplicates from being sent on subsequent OCW
- - If sending fails, unlock so it can be retried
-*/
-
 // Copyright 2023 Aventus Network Services (UK) Ltd.
 
 #![cfg(test)]
@@ -69,7 +56,6 @@ pub fn setup_success_preconditions() -> LocalContext {
     Summary::set_current_slot(slot_number);
     Summary::set_current_slot_validator(slot_validator.account_id.clone());
 
-    //let keys: Vec<UintAuthorityId> = AVN::<TestRuntime>::validators().into_iter().map(|v| v.key).collect();
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(slot_validator.account_id)]);
 
     return LocalContext {
