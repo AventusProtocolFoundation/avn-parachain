@@ -73,6 +73,8 @@ const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
 pub mod vote;
 use crate::vote::*;
 
+pub mod util;
+
 pub mod challenge;
 use crate::challenge::*;
 
@@ -89,7 +91,6 @@ pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
-    use pallet_ethereum_transactions::ethereum_transaction::{EthTransactionType, PublishRootData};
 
     // Public interface of this pallet
     #[pallet::config]
