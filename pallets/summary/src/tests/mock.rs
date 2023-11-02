@@ -729,26 +729,6 @@ pub fn mock_response_of_get_ecdsa_signature(
     });
 }
 
-pub fn set_root_lock_with_expiry(
-    block_number: BlockNumber,
-    last_block_in_range: BlockNumber,
-) -> bool {
-    OcwLock::set_lock_with_expiry(
-        block_number,
-        OcwOperationExpiration::Fast,
-        Summary::create_root_lock_name(last_block_in_range),
-    )
-    .is_ok()
-}
-
-pub fn set_vote_lock_with_expiry(block_number: BlockNumber, root_id: &RootId<BlockNumber>) -> bool {
-    OcwLock::set_lock_with_expiry(
-        block_number,
-        OcwOperationExpiration::Fast,
-        vote::create_vote_lock_name::<TestRuntime>(root_id),
-    )
-    .is_ok()
-}
 
 pub fn get_non_validator() -> Validator<UintAuthorityId, u64> {
     get_validator(10)

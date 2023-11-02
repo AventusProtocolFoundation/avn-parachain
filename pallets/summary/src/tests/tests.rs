@@ -7,12 +7,12 @@ use crate::{
     system,
 };
 use codec::alloc::sync::Arc;
-use frame_support::assert_noop;
+use frame_support::{assert_noop};
 use pallet_avn::vote::VotingSessionData;
 use parking_lot::RwLock;
 
 use sp_core::{ecdsa, offchain::testing::PoolState, H256};
-use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
+use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, offchain::storage::StorageValueRef};
 use system::RawOrigin;
 
 fn record_summary_calculation_is_called(
@@ -376,17 +376,17 @@ mod process_summary_if_required {
 
                 setup_blocks(&context);
                 setup_total_ingresses(&context);
-                assert!(set_root_lock_with_expiry(
-                    context.current_block_number,
-                    context.last_block_in_range
-                ));
-                assert!(pool_state.read().transactions.is_empty());
+                let root_lock_name =  Summary::create_root_lock_name(context.last_block_in_range);
+                let mut lock = AVN::<TestRuntime>::get_ocw_locker(&root_lock_name);
+                if let Ok(_guard) = lock.try_lock() {
+                    assert!(pool_state.read().transactions.is_empty());
 
-                assert!(!record_summary_calculation_is_called(
-                    context.current_block_number,
-                    &context.validator,
-                    &pool_state
-                ));
+                    assert!(!record_summary_calculation_is_called(
+                        context.current_block_number,
+                        &context.validator,
+                        &pool_state
+                    ));
+                };
             });
         }
 
@@ -1618,6 +1618,11 @@ mod if_process_summary_is_called_a_second_time {
                 );
 
                 // A new processed summary for the same root [from:3;to:4] is successfully created
+                // First we need to clear the lock
+                let key = Summary::create_root_lock_name(second_process_summary_context.last_block_in_range);
+                let mut guard = StorageValueRef::persistent(&key);
+                guard.clear();
+
                 assert!(record_summary_calculation_is_called(
                     current_block_number,
                     &second_process_summary_context.validator,

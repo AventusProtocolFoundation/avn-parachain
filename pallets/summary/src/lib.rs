@@ -870,6 +870,12 @@ pub mod pallet {
             name
         }
 
+        pub fn get_advance_slot_lock_name(block_number: T::BlockNumber) -> Vec<u8> {
+            let mut name = b"advance_slot::".to_vec();
+            name.extend_from_slice(&mut block_number.encode());
+            name
+        }
+
         pub fn convert_data_to_eth_compatible_encoding(
             root_data: &RootData<T::AccountId>,
         ) -> Result<String, DispatchError> {
@@ -928,10 +934,22 @@ pub mod pallet {
             if this_validator.account_id == current_slot_validator.expect("Checked for none") &&
                 block_number >= Self::block_number_for_next_slot()
             {
-                let result = Self::dispatch_advance_slot(this_validator);
-                if let Err(e) = result {
-                    log::warn!("💔️ Error starting a new summary creation slot: {:?}", e);
-                }
+                let advance_slot_lock_name = Self::get_advance_slot_lock_name(Self::current_slot());
+                let mut lock = AVN::<T>::get_ocw_locker(&advance_slot_lock_name);
+
+                // Protect against sending more than once. When guard is out of scope the lock will be released.
+                if let Ok(guard) = lock.try_lock() {
+                    let result = Self::dispatch_advance_slot(this_validator);
+                    if let Err(e) = result {
+                        log::warn!("💔️ Error starting a new summary creation slot: {:?}", e);
+                        //free the lock so we can potentially retry
+                        drop(guard);
+                        return;
+                    }
+
+                    // If there are no errors, keep the lock to prevent doing the same logic again
+                    guard.forget();
+                };
             }
         }
         // called from OCW - no storage changes allowed here
@@ -1447,5 +1465,9 @@ mod tests_challenge;
 #[cfg(test)]
 #[path = "tests/tests_set_periods.rs"]
 mod tests_set_periods;
+
+#[cfg(test)]
+#[path = "tests/test_ocw_locks.rs"]
+mod test_ocw_locks;
 
 // TODO: Add unit tests for setting schedule period and voting period

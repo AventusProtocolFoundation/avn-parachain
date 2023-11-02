@@ -8,11 +8,11 @@
 
 use crate::{
     BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32, Decode, Encode, Growth,
-    GrowthInfo, GrowthPeriodIndex, LastTriggeredGrowthPeriod, MaxEncodedLen, Pallet,
-    ProcessedGrowthPeriods, RewardPoint, RuntimeDebug, TypeInfo, Vec,
-    IngressCounter, avn::vote::VotingSessionData, GrowthId, TransactionId
+    GrowthInfo, GrowthPeriodIndex, MaxEncodedLen, Pallet,
+    RewardPoint, RuntimeDebug, TypeInfo,
+    IngressCounter, avn::vote::VotingSessionData, TransactionId
 };
-use crate::migration::storage_with_voting::*;
+
 use frame_support::{
     dispatch::GetStorageVersion,
     pallet_prelude::*,
@@ -39,6 +39,12 @@ pub struct OldGrowthInfo<AccountId, Balance> {
 /// The original data layout of the storage with voting logic included
 mod storage_with_voting {
 	use super::*;
+
+    #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+    pub struct GrowthId {
+        pub period: GrowthPeriodIndex,
+        pub ingress_counter: IngressCounter,
+    }
 
     #[storage_alias]
     pub type VotesRepository<T: Config> = StorageMap<
@@ -72,7 +78,7 @@ pub fn enable_eth_bridge_wire_up<T: Config>() -> Weight {
     let votes_repo_prefix = storage::storage_prefix(b"ParachainStaking", b"VotesRepository");
     let mut key = vec![0u8; 32];
     key[0..32].copy_from_slice(&votes_repo_prefix);
-    let res = unhashed::clear_prefix(&key[0..32], None, None);
+    let _ = unhashed::clear_prefix(&key[0..32], None, None);
 
     // Remove unused `added_by` field
     Growth::<T>::translate::<OldGrowthInfo<T::AccountId, BalanceOf<T>>, _>(
