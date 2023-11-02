@@ -8,6 +8,7 @@ use pallet_avn::AccountToBytesConverter;
 use sp_avn_common::EthTransaction;
 use sp_core::{ecdsa, H256};
 use sp_runtime::DispatchError;
+use sp_std::vec;
 
 const UINT256: &[u8] = b"uint256";
 const UINT128: &[u8] = b"uint128";

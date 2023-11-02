@@ -780,7 +780,6 @@ mod cast_votes_if_required {
         use super::*;
 
         #[test]
-        #[ignore]
         fn when_setting_lock_with_expiry_has_error() {
             let (mut ext, pool_state, _offchain_state) = ExtBuilder::build_default()
                 .with_validators()
@@ -794,15 +793,18 @@ mod cast_votes_if_required {
 
                 // TODO [TYPE: test][PRI: medium][JIRA: 321]: mock of set_lock_with_expiry returns
                 // error
-                assert!(set_vote_lock_with_expiry(context.current_block_number, &context.root_id));
+                let lock_name = vote::create_vote_lock_name::<TestRuntime>(&context.root_id);
+                let mut lock = AVN::<TestRuntime>::get_ocw_locker(&lock_name);
 
-                let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
-                cast_votes_if_required::<TestRuntime>(
-                    context.current_block_number,
-                    &second_validator,
-                );
+                // Protect against sending more than once. When guard is out of scope the lock will be released.
+                if let Ok(_guard) = lock.try_lock() {
+                    let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
+                    cast_votes_if_required::<TestRuntime>(
+                        &second_validator,
+                    );
 
-                assert!(pool_state.read().transactions.is_empty());
+                    assert!(pool_state.read().transactions.is_empty());
+                };
             });
         }
 
@@ -826,7 +828,6 @@ mod cast_votes_if_required {
                 let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
                 cast_votes_if_required::<TestRuntime>(
-                    context.current_block_number,
                     &second_validator,
                 );
 
@@ -859,7 +860,7 @@ mod cast_votes_if_required {
             setup_voting_for_root_id(&context);
             let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-            cast_votes_if_required::<TestRuntime>(context.current_block_number, &second_validator);
+            cast_votes_if_required::<TestRuntime>(&second_validator);
 
             let tx = pool_state.write().transactions.pop().unwrap();
             assert!(pool_state.read().transactions.is_empty());
@@ -903,7 +904,7 @@ mod cast_votes_if_required {
             setup_voting_for_root_id(&context);
             let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-            cast_votes_if_required::<TestRuntime>(context.current_block_number, &second_validator);
+            cast_votes_if_required::<TestRuntime>(&second_validator);
 
             let tx = pool_state.write().transactions.pop().unwrap();
             assert!(pool_state.read().transactions.is_empty());

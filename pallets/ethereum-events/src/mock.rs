@@ -33,7 +33,6 @@ use avn::AvnBridgeContractAddress;
 use pallet_avn::{self as avn, Error as avn_error};
 use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent};
 use sp_io::TestExternalities;
-use sp_runtime::{bounded_vec, BoundedVec};
 
 use crate::{self as pallet_ethereum_events, *};
 

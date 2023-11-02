@@ -16,7 +16,6 @@ use frame_support::{
     traits::{Get, IsSubType},
 };
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
-use pallet_avn::AvnBridgeContractAddress;
 use simple_json2::json::JsonValue;
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
@@ -294,18 +293,6 @@ pub mod pallet {
         PrevChallengesOverflow,
         EventsPendingChallengeOverflow,
     }
-
-    #[pallet::storage]
-    #[pallet::getter(fn validator_manager_contract_address)]
-    // TODO [TYPE: refactoring][PRI: low]: replace these contract addresses by a map.
-    // (note: low value. This is simple to use, and there are few contracts)
-    #[deprecated]
-    pub type ValidatorManagerContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn lifting_contract_address)]
-    #[deprecated]
-    pub type LiftingContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn ingress_counter)]
@@ -824,18 +811,6 @@ pub mod pallet {
                 Self::try_process_event(block_number, &this_validator);
             } else {
                 Self::try_validate_event(block_number, &this_validator);
-            }
-        }
-
-        // Note: this "special" function will run during every runtime upgrade. Any complicated
-        // migration logic should be done in a separate function so it can be tested
-        // properly.
-        fn on_runtime_upgrade() -> Weight {
-            if StorageVersion::<T>::get() != Releases::V4_0_0 || !StorageVersion::<T>::exists() {
-                log::info!("Performing bridge contract migration");
-                return migrations::migrate_to_bridge_contract::<T>()
-            } else {
-                return Weight::from_ref_time(0)
             }
         }
     }
@@ -1681,42 +1656,5 @@ enum Releases {
 impl Default for Releases {
     fn default() -> Self {
         Releases::V4_0_0
-    }
-}
-
-pub mod migrations {
-    use super::*;
-    use frame_support::pallet_prelude::Weight;
-
-    pub fn get_migration_address<T: Config>() -> H160 {
-        let val_manager = ValidatorManagerContractAddress::<T>::get();
-        let lifting = LiftingContractAddress::<T>::get();
-
-        if !val_manager.is_zero() {
-            return val_manager
-        } else {
-            return lifting
-        }
-    }
-
-    pub fn migrate_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-        log::info!("ℹ️  Ethereum events pallet data migration invoked");
-
-        let mut consumed_weight = Weight::from_ref_time(0);
-
-        if AvnBridgeContractAddress::<T>::get().is_zero() {
-            <AvnBridgeContractAddress<T>>::put(get_migration_address::<T>());
-            log::info!("ℹ️  Updated bridge contract address successfully in ethereum events");
-            consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().reads_writes(4, 1));
-        }
-
-        LiftingContractAddress::<T>::kill();
-        ValidatorManagerContractAddress::<T>::kill();
-
-        StorageVersion::<T>::put(Releases::V4_0_0);
-        consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().writes(4));
-
-        return consumed_weight
     }
 }

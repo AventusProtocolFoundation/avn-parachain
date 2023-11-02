@@ -896,7 +896,7 @@ fn tx_ready_to_be_sent_respects_locks() {
         // lock the first record (mark is as sent)
         assert_ok!(OcwLock::set_lock_with_expiry(
             1u64,
-            OcwOperationExpiration::Custom(ETHEREUM_SEND_BLOCKS_EXPIRY),
+            OcwOperationExpiration::Custom(50),
             EthereumTransactions::generate_sending_lock_name(candidate_transactions[0].tx_id)
         ));
 
