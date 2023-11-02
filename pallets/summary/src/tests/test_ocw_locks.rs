@@ -4,15 +4,10 @@
 
 use crate::{mock::*, system};
 use codec::alloc::sync::Arc;
-use frame_support::{assert_noop, assert_ok, traits::Hooks};
+use frame_support::traits::Hooks;
 use parking_lot::RwLock;
 use sp_core::offchain::testing::PoolState;
-use sp_runtime::{
-    testing::{TestSignature, UintAuthorityId},
-    traits::BadOrigin,
-    offchain::storage::StorageValueRef
-};
-use system::RawOrigin;
+use sp_runtime::{offchain::storage::StorageValueRef, testing::UintAuthorityId};
 
 type MockValidator = Validator<UintAuthorityId, u64>;
 
@@ -69,8 +64,6 @@ pub fn setup_success_preconditions() -> LocalContext {
     }
 }
 
-
-
 mod advance_slot_locks {
     use super::*;
 
@@ -122,7 +115,8 @@ mod advance_slot_locks {
             let _ = pool_state.write().transactions.pop();
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
-            // the lock should prevent duplicate slot advancement calls even for different block numbers
+            // the lock should prevent duplicate slot advancement calls even for different block
+            // numbers
             Summary::offchain_worker(context.block_number_for_next_slot + 1);
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
@@ -138,16 +132,13 @@ mod advance_slot_locks {
 mod record_summary_locks {
     use super::*;
 
-
     fn expire_process_summary_lock(last_block_in_range: u64) {
         let lock_name = Summary::create_root_lock_name(last_block_in_range);
         let mut guard = StorageValueRef::persistent(&lock_name);
         guard.clear();
     }
 
-    fn get_call_from_mem_pool(
-        pool_state: &Arc<RwLock<PoolState>>,
-    ) -> crate::Call<TestRuntime> {
+    fn get_call_from_mem_pool(pool_state: &Arc<RwLock<PoolState>>) -> crate::Call<TestRuntime> {
         let tx = pool_state.write().transactions.pop().unwrap();
         let tx = Extrinsic::decode(&mut &*tx).unwrap();
         assert_eq!(tx.signature, None);
@@ -225,7 +216,6 @@ mod record_summary_locks {
         });
     }
 
-
     #[test]
     fn lock_releases_when_call_fails() {
         let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
@@ -234,7 +224,6 @@ mod record_summary_locks {
             .as_externality_with_state();
 
         ext.execute_with(|| {
-
             let context = setup_context();
             UintAuthorityId::set_all_keys(vec![UintAuthorityId(context.validator.account_id)]);
 
@@ -266,12 +255,6 @@ mod record_summary_locks {
 
             // This time it works, because the guard is unlocked on error
             assert_eq!(false, pool_state.read().transactions.is_empty());
-
         });
     }
-
 }
-
-
-
-

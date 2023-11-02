@@ -30,6 +30,8 @@ frame-support = {default-features = false, git = "https://github.com/paritytech/
 frame-system = {default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 sp-staking = {default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-session = {default-features = false, features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+ethabi = { default-features = false, git = "https://github.com/Aventus-Network-Services/ethabi.git", branch = "v13.0.0-no-std-avn" }
+
 
 # Optional imports for benchmarking
 frame-benchmarking = {default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }

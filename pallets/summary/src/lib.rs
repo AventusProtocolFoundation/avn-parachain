@@ -24,13 +24,14 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use avn::{AccountToBytesConverter, OnBridgePublisherResult};
+use avn::OnBridgePublisherResult;
 use core::convert::TryInto;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, weights::Weight};
 use frame_system::{
     self as system, ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
+pub use pallet::*;
 use pallet_avn::{
     self as avn,
     vote::{
@@ -40,12 +41,6 @@ use pallet_avn::{
     },
     Error as avn_error,
 };
-use pallet_ethereum_transactions::{
-    ethereum_transaction::{EthAbiHelper, TransactionId},
-    CandidateTransactionSubmitter,
-};
-// use pallet_ethereum_transactions::CandidateTransactionSubmitter;
-pub use pallet::*;
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::{ecdsa, H256};
@@ -73,14 +68,16 @@ const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
 const MAX_OFFENDERS: u32 = 2; // maximum of offenders need to be less one third of minimum validators so the benchmark won't panic
 const MAX_NUMBER_OF_ROOT_DATA_PER_RANGE: u32 = 2;
 
-const MIN_SCHEDULE_PERIOD: u32 = 0; // 6 MINUTES
-const DEFAULT_SCHEDULE_PERIOD: u32 = 10; // 1 DAY
-const MIN_VOTING_PERIOD: u32 = 0; // 5 MINUTES
+const MIN_SCHEDULE_PERIOD: u32 = 120; // 6 MINUTES
+const DEFAULT_SCHEDULE_PERIOD: u32 = 28800; // 1 DAY
+const MIN_VOTING_PERIOD: u32 = 100; // 5 MINUTES
 const MAX_VOTING_PERIOD: u32 = 28800; // 1 DAY
 const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
 
 pub mod vote;
 use crate::vote::*;
+
+pub mod util;
 
 pub mod challenge;
 use crate::challenge::*;
@@ -98,7 +95,6 @@ pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
-    use pallet_ethereum_transactions::ethereum_transaction::{EthTransactionType, PublishRootData};
 
     // Public interface of this pallet
     #[pallet::config]
@@ -120,7 +116,7 @@ pub mod pallet {
         /// This will give grandpa a chance to finalise the blocks
         type MinBlockAge: Get<Self::BlockNumber>;
 
-        type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
+        // type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
 
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
 
@@ -885,8 +881,8 @@ pub mod pallet {
                     .as_ref()
                     .expect("Non-Empty roots have a reserved TransactionId"),
             };
-            let expiry = 1000000; //T::BridgePublisher::get_eth_tx_lifetime_secs();
-            let encoded_data = EthAbiHelper::encode_summary_data(&root_hash, expiry, tx_id);
+            let expiry = T::BridgePublisher::get_eth_tx_lifetime_secs();
+            let encoded_data = util::encode_summary_data(&root_hash, expiry, tx_id);
             let msg_hash = keccak_256(&encoded_data);
 
             Ok(hex::encode(msg_hash))
@@ -1176,13 +1172,11 @@ pub mod pallet {
                     let function_name: &[u8] = b"publishRoot";
                     let params =
                         vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
-                    let tx_id = Some(
-                        T::BridgePublisher::publish(function_name, &params)
-                            .map_err(|_| Error::<T>::ErrorPublishingSummary)?,
-                    );
+                    let tx_id = T::BridgePublisher::publish(function_name, &params)
+                        .map_err(|e| DispatchError::Other(e.into()))?;
 
                     <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
-                        root.tx_id = tx_id
+                        root.tx_id = Some(tx_id)
                     });
 
                     // There are a couple possible reasons for failure.
@@ -1427,19 +1421,12 @@ impl<AccountId> Default for RootData<AccountId> {
 }
 impl<T: Config> OnBridgePublisherResult for Pallet<T> {
     fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
-        // Handle the result based on whether it succeeded or not
         if succeeded {
-            // ✅ The publishing was successful
             log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
-            // You can perform additional actions here if needed.
         } else {
-            // ❌ The publishing failed
             log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
-            // You can take appropriate actions to handle the failure, e.g., retry or log the error.
         }
 
-        // You can return an appropriate result or error here if necessary.
-        // For now, we'll just return Ok() for demonstration purposes.
         Ok(())
     }
 }

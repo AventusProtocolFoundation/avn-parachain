@@ -7450,6 +7450,7 @@ name = "pallet-summary"
 version = "3.4.3"
 dependencies = [
  "assert_matches",
+ "ethabi 13.0.0",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
