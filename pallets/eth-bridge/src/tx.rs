@@ -35,7 +35,8 @@ pub fn is_active<T: Config>(tx_id: u32) -> bool {
     ActiveTransaction::<T>::get().map_or(false, |active_tx| active_tx.id == tx_id)
 }
 
-fn replay_transaction<T: Config>(tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
+fn replay_transaction<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
+    tx.request_data.tx_id = use_next_tx_id::<T>();
     Ok(set_up_active_tx(tx.request_data)?)
 }
 

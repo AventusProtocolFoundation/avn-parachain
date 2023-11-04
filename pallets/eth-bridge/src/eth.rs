@@ -101,7 +101,7 @@ fn check_tx_hash<T: Config>(
     author: &Author<T>,
 ) -> Result<bool, DispatchError> {
     if tx.data.eth_tx_hash != H256::zero() {
-        if let Ok((call_data, confirmations)) = get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id) {
+        if let Ok((call_data, _confirmations)) = get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id) {
             // TODO: Add me when we return "confirmations" for "view" methods too
             //if confirmations >= T::MinEthBlockConfirmation::get() {
             let expected_call_data = generate_send_calldata(&tx)?;
@@ -292,13 +292,14 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     Ok(result_bytes[31] as i8)
 }
 
-fn process_query_result<T: Config>(data: Vec<u8>) -> Result<(String, u64), DispatchError> {
-    let (call_data, confirmations) = try_process_query_result::<Vec<u8>, T>(data).map_err(|e| {
+fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), DispatchError> {
+    let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
+    let (call_data, eth_tx_confirmations) = try_process_query_result::<Vec<u8>, T>(result_bytes).map_err(|e| {
         log::error!("❌ Error processing query result from ethereum: {:?}", e);
         e
     })?;
 
-    Ok((hex::encode(call_data), confirmations))
+    Ok((hex::encode(call_data), eth_tx_confirmations))
 }
 
 

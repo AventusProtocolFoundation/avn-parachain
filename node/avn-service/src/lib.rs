@@ -109,7 +109,7 @@ struct Response {
 }
 
 pub fn server_error(message: String) -> TideError {
-    log::error!("[avn-service] 💔 {}", &message);
+    log::error!("⛓️ 💔 avn-service {:?}", message);
     return TideError::from_str(StatusCode::InternalServerError, format!("{:?}", message))
 }
 
@@ -129,7 +129,7 @@ pub fn to_bytes32(data: String) -> Result<[u8; 32], TideError> {
     }
 
     return <[u8; 32]>::from_hex(data.clone()).map_or_else(
-        |_| Err(server_error(format!("Error converting to bytes32: {:?}", data))),
+        |e| Err(server_error(format!("Error converting {:?} to bytes32: {:?}", data, e))),
         |bytes32| Ok(bytes32),
     )
 }
@@ -187,7 +187,9 @@ where
 {
     log::info!("⛓️  avn-service: send Request");
     let post_body = req.body_bytes().await?;
-    let send_request = &EthTransaction::decode(&mut &post_body[..])?;
+    let send_request = &EthTransaction::decode(&mut &post_body[..]).map_err(|e| {
+        server_error(format!("Error decoding eth transaction data: {:?}", e))
+    })?;
 
     if let Some(mut mutex_web3_data) = req.state().web3_data_mutex.try_lock() {
         if mutex_web3_data.web3.is_none() {
@@ -230,8 +232,7 @@ where
 
         Ok(hex::encode(tx_hash))
     } else {
-        log::error!("💔 Failed to acquire web3 mutex");
-        Err(TideError::from_str(StatusCode::FailedDependency, "Failed to get web3"))
+        Err(server_error(format!("Failed to acquire web3 mutex")))
     }
 }
 
@@ -244,7 +245,9 @@ where
 {
     log::info!("⛓️  avn-service: view Request");
     let post_body = req.body_bytes().await?;
-    let view_request = &EthTransaction::decode(&mut &post_body[..])?;
+    let view_request = &EthTransaction::decode(&mut &post_body[..]).map_err(|e| {
+        server_error(format!("Error decoding eth transaction data: {:?}", e))
+    })?;
 
     if let Some(mutex_web3_data) = req.state().web3_data_mutex.try_lock() {
         if mutex_web3_data.web3.is_none() {
@@ -264,8 +267,7 @@ where
 
         Ok(hex::encode(result.0))
     } else {
-        log::error!("💔 Failed to acquire web3 mutex");
-        Err(TideError::from_str(StatusCode::FailedDependency, "Failed to get web3"))
+        Err(server_error(format!("Failed to acquire web3 mutex")))
     }
 }
 
@@ -276,9 +278,16 @@ async fn tx_query_main<Block: BlockT, ClientT>(
 where
     ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
-    log::info!("⛓️  avn-service: query Request");
+    log::info!("⛓️  avn-service: query Request.");
     let post_body = req.body_bytes().await?;
-    let query_request = &EthQueryRequest::decode(&mut &post_body[..])?;
+
+    let request = &EthTransaction::decode(&mut &post_body[..]).map_err(|e| {
+        server_error(format!("Error decoding eth transaction data: {:?}", e))
+    })?;
+
+    let query_request = &EthQueryRequest::decode(&mut &request.data[..]).map_err(|e| {
+        server_error(format!("Error decoding query request data: {:?}", e))
+    })?;
 
     if let Some(mutex_web3_data) = req.state().web3_data_mutex.try_lock() {
         if mutex_web3_data.web3.is_none() {
@@ -286,30 +295,30 @@ where
         }
 
         let web3 = mutex_web3_data.web3.as_ref().unwrap();
-        let tx_hash = H256::from_slice(&to_bytes32(query_request.tx_hash.to_string())?);
+        let tx_hash = H256::from_slice(&to_bytes32(hex::encode(query_request.tx_hash))?);
 
-        let current_block_number = web3_utils::get_current_block_number(&web3)
-        .await
+        let current_block_number = web3_utils::get_current_block_number(&web3).await
         .map_err(|e| server_error(format!("Error getting block number: {:?}", e)))?;
 
         match query_request.response_type {
             EthQueryResponseType::CallData => {
-                let maybe_tx = web3_utils::get_tx_call_data(&web3, tx_hash)
-                    .await
-                    .map_err(|e| server_error(format!("Error getting tx receipt: {:?}", e)))?;
+                let maybe_tx = web3_utils::get_tx_call_data(&web3, tx_hash).await
+                    .map_err(|e| server_error(format!("Error getting tx call data: {:?}", e)))?;
 
                 match maybe_tx {
-                    None => Err(TideError::from_str(StatusCode::BadRequest, "Transaction is empty".to_string())),
-                    Some(data) => Ok(to_eth_query_response::<Vec<u8>>(&data.input.0.to_vec(), current_block_number, data.block_number)?)
+                    None => Err(server_error(format!("Transaction is empty"))),
+                    Some(data) => {
+                        let response = to_eth_query_response::<Vec<u8>>(&data.input.0.to_vec(), current_block_number, data.block_number)?;
+                        log::info!("⛓️  avn-service: eth query response {:?}", response);
+                        Ok(response)
+                    }
                 }
             }
         }
     } else {
-        log::error!("💔 Failed to acquire web3 mutex");
-        Err(TideError::from_str(StatusCode::FailedDependency, "Failed to get web3"))
+        Err(server_error(format!("Failed to acquire web3 mutex")))
     }
 }
-
 
 #[tokio::main]
 async fn root_hash_main<Block: BlockT, ClientT>(
@@ -321,12 +330,7 @@ where
     log::info!("⛓️  avn-service: eth events");
     let tx_hash: H256 = H256::from_slice(&to_bytes32(
         req.param("txHash")
-            .map_err(|_| {
-                TideError::from_str(
-                    StatusCode::BadRequest,
-                    "💔 txHash is not a valid transaction hash".to_string(),
-                )
-            })?
+            .map_err(|_| server_error("txHash is not a valid transaction hash".to_string()))?
             .to_string(),
     )?);
 
@@ -363,8 +367,7 @@ where
             }
         }
     } else {
-        log::error!("💔 Failed to acquire web3 mutex");
-        Err(TideError::from_str(StatusCode::FailedDependency, "Failed to get web3"))
+        Err(server_error(format!("Failed to acquire web3 mutex")))
     }
 }
 
