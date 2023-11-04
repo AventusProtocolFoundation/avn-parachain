@@ -301,14 +301,3 @@ fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), Dis
 
     Ok((hex::encode(call_data), eth_tx_confirmations))
 }
-
-
-
-
-
-
-
-
-
-
-
