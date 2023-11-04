@@ -3,7 +3,7 @@ use futures::lock::Mutex;
 use hex::FromHex;
 use jsonrpc_core::ErrorCode;
 use sc_keystore::LocalKeystore;
-use sp_avn_common::{EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER};
+use sp_avn_common::{EthTransaction, EthQueryRequest, EthQueryResponseType, EthQueryResponse, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER};
 use sp_core::{ecdsa::Signature, hashing::keccak_256};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
@@ -15,7 +15,6 @@ pub use std::{path::PathBuf, sync::Arc};
 use ethereum_types::H256;
 use secp256k1::{Secp256k1, SecretKey};
 use tide::{http::StatusCode, Error as TideError};
-use web3::types::TransactionReceipt;
 pub use web3Secp256k1::SecretKey as web3SecretKey;
 
 pub mod extrinsic_utils;
@@ -135,22 +134,19 @@ pub fn to_bytes32(data: String) -> Result<[u8; 32], TideError> {
     )
 }
 
-fn get_tx_receipt_json(
-    receipt: TransactionReceipt,
+fn to_eth_query_response<T: Encode>(
+    data: &T,
     current_block_number: u64,
+    data_block_number: Option<web3::types::U64>,
 ) -> Result<String, TideError> {
-    let response = Response {
-        result: serde_json::to_value(&receipt).map_err(|_| {
-            TideError::from_str(StatusCode::Ok, "❗Eth response is not a valid JSON".to_string())
-        })?,
-        num_confirmations: current_block_number -
-            receipt.block_number.unwrap_or(Default::default()).as_u64(),
-    };
-
-    let json_response = serde_json::to_string(&response)
-        .map_err(|_| server_error("Error serialising response".to_string()))?;
-
-    return Ok(json_response)
+    Ok(
+        hex::encode(
+            EthQueryResponse {
+                data: data.encode(),
+                num_confirmations: current_block_number - data_block_number.unwrap_or(Default::default()).as_u64(),
+            }.encode()
+        )
+    )
 }
 
 // Parses the error message and identifies if the error is related with the nonce
@@ -274,6 +270,48 @@ where
 }
 
 #[tokio::main]
+async fn tx_query_main<Block: BlockT, ClientT>(
+    mut req: tide::Request<Arc<Config<Block, ClientT>>>,
+) -> Result<String, TideError>
+where
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+{
+    log::info!("⛓️  avn-service: query Request");
+    let post_body = req.body_bytes().await?;
+    let query_request = &EthQueryRequest::decode(&mut &post_body[..])?;
+
+    if let Some(mutex_web3_data) = req.state().web3_data_mutex.try_lock() {
+        if mutex_web3_data.web3.is_none() {
+            return Err(server_error("Web3 connection not setup".to_string()))
+        }
+
+        let web3 = mutex_web3_data.web3.as_ref().unwrap();
+        let tx_hash = H256::from_slice(&to_bytes32(query_request.tx_hash.to_string())?);
+
+        let current_block_number = web3_utils::get_current_block_number(&web3)
+        .await
+        .map_err(|e| server_error(format!("Error getting block number: {:?}", e)))?;
+
+        match query_request.response_type {
+            EthQueryResponseType::CallData => {
+                let maybe_tx = web3_utils::get_tx_call_data(&web3, tx_hash)
+                    .await
+                    .map_err(|e| server_error(format!("Error getting tx receipt: {:?}", e)))?;
+
+                match maybe_tx {
+                    None => Err(TideError::from_str(StatusCode::BadRequest, "Transaction is empty".to_string())),
+                    Some(data) => Ok(to_eth_query_response::<Vec<u8>>(&data.input.0.to_vec(), current_block_number, data.block_number)?)
+                }
+            }
+        }
+    } else {
+        log::error!("💔 Failed to acquire web3 mutex");
+        Err(TideError::from_str(StatusCode::FailedDependency, "Failed to get web3"))
+    }
+}
+
+
+#[tokio::main]
 async fn root_hash_main<Block: BlockT, ClientT>(
     req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
@@ -309,7 +347,20 @@ where
                 StatusCode::Ok,
                 "❗Transaction receipt is empty".to_string(),
             )),
-            Some(receipt) => Ok(get_tx_receipt_json(receipt, current_block_number)?),
+            Some(receipt) => {
+                let response = Response {
+                    result: serde_json::to_value(&receipt).map_err(|_| {
+                        TideError::from_str(StatusCode::Ok, "❗Eth response is not a valid JSON".to_string())
+                    })?,
+                    num_confirmations: current_block_number -
+                        receipt.block_number.unwrap_or(Default::default()).as_u64(),
+                };
+
+                let json_response = serde_json::to_string(&response)
+                    .map_err(|_| server_error("Error serialising response".to_string()))?;
+
+                return Ok(json_response)
+            }
         }
     } else {
         log::error!("💔 Failed to acquire web3 mutex");
@@ -374,6 +425,12 @@ where
         .post(|req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             // Methods that require web3 must be run within the tokio runtime (#[tokio::main])
             return view_main(req)
+        });
+
+    app.at("/eth/query")
+        .post(|req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
+            // Methods that require web3 must be run within the tokio runtime (#[tokio::main])
+            return tx_query_main(req)
         });
 
     app.at("/eth/events/:txHash").get(

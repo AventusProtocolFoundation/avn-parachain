@@ -356,6 +356,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
+    type MinEthBlockConfirmation = ConstU64<20>;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type AccountToBytesConvert = AVN;

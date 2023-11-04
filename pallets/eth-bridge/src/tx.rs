@@ -35,10 +35,11 @@ pub fn is_active<T: Config>(tx_id: u32) -> bool {
     ActiveTransaction::<T>::get().map_or(false, |active_tx| active_tx.id == tx_id)
 }
 
-pub fn finalize_state<T: Config>(
-    mut tx: ActiveTransactionData<T>,
-    success: bool,
-) -> Result<(), Error<T>> {
+fn replay_transaction<T: Config>(tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
+    Ok(set_up_active_tx(tx.request_data)?)
+}
+
+fn complete_transaction<T: Config>(mut tx: ActiveTransactionData<T>, success: bool,) -> Result<(), Error<T>> {
     // Alert the originating pallet:
     T::OnBridgePublisherResult::process_result(tx.id, success)
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
@@ -63,6 +64,20 @@ pub fn finalize_state<T: Config>(
     }
 
     Ok(())
+}
+
+pub fn finalize_state<T: Config>(
+    tx: ActiveTransactionData<T>,
+    success: bool,
+) -> Result<(), Error<T>> {
+
+    // if there is bad behaviour, replay transaction
+    if !success && util::has_enough_corroborations::<T>(tx.invalid_tx_hash_corroborations.len()) {
+        // raise an offence on the "sender" because the tx_hash they provided was invalid
+        return Ok(replay_transaction(tx)?)
+    }
+
+    Ok(complete_transaction::<T>(tx, success)?)
 }
 
 fn queue_tx_request<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> {
@@ -105,12 +120,15 @@ fn set_up_active_tx<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> 
 
     ActiveTransaction::<T>::put(ActiveTransactionData {
         id: tx_request.tx_id,
+        request_data: tx_request,
         data,
         expiry,
         msg_hash,
         confirmations: BoundedVec::default(),
         success_corroborations: BoundedVec::default(),
         failure_corroborations: BoundedVec::default(),
+        valid_tx_hash_corroborations: BoundedVec::default(),
+        invalid_tx_hash_corroborations: BoundedVec::default(),
     });
 
     Ok(())

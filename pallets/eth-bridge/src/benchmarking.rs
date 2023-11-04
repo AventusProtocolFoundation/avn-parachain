@@ -68,15 +68,24 @@ fn setup_active_tx<T: Config>(
     let function_name =
         BoundedVec::<u8, crate::FunctionLimit>::try_from(b"sampleFunction".to_vec())
             .expect("Failed to create BoundedVec");
-    let params = vec![
+
+    let request_params = vec![
         (
             b"bytes32".to_vec(),
             hex::decode("30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0")
                 .unwrap(),
-        ),
-        (b"uint256".to_vec(), expiry.to_string().into_bytes()),
-        (b"uint32".to_vec(), tx_id.to_string().into_bytes()),
+        )
     ];
+
+    let mut params = request_params.clone();
+    params.push((b"uint256".to_vec(), expiry.to_string().into_bytes()));
+    params.push((b"uint32".to_vec(), tx_id.to_string().into_bytes()));
+
+    let request_data = RequestData {
+        tx_id,
+        function_name: function_name.clone(),
+        params: bound_params(request_params.to_vec()),
+    };
 
     let tx_data = TransactionData {
         function_name,
@@ -88,6 +97,7 @@ fn setup_active_tx<T: Config>(
 
     ActiveTransaction::<T>::put(ActiveTransactionData {
         id: tx_id,
+        request_data,
         data: tx_data,
         expiry,
         msg_hash: H256::repeat_byte(1),

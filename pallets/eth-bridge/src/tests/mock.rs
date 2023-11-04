@@ -49,6 +49,7 @@ impl Config for TestRuntime {
     type TimeProvider = Timestamp;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
+    type MinEthBlockConfirmation = ConstU64<20>;
     type AccountToBytesConvert = U64To32BytesConverter;
     type OnBridgePublisherResult = TestRuntime;
 }
