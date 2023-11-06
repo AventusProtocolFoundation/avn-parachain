@@ -35,11 +35,8 @@ use pallet_avn::{
     EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
     ValidatorRegistrationNotifier,
 };
-use pallet_ethereum_transactions::{
-    ethereum_transaction::{
-        ActivateCollatorData, DeregisterCollatorData, EthAbiHelper, EthTransactionType,
-        TransactionId,
-    },
+use pallet_ethereum_transactions::ethereum_transaction::{
+    ActivateCollatorData, DeregisterCollatorData, EthAbiHelper, EthTransactionType, TransactionId,
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
@@ -584,13 +581,6 @@ impl<T: Config> Pallet<T> {
     ) -> Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>> {
         return Box::new(ValidatorManagementVotingSession::<T>::new(action_id))
             as Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>
-    }
-
-    pub fn sign_validators_action_for_ethereum(
-        action_id: &ActionId<T::AccountId>,
-    ) -> Result<(String, ecdsa::Signature), DispatchError> {
-        let data = Self::abi_encode_collator_action_data(action_id)?;
-        return Ok((data.clone(), AVN::<T>::request_ecdsa_signature_from_external_service(&data)?))
     }
 
     pub fn abi_encode_collator_action_data(

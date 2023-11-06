@@ -373,29 +373,6 @@ parameter_types! {
     pub const Offset: u64 = 0;
 }
 
-impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
-    fn submit_candidate_transaction_to_tier1(
-        _candidate_type: EthTransactionType,
-        _tx_id: TransactionId,
-        _submitter: AccountId,
-        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
-    ) -> DispatchResult {
-        Ok(())
-    }
-
-    fn reserve_transaction_id(
-        _candidate_type: &EthTransactionType,
-    ) -> Result<TransactionId, DispatchError> {
-        let value = MOCK_TX_ID.with(|tx_id| *tx_id.borrow());
-        MOCK_TX_ID.with(|tx_id| {
-            *tx_id.borrow_mut() += 1;
-        });
-        return Ok(value)
-    }
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
-}
-
 impl session::Config for TestRuntime {
     type SessionManager = ParachainStaking;
     type Keys = UintAuthorityId;

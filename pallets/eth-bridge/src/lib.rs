@@ -98,6 +98,7 @@ pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 
 pub const TX_HASH_INVALID: bool = false;
+pub type EthereumTransactionId = u32;
 
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
@@ -299,13 +300,11 @@ pub mod pallet {
                     !tx.confirmations.contains(&confirmation),
                     Error::<T>::DuplicateConfirmation
                 );
-                log::info!("CONFIRMATIONS 1.5 !!! {:?}", confirmation);
 
                 tx.confirmations
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                log::info!("CONFIRMATIONS 2 !!! {:?}", tx.confirmations);
                 ActiveTransaction::<T>::put(tx);
             }
 
@@ -442,8 +441,18 @@ pub mod pallet {
             } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
                 if util::requires_corroboration::<T>(&tx, &author) {
                     match eth::corroborate::<T>(&tx, &author)? {
-                        (Some(true), tx_hash_is_valid) => call::add_corroboration::<T>(tx.id, true, tx_hash_is_valid.unwrap_or_default(), author),
-                        (Some(false), tx_hash_is_valid) => call::add_corroboration::<T>(tx.id, false, tx_hash_is_valid.unwrap_or_default(), author),
+                        (Some(true), tx_hash_is_valid) => call::add_corroboration::<T>(
+                            tx.id,
+                            true,
+                            tx_hash_is_valid.unwrap_or_default(),
+                            author,
+                        ),
+                        (Some(false), tx_hash_is_valid) => call::add_corroboration::<T>(
+                            tx.id,
+                            false,
+                            tx_hash_is_valid.unwrap_or_default(),
+                            author,
+                        ),
                         (None, _) => {},
                     }
                 }
@@ -485,9 +494,21 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(2u8).into()
                     },
-                Call::add_corroboration { tx_id, tx_succeeded, tx_hash_is_valid, author, signature } =>
+                Call::add_corroboration {
+                    tx_id,
+                    tx_succeeded,
+                    tx_hash_is_valid,
+                    author,
+                    signature,
+                } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, tx_hash_is_valid, &author.account_id),
+                        &(
+                            ADD_CORROBORATION_CONTEXT,
+                            tx_id,
+                            tx_succeeded,
+                            tx_hash_is_valid,
+                            &author.account_id,
+                        ),
                         &author,
                         signature,
                     ) {

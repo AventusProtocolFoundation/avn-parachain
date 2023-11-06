@@ -6,6 +6,7 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 
 use codec::{Decode, Encode, MaxEncodedLen};
+use pallet_eth_bridge::EthereumTransactionId;
 use sp_avn_common::{
     bounds::VotingSessionIdBound,
     event_types::Validator,
@@ -44,7 +45,6 @@ use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
 use sp_staking::offence::ReportOffence;
-pub type EthereumTransactionId = u32;
 
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
@@ -70,8 +70,6 @@ const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
 
 pub mod vote;
 use crate::vote::*;
-
-pub mod util;
 
 pub mod challenge;
 use crate::challenge::*;
@@ -236,6 +234,10 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_next_block_to_process)]
     pub type NextBlockToProcess<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+    #[pallet::storage]
+    pub type TxIdToRoot<T: Config> =
+        StorageMap<_, Blake2_128Concat, EthereumTransactionId, RootId<T::BlockNumber>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn block_number_for_next_slot)]
@@ -1113,6 +1115,8 @@ pub mod pallet {
                         root.tx_id = Some(tx_id)
                     });
 
+                    <TxIdToRoot<T>>::insert(tx_id, root_id);
+
                     // There are a couple possible reasons for failure.
                     // 1. We fail before sending to T1: likely a bug on our part
                     // 2. Quorum mismatch. There is no guarantee that between accepting a root and
@@ -1356,6 +1360,10 @@ impl<AccountId> Default for RootData<AccountId> {
 impl<T: Config> OnBridgePublisherResult for Pallet<T> {
     fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
         if succeeded {
+            let root_id = <TxIdToRoot<T>>::get(tx_id);
+            <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
+                root.is_finalised = true;
+            });
             log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
         } else {
             log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);

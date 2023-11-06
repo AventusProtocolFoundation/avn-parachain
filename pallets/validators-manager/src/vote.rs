@@ -278,15 +278,8 @@ fn send_approve_vote<T: Config>(
     action_id: &ActionId<T::AccountId>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
-    let (eth_encoded_data, eth_signature) =
-        ValidatorsManager::<T>::sign_validators_action_for_ethereum(&action_id).map_err(|_| ())?;
-
-    let approve_vote_extrinsic_signature = sign_for_approve_vote_extrinsic::<T>(
-        action_id,
-        this_validator,
-        eth_encoded_data,
-        &eth_signature,
-    )?;
+    let approve_vote_extrinsic_signature =
+        sign_for_approve_vote_extrinsic::<T>(action_id, this_validator)?;
 
     if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
         Call::approve_validator_action {
@@ -311,19 +304,10 @@ fn send_approve_vote<T: Config>(
 fn sign_for_approve_vote_extrinsic<T: Config>(
     action_id: &ActionId<T::AccountId>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-    eth_encoded_data: String,
-    eth_signature: &ecdsa::Signature,
 ) -> Result<<T::AuthorityId as RuntimeAppPublic>::Signature, ()> {
-    let signature = this_validator.key.sign(
-        &(
-            CAST_VOTE_CONTEXT,
-            &action_id.encode(),
-            APPROVE_VOTE,
-            eth_encoded_data.encode(),
-            eth_signature.encode(),
-        )
-            .encode(),
-    );
+    let signature = this_validator
+        .key
+        .sign(&(CAST_VOTE_CONTEXT, &action_id.encode(), APPROVE_VOTE).encode());
 
     if signature.is_none() {
         log::error!("💔 Error signing action id {:?} to vote", &action_id);
