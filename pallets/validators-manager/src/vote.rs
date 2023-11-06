@@ -24,7 +24,7 @@ use sp_std::fmt::Debug;
 
 use crate::{
     ActionId, Call, Config, IngressCounter, Pallet as ValidatorsManager, Store,
-    ValidatorsActionStatus, AVN
+    ValidatorsActionStatus, AVN,
 };
 use pallet_ethereum_transactions::ethereum_transaction::EthTransactionType;
 
@@ -83,19 +83,13 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber>
     // TODO [TYPE: business logic][PRI: high][JIRA: 299][CRITICAL]: Store the approval signatures.
     // As per SYS-299's current proposal, validators can give an Eth Signature that proves they
     // have validated and approved this deregistration request
-    fn record_approve_vote(
-        &self,
-        voter: T::AccountId,
-        approval_signature: ecdsa::Signature,
-    ) -> DispatchResult {
+    fn record_approve_vote(&self, voter: T::AccountId) -> DispatchResult {
         if is_not_own_activation::<T>(&voter, self.action_id.ingress_counter) {
             <ValidatorsManager<T> as Store>::VotesRepository::try_mutate(
                 &self.action_id,
                 |vote| -> DispatchResult {
                     vote.ayes.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
-                    vote.confirmations
-                        .try_push(approval_signature)
-                        .map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+
                     Ok(())
                 },
             )?;
@@ -121,9 +115,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber>
 
 /* ************ Functions that run in an offchain worker context ************ */
 
-pub fn create_vote_lock_name<T: Config>(
-    action_id: &ActionId<T::AccountId>,
-) -> Vec<u8> {
+pub fn create_vote_lock_name<T: Config>(action_id: &ActionId<T::AccountId>) -> Vec<u8> {
     let mut name = b"vote_val_man::hash::".to_vec();
     name.extend_from_slice(&mut action_id.action_account_id.encode());
     name.extend_from_slice(&mut action_id.ingress_counter.encode());
@@ -300,7 +292,6 @@ fn send_approve_vote<T: Config>(
         Call::approve_validator_action {
             action_id: action_id.clone(),
             validator: this_validator.clone(),
-            approval_signature: eth_signature,
             signature: approve_vote_extrinsic_signature,
         }
         .into(),

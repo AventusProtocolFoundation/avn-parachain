@@ -12,7 +12,6 @@ use sp_avn_common::{
     ocw_lock::{self as OcwLock},
     safe_add_block_numbers, safe_sub_block_numbers, IngressCounter,
 };
-use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::AtLeast32Bit,
@@ -43,7 +42,7 @@ use pallet_avn::{
 };
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::{ecdsa, H256};
+use sp_core::H256;
 use sp_staking::offence::ReportOffence;
 pub type EthereumTransactionId = u32;
 
@@ -56,12 +55,7 @@ const ADVANCE_SLOT_CONTEXT: &'static [u8] = b"advance_slot";
 
 // Error codes returned by validate unsigned methods
 const ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY: u8 = 10;
-const ERROR_CODE_INVALID_ROOT_DATA: u8 = 20;
 const ERROR_CODE_INVALID_ROOT_RANGE: u8 = 30;
-
-// This value is used only when generating a signature for an empty root.
-// Empty roots shouldn't be submitted to ethereum-transactions so we can use any value we want.
-const EMPTY_ROOT_TRANSACTION_ID: EthereumTransactionId = 0;
 
 // used in benchmarks and weights calculation only
 const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;

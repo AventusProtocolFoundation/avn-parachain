@@ -16,7 +16,6 @@ use frame_support::{
 use frame_system::offchain::SubmitTransaction;
 use pallet_avn::{self as avn, vote::*, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::ecdsa;
 use sp_runtime::scale_info::TypeInfo;
 use sp_std::fmt::Debug;
 

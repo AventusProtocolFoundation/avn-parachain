@@ -629,7 +629,6 @@ impl pallet_validators_manager::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type ProcessedEventsChecker = EthereumEvents;
     type VotingPeriod = ValidatorManagerVotingPeriod;
-    type CandidateTransactionSubmitter = EthereumTransactions;
     type AccountToBytesConvert = Avn;
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
     type ReportValidatorOffence = Offences;

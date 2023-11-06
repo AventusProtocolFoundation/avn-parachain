@@ -16,7 +16,6 @@ use sp_avn_common::{
     bounds::{MaximumValidatorsBound, VotingSessionIdBound},
     event_types::Validator,
 };
-use sp_core::ecdsa;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Member, Zero},

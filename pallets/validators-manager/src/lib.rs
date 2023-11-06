@@ -40,7 +40,6 @@ use pallet_ethereum_transactions::{
         ActivateCollatorData, DeregisterCollatorData, EthAbiHelper, EthTransactionType,
         TransactionId,
     },
-    CandidateTransactionSubmitter,
 };
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
@@ -95,7 +94,7 @@ pub mod pallet {
         /// A period (in block number) where validators are allowed to vote
         type VotingPeriod: Get<Self::BlockNumber>;
         /// A trait that allows pallets to submit transactions to Ethereum
-        type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
+        // type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
         /// A trait that allows converting between accountIds <-> public keys
         type AccountToBytesConvert: AccountToBytesConverter<Self::AccountId>;
         /// A trait that allows extra work to be done during validator registration
@@ -352,21 +351,9 @@ pub mod pallet {
             origin: OriginFor<T>,
             action_id: ActionId<T::AccountId>,
             validator: Validator<T::AuthorityId, T::AccountId>,
-            approval_signature: ecdsa::Signature,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
             ensure_none(origin)?;
-
-            let eth_encoded_data = Self::abi_encode_collator_action_data(&action_id)?;
-            if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
-            {
-                create_and_report_validators_offence::<T>(
-                    &validator.account_id,
-                    &vec![validator.account_id.clone()],
-                    ValidatorOffenceType::InvalidSignatureSubmitted,
-                );
-                return Err(avn_error::<T>::InvalidECDSASignature)?
-            };
 
             let voting_session = Self::get_voting_session(&action_id);
 
@@ -468,12 +455,7 @@ pub mod pallet {
                     validator,
                     signature,
                 )
-            } else if let Call::approve_validator_action {
-                action_id,
-                validator,
-                approval_signature: eth_signature,
-                signature,
-            } = call
+            } else if let Call::approve_validator_action { action_id, validator, signature } = call
             {
                 if !<ValidatorActions<T>>::contains_key(
                     &action_id.action_account_id,
@@ -484,17 +466,8 @@ pub mod pallet {
                 }
 
                 let voting_session = Self::get_voting_session(action_id);
-                let eth_encoded_data =
-                    Self::abi_encode_collator_action_data(action_id).map_err(|_| {
-                        InvalidTransaction::Custom(ERROR_CODE_INVALID_DEREGISTERED_VALIDATOR)
-                    })?;
-                return approve_vote_validate_unsigned::<T>(
-                    &voting_session,
-                    validator,
-                    eth_encoded_data.encode(),
-                    eth_signature,
-                    signature,
-                )
+
+                return approve_vote_validate_unsigned::<T>(&voting_session, validator, signature)
             } else if let Call::reject_validator_action {
                 action_id: deregistered_validator,
                 validator,
@@ -684,19 +657,19 @@ impl<T: Config> Pallet<T> {
         let vote_is_approved = vote.is_approved();
 
         if vote_is_approved {
-            let validators_action_data = Self::try_get_validators_action_data(action_id)?;
-
-            let result = <T as pallet::Config>::CandidateTransactionSubmitter::submit_candidate_transaction_to_tier1(
-                validators_action_data.reserved_eth_transaction,
-                validators_action_data.eth_transaction_id,
-                validators_action_data.primary_validator,
-                voting_session.state()?.confirmations,
-            );
-
-            if let Err(result) = result {
-                log::error!("❌ Error Submitting Tx: {:?}", result);
-                Err(result)?
-            }
+            let _ = Self::try_get_validators_action_data(action_id)?;
+            // TODO implement BridgePublisher
+            // let result = <T as
+            // pallet::Config>::CandidateTransactionSubmitter::submit_candidate_transaction_to_tier1(
+            //     validators_action_data.reserved_eth_transaction,
+            //     validators_action_data.eth_transaction_id,
+            //     validators_action_data.primary_validator,
+            // );
+            // let result = Some(true);
+            // if let Err(result) = result {
+            //     log::error!("❌ Error Submitting Tx: {:?}", result);
+            //     Err(result)?
+            // }
 
             create_and_report_validators_offence::<T>(
                 &sender,
@@ -763,9 +736,8 @@ impl<T: Config> Pallet<T> {
             decompressed_collator_eth_public_key,
             <T as pallet::Config>::AccountToBytesConvert::into_bytes(&collator_id),
         ));
-        let tx_id = <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(
-            &eth_transaction_type,
-        )?;
+        // TODO remove this when BridgePublisher is implemented
+        let tx_id = 0;
 
         Ok((new_collator_id, eth_tx_sender, eth_transaction_type, tx_id))
     }
@@ -864,9 +836,8 @@ impl<T: Config> Pallet<T> {
             AVN::<T>::calculate_primary_validator(<system::Pallet<T>>::block_number())
                 .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
 
-        let tx_id = <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(
-            &eth_transaction_type,
-        )?;
+        // TODO: remove this when implementing BridgePublisher
+        let tx_id = 0;
 
         TotalIngresses::<T>::put(ingress_counter);
         <ValidatorActions<T>>::insert(

@@ -10,6 +10,7 @@ use hex_literal::hex;
 use pallet_balances as balances;
 use pallet_parachain_staking::{self as parachain_staking};
 
+use pallet_avn::OnBridgePublisherResult;
 use pallet_timestamp as timestamp;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
@@ -33,7 +34,6 @@ use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
 };
-use pallet_avn::OnBridgePublisherResult;
 
 use codec::alloc::sync::Arc;
 use parking_lot::RwLock;
@@ -271,7 +271,6 @@ impl Config for TestRuntime {
     type ProcessedEventsChecker = Self;
     type VotingPeriod = VotingPeriod;
     type AccountToBytesConvert = AVN;
-    type CandidateTransactionSubmitter = Self;
     type ReportValidatorOffence = OffenceHandler;
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = ();
