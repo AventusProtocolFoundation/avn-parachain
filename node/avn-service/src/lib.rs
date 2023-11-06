@@ -7,7 +7,7 @@ use sp_avn_common::{EthTransaction, EthQueryRequest, EthQueryResponseType, EthQu
 use sp_core::{ecdsa::Signature, hashing::keccak_256};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
-
+use web3::types::TransactionReceipt;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 
 pub use std::{path::PathBuf, sync::Arc};
@@ -255,11 +255,7 @@ where
         }
 
         let call_request = build_call_request(view_request).await?;
-
-        let result = mutex_web3_data
-            .web3
-            .as_ref()
-            .unwrap()
+        let result = mutex_web3_data.web3.as_ref().unwrap()
             .eth()
             .call(call_request, None)
             .await
@@ -298,21 +294,26 @@ where
         let tx_hash = H256::from_slice(&to_bytes32(hex::encode(query_request.tx_hash))?);
 
         let current_block_number = web3_utils::get_current_block_number(&web3).await
-        .map_err(|e| server_error(format!("Error getting block number: {:?}", e)))?;
+            .map_err(|e| server_error(format!("Error getting block number: {:?}", e)))?;
 
         match query_request.response_type {
             EthQueryResponseType::CallData => {
                 let maybe_tx = web3_utils::get_tx_call_data(&web3, tx_hash).await
                     .map_err(|e| server_error(format!("Error getting tx call data: {:?}", e)))?;
 
+                let response;
                 match maybe_tx {
-                    None => Err(server_error(format!("Transaction is empty"))),
+                    None => {
+                        server_error(format!("Transaction for tx hash {:?} is empty", tx_hash));
+                        response = to_eth_query_response::<Vec<u8>>(&vec![], current_block_number, None)?;
+                    },
                     Some(data) => {
-                        let response = to_eth_query_response::<Vec<u8>>(&data.input.0.to_vec(), current_block_number, data.block_number)?;
-                        log::info!("⛓️  avn-service: eth query response {:?}", response);
-                        Ok(response)
+                        response = to_eth_query_response::<Vec<u8>>(&data.input.0.to_vec(), current_block_number, data.block_number)?;
                     }
-                }
+                };
+
+                log::info!("⛓️  avn-service: eth query response {:?}", response);
+                Ok(response)
             }
         }
     } else {

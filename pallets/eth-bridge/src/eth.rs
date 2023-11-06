@@ -71,7 +71,15 @@ pub fn corroborate<T: Config>(
 ) -> Result<(Option<bool>, Option<bool>), DispatchError> {
     let status = check_tx_status::<T>(tx, author)?;
     if status.is_some() {
-        return Ok((status, Some(check_tx_hash::<T>(tx, author)?)))
+        let (tx_hash_is_valid, confirmations) = check_tx_hash::<T>(tx, author)?;
+        if tx_hash_is_valid && confirmations.unwrap_or_default() < T::MinEthBlockConfirmation::get() {
+            log::warn!("🚨 Transaction {:?} doesn't have the minimum eth confirmations yet, skipping to corroborate. Current confirmation: {:?}",
+                tx.id, confirmations
+            );
+            return Ok((None, None))
+        }
+
+        return Ok((status, Some(tx_hash_is_valid)))
     }
 
     return Ok((None, None))
@@ -99,19 +107,16 @@ fn check_tx_status<T: Config>(
 fn check_tx_hash<T: Config>(
     tx: &ActiveTransactionData<T>,
     author: &Author<T>,
-) -> Result<bool, DispatchError> {
+) -> Result<(bool, Option<u64>), DispatchError> {
     if tx.data.eth_tx_hash != H256::zero() {
-        if let Ok((call_data, _confirmations)) = get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id) {
-            // TODO: Add me when we return "confirmations" for "view" methods too
-            //if confirmations >= T::MinEthBlockConfirmation::get() {
+        if let Ok((call_data, confirmations)) = get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id) {
             let expected_call_data = generate_send_calldata(&tx)?;
-            return Ok(hex::encode(expected_call_data) == call_data);
-            //}
+            return Ok((hex::encode(expected_call_data) == call_data, Some(num_confirmations)));
         } else {
             return Err(Error::<T>::ErrorGettingEthereumCallData.into())
         }
     }
-    return Ok(TX_HASH_INVALID);
+    return Ok((TX_HASH_INVALID, None));
 }
 
 pub fn generate_msg_hash<T: pallet::Config>(
