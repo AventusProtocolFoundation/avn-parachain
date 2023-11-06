@@ -45,7 +45,7 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         AVN: pallet_avn::{Pallet, Storage, Event},
-        EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>},
+        EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
     }
 );
