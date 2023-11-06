@@ -424,7 +424,7 @@ pub mod pallet {
                 } else {
                     log::info!("👷 Skipping sending txId: {:?} because ocw is locked already.", tx.id);
                 };
-            } else if tx_is_sent || tx_is_past_expiry {
+            } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
                 if util::requires_corroboration::<T>(&tx, &author) {
                     match eth::corroborate::<T>(&tx, &author)? {
                         (Some(true), tx_hash_is_valid) => call::add_corroboration::<T>(tx.id, true, tx_hash_is_valid.unwrap_or_default(), author),

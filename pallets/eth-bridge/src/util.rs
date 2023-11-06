@@ -9,7 +9,10 @@ pub fn time_now<T: Config>() -> u64 {
 }
 
 pub fn has_enough_corroborations<T: Config>(corroborations: usize) -> bool {
-    corroborations as u32 >= AVN::<T>::quorum()
+    // the sender cannot corroborate their own transaction
+    let num_authors_excluding_sender = AVN::<T>::validators().len() as u32 - 1;
+    let quorum = AVN::<T>::calculate_quorum(num_authors_excluding_sender);
+    corroborations as u32 >= quorum
 }
 
 pub fn has_enough_confirmations<T: Config>(active_tx: &ActiveTransactionData<T>) -> bool {

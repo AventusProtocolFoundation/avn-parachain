@@ -46,17 +46,25 @@ fn complete_transaction<T: Config>(mut tx: ActiveTransactionData<T>, success: bo
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     tx.data.tx_succeeded = success;
-    // Write the tx data to permanent storage:
-    SettledTransactions::<T>::insert(tx.id, tx.data);
 
     // Check for offences:
     if success {
         if !tx.failure_corroborations.is_empty() {
             // TODO: raise offences for all authors in failure_corroborations
-        } else if !tx.success_corroborations.is_empty() {
+        }
+
+        // if the transaction is a success but the eth tx hash is wrong remove it
+        if util::has_enough_corroborations::<T>(tx.invalid_tx_hash_corroborations.len()) {
+            tx.data.eth_tx_hash = H256::zero();
+        }
+    } else {
+        if !tx.success_corroborations.is_empty() {
             // TODO: raise offences for all authors in success_corroborations
         }
     }
+
+    // Write the tx data to permanent storage:
+    SettledTransactions::<T>::insert(tx.id, tx.data);
 
     if let Some(tx_request) = dequeue_tx_request::<T>() {
         set_up_active_tx(tx_request)?;
@@ -72,7 +80,7 @@ pub fn finalize_state<T: Config>(
     success: bool,
 ) -> Result<(), Error<T>> {
 
-    // if there is bad behaviour, replay transaction
+    // if the transaction failed and the tx hash is missing or pointing to a different transaction, replay transaction
     if !success && util::has_enough_corroborations::<T>(tx.invalid_tx_hash_corroborations.len()) {
         // raise an offence on the "sender" because the tx_hash they provided was invalid
         return Ok(replay_transaction(tx)?)
