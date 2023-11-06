@@ -929,13 +929,10 @@ pub mod record_summary_calculation {
                     Summary::get_vote(context.root_id),
                     VotingSessionData {
                         voting_session_id: context.root_id.session_id(),
-                        threshold: 4, /* improper calc fix (7 - (7 * 2 / 3)) + 1 = 3.3333 while
-                                       * it is returning 4 it should be equal to QUORUM which is
-                                       * 3 */
+                        threshold: QUORUM,
                         ayes: BoundedVec::default(),
                         nays: BoundedVec::default(),
                         end_of_voting_period: VOTING_PERIOD_END,
-                        confirmations: BoundedVec::default(),
                         created_at_block: 10 // Setup creates block number 10
                     }
                 );
@@ -1340,13 +1337,6 @@ mod if_process_summary_is_called_a_second_time {
         let root_range = RootRange::new(next_block_to_process, last_block_in_range);
         let ingress_counter = Summary::get_ingress_counter() + 1;
         let tx_id = 0;
-        let data_to_sign = Summary::convert_data_to_eth_compatible_encoding(&RootData::<u64>::new(
-            root_hash_h256.clone(),
-            validator.account_id,
-            Some(tx_id),
-        ))
-        .unwrap();
-        let approval_signature = ecdsa::Signature::try_from(&[2; 65][0..65]).unwrap();
 
         Context {
             current_block_number,
@@ -1357,8 +1347,6 @@ mod if_process_summary_is_called_a_second_time {
             root_hash_h256,
             root_hash_vec,
             url_param: get_url_param(next_block_to_process),
-            sign_url_param: data_to_sign,
-            approval_signature,
             record_summary_calculation_signature: get_signature_for_record_summary_calculation(
                 validator,
                 UPDATE_BLOCK_NUMBER_CONTEXT,

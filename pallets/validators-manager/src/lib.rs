@@ -53,8 +53,8 @@ use sp_core::{bounded::BoundedVec, ecdsa, H512};
 
 pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, PositiveImbalanceOf};
 use pallet_session::historical::IdentificationTuple;
-use sp_staking::offence::ReportOffence;
 use sp_io::hashing::keccak_256;
+use sp_staking::offence::ReportOffence;
 
 pub use pallet::*;
 pub mod vote;
@@ -373,7 +373,7 @@ pub mod pallet {
             process_approve_vote::<T>(
                 &voting_session,
                 validator.account_id.clone(),
-                approval_signature,
+                // approval_signature,
             )?;
 
             Self::deposit_event(Event::<T>::VoteAdded {
@@ -636,12 +636,11 @@ impl<T: Config> Pallet<T> {
         );
 
         // Now treat this as an bytes32 parameter and generate signing abi.
-        let confirmation_data =
-            EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
-                &action_parameters_concat_hash,
-                validators_action_data.eth_transaction_id,
-                &sender,
-            );
+        let confirmation_data = EthAbiHelper::generate_ethereum_abi_data_for_signature_request(
+            &action_parameters_concat_hash,
+            validators_action_data.eth_transaction_id,
+            &sender,
+        );
 
         let msg_hash = keccak_256(&confirmation_data);
 

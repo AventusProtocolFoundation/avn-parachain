@@ -214,8 +214,9 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     }
 }
 
-/// Please note: `value` will accept any bytes and its up to the caller to ensure the bytes are valid for `kind`.
-/// The compiler will not catch these errors at compile time, but can error at runtime.
+/// Please note: `value` will accept any bytes and its up to the caller to ensure the bytes are
+/// valid for `kind`. The compiler will not catch these errors at compile time, but can error at
+/// runtime.
 fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
     match kind {
         ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
@@ -293,8 +294,6 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     if result_bytes.len() != 32 {
         return Err(Error::<T>::InvalidBytesLength.into())
     }
-
-    log::info!("PROCESS SEND RESPONSE !!! {:?}", result_bytes);
 
     Ok(result_bytes[31] as i8)
 }

@@ -260,7 +260,7 @@ where
             .call(call_request, None)
             .await
             .map_err(|e| server_error(format!("Error calling view method on Ethereum: {:?}", e)))?;
-        log::info!("⛓️  AVN SERVICE RESULT {:?}", result);
+        log::info!("⛓️  avn-service: view request result {:?}", result);
         Ok(hex::encode(result.0))
     } else {
         Err(server_error(format!("Failed to acquire web3 mutex")))
@@ -409,15 +409,7 @@ where
                 hex::encode(hashed_message)
             );
             let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
-            log::info!("HELP DATA TO SIGN 2 !!! {:?}, {:?}", keystore_path, my_eth_address,);
             let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
-
-            log::info!(
-                "HELP DATA TO SIGN 3 !!! {:?}, {:?}, {:?}",
-                keystore_path,
-                my_eth_address,
-                my_priv_key
-            );
 
             let secret = SecretKey::from_slice(&my_priv_key)?;
             let message = secp256k1::Message::from_slice(&hashed_message)?;

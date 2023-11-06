@@ -116,8 +116,6 @@ pub mod pallet {
         /// This will give grandpa a chance to finalise the blocks
         type MinBlockAge: Get<Self::BlockNumber>;
 
-        // type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
-
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
 
         ///  A type that gives the pallet the ability to report offences
@@ -464,30 +462,14 @@ pub mod pallet {
             origin: OriginFor<T>,
             root_id: RootId<T::BlockNumber>,
             validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-            approval_signature: ecdsa::Signature,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
             ensure_none(origin)?;
-
-            let root_data = Self::try_get_root_data(&root_id)?;
-            let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&root_data)?;
-            if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
-            {
-                create_and_report_summary_offence::<T>(
-                    &validator.account_id,
-                    &vec![validator.account_id.clone()],
-                    SummaryOffenceType::InvalidSignatureSubmitted,
-                );
-                return Err(avn_error::<T>::InvalidECDSASignature)?
-            };
+            let _ = Self::try_get_root_data(&root_id)?;
 
             let voting_session = Self::get_root_voting_session(&root_id);
 
-            process_approve_vote::<T>(
-                &voting_session,
-                validator.account_id.clone(),
-                approval_signature,
-            )?;
+            process_approve_vote::<T>(&voting_session, validator.account_id.clone())?;
 
             Self::deposit_event(Event::<T>::VoteAdded {
                 voter: validator.account_id,
@@ -681,26 +663,16 @@ pub mod pallet {
                     validator,
                     signature,
                 )
-            } else if let Call::approve_root { root_id, validator, approval_signature, signature } =
-                call
-            {
+            } else if let Call::approve_root { root_id, validator, signature } = call {
                 if !<Roots<T>>::contains_key(root_id.range, root_id.ingress_counter) {
                     return InvalidTransaction::Custom(ERROR_CODE_INVALID_ROOT_RANGE).into()
                 }
 
                 let root_voting_session = Self::get_root_voting_session(root_id);
 
-                let root_data = Self::try_get_root_data(&root_id)
-                    .map_err(|_| InvalidTransaction::Custom(ERROR_CODE_INVALID_ROOT_RANGE))?;
-
-                let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&root_data)
-                    .map_err(|_| InvalidTransaction::Custom(ERROR_CODE_INVALID_ROOT_DATA))?;
-
                 return approve_vote_validate_unsigned::<T>(
                     &root_voting_session,
                     validator,
-                    eth_encoded_data.encode(),
-                    approval_signature,
                     signature,
                 )
             } else if let Call::reject_root { root_id, validator, signature } = call {
@@ -868,39 +840,6 @@ pub mod pallet {
             let mut name = b"advance_slot::".to_vec();
             name.extend_from_slice(&mut block_number.encode());
             name
-        }
-
-        pub fn convert_data_to_eth_compatible_encoding(
-            root_data: &RootData<T::AccountId>,
-        ) -> Result<String, DispatchError> {
-            let root_hash = *root_data.root_hash.as_fixed_bytes();
-            let tx_id = match root_data.tx_id {
-                None => EMPTY_ROOT_TRANSACTION_ID,
-                _ => *root_data
-                    .tx_id
-                    .as_ref()
-                    .expect("Non-Empty roots have a reserved TransactionId"),
-            };
-            let expiry = T::BridgePublisher::get_eth_tx_lifetime_secs();
-            let encoded_data = util::encode_summary_data(&root_hash, expiry, tx_id);
-
-            let msg_hash = keccak_256(&encoded_data);
-
-            Ok(hex::encode(msg_hash))
-        }
-
-        pub fn sign_root_for_ethereum(
-            root_id: &RootId<T::BlockNumber>,
-        ) -> Result<(String, ecdsa::Signature), DispatchError> {
-            log::info!("HELP SIGN ROOT FOR ETHEREUM !!!");
-            let root_data = Self::try_get_root_data(&root_id)?;
-            log::info!("HELP ROOT DATA !!! {:?}", root_data);
-            let data = Self::convert_data_to_eth_compatible_encoding(&root_data)?;
-
-            return Ok((
-                data.clone(),
-                AVN::<T>::request_ecdsa_signature_from_external_service(&data)?,
-            ))
         }
 
         pub fn advance_slot_if_required(

@@ -64,7 +64,7 @@ use frame_system::{
 };
 use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnBridgePublisherResult};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{event_types::Validator};
+use sp_avn_common::event_types::Validator;
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
@@ -287,7 +287,6 @@ pub mod pallet {
 
             if tx::is_active::<T>(tx_id) {
                 let mut tx = ActiveTransaction::<T>::get().expect("is active");
-                log::info!("CONFIRMATIONS 1 !!! {:?}", tx.confirmations);
 
                 // The sender's confirmation is implicit so we only collect them from other authors:
                 if author.account_id == tx.data.sender || util::has_enough_confirmations(&tx) {
@@ -423,7 +422,6 @@ pub mod pallet {
             if !self_is_sender && !tx_has_enough_confirmations {
                 let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
                 if !tx.confirmations.contains(&confirmation) {
-                    log::info!("ADDING CONFIRMATION !!! {:?}", confirmation);
                     call::add_confirmation::<T>(tx.id, confirmation, author);
                 }
             } else if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
@@ -436,7 +434,10 @@ pub mod pallet {
                     call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
                     guard.forget(); // keep the lock so we don't send again
                 } else {
-                    log::info!("👷 Skipping sending txId: {:?} because ocw is locked already.", tx.id);
+                    log::info!(
+                        "👷 Skipping sending txId: {:?} because ocw is locked already.",
+                        tx.id
+                    );
                 };
             } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
                 if util::requires_corroboration::<T>(&tx, &author) {
