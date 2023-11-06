@@ -73,7 +73,7 @@ pub fn corroborate<T: Config>(
     if status.is_some() {
         let (tx_hash_is_valid, confirmations) = check_tx_hash::<T>(tx, author)?;
         if tx_hash_is_valid && confirmations.unwrap_or_default() < T::MinEthBlockConfirmation::get() {
-            log::warn!("🚨 Transaction {:?} doesn't have the minimum eth confirmations yet, skipping to corroborate. Current confirmation: {:?}",
+            log::warn!("🚨 Transaction {:?} doesn't have the minimum eth confirmations yet, skipping corroboration. Current confirmation: {:?}",
                 tx.id, confirmations
             );
             return Ok((None, None))
@@ -109,7 +109,7 @@ fn check_tx_hash<T: Config>(
     author: &Author<T>,
 ) -> Result<(bool, Option<u64>), DispatchError> {
     if tx.data.eth_tx_hash != H256::zero() {
-        if let Ok((call_data, confirmations)) = get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id) {
+        if let Ok((call_data, num_confirmations)) = get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id) {
             let expected_call_data = generate_send_calldata(&tx)?;
             return Ok((hex::encode(expected_call_data) == call_data, Some(num_confirmations)));
         } else {
