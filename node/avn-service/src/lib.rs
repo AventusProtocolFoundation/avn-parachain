@@ -93,7 +93,7 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
                 return Err(server_error("Error creating a web3 connection".to_string()))
             }
 
-            log::info!("⏲️ web3 init task completed in: {:?}", web3_init_time.elapsed());
+            log::info!("⏲️  web3 init task completed in: {:?}", web3_init_time.elapsed());
             web3_data_mutex.web3 = web3;
             Ok(())
         } else {
