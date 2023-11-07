@@ -304,8 +304,6 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
         return Err(Error::<T>::InvalidBytesLength.into())
     }
 
-    log::info!("PROCESS SEND RESPONSE !!! {:?}", result_bytes);
-
     Ok(result_bytes[31] as i8)
 }
 

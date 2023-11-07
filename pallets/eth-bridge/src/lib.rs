@@ -316,7 +316,6 @@ pub mod pallet {
 
             if tx::is_active::<T>(tx_id) {
                 let mut tx = ActiveTransaction::<T>::get().expect("is active");
-                log::info!("CONFIRMATIONS 1 !!! {:?}", tx.confirmations);
 
                 // The sender's confirmation is implicit so we only collect them from other authors:
                 if author.account_id == tx.data.sender || util::has_enough_confirmations(&tx) {
@@ -329,13 +328,11 @@ pub mod pallet {
                     !tx.confirmations.contains(&confirmation),
                     Error::<T>::DuplicateConfirmation
                 );
-                log::info!("CONFIRMATIONS 1.5 !!! {:?}", confirmation);
 
                 tx.confirmations
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                log::info!("CONFIRMATIONS 2 !!! {:?}", tx.confirmations);
                 ActiveTransaction::<T>::put(tx);
             }
 
@@ -452,7 +449,6 @@ pub mod pallet {
             if !self_is_sender && !tx_has_enough_confirmations {
                 let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
                 if !tx.confirmations.contains(&confirmation) {
-                    log::info!("ADDING CONFIRMATION !!! {:?}", confirmation);
                     call::add_confirmation::<T>(tx.id, confirmation, author);
                 }
             } else if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
@@ -558,12 +554,6 @@ pub mod pallet {
     }
 
     impl<T: Config> BridgePublisher for Pallet<T> {
-        fn get_eth_tx_lifetime_secs() -> u64 {
-            EthTxLifetimeSecs::<T>::get()
-        }
-        fn get_next_tx_id() -> u32 {
-            NextTxId::<T>::get()
-        }
         fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],

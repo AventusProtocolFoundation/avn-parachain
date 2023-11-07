@@ -6,7 +6,6 @@ use frame_system as system;
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,
 };
-use pallet_eth_bridge;
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{safe_add_block_numbers, safe_sub_block_numbers};
@@ -373,12 +372,6 @@ parameter_types! {
     pub const Offset: u64 = 0;
 }
 impl BridgePublisher for TestRuntime {
-    fn get_eth_tx_lifetime_secs() -> u64 {
-        0
-    }
-    fn get_next_tx_id() -> u32 {
-        0
-    }
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError> {
         if function_name == b"publishRoot" {
             return Ok(INITIAL_TRANSACTION_ID)
@@ -386,35 +379,6 @@ impl BridgePublisher for TestRuntime {
         Err(Error::<TestRuntime>::ErrorPublishingSummary.into())
     }
 }
-// impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
-//     fn submit_candidate_transaction_to_tier1(
-//         candidate_type: EthTransactionType,
-//         _tx_id: EthereumTransactionId,
-//         _submitter: AccountId,
-//         _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
-//     ) -> DispatchResult {
-//         if candidate_type !=
-//             EthTransactionType::PublishRoot(PublishRootData::new(
-//                 ROOT_HASH_CAUSES_SUBMISSION_TO_T1_ERROR,
-//             ))
-//         {
-//             return Ok(())
-//         }
-//         Err(Error::<TestRuntime>::ErrorSubmitCandidateTxnToTier1.into())
-//     }
-
-//     fn reserve_transaction_id(
-//         _candidate_type: &EthTransactionType,
-//     ) -> Result<EthereumTransactionId, DispatchError> {
-//         let value = MOCK_TX_ID.with(|tx_id| *tx_id.borrow());
-//         MOCK_TX_ID.with(|tx_id| {
-//             *tx_id.borrow_mut() += 1;
-//         });
-//         return Ok(value)
-//     }
-//     #[cfg(feature = "runtime-benchmarks")]
-//     fn set_transaction_id(_candidate_type: &EthTransactionType, _id: EthereumTransactionId) {}
-// }
 
 /*********************** Add validators support ********************** */
 

@@ -134,8 +134,6 @@ pub mod pallet {
         MaxValidatorsExceeded,
         ResponseFailed,
         RequestFailed,
-        RequestTest1,
-        RequestTest2,
     }
 
     #[pallet::storage]
@@ -305,7 +303,6 @@ impl<T: Config> Pallet<T> {
         info!(target: "avn-service", "avn-service sign request (ecdsa) for hex-encoded data {:?}", data_to_sign);
 
         let ecdsa_signature_utf8 = Self::get_data_from_service(url)?;
-        info!("HELP request_ecdsa_signature_from_external_service !!! {:?}", ecdsa_signature_utf8);
         let ecdsa_signature_bytes = core::str::from_utf8(&ecdsa_signature_utf8)
             .map_err(|_| Error::<T>::ErrorConvertingUtf8)?;
 
@@ -430,60 +427,30 @@ impl<T: Config> Pallet<T> {
             url_path.trim_start_matches('/')
         );
 
-        // info!("HELP URL !!! {}", url);
-
-        // let response = request
-        //     .deadline(deadline)
-        //     .url(&url)
-        //     .send()
-        //     .map_err(|e| {
-        //         error!("❌ Request failed: {:?}", e);
-        //         Error::<T>::RequestFailed
-        //     })?
-        //     .try_wait(deadline)
-        //     .map_err(|e| {
-        //         error!("❌ Response failed: {:?}", e);
-        //         Error::<T>::ResponseFailed
-        //     })?
-        //     .map_err(|e| {
-        //         error!("❌ Invalid response: {:?}", e);
-        //         Error::<T>::InvalidResponse
-        //     })?;
-
-        // if response.code != 200 {
-        //     error!("❌ Unexpected status code: {}", response.code);
-        //     return Err(Error::<T>::UnexpectedStatusCode)?
-        // }
-
-        // Ok(response.body().collect())
-        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(300_000));
-        let external_service_port_number = Self::get_external_service_port_number();
-
-        let mut url = String::from("http://127.0.0.1:");
-        url.push_str(&external_service_port_number);
-        url.push_str(&"/".to_string());
-        url.push_str(&url_path);
-
-        info!("HELP URL !!! {}", url);
-
-        let pending = request
+        let response = request
             .deadline(deadline)
             .url(&url)
             .send()
-            .map_err(|_| Error::<T>::RequestTest1)?;
-
-        let response = pending
+            .map_err(|e| {
+                error!("❌ Request failed: {:?}", e);
+                Error::<T>::RequestFailed
+            })?
             .try_wait(deadline)
-            .map_err(|_| Error::<T>::RequestTest2)?
-            .map_err(|_| Error::<T>::RequestTest2)?;
+            .map_err(|e| {
+                error!("❌ Response failed: {:?}", e);
+                Error::<T>::ResponseFailed
+            })?
+            .map_err(|e| {
+                error!("❌ Invalid response: {:?}", e);
+                Error::<T>::InvalidResponse
+            })?;
 
         if response.code != 200 {
             error!("❌ Unexpected status code: {}", response.code);
             return Err(Error::<T>::UnexpectedStatusCode)?
         }
 
-        let result: Vec<u8> = response.body().collect::<Vec<u8>>();
-        return Ok(result)
+        Ok(response.body().collect())
     }
 
     pub fn get_ocw_locker<'a>(
@@ -670,8 +637,6 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
 }
 
 pub trait BridgePublisher {
-    fn get_eth_tx_lifetime_secs() -> u64;
-    fn get_next_tx_id() -> u32;
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
 }
 

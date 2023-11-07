@@ -1,12 +1,13 @@
 use super::*;
 use crate::{self as eth_bridge};
+use avn;
 use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
-use sp_core::{ConstU32, ConstU64, H256};
+use sp_core::{sr25519, ConstU32, ConstU64, Pair, H256};
 use sp_runtime::{
-    testing::{Header, TestXt, UintAuthorityId},
+    testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     Perbill,
 };
@@ -35,6 +36,19 @@ impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
         false
     }
 }
+#[derive(Clone)]
+pub struct Context {
+    pub eth_tx_hash: H256,
+    pub already_set_eth_tx_hash: H256,
+    pub test_signature: TestSignature,
+    pub confirmation_signature: ecdsa::Signature,
+    pub tx_succeeded: bool,
+    pub author: Author<TestRuntime>,
+    pub confirming_author: Author<TestRuntime>,
+    pub request_function_name: Vec<u8>,
+    pub request_params: Vec<(Vec<u8>, Vec<u8>)>,
+}
+const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 
 frame_support::construct_runtime!(
     pub enum TestRuntime where
@@ -127,6 +141,43 @@ impl EthereumPublicKeyChecker<AccountId> for TestRuntime {
     }
 }
 
+fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignature {
+    author.key.sign(&(context).encode()).expect("Signature is signed")
+}
+
+pub fn setup_context() -> Context {
+    let primary_validator_id = AVN::calculate_primary_validator(System::block_number()).unwrap();
+    let author = Author::<TestRuntime> {
+        key: UintAuthorityId(primary_validator_id),
+        account_id: primary_validator_id,
+    };
+    let mut confirming_validator_id: u64 = 1;
+    if primary_validator_id == confirming_validator_id {
+        confirming_validator_id += 1
+    }
+    let confirming_author = Author::<TestRuntime> {
+        key: UintAuthorityId(confirming_validator_id),
+        account_id: confirming_validator_id,
+    };
+    let test_signature = generate_signature(author.clone(), b"test context");
+    let tx_succeeded = false;
+    let eth_tx_hash = H256::from_slice(&[0u8; 32]);
+    let already_set_eth_tx_hash = H256::from_slice(&[1u8; 32]);
+    let confirmation_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
+
+    Context {
+        eth_tx_hash,
+        already_set_eth_tx_hash,
+        test_signature,
+        tx_succeeded,
+        author: author.clone(),
+        confirming_author: confirming_author.clone(),
+        confirmation_signature,
+        request_function_name: b"publishRoot".to_vec(),
+        request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
+    }
+}
+
 pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 8]) {
     let account_id = AccountId::decode(&mut account_id_bytes.to_vec().as_slice()).unwrap();
     println!("Setting mock recovered account id to {}", account_id);
@@ -143,7 +194,7 @@ parameter_types! {
 
 thread_local! {
     // validator accounts (aka public addresses, public keys-ish)
-    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3]));
+    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3, 4, 5,6]));
     static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
     static MOCK_RECOVERED_ACCOUNT_ID: RefCell<AccountId> = RefCell::new(1);
 }

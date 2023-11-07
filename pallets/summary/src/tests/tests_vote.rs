@@ -916,20 +916,6 @@ mod end_voting_period {
                 );
                 assert_eq!(Summary::last_summary_slot(), Summary::current_slot());
 
-                assert_ok!(Summary::end_voting_period(
-                    RawOrigin::None.into(),
-                    context.root_id,
-                    primary_validator.clone(),
-                    context.record_summary_calculation_signature.clone(),
-                ));
-                assert!(Summary::get_root_data(&context.root_id).is_validated);
-                assert!(!<Summary as Store>::PendingApproval::contains_key(&context.root_id.range));
-                assert_eq!(
-                    Summary::get_next_block_to_process(),
-                    context.next_block_to_process + Summary::schedule_period()
-                );
-                assert_eq!(Summary::last_summary_slot(), Summary::current_slot());
-
                 assert!(System::events().iter().any(|a| a.event ==
                     mock::RuntimeEvent::Summary(
                         crate::Event::<TestRuntime>::SummaryRootValidated {

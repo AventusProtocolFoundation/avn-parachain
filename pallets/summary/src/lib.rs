@@ -12,7 +12,6 @@ use sp_avn_common::{
     ocw_lock::{self as OcwLock},
     safe_add_block_numbers, safe_sub_block_numbers, IngressCounter,
 };
-use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::AtLeast32Bit,
@@ -72,8 +71,6 @@ const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
 
 pub mod vote;
 use crate::vote::*;
-
-pub mod util;
 
 pub mod challenge;
 use crate::challenge::*;

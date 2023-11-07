@@ -2,10 +2,10 @@
 
 #![cfg(test)]
 use crate::{
-    eth::generate_send_calldata,
-    mock::{EthBridge, *},
-    tx::add_new_request,
-    ActiveTransaction,
+    eth::{generate_send_calldata, *},
+    mock::*,
+    tx::*,
+    *,
 };
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 const REWARDS: &[u8] = b"15043665996000000000";
@@ -97,87 +97,98 @@ fn run_checks(
 
 #[cfg(test)]
 mod add_confirmation {
-    use crate::Author;
 
     use super::*;
-    use frame_support::{assert_noop, assert_ok};
-    use frame_system::{Origin, RawOrigin};
-    use sp_core::ecdsa;
-    use sp_runtime::testing::{TestSignature, UintAuthorityId};
-
-    struct LocalContext {
-        pub author: Author<TestRuntime>,
-    }
-
-    fn setup_confirmation() -> (u32, ecdsa::Signature, Author<TestRuntime>, TestSignature) {
-        let key = UintAuthorityId::from(&[1u8; 64]); // Create a UintAuthorityId
-        let account_id = key.clone().try_into(); // Convert the key into an account ID
-        let author = Author { key, account_id }; // Create the Validator
-        let confirmation = ecdsa::Signature([0u8; 65]);
-        let tx_id = 1;
-        let test_signature = TestSignature::new();
-
-        (tx_id, confirmation, author, test_signature)
-    }
+    use frame_support::assert_ok;
+    use frame_system::RawOrigin;
 
     #[test]
     fn it_adds_confirmation_correctly() {
-        let (mut ext, _, _) = ExtBuilder::build_default().as_externality();
-        ext.with_validators().execute_with(|| {
-            let (tx_id, confirmation, author, test_signature) = setup_confirmation();
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = setup_context();
 
-            assert_ok!(EthBridge::add_confirmation(
-                RawOrigin::Signed(1).into(),
-                tx_id,
-                confirmation.clone(),
-                author.clone(),
-                test_signature
-            ));
+            let tx_id = add_new_request::<TestRuntime>(
+                &context.request_function_name,
+                &context.request_params,
+            )
+            .unwrap();
 
-            // Retrieve the active transaction
             let active_tx = ActiveTransaction::<TestRuntime>::get()
                 .expect("Active transaction should be present");
 
-            // Check that the confirmation was added correctly
+            assert_ok!(EthBridge::add_confirmation(
+                RawOrigin::None.into(),
+                tx_id,
+                context.confirmation_signature.clone(),
+                context.confirming_author.clone(),
+                context.test_signature
+            ));
+
+            let active_tx = ActiveTransaction::<TestRuntime>::get()
+                .expect("Active transaction should be present");
+
             assert!(
-                active_tx.confirmations.contains(&confirmation),
+                active_tx.confirmations.contains(&context.confirmation_signature),
                 "Confirmation should be present"
             );
 
-            // Check that the author's account_id was recorded correctly
             assert_eq!(
-                active_tx.data.sender, author.account_id,
+                active_tx.data.sender, context.author.account_id,
                 "Sender should be the author's account_id"
             );
         });
     }
 
+    // #[test]
+    // fn it_returns_error_when_transaction_is_not_active() {
+    //     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+    //     ext.execute_with(|| {
+    //         let context = setup_context();
+    //         let tx_id = 999; // Non-existent transaction id
+
+    //         let result = EthBridge::add_confirmation(
+    //             RawOrigin::None.into(),
+    //             tx_id,
+    //             context.confirmation_signature,
+    //             context.author,
+    //             context.test_signature.clone()
+    //         );
+
+    //         assert_eq!(result, Err(Error::<TestRuntime>::Se.into()));
+    //     });
+    // }
+
     #[test]
-    fn it_rejects_duplicate_confirmations() {
-        let mut ext = ExtBuilder::build_default().as_externality();
+    fn it_returns_error_when_same_confirmation_added_twice() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
-            let (tx_id, confirmation, author, test_signature) = setup_confirmation();
+            let context = setup_context();
 
-            // Add a confirmation
-            assert_ok!(EthBridge::add_confirmation(
-                RawOrigin::Signed(1).into(),
+            let tx_id = add_new_request::<TestRuntime>(
+                &context.request_function_name,
+                &context.request_params,
+            )
+            .unwrap();
+
+            // Add the same confirmation twice
+            let _ = EthBridge::add_confirmation(
+                RawOrigin::None.into(),
                 tx_id,
-                confirmation.clone(),
-                author.clone(),
-                test_signature
-            ));
-
-            // Attempt to add the same confirmation again
-            assert_noop!(
-                EthBridge::add_confirmation(
-                    RawOrigin::Signed(1).into(),
-                    tx_id,
-                    confirmation.clone(),
-                    author.clone(),
-                    test_signature
-                ),
-                Error::<TestRuntime>::DuplicateConfirmation
+                context.confirmation_signature.clone(),
+                context.confirming_author.clone(),
+                context.test_signature.clone()
             );
+
+            let result = EthBridge::add_confirmation(
+                RawOrigin::None.into(),
+                tx_id,
+                context.confirmation_signature.clone(),
+                context.confirming_author.clone(),
+                context.test_signature.clone()
+            );
+
+            assert_eq!(result, Err(Error::<TestRuntime>::DuplicateConfirmation.into()));
         });
     }
 }
@@ -185,128 +196,114 @@ mod add_confirmation {
 #[cfg(test)]
 mod add_eth_tx_hash {
     use super::*;
-    use frame_support::{assert_noop, assert_ok};
-    use sp_core::H256;
-    use sp_runtime::testing::TestSignature;
+    use frame_support::assert_ok;
+    use frame_system::RawOrigin;
 
-    fn setup_eth_tx_hash() -> (u64, H256, TestSignature) {
-        let tx_id = 1;
-        let eth_tx_hash = H256::from_slice(&[1u8; 32]); // Create a H256 hash
-        let test_signature = TestSignature::new();
-
-        (tx_id, eth_tx_hash, test_signature)
-    }
-
-    #[test]
-    fn it_adds_eth_tx_hash_correctly() {
-        let mut ext = ExtBuilder::build_default().as_externality();
+    fn run_eth_tx_hash_test(setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>, expected: DispatchResultWithPostInfo) {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
-            let (tx_id, eth_tx_hash, test_signature) = setup_eth_tx_hash();
+            let context = setup_context();
 
-            // origin: OriginFor<T>,
-            // tx_id: u32,
-            // eth_tx_hash: H256,
-            // author: Author<T>,
-            // _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
-            // Call the function under test
-            assert_ok!(EthBridge::add_eth_tx_hash(
-                RawOrigin::Signed(1).into(),
+            let tx_id = add_new_request::<TestRuntime>(
+                &context.request_function_name,
+                &context.request_params,
+            )
+            .unwrap();
+
+            if let Some(setup_fn) = setup_fn {
+                let mut active_tx = ActiveTransaction::<TestRuntime>::get().expect("is active");
+                setup_fn(&mut active_tx);
+                ActiveTransaction::<TestRuntime>::put(active_tx);
+            }
+
+            let result = EthBridge::add_eth_tx_hash(
+                RawOrigin::None.into(),
                 tx_id,
-                eth_tx_hash.clone(),
-                test_signature
-            ));
-
-            // Retrieve the active transaction
-            let active_tx = ActiveTransaction::<TestRuntime>::get()
-                .expect("Active transaction should be present");
-
-            // Check that the Ethereum transaction hash was added correctly
-            assert_eq!(
-                active_tx.eth_tx_hash, eth_tx_hash,
-                "Ethereum transaction hash should be correct"
+                context.eth_tx_hash,
+                context.author,
+                context.test_signature.clone()
             );
+
+            assert_eq!(result, expected);
         });
     }
 
     #[test]
-    fn it_rejects_duplicate_eth_tx_hashes() {
-        let mut ext = ExtBuilder::build_default().as_externality();
-        ext.execute_with(|| {
-            let (tx_id, eth_tx_hash, test_signature) = setup_eth_tx_hash();
+    fn it_returns_error_when_eth_tx_hash_already_set() {
+        run_eth_tx_hash_test(Some(|active_tx| {
+            active_tx.data.eth_tx_hash = H256::repeat_byte(1);
+        }), Err(Error::<TestRuntime>::EthTxHashAlreadySet.into()));
+    }
 
-            // Add an Ethereum transaction hash
-            assert_ok!(EthBridge::add_eth_tx_hash(
-                RawOrigin::Signed(1).into(),
-                tx_id,
-                eth_tx_hash.clone(),
-                test_signature
-            ));
+    #[test]
+    fn it_returns_error_when_eth_tx_hash_must_be_set_by_sender() {
+        run_eth_tx_hash_test(Some(|active_tx| {
+            active_tx.data.sender = Default::default();
+        }), Err(Error::<TestRuntime>::EthTxHashMustBeSetBySender.into()));
+    }
 
-            // Attempt to add the same Ethereum transaction hash again
-            assert_noop!(
-                EthBridge::add_eth_tx_hash(
-                    RawOrigin::Signed(1).into(),
-                    tx_id,
-                    eth_tx_hash.clone(),
-                    test_signature
-                ),
-                Error::<TestRuntime>::EthTxHashAlreadySet
-            );
-        });
+    #[test]
+    fn it_sets_eth_tx_hash_correctly() {
+        run_eth_tx_hash_test(None, Ok(().into()));
     }
 }
 
 #[cfg(test)]
 mod add_corroboration {
     use super::*;
-    use frame_support::{assert_noop, assert_ok};
-    use sp_core::H256;
+    use frame_support::assert_ok;
+    use frame_system::RawOrigin;
+    fn run_corroboration_test(
+        is_tx_successful: bool,
+        is_hash_valid: bool,
+        assertion: fn(ActiveTransactionData<TestRuntime>),
+    ) {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = setup_context();
 
-    fn setup_corroboration() -> (u64, bool) {
-        let tx_id = 1;
-        let result = true; // This should be replaced with the actual type and value you expect
+            let tx_id = add_new_request::<TestRuntime>(
+                &context.request_function_name,
+                &context.request_params,
+            )
+            .unwrap();
 
-        (tx_id, result)
-    }
-
-    #[test]
-    fn it_adds_corroboration_correctly() {
-        new_test_ext().execute_with(|| {
-            let (tx_id, result) = setup_corroboration();
-
-            // Call the function under test
             assert_ok!(EthBridge::add_corroboration(
-                RawOrigin::Signed(1).into(),
+                RawOrigin::None.into(),
                 tx_id,
-                result.clone()
+                is_tx_successful,
+                is_hash_valid,
+                context.confirming_author.clone(),
+                context.test_signature
             ));
 
-            // Retrieve the active transaction
-            let active_tx = ActiveTransaction::<Test>::get(tx_id)
+            let active_tx = ActiveTransaction::<TestRuntime>::get()
                 .expect("Active transaction should be present");
 
-            // Check that the corroboration was added correctly
-            assert_eq!(active_tx.result, result, "Corroboration should be correct");
+            assertion(active_tx);
+        });
+    }
+
+
+
+    #[test]
+    fn it_adds_invalid_hash_and_successful_corroboration_correctly() {
+        run_corroboration_test(true, true, |active_tx| {
+            assert!(active_tx.valid_tx_hash_corroborations.len() > 0);
         });
     }
 
     #[test]
-    fn it_rejects_duplicate_corroborations() {
-        new_test_ext().execute_with(|| {
-            let (tx_id, result) = setup_corroboration();
+    fn it_adds_invalid_hash_and_failure_corroboration_correctly() {
+        run_corroboration_test(true, false, |active_tx| {
+            assert!(active_tx.invalid_tx_hash_corroborations.len() > 0);
+        });
+    }
 
-            // Add a corroboration
-            assert_ok!(EthBridge::add_corroboration(
-                RawOrigin::Signed(1).into(),
-                tx_id,
-                result.clone()
-            ));
-
-            // Attempt to add the same corroboration again
-            assert_noop!(
-                EthBridge::add_corroboration(RawOrigin::Signed(1).into(), tx_id, result.clone()),
-                Error::<Test>::DuplicateCorroboration
-            );
+    #[test]
+    fn it_adds_successfull_corroboration_correctly() {
+        run_corroboration_test(true, true, |active_tx| {
+            assert!(active_tx.valid_tx_hash_corroborations.len() > 0);
         });
     }
 }

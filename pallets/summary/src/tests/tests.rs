@@ -929,9 +929,7 @@ pub mod record_summary_calculation {
                     Summary::get_vote(context.root_id),
                     VotingSessionData {
                         voting_session_id: context.root_id.session_id(),
-                        threshold: 4, /* improper calc fix (7 - (7 * 2 / 3)) + 1 = 3.3333 while
-                                       * it is returning 4 it should be equal to QUORUM which is
-                                       * 3 */
+                        threshold: QUORUM,
                         ayes: BoundedVec::default(),
                         nays: BoundedVec::default(),
                         end_of_voting_period: VOTING_PERIOD_END,
