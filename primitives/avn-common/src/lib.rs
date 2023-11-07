@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{crypto::KeyTypeId, ecdsa, H160};
+use sp_core::{crypto::KeyTypeId, ecdsa, H160, H256};
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -160,4 +160,27 @@ pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member
             false => Err(()),
         },
     }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub struct EthQueryRequest {
+    pub tx_hash: H256,
+    pub response_type: EthQueryResponseType
+}
+
+impl EthQueryRequest {
+    pub fn new(tx_hash: H256, response_type: EthQueryResponseType) -> Self {
+        return EthQueryRequest { tx_hash, response_type }
+    }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub enum EthQueryResponseType {
+    CallData
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub struct EthQueryResponse {
+    pub data: Vec<u8>,
+    pub num_confirmations: u64
 }

@@ -345,6 +345,7 @@ impl pallet_eth_bridge::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type RuntimeCall = RuntimeCall;
+    type MinEthBlockConfirmation = ConstU64<20>;
     type WeightInfo = ();
     type AccountToBytesConvert = AVN;
     type OnBridgePublisherResult = Self;

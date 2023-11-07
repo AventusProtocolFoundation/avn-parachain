@@ -97,6 +97,8 @@ pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry,
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 
+pub const TX_HASH_INVALID: bool = false;
+
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
@@ -122,6 +124,7 @@ pub mod pallet {
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
         type MaxQueuedTxRequests: Get<u32>;
+        type MinEthBlockConfirmation: Get<u64>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
         type OnBridgePublisherResult: avn::OnBridgePublisherResult;
     }
@@ -178,12 +181,15 @@ pub mod pallet {
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub struct ActiveTransactionData<T: Config> {
         pub id: u32,
+        pub request_data: RequestData,
         pub data: TransactionData<T>,
         pub expiry: u64,
         pub msg_hash: H256,
         pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
         pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
         pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+        pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+        pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
     }
 
     #[pallet::genesis_config]
@@ -217,12 +223,14 @@ pub mod pallet {
         EthTxHashAlreadySet,
         EthTxHashMustBeSetBySender,
         ExceedsConfirmationLimit,
+        ExceedsCorroborationLimit,
         ExceedsFunctionNameLimit,
         FunctionEncodingError,
         FunctionNameError,
         HandlePublishingResultFailed,
         InvalidBytes,
         InvalidBytesLength,
+        InvalidQueryResponseFromEthereum,
         InvalidCorroborateCalldata,
         InvalidCorroborateResult,
         InvalidECDSASignature,
@@ -239,6 +247,7 @@ pub mod pallet {
         TxRequestQueueFull,
         TypeNameLengthExceeded,
         ValueLengthExceeded,
+        ErrorGettingEthereumCallData,
     }
 
     #[pallet::call]
@@ -326,6 +335,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             tx_id: u32,
             tx_succeeded: bool,
+            tx_hash_is_valid: bool,
             author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
@@ -338,6 +348,16 @@ pub mod pallet {
                     return Ok(().into())
                 }
 
+                let tx_hash_corroborations = if tx_hash_is_valid {
+                    &mut tx.valid_tx_hash_corroborations
+                } else {
+                    &mut tx.invalid_tx_hash_corroborations
+                };
+
+                tx_hash_corroborations
+                    .try_push(author.account_id.clone())
+                    .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+
                 let matching_corroborations = if tx_succeeded {
                     &mut tx.success_corroborations
                 } else {
@@ -346,7 +366,7 @@ pub mod pallet {
 
                 matching_corroborations
                     .try_push(author.account_id.clone())
-                    .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+                    .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
 
                 if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
                     tx::finalize_state::<T>(tx, tx_succeeded)?;
@@ -398,18 +418,18 @@ pub mod pallet {
 
                 // Protect against sending more than once
                 if let Ok(guard) = lock.try_lock() {
-                    let eth_tx_hash = eth::send_tx::<T>(&tx, &author)?;
+                    let eth_tx_hash = eth::send_tx::<T>(&tx)?;
                     call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
                     guard.forget(); // keep the lock so we don't send again
                 } else {
                     log::info!("👷 Skipping sending txId: {:?} because ocw is locked already.", tx.id);
                 };
-            } else if tx_is_sent || tx_is_past_expiry {
+            } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
                 if util::requires_corroboration::<T>(&tx, &author) {
-                    match eth::check_tx_status::<T>(tx.id, tx.expiry, &author)? {
-                        Some(true) => call::add_corroboration::<T>(tx.id, true, author),
-                        Some(false) => call::add_corroboration::<T>(tx.id, false, author),
-                        None => {},
+                    match eth::corroborate::<T>(&tx, &author)? {
+                        (Some(true), tx_hash_is_valid) => call::add_corroboration::<T>(tx.id, true, tx_hash_is_valid.unwrap_or_default(), author),
+                        (Some(false), tx_hash_is_valid) => call::add_corroboration::<T>(tx.id, false, tx_hash_is_valid.unwrap_or_default(), author),
+                        (None, _) => {},
                     }
                 }
             }
@@ -450,9 +470,9 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(2u8).into()
                     },
-                Call::add_corroboration { tx_id, tx_succeeded, author, signature } =>
+                Call::add_corroboration { tx_id, tx_succeeded, tx_hash_is_valid, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, &author.account_id),
+                        &(ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, tx_hash_is_valid, &author.account_id),
                         &author,
                         signature,
                     ) {
