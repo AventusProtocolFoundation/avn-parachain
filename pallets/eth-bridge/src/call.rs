@@ -6,7 +6,6 @@ pub fn add_confirmation<T: Config>(tx_id: u32, confirmation: ecdsa::Signature, a
     let proof = add_confirmation_proof::<T>(tx_id, &confirmation, &author.account_id);
     let signature = author.key.sign(&proof).expect("Error signing proof");
     let call = Call::<T>::add_confirmation { tx_id, confirmation, author, signature };
-    log::info!("INSIDE ADD CONFIRMATION PROOF !!! {:?}", call);
     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 }
 
@@ -29,7 +28,6 @@ fn add_confirmation_proof<T: Config>(
     confirmation: &ecdsa::Signature,
     account_id: &T::AccountId,
 ) -> Vec<u8> {
-    log::info!("INSIDE CONFIRMATION PROOF !!! {:?}", confirmation);
     (ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, &account_id).encode()
 }
 

@@ -381,35 +381,6 @@ impl BridgePublisher for TestRuntime {
         Err(Error::<TestRuntime>::ErrorPublishingSummary.into())
     }
 }
-// impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
-//     fn submit_candidate_transaction_to_tier1(
-//         candidate_type: EthTransactionType,
-//         _tx_id: EthereumTransactionId,
-//         _submitter: AccountId,
-//         _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
-//     ) -> DispatchResult {
-//         if candidate_type !=
-//             EthTransactionType::PublishRoot(PublishRootData::new(
-//                 ROOT_HASH_CAUSES_SUBMISSION_TO_T1_ERROR,
-//             ))
-//         {
-//             return Ok(())
-//         }
-//         Err(Error::<TestRuntime>::ErrorSubmitCandidateTxnToTier1.into())
-//     }
-
-//     fn reserve_transaction_id(
-//         _candidate_type: &EthTransactionType,
-//     ) -> Result<EthereumTransactionId, DispatchError> {
-//         let value = MOCK_TX_ID.with(|tx_id| *tx_id.borrow());
-//         MOCK_TX_ID.with(|tx_id| {
-//             *tx_id.borrow_mut() += 1;
-//         });
-//         return Ok(value)
-//     }
-//     #[cfg(feature = "runtime-benchmarks")]
-//     fn set_transaction_id(_candidate_type: &EthTransactionType, _id: EthereumTransactionId) {}
-// }
 
 /*********************** Add validators support ********************** */
 
