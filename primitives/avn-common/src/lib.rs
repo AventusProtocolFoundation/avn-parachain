@@ -176,7 +176,8 @@ impl EthQueryRequest {
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum EthQueryResponseType {
-    CallData
+    CallData,
+    TransactionReceipt
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
