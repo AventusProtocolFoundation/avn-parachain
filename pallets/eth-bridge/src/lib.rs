@@ -63,8 +63,12 @@ use frame_system::{
     pallet_prelude::OriginFor,
 };
 use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnBridgePublisherResult};
+
+use pallet_session::historical::IdentificationTuple;
+use sp_staking::offence::ReportOffence;
+
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{event_types::Validator};
+use sp_avn_common::event_types::Validator;
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
@@ -87,6 +91,9 @@ pub use pallet::*;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
+pub mod offence;
+use offence::CorroborationOffence;
+
 pub type AVN<T> = avn::Pallet<T>;
 pub type Author<T> =
     Validator<<T as avn::Config>::AuthorityId, <T as frame_system::Config>::AccountId>;
@@ -98,6 +105,7 @@ pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 
 pub const TX_HASH_INVALID: bool = false;
+pub type EthereumTransactionId = u32;
 
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
@@ -106,13 +114,19 @@ const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::offence::CorroborationOffenceType;
+
     use super::*;
     use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + avn::Config + scale_info::TypeInfo + SendTransactionTypes<Call<Self>>
+        frame_system::Config
+        + avn::Config
+        + scale_info::TypeInfo
+        + SendTransactionTypes<Call<Self>>
+        + pallet_session::historical::Config
     {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
@@ -127,13 +141,29 @@ pub mod pallet {
         type MinEthBlockConfirmation: Get<u64>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
         type OnBridgePublisherResult: avn::OnBridgePublisherResult;
+        type ReportCorroborationOffence: ReportOffence<
+            Self::AccountId,
+            IdentificationTuple<Self>,
+            CorroborationOffence<IdentificationTuple<Self>>,
+        >;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        PublishToEthereum { tx_id: u32, function_name: Vec<u8>, params: Vec<(Vec<u8>, Vec<u8>)> },
-        EthTxLifetimeUpdated { eth_tx_lifetime_secs: u64 },
+        PublishToEthereum {
+            tx_id: u32,
+            function_name: Vec<u8>,
+            params: Vec<(Vec<u8>, Vec<u8>)>,
+        },
+        EthTxIdUpdated { eth_tx_id: u32 },
+        EthTxLifetimeUpdated {
+            eth_tx_lifetime_secs: u64,
+        },
+        CorroborationOffenceReported {
+            offence_type: CorroborationOffenceType,
+            offenders: Vec<IdentificationTuple<T>>,
+        },
     }
 
     #[pallet::pallet]
@@ -265,6 +295,15 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
+        #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_id())]
+        pub fn set_eth_tx_id(origin: OriginFor<T>, eth_tx_id: u32) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            NextTxId::<T>::put(eth_tx_id);
+            Self::deposit_event(Event::<T>::EthTxIdUpdated { eth_tx_id });
+            Ok(().into())
+        }
+
+        #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::add_confirmation())]
         pub fn add_confirmation(
             origin: OriginFor<T>,
@@ -300,7 +339,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(2)]
+        #[pallet::call_index(3)]
         #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
         pub fn add_eth_tx_hash(
             origin: OriginFor<T>,
@@ -329,7 +368,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(3)]
+        #[pallet::call_index(4)]
         #[pallet::weight(<T as Config>::WeightInfo::add_corroboration())]
         pub fn add_corroboration(
             origin: OriginFor<T>,
@@ -422,13 +461,26 @@ pub mod pallet {
                     call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
                     guard.forget(); // keep the lock so we don't send again
                 } else {
-                    log::info!("👷 Skipping sending txId: {:?} because ocw is locked already.", tx.id);
+                    log::info!(
+                        "👷 Skipping sending txId: {:?} because ocw is locked already.",
+                        tx.id
+                    );
                 };
             } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
                 if util::requires_corroboration::<T>(&tx, &author) {
                     match eth::corroborate::<T>(&tx, &author)? {
-                        (Some(true), tx_hash_is_valid) => call::add_corroboration::<T>(tx.id, true, tx_hash_is_valid.unwrap_or_default(), author),
-                        (Some(false), tx_hash_is_valid) => call::add_corroboration::<T>(tx.id, false, tx_hash_is_valid.unwrap_or_default(), author),
+                        (Some(true), tx_hash_is_valid) => call::add_corroboration::<T>(
+                            tx.id,
+                            true,
+                            tx_hash_is_valid.unwrap_or_default(),
+                            author,
+                        ),
+                        (Some(false), tx_hash_is_valid) => call::add_corroboration::<T>(
+                            tx.id,
+                            false,
+                            tx_hash_is_valid.unwrap_or_default(),
+                            author,
+                        ),
                         (None, _) => {},
                     }
                 }
@@ -470,9 +522,21 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(2u8).into()
                     },
-                Call::add_corroboration { tx_id, tx_succeeded, tx_hash_is_valid, author, signature } =>
+                Call::add_corroboration {
+                    tx_id,
+                    tx_succeeded,
+                    tx_hash_is_valid,
+                    author,
+                    signature,
+                } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, tx_hash_is_valid, &author.account_id),
+                        &(
+                            ADD_CORROBORATION_CONTEXT,
+                            tx_id,
+                            tx_succeeded,
+                            tx_hash_is_valid,
+                            &author.account_id,
+                        ),
                         &author,
                         signature,
                     ) {
@@ -490,6 +554,12 @@ pub mod pallet {
     }
 
     impl<T: Config> BridgePublisher for Pallet<T> {
+        fn get_eth_tx_lifetime_secs() -> u64 {
+            EthTxLifetimeSecs::<T>::get()
+        }
+        fn get_next_tx_id() -> u32 {
+            NextTxId::<T>::get()
+        }
         fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],

@@ -10,7 +10,7 @@ use sp_core::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt as OffchainExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    H256,
+    H160, H256,
 };
 use sp_io::TestExternalities;
 use sp_runtime::{

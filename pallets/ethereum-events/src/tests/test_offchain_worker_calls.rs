@@ -137,7 +137,7 @@ fn check_event_and_submit_result(
 
         let tx = pool_state.write().transactions.pop();
         match tx {
-            None => assert!(expected_result == CheckResult::Unknown),
+            None => assert_eq!(expected_result, CheckResult::Unknown),
             Some(tx) => {
                 assert!(expected_result != CheckResult::Unknown);
                 // Only one Tx submitted

@@ -1,7 +1,6 @@
-use super::{find_event, get_data, get_events, get_status, get_topics, get_value_of};
-use crate::mock::{
-    INDEX_DATA, INDEX_EVENT_ADDRESS, INDEX_RESULT, INDEX_RESULT_LOGS, INDEX_RESULT_STATUS,
-    INDEX_TOPICS,
+use crate::{
+    mock::*,
+    event_parser::*,
 };
 use hex_literal::hex;
 use simple_json2::json::{JsonValue, NumberValue};
@@ -24,7 +23,7 @@ impl MockEthEventsResponse {
         let id_value = JsonValue::Number(id_num);
         let jsonrpc_key: Vec<char> = "jsonrpc".chars().collect();
         let jsonrpc_value = JsonValue::String("2.0".chars().collect());
-        let result_key: Vec<char> = "result".chars().collect();
+        let data_key: Vec<char> = "data".chars().collect();
         let log_index_key: Vec<char> = "logIndex".chars().collect();
         let log_index_value_1 = JsonValue::String("0x0".chars().collect());
         let log_index_value_2 = JsonValue::String("0x1".chars().collect());
@@ -50,7 +49,7 @@ impl MockEthEventsResponse {
             JsonValue::String("0x604dd282e3fbe35f40f84405f90965821483827f".chars().collect());
         let address_value_2 =
             JsonValue::String("0X704DD282E3FBE35F40F84405F90965821483827F".chars().collect());
-        let data_key: Vec<char> = "data".chars().collect();
+        let event_data_key: Vec<char> = "data".chars().collect();
         let data_value = JsonValue::String(
             "0xFF00000000000000000000000000000000000000000000000000000005F5e100"
                 .chars()
@@ -132,7 +131,7 @@ impl MockEthEventsResponse {
             (block_hash_key.clone(), block_hash_value.clone()),
             (block_number_key.clone(), block_number_value.clone()),
             (address_key.clone(), address_value_1),
-            (data_key.clone(), data_value.clone()),
+            (event_data_key.clone(), data_value.clone()),
             (topics_key.clone(), topics_value_1),
             (type_key.clone(), type_value.clone()),
         ];
@@ -144,7 +143,7 @@ impl MockEthEventsResponse {
             (block_hash_key.clone(), block_hash_value.clone()),
             (block_number_key.clone(), block_number_value.clone()),
             (address_key.clone(), address_value_2),
-            (data_key.clone(), data_value.clone()),
+            (event_data_key.clone(), data_value.clone()),
             (topics_key.clone(), topics_value_2),
             (type_key.clone(), type_value.clone()),
         ];
@@ -176,7 +175,7 @@ impl MockEthEventsResponse {
         let valid_events_response = vec![
             (id_key.clone(), id_value),
             (jsonrpc_key.clone(), jsonrpc_value),
-            (result_key.clone(), JsonValue::Object(valid_result_field.clone())),
+            (data_key.clone(), JsonValue::Object(valid_result_field.clone())),
         ];
 
         MockEthEventsResponse {
@@ -198,8 +197,7 @@ impl MockEthEventsResponse {
 #[test]
 fn get_events_should_return_expected_result_events_when_input_is_valid() {
     let mock_events_response = MockEthEventsResponse::setup();
-    let valid_events_response = JsonValue::Object(mock_events_response.valid_events_response);
-    let events_result = get_events(&valid_events_response);
+    let events_result = get_events(&mock_events_response.valid_result_field);
 
     assert!(events_result.is_ok());
     assert_eq!(
@@ -213,38 +211,34 @@ fn get_events_should_return_expected_result_events_when_input_is_valid() {
 
 #[test]
 fn get_events_should_return_error_when_input_is_empty() {
-    let empty_event_response = &JsonValue::Null;
+    let s_key: Vec<char> = "s".chars().collect();
+    let empty_event_response = JsonValue::Null;
 
-    assert!(get_events(empty_event_response).is_err());
+    assert!(get_events(&vec![(s_key, empty_event_response)]).is_err());
 }
 
 #[test]
 fn get_events_should_return_error_when_result_field_is_invalid() {
     let mock_events_response = MockEthEventsResponse::setup();
-    let mut valid_events_response = mock_events_response.valid_events_response.clone();
-    valid_events_response[INDEX_RESULT].1 = JsonValue::Null;
-    let response_without_result = JsonValue::Object(valid_events_response);
+    let mut bad_events_response = mock_events_response.valid_events_response.clone();
+    bad_events_response[INDEX_DATA].1 = JsonValue::Null;
 
-    assert!(get_events(&response_without_result).is_err());
+    assert!(get_events(&bad_events_response).is_err());
 }
 
 #[test]
 fn get_events_should_return_error_when_logs_field_is_invalid() {
     let mock_events_response = MockEthEventsResponse::setup();
-    let mut valid_events_response = mock_events_response.valid_events_response.clone();
-    let mut valid_result_field = mock_events_response.valid_result_field.clone();
-    valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Null;
-    valid_events_response[INDEX_RESULT].1 = JsonValue::Object(valid_result_field);
-    let response_without_result_logs = JsonValue::Object(valid_events_response);
+    let mut bad_events_response = mock_events_response.valid_result_field.clone();
+    bad_events_response[INDEX_RESULT_LOGS].1 = JsonValue::Object(bad_events_response.clone());
 
-    assert!(get_events(&response_without_result_logs).is_err());
+    assert!(get_events(&bad_events_response).is_err());
 }
 
 #[test]
 fn get_status_should_return_expected_result_events_when_input_is_valid() {
     let mock_events_response = MockEthEventsResponse::setup();
-    let valid_events_response = JsonValue::Object(mock_events_response.valid_events_response);
-    let status = get_status(&valid_events_response);
+    let status = get_status(&mock_events_response.valid_result_field);
 
     assert!(status.is_ok());
     assert_eq!(status.unwrap(), 1);
@@ -252,62 +246,62 @@ fn get_status_should_return_expected_result_events_when_input_is_valid() {
 
 #[test]
 fn get_status_should_return_error_when_input_is_empty() {
-    let empty_event_response = &JsonValue::Null;
+    let s_key: Vec<char> = "s".chars().collect();
+    let empty_event_response = JsonValue::Null;
 
-    assert!(get_status(empty_event_response).is_err());
+    assert!(get_status(&vec![(s_key, empty_event_response)]).is_err());
 }
 
 #[test]
-fn get_status_should_return_error_when_result_field_is_invalid() {
+fn get_status_should_return_error_when_data_field_is_invalid() {
     let mock_events_response = MockEthEventsResponse::setup();
-    let mut valid_events_response = mock_events_response.valid_events_response.clone();
-    valid_events_response[INDEX_RESULT].1 = JsonValue::Null;
-    let response_without_result = JsonValue::Object(valid_events_response);
+    let mut bad_events_response = mock_events_response.valid_events_response.clone();
+    bad_events_response[INDEX_DATA].1 = JsonValue::Null;
 
-    assert!(get_status(&response_without_result).is_err());
+    assert!(get_status(&bad_events_response).is_err());
 }
 
 #[test]
 fn get_status_should_return_error_when_status_field_is_invalid() {
     let mock_events_response = MockEthEventsResponse::setup();
-    let mut valid_events_response = mock_events_response.valid_events_response.clone();
+    let mut bad_events_response = mock_events_response.valid_events_response.clone();
     let mut valid_result_field = mock_events_response.valid_result_field.clone();
     valid_result_field[INDEX_RESULT_STATUS].1 = JsonValue::String("invalid".chars().collect());
-    valid_events_response[INDEX_RESULT].1 = JsonValue::Object(valid_result_field);
-    let response_with_invalid_result_status = JsonValue::Object(valid_events_response);
+    bad_events_response[INDEX_DATA].1 = JsonValue::Object(valid_result_field);
 
-    assert!(get_status(&response_with_invalid_result_status).is_err());
+    assert!(get_status(&bad_events_response).is_err());
 }
 
 #[test]
 pub fn find_event_should_return_expected_result_event_when_event_values_are_in_lowercase() {
-    let mock_events_response = MockEthEventsResponse::setup();
-    let valid_events = vec![
-        JsonValue::Object(mock_events_response.valid_event_1.clone()),
-        JsonValue::Object(mock_events_response.valid_event_2.clone()),
-    ];
-    let valid_topic_1 = mock_events_response.valid_topic_1;
-    let (find_event_result, _) = find_event(&valid_events, valid_topic_1).unwrap();
+    let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+        ext.execute_with(|| {
+            let mock_events_response = MockEthEventsResponse::setup();
+            let valid_topic_1 = mock_events_response.valid_topic_1;
+            let (_, _, contract_address) = find_event(&mock_events_response.valid_result_field, valid_topic_1).unwrap();
 
-    assert_eq!(*find_event_result, JsonValue::Object(mock_events_response.valid_event_1));
+            let mock_event = mock_events_response.valid_event_1.clone();
+            assert_eq!(hex::encode(contract_address), mock_event[INDEX_EVENT_ADDRESS].1.get_string().unwrap().trim_start_matches("0x"));
+        });
 }
 
 #[test]
 pub fn find_event_should_return_expected_result_event_when_event_values_are_in_uppercase() {
-    let mock_events_response = MockEthEventsResponse::setup();
-    let valid_events = vec![
-        JsonValue::Object(mock_events_response.valid_event_1.clone()),
-        JsonValue::Object(mock_events_response.valid_event_2.clone()),
-    ];
-    let valid_topic_2 = mock_events_response.valid_topic_2;
-    let (find_event_result, _) = find_event(&valid_events, valid_topic_2).unwrap();
+    let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+        ext.execute_with(|| {
+            let mock_events_response = MockEthEventsResponse::setup();
+            let valid_topic_2 = mock_events_response.valid_topic_2;
+            let (_, _, contract_address) = find_event(&mock_events_response.valid_result_field, valid_topic_2).unwrap();
 
-    assert_eq!(*find_event_result, JsonValue::Object(mock_events_response.valid_event_2));
+            let mock_event = mock_events_response.valid_event_2.clone();
+            assert_eq!(hex::encode(contract_address).to_uppercase(), mock_event[INDEX_EVENT_ADDRESS].1.get_string().unwrap().trim_start_matches("0X"));
+        });
 }
+
 
 #[test]
 pub fn find_event_should_return_expected_result_event_when_event_topics_without_0x_prefix() {
-    let mock_events_response = MockEthEventsResponse::setup();
+    let mut mock_events_response = MockEthEventsResponse::setup();
     let mut without_0x_event_signature_topic_event = mock_events_response.valid_event_1.clone();
     without_0x_event_signature_topic_event[INDEX_TOPICS].1 = JsonValue::Array(vec![
         JsonValue::String(
@@ -330,69 +324,69 @@ pub fn find_event_should_return_expected_result_event_when_event_topics_without_
         JsonValue::Object(without_0x_event_signature_topic_event.clone()),
         JsonValue::Object(mock_events_response.valid_event_2.clone()),
     ];
-    let valid_topic = mock_events_response.valid_topic_1;
-    let (find_event_result, _) = find_event(&valid_events, valid_topic).unwrap();
 
-    assert_eq!(*find_event_result, JsonValue::Object(without_0x_event_signature_topic_event));
+    mock_events_response.valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Array(valid_events);
+    let valid_event_1 = mock_events_response.valid_event_1.clone();
+    let (_, _, contract_address) = find_event(&mock_events_response.valid_result_field, mock_events_response.valid_topic_1).unwrap();
+
+    assert_eq!(hex::encode(contract_address), valid_event_1[INDEX_EVENT_ADDRESS].1.get_string().unwrap().trim_start_matches("0x"));
 }
+
 
 #[test]
 pub fn find_event_should_return_none_when_topic_not_match_in_events() {
     let mock_events_response = MockEthEventsResponse::setup();
-    let valid_events = vec![
-        JsonValue::Object(mock_events_response.valid_event_1.clone()),
-        JsonValue::Object(mock_events_response.valid_event_2.clone()),
-    ];
     let zero_topic = mock_events_response.zero_topic;
 
-    assert!(find_event(&valid_events, zero_topic).is_none());
+    assert!(find_event(&mock_events_response.valid_result_field, zero_topic).is_none());
 }
+
 
 #[test]
 pub fn find_event_should_return_none_when_events_are_empty() {
-    let mock_events_response = MockEthEventsResponse::setup();
+    let mut mock_events_response = MockEthEventsResponse::setup();
     let empty_events = Vec::new();
     let zero_topic = mock_events_response.zero_topic;
+    mock_events_response.valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Array(empty_events);
 
-    assert!(find_event(&empty_events, zero_topic).is_none());
+    assert!(find_event(&mock_events_response.valid_result_field, zero_topic).is_none());
 }
 
 #[test]
 pub fn find_event_should_return_none_when_input_events_are_misformatted() {
-    let mock_events_response = MockEthEventsResponse::setup();
+    let mut mock_events_response = MockEthEventsResponse::setup();
     let invalid_events = vec![JsonValue::Boolean(true), JsonValue::Boolean(false)];
     let valid_topic = mock_events_response.valid_topic_1;
-
-    assert!(find_event(&invalid_events, valid_topic).is_none());
+    mock_events_response.valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Array(invalid_events);
+    assert!(find_event(&mock_events_response.valid_result_field, valid_topic).is_none());
 }
 
 #[test]
 pub fn find_event_should_return_none_when_input_events_are_null() {
-    let mock_events_response = MockEthEventsResponse::setup();
+    let mut mock_events_response = MockEthEventsResponse::setup();
     let null_events = vec![JsonValue::Null];
     let valid_topic = mock_events_response.valid_topic_1;
-
-    assert!(find_event(&null_events, valid_topic).is_none());
+    mock_events_response.valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Array(null_events);
+    assert!(find_event(&mock_events_response.valid_result_field, valid_topic).is_none());
 }
 
 #[test]
-pub fn find_event_should_return_expected_when_events_contains_null_contract_address() {
-    let mock_events_response = MockEthEventsResponse::setup();
+pub fn find_event_should_return_none_when_events_contains_null_contract_address() {
+    let mut mock_events_response = MockEthEventsResponse::setup();
     let mut empty_address_event = mock_events_response.valid_event_1.clone();
     empty_address_event[INDEX_EVENT_ADDRESS].1 = JsonValue::Null;
     let invalid_events = vec![
         JsonValue::Object(empty_address_event),
         JsonValue::Object(mock_events_response.valid_event_2.clone()),
     ];
-    let valid_topic = mock_events_response.valid_topic_2;
-    let (find_event_result, _) = find_event(&invalid_events, valid_topic).unwrap();
-
-    assert_eq!(*find_event_result, JsonValue::Object(mock_events_response.valid_event_2));
+    let valid_topic = mock_events_response.valid_topic_1;
+    mock_events_response.valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Array(invalid_events);
+    assert!(find_event(&mock_events_response.valid_result_field, valid_topic).is_none());
 }
 
 #[test]
 pub fn find_event_should_return_none_when_event_topics_are_invalid_hex_string() {
-    let mock_events_response = MockEthEventsResponse::setup();
+    let mut mock_events_response = MockEthEventsResponse::setup();
     let mut invalid_hex_event_signature_topic_event = mock_events_response.valid_event_1.clone();
     invalid_hex_event_signature_topic_event[INDEX_TOPICS].1 =
         JsonValue::Array(vec![JsonValue::String(
@@ -405,20 +399,20 @@ pub fn find_event_should_return_none_when_event_topics_are_invalid_hex_string() 
         JsonValue::Object(mock_events_response.valid_event_2.clone()),
     ];
     let valid_topic = mock_events_response.valid_topic_1;
-
-    assert!(find_event(&invalid_events, valid_topic).is_none());
+    mock_events_response.valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Array(invalid_events);
+    assert!(find_event(&mock_events_response.valid_result_field, valid_topic).is_none());
 }
 
 #[test]
 pub fn find_event_should_return_none_when_event_topics_are_empty_strings() {
-    let mock_events_response = MockEthEventsResponse::setup();
+    let mut mock_events_response = MockEthEventsResponse::setup();
     let mut empty_signature_topic_event = mock_events_response.valid_event_1.clone();
     empty_signature_topic_event[INDEX_TOPICS].1 =
         JsonValue::Array(vec![JsonValue::String("".chars().collect())]);
     let invalid_events = vec![JsonValue::Object(empty_signature_topic_event)];
     let valid_topic = H256::repeat_byte(0);
-
-    assert!(find_event(&invalid_events, valid_topic).is_none());
+    mock_events_response.valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Array(invalid_events);
+    assert!(find_event(&mock_events_response.valid_result_field, valid_topic).is_none());
 }
 
 #[test]
@@ -442,7 +436,7 @@ pub fn get_data_should_return_expected_result_when_input_is_valid() {
 pub fn get_data_should_return_expected_result_when_event_data_without_0x_prefix() {
     let mock_events_response = MockEthEventsResponse::setup();
     let mut mock_event = mock_events_response.valid_event_1.clone();
-    mock_event[INDEX_DATA].1 = JsonValue::String(
+    mock_event[INDEX_EVENT_DATA].1 = JsonValue::String(
         "FF00000000000000000000000000000000000000000000000000000005F5e100"
             .chars()
             .collect(),
@@ -465,7 +459,7 @@ pub fn get_data_should_return_expected_result_when_event_data_without_0x_prefix(
 pub fn get_data_should_return_none_when_data_is_empty() {
     let mock_events_response = MockEthEventsResponse::setup();
     let mut mock_event = mock_events_response.valid_event_1.clone();
-    mock_event[INDEX_DATA].1 = JsonValue::String("".chars().collect());
+    mock_event[INDEX_EVENT_DATA].1 = JsonValue::String("".chars().collect());
     let event_without_data = JsonValue::Object(mock_event);
 
     let data_result = get_data(&event_without_data);
@@ -484,7 +478,7 @@ pub fn get_data_should_return_error_when_event_data_is_null() {
 pub fn get_data_should_return_error_when_event_data_is_invalid() {
     let mock_events_response = MockEthEventsResponse::setup();
     let mut mock_event = mock_events_response.valid_event_1.clone();
-    mock_event[INDEX_DATA].1 = JsonValue::Boolean(true);
+    mock_event[INDEX_EVENT_DATA].1 = JsonValue::Boolean(true);
     let event_with_invalid_data = JsonValue::Object(mock_event);
 
     assert!(get_data(&event_with_invalid_data).is_err());
@@ -494,7 +488,7 @@ pub fn get_data_should_return_error_when_event_data_is_invalid() {
 pub fn get_data_should_return_error_when_event_data_hex_string_contains_invalid_characters() {
     let mock_events_response = MockEthEventsResponse::setup();
     let mut mock_event = mock_events_response.valid_event_1.clone();
-    mock_event[INDEX_DATA].1 = JsonValue::String(
+    mock_event[INDEX_EVENT_DATA].1 = JsonValue::String(
         "0xGGGGGGGGGGG00000000000000000000000000000000000000000000005F5e100"
             .chars()
             .collect(),
@@ -508,7 +502,7 @@ pub fn get_data_should_return_error_when_event_data_hex_string_contains_invalid_
 pub fn get_data_should_return_error_when_event_data_has_odd_length() {
     let mock_events_response = MockEthEventsResponse::setup();
     let mut mock_event = mock_events_response.valid_event_1.clone();
-    mock_event[INDEX_DATA].1 = JsonValue::String("0x0".chars().collect());
+    mock_event[INDEX_EVENT_DATA].1 = JsonValue::String("0x0".chars().collect());
     let event_with_invalid_data = JsonValue::Object(mock_event);
 
     assert!(get_data(&event_with_invalid_data).is_err());
@@ -604,8 +598,8 @@ pub fn get_value_of_works() {
     let mock_event = mock_events_response.valid_event_1.clone();
 
     assert_eq!(
-        get_value_of(String::from("result"), &valid_events_response).unwrap(),
-        &valid_events_response[INDEX_RESULT].1
+        get_value_of(String::from("data"), &valid_events_response).unwrap(),
+        &valid_events_response[INDEX_DATA].1
     );
 
     assert_eq!(
@@ -613,7 +607,7 @@ pub fn get_value_of_works() {
         &valid_result_field[INDEX_RESULT_LOGS].1
     );
 
-    assert_eq!(get_value_of(String::from("data"), &mock_event).unwrap(), &mock_event[INDEX_DATA].1);
+    assert_eq!(get_value_of(String::from("data"), &mock_event).unwrap(), &mock_event[INDEX_EVENT_DATA].1);
 
     assert_eq!(
         get_value_of(String::from("topics"), &mock_event).unwrap(),

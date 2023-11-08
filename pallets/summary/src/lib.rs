@@ -23,13 +23,14 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use avn::{AccountToBytesConverter, OnBridgePublisherResult};
+use avn::OnBridgePublisherResult;
 use core::convert::TryInto;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, weights::Weight};
 use frame_system::{
     self as system, ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
+pub use pallet::*;
 use pallet_avn::{
     self as avn,
     vote::{
@@ -39,19 +40,15 @@ use pallet_avn::{
     },
     Error as avn_error,
 };
-use pallet_ethereum_transactions::{
-    ethereum_transaction::{EthAbiHelper, EthTransactionType, PublishRootData, TransactionId},
-    CandidateTransactionSubmitter,
-};
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::{ecdsa, H256};
+use sp_core::H256;
 use sp_staking::offence::ReportOffence;
-use sp_io::hashing::keccak_256;
-pub use pallet::*;
 
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
+
+pub type EthereumTransactionId = u32;
 
 const NAME: &'static [u8; 7] = b"summary";
 const UPDATE_BLOCK_NUMBER_CONTEXT: &'static [u8] = b"update_last_processed_block_number";
@@ -59,12 +56,7 @@ const ADVANCE_SLOT_CONTEXT: &'static [u8] = b"advance_slot";
 
 // Error codes returned by validate unsigned methods
 const ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY: u8 = 10;
-const ERROR_CODE_INVALID_ROOT_DATA: u8 = 20;
 const ERROR_CODE_INVALID_ROOT_RANGE: u8 = 30;
-
-// This value is used only when generating a signature for an empty root.
-// Empty roots shouldn't be submitted to ethereum-transactions so we can use any value we want.
-const EMPTY_ROOT_TRANSACTION_ID: TransactionId = 0;
 
 // used in benchmarks and weights calculation only
 const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
@@ -82,6 +74,8 @@ use crate::vote::*;
 
 pub mod challenge;
 use crate::challenge::*;
+
+use pallet_avn::BridgePublisher;
 
 mod benchmarking;
 pub mod default_weights;
@@ -114,8 +108,6 @@ pub mod pallet {
         /// Minimum age of block (in block number) to include in a tree.
         /// This will give grandpa a chance to finalise the blocks
         type MinBlockAge: Get<Self::BlockNumber>;
-
-        type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
 
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
 
@@ -227,6 +219,7 @@ pub mod pallet {
         VotingPeriodIsTooLong,
         VotingPeriodIsEqualOrLongerThanSchedulePeriod,
         CurrentSlotValidatorNotFound,
+        ErrorPublishingSummary,
     }
 
     // Note for SYS-152 (see notes in fn end_voting)):
@@ -242,6 +235,10 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_next_block_to_process)]
     pub type NextBlockToProcess<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+    #[pallet::storage]
+    pub type TxIdToRoot<T: Config> =
+        StorageMap<_, Blake2_128Concat, EthereumTransactionId, RootId<T::BlockNumber>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn block_number_for_next_slot)]
@@ -326,7 +323,7 @@ pub mod pallet {
         fn build(&self) {
             let mut schedule_period_in_blocks = self.schedule_period;
             if schedule_period_in_blocks == 0u32.into() {
-                schedule_period_in_blocks = MIN_SCHEDULE_PERIOD.into();
+                schedule_period_in_blocks = DEFAULT_SCHEDULE_PERIOD.into();
             }
             assert!(
                 Pallet::<T>::validate_schedule_period(schedule_period_in_blocks).is_ok(),
@@ -428,20 +425,11 @@ pub mod pallet {
                 safe_add_block_numbers(current_block_number, Self::voting_period())
                     .map_err(|_| Error::<T>::Overflow)?;
 
-            let tx_id = if root_hash != Self::empty_root() {
-                let publish_root = EthTransactionType::PublishRoot(PublishRootData::new(
-                    *root_hash.as_fixed_bytes(),
-                ));
-                Some(T::CandidateTransactionSubmitter::reserve_transaction_id(&publish_root)?)
-            } else {
-                None
-            };
-
             <TotalIngresses<T>>::put(ingress_counter);
             <Roots<T>>::insert(
                 &root_id.range,
                 ingress_counter,
-                RootData::new(root_hash, validator.account_id.clone(), tx_id),
+                RootData::new(root_hash, validator.account_id.clone(), None),
             );
             <PendingApproval<T>>::insert(root_id.range, ingress_counter);
             <VotesRepository<T>>::insert(
@@ -471,30 +459,14 @@ pub mod pallet {
             origin: OriginFor<T>,
             root_id: RootId<T::BlockNumber>,
             validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-            approval_signature: ecdsa::Signature,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
             ensure_none(origin)?;
-
-            let root_data = Self::try_get_root_data(&root_id)?;
-            let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&root_data)?;
-            if !AVN::<T>::eth_signature_is_valid(eth_encoded_data, &validator, &approval_signature)
-            {
-                create_and_report_summary_offence::<T>(
-                    &validator.account_id,
-                    &vec![validator.account_id.clone()],
-                    SummaryOffenceType::InvalidSignatureSubmitted,
-                );
-                return Err(avn_error::<T>::InvalidECDSASignature)?
-            };
+            let _ = Self::try_get_root_data(&root_id)?;
 
             let voting_session = Self::get_root_voting_session(&root_id);
 
-            process_approve_vote::<T>(
-                &voting_session,
-                validator.account_id.clone(),
-                approval_signature,
-            )?;
+            process_approve_vote::<T>(&voting_session, validator.account_id.clone())?;
 
             Self::deposit_event(Event::<T>::VoteAdded {
                 voter: validator.account_id,
@@ -617,6 +589,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
+            log::info!("🚧 🚧 Running offchain worker for block: {:?}", block_number);
             let setup_result = AVN::<T>::pre_run_setup(block_number, NAME.to_vec());
             if let Err(e) = setup_result {
                 match e {
@@ -687,26 +660,16 @@ pub mod pallet {
                     validator,
                     signature,
                 )
-            } else if let Call::approve_root { root_id, validator, approval_signature, signature } =
-                call
-            {
+            } else if let Call::approve_root { root_id, validator, signature } = call {
                 if !<Roots<T>>::contains_key(root_id.range, root_id.ingress_counter) {
                     return InvalidTransaction::Custom(ERROR_CODE_INVALID_ROOT_RANGE).into()
                 }
 
                 let root_voting_session = Self::get_root_voting_session(root_id);
 
-                let root_data = Self::try_get_root_data(&root_id)
-                    .map_err(|_| InvalidTransaction::Custom(ERROR_CODE_INVALID_ROOT_RANGE))?;
-
-                let eth_encoded_data = Self::convert_data_to_eth_compatible_encoding(&root_data)
-                    .map_err(|_| InvalidTransaction::Custom(ERROR_CODE_INVALID_ROOT_DATA))?;
-
                 return approve_vote_validate_unsigned::<T>(
                     &root_voting_session,
                     validator,
-                    eth_encoded_data.encode(),
-                    approval_signature,
                     signature,
                 )
             } else if let Call::reject_root { root_id, validator, signature } = call {
@@ -876,48 +839,6 @@ pub mod pallet {
             name
         }
 
-        pub fn convert_data_to_eth_compatible_encoding(
-            root_data: &RootData<T::AccountId>,
-        ) -> Result<String, DispatchError> {
-            let eth_description =
-                EthAbiHelper::generate_ethereum_description_for_signature_request(
-                    &T::AccountToBytesConvert::into_bytes(
-                        root_data
-                            .added_by
-                            .as_ref()
-                            .ok_or(Error::<T>::CurrentSlotValidatorNotFound)?,
-                    ),
-                    &EthTransactionType::PublishRoot(PublishRootData::new(
-                        *root_data.root_hash.as_fixed_bytes(),
-                    )),
-                    match root_data.tx_id {
-                        None => EMPTY_ROOT_TRANSACTION_ID,
-                        _ => *root_data
-                            .tx_id
-                            .as_ref()
-                            .expect("Non-Empty roots have a reserved TransactionId"),
-                    },
-                )
-                .map_err(|_| Error::<T>::InvalidRoot)?;
-
-            let encoded_data = EthAbiHelper::generate_eth_abi_encoding_for_params_only(&eth_description);
-            let msg_hash = keccak_256(&encoded_data);
-
-            Ok(hex::encode(msg_hash))
-        }
-
-        pub fn sign_root_for_ethereum(
-            root_id: &RootId<T::BlockNumber>,
-        ) -> Result<(String, ecdsa::Signature), DispatchError> {
-            let root_data = Self::try_get_root_data(&root_id)?;
-            let data = Self::convert_data_to_eth_compatible_encoding(&root_data)?;
-
-            return Ok((
-                data.clone(),
-                AVN::<T>::request_ecdsa_signature_from_external_service(&data)?,
-            ))
-        }
-
         pub fn advance_slot_if_required(
             block_number: T::BlockNumber,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
@@ -937,14 +858,15 @@ pub mod pallet {
                 let advance_slot_lock_name = Self::get_advance_slot_lock_name(Self::current_slot());
                 let mut lock = AVN::<T>::get_ocw_locker(&advance_slot_lock_name);
 
-                // Protect against sending more than once. When guard is out of scope the lock will be released.
+                // Protect against sending more than once. When guard is out of scope the lock will
+                // be released.
                 if let Ok(guard) = lock.try_lock() {
                     let result = Self::dispatch_advance_slot(this_validator);
                     if let Err(e) = result {
                         log::warn!("💔️ Error starting a new summary creation slot: {:?}", e);
                         //free the lock so we can potentially retry
                         drop(guard);
-                        return;
+                        return
                     }
 
                     // If there are no errors, keep the lock to prevent doing the same logic again
@@ -964,12 +886,12 @@ pub mod pallet {
             }
             let last_block_in_range = target_block.expect("Valid block number");
 
-            if Self::can_process_summary(block_number, last_block_in_range, this_validator)
-            {
+            if Self::can_process_summary(block_number, last_block_in_range, this_validator) {
                 let root_lock_name = Self::create_root_lock_name(last_block_in_range);
                 let mut lock = AVN::<T>::get_ocw_locker(&root_lock_name);
 
-                // Protect against sending more than once. When guard is out of scope the lock will be released.
+                // Protect against sending more than once. When guard is out of scope the lock will
+                // be released.
                 if let Ok(guard) = lock.try_lock() {
                     log::warn!(
                         "ℹ️  Processing summary for range {:?} - {:?}. Slot {:?}",
@@ -984,7 +906,7 @@ pub mod pallet {
                         log::warn!("💔️ Error processing summary: {:?}", e);
                         //free the lock so we can potentially retry
                         drop(guard);
-                        return;
+                        return
                     }
 
                     // If there are no errors, keep the lock to prevent doing the same logic again
@@ -1028,7 +950,9 @@ pub mod pallet {
             last_block_in_range: T::BlockNumber,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) -> bool {
-            if OcwLock::is_locked::<frame_system::Pallet<T>>(&Self::create_root_lock_name(last_block_in_range)) {
+            if OcwLock::is_locked::<frame_system::Pallet<T>>(&Self::create_root_lock_name(
+                last_block_in_range,
+            )) {
                 return false
             }
 
@@ -1182,20 +1106,18 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    let result =
-                        T::CandidateTransactionSubmitter::submit_candidate_transaction_to_tier1(
-                            EthTransactionType::PublishRoot(PublishRootData::new(
-                                *root_data.root_hash.as_fixed_bytes(),
-                            )),
-                            *root_data.tx_id.as_ref().expect("Non empty roots have valid hash"),
-                            root_data.added_by.ok_or(Error::<T>::CurrentSlotValidatorNotFound)?,
-                            voting_session.state()?.confirmations,
-                        );
+                    let function_name: &[u8] = b"publishRoot";
+                    let params =
+                        vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
+                    let tx_id = T::BridgePublisher::publish(function_name, &params)
+                        .map_err(|e| DispatchError::Other(e.into()))?;
 
-                    if let Err(result) = result {
-                        log::error!("❌ Error Submitting Tx: {:?}", result);
-                        Err(result)?
-                    }
+                    <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
+                        root.tx_id = Some(tx_id)
+                    });
+
+                    <TxIdToRoot<T>>::insert(tx_id, root_id);
+
                     // There are a couple possible reasons for failure.
                     // 1. We fail before sending to T1: likely a bug on our part
                     // 2. Quorum mismatch. There is no guarantee that between accepting a root and
@@ -1404,12 +1326,17 @@ pub struct RootData<AccountId> {
     pub is_validated: bool, // This is set to true when 2/3 of validators approve it
     pub is_finalised: bool, /* This is set to true when EthEvents confirms Tier1 has received
                              * the root */
-    pub tx_id: Option<TransactionId>, /* This is the TransacionId that will be used to submit
-                                       * the tx */
+    pub tx_id: Option<EthereumTransactionId>, /* This is the TransacionId that will be used to
+                                               * submit
+                                               * the tx */
 }
 
 impl<AccountId> RootData<AccountId> {
-    fn new(root_hash: H256, added_by: AccountId, transaction_id: Option<TransactionId>) -> Self {
+    fn new(
+        root_hash: H256,
+        added_by: AccountId,
+        transaction_id: Option<EthereumTransactionId>,
+    ) -> Self {
         return RootData::<AccountId> {
             root_hash,
             added_by: Some(added_by),
@@ -1431,9 +1358,18 @@ impl<AccountId> Default for RootData<AccountId> {
         }
     }
 }
-
 impl<T: Config> OnBridgePublisherResult for Pallet<T> {
-    fn process_result(_tx_id: u32, _succeeded: bool) -> DispatchResult {
+    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
+        if succeeded {
+            let root_id = <TxIdToRoot<T>>::get(tx_id);
+            <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
+                root.is_finalised = true;
+            });
+            log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
+        } else {
+            log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+        }
+
         Ok(())
     }
 }

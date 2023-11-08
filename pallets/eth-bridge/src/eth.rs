@@ -1,12 +1,12 @@
 use super::*;
 use crate::{
-    util::{bound_params, unbound_params, try_process_query_result},
+    util::{bound_params, try_process_query_result, unbound_params},
     Author, Config, AVN,
 };
 use ethabi::{Function, Int, Param, ParamType, Token};
 use pallet_avn::AccountToBytesConverter;
-use sp_avn_common::{EthTransaction, EthQueryRequest, EthQueryResponseType};
-use sp_core::{ecdsa, H256, Get};
+use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
+use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
 use sp_std::vec;
 
@@ -53,9 +53,7 @@ pub fn verify_signature<T: Config>(
     }
 }
 
-pub fn send_tx<T: Config>(
-    tx: &ActiveTransactionData<T>
-) -> Result<H256, DispatchError> {
+pub fn send_tx<T: Config>(tx: &ActiveTransactionData<T>) -> Result<H256, DispatchError> {
     match generate_send_calldata::<T>(tx) {
         Ok(calldata) => match send_transaction::<T>(calldata, &tx.data.sender) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
@@ -72,7 +70,8 @@ pub fn corroborate<T: Config>(
     let status = check_tx_status::<T>(tx, author)?;
     if status.is_some() {
         let (tx_hash_is_valid, confirmations) = check_tx_hash::<T>(tx, author)?;
-        if tx_hash_is_valid && confirmations.unwrap_or_default() < T::MinEthBlockConfirmation::get() {
+        if tx_hash_is_valid && confirmations.unwrap_or_default() < T::MinEthBlockConfirmation::get()
+        {
             log::warn!("🚨 Transaction {:?} doesn't have the minimum eth confirmations yet, skipping corroboration. Current confirmation: {:?}",
                 tx.id, confirmations
             );
@@ -109,14 +108,16 @@ fn check_tx_hash<T: Config>(
     author: &Author<T>,
 ) -> Result<(bool, Option<u64>), DispatchError> {
     if tx.data.eth_tx_hash != H256::zero() {
-        if let Ok((call_data, num_confirmations)) = get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id) {
+        if let Ok((call_data, num_confirmations)) =
+            get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id)
+        {
             let expected_call_data = generate_send_calldata(&tx)?;
-            return Ok((hex::encode(expected_call_data) == call_data, Some(num_confirmations)));
+            return Ok((hex::encode(expected_call_data) == call_data, Some(num_confirmations)))
         } else {
             return Err(Error::<T>::ErrorGettingEthereumCallData.into())
         }
     }
-    return Ok((TX_HASH_INVALID, None));
+    return Ok((TX_HASH_INVALID, None))
 }
 
 pub fn generate_msg_hash<T: pallet::Config>(
@@ -214,8 +215,9 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     }
 }
 
-/// Please note: `value` will accept any bytes and its up to the caller to ensure the bytes are valid for `kind`.
-/// The compiler will not catch these errors at compile time, but can error at runtime.
+/// Please note: `value` will accept any bytes and its up to the caller to ensure the bytes are
+/// valid for `kind`. The compiler will not catch these errors at compile time, but can error at
+/// runtime.
 fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
     match kind {
         ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
@@ -238,11 +240,14 @@ fn get_transaction_call_data<T: Config>(
     eth_tx_hash: H256,
     author_account_id: &T::AccountId,
 ) -> Result<(String, u64), DispatchError> {
-    let query_request = EthQueryRequest {
-        tx_hash: eth_tx_hash,
-        response_type: EthQueryResponseType::CallData
-    };
-    make_ethereum_call::<(String, u64), T>(author_account_id, "query", query_request.encode(), process_query_result::<T>)
+    let query_request =
+        EthQueryRequest { tx_hash: eth_tx_hash, response_type: EthQueryResponseType::CallData };
+    make_ethereum_call::<(String, u64), T>(
+        author_account_id,
+        "query",
+        query_request.encode(),
+        process_query_result::<T>,
+    )
 }
 
 fn send_transaction<T: Config>(
@@ -256,7 +261,12 @@ fn call_corroborate_method<T: Config>(
     calldata: Vec<u8>,
     author_account_id: &T::AccountId,
 ) -> Result<i8, DispatchError> {
-    make_ethereum_call::<i8, T>(author_account_id, "view", calldata, process_corroborate_result::<T>)
+    make_ethereum_call::<i8, T>(
+        author_account_id,
+        "view",
+        calldata,
+        process_corroborate_result::<T>,
+    )
 }
 
 fn make_ethereum_call<R, T: Config>(
@@ -268,7 +278,7 @@ fn make_ethereum_call<R, T: Config>(
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
     let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
-    let url_path = format!("/eth/{}", endpoint);
+    let url_path = format!("eth/{}", endpoint);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
 }
@@ -299,10 +309,11 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
 
 fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), DispatchError> {
     let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
-    let (call_data, eth_tx_confirmations) = try_process_query_result::<Vec<u8>, T>(result_bytes).map_err(|e| {
-        log::error!("❌ Error processing query result from ethereum: {:?}", e);
-        e
-    })?;
+    let (call_data, eth_tx_confirmations) = try_process_query_result::<Vec<u8>, T>(result_bytes)
+        .map_err(|e| {
+            log::error!("❌ Error processing query result from ethereum: {:?}", e);
+            e
+        })?;
 
     Ok((hex::encode(call_data), eth_tx_confirmations))
 }

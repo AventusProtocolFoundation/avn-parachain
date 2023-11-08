@@ -7,7 +7,7 @@ use sp_avn_common::{EthTransaction, EthQueryRequest, EthQueryResponseType, EthQu
 use sp_core::{ecdsa::Signature, hashing::keccak_256};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
-use web3::types::TransactionReceipt;
+use web3::{Web3, types::TransactionReceipt, transports::Http};
 use sc_client_api::{client::BlockBackend, UsageProvider};
 
 pub use std::{path::PathBuf, sync::Arc};
@@ -93,7 +93,7 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
                 return Err(server_error("Error creating a web3 connection".to_string()))
             }
 
-            log::info!("⏲️ web3 init task completed in: {:?}", web3_init_time.elapsed());
+            log::info!("⏲️  web3 init task completed in: {:?}", web3_init_time.elapsed());
             web3_data_mutex.web3 = web3;
             Ok(())
         } else {
@@ -106,6 +106,29 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
 struct Response {
     pub result: serde_json::Value,
     pub num_confirmations: u64,
+}
+
+trait TxQueryData {
+    fn as_encodable(&self) -> Result<Vec<u8>, TideError>;
+}
+
+impl TxQueryData for TransactionReceipt {
+    fn as_encodable(&self) -> Result<Vec<u8>, TideError> {
+        let json_data = serde_json::to_value(self)
+            .map_err(|e| server_error(format!("Error converting transaction receipt to json: {:?}", e)))?;
+
+        let string_data = serde_json::to_string(&json_data)
+            .map_err(|e| server_error(format!("Error serialising tx receipt json to string: {:?}", e)))?;
+
+        return Ok(string_data.as_bytes().to_vec());
+    }
+}
+
+impl TxQueryData for Vec<u8> {
+    fn as_encodable(&self) -> Result<Vec<u8>, TideError> {
+        // For Vec<u8>, the data is the Vec itself
+        Ok(self.clone())
+    }
 }
 
 pub fn server_error(message: String) -> TideError {
@@ -134,7 +157,7 @@ pub fn to_bytes32(data: String) -> Result<[u8; 32], TideError> {
     )
 }
 
-fn to_eth_query_response<T: Encode>(
+fn to_eth_query_response<T: TxQueryData>(
     data: &T,
     current_block_number: u64,
     data_block_number: Option<web3::types::U64>,
@@ -142,7 +165,7 @@ fn to_eth_query_response<T: Encode>(
     Ok(
         hex::encode(
             EthQueryResponse {
-                data: data.encode(),
+                data: data.as_encodable().unwrap_or(vec![]).encode(),
                 num_confirmations: current_block_number - data_block_number.unwrap_or(Default::default()).as_u64(),
             }.encode()
         )
@@ -176,6 +199,39 @@ async fn send_tx(
     let signed_tx = web3.accounts().sign_transaction(tx, &secret_key).await?;
 
     Ok(send_raw_transaction(web3, signed_tx.raw_transaction).await?)
+}
+
+async fn get_call_data(web3: &Web3<Http>, current_block_number: u64, tx_hash: H256) -> Result<String, TideError> {
+    let maybe_tx = web3_utils::get_tx_call_data(&web3, tx_hash).await
+        .map_err(|e| server_error(format!("Error getting tx call data: {:?}", e)))?;
+
+    let response;
+    match maybe_tx {
+        None => {
+            server_error(format!("Transaction for tx hash {:?} is empty", tx_hash));
+            response = to_eth_query_response::<Vec<u8>>(&vec![], current_block_number, None)?;
+        },
+        Some(data) => {
+            response = to_eth_query_response::<Vec<u8>>(&data.input.0.to_vec(), current_block_number, data.block_number)?;
+        }
+    };
+
+    log::trace!("⛓️  avn-service: eth query response {:?}", response);
+    Ok(response)
+}
+
+async fn get_tx_receipt(web3: &Web3<Http>, current_block_number: u64, tx_hash: H256) -> Result<String, TideError> {
+    let maybe_receipt = web3_utils::get_tx_receipt(web3, tx_hash).await
+            .map_err(|e| server_error(format!("Error getting tx receipt: {:?}", e)))?;
+
+    match maybe_receipt {
+        None => Err(server_error(format!("Transaction receipt for tx hash {:?} is empty", tx_hash))),
+        Some(receipt) => {
+            let response = to_eth_query_response::<TransactionReceipt>(&receipt, current_block_number, receipt.block_number)?;
+            log::trace!("⛓️  avn-service: Receipt {:?}", receipt);
+            Ok(response)
+        }
+    }
 }
 
 #[tokio::main]
@@ -260,7 +316,7 @@ where
             .call(call_request, None)
             .await
             .map_err(|e| server_error(format!("Error calling view method on Ethereum: {:?}", e)))?;
-
+        log::info!("⛓️  avn-service: view request result {:?}", result);
         Ok(hex::encode(result.0))
     } else {
         Err(server_error(format!("Failed to acquire web3 mutex")))
@@ -297,75 +353,8 @@ where
             .map_err(|e| server_error(format!("Error getting block number: {:?}", e)))?;
 
         match query_request.response_type {
-            EthQueryResponseType::CallData => {
-                let maybe_tx = web3_utils::get_tx_call_data(&web3, tx_hash).await
-                    .map_err(|e| server_error(format!("Error getting tx call data: {:?}", e)))?;
-
-                let response;
-                match maybe_tx {
-                    None => {
-                        server_error(format!("Transaction for tx hash {:?} is empty", tx_hash));
-                        response = to_eth_query_response::<Vec<u8>>(&vec![], current_block_number, None)?;
-                    },
-                    Some(data) => {
-                        response = to_eth_query_response::<Vec<u8>>(&data.input.0.to_vec(), current_block_number, data.block_number)?;
-                    }
-                };
-
-                log::info!("⛓️  avn-service: eth query response {:?}", response);
-                Ok(response)
-            }
-        }
-    } else {
-        Err(server_error(format!("Failed to acquire web3 mutex")))
-    }
-}
-
-#[tokio::main]
-async fn root_hash_main<Block: BlockT, ClientT>(
-    req: tide::Request<Arc<Config<Block, ClientT>>>,
-) -> Result<String, TideError>
-where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
-{
-    log::info!("⛓️  avn-service: eth events");
-    let tx_hash: H256 = H256::from_slice(&to_bytes32(
-        req.param("txHash")
-            .map_err(|_| server_error("txHash is not a valid transaction hash".to_string()))?
-            .to_string(),
-    )?);
-
-    if let Some(web3_data_mutex) = req.state().web3_data_mutex.try_lock() {
-        if web3_data_mutex.web3.is_none() {
-            return Err(server_error("Web3 connection not setup".to_string()))
-        }
-        let web3 = web3_data_mutex.web3.as_ref().expect("Already checked");
-
-        let current_block_number = web3_utils::get_current_block_number(web3)
-            .await
-            .map_err(|e| server_error(format!("Error getting block number: {:?}", e)))?;
-        let maybe_receipt = web3_utils::get_tx_receipt(web3, tx_hash)
-            .await
-            .map_err(|e| server_error(format!("Error getting tx receipt: {:?}", e)))?;
-        match maybe_receipt {
-            None => Err(TideError::from_str(
-                StatusCode::Ok,
-                "❗Transaction receipt is empty".to_string(),
-            )),
-            Some(receipt) => {
-                let response = Response {
-                    result: serde_json::to_value(&receipt).map_err(|_| {
-                        TideError::from_str(StatusCode::Ok, "❗Eth response is not a valid JSON".to_string())
-                    })?,
-                    num_confirmations: current_block_number -
-                        receipt.block_number.unwrap_or(Default::default()).as_u64(),
-                };
-
-                let json_response = serde_json::to_string(&response)
-                    .map_err(|_| server_error("Error serialising response".to_string()))?;
-
-                return Ok(json_response)
-            }
+            EthQueryResponseType::CallData => get_call_data(&web3, current_block_number, tx_hash).await,
+            EthQueryResponseType::TransactionReceipt => get_tx_receipt(&web3, current_block_number, tx_hash).await,
         }
     } else {
         Err(server_error(format!("Failed to acquire web3 mutex")))
@@ -437,12 +426,6 @@ where
             return tx_query_main(req)
         });
 
-    app.at("/eth/events/:txHash").get(
-        |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            // Methods that require web3 must be run within the tokio runtime (#[tokio::main])
-            return root_hash_main(req)
-        },
-    );
 
     app.at("/roothash/:from_block/:to_block").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {

@@ -8,9 +8,7 @@ use pallet_avn::{
 };
 use pallet_session as session;
 use parking_lot::RwLock;
-use sp_avn_common::{
-    bounds::MaximumValidatorsBound, safe_add_block_numbers, safe_sub_block_numbers,
-};
+use sp_avn_common::{safe_add_block_numbers, safe_sub_block_numbers};
 use sp_core::{
     ecdsa,
     offchain::{
@@ -19,7 +17,7 @@ use sp_core::{
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    H256,
+    ConstU64, H256,
 };
 use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
@@ -39,8 +37,6 @@ pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = <TestRuntime as system::Config>::AccountId;
 pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
 
-use pallet_ethereum_transactions::ethereum_transaction::TransactionId;
-
 impl Summary {
     pub fn get_root_data(root_id: &RootId<BlockNumber>) -> RootData<AccountId> {
         return <<Summary as Store>::Roots>::get(root_id.range, root_id.ingress_counter)
@@ -50,7 +46,7 @@ impl Summary {
         root_id: &RootId<BlockNumber>,
         root_hash: H256,
         account_id: AccountId,
-        tx_id: TransactionId,
+        tx_id: EthereumTransactionId,
     ) {
         <<Summary as Store>::Roots>::insert(
             root_id.range,
@@ -268,7 +264,7 @@ parameter_types! {
 pub type ValidatorId = u64;
 type FullIdentification = u64;
 
-pub const INITIAL_TRANSACTION_ID: TransactionId = 0;
+pub const INITIAL_TRANSACTION_ID: EthereumTransactionId = 0;
 pub const VALIDATOR_COUNT: u32 = 7;
 thread_local! {
     // validator accounts (aka public addresses, public keys-ish)
@@ -282,7 +278,7 @@ thread_local! {
         SEVENTH_VALIDATOR_INDEX
     ]));
 
-    static MOCK_TX_ID: RefCell<TransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
+    static MOCK_TX_ID: RefCell<EthereumTransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
 
     static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
 
@@ -293,7 +289,6 @@ impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
-    type CandidateTransactionSubmitter = Self;
     type AccountToBytesConvert = U64To32BytesConverter;
     type ReportSummaryOffence = OffenceHandler;
     type WeightInfo = ();
@@ -376,35 +371,19 @@ parameter_types! {
     pub const Period: u64 = 1;
     pub const Offset: u64 = 0;
 }
-
-impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
-    fn submit_candidate_transaction_to_tier1(
-        candidate_type: EthTransactionType,
-        _tx_id: TransactionId,
-        _submitter: AccountId,
-        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
-    ) -> DispatchResult {
-        if candidate_type !=
-            EthTransactionType::PublishRoot(PublishRootData::new(
-                ROOT_HASH_CAUSES_SUBMISSION_TO_T1_ERROR,
-            ))
-        {
-            return Ok(())
+impl BridgePublisher for TestRuntime {
+    fn get_eth_tx_lifetime_secs() -> u64 {
+        0
+    }
+    fn get_next_tx_id() -> u32 {
+        0
+    }
+    fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError> {
+        if function_name == b"publishRoot" {
+            return Ok(INITIAL_TRANSACTION_ID)
         }
-        Err(Error::<TestRuntime>::ErrorSubmitCandidateTxnToTier1.into())
+        Err(Error::<TestRuntime>::ErrorPublishingSummary.into())
     }
-
-    fn reserve_transaction_id(
-        _candidate_type: &EthTransactionType,
-    ) -> Result<TransactionId, DispatchError> {
-        let value = MOCK_TX_ID.with(|tx_id| *tx_id.borrow());
-        MOCK_TX_ID.with(|tx_id| {
-            *tx_id.borrow_mut() += 1;
-        });
-        return Ok(value)
-    }
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 /*********************** Add validators support ********************** */
@@ -606,11 +585,9 @@ pub struct Context {
     pub root_hash_h256: H256,
     pub root_hash_vec: Vec<u8>,
     pub url_param: String,
-    pub sign_url_param: String,
-    pub approval_signature: ecdsa::Signature,
     pub record_summary_calculation_signature: TestSignature,
     pub root_id: RootId<BlockNumber>,
-    pub tx_id: TransactionId,
+    pub tx_id: EthereumTransactionId,
     pub current_slot: BlockNumber,
 }
 
@@ -631,17 +608,7 @@ pub fn setup_context() -> Context {
     );
     let validator = get_validator(FIRST_VALIDATOR_INDEX);
     let approval_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
-    let tx_id = TestRuntime::reserve_transaction_id(&EthTransactionType::PublishRoot(
-        PublishRootData::new(*root_hash_h256.as_fixed_bytes()),
-    ))
-    .unwrap();
-
-    let data_to_sign = Summary::convert_data_to_eth_compatible_encoding(&RootData::<u64>::new(
-        root_hash_h256.clone(),
-        validator.account_id,
-        Some(tx_id),
-    ))
-    .unwrap();
+    let tx_id = 0;
 
     Context {
         current_block_number,
@@ -653,7 +620,6 @@ pub fn setup_context() -> Context {
         root_hash_h256,
         root_hash_vec,
         root_id,
-        approval_signature,
         record_summary_calculation_signature: get_signature_for_record_summary_calculation(
             validator,
             UPDATE_BLOCK_NUMBER_CONTEXT,
@@ -662,7 +628,6 @@ pub fn setup_context() -> Context {
             last_block_in_range,
         ),
         tx_id,
-        sign_url_param: data_to_sign,
     }
 }
 
@@ -682,7 +647,7 @@ pub fn setup_voting(
     root_hash_h256: H256,
     validator: &Validator<UintAuthorityId, u64>,
 ) {
-    let tx_id: TransactionId = INITIAL_TRANSACTION_ID;
+    let tx_id: EthereumTransactionId = INITIAL_TRANSACTION_ID;
     Summary::insert_root_hash(root_id, root_hash_h256, validator.account_id.clone(), tx_id);
     Summary::insert_pending_approval(root_id);
     Summary::register_root_for_voting(root_id, QUORUM, VOTING_PERIOD_END);
@@ -713,24 +678,6 @@ pub fn mock_response_of_get_roothash(
     });
 }
 
-pub fn mock_response_of_get_ecdsa_signature(
-    state: &mut OffchainState,
-    data_to_sign: String,
-    response: Option<Vec<u8>>,
-) {
-    let mut url = "http://127.0.0.1:2020/eth/sign/".to_string();
-    url.push_str(&data_to_sign);
-
-    state.expect_request(PendingRequest {
-        method: "GET".into(),
-        uri: url.into(),
-        response,
-        sent: true,
-        ..Default::default()
-    });
-}
-
-
 pub fn get_non_validator() -> Validator<UintAuthorityId, u64> {
     get_validator(10)
 }
@@ -739,21 +686,10 @@ pub fn get_signature_for_approve_cast_vote(
     signer: &Validator<UintAuthorityId, u64>,
     context: &[u8],
     root_id: &RootId<BlockNumber>,
-    eth_data_to_sign: &String,
-    eth_signature: &ecdsa::Signature,
 ) -> TestSignature {
     signer
         .key
-        .sign(
-            &(
-                context,
-                root_id.encode(),
-                APPROVE_ROOT,
-                eth_data_to_sign.encode(),
-                eth_signature.encode(),
-            )
-                .encode(),
-        )
+        .sign(&(context, root_id.encode(), APPROVE_ROOT).encode())
         .expect("Signature is signed")
 }
 

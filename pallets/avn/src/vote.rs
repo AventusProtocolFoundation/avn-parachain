@@ -16,7 +16,6 @@ use sp_avn_common::{
     bounds::{MaximumValidatorsBound, VotingSessionIdBound},
     event_types::Validator,
 };
-use sp_core::ecdsa;
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Member, Zero},
@@ -50,8 +49,6 @@ pub struct VotingSessionData<AccountId, BlockNumber> {
     pub nays: BoundedVec<AccountId, MaximumValidatorsBound>,
     /// The hard end time of this vote.
     pub end_of_voting_period: BlockNumber,
-    /// The confirmations collected from the aye votes
-    pub confirmations: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
     /// The block number this session was created on
     pub created_at_block: BlockNumber,
 }
@@ -66,7 +63,6 @@ impl<AccountId, BlockNumber: Zero> Default for VotingSessionData<AccountId, Bloc
             ayes: BoundedVec::default(),
             nays: BoundedVec::default(),
             end_of_voting_period: Zero::zero(),
-            confirmations: BoundedVec::default(),
             created_at_block: Zero::zero(),
         }
     }
@@ -85,7 +81,6 @@ impl<AccountId: Member, BlockNumber: Member> VotingSessionData<AccountId, BlockN
             ayes: BoundedVec::default(),
             nays: BoundedVec::default(),
             end_of_voting_period,
-            confirmations: BoundedVec::default(),
             created_at_block,
         }
     }
@@ -120,11 +115,7 @@ pub trait VotingSessionManager<AccountId, BlockNumber> {
     // The session is valid (is_valid) AND has not ended yet
     fn is_active(&self) -> bool;
 
-    fn record_approve_vote(
-        &self,
-        voter: AccountId,
-        approval_signature: ecdsa::Signature,
-    ) -> DispatchResult;
+    fn record_approve_vote(&self, voter: AccountId) -> DispatchResult;
 
     fn record_reject_vote(&self, voter: AccountId) -> DispatchResult;
 
@@ -134,10 +125,9 @@ pub trait VotingSessionManager<AccountId, BlockNumber> {
 pub fn process_approve_vote<T: Config>(
     voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
     voter: T::AccountId,
-    approval_signature: ecdsa::Signature,
 ) -> DispatchResult {
     validate_vote::<T>(voting_session, &voter)?;
-    voting_session.record_approve_vote(voter.clone(), approval_signature)?;
+    voting_session.record_approve_vote(voter.clone())?;
     end_voting_if_outcome_reached::<T>(voting_session, voter)?;
     Ok(())
 }
@@ -217,8 +207,6 @@ pub fn end_voting_period_validate_unsigned<T: Config>(
 pub fn approve_vote_validate_unsigned<T: Config>(
     voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
     validator: &Validator<T::AuthorityId, T::AccountId>,
-    eth_encoded_data: Vec<u8>,
-    eth_signature: &ecdsa::Signature,
     signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
 ) -> TransactionValidity {
     if validate_vote::<T>(&voting_session, &validator.account_id).is_err() {
@@ -234,13 +222,7 @@ pub fn approve_vote_validate_unsigned<T: Config>(
         voting_session_data.expect("voting session data is ok").voting_session_id;
 
     if !AVN::<T>::signature_is_valid(
-        &(
-            voting_session.cast_vote_context(),
-            &voting_session_id,
-            APPROVE_VOTE,
-            eth_encoded_data,
-            eth_signature.encode(),
-        ),
+        &(voting_session.cast_vote_context(), &voting_session_id, APPROVE_VOTE),
         &validator,
         signature,
     ) {

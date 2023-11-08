@@ -1,5 +1,5 @@
 use super::*;
-use crate::{util::bound_params, Config};
+use crate::{offence::create_and_report_corroboration_offence, util::bound_params, Config};
 use frame_support::BoundedVec;
 use sp_core::Get;
 
@@ -40,7 +40,10 @@ fn replay_transaction<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(),
     Ok(set_up_active_tx(tx.request_data)?)
 }
 
-fn complete_transaction<T: Config>(mut tx: ActiveTransactionData<T>, success: bool,) -> Result<(), Error<T>> {
+fn complete_transaction<T: Config>(
+    mut tx: ActiveTransactionData<T>,
+    success: bool,
+) -> Result<(), Error<T>> {
     // Alert the originating pallet:
     T::OnBridgePublisherResult::process_result(tx.id, success)
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
@@ -50,7 +53,11 @@ fn complete_transaction<T: Config>(mut tx: ActiveTransactionData<T>, success: bo
     // Check for offences:
     if success {
         if !tx.failure_corroborations.is_empty() {
-            // TODO: raise offences for all authors in failure_corroborations
+            create_and_report_corroboration_offence::<T>(
+                &tx.data.sender,
+                &tx.failure_corroborations,
+                offence::CorroborationOffenceType::ChallengeAttemptedOnSuccessfulTransaction,
+            )
         }
 
         // if the transaction is a success but the eth tx hash is wrong remove it
@@ -59,7 +66,11 @@ fn complete_transaction<T: Config>(mut tx: ActiveTransactionData<T>, success: bo
         }
     } else {
         if !tx.success_corroborations.is_empty() {
-            // TODO: raise offences for all authors in success_corroborations
+            create_and_report_corroboration_offence::<T>(
+                &tx.data.sender,
+                &tx.success_corroborations,
+                offence::CorroborationOffenceType::ChallengeAttemptedOnUnsuccessfulTransaction,
+            )
         }
     }
 
@@ -79,8 +90,8 @@ pub fn finalize_state<T: Config>(
     tx: ActiveTransactionData<T>,
     success: bool,
 ) -> Result<(), Error<T>> {
-
-    // if the transaction failed and the tx hash is missing or pointing to a different transaction, replay transaction
+    // if the transaction failed and the tx hash is missing or pointing to a different transaction,
+    // replay transaction
     if !success && util::has_enough_corroborations::<T>(tx.invalid_tx_hash_corroborations.len()) {
         // raise an offence on the "sender" because the tx_hash they provided was invalid
         return Ok(replay_transaction(tx)?)
