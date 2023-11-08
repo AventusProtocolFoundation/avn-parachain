@@ -111,6 +111,8 @@ fn setup_active_tx<T: Config>(
         },
         success_corroborations: BoundedVec::default(),
         failure_corroborations: BoundedVec::default(),
+        valid_tx_hash_corroborations: BoundedVec::default(),
+        invalid_tx_hash_corroborations: BoundedVec::default(),
     });
 }
 
@@ -173,9 +175,10 @@ benchmarks! {
         let tx_id = 3u32;
         setup_active_tx::<T>(tx_id, 1, sender.clone());
         let tx_succeeded = true;
+        let tx_hash_valid = true;
         let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: _(RawOrigin::None, tx_id, tx_succeeded, author.clone(), signature)
+    }: _(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
         let active_tx = ActiveTransaction::<T>::get().expect("is active");
         ensure!(active_tx.success_corroborations.contains(&author.account_id), "Corroboration not added");
