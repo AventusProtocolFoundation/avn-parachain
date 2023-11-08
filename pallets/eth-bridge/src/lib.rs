@@ -92,7 +92,7 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 pub mod offence;
-use crate::offence::EthBridgeCorroborationOffence;
+use offence::CorroborationOffence;
 
 pub type AVN<T> = avn::Pallet<T>;
 pub type Author<T> =
@@ -114,6 +114,8 @@ const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::offence::CorroborationOffenceType;
+
     use super::*;
     use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
@@ -142,16 +144,26 @@ pub mod pallet {
         type ReportCorroborationOffence: ReportOffence<
             Self::AccountId,
             IdentificationTuple<Self>,
-            EthBridgeCorroborationOffence<IdentificationTuple<Self>>,
+            CorroborationOffence<IdentificationTuple<Self>>,
         >;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        PublishToEthereum { tx_id: u32, function_name: Vec<u8>, params: Vec<(Vec<u8>, Vec<u8>)> },
-        EthTxLifetimeUpdated { eth_tx_lifetime_secs: u64 },
+        PublishToEthereum {
+            tx_id: u32,
+            function_name: Vec<u8>,
+            params: Vec<(Vec<u8>, Vec<u8>)>,
+        },
         EthTxIdUpdated { eth_tx_id: u32 },
+        EthTxLifetimeUpdated {
+            eth_tx_lifetime_secs: u64,
+        },
+        CorroborationOffenceReported {
+            offence_type: CorroborationOffenceType,
+            offenders: Vec<IdentificationTuple<T>>,
+        },
     }
 
     #[pallet::pallet]
