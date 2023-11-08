@@ -101,7 +101,6 @@ fn setup_additional_validators<T: Config>(number_of_additional_validators: u32) 
 fn setup_action_voting<T: Config>() -> (
     Validator<T::AuthorityId, T::AccountId>,
     ActionId<T::AccountId>,
-    ecdsa::Signature,
     <T::AuthorityId as RuntimeAppPublic>::Signature,
     u32,
 ) {
@@ -116,15 +115,12 @@ fn setup_action_voting<T: Config>() -> (
 
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
     let quorum = setup_voting_session::<T>(&action_id);
-    // signed by sender private key [7u8; 32]
-    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("120898af9793fcbed12bf40c01a5adff6f310410276de344db50019f15c05d2c27254d2c14aa61692f00b398b6db582930764429a5f6fe37e371479d523e11571b")).unwrap().into();
 
     setup_resignation_action_data::<T>(vote_sender_account.clone(), action_id.ingress_counter);
     // Action has been setup
     (
         Validator::new(vote_sender_account, vote_sender_avn_authority_id),
         action_id,
-        approval_signature,
         signature,
         quorum,
     )
@@ -340,11 +336,11 @@ benchmarks! {
     approve_action_with_end_voting {
         let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
         setup_additional_validators::<T>(v);
-        let (sender, action_id, approval_signature, signature, quorum) = setup_action_voting::<T>();
+        let (sender, action_id, signature, quorum) = setup_action_voting::<T>();
         // Setup votes more than quorum to trigger end voting period
         let number_of_votes = quorum;
         setup_approval_votes::<T>(&AVN::<T>::validators(), &sender, number_of_votes, &action_id);
-    }: approve_validator_action(RawOrigin::None, action_id.clone(), sender.clone(), approval_signature.clone(), signature)
+    }: approve_validator_action(RawOrigin::None, action_id.clone(), sender.clone(), signature)
     verify {
         // Approve vote is added
         assert_eq!(true, VotesRepository::<T>::get(action_id.clone()).ayes.contains(&sender.account_id.clone()));
@@ -367,8 +363,8 @@ benchmarks! {
     approve_action_without_end_voting {
         let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
         setup_additional_validators::<T>(v);
-        let (sender, action_id, approval_signature, signature, _) = setup_action_voting::<T>();
-    }: approve_validator_action(RawOrigin::None, action_id.clone(), sender.clone(), approval_signature.clone(), signature)
+        let (sender, action_id, signature, _) = setup_action_voting::<T>();
+    }: approve_validator_action(RawOrigin::None, action_id.clone(), sender.clone(), signature)
     verify {
         // Approve vote is added
         assert_eq!(true, VotesRepository::<T>::get(action_id.clone()).ayes.contains(&sender.account_id.clone()));
@@ -385,7 +381,7 @@ benchmarks! {
         let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
 
         setup_additional_validators::<T>(v);
-        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>();
+        let (sender, action_id, signature, quorum) = setup_action_voting::<T>();
 
         // Setup votes more than quorum to trigger end voting period
         let number_of_votes = quorum;
@@ -419,7 +415,7 @@ benchmarks! {
         let v in (DEFAULT_MINIMUM_VALIDATORS_COUNT as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
 
         setup_additional_validators::<T>(v);
-        let (sender, action_id, _, signature, _) = setup_action_voting::<T>();
+        let (sender, action_id, signature, _) = setup_action_voting::<T>();
     }: reject_validator_action(RawOrigin::None, action_id.clone(), sender.clone(), signature)
     verify {
         // Reject vote is added
@@ -444,7 +440,7 @@ benchmarks! {
 
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         setup_additional_validators::<T>(number_of_validators);
-        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>();
+        let (sender, action_id, signature, quorum) = setup_action_voting::<T>();
 
         let all_collators = AVN::<T>::validators();
 
@@ -479,7 +475,7 @@ benchmarks! {
 
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         setup_additional_validators::<T>(number_of_validators);
-        let (sender, action_id, _, signature, quorum) = setup_action_voting::<T>();
+        let (sender, action_id, signature, quorum) = setup_action_voting::<T>();
 
         let all_collators = AVN::<T>::validators();
 

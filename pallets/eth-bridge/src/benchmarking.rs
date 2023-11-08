@@ -6,6 +6,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use crate::*;
+use crate::{Pallet};
 
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{ensure, BoundedVec};
@@ -13,25 +14,76 @@ use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::WeakBoundedVec;
 use hex_literal::hex;
+use rand::{RngCore, SeedableRng};
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
     let mnemonic: &str =
         "basic anxiety marine match castle rival moral whisper insane away avoid bike";
-    let mut authors: Vec<crate::Author<T>> = Vec::new();
+    let mut new_authors: Vec<crate::Author<T>> = Vec::new();
+    let current_authors = avn::Validators::<T>::get();
+
     for i in 0..number_of_validator_account_ids {
         let account = account("dummy_validator", i, i);
-        let key =
-            <T as avn::Config>::AuthorityId::generate_pair(Some(mnemonic.as_bytes().to_vec()));
-        authors.push(crate::Author::<T>::new(account, key));
+        let key = <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
+        set_session_key::<T>(&account, current_authors.len() as u32 + i);
+        new_authors.push(crate::Author::<T>::new(account, key));
     }
+
+    let total_authors: Vec<_> = current_authors.iter().chain(new_authors.iter()).cloned().collect();
 
     // Setup authors in avn pallet
     avn::Validators::<T>::put(WeakBoundedVec::force_from(
-        authors.clone(),
+        total_authors.clone(),
         Some("Too many authors for session"),
     ));
 
-    return authors
+    return total_authors
+}
+
+fn add_collator_to_avn<T: Config>(
+    collator: &T::AccountId,
+    candidate_count: u32
+) -> Result<Validator<T::AuthorityId, T::AccountId>, &'static str> {
+    let key = <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
+    let validator: Validator<T::AuthorityId, T::AccountId> =
+        Validator::new(collator.clone(), key.into());
+
+    let current_collators = avn::Validators::<T>::get();
+    let new_collators: Vec<_> = current_collators
+        .iter()
+        .chain(vec![validator.clone()].iter())
+        .cloned()
+        .collect();
+
+    avn::Validators::<T>::put(WeakBoundedVec::force_from(
+        new_collators,
+        Some("Too many validators for session"),
+    ));
+
+    set_session_key::<T>(collator, candidate_count)?;
+
+    Ok(validator)
+}
+
+fn set_session_key<T: Config>(user: &T::AccountId, index: u32) -> Result<(), &'static str> {
+    frame_system::Pallet::<T>::inc_providers(user);
+
+    let keys = {
+        let mut keys = [0u8; 128];
+        let mut rng = rand::rngs::StdRng::seed_from_u64(index as u64);
+        rng.fill_bytes(&mut keys);
+        keys
+    };
+
+    let keys: T::Keys = Decode::decode(&mut &keys[..]).unwrap();
+
+    pallet_session::Pallet::<T>::set_keys(
+        RawOrigin::<T::AccountId>::Signed(user.clone()).into(),
+        keys,
+        Vec::new(),
+    )?;
+
+    Ok(())
 }
 
 fn generate_dummy_ecdsa_signature(i: u8) -> ecdsa::Signature {
@@ -135,19 +187,25 @@ benchmarks! {
 
     add_confirmation {
         let authors = setup_authors::<T>(10);
+
         let author: crate::Author<T> = authors[0].clone();
         let sender: crate::Author<T> = authors[1].clone();
+
+        #[cfg(not(test))]
+        let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
+
         let tx_id = 1u32;
         setup_active_tx::<T>(tx_id, 1, sender.clone());
         let active_tx = ActiveTransaction::<T>::get().expect("is active");
-        let msg_hash_string = active_tx.msg_hash.to_string();
-        // TODO: We need a real signature as this benchmark fails at present
-        let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("f825dec3df421141e5439f088c6cbd9db270fcfef21f15d48185883a817f60c451b5d9114feb1afd0e5489e08105dfd2887a775b96a1d7d3bdbfaec93e4f411b1b")).unwrap().into();
+
+        let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("53ea27badd00d7b5e4d7e7eb2542ea3abfcd2d8014d2153719f3f00d4058c4027eac360877d5d191cbfdfe8cd72dfe82abc9192fc6c8dce21f3c6f23c43e053f1c")).unwrap().into();
         let proof = (crate::ADD_CONFIRMATION_CONTEXT, tx_id, new_confirmation.clone(), author.account_id.clone()).encode();
+
         let signature = author.key.sign(&proof).expect("Error signing proof");
 
         #[cfg(test)]
         set_recovered_account_for_tests::<T>(&author.account_id);
+
     }: _(RawOrigin::None, tx_id, new_confirmation.clone(), author.clone(), signature)
     verify {
         let active_tx = ActiveTransaction::<T>::get().expect("is active");
@@ -157,6 +215,9 @@ benchmarks! {
     add_eth_tx_hash {
         let authors = setup_authors::<T>(10);
         let sender: crate::Author<T> = authors[0].clone();
+        #[cfg(not(test))]
+        let sender = add_collator_to_avn::<T>(&sender.account_id, authors.len() as u32 + 1u32)?;
+
         let tx_id = 2u32;
         setup_active_tx::<T>(tx_id, 1, sender.clone());
         let eth_tx_hash = H256::repeat_byte(1);
@@ -170,8 +231,12 @@ benchmarks! {
 
     add_corroboration {
         let authors = setup_authors::<T>(10);
+
         let author: crate::Author<T> = authors[0].clone();
         let sender: crate::Author<T> = authors[1].clone();
+        #[cfg(not(test))]
+        let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
+
         let tx_id = 3u32;
         setup_active_tx::<T>(tx_id, 1, sender.clone());
         let tx_succeeded = true;
