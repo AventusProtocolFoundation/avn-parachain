@@ -63,6 +63,10 @@ use frame_system::{
     pallet_prelude::OriginFor,
 };
 use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnBridgePublisherResult};
+
+use pallet_session::historical::IdentificationTuple;
+use sp_staking::offence::ReportOffence;
+
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::event_types::Validator;
 use sp_core::{ecdsa, ConstU32, H256};
@@ -86,6 +90,9 @@ mod tests;
 pub use pallet::*;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
+
+pub mod offence;
+use crate::offence::EthBridgeCorroborationOffence;
 
 pub type AVN<T> = avn::Pallet<T>;
 pub type Author<T> =
@@ -113,7 +120,11 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + avn::Config + scale_info::TypeInfo + SendTransactionTypes<Call<Self>>
+        frame_system::Config
+        + avn::Config
+        + scale_info::TypeInfo
+        + SendTransactionTypes<Call<Self>>
+        + pallet_session::historical::Config
     {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
@@ -128,6 +139,11 @@ pub mod pallet {
         type MinEthBlockConfirmation: Get<u64>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
         type OnBridgePublisherResult: avn::OnBridgePublisherResult;
+        type ReportCorroborationOffence: ReportOffence<
+            Self::AccountId,
+            IdentificationTuple<Self>,
+            EthBridgeCorroborationOffence<IdentificationTuple<Self>>,
+        >;
     }
 
     #[pallet::event]
