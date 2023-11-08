@@ -31,7 +31,7 @@ use sp_staking::{
 
 use avn::AvnBridgeContractAddress;
 use pallet_avn::{self as avn, Error as avn_error};
-use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent};
+use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent, EthQueryRequest, EthQueryResponseType};
 use sp_io::TestExternalities;
 
 use crate::{self as pallet_ethereum_events, *};
@@ -283,7 +283,7 @@ impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
 pub static CUSTOM_BRIDGE_CONTRACT: H160 = H160(hex!("11111AAAAA22222BBBBB11111AAAAA22222BBBBB"));
 
 #[allow(dead_code)]
-pub const INDEX_RESULT: usize = 2;
+pub const INDEX_DATA: usize = 2;
 #[allow(dead_code)]
 pub const INDEX_RESULT_LOGS: usize = 9;
 #[allow(dead_code)]
@@ -291,7 +291,7 @@ pub const INDEX_RESULT_STATUS: usize = 10;
 #[allow(dead_code)]
 pub const INDEX_EVENT_ADDRESS: usize = 5;
 #[allow(dead_code)]
-pub const INDEX_DATA: usize = 6;
+pub const INDEX_EVENT_DATA: usize = 6;
 #[allow(dead_code)]
 pub const INDEX_TOPICS: usize = 7;
 
@@ -517,6 +517,58 @@ pub fn bad_authority() -> Validator<AuthorityId, AccountId> {
     return validator
 }
 
+pub fn test_json_data(
+    tx_hash: &H256,
+    event_signature: &H256,
+    contract_address: &H160,
+    log_data: &str,
+    event_topics: &str,
+    status: &str,
+) -> String {
+    format!("
+    {{
+        \"transactionHash\": \"{}\",
+        \"transactionIndex\": \"0x0\",
+        \"blockHash\": \"0x5536c9e671fe581fe4ef4631112038297dcdecae163e8724c281ece8ad94c8c3\",
+        \"blockNumber\": \"0x2e\",
+        \"from\": \"0x3a629a342f842d2e548a372742babf288816da4e\",
+        \"to\": \"0x604dd282e3fbe35f40f84405f90965821483827f\",
+        \"gasUsed\": \"0x6a4b\",
+        \"cumulativeGasUsed\": \"0x6a4b\",
+        \"contractAddress\": null,
+        \"logs\": [
+            {{
+                \"logIndex\": \"0x0\",
+                \"transactionIndex\": \"0x0\",
+                \"transactionHash\": \"0x9ad4d46054b0495fa38e8418263c6107ecb4ffd879675372613edf39af898dcb\",
+                \"blockHash\": \"0x5536c9e671fe581fe4ef4631112038297dcdecae163e8724c281ece8ad94c8c3\",
+                \"blockNumber\": \"0x2e\",
+                \"address\": \"{}\",
+                \"data\": \"{}\",
+                \"topics\": [
+                    \"{}\",
+                    \"{}\"
+
+                ],
+                \"type\": \"mined\"
+            }}
+        ],
+        \"status\": \"{}\",
+        \"logsBloom\": \"0x00000100000000000000000000000000000000000000000000000000000100000000000000000000000000000000400000000000000000000000010000000000000000000000000000000000000000000000000001020000000000000000040000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000100000000000000000000000000000000000000000000000000001000000000000000000000000000000000800000000000000000\",
+        \"v\": \"0x1c\",
+        \"r\": \"0x8823b54a06401fed57e03ac54b1a4cf81091dc1e44192b9a87ce4f4b9c56d454\",
+        \"s\": \"0x842e06a5258c4337148bc677f0b5ca343a8dfda597fb92f540ce443fd2bf340\"
+    }}
+    ",
+        format!("{:?}", tx_hash),
+        format!("{:?}", contract_address),
+        log_data,
+        format!("{:?}", event_signature),
+        event_topics,
+        status
+    )
+}
+
 #[allow(dead_code)]
 pub fn test_json(
     tx_hash: &H256,
@@ -527,55 +579,15 @@ pub fn test_json(
     status: &str,
     num_confirmations: u64,
 ) -> Vec<u8> {
-    let json = format!("
-    {{
-        \"id\": 1,
-        \"jsonrpc\": \"2.0\",
-        \"result\": {{
-            \"transactionHash\": \"{}\",
-            \"transactionIndex\": \"0x0\",
-            \"blockHash\": \"0x5536c9e671fe581fe4ef4631112038297dcdecae163e8724c281ece8ad94c8c3\",
-            \"blockNumber\": \"0x2e\",
-            \"from\": \"0x3a629a342f842d2e548a372742babf288816da4e\",
-            \"to\": \"0x604dd282e3fbe35f40f84405f90965821483827f\",
-            \"gasUsed\": \"0x6a4b\",
-            \"cumulativeGasUsed\": \"0x6a4b\",
-            \"contractAddress\": null,
-            \"logs\": [
-                {{
-                    \"logIndex\": \"0x0\",
-                    \"transactionIndex\": \"0x0\",
-                    \"transactionHash\": \"0x9ad4d46054b0495fa38e8418263c6107ecb4ffd879675372613edf39af898dcb\",
-                    \"blockHash\": \"0x5536c9e671fe581fe4ef4631112038297dcdecae163e8724c281ece8ad94c8c3\",
-                    \"blockNumber\": \"0x2e\",
-                    \"address\": \"{}\",
-                    \"data\": \"{}\",
-                    \"topics\": [
-                        \"{}\",
-                        \"{}\"
 
-                    ],
-                    \"type\": \"mined\"
-                }}
-            ],
-            \"status\": \"{}\",
-            \"logsBloom\": \"0x00000100000000000000000000000000000000000000000000000000000100000000000000000000000000000000400000000000000000000000010000000000000000000000000000000000000000000000000001020000000000000000040000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000100000000000000000000000000000000000000000000000000001000000000000000000000000000000000800000000000000000\",
-            \"v\": \"0x1c\",
-            \"r\": \"0x8823b54a06401fed57e03ac54b1a4cf81091dc1e44192b9a87ce4f4b9c56d454\",
-            \"s\": \"0x842e06a5258c4337148bc677f0b5ca343a8dfda597fb92f540ce443fd2bf340\"
-        }},
-        \"num_confirmations\": {}
-    }}
-    ",
-        format!("{:?}", tx_hash),
-        format!("{:?}", contract_address),
-        log_data,
-        format!("{:?}", event_signature),
-        event_topics,
-        status,
-        num_confirmations
-    );
-    return json.into_bytes()
+    let data = test_json_data(tx_hash, event_signature, contract_address, log_data, event_topics, status);
+
+    hex::encode(
+        EthQueryResponse {
+            data: data.as_bytes().to_vec().encode(),
+            num_confirmations,
+        }.encode()
+    ).into()
 }
 
 #[allow(dead_code)]
@@ -584,11 +596,20 @@ pub fn inject_ethereum_node_response(
     tx_hash: &H256,
     expected_response: Option<Vec<u8>>,
 ) {
+    let calldata = EthQueryRequest {
+        tx_hash: *tx_hash,
+        response_type: EthQueryResponseType::TransactionReceipt
+    };
+    let sender = [0; 32];
+    let contract_address = AVN::get_bridge_contract_address();
+    let ethereum_call = EthTransaction::new(sender, contract_address, calldata.encode());
+
     state.expect_request(PendingRequest {
-        method: "GET".into(),
-        uri: format!("http://127.0.0.1:2020/eth/events/{:?}", tx_hash).into(),
+        method: "POST".into(),
+        uri: "http://127.0.0.1:2020/eth/query".into(),
         response: expected_response,
         headers: vec![],
+        body: ethereum_call.encode(),
         sent: true,
         ..Default::default()
     });
