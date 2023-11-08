@@ -2,7 +2,7 @@ use super::*;
 use crate::{self as eth_bridge};
 use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
-use pallet_avn::{EthereumPublicKeyChecker, testing::U64To32BytesConverter};
+use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::{
@@ -10,12 +10,32 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     Perbill,
 };
+use sp_staking::offence::OffenceError;
 use std::cell::RefCell;
+
+thread_local! {
+    pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
+}
 
 pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = u64;
+
+type IdentificationTuple = (AccountId, AccountId);
+type Offence = crate::CorroborationOffence<IdentificationTuple>;
+pub struct OffenceHandler;
+impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
+    fn report_offence(reporters: Vec<AccountId>, offence: Offence) -> Result<(), OffenceError> {
+        OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
+        Ok(())
+    }
+
+    fn is_known_offence(_offenders: &[IdentificationTuple], _time_slot: &SessionIndex) -> bool {
+        false
+    }
+}
+
 frame_support::construct_runtime!(
     pub enum TestRuntime where
         Block = Block,
@@ -52,6 +72,7 @@ impl Config for TestRuntime {
     type MinEthBlockConfirmation = ConstU64<20>;
     type AccountToBytesConvert = U64To32BytesConverter;
     type OnBridgePublisherResult = TestRuntime;
+    type ReportCorroborationOffence = OffenceHandler;
 }
 
 impl system::Config for TestRuntime {
@@ -148,6 +169,23 @@ impl session::Config for TestRuntime {
     type ValidatorIdOf = ConvertInto;
     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
     type WeightInfo = ();
+}
+
+impl pallet_session::historical::Config for TestRuntime {
+    type FullIdentification = AccountId;
+    type FullIdentificationOf = ConvertInto;
+}
+
+impl pallet_session::historical::SessionManager<AccountId, AccountId> for TestSessionManager {
+    fn new_session(_new_index: SessionIndex) -> Option<Vec<(AccountId, AccountId)>> {
+        VALIDATORS.with(|l| {
+            l.borrow_mut()
+                .take()
+                .map(|validators| validators.iter().map(|v| (*v, *v)).collect())
+        })
+    }
+    fn end_session(_: SessionIndex) {}
+    fn start_session(_: SessionIndex) {}
 }
 
 pub struct ExtBuilder {
