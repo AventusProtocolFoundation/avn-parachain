@@ -63,6 +63,10 @@ use frame_system::{
     pallet_prelude::OriginFor,
 };
 use pallet_avn::{self as avn, BridgePublisher, Error as avn_error, OnBridgePublisherResult};
+
+use pallet_session::historical::IdentificationTuple;
+use sp_staking::offence::ReportOffence;
+
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::event_types::Validator;
 use sp_core::{ecdsa, ConstU32, H256};
@@ -87,6 +91,9 @@ pub use pallet::*;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
+pub mod offence;
+use offence::CorroborationOffence;
+
 pub type AVN<T> = avn::Pallet<T>;
 pub type Author<T> =
     Validator<<T as avn::Config>::AuthorityId, <T as frame_system::Config>::AccountId>;
@@ -107,13 +114,19 @@ const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::offence::CorroborationOffenceType;
+
     use super::*;
     use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + avn::Config + scale_info::TypeInfo + SendTransactionTypes<Call<Self>>
+        frame_system::Config
+        + avn::Config
+        + scale_info::TypeInfo
+        + SendTransactionTypes<Call<Self>>
+        + pallet_session::historical::Config
     {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
@@ -128,14 +141,29 @@ pub mod pallet {
         type MinEthBlockConfirmation: Get<u64>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
         type OnBridgePublisherResult: avn::OnBridgePublisherResult;
+        type ReportCorroborationOffence: ReportOffence<
+            Self::AccountId,
+            IdentificationTuple<Self>,
+            CorroborationOffence<IdentificationTuple<Self>>,
+        >;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        PublishToEthereum { tx_id: u32, function_name: Vec<u8>, params: Vec<(Vec<u8>, Vec<u8>)> },
-        EthTxLifetimeUpdated { eth_tx_lifetime_secs: u64 },
+        PublishToEthereum {
+            tx_id: u32,
+            function_name: Vec<u8>,
+            params: Vec<(Vec<u8>, Vec<u8>)>,
+        },
         EthTxIdUpdated { eth_tx_id: u32 },
+        EthTxLifetimeUpdated {
+            eth_tx_lifetime_secs: u64,
+        },
+        CorroborationOffenceReported {
+            offence_type: CorroborationOffenceType,
+            offenders: Vec<IdentificationTuple<T>>,
+        },
     }
 
     #[pallet::pallet]
