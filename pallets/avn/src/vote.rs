@@ -49,8 +49,6 @@ pub struct VotingSessionData<AccountId, BlockNumber> {
     pub nays: BoundedVec<AccountId, MaximumValidatorsBound>,
     /// The hard end time of this vote.
     pub end_of_voting_period: BlockNumber,
-    /// The confirmations collected from the aye votes
-    // pub confirmations: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
     /// The block number this session was created on
     pub created_at_block: BlockNumber,
 }
@@ -83,7 +81,6 @@ impl<AccountId: Member, BlockNumber: Member> VotingSessionData<AccountId, BlockN
             ayes: BoundedVec::default(),
             nays: BoundedVec::default(),
             end_of_voting_period,
-            // confirmations: BoundedVec::default(),
             created_at_block,
         }
     }

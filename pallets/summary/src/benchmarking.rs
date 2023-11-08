@@ -97,19 +97,6 @@ fn setup_votes<T: Config>(
     }
 }
 
-// fn generate_ecdsa_signature<T: pallet_avn::Config>(
-//     key: <T as pallet_avn::Config>::AuthorityId,
-//     msg: u64,
-// ) -> ecdsa::Signature {
-//     let sr25519_signature = key.sign(&msg.encode()).expect("able to make signature").encode();
-
-//     let mut signature_bytes: [u8; 65] = [0u8; 65];
-//     let start = if sr25519_signature.len() <= 65 { 65 - sr25519_signature.len() } else { 0 };
-//     signature_bytes[start..].copy_from_slice(&sr25519_signature);
-
-//     return ecdsa::Signature::from_slice(&signature_bytes).unwrap()
-// }
-
 fn advance_block<T: Config>(number: T::BlockNumber) {
     let now = System::<T>::block_number();
     System::<T>::set_block_number(now + number);

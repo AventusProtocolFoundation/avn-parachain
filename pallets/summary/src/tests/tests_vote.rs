@@ -256,35 +256,6 @@ mod approve_root {
                 );
             });
         }
-        // TODO This is to be rewritten when new malicious validator logic is added
-        // #[test]
-        // fn when_voter_is_invalid_validator() {
-        //     let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-        //         .with_validators()
-        //         .for_offchain_worker()
-        //         .as_externality_with_state();
-
-        //     ext.execute_with(|| {
-        //         let context = setup_context();
-
-        //         setup_voting_for_root_id(&context);
-        //         set_mock_recovered_account_id(get_non_validator().account_id);
-
-        //         let result = Summary::approve_root(
-        //                 RawOrigin::None.into(),
-        //                 context.root_id,
-        //                 get_non_validator(),
-        //                 // context.approval_signature,
-        //                 context.record_summary_calculation_signature);
-
-        //         // We can't use assert_noop here because we return an error after mutating
-        // storage         assert_matches!(
-        //             result,
-        //             Err(e) if e ==
-        // DispatchError::from(AvNError::<TestRuntime>::InvalidECDSASignature));
-
-        //     });
-        // }
 
         #[test]
         fn when_root_is_not_in_pending_approval() {

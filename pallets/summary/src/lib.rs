@@ -6,7 +6,6 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use pallet_eth_bridge::EthereumTransactionId;
 use sp_avn_common::{
     bounds::VotingSessionIdBound,
     event_types::Validator,
@@ -48,6 +47,8 @@ use sp_staking::offence::ReportOffence;
 
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
+
+pub type EthereumTransactionId = u32;
 
 const NAME: &'static [u8; 7] = b"summary";
 const UPDATE_BLOCK_NUMBER_CONTEXT: &'static [u8] = b"update_last_processed_block_number";

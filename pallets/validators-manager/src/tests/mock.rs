@@ -24,7 +24,7 @@ use sp_core::{
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    sr25519, ByteArray, Pair, H256,
+    sr25519, ByteArray, ConstU64, Pair, H256,
 };
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},

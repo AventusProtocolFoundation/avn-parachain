@@ -90,8 +90,6 @@ pub mod pallet {
         type ProcessedEventsChecker: ProcessedEventsChecker;
         /// A period (in block number) where validators are allowed to vote
         type VotingPeriod: Get<Self::BlockNumber>;
-        /// A trait that allows pallets to submit transactions to Ethereum
-        // type CandidateTransactionSubmitter: CandidateTransactionSubmitter<Self::AccountId>;
         /// A trait that allows converting between accountIds <-> public keys
         type AccountToBytesConvert: AccountToBytesConverter<Self::AccountId>;
         /// A trait that allows extra work to be done during validator registration
@@ -354,11 +352,7 @@ pub mod pallet {
 
             let voting_session = Self::get_voting_session(&action_id);
 
-            process_approve_vote::<T>(
-                &voting_session,
-                validator.account_id.clone(),
-                // approval_signature,
-            )?;
+            process_approve_vote::<T>(&voting_session, validator.account_id.clone())?;
 
             Self::deposit_event(Event::<T>::VoteAdded {
                 voter_id: validator.account_id,
@@ -647,20 +641,6 @@ impl<T: Config> Pallet<T> {
         let vote_is_approved = vote.is_approved();
 
         if vote_is_approved {
-            let _ = Self::try_get_validators_action_data(action_id)?;
-            // TODO implement BridgePublisher
-            // let result = <T as
-            // pallet::Config>::CandidateTransactionSubmitter::submit_candidate_transaction_to_tier1(
-            //     validators_action_data.reserved_eth_transaction,
-            //     validators_action_data.eth_transaction_id,
-            //     validators_action_data.primary_validator,
-            // );
-            // let result = Some(true);
-            // if let Err(result) = result {
-            //     log::error!("❌ Error Submitting Tx: {:?}", result);
-            //     Err(result)?
-            // }
-
             create_and_report_validators_offence::<T>(
                 &sender,
                 &vote.nays,
@@ -726,7 +706,6 @@ impl<T: Config> Pallet<T> {
             decompressed_collator_eth_public_key,
             <T as pallet::Config>::AccountToBytesConvert::into_bytes(&collator_id),
         ));
-        // TODO remove this when BridgePublisher is implemented
         let tx_id = 0;
 
         Ok((new_collator_id, eth_tx_sender, eth_transaction_type, tx_id))
@@ -826,7 +805,6 @@ impl<T: Config> Pallet<T> {
             AVN::<T>::calculate_primary_validator(<system::Pallet<T>>::block_number())
                 .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
 
-        // TODO: remove this when implementing BridgePublisher
         let tx_id = 0;
 
         TotalIngresses::<T>::put(ingress_counter);
