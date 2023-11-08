@@ -25,18 +25,16 @@ fn setup_publish_root_voting<T: Config>(
 ) -> (
     Validator<T::AuthorityId, T::AccountId>,
     RootId<T::BlockNumber>,
-    ecdsa::Signature,
     <T::AuthorityId as RuntimeAppPublic>::Signature,
     u32,
 ) {
     let sender: Validator<T::AuthorityId, T::AccountId> =
         validators[validators.len() - (1 as usize)].clone();
     let root_id: RootId<T::BlockNumber> = RootId::new(RootRange::new(0u32.into(), 60u32.into()), 1);
-    let approval_signature: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("3a0490e7d4325d3baa39b3011284e9758f9e370477e6b9e98713b2303da7427f71919f2757f62a01909391aeb3e89991539fdcb2d02ad45f7c64eb129c96f37100")).unwrap().into();
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
     let quorum = setup_voting_session::<T>(&root_id);
 
-    (sender, root_id, approval_signature, signature, quorum)
+    (sender, root_id, signature, quorum)
 }
 
 fn setup_voting_session<T: Config>(root_id: &RootId<T::BlockNumber>) -> u32 {
@@ -83,16 +81,11 @@ fn setup_votes<T: Config>(
 ) {
     for i in 0..validators.len() {
         if i < (number_of_votes as usize) {
-            let approval_signature: ecdsa::Signature =
-                generate_ecdsa_signature::<T>(validators[i].key.clone(), i as u64);
             match is_approval {
                 true => VotesRepository::<T>::mutate(root_id, |vote| {
                     vote.ayes
                         .try_push(validators[i].account_id.clone())
                         .expect("Failed to add mock aye vote");
-                    vote.confirmations
-                        .try_push(approval_signature.clone())
-                        .expect("Failed to add mock confirmation vote");
                 }),
                 false => VotesRepository::<T>::mutate(root_id, |vote| {
                     vote.nays
@@ -102,19 +95,6 @@ fn setup_votes<T: Config>(
             }
         }
     }
-}
-
-fn generate_ecdsa_signature<T: pallet_avn::Config>(
-    key: <T as pallet_avn::Config>::AuthorityId,
-    msg: u64,
-) -> ecdsa::Signature {
-    let sr25519_signature = key.sign(&msg.encode()).expect("able to make signature").encode();
-
-    let mut signature_bytes: [u8; 65] = [0u8; 65];
-    let start = if sr25519_signature.len() <= 65 { 65 - sr25519_signature.len() } else { 0 };
-    signature_bytes[start..].copy_from_slice(&sr25519_signature);
-
-    return ecdsa::Signature::from_slice(&signature_bytes).unwrap()
 }
 
 fn advance_block<T: Config>(number: T::BlockNumber) {
@@ -271,7 +251,7 @@ benchmarks! {
         let number_of_offenders = MAX_OFFENDERS;
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         let mut validators = setup_validators::<T>(number_of_validators);
-        let (sender, root_id, approval_signature, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         validators.remove(validators.len() - (1 as usize)); // Avoid setting up sender to approve vote automatically
 
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
@@ -290,11 +270,10 @@ benchmarks! {
         #[cfg(test)]
         set_recovered_account_for_tests::<T>(&sender.account_id);
 
-    }: approve_root(RawOrigin::None, root_id, sender.clone(), approval_signature.clone(), signature)
+    }: approve_root(RawOrigin::None, root_id, sender.clone(),  signature)
     verify {
         let vote = VotesRepository::<T>::get(&root_id);
         assert_eq!(true, vote.ayes.contains(&sender.account_id));
-        assert_eq!(true, vote.confirmations.contains(&approval_signature));
 
         assert_eq!(true, NextBlockToProcess::<T>::get() == root_id.range.to_block + 1u32.into());
         assert_eq!(true, Roots::<T>::get(root_id.range, root_id.ingress_counter).is_validated);
@@ -338,15 +317,14 @@ benchmarks! {
     approve_root_without_end_voting {
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         let mut validators = setup_validators::<T>(number_of_validators);
-        let (sender, root_id, approval_signature, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter - 1);
 
         CurrentSlot::<T>::put::<T::BlockNumber>(3u32.into());
-    }: approve_root(RawOrigin::None, root_id, sender.clone(), approval_signature.clone(), signature)
+    }: approve_root(RawOrigin::None, root_id, sender.clone(), signature)
     verify {
         let vote = VotesRepository::<T>::get(&root_id);
         assert_eq!(true, vote.ayes.contains(&sender.account_id));
-        assert_eq!(true, vote.confirmations.contains(&approval_signature));
 
         assert_eq!(false, NextBlockToProcess::<T>::get() == root_id.range.to_block + 1u32.into());
         assert_eq!(false, Roots::<T>::get(root_id.range, root_id.ingress_counter).is_validated);
@@ -364,7 +342,7 @@ benchmarks! {
         let number_of_offenders = MAX_OFFENDERS;
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         let mut validators = setup_validators::<T>(number_of_validators);
-        let (sender, root_id, _, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, root_id, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         validators.remove(validators.len() - (1 as usize)); // Avoid setting up sender to reject vote automatically
 
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
@@ -415,7 +393,7 @@ benchmarks! {
     reject_root_without_end_voting {
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         let mut validators = setup_validators::<T>(number_of_validators);
-        let (sender, root_id, _, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         validators.remove(validators.len() - (1 as usize)); // Avoid setting up sender to reject vote automatically
 
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
@@ -437,7 +415,7 @@ benchmarks! {
     end_voting_period_with_rejected_valid_votes {
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         let validators = setup_validators::<T>(number_of_validators);
-        let (sender, root_id, _, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
 
         let current_slot_number: T::BlockNumber = 3u32.into();
@@ -475,7 +453,7 @@ benchmarks! {
     end_voting_period_with_approved_invalid_votes {
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         let validators = setup_validators::<T>(number_of_validators);
-        let (sender, root_id, _, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
 
         let current_slot_number: T::BlockNumber = 3u32.into();
@@ -514,7 +492,7 @@ benchmarks! {
     advance_slot_with_offence {
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         let validators = setup_validators::<T>(number_of_validators);
-        let (sender, _, _, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, _, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
 
         advance_block::<T>(SchedulePeriod::<T>::get());
         CurrentSlotsValidator::<T>::put(sender.account_id.clone());
@@ -557,7 +535,7 @@ benchmarks! {
     advance_slot_without_offence {
         let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
         let validators = setup_validators::<T>(number_of_validators);
-        let (sender, _, _, signature, _) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, _, signature, _) = setup_publish_root_voting::<T>(validators.clone());
 
         advance_block::<T>(SchedulePeriod::<T>::get());
         CurrentSlotsValidator::<T>::put(sender.account_id.clone());
@@ -582,7 +560,7 @@ benchmarks! {
     add_challenge {
         let number_of_validators = 4;
         let validators = setup_validators::<T>(number_of_validators);
-        let (sender, _, _, signature, _) = setup_publish_root_voting::<T>(validators.clone());
+        let (sender, _,  signature, _) = setup_publish_root_voting::<T>(validators.clone());
 
         let current_block_number = SchedulePeriod::<T>::get() + T::MinBlockAge::get();
         let next_slot_at_block: T::BlockNumber = current_block_number - T::AdvanceSlotGracePeriod::get() - 1u32.into();

@@ -133,13 +133,11 @@ fn approve_validator_action(
         eth_compatible_data,
         response,
     );
-    let (_, approval_signature) =
-        ValidatorManager::sign_validators_action_for_ethereum(&context.action_id).unwrap();
+
     return ValidatorManager::approve_validator_action(
         RawOrigin::None.into(),
         context.action_id,
         validator.clone(),
-        approval_signature,
         context.record_deregister_validator_calculation_signature.clone(),
     )
 }
@@ -316,16 +314,11 @@ mod approve_vote {
                     Some(hex::encode([1; 65].to_vec()).as_bytes().to_vec()),
                 );
 
-                let (_, approval_signature) =
-                    ValidatorManager::sign_validators_action_for_ethereum(&context.action_id)
-                        .unwrap();
-
                 assert_noop!(
                     ValidatorManager::approve_validator_action(
                         RuntimeOrigin::signed(validator_id_3()),
                         context.action_id,
                         context.validator,
-                        approval_signature,
                         context.record_deregister_validator_calculation_signature
                     ),
                     BadOrigin
@@ -350,15 +343,10 @@ mod approve_vote {
                     Some(hex::encode([1; 65].to_vec()).as_bytes().to_vec()),
                 );
 
-                let (_, approval_signature) =
-                    ValidatorManager::sign_validators_action_for_ethereum(&context.action_id)
-                        .unwrap();
-
                 let result = ValidatorManager::approve_validator_action(
                     RawOrigin::None.into(),
                     context.action_id,
                     get_non_validator(),
-                    approval_signature,
                     context.record_deregister_validator_calculation_signature,
                 );
 
@@ -446,15 +434,10 @@ mod approve_vote {
                     Some(invalid_ecdsa_signature),
                 );
 
-                let (_, approval_signature) =
-                    ValidatorManager::sign_validators_action_for_ethereum(&context.action_id)
-                        .unwrap();
-
                 let result = ValidatorManager::approve_validator_action(
                     RawOrigin::None.into(),
                     context.action_id,
                     context.validator.clone(),
-                    approval_signature,
                     context.record_deregister_validator_calculation_signature,
                 );
                 // We can't use assert_noop here because we return an error after mutating storage

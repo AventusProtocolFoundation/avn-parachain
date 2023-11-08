@@ -260,7 +260,7 @@ where
             .call(call_request, None)
             .await
             .map_err(|e| server_error(format!("Error calling view method on Ethereum: {:?}", e)))?;
-
+        log::info!("⛓️  avn-service: view request result {:?}", result);
         Ok(hex::encode(result.0))
     } else {
         Err(server_error(format!("Failed to acquire web3 mutex")))

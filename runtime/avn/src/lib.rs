@@ -611,7 +611,6 @@ impl pallet_validators_manager::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type ProcessedEventsChecker = EthereumEvents;
     type VotingPeriod = ValidatorManagerVotingPeriod;
-    type CandidateTransactionSubmitter = EthereumTransactions;
     type AccountToBytesConvert = Avn;
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
     type ReportValidatorOffence = Offences;
@@ -629,7 +628,6 @@ impl pallet_summary::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
-    type CandidateTransactionSubmitter = EthereumTransactions;
     type AccountToBytesConvert = Avn;
     type ReportSummaryOffence = Offences;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;

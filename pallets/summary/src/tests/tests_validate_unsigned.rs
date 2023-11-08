@@ -586,14 +586,11 @@ fn get_cast_vote_call(context: &Context, is_approve_root: bool) -> crate::Call<T
             &context.validator,
             CAST_VOTE_CONTEXT,
             &context.root_id,
-            &context.sign_url_param,
-            &context.approval_signature,
         );
 
         crate::Call::approve_root {
             root_id: context.root_id.clone(),
             validator: context.validator.clone(),
-            approval_signature: context.approval_signature.clone(),
             signature,
         }
     } else {
@@ -755,13 +752,10 @@ mod input_is_approve_root {
                         &context.validator,
                         CAST_VOTE_CONTEXT,
                         &context.root_id,
-                        &context.sign_url_param,
-                        &context.approval_signature,
                     );
                     let approve_root_call = crate::Call::approve_root {
                         root_id: context.root_id,
                         validator: non_validator,
-                        approval_signature: context.approval_signature.clone(),
                         signature,
                     };
 
@@ -787,13 +781,10 @@ mod input_is_approve_root {
                         &context.validator,
                         CAST_VOTE_CONTEXT,
                         &context.root_id,
-                        &context.sign_url_param,
-                        &context.approval_signature,
                     );
                     let approve_root_call = crate::Call::approve_root {
                         root_id: context.root_id,
                         validator: context.validator.clone(),
-                        approval_signature: context.approval_signature,
                         signature,
                     };
 
@@ -814,13 +805,10 @@ mod input_is_approve_root {
                         &context.validator,
                         CAST_VOTE_CONTEXT,
                         &context.root_id,
-                        &context.sign_url_param,
-                        &context.approval_signature,
                     );
                     let approve_root_call = crate::Call::approve_root {
                         root_id: context.root_id,
                         validator: context.validator.clone(),
-                        approval_signature: context.approval_signature.clone(),
                         signature,
                     };
 
@@ -848,13 +836,10 @@ mod input_is_approve_root {
                             &second_validator,
                             CAST_VOTE_CONTEXT,
                             &context.root_id,
-                            &context.sign_url_param,
-                            &context.approval_signature,
                         );
                     let approve_root_call = crate::Call::approve_root {
                         root_id: context.root_id,
                         validator: context.validator.clone(),
-                        approval_signature: context.approval_signature.clone(),
                         signature: signature_signed_by_different_validator,
                     };
 
@@ -872,13 +857,10 @@ mod input_is_approve_root {
                         &context.validator,
                         OTHER_CONTEXT,
                         &context.root_id,
-                        &context.sign_url_param,
-                        &context.approval_signature,
                     );
                     let approve_root_call = crate::Call::approve_root {
                         root_id: context.root_id,
                         validator: context.validator.clone(),
-                        approval_signature: context.approval_signature.clone(),
                         signature: signature_with_wrong_context,
                     };
 
@@ -903,13 +885,10 @@ mod input_is_approve_root {
                         &context.validator,
                         CAST_VOTE_CONTEXT,
                         &wrong_root_id,
-                        &context.sign_url_param,
-                        &context.approval_signature,
                     );
                     let approve_root_call = crate::Call::approve_root {
                         root_id: context.root_id,
                         validator: context.validator.clone(),
-                        approval_signature: context.approval_signature.clone(),
                         signature: signature_with_wrong_root_id,
                     };
 
@@ -931,7 +910,6 @@ mod input_is_approve_root {
                     let approve_root_call = crate::Call::approve_root {
                         root_id: context.root_id,
                         validator: context.validator.clone(),
-                        approval_signature: context.approval_signature.clone(),
                         signature: signature_with_wrong_approve_root,
                     };
 
@@ -957,15 +935,12 @@ mod input_is_approve_root {
                     &context.validator,
                     CAST_VOTE_CONTEXT,
                     &context.root_id,
-                    &context.sign_url_param,
-                    &context.approval_signature,
                 );
 
                 // Validate unsigned approve_vote extrinsic
                 let approve_root_call = crate::Call::approve_root {
                     root_id: context.root_id,
                     validator: context.validator.clone(),
-                    approval_signature: context.approval_signature.clone(),
                     signature: signature.clone(),
                 };
                 assert_eq!(
@@ -995,7 +970,6 @@ mod input_is_approve_root {
                 let approve_root_call = crate::Call::approve_root {
                     root_id,
                     validator: context.validator.clone(),
-                    approval_signature: context.approval_signature.clone(),
                     signature: signature.clone(),
                 };
                 assert_noop!(
@@ -1012,7 +986,6 @@ mod input_is_approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         context.validator,
-                        context.approval_signature,
                         context.record_summary_calculation_signature,
                     ),
                     AvNError::<TestRuntime>::DuplicateVote
@@ -1200,8 +1173,6 @@ mod input_is_reject_root {
                         &context.validator,
                         CAST_VOTE_CONTEXT,
                         &context.root_id,
-                        &context.sign_url_param,
-                        &context.approval_signature,
                     );
                     let reject_root_call = crate::Call::reject_root {
                         root_id: context.root_id,
