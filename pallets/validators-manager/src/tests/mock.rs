@@ -10,6 +10,7 @@ use hex_literal::hex;
 use pallet_balances as balances;
 use pallet_parachain_staking::{self as parachain_staking};
 
+use pallet_avn::OnBridgePublisherResult;
 use pallet_timestamp as timestamp;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
@@ -23,7 +24,7 @@ use sp_core::{
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    sr25519, ByteArray, Pair, H256,
+    sr25519, ByteArray, ConstU64, Pair, H256,
 };
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
@@ -33,7 +34,6 @@ use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
 };
-use pallet_avn::OnBridgePublisherResult;
 
 use codec::alloc::sync::Arc;
 use parking_lot::RwLock;
@@ -271,7 +271,6 @@ impl Config for TestRuntime {
     type ProcessedEventsChecker = Self;
     type VotingPeriod = VotingPeriod;
     type AccountToBytesConvert = AVN;
-    type CandidateTransactionSubmitter = Self;
     type ReportValidatorOffence = OffenceHandler;
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = ();
@@ -372,29 +371,6 @@ impl OnBridgePublisherResult for TestRuntime {
 parameter_types! {
     pub const Period: u64 = 1;
     pub const Offset: u64 = 0;
-}
-
-impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
-    fn submit_candidate_transaction_to_tier1(
-        _candidate_type: EthTransactionType,
-        _tx_id: TransactionId,
-        _submitter: AccountId,
-        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
-    ) -> DispatchResult {
-        Ok(())
-    }
-
-    fn reserve_transaction_id(
-        _candidate_type: &EthTransactionType,
-    ) -> Result<TransactionId, DispatchError> {
-        let value = MOCK_TX_ID.with(|tx_id| *tx_id.borrow());
-        MOCK_TX_ID.with(|tx_id| {
-            *tx_id.borrow_mut() += 1;
-        });
-        return Ok(value)
-    }
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 impl session::Config for TestRuntime {

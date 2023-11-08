@@ -143,17 +143,6 @@ fn setup_resignation_action_data<T: Config>(sender: T::AccountId, ingress_counte
         <T as Config>::AccountToBytesConvert::into_bytes(&action_account_id),
     ));
 
-    #[cfg(test)]
-    <T as pallet::Config>::CandidateTransactionSubmitter::reserve_transaction_id(
-        &candidate_tx.clone(),
-    )
-    .unwrap();
-    #[cfg(not(test))]
-    <T as pallet::Config>::CandidateTransactionSubmitter::set_transaction_id(
-        &candidate_tx.clone(),
-        eth_transaction_id,
-    );
-
     ValidatorActions::<T>::insert(
         action_account_id,
         ingress_counter,
@@ -219,9 +208,6 @@ fn setup_votes<T: Config>(
                     vote.ayes
                         .try_push(validators[i].account_id.clone())
                         .expect("Failed to add mock aye vote");
-                    vote.confirmations
-                        .try_push(approval_signature.clone())
-                        .expect("Failed to add mock confirmation vote");
                 }),
                 false => VotesRepository::<T>::mutate(action_id, |vote| {
                     vote.nays
@@ -362,7 +348,6 @@ benchmarks! {
     verify {
         // Approve vote is added
         assert_eq!(true, VotesRepository::<T>::get(action_id.clone()).ayes.contains(&sender.account_id.clone()));
-        assert_eq!(true, VotesRepository::<T>::get(action_id.clone()).confirmations.contains(&approval_signature));
 
         // Voting period is ended
         assert_eq!((ValidatorActions::<T>::get(&action_id.action_account_id.clone(), action_id.ingress_counter)).unwrap().status, ValidatorsActionStatus::Actioned);
@@ -387,7 +372,6 @@ benchmarks! {
     verify {
         // Approve vote is added
         assert_eq!(true, VotesRepository::<T>::get(action_id.clone()).ayes.contains(&sender.account_id.clone()));
-        assert_eq!(true, VotesRepository::<T>::get(action_id.clone()).confirmations.contains(&approval_signature));
 
         // Voting period is not ended
         assert_eq!(ValidatorActions::<T>::get(&action_id.action_account_id.clone(), action_id.ingress_counter).unwrap().status, ValidatorsActionStatus::AwaitingConfirmation);

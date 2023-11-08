@@ -7,12 +7,12 @@ use crate::{
     system,
 };
 use codec::alloc::sync::Arc;
-use frame_support::{assert_noop};
+use frame_support::assert_noop;
 use pallet_avn::vote::VotingSessionData;
 use parking_lot::RwLock;
 
 use sp_core::{ecdsa, offchain::testing::PoolState, H256};
-use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin, offchain::storage::StorageValueRef};
+use sp_runtime::{offchain::storage::StorageValueRef, testing::UintAuthorityId, traits::BadOrigin};
 use system::RawOrigin;
 
 fn record_summary_calculation_is_called(
@@ -376,7 +376,7 @@ mod process_summary_if_required {
 
                 setup_blocks(&context);
                 setup_total_ingresses(&context);
-                let root_lock_name =  Summary::create_root_lock_name(context.last_block_in_range);
+                let root_lock_name = Summary::create_root_lock_name(context.last_block_in_range);
                 let mut lock = AVN::<TestRuntime>::get_ocw_locker(&root_lock_name);
                 if let Ok(_guard) = lock.try_lock() {
                     assert!(pool_state.read().transactions.is_empty());
@@ -933,7 +933,6 @@ pub mod record_summary_calculation {
                         ayes: BoundedVec::default(),
                         nays: BoundedVec::default(),
                         end_of_voting_period: VOTING_PERIOD_END,
-                        confirmations: BoundedVec::default(),
                         created_at_block: 10 // Setup creates block number 10
                     }
                 );
@@ -1337,17 +1336,7 @@ mod if_process_summary_is_called_a_second_time {
         let root_hash_vec = SECOND_ROOT_HASH_HEX_STRING.to_vec();
         let root_range = RootRange::new(next_block_to_process, last_block_in_range);
         let ingress_counter = Summary::get_ingress_counter() + 1;
-        let tx_id = TestRuntime::reserve_transaction_id(&EthTransactionType::PublishRoot(
-            PublishRootData::new(*root_hash_h256.as_fixed_bytes()),
-        ))
-        .unwrap();
-        let data_to_sign = Summary::convert_data_to_eth_compatible_encoding(&RootData::<u64>::new(
-            root_hash_h256.clone(),
-            validator.account_id,
-            Some(tx_id),
-        ))
-        .unwrap();
-        let approval_signature = ecdsa::Signature::try_from(&[2; 65][0..65]).unwrap();
+        let tx_id = 0;
 
         Context {
             current_block_number,
@@ -1358,8 +1347,6 @@ mod if_process_summary_is_called_a_second_time {
             root_hash_h256,
             root_hash_vec,
             url_param: get_url_param(next_block_to_process),
-            sign_url_param: data_to_sign,
-            approval_signature,
             record_summary_calculation_signature: get_signature_for_record_summary_calculation(
                 validator,
                 UPDATE_BLOCK_NUMBER_CONTEXT,
@@ -1619,7 +1606,9 @@ mod if_process_summary_is_called_a_second_time {
 
                 // A new processed summary for the same root [from:3;to:4] is successfully created
                 // First we need to clear the lock
-                let key = Summary::create_root_lock_name(second_process_summary_context.last_block_in_range);
+                let key = Summary::create_root_lock_name(
+                    second_process_summary_context.last_block_in_range,
+                );
                 let mut guard = StorageValueRef::persistent(&key);
                 guard.clear();
 

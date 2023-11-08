@@ -53,6 +53,7 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_eth_bridge.
 pub trait WeightInfo {
 	fn set_eth_tx_lifetime_secs() -> Weight;
+	fn set_eth_tx_id() -> Weight;
 	fn add_confirmation() -> Weight;
 	fn add_eth_tx_hash() -> Weight;
 	fn add_corroboration() -> Weight;
@@ -66,6 +67,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_ref_time(17_263_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
+
+	fn set_eth_tx_id() -> Weight {
+		Weight::from_ref_time(17_263_000)
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+
 	// Storage: EthBridge ActiveTransaction (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_confirmation() -> Weight {
@@ -92,6 +99,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 impl WeightInfo for () {
 	// Storage: EthBridge EthTxLifetimeSecs (r:0 w:1)
 	fn set_eth_tx_lifetime_secs() -> Weight {
+		Weight::from_ref_time(17_263_000)
+			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+
+	fn set_eth_tx_id() -> Weight {
 		Weight::from_ref_time(17_263_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}

@@ -214,8 +214,9 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     }
 }
 
-/// Please note: `value` will accept any bytes and its up to the caller to ensure the bytes are valid for `kind`.
-/// The compiler will not catch these errors at compile time, but can error at runtime.
+/// Please note: `value` will accept any bytes and its up to the caller to ensure the bytes are
+/// valid for `kind`. The compiler will not catch these errors at compile time, but can error at
+/// runtime.
 fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
     match kind {
         ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
@@ -268,7 +269,7 @@ fn make_ethereum_call<R, T: Config>(
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
     let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
-    let url_path = format!("/eth/{}", endpoint);
+    let url_path = format!("eth/{}", endpoint);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
 }

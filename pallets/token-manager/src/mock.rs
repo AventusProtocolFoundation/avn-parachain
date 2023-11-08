@@ -24,23 +24,20 @@ use frame_support::{
     PalletId,
 };
 use frame_system::{self as system, limits};
-use pallet_ethereum_transactions::{
-    ethereum_transaction::EthTransactionType,
-};
+
+use pallet_avn::OnBridgePublisherResult;
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
-    bounds::MaximumValidatorsBound,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{bounded::BoundedVec, ecdsa, sr25519, Pair, H256};
+use sp_core::{sr25519, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
-    DispatchError, Perbill, SaturatedConversion,
+    Perbill, SaturatedConversion,
 };
-use pallet_avn::OnBridgePublisherResult;
 
 use hex_literal::hex;
 use pallet_parachain_staking::{self as parachain_staking};

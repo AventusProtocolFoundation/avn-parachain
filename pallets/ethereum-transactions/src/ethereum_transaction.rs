@@ -12,6 +12,8 @@ use sp_std::prelude::*;
 
 use ethabi::{Error as EthAbiError, Function, Param, ParamType, Token};
 
+pub type EthereumTransactionId = u32;
+
 // ================================= Ethereum Transaction Types ====================================
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, MaxEncodedLen, TypeInfo)]
