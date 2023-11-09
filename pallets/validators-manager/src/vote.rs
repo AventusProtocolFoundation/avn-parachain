@@ -25,7 +25,6 @@ use crate::{
     ActionId, Call, Config, IngressCounter, Pallet as ValidatorsManager, Store,
     ValidatorsActionStatus, AVN,
 };
-use pallet_ethereum_transactions::ethereum_transaction::EthTransactionType;
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"validators_manager_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"validators_manager_end_voting_period";
@@ -124,27 +123,6 @@ pub fn create_vote_lock_name<T: Config>(action_id: &ActionId<T::AccountId>) -> V
 fn is_vote_in_transaction_pool<T: Config>(action_id: &ActionId<T::AccountId>) -> bool {
     let persistent_data = create_vote_lock_name::<T>(action_id);
     return OcwLock::is_locked::<frame_system::Pallet<T>>(&persistent_data)
-}
-
-// TODO this will not filter cases where another validator that is not activated, submits a
-// signature
-fn is_not_own_activation<T: Config>(
-    account_id: &T::AccountId,
-    ingress_counter: IngressCounter,
-) -> bool {
-    if let Some(action_data) =
-        <ValidatorsManager<T> as Store>::ValidatorActions::get(account_id, ingress_counter)
-    {
-        if let EthTransactionType::ActivateCollator(activation_data) =
-            action_data.reserved_eth_transaction
-        {
-            return activation_data.t2_public_key !=
-                <T as Config>::AccountToBytesConvert::into_bytes(&account_id)
-        }
-        // If None, treat as it isn't an own activation.
-        return true
-    }
-    return true
 }
 
 pub fn cast_votes_if_required<T: Config>(
