@@ -375,7 +375,7 @@ const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
 
 // TODO [TYPE: review][PRI: medium]: if needed, make this the default value to a configurable
 // option. See MinimumValidatorCount in Staking pallet as a reference
-const DEFAULT_MINIMUM_VALIDATORS_COUNT: usize = 2;
+const DEFAULT_MINIMUM_VALIDATORS_COUNT: usize = 1;
 
 
 pub type AVN<T> = avn::Pallet<T>;
@@ -540,6 +540,8 @@ impl<T: Config> Pallet<T> {
             Some(eth_public_key) => eth_public_key,
             _ => Err(Error::<T>::ValidatorNotFound)?,
         };
+
+        log::info!("HELP !!! {:?}", t1_eth_public_key);
 
         let function_name = b"removeAuthor";
         let params = vec![            
