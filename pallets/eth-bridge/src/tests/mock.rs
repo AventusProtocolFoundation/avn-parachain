@@ -1,11 +1,11 @@
 use super::*;
-use crate::{self as eth_bridge};
+use crate::{self as eth_bridge, tx::add_new_request};
 use avn;
 use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
-use sp_core::{sr25519, ConstU32, ConstU64, Pair, H256};
+use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
@@ -143,6 +143,10 @@ impl EthereumPublicKeyChecker<AccountId> for TestRuntime {
 
 fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignature {
     author.key.sign(&(context).encode()).expect("Signature is signed")
+}
+
+pub fn setup_eth_tx_hash_test(context: &Context) -> u32 {
+    add_new_request::<TestRuntime>(&context.request_function_name, &context.request_params).unwrap()
 }
 
 pub fn setup_context() -> Context {
