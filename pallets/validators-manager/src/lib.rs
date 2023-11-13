@@ -36,7 +36,7 @@ use pallet_avn::{
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound},
     event_types::Validator,
-    IngressCounter,
+    IngressCounter, eth_key_actions::decompress_eth_public_key,
 };
 use sp_core::{bounded::BoundedVec, ecdsa, H512};
 
@@ -381,29 +381,6 @@ const DEFAULT_MINIMUM_VALIDATORS_COUNT: usize = 1;
 pub type AVN<T> = avn::Pallet<T>;
 
 impl<T: Config> Pallet<T> {
-    /// Helper function to help us fail early if any of the data we need is not available for the
-    /// registration & activation
-    fn prepare_registration_data(
-        collator_id: &T::AccountId,
-    ) -> Result<
-        (
-            <T as pallet_session::Config>::ValidatorId,
-            T::AccountId,
-            EthereumTransactionId,
-        ),
-        DispatchError,
-    > {
-        let new_collator_id = <T as SessionConfig>::ValidatorIdOf::convert(collator_id.clone())
-            .ok_or(Error::<T>::ErrorConvertingAccountIdToValidatorId)?;
-        let eth_tx_sender =
-            AVN::<T>::calculate_primary_validator(<system::Pallet<T>>::block_number())
-                .map_err(|_| Error::<T>::ErrorCalculatingPrimaryValidator)?;
-        
-        let tx_id = 0;
-
-        Ok((new_collator_id,eth_tx_sender,tx_id))
-    }
-
     fn start_activation_for_registered_validator(
         registered_validator: &T::AccountId,
         tx_id: EthereumTransactionId,
@@ -426,15 +403,18 @@ impl<T: Config> Pallet<T> {
         collator_account_id: &T::AccountId,
         collator_eth_public_key: &ecdsa::Public,
     ) -> DispatchResult {
-        let (new_collator_id, _, _) =
-            Self::prepare_registration_data( collator_account_id)?;
+        let decompressed_eth_public_key =
+            decompress_eth_public_key(*collator_eth_public_key)
+                .map_err(|_| Error::<T>::InvalidPublicKey)?;
         let function_name = b"addAuthor";
         let params = vec![            
-            (b"bytes".to_vec(), collator_eth_public_key.encode()),
-            (b"bytes32".to_vec(), collator_account_id.encode()),
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+            (b"bytes32".to_vec(), <T as pallet::Config>::AccountToBytesConvert::into_bytes(collator_account_id).to_vec()),
         ];
         let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params).map_err(|e| DispatchError::Other(e.into()))?;
 
+        let new_collator_id = <T as SessionConfig>::ValidatorIdOf::convert(collator_account_id.clone())
+            .ok_or(Error::<T>::ErrorConvertingAccountIdToValidatorId)?;
         Self::start_activation_for_registered_validator(
             collator_account_id,
             tx_id,
@@ -541,12 +521,14 @@ impl<T: Config> Pallet<T> {
             _ => Err(Error::<T>::ValidatorNotFound)?,
         };
 
-        log::info!("HELP !!! {:?}", t1_eth_public_key);
+        let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
+            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+
 
         let function_name = b"removeAuthor";
         let params = vec![            
-            (b"bytes32".to_vec(), resigned_validator.encode()),
-            (b"bytes".to_vec(), t1_eth_public_key.encode()),
+            (b"bytes32".to_vec(), <T as pallet::Config>::AccountToBytesConvert::into_bytes(resigned_validator).to_vec()),
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
         ];
         let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params).map_err(|e| DispatchError::Other(e.into()))?;
 
