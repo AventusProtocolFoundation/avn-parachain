@@ -446,7 +446,7 @@ impl<T: Config> Pallet<T> {
         validator_id: &T::AccountId,
         ingress_counter: IngressCounter,
         action_type: ValidatorsActionType,
-        tx_id:EthereumTransactionId
+        t1_eth_public_key: ecdsa::Public
     ) -> DispatchResult {
         let mut validator_account_ids =
             Self::validator_account_ids().ok_or(Error::<T>::NoValidators)?;
@@ -472,6 +472,17 @@ impl<T: Config> Pallet<T> {
         }
 
         let index_of_validator_to_remove = maybe_validator_index.expect("checked for none already");
+
+        let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
+            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+
+
+        let function_name = b"removeAuthor";
+        let params = vec![            
+            (b"bytes32".to_vec(), <T as pallet::Config>::AccountToBytesConvert::into_bytes(validator_id).to_vec()),
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+        ];
+        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params).map_err(|e| DispatchError::Other(e.into()))?;
 
         TotalIngresses::<T>::put(ingress_counter);
         <ValidatorActions<T>>::insert(
@@ -521,16 +532,6 @@ impl<T: Config> Pallet<T> {
             _ => Err(Error::<T>::ValidatorNotFound)?,
         };
 
-        let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
-            .map_err(|_| Error::<T>::InvalidPublicKey)?;
-
-
-        let function_name = b"removeAuthor";
-        let params = vec![            
-            (b"bytes32".to_vec(), <T as pallet::Config>::AccountToBytesConvert::into_bytes(resigned_validator).to_vec()),
-            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
-        ];
-        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params).map_err(|e| DispatchError::Other(e.into()))?;
 
 
         let ingress_counter = Self::get_ingress_counter() + 1;
@@ -538,7 +539,7 @@ impl<T: Config> Pallet<T> {
             resigned_validator,
             ingress_counter,
             ValidatorsActionType::Resignation,
-            tx_id
+            t1_eth_public_key
         )
     }
 
