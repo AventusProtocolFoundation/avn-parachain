@@ -23,7 +23,12 @@ use core::convert::{TryFrom, TryInto};
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo},
     ensure, log,
-    traits::{Currency, ExistenceRequirement, Get, Imbalance, IsSubType, WithdrawReasons},
+    traits::{Currency, ExistenceRequirement, Get, Imbalance, IsSubType, WithdrawReasons, OriginTrait,
+        schedule::{
+			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
+			DispatchTime,
+		},
+    },
     PalletId, Parameter,
 };
 use frame_system::ensure_signed;
@@ -51,6 +56,9 @@ type BalanceOf<T> =
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
+type CallOf<T> = <T as frame_system::Config>::RuntimeCall;
+pub type PalletsOriginOf<T> =
+	<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
 
 mod benchmarking;
 
@@ -136,6 +144,9 @@ pub mod pallet {
 
         /// Handler to notify the runtime when AVT growth is lifted.
         type OnGrowthLiftedHandler: OnGrowthLiftedHandler<BalanceOf<Self>>;
+
+        type Scheduler: ScheduleAnon<Self::BlockNumber, CallOf<Self>, PalletsOriginOf<Self>>
+			+ ScheduleNamed<Self::BlockNumber, CallOf<Self>, PalletsOriginOf<Self>>;
 
         type WeightInfo: WeightInfo;
     }
@@ -280,7 +291,19 @@ pub mod pallet {
             let proof = Self::get_proof(&*call)?;
             ensure!(relayer == proof.relayer, Error::<T>::UnauthorizedProxyTransaction);
 
+
             let call_hash: T::Hash = T::Hashing::hash_of(&call);
+
+            let ok = T::Scheduler::schedule_named(
+                ("proxyLower", call_hash).using_encoded(sp_io::hashing::blake2_256),
+                DispatchTime::After(Zero::zero()),
+                None,
+                63,
+                origin,
+                call,
+            )
+            .is_ok();
+
             call.dispatch(frame_system::RawOrigin::Signed(proof.signer).into())
                 .map(|_| ())
                 .map_err(|e| e.error)?;
