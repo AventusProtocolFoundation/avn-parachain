@@ -277,7 +277,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn calculate_quorum(num: u32) -> u32 {
-        (num - num * 2 / 3)
+        num - num * 2 / 3
     }
 
     pub fn get_data_from_service(url_path: String) -> Result<Vec<u8>, DispatchError> {
