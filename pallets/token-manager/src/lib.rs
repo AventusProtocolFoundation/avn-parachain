@@ -231,6 +231,7 @@ pub mod pallet {
         ErrorConvertingTokenBalance,
         ErrorConvertingToBalance,
         NoTier1EventForLogAvtGrowthLifted,
+        Overflow,
     }
 
     #[pallet::storage]
@@ -360,17 +361,26 @@ pub mod pallet {
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
                 .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
 
-            //Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
+            let schedule_name = ("Lower", &from, &token_id, &amount, &t1_recipient).using_encoded(sp_io::hashing::blake2_256);
+            let call = Box::new(
+               Call::execute_lower {
+                    from,
+                    to_account_id,
+                    token_id,
+                    amount,
+                    t1_recipient
+                }
+            );
 
-            let ok = T::Scheduler::schedule_named(
-                ("Lower", from, token_id, amount, t1_recipient).using_encoded(sp_io::hashing::blake2_256),
-                DispatchTime::After(Zero::zero()),
+            ensure!(T::Scheduler::schedule_named(
+                schedule_name,
+                DispatchTime::After(10u32.into()),
                 None,
                 63,
-                origin.into().map_err(|_| Error::<T>::UnauthorizedProxyTransaction)?.into(),
-                T::Preimages::bound(CallOf::<T>::from(*call.clone())).map_err(|_| Error::<T>::UnauthorizedProxyTransaction)?,
-            )
-            .is_ok();
+                frame_system::RawOrigin::Root.into(),
+                //origin.into().map_err(|_| Error::<T>::UnauthorizedProxyTransaction)?.into(),
+                T::Preimages::bound(CallOf::<T>::from(*call)).map_err(|_| Error::<T>::UnauthorizedProxyTransaction)?,
+            ).is_ok(), Error::<T>::UnauthorizedProxyTransaction);
 
             let final_weight = if token_id == Self::avt_token_contract().into() {
                 <T as pallet::Config>::WeightInfo::lower_avt_token()
@@ -461,7 +471,7 @@ pub mod pallet {
             amount: u128,
             t1_recipient: H160, // the receiver address on tier1
         ) -> DispatchResultWithPostInfo {
-            let sender = ensure_root(origin)?;
+            let _ = ensure_root(origin)?;
 
             Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
 
