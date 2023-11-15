@@ -45,6 +45,7 @@ pub struct Context {
     pub tx_succeeded: bool,
     pub author: Author<TestRuntime>,
     pub confirming_author: Author<TestRuntime>,
+    pub second_confirming_author:Author<TestRuntime>,
     pub request_function_name: Vec<u8>,
     pub request_params: Vec<(Vec<u8>, Vec<u8>)>,
 }
@@ -145,8 +146,15 @@ fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignat
     author.key.sign(&(context).encode()).expect("Signature is signed")
 }
 
-pub fn setup_eth_tx_hash_test(context: &Context) -> u32 {
+pub fn setup_eth_tx_request(context: &Context) -> u32 {
     add_new_request::<TestRuntime>(&context.request_function_name, &context.request_params).unwrap()
+}
+
+pub fn create_confirming_author(author_id:u64) ->Author::<TestRuntime>{
+    Author::<TestRuntime> {
+        key: UintAuthorityId(author_id),
+        account_id: author_id,
+    }
 }
 
 pub fn setup_context() -> Context {
@@ -159,10 +167,8 @@ pub fn setup_context() -> Context {
     if primary_validator_id == confirming_validator_id {
         confirming_validator_id += 1
     }
-    let confirming_author = Author::<TestRuntime> {
-        key: UintAuthorityId(confirming_validator_id),
-        account_id: confirming_validator_id,
-    };
+    let confirming_author = create_confirming_author(confirming_validator_id);
+    let second_confirming_author = create_confirming_author(confirming_validator_id+1);
     let test_signature = generate_signature(author.clone(), b"test context");
     let tx_succeeded = false;
     let eth_tx_hash = H256::from_slice(&[0u8; 32]);
@@ -176,6 +182,7 @@ pub fn setup_context() -> Context {
         tx_succeeded,
         author: author.clone(),
         confirming_author: confirming_author.clone(),
+        second_confirming_author:second_confirming_author.clone(),
         confirmation_signature,
         request_function_name: b"publishRoot".to_vec(),
         request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
