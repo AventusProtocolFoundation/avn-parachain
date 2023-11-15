@@ -640,8 +640,6 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
 }
 
 pub trait BridgePublisher {
-    fn get_eth_tx_lifetime_secs() -> u64;
-    fn get_next_tx_id() -> u32;
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
 }
 
