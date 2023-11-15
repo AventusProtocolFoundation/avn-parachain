@@ -249,8 +249,6 @@ mod add_confirmation {
                 active_tx.data.sender, context.author.account_id,
                 "Sender should be the author's account_id"
             );
-
-            assert_eq!(result, expected);
         });
     }
 

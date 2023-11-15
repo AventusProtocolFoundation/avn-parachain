@@ -7,7 +7,7 @@ use crate::{
     system,
 };
 use codec::alloc::sync::Arc;
-use frame_support::{assert_noop};
+use frame_support::assert_noop;
 use pallet_avn::vote::VotingSessionData;
 use parking_lot::RwLock;
 

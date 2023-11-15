@@ -5,7 +5,7 @@ use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
-use sp_core::{sr25519, ConstU32, ConstU64, Pair, H256};
+use sp_core::{ConstU32, ConstU64, H256};
 use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
