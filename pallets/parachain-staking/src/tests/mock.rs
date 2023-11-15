@@ -349,6 +349,7 @@ impl pallet_eth_bridge::Config for Test {
     type WeightInfo = ();
     type AccountToBytesConvert = AVN;
     type OnBridgePublisherResult = Self;
+    type ReportCorroborationOffence = ();
 }
 
 impl pallet_timestamp::Config for Test {
