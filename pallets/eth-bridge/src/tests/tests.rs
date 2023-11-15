@@ -108,7 +108,9 @@ mod set_eth_tx_lifetime_secs {
     fn set_eth_tx_lifetime_secs_success() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
-            let new_lifetime_secs = 120u64; // 2 minutes
+            let new_lifetime_secs = 120u64; 
+
+            assert_ne!(EthBridge::get_eth_tx_lifetime_secs(), 120u64);
 
             assert_ok!(EthBridge::set_eth_tx_lifetime_secs(
                 RawOrigin::Root.into(),
@@ -120,6 +122,12 @@ mod set_eth_tx_lifetime_secs {
                 new_lifetime_secs,
                 "Eth tx lifetime should be updated"
             );
+            
+            assert!(System::events().iter().any(|record| matches!(
+                record.event,
+                mock::RuntimeEvent::EthBridge(crate::Event::EthTxLifetimeUpdated { eth_tx_lifetime_secs })
+                if eth_tx_lifetime_secs == 120u64
+            )));
         });
     }
 
@@ -159,6 +167,8 @@ mod set_eth_tx_id {
         ext.execute_with(|| {
             let new_eth_tx_id = 123u32;
 
+            assert_ne!(EthBridge::get_next_tx_id(), new_eth_tx_id);
+
             assert_ok!(EthBridge::set_eth_tx_id(
                 RawOrigin::Root.into(),
                 new_eth_tx_id
@@ -169,6 +179,12 @@ mod set_eth_tx_id {
                 new_eth_tx_id,
                 "Eth tx id should be updated"
             );
+
+            assert!(System::events().iter().any(|record| matches!(
+                record.event,
+                mock::RuntimeEvent::EthBridge(crate::Event::EthTxIdUpdated { eth_tx_id })
+                if eth_tx_id == new_eth_tx_id
+            )));
         });
     }
 
@@ -366,9 +382,25 @@ mod add_corroboration {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup_context();
-            let active_tx = setup_corroboration_test(&context, true, true);
 
-            assert!(active_tx.valid_tx_hash_corroborations.len() > 0);
+            let is_tx_successful = true;
+            let is_hash_valid = false;
+
+            let tx_id = setup_eth_tx_request(&context);
+
+            assert_ok!(EthBridge::add_corroboration(
+                RawOrigin::None.into(),
+                tx_id,
+                is_tx_successful,
+                is_hash_valid,
+                context.confirming_author.clone(),
+                context.test_signature.clone(),
+            ));
+
+            let active_tx = ActiveTransaction::<TestRuntime>::get().expect("Active transaction should be present");
+
+            assert_eq!(active_tx.valid_tx_hash_corroborations.len(), 0);
+            assert!(active_tx.invalid_tx_hash_corroborations.len() > 0);
         });
     }
 
@@ -431,11 +463,16 @@ mod add_corroboration {
             let function_name = b"publishRoot".to_vec();
             let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-            let tx_id = EthBridge::publish(&function_name, &params).unwrap();
+            let transaction_id = EthBridge::publish(&function_name, &params).unwrap();
             let active_tx = ActiveTransaction::<TestRuntime>::get().unwrap();
-         
-            assert_eq!(active_tx.id, tx_id);
+            assert_eq!(active_tx.id, transaction_id);
             assert_eq!(active_tx.data.function_name, function_name);
+
+            assert!(System::events().iter().any(|record| matches!(
+                &record.event,
+                mock::RuntimeEvent::EthBridge(crate::Event::PublishToEthereum { function_name, params, tx_id })
+                if function_name == &b"publishRoot".to_vec() && tx_id == &transaction_id && params == &vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())]
+            )));
         });
     }
 
@@ -538,7 +575,6 @@ mod add_corroboration {
 
             assert_ok!(result);
 
-            // Verify that the Ethereum transaction hash was added to the transaction
             let tx = ActiveTransaction::<TestRuntime>::get().unwrap();
             assert_eq!(tx.data.eth_tx_hash, context.eth_tx_hash);
         });
@@ -572,8 +608,6 @@ mod add_corroboration {
             )
             .unwrap();
 
-
-            
             EthBridge::add_corroboration(
                 RuntimeOrigin::none(),
                 tx_id,
