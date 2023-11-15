@@ -554,12 +554,6 @@ pub mod pallet {
     }
 
     impl<T: Config> BridgePublisher for Pallet<T> {
-        fn get_eth_tx_lifetime_secs() -> u64 {
-            EthTxLifetimeSecs::<T>::get()
-        }
-        fn get_next_tx_id() -> u32 {
-            NextTxId::<T>::get()
-        }
         fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],

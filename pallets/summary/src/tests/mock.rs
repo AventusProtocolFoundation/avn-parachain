@@ -372,12 +372,6 @@ parameter_types! {
     pub const Offset: u64 = 0;
 }
 impl BridgePublisher for TestRuntime {
-    fn get_eth_tx_lifetime_secs() -> u64 {
-        0
-    }
-    fn get_next_tx_id() -> u32 {
-        0
-    }
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError> {
         if function_name == b"publishRoot" {
             return Ok(INITIAL_TRANSACTION_ID)
