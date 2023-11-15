@@ -85,7 +85,12 @@ pub fn local_testnet_config() -> ChainSpec {
         move || {
             testnet_genesis(
                 // initial collators.
-                vec![get_authority_keys_from_seed("Eve"), get_authority_keys_from_seed("Ferdie")],
+                vec![
+                    get_authority_keys_from_seed("Eve"),
+                    get_authority_keys_from_seed("Ferdie"),
+                    get_authority_keys_from_seed("Dave"),
+                    get_authority_keys_from_seed("Charlie"),
+                ],
                 vec![
                     (get_account_id_from_seed::<sr25519::Public>("Alice"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("Bob"), AVT_ENDOWMENT),
