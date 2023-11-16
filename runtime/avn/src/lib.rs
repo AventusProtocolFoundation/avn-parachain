@@ -614,8 +614,8 @@ impl pallet_validators_manager::Config for Runtime {
     type VotingPeriod = ValidatorManagerVotingPeriod;
     type AccountToBytesConvert = Avn;
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
-    type ReportValidatorOffence = Offences;
     type WeightInfo = pallet_validators_manager::default_weights::SubstrateWeight<Runtime>;
+    type BridgePublisher = EthBridge;
 }
 
 parameter_types! {

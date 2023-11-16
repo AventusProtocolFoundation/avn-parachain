@@ -5,7 +5,7 @@ use crate::{ethereum_transaction::*, system::RawOrigin, *};
 use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{
     offchain::testing::{OffchainState, PendingRequest},
-    H512,
+    H512, H160,
 };
 use sp_runtime::{testing::TestSignature, traits::BadOrigin};
 use std::convert::TryInto;
