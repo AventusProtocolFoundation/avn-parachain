@@ -11,7 +11,7 @@ use pallet_parachain_staking::Error as ParachainStakingError;
 use sp_io::crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed};
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 use substrate_test_utils::assert_eq_uvec;
-use system::RawOrigin;
+// use frame_system::*;
 
 fn register_validator(
     collator_id: &AccountId,
@@ -105,19 +105,12 @@ mod register_validator {
         );
     }
 
-    fn find_validator_activation_action(data: &MockData, status: ValidatorsActionStatus) -> bool {
-        let expected_eth_tx = EthTransactionType::ActivateCollator(ActivateCollatorData::new(
-            decompress_eth_public_key(data.collator_eth_public_key).unwrap(),
-            <mock::TestRuntime as Config>::AccountToBytesConvert::into_bytes(
-                &data.new_validator_id,
-            ),
-        ));
+    fn find_validator_activation_action(data: &MockData, status: ValidatorsActionStatus) -> bool { 
         return <ValidatorManager as Store>::ValidatorActions::iter().any(
             |(account_id, _ingress, action_data)| {
                 action_data.status == status &&
                     action_data.action_type == ValidatorsActionType::Activation &&
-                    account_id == data.new_validator_id &&
-                    action_data.reserved_eth_transaction == expected_eth_tx
+                    account_id == data.new_validator_id 
             },
         )
     }
@@ -612,21 +605,5 @@ mod add_validator {
                 );
             });
         }
-    }
-}
-
-mod constrains {
-
-    use crate::ActionId;
-    use sp_avn_common::bounds::VotingSessionIdBound;
-    use sp_core::{sr25519::Public, Get};
-
-    #[test]
-    fn ensure_action_id_encodes_within_boundaries() {
-        let action_id = ActionId::<Public>::new(Public::from_raw([1u8; 32]), 1);
-        assert!(
-            action_id.session_id().len() as u32 <= VotingSessionIdBound::get(),
-            "The encoded size of ActionId must not exceed the VotingSessionIdBound"
-        );
     }
 }

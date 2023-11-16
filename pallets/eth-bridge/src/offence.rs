@@ -6,7 +6,7 @@ use sp_staking::{
     offence::{Kind, Offence, ReportOffence},
     SessionIndex,
 };
-use sp_std::prelude::*;
+use sp_std::{vec, prelude::*};
 
 use crate::Event;
 
