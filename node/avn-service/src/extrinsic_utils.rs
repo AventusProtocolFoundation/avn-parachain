@@ -7,12 +7,27 @@ use jsonrpsee::{
 use codec::Encode;
 use log::{debug, error};
 use sc_client_api::{client::BlockBackend, UsageProvider};
+use sp_api::CallApiAt;
+use sp_state_machine::InspectState;
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    generic::{BlockId, SignedBlock},
+    generic::{BlockId, SignedBlock, Era},
     traits::{Block as BlockT, SaturatedConversion},
 };
 pub use std::sync::Arc;
+pub use avn_parachain_runtime::{
+    Phase,
+    EventRecord,
+    SystemEvent,
+    AvnProxyEvent,
+    TokenManager,
+    TokenManagerCall,
+    TokenManagerEvent,
+    EthEvent,
+    Hash,
+    FrameSystem,
+    ChargeTransactionPayment
+};
 
 /// A type that represents an abi encoded leaf which can be decoded by Ethereum
 pub type EncodedLeafData = Vec<u8>;
@@ -35,7 +50,7 @@ pub fn get_extrinsics_and_check_if_filter_target_exists<Block: BlockT, ClientT>(
     filter_data: LowerLeafFilter,
 ) -> Result<(Option<EncodedLeafData>, Vec<EncodedLeafData>)>
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> +  UsageProvider<Block> + Send + Sync + 'static,
 {
     let mut leaves: Vec<Vec<u8>> = vec![];
     let mut filtered_leaf: Option<EncodedLeafData> = None;
@@ -68,17 +83,69 @@ pub fn process_extrinsics_in_block_and_check_if_filter_target_exists<Block: Bloc
     filter_data: Option<&LowerLeafFilter>,
 ) -> Result<(Option<EncodedLeafData>, Vec<EncodedLeafData>)>
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> +  UsageProvider<Block> + Send + Sync + 'static,
 {
     let mut filtered_leaf: Option<EncodedLeafData> = None;
     let mut leaves: Vec<Vec<u8>> = vec![];
 
     let signed_block: SignedBlock<Block> = get_signed_block(client, block_number)?;
 
-    for (index, tx) in signed_block.block.extrinsics().iter().enumerate() {
-        let is_match = extrinsic_matches_filter(index as u32, block_number, filter_data);
-        let leaf = tx.encode();
+    let (extrinsic_events, system_events) = client.state_at(&BlockId::Number(block_number.into())).expect("reading state_at failed").inspect_state(|| {
+        let (extrinsic_events, system_events) : (Vec<_>, Vec<_>) = avn_parachain_runtime::System::events()
+            .into_iter()
+            .partition(|e| is_extrinsic_event(e));
 
+        error!("| Row: Block {:?} has {:?} extrinsic events and {:?} system events", block_number, extrinsic_events.len(), system_events.len());
+        (extrinsic_events, system_events)
+    });
+
+    for (index, tx) in signed_block.block.extrinsics().iter().enumerate() {
+        let tx_execution_failed = extrinsic_events
+            .iter()
+            .any(|e| event_belongs_to_extrinsic(e, index) && is_failed_event(&e));
+
+        if !tx_execution_failed {
+
+            leaves.push(tx.encode());
+        }
+    }
+
+    // Now add any transactions triggered by OnInitialize or OnFinalize
+    // These will only have events (without a transaction) so create a wrapper
+    for (index, event) in get_on_initialize_lower_events(&system_events).iter().enumerate() {
+        let function = match event {
+            avn_parachain_runtime::RuntimeEvent::TokenManager(TokenManagerEvent::AvtLowered {
+                sender, recipient, amount, t1_recipient, schedule_nonce
+             }) => {
+                let avt = TokenManager::avt_token_contract();
+                TokenManagerCall::execute_lower{
+                    from: sender.clone(),
+                    to_account_id: recipient.clone(),
+                    token_id: avt,
+                    amount: *amount,
+                    t1_recipient: *t1_recipient,
+                    schedule_nonce: *schedule_nonce,
+                }
+            },
+            avn_parachain_runtime::RuntimeEvent::TokenManager(TokenManagerEvent::TokenLowered {
+                sender, recipient, token_id, amount, t1_recipient, schedule_nonce
+            }) => {
+                TokenManagerCall::execute_lower{
+                    from: sender.clone(),
+                    to_account_id: recipient.clone(),
+                    token_id: *token_id,
+                    amount: *amount,
+                    t1_recipient: *t1_recipient,
+                    schedule_nonce: *schedule_nonce,
+                }
+            },
+            _ => continue
+        };
+
+        let is_match = extrinsic_matches_filter(index as u32, block_number, filter_data);
+        let lower_tx  = create_extrinsic(function, block_number as u64, index as u32);
+        let leaf = lower_tx.encode();
+        error!("Encoded OnInitialize lower tx. Block {:?}, Index {:?}, extrinsic: {:?}", block_number, index, leaf);
         leaves.push(leaf.clone());
         if is_match {
             filtered_leaf = Some(leaf);
@@ -88,12 +155,55 @@ where
     Ok((filtered_leaf, leaves))
 }
 
+fn event_belongs_to_extrinsic(event_record: &EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>, extrinsic_index: usize) -> bool {
+    if let Phase::ApplyExtrinsic(i) = event_record.phase {
+        i == extrinsic_index as u32
+    } else {
+        false
+    }
+}
+
+fn get_on_initialize_lower_events(system_events: &Vec<EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>>) -> Vec<&avn_parachain_runtime::RuntimeEvent> {
+    system_events.iter().filter_map(|e| {
+        if is_on_initialize_event(e) && is_lower_event(e) {
+            return Some(&e.event)
+        }
+
+        None
+    }).collect::<Vec<_>>()
+}
+
+fn is_extrinsic_event(event_record: &EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>) -> bool {
+    matches!(event_record.phase, Phase::ApplyExtrinsic(_))
+}
+
+fn is_on_initialize_event(event_record: &EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>) -> bool {
+    matches!(event_record.phase, Phase::Initialization)
+}
+
+fn is_lower_event(event_record: &EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>) -> bool {
+    matches!(
+        event_record.event,
+        avn_parachain_runtime::RuntimeEvent::TokenManager(TokenManagerEvent::AvtLowered { .. })
+            | avn_parachain_runtime::RuntimeEvent::TokenManager(TokenManagerEvent::TokenLowered { .. })
+    )
+}
+
+fn is_failed_event(event_record: &EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>) -> bool {
+    matches!(
+        event_record.event,
+        avn_parachain_runtime::RuntimeEvent::System(SystemEvent::ExtrinsicFailed{ .. })
+            | avn_parachain_runtime::RuntimeEvent::AvnProxy(AvnProxyEvent::InnerCallFailed { .. })
+            | avn_parachain_runtime::RuntimeEvent::EthereumEvents(EthEvent::EventRejected { .. })
+    )
+}
+
 fn get_signed_block<Block: BlockT, ClientT>(
     client: &Arc<ClientT>,
     block_number: u32,
 ) -> Result<SignedBlock<Block>>
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> +  UsageProvider<Block> + Send + Sync + 'static,
 {
     let maybe_block = client.block(&BlockId::Number(block_number.into())).map_err(|e| {
         const ERROR_MESSAGE: &str = "Error getting block data";
@@ -158,4 +268,40 @@ fn extrinsic_matches_filter(
     }
 
     return false
+}
+
+/// Create a transaction using the given function (call).
+///
+/// This function will only create a fake transaction object that be be encoded/decoded successfully.
+/// The data, such as sender address, signature, era is all fake values
+///
+/// Note: If the structure of a transaction, or the signed extra changes in the runtime, this function should also change.
+/// Used with care.
+pub fn create_extrinsic(
+	function: impl Into<avn_parachain_runtime::RuntimeCall>,
+    block_number: u64,
+    index: u32,
+) -> avn_parachain_runtime::UncheckedExtrinsic {
+	let function = function.into();
+	let period = 0u64;
+	let tip = 0;
+	let extra: avn_parachain_runtime::SignedExtra = (
+		FrameSystem::CheckNonZeroSender::<avn_parachain_runtime::Runtime>::new(),
+		FrameSystem::CheckSpecVersion::<avn_parachain_runtime::Runtime>::new(),
+		FrameSystem::CheckTxVersion::<avn_parachain_runtime::Runtime>::new(),
+		FrameSystem::CheckGenesis::<avn_parachain_runtime::Runtime>::new(),
+		FrameSystem::CheckEra::<avn_parachain_runtime::Runtime>::from(
+            Era::mortal(period, block_number)
+        ),
+		FrameSystem::CheckNonce::<avn_parachain_runtime::Runtime>::from(index),
+		FrameSystem::CheckWeight::<avn_parachain_runtime::Runtime>::new(),
+		ChargeTransactionPayment::<avn_parachain_runtime::Runtime>::from(tip),
+	);
+
+	avn_parachain_runtime::UncheckedExtrinsic::new_signed(
+		function,
+		sp_runtime::AccountId32::new([1u8; 32]).into(),
+		avn_parachain_runtime::Signature::Sr25519(sp_core::sr25519::Signature([1u8; 64])),
+		extra,
+	)
 }
