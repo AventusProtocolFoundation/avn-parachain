@@ -14,7 +14,7 @@ pub fn get_extrinsics<Block: BlockT, ClientT>(
     to_block_number: u32,
 ) -> Result<Vec<EncodedLeafData>, TideError>
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> +  UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     let mut abi_encoded_leaves: Vec<Vec<u8>> = vec![];
 
