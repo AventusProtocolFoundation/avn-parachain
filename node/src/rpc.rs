@@ -13,7 +13,7 @@ use runtime_common::opaque::Block;
 use sc_client_api::{client::BlockBackend, AuxStore, UsageProvider};
 pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::ProvideRuntimeApi;
+use sp_api::{CallApiAt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 
@@ -46,6 +46,7 @@ where
         + 'static,
     C: BlockBackend<Block>,
     C: UsageProvider<Block>,
+    C: CallApiAt<Block>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: BlockBuilder<Block>,

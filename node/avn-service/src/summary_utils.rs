@@ -1,5 +1,6 @@
 use crate::{extrinsic_utils, merkle_tree_utils, server_error, Config};
 use sc_client_api::{client::BlockBackend, UsageProvider};
+use sp_api::CallApiAt;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 pub use std::sync::Arc;
@@ -13,7 +14,7 @@ pub fn get_extrinsics<Block: BlockT, ClientT>(
     to_block_number: u32,
 ) -> Result<Vec<EncodedLeafData>, TideError>
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     let mut abi_encoded_leaves: Vec<Vec<u8>> = vec![];
 
