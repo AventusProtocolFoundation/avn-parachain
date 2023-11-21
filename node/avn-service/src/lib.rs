@@ -9,6 +9,7 @@ use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
 
 use sc_client_api::{client::BlockBackend, UsageProvider};
+use sp_api::CallApiAt;
 
 pub use std::{path::PathBuf, sync::Arc};
 
@@ -62,7 +63,10 @@ impl From<Error> for i32 {
 }
 
 #[derive(Clone)]
-pub struct Config<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> {
+pub struct Config<
+    Block: BlockT,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block>,
+> {
     pub keystore: Arc<LocalKeystore>,
     pub keystore_path: PathBuf,
     pub avn_port: Option<String>,
@@ -72,7 +76,9 @@ pub struct Config<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Bl
     pub _block: PhantomData<Block>,
 }
 
-impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<Block, ClientT> {
+impl<Block: BlockT, ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block>>
+    Config<Block, ClientT>
+{
     pub async fn initialise_web3(&self) -> Result<(), TideError> {
         if let Some(mut web3_data_mutex) = self.web3_data_mutex.try_lock() {
             if web3_data_mutex.web3.is_some() {
@@ -186,7 +192,7 @@ async fn send_main<Block: BlockT, ClientT>(
     mut req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     log::info!("ℹ️ avn-service send Request");
     let post_body = req.body_bytes().await?;
@@ -243,7 +249,7 @@ async fn root_hash_main<Block: BlockT, ClientT>(
     req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     log::info!("ℹ️ avn-service eth events");
     let tx_hash: H256 = H256::from_slice(&to_bytes32(
@@ -284,7 +290,7 @@ where
 
 pub async fn start<Block: BlockT, ClientT>(config: Config<Block, ClientT>)
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     if config.initialise_web3().await.is_err() {
         return
