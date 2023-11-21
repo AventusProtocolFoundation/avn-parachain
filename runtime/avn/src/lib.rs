@@ -37,9 +37,9 @@ use frame_support::{
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
 };
-use frame_system::{
+pub use frame_system::{
     limits::{BlockLength, BlockWeights},
-    EnsureRoot, EnsureSigned,
+    EnsureRoot, EnsureSigned, Event as SystemEvent, EventRecord, Phase,
 };
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -61,8 +61,9 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 
 use pallet_avn::sr25519::AuthorityId as AvnId;
 
-use pallet_avn_proxy::ProvableProxy;
+pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
+pub use pallet_ethereum_events::Event as EthEvent;
 use sp_avn_common::{InnerCallValidator, Proof};
 
 use pallet_parachain_staking;
@@ -104,8 +105,8 @@ where
     }
 }
 
-pub use node_primitives::{AccountId, Signature};
-use node_primitives::{Balance, BlockNumber, Hash, Index};
+pub use node_primitives::{AccountId, Hash, Signature};
+use node_primitives::{Balance, BlockNumber, Index};
 
 use runtime_common::{
     constants::{currency::*, time::*},
