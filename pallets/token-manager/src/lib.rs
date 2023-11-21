@@ -63,6 +63,7 @@ type CallOf<T> = <T as Config>::RuntimeCall;
 
 mod benchmarking;
 
+pub mod migration;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
@@ -273,11 +274,17 @@ pub mod pallet {
     #[pallet::getter(fn schedule_nonce)]
     pub type ScheduleNonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
+    /// The number of blocks lower transactions are delayed before executing
+    #[pallet::storage]
+    #[pallet::getter(fn lower_schedule_period)]
+    pub type LowerSchedulePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub lower_account_id: H256,
         pub avt_token_contract: H160,
+        pub lower_schedule_period: T::BlockNumber,
     }
 
     #[cfg(feature = "std")]
@@ -287,6 +294,7 @@ pub mod pallet {
                 _phantom: Default::default(),
                 lower_account_id: H256::zero(),
                 avt_token_contract: H160::zero(),
+                lower_schedule_period: T::BlockNumber::zero(),
             }
         }
     }
@@ -296,6 +304,7 @@ pub mod pallet {
         fn build(&self) {
             <LowerAccountId<T>>::put(self.lower_account_id);
             <AVTTokenContract<T>>::put(self.avt_token_contract);
+            <LowerSchedulePeriod<T>>::put(self.lower_schedule_period);
         }
     }
 
@@ -832,7 +841,7 @@ impl<T: Config> Pallet<T> {
 
             T::Scheduler::schedule_named(
                 schedule_name,
-                DispatchTime::After(10u32.into()), // replace when SYS-3722 is done
+                DispatchTime::After(Self::lower_schedule_period()),
                 None,
                 HARD_DEADLINE,
                 frame_system::RawOrigin::Root.into(),

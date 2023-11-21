@@ -366,6 +366,7 @@ impl ExtBuilder {
             _phantom: Default::default(),
             lower_account_id: H256::random(),
             avt_token_contract: AVT_TOKEN_CONTRACT,
+            lower_schedule_period: 10,
         }
         .assimilate_storage(&mut self.storage);
 
