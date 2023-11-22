@@ -359,7 +359,7 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Lower an amount of token from tier2 to tier1
+        /// Schedule a call to lower an amount of token from tier2 to tier1
         #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token())]
         #[pallet::call_index(2)]
         pub fn schedule_lower(
@@ -381,7 +381,7 @@ pub mod pallet {
             Ok(Some(<T as pallet::Config>::WeightInfo::lower_avt_token()).into())
         }
 
-        /// Lower an amount of token from tier2 to tier1 by a relayer
+        /// Schedule a call to lower an amount of token from tier2 to tier1 by a relayer
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token())]
         #[pallet::call_index(3)]
         pub fn signed_schedule_lower(
