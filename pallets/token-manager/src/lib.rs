@@ -832,8 +832,6 @@ impl<T: Config> Pallet<T> {
                 T::Preimages::bound(CallOf::<T>::from(*call)).map_err(|_| Error::<T>::InvalidLowerCall)?,
             )?;
 
-            <ScheduleNonce<T>>::mutate(|nonce| *nonce += 1);
-
             Self::deposit_event(Event::<T>::LowerRequested {
                 token_id,
                 from: from.clone(),
