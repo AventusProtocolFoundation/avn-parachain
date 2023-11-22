@@ -10,7 +10,7 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 
 pub fn set_lower_schedule_period<T: Config>() -> Weight {
-    let default_lower_schedule_period: T::BlockNumber = 3600u32.into(); // ~ 12 hrs
+    let default_lower_schedule_period: T::BlockNumber = 3275u32.into(); // ~ 12 hrs
     let mut consumed_weight: Weight = Weight::from_ref_time(0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
