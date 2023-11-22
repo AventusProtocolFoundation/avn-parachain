@@ -65,7 +65,7 @@ jobs:
 
       - name: Login to the AWS registry
         run: |
-          aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 189013141504.dkr.ecr.eu-west-2.amazonaws.com
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
       - name: Push the images to the registry
         run: |
