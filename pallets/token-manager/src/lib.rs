@@ -196,12 +196,14 @@ pub mod pallet {
             recipient: T::AccountId,
             amount: u128,
             t1_recipient: H160,
+            schedule_nonce: u64,
         },
         AvtLowered {
             sender: T::AccountId,
             recipient: T::AccountId,
             amount: u128,
             t1_recipient: H160,
+            schedule_nonce: u64,
         },
         AvtTransferredFromTreasury {
             recipient: T::AccountId,
@@ -218,6 +220,7 @@ pub mod pallet {
             amount: u128,
             t1_recipient: H160,
             sender_nonce: Option<u64>,
+            schedule_nonce: u64,
         },
     }
 
@@ -266,10 +269,16 @@ pub mod pallet {
     #[pallet::getter(fn avt_token_contract)]
     pub type AVTTokenContract<T: Config> = StorageValue<_, H160, ValueQuery>;
 
+    /// A nonce to uniquely identify each lower schedule request
+    #[pallet::storage]
+    #[pallet::getter(fn schedule_nonce)]
+    pub type ScheduleNonce<T: Config> = StorageValue<_, u64, ValueQuery>;
+
     /// The number of blocks lower transactions are delayed before executing
     #[pallet::storage]
     #[pallet::getter(fn lower_schedule_period)]
     pub type LowerSchedulePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
@@ -456,10 +465,11 @@ pub mod pallet {
             token_id: T::TokenId,
             amount: u128,
             t1_recipient: H160,
+            schedule_nonce: u64,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
 
-            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
+            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient, schedule_nonce)?;
 
             let final_weight = if token_id == Self::avt_token_contract().into() {
                 <T as pallet::Config>::WeightInfo::lower_avt_token()
@@ -538,6 +548,7 @@ impl<T: Config> Pallet<T> {
         to: &T::AccountId,
         amount: u128,
         t1_recipient: H160,
+        schedule_nonce: u64,
     ) -> DispatchResult {
         if token_id == Self::avt_token_contract().into() {
             let lower_amount = <BalanceOf<T> as TryFrom<u128>>::try_from(amount)
@@ -566,6 +577,7 @@ impl<T: Config> Pallet<T> {
                 recipient: to.clone(),
                 amount,
                 t1_recipient,
+                schedule_nonce,
             });
         } else {
             let lower_amount = <T::TokenBalance as TryFrom<u128>>::try_from(amount)
@@ -581,6 +593,7 @@ impl<T: Config> Pallet<T> {
                 recipient: to.clone(),
                 amount,
                 t1_recipient,
+                schedule_nonce,
             });
         }
 
@@ -812,7 +825,8 @@ impl<T: Config> Pallet<T> {
         amount: u128,
         t1_recipient: H160,
         sender_nonce: Option<u64>) -> DispatchResult {
-            let schedule_name = ("Lower", from, &token_id, &amount, &t1_recipient, sender_nonce.unwrap_or(0u64)).using_encoded(sp_io::hashing::blake2_256);
+            let schedule_nonce = Self::schedule_nonce();
+            let schedule_name = ("Lower", from, &token_id, &amount, &t1_recipient, sender_nonce.unwrap_or(0u64), &schedule_nonce).using_encoded(sp_io::hashing::blake2_256);
             let call = Box::new(
                 Call::execute_lower {
                     from: from.clone(),
@@ -820,6 +834,7 @@ impl<T: Config> Pallet<T> {
                     token_id,
                     amount,
                     t1_recipient,
+                    schedule_nonce
                 }
             );
 
@@ -832,12 +847,15 @@ impl<T: Config> Pallet<T> {
                 T::Preimages::bound(CallOf::<T>::from(*call)).map_err(|_| Error::<T>::InvalidLowerCall)?,
             )?;
 
+            <ScheduleNonce<T>>::mutate(|nonce| *nonce += 1);
+
             Self::deposit_event(Event::<T>::LowerRequested {
                 token_id,
                 from: from.clone(),
                 amount,
                 t1_recipient,
                 sender_nonce,
+                schedule_nonce,
             });
 
             Ok(())
