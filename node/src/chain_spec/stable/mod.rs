@@ -124,6 +124,7 @@ pub(crate) fn testnet_genesis(
             )),
             // Address of AVT contract
             avt_token_contract,
+            lower_schedule_period: 10,
         },
     }
 }
