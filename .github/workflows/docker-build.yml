@@ -16,7 +16,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  ECR_REPO: 189013141504.dkr.ecr.eu-west-2.amazonaws.com/avn/avn-node-parachain
+  ECR_REPO: public.ecr.aws/aventus/node-parachain
 
 jobs:
   docker-build:
