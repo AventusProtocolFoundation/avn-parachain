@@ -371,7 +371,7 @@ pub mod pallet {
         /// Schedule a call to lower an amount of token from tier2 to tier1
         #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token())]
         #[pallet::call_index(2)]
-        pub fn schedule_lower(
+        pub fn schedule_direct_lower(
             origin: OriginFor<T>,
             from: T::AccountId,
             token_id: T::TokenId,
@@ -393,7 +393,7 @@ pub mod pallet {
         /// Schedule a call to lower an amount of token from tier2 to tier1 by a relayer
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token())]
         #[pallet::call_index(3)]
-        pub fn signed_schedule_lower(
+        pub fn schedule_signed_lower(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
             from: T::AccountId,
@@ -724,7 +724,7 @@ impl<T: Config> Pallet<T> {
 
                 return Some((proof, encoded_data))
             },
-            Call::signed_lower { proof, from, token_id, amount, t1_recipient } => {
+            Call::schedule_signed_lower { proof, from, token_id, amount, t1_recipient } => {
                 let sender_nonce = Self::nonce(&proof.signer);
                 let encoded_data = Self::encode_signed_lower_params(
                     proof,
@@ -884,7 +884,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
 
         match call {
             Call::signed_transfer { proof, .. } => return Ok(proof.clone()),
-            Call::signed_lower { proof, .. } => return Ok(proof.clone()),
+            Call::schedule_signed_lower { proof, .. } => return Ok(proof.clone()),
             _ => return Err(Error::TransactionNotSupported),
         }
     }
