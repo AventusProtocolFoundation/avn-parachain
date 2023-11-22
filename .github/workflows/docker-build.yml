@@ -56,13 +56,6 @@ jobs:
         run: |
           docker tag $ECR_REPO:${GITHUB_SHA::7} $ECR_REPO:$DOCKER_TAG
 
-      - name: Configure AWS credentials from TestNet
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.TESTNET_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.TESTNET_AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-2
-
       - name: Login to the AWS registry
         run: |
           aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
