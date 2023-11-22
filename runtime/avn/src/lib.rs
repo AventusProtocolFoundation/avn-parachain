@@ -42,6 +42,7 @@ use frame_support::{
     PalletId, RuntimeDebug,
 };
 pub use frame_system::{
+    self as FrameSystem,
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureSigned, Event as SystemEvent, EventRecord, Phase,
 };
@@ -67,8 +68,10 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
+pub use pallet_ethereum_events::{Event as EthEvent};
+pub use pallet_transaction_payment::ChargeTransactionPayment;
+pub use pallet_token_manager::{Event as TokenManagerEvent, Call as TokenManagerCall};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
-pub use pallet_ethereum_events::Event as EthEvent;
 use sp_avn_common::{InnerCallValidator, Proof};
 
 use pallet_parachain_staking;
@@ -137,7 +140,7 @@ pub type SignedExtra = (
     frame_system::CheckEra<Runtime>,
     frame_system::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
-    pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+    ChargeTransactionPayment<Runtime>,
 );
 
 /// Unchecked extrinsic type as expected by this runtime.
