@@ -247,6 +247,7 @@ pub mod pallet {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub lower_account_id: H256,
         pub avt_token_contract: H160,
+        pub lower_schedule_period: T::BlockNumber,
     }
 
     #[cfg(feature = "std")]
