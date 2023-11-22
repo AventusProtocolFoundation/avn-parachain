@@ -105,12 +105,11 @@ where
             .any(|e| event_belongs_to_extrinsic(e, index) && is_failed_event(&e));
 
         if !tx_execution_failed {
-
             leaves.push(tx.encode());
         }
     }
 
-    // Now add any transactions triggered by OnInitialize or OnFinalize
+    // Now add any transactions triggered by OnInitialize
     // These will only have events (without a transaction) so create a wrapper
     for (index, event) in get_on_initialize_lower_events(&system_events).iter().enumerate() {
         let function = match event {
@@ -156,11 +155,7 @@ where
 }
 
 fn event_belongs_to_extrinsic(event_record: &EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>, extrinsic_index: usize) -> bool {
-    if let Phase::ApplyExtrinsic(i) = event_record.phase {
-        i == extrinsic_index as u32
-    } else {
-        false
-    }
+    matches!(event_record.phase, Phase::ApplyExtrinsic(i) if i == extrinsic_index as u32)
 }
 
 fn get_on_initialize_lower_events(system_events: &Vec<EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>>) -> Vec<&avn_parachain_runtime::RuntimeEvent> {
