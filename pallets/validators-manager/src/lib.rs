@@ -55,7 +55,8 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
-    pub struct Pallet<T>(_);
+    #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
+    pub struct Pallet<T>(PhantomData<T>);
 
     #[pallet::config]
     pub trait Config:
@@ -189,6 +190,14 @@ pub mod pallet {
                 assert_ok!(<ValidatorAccountIds<T>>::try_append(validator_account_id));
                 <EthereumPublicKeys<T>>::insert(eth_public_key, validator_account_id);
             }
+
+            // Set storage version
+            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
+            log::debug!(
+                "Validators manager storage chain/current storage version: {:?} / {:?}",
+                Pallet::<T>::on_chain_storage_version(),
+                Pallet::<T>::current_storage_version(),
+            );
         }
     }
 
@@ -378,6 +387,8 @@ mod benchmarking;
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
+
+pub mod migration;
 
 // used in benchmarks and weights calculation only
 const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
