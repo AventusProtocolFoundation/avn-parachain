@@ -29,7 +29,7 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for AvnProxyConfig {
                 token_id: _,
                 amount: _,
             }) => return Some(proof.clone()),
-            RuntimeCall::TokenManager(pallet_token_manager::pallet::Call::signed_lower {
+            RuntimeCall::TokenManager(pallet_token_manager::pallet::Call::schedule_signed_lower {
                 proof,
                 from: _,
                 token_id: _,
