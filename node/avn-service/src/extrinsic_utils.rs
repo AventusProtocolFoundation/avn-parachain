@@ -286,11 +286,11 @@ fn extrinsic_matches_filter(
 
 /// Create a transaction using the given function (call).
 ///
-/// This function will only create a fake transaction object that be be encoded/decoded
-/// successfully. The data, such as sender address, signature, era is all fake values
+/// This function will only create a fake transaction object that can be be encoded/decoded
+/// successfully. The data, such as Sender address, Signature and Era is all fake values
 ///
-/// Note: If the structure of a transaction, or the signed extra changes in the runtime, this
-/// function should also change. Used with care.
+/// Note: If the structure of a transaction, or the signed-extra type changes in the runtime, this
+/// function should also change. Use with care.
 pub fn create_extrinsic(
     function: impl Into<avn_parachain_runtime::RuntimeCall>,
     block_number: u64,
