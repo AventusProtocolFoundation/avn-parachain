@@ -81,7 +81,7 @@ where
 
     let signed_block: SignedBlock<Block> = get_signed_block(client, block_number)?;
 
-    let (extrinsic_events, system_events) = client
+    let (extrinsic_events, system_events): (Vec<_>, Vec<_>) = client
         .state_at(&BlockId::Number(block_number.into()))
         .expect("reading state_at failed")
         .inspect_state(|| {
