@@ -459,11 +459,10 @@ pub mod pallet {
             token_id: T::TokenId,
             amount: u128,
             t1_recipient: H160,
-            schedule_nonce: u64,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
 
-            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient, schedule_nonce)?;
+            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
 
             let final_weight = if token_id == Self::avt_token_contract().into() {
                 <T as pallet::Config>::WeightInfo::lower_avt_token()
