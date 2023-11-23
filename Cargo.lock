@@ -6842,7 +6842,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-eth-bridge"
-version = "3.4.3"
+version = "3.5.0"
 dependencies = [
  "ethabi 13.0.0",
  "frame-benchmarking",

@@ -303,7 +303,7 @@ async fn view_main<Block: BlockT, ClientT>(
     mut req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     log::info!("⛓️  avn-service: view Request");
     let post_body = req.body_bytes().await?;
@@ -334,7 +334,7 @@ async fn tx_query_main<Block: BlockT, ClientT>(
     mut req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     log::info!("⛓️  avn-service: query Request.");
     let post_body = req.body_bytes().await?;
