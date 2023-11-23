@@ -20,7 +20,7 @@ env:
 
 jobs:
   docker-build:
-    runs-on: ubuntu-20.04
+    runs-on: avn-runner
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
