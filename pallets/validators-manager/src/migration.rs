@@ -2,13 +2,13 @@ use frame_support::{
     dispatch::GetStorageVersion,
     pallet_prelude::*,
     traits::{Get, OnRuntimeUpgrade},
-    weights::Weight, storage_alias,
+    weights::Weight, storage_alias, storage::unhashed,
 };
 use sp_avn_common::IngressCounter;
 use pallet_avn::vote::VotingSessionData;
+use sp_std::vec;
 
 use crate::{Config, Pallet, ActionId};
-
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -46,8 +46,6 @@ impl<T: Config> OnRuntimeUpgrade for RemovePalletVoting<T> {
             return remove_storage_items::<T>()
         }
 
-        
-
         Weight::zero()
     }
 
@@ -69,9 +67,16 @@ pub fn remove_storage_items<T: Config>() -> Weight {
         consumed_weight += weight;
     };
 
-    storage_with_voting::PendingApprovals::<T>::drain();
+    let approvals_prefix = storage::storage_prefix(b"ValidatorsManager", b"PendingApprovals");
+    let mut approvals_key = vec![0u8; 32];
+    approvals_key[0..32].copy_from_slice(&approvals_prefix);
+    let _ = unhashed::clear_prefix(&approvals_key[0..32], None, None);
     add_weight(0,1,Weight::from_ref_time(0));
-    storage_with_voting::VotesRepository::<T>::drain(); 
+
+    let votes_prefix = storage::storage_prefix(b"ValidatorsManager", b"VotesRepository");
+    let mut votes_key = vec![0u8; 32];
+    votes_key[0..32].copy_from_slice(&votes_prefix);
+    let _ = unhashed::clear_prefix(&votes_key[0..32], None, None);
     add_weight(0,1,Weight::from_ref_time(0));
 
     STORAGE_VERSION.put::<Pallet<T>>();

@@ -69,7 +69,7 @@ std = [
 	"pallet-avn-proxy/std",
 	"pallet-parachain-staking/std",
 	"libsecp256k1?/std",
-	"log/std",
+	# "log/std",
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
