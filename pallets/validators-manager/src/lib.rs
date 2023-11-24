@@ -43,6 +43,7 @@ pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, Positiv
 use pallet_avn::BridgePublisher;
 
 pub use pallet::*;
+use sp_application_crypto::RuntimeAppPublic;
 
 #[frame_support::pallet]
 pub mod pallet {
