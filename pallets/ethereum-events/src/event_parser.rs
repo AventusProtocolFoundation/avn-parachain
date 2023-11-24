@@ -1,7 +1,10 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
+use crate::EthQueryResponse;
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String};
+use codec::Decode;
+use frame_support::log;
 use hex::FromHex;
 use simple_json2::{
     self as json,
@@ -11,9 +14,6 @@ use simple_json2::{
 };
 use sp_core::{H160, H256};
 use sp_std::prelude::*;
-use frame_support::log;
-use codec::Decode;
-use crate::EthQueryResponse;
 // TODO [TYPE: refactoring][PRI: unknown][NOTE: clarify]: extend the parser to work with named
 // properties
 const INDEX_EVENT_SIGNATURE_TOPIC: usize = 0;
@@ -37,26 +37,46 @@ pub fn parse_response_to_json(response_body: Vec<u8>) -> Result<(JsonObject, u64
         log::error!("❌ Error decoding eth query response {:?} - {:?}", body, e);
     })?;
 
-    let response_data_bytes: Vec<u8> = Decode::decode(&mut &eth_query_response.data[..]).map_err(|e| {
-        log::error!("❌ Invalid response data from ethereum: {:?} - {:?}", eth_query_response.data, e);
-    })?;
+    let response_data_bytes: Vec<u8> =
+        Decode::decode(&mut &eth_query_response.data[..]).map_err(|e| {
+            log::error!(
+                "❌ Invalid response data from ethereum: {:?} - {:?}",
+                eth_query_response.data,
+                e
+            );
+        })?;
 
     let response_data_string = &core::str::from_utf8(&response_data_bytes).map_err(|e| {
-        log::error!("❌ Invalid (non utf8) response data bytes {:?} - {:?}", response_data_bytes, e);
+        log::error!(
+            "❌ Invalid (non utf8) response data bytes {:?} - {:?}",
+            response_data_bytes,
+            e
+        );
     })?;
 
     let response_data_json = json::parse_json(&response_data_string).map_err(|e| {
-        log::error!("❌ Response from ethereum is not a valid json {:?} - {:?}", response_data_string, e);
+        log::error!(
+            "❌ Response from ethereum is not a valid json {:?} - {:?}",
+            response_data_string,
+            e
+        );
     })?;
 
     let response_json_object = response_data_json.get_object().map_err(|e| {
-        log::error!("❌ Error converting json {:?} into a json object - {:?}", response_data_json, e);
+        log::error!(
+            "❌ Error converting json {:?} into a json object - {:?}",
+            response_data_json,
+            e
+        );
     })?;
 
     return Ok((response_json_object.clone(), eth_query_response.num_confirmations))
 }
 
-pub fn find_event(response: &JsonObject, topic: H256) -> Option<(Option<Vec<u8>>, Vec<Vec<u8>>, H160)> {
+pub fn find_event(
+    response: &JsonObject,
+    topic: H256,
+) -> Option<(Option<Vec<u8>>, Vec<Vec<u8>>, H160)> {
     let empty_events = &vec![];
     let events = get_events(response).unwrap_or(empty_events);
     let event = events

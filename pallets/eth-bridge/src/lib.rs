@@ -156,7 +156,9 @@ pub mod pallet {
             function_name: Vec<u8>,
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
-        EthTxIdUpdated { eth_tx_id: u32 },
+        EthTxIdUpdated {
+            eth_tx_id: u32,
+        },
         EthTxLifetimeUpdated {
             eth_tx_lifetime_secs: u64,
         },

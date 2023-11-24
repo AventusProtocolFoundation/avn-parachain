@@ -7,18 +7,18 @@
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::{
-    BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32, Decode, Encode, Growth,
-    GrowthInfo, GrowthPeriodIndex, MaxEncodedLen, Pallet,
-    RewardPoint, RuntimeDebug, TypeInfo,
-    IngressCounter, avn::vote::VotingSessionData, TransactionId
+    avn::vote::VotingSessionData, BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32,
+    Decode, Encode, Growth, GrowthInfo, GrowthPeriodIndex, IngressCounter, MaxEncodedLen, Pallet,
+    RewardPoint, RuntimeDebug, TransactionId, TypeInfo,
 };
 
 use frame_support::{
     dispatch::GetStorageVersion,
     pallet_prelude::*,
-    traits::{Get, OnRuntimeUpgrade},
-    weights::Weight, storage_alias,
     storage::unhashed,
+    storage_alias,
+    traits::{Get, OnRuntimeUpgrade},
+    weights::Weight,
 };
 use sp_std::prelude::*;
 
@@ -38,9 +38,11 @@ pub struct OldGrowthInfo<AccountId, Balance> {
 
 /// The original data layout of the storage with voting logic included
 mod storage_with_voting {
-	use super::*;
+    use super::*;
 
-    #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+    #[derive(
+        Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen,
+    )]
     pub struct GrowthId {
         pub period: GrowthPeriodIndex,
         pub ingress_counter: IngressCounter,
@@ -51,15 +53,19 @@ mod storage_with_voting {
         Pallet<T>,
         Blake2_128Concat,
         GrowthId,
-        VotingSessionData<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber>,
+        VotingSessionData<
+            <T as frame_system::Config>::AccountId,
+            <T as frame_system::Config>::BlockNumber,
+        >,
         ValueQuery,
-        >;
+    >;
 
     #[storage_alias]
     pub type TotalIngresses<T: Config> = StorageValue<Pallet<T>, IngressCounter, ValueQuery>;
 
     #[storage_alias]
-    pub type VotingPeriod<T: Config> = StorageValue<Pallet<T>, <T as frame_system::Config>::BlockNumber, ValueQuery>;
+    pub type VotingPeriod<T: Config> =
+        StorageValue<Pallet<T>, <T as frame_system::Config>::BlockNumber, ValueQuery>;
 }
 
 pub fn enable_eth_bridge_wire_up<T: Config>() -> Weight {

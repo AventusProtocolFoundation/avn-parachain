@@ -111,8 +111,12 @@ pub mod pallet {
     #[cfg(not(feature = "std"))]
     extern crate alloc;
     #[cfg(not(feature = "std"))]
-    use alloc::{format, string::{String, ToString}};
+    use alloc::{
+        format,
+        string::{String, ToString},
+    };
 
+    use crate::set::BoundedOrderedSet;
     pub use crate::{
         calls::*,
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
@@ -121,7 +125,6 @@ pub mod pallet {
         types::*,
         WeightInfo, AVN, MAX_OFFENDERS,
     };
-    use crate::{set::BoundedOrderedSet};
     pub use frame_support::{
         dispatch::{GetDispatchInfo, PostDispatchInfo},
         pallet_prelude::*,
@@ -136,15 +139,13 @@ pub mod pallet {
         pallet_prelude::*,
     };
     pub use pallet_avn::{
-        self as avn,
-        AccountToBytesConverter, BridgePublisher, CollatorPayoutDustHandler, Error as avn_error,
-        OnGrowthLiftedHandler, ProcessedEventsChecker, OnBridgePublisherResult,
+        self as avn, AccountToBytesConverter, BridgePublisher, CollatorPayoutDustHandler,
+        Error as avn_error, OnBridgePublisherResult, OnGrowthLiftedHandler, ProcessedEventsChecker,
     };
 
     pub use sp_avn_common::{
-        bounds::VotingSessionIdBound,
-        event_types::Validator,
-        safe_add_block_numbers, verify_signature, IngressCounter, Proof,
+        bounds::VotingSessionIdBound, event_types::Validator, safe_add_block_numbers,
+        verify_signature, IngressCounter, Proof,
     };
     pub use sp_runtime::{
         traits::{
@@ -674,13 +675,8 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn published_growth)]
     /// Map to keep track of growth we have published on Ethereum
-    pub type PublishedGrowth<T: Config> = StorageMap<
-        _,
-        Twox64Concat,
-        EthereumTransactionId,
-        GrowthPeriodIndex,
-        ValueQuery,
-    >;
+    pub type PublishedGrowth<T: Config> =
+        StorageMap<_, Twox64Concat, EthereumTransactionId, GrowthPeriodIndex, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -2442,13 +2438,16 @@ pub mod pallet {
             .map_err(|_| DispatchError::Other(Error::<T>::ErrorConvertingBalance.into()))?;
 
             let function_name: &[u8] = b"triggerGrowth";
-            let params =
-                vec![
-                    (b"uint128".to_vec(), format!("{}", rewards_in_period_128).as_bytes().to_vec()),
-                    (b"uint128".to_vec(), format!("{}", average_staked_in_period_128).as_bytes().to_vec()),
-                    (b"uint32".to_vec(), format!("{}", growth_period).as_bytes().to_vec())
-                ];
-            let tx_id = T::BridgePublisher::publish(function_name, &params).map_err(|e| DispatchError::Other(e.into()))?;
+            let params = vec![
+                (b"uint128".to_vec(), format!("{}", rewards_in_period_128).as_bytes().to_vec()),
+                (
+                    b"uint128".to_vec(),
+                    format!("{}", average_staked_in_period_128).as_bytes().to_vec(),
+                ),
+                (b"uint32".to_vec(), format!("{}", growth_period).as_bytes().to_vec()),
+            ];
+            let tx_id = T::BridgePublisher::publish(function_name, &params)
+                .map_err(|e| DispatchError::Other(e.into()))?;
 
             <LastTriggeredGrowthPeriod<T>>::put(growth_period);
             <PublishedGrowth<T>>::insert(tx_id, growth_period);

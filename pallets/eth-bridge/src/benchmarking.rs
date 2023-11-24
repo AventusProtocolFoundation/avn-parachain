@@ -5,16 +5,15 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::*;
-use crate::{Pallet};
+use crate::{Pallet, *};
 
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
-use sp_core::H256;
-use sp_runtime::WeakBoundedVec;
 use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
+use sp_core::H256;
+use sp_runtime::WeakBoundedVec;
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
     let mnemonic: &str =
@@ -24,7 +23,8 @@ fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::
 
     for i in 0..number_of_validator_account_ids {
         let account = account("dummy_validator", i, i);
-        let key = <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
+        let key =
+            <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
         set_session_key::<T>(&account, current_authors.len() as u32 + i);
         new_authors.push(crate::Author::<T>::new(account, key));
     }
@@ -42,7 +42,7 @@ fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::
 
 fn add_collator_to_avn<T: Config>(
     collator: &T::AccountId,
-    candidate_count: u32
+    candidate_count: u32,
 ) -> Result<Validator<T::AuthorityId, T::AccountId>, &'static str> {
     let key = <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
     let validator: Validator<T::AuthorityId, T::AccountId> =
@@ -121,13 +121,10 @@ fn setup_active_tx<T: Config>(
         BoundedVec::<u8, crate::FunctionLimit>::try_from(b"sampleFunction".to_vec())
             .expect("Failed to create BoundedVec");
 
-    let request_params = vec![
-        (
-            b"bytes32".to_vec(),
-            hex::decode("30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0")
-                .unwrap(),
-        )
-    ];
+    let request_params = vec![(
+        b"bytes32".to_vec(),
+        hex::decode("30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0").unwrap(),
+    )];
 
     let mut params = request_params.clone();
     params.push((b"uint256".to_vec(), expiry.to_string().into_bytes()));

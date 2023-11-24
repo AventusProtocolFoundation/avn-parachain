@@ -18,30 +18,28 @@ use frame_support::{
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
-    offchain::{
-        storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
-    },
+    offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
     scale_info::TypeInfo,
     traits::{CheckedAdd, Dispatchable, Hash, IdentifyAccount, Verify, Zero},
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    RuntimeDebug, DispatchError
+    DispatchError, RuntimeDebug,
 };
 use sp_std::{cmp, prelude::*};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
-    EthQueryResponse, EthQueryRequest, EthTransaction, EthQueryResponseType,
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, Challenge, ChallengeReason, CheckResult,
         EthEventCheckResult, EthEventId, EventData, LiftedData, NftCancelListingData,
         NftEndBatchListingData, NftMintData, NftTransferToData, ProcessedEventHandler, ValidEvents,
         Validator,
     },
-    verify_signature, IngressCounter, InnerCallValidator, Proof,
+    verify_signature, EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
+    IngressCounter, InnerCallValidator, Proof,
 };
 
 use pallet_session::historical::IdentificationTuple;
@@ -54,9 +52,7 @@ use crate::offence::{
 };
 
 pub mod event_parser;
-use crate::event_parser::{
-    find_event, get_status, parse_response_to_json
-};
+use crate::event_parser::{find_event, get_status, parse_response_to_json};
 use sp_runtime::BoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;
@@ -1369,8 +1365,9 @@ impl<T: Config> Pallet<T> {
             )
         }
 
-        let (response_data_object, num_confirmations) = parse_response_to_json(response_body.expect("Checked for error."))
-            .unwrap_or((vec![], 0));
+        let (response_data_object, num_confirmations) =
+            parse_response_to_json(response_body.expect("Checked for error."))
+                .unwrap_or((vec![], 0));
 
         if response_data_object.len() == 0 {
             log::error!("❌ Response data json is empty");
@@ -1432,7 +1429,7 @@ impl<T: Config> Pallet<T> {
     fn fetch_event(event_id: &EthEventId) -> Result<Vec<u8>, DispatchError> {
         let calldata = EthQueryRequest {
             tx_hash: event_id.transaction_hash,
-            response_type: EthQueryResponseType::TransactionReceipt
+            response_type: EthQueryResponseType::TransactionReceipt,
         };
         let sender = [0; 32];
         let contract_address = AVN::<T>::get_bridge_contract_address();

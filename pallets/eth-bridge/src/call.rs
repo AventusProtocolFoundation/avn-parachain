@@ -16,10 +16,17 @@ pub fn add_eth_tx_hash<T: Config>(tx_id: u32, eth_tx_hash: H256, author: Author<
     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 }
 
-pub fn add_corroboration<T: Config>(tx_id: u32, tx_succeeded: bool, tx_hash_is_valid: bool, author: Author<T>) {
-    let proof = add_corroboration_proof::<T>(tx_id, tx_succeeded, tx_hash_is_valid, &author.account_id);
+pub fn add_corroboration<T: Config>(
+    tx_id: u32,
+    tx_succeeded: bool,
+    tx_hash_is_valid: bool,
+    author: Author<T>,
+) {
+    let proof =
+        add_corroboration_proof::<T>(tx_id, tx_succeeded, tx_hash_is_valid, &author.account_id);
     let signature = author.key.sign(&proof).expect("Error signing proof");
-    let call = Call::<T>::add_corroboration { tx_id, tx_succeeded, tx_hash_is_valid, author, signature };
+    let call =
+        Call::<T>::add_corroboration { tx_id, tx_succeeded, tx_hash_is_valid, author, signature };
     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 }
 

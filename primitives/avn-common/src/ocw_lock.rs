@@ -1,10 +1,10 @@
-use codec::{Codec};
+use codec::Codec;
 use sp_runtime::{
     offchain::{
         storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
         storage_lock::{BlockAndTime, StorageLock},
     },
-    traits::{AtLeast32Bit, Member, BlockNumberProvider},
+    traits::{AtLeast32Bit, BlockNumberProvider, Member},
 };
 use sp_std::vec::Vec;
 
@@ -42,9 +42,10 @@ pub fn record_block_run<BlockNumber: Member + Codec + AtLeast32Bit>(
     }
 }
 
-pub fn get_offchain_worker_locker<Provider: BlockNumberProvider>(lock_name: &[u8], expiry_in_blocks: u32)
-    -> StorageLock<'_, BlockAndTime<Provider>>
-{
+pub fn get_offchain_worker_locker<Provider: BlockNumberProvider>(
+    lock_name: &[u8],
+    expiry_in_blocks: u32,
+) -> StorageLock<'_, BlockAndTime<Provider>> {
     StorageLock::<BlockAndTime<Provider>>::with_block_deadline(lock_name, expiry_in_blocks)
 }
 
@@ -53,10 +54,8 @@ pub fn is_locked<Provider: BlockNumberProvider>(lock_name: &[u8]) -> bool {
     match lock.try_lock() {
         Ok(guard) => {
             drop(guard);
-            return false;
+            return false
         },
-        Err(_) => {
-           return true;
-        },
+        Err(_) => return true,
     };
 }

@@ -31,7 +31,7 @@ use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{sr25519, Pair, H256, ConstU64};
+use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
@@ -58,7 +58,7 @@ pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 pub const NON_AVT_TOKEN_ID: H160 = H160(hex!("1414141414141414141414141414141414141414"));
 pub const NON_AVT_TOKEN_ID_2: H160 = H160(hex!("2020202020202020202020202020202020202020"));
 
-const TOPIC_RECEIVER_INDEX: usize = 3;
+const TOPIC_RECEIVER_INDEX: usize = 2;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -555,19 +555,17 @@ impl MockData {
     fn get_lifted_avt_token_topics(use_receiver_with_existing_amount: bool) -> Vec<Vec<u8>> {
         let topic_event_signature = Self::get_topic_32_bytes(10);
         let topic_contract = Self::get_contract_topic(true);
-        let topic_sender = Self::get_topic_20_bytes(30);
         let topic_receiver = Self::get_receiver_topic(use_receiver_with_existing_amount);
 
-        return vec![topic_event_signature, topic_contract, topic_sender, topic_receiver]
+        return vec![topic_event_signature, topic_contract, topic_receiver]
     }
 
     fn get_lifted_non_avt_token_topics(use_receiver_with_existing_amount: bool) -> Vec<Vec<u8>> {
         let topic_event_signature = Self::get_topic_32_bytes(10);
         let topic_contract = Self::get_contract_topic(false);
-        let topic_sender = Self::get_topic_20_bytes(30);
         let topic_receiver = Self::get_receiver_topic(use_receiver_with_existing_amount);
 
-        return vec![topic_event_signature, topic_contract, topic_sender, topic_receiver]
+        return vec![topic_event_signature, topic_contract, topic_receiver]
     }
 
     fn get_contract_topic(use_avt_token_contract: bool) -> Vec<u8> {

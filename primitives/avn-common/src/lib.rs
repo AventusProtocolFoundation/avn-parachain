@@ -165,7 +165,7 @@ pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub struct EthQueryRequest {
     pub tx_hash: H256,
-    pub response_type: EthQueryResponseType
+    pub response_type: EthQueryResponseType,
 }
 
 impl EthQueryRequest {
@@ -177,11 +177,11 @@ impl EthQueryRequest {
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum EthQueryResponseType {
     CallData,
-    TransactionReceipt
+    TransactionReceipt,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub struct EthQueryResponse {
     pub data: Vec<u8>,
-    pub num_confirmations: u64
+    pub num_confirmations: u64,
 }

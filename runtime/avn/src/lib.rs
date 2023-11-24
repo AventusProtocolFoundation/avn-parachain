@@ -158,7 +158,7 @@ pub type Executive = frame_executive::Executive<
     (
         pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
         SeedAvnBridgeTransactionMigration,
-        pallet_validators_manager::migration::RemovePalletVoting<Runtime>
+        pallet_validators_manager::migration::RemovePalletVoting<Runtime>,
     ),
 >;
 

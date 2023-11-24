@@ -1,7 +1,4 @@
-use crate::{
-    mock::*,
-    event_parser::*,
-};
+use crate::{event_parser::*, mock::*};
 use hex_literal::hex;
 use simple_json2::json::{JsonValue, NumberValue};
 use sp_core::hash::H256;
@@ -275,29 +272,36 @@ fn get_status_should_return_error_when_status_field_is_invalid() {
 #[test]
 pub fn find_event_should_return_expected_result_event_when_event_values_are_in_lowercase() {
     let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
-        ext.execute_with(|| {
-            let mock_events_response = MockEthEventsResponse::setup();
-            let valid_topic_1 = mock_events_response.valid_topic_1;
-            let (_, _, contract_address) = find_event(&mock_events_response.valid_result_field, valid_topic_1).unwrap();
+    ext.execute_with(|| {
+        let mock_events_response = MockEthEventsResponse::setup();
+        let valid_topic_1 = mock_events_response.valid_topic_1;
+        let (_, _, contract_address) =
+            find_event(&mock_events_response.valid_result_field, valid_topic_1).unwrap();
 
-            let mock_event = mock_events_response.valid_event_1.clone();
-            assert_eq!(hex::encode(contract_address), mock_event[INDEX_EVENT_ADDRESS].1.get_string().unwrap().trim_start_matches("0x"));
-        });
+        let mock_event = mock_events_response.valid_event_1.clone();
+        assert_eq!(
+            hex::encode(contract_address),
+            mock_event[INDEX_EVENT_ADDRESS].1.get_string().unwrap().trim_start_matches("0x")
+        );
+    });
 }
 
 #[test]
 pub fn find_event_should_return_expected_result_event_when_event_values_are_in_uppercase() {
     let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
-        ext.execute_with(|| {
-            let mock_events_response = MockEthEventsResponse::setup();
-            let valid_topic_2 = mock_events_response.valid_topic_2;
-            let (_, _, contract_address) = find_event(&mock_events_response.valid_result_field, valid_topic_2).unwrap();
+    ext.execute_with(|| {
+        let mock_events_response = MockEthEventsResponse::setup();
+        let valid_topic_2 = mock_events_response.valid_topic_2;
+        let (_, _, contract_address) =
+            find_event(&mock_events_response.valid_result_field, valid_topic_2).unwrap();
 
-            let mock_event = mock_events_response.valid_event_2.clone();
-            assert_eq!(hex::encode(contract_address).to_uppercase(), mock_event[INDEX_EVENT_ADDRESS].1.get_string().unwrap().trim_start_matches("0X"));
-        });
+        let mock_event = mock_events_response.valid_event_2.clone();
+        assert_eq!(
+            hex::encode(contract_address).to_uppercase(),
+            mock_event[INDEX_EVENT_ADDRESS].1.get_string().unwrap().trim_start_matches("0X")
+        );
+    });
 }
-
 
 #[test]
 pub fn find_event_should_return_expected_result_event_when_event_topics_without_0x_prefix() {
@@ -327,11 +331,19 @@ pub fn find_event_should_return_expected_result_event_when_event_topics_without_
 
     mock_events_response.valid_result_field[INDEX_RESULT_LOGS].1 = JsonValue::Array(valid_events);
     let valid_event_1 = mock_events_response.valid_event_1.clone();
-    let (_, _, contract_address) = find_event(&mock_events_response.valid_result_field, mock_events_response.valid_topic_1).unwrap();
+    let (_, _, contract_address) =
+        find_event(&mock_events_response.valid_result_field, mock_events_response.valid_topic_1)
+            .unwrap();
 
-    assert_eq!(hex::encode(contract_address), valid_event_1[INDEX_EVENT_ADDRESS].1.get_string().unwrap().trim_start_matches("0x"));
+    assert_eq!(
+        hex::encode(contract_address),
+        valid_event_1[INDEX_EVENT_ADDRESS]
+            .1
+            .get_string()
+            .unwrap()
+            .trim_start_matches("0x")
+    );
 }
-
 
 #[test]
 pub fn find_event_should_return_none_when_topic_not_match_in_events() {
@@ -340,7 +352,6 @@ pub fn find_event_should_return_none_when_topic_not_match_in_events() {
 
     assert!(find_event(&mock_events_response.valid_result_field, zero_topic).is_none());
 }
-
 
 #[test]
 pub fn find_event_should_return_none_when_events_are_empty() {
@@ -607,7 +618,10 @@ pub fn get_value_of_works() {
         &valid_result_field[INDEX_RESULT_LOGS].1
     );
 
-    assert_eq!(get_value_of(String::from("data"), &mock_event).unwrap(), &mock_event[INDEX_EVENT_DATA].1);
+    assert_eq!(
+        get_value_of(String::from("data"), &mock_event).unwrap(),
+        &mock_event[INDEX_EVENT_DATA].1
+    );
 
     assert_eq!(
         get_value_of(String::from("topics"), &mock_event).unwrap(),

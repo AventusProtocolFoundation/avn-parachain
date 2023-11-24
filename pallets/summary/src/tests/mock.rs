@@ -433,8 +433,13 @@ impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
     }
 }
 
-impl ReportOffence<AccountId, IdentificationTuple, CorroborationOffence<IdentificationTuple>> for OffenceHandler {
-    fn report_offence(reporters: Vec<AccountId>, offence: CorroborationOffence<IdentificationTuple>) -> Result<(), OffenceError> {
+impl ReportOffence<AccountId, IdentificationTuple, CorroborationOffence<IdentificationTuple>>
+    for OffenceHandler
+{
+    fn report_offence(
+        reporters: Vec<AccountId>,
+        offence: CorroborationOffence<IdentificationTuple>,
+    ) -> Result<(), OffenceError> {
         ETH_BRIDGE_OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
         Ok(())
     }

@@ -121,10 +121,7 @@ pub fn challenge_slot_if_required<T: Config>(
     );
 
     if can_challenge::<T>(&challenge, this_validator, offchain_worker_block_number) {
-        let _ = send_challenge_transaction::<T>(
-            &challenge,
-            this_validator,
-        );
+        let _ = send_challenge_transaction::<T>(&challenge, this_validator);
     }
 }
 
@@ -181,9 +178,7 @@ fn send_challenge_transaction<T: Config>(
     Ok(())
 }
 
-pub fn challenge_lock_name<T: Config>(
-    challenge: &SummaryChallenge<T::AccountId>,
-) -> Vec<u8> {
+pub fn challenge_lock_name<T: Config>(challenge: &SummaryChallenge<T::AccountId>) -> Vec<u8> {
     let mut name = b"challenge_summary::slot::".to_vec();
     name.extend_from_slice(&mut challenge.encode());
     name

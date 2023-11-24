@@ -24,10 +24,9 @@ use crate::{
     encode_signed_execute_nomination_request_params, encode_signed_nominate_params,
     encode_signed_schedule_candidate_unbond_params, encode_signed_schedule_leave_nominators_params,
     encode_signed_schedule_nominator_unbond_params,
-    encode_signed_schedule_revoke_nomination_params,
-    AdminSettings, AwardedPts, BalanceOf, Call, CandidateBondLessRequest, Config, Delay, Era,
-    MinCollatorStake, MinTotalNominatorStake, NominationAction, Pallet, Points, Proof,
-    ScheduledRequest,
+    encode_signed_schedule_revoke_nomination_params, AdminSettings, AwardedPts, BalanceOf, Call,
+    CandidateBondLessRequest, Config, Delay, Era, MinCollatorStake, MinTotalNominatorStake,
+    NominationAction, Pallet, Points, Proof, ScheduledRequest,
 };
 use codec::{Decode, Encode};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec, Zero};

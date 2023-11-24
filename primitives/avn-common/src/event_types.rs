@@ -219,8 +219,7 @@ impl LiftedData {
     const TOPIC_INDEX_T2_ADDRESS: usize = 2;
 
     pub fn is_valid(&self) -> bool {
-        return !self.token_contract.is_zero() &&
-            !self.receiver_address.is_zero()
+        return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {

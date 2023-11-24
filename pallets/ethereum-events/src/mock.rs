@@ -31,7 +31,9 @@ use sp_staking::{
 
 use avn::AvnBridgeContractAddress;
 use pallet_avn::{self as avn, Error as avn_error};
-use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::EthEvent, EthQueryRequest, EthQueryResponseType};
+use sp_avn_common::{
+    bounds::MaximumValidatorsBound, event_types::EthEvent, EthQueryRequest, EthQueryResponseType,
+};
 use sp_io::TestExternalities;
 
 use crate::{self as pallet_ethereum_events, *};
@@ -579,15 +581,13 @@ pub fn test_json(
     status: &str,
     num_confirmations: u64,
 ) -> Vec<u8> {
-
-    let data = test_json_data(tx_hash, event_signature, contract_address, log_data, event_topics, status);
+    let data =
+        test_json_data(tx_hash, event_signature, contract_address, log_data, event_topics, status);
 
     hex::encode(
-        EthQueryResponse {
-            data: data.as_bytes().to_vec().encode(),
-            num_confirmations,
-        }.encode()
-    ).into()
+        EthQueryResponse { data: data.as_bytes().to_vec().encode(), num_confirmations }.encode(),
+    )
+    .into()
 }
 
 #[allow(dead_code)]
@@ -598,7 +598,7 @@ pub fn inject_ethereum_node_response(
 ) {
     let calldata = EthQueryRequest {
         tx_hash: *tx_hash,
-        response_type: EthQueryResponseType::TransactionReceipt
+        response_type: EthQueryResponseType::TransactionReceipt,
     };
     let sender = [0; 32];
     let contract_address = AVN::get_bridge_contract_address();
