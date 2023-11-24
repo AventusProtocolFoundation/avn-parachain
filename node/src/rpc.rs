@@ -16,6 +16,7 @@ use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use sp_api::CallApiAt;
 
 pub mod lower_rpc;
 
@@ -46,6 +47,7 @@ where
         + 'static,
     C: BlockBackend<Block>,
     C: UsageProvider<Block>,
+    C: CallApiAt<Block>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: BlockBuilder<Block>,
