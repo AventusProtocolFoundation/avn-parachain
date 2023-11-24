@@ -3,7 +3,6 @@ use crate::{Config, AVN};
 use frame_support::{traits::UnixTime, BoundedVec};
 use sp_avn_common::EthQueryResponse;
 
-
 pub fn time_now<T: Config>() -> u64 {
     <T as pallet::Config>::TimeProvider::now().as_secs()
 }
@@ -59,18 +58,23 @@ pub fn unbound_params(
         .collect()
 }
 
-pub fn try_process_query_result<R: Decode, T: Config>(response_bytes: Vec<u8>) -> Result<(R, u64), Error<T>> {
+pub fn try_process_query_result<R: Decode, T: Config>(
+    response_bytes: Vec<u8>,
+) -> Result<(R, u64), Error<T>> {
     let eth_query_response: EthQueryResponse = EthQueryResponse::decode(&mut &response_bytes[..])
         .map_err(|e| {
-            log::error!("❌ Error decoding eth query response {:?} - {:?}", response_bytes, e);
-            Error::<T>::InvalidQueryResponseFromEthereum
-        })?;
+        log::error!("❌ Error decoding eth query response {:?} - {:?}", response_bytes, e);
+        Error::<T>::InvalidQueryResponseFromEthereum
+    })?;
 
-    let call_data: R = R::decode(&mut &eth_query_response.data[..])
-        .map_err(|e| {
-            log::error!("❌ Error decoding eth query response data {:?} - {:?}", eth_query_response.data, e);
-            Error::<T>::InvalidQueryResponseFromEthereum
-        })?;
+    let call_data: R = R::decode(&mut &eth_query_response.data[..]).map_err(|e| {
+        log::error!(
+            "❌ Error decoding eth query response data {:?} - {:?}",
+            eth_query_response.data,
+            e
+        );
+        Error::<T>::InvalidQueryResponseFromEthereum
+    })?;
 
-    return Ok((call_data, eth_query_response.num_confirmations));
+    return Ok((call_data, eth_query_response.num_confirmations))
 }

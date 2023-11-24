@@ -105,12 +105,12 @@ mod register_validator {
         );
     }
 
-    fn find_validator_activation_action(data: &MockData, status: ValidatorsActionStatus) -> bool { 
+    fn find_validator_activation_action(data: &MockData, status: ValidatorsActionStatus) -> bool {
         return <ValidatorManager as Store>::ValidatorActions::iter().any(
             |(account_id, _ingress, action_data)| {
                 action_data.status == status &&
                     action_data.action_type == ValidatorsActionType::Activation &&
-                    account_id == data.new_validator_id 
+                    account_id == data.new_validator_id
             },
         )
     }

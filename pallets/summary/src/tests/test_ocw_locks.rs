@@ -6,7 +6,7 @@ use crate::mock::*;
 use codec::alloc::sync::Arc;
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
-use sp_core::offchain::testing::{PoolState, OffchainState};
+use sp_core::offchain::testing::{OffchainState, PoolState};
 use sp_runtime::{
     offchain::storage::StorageValueRef,
     testing::{TestSignature, UintAuthorityId},

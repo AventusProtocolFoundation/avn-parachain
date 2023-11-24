@@ -31,7 +31,7 @@ use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{sr25519, Pair, H256, ConstU64};
+use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},

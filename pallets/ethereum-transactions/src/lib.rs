@@ -26,10 +26,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use sp_avn_common::{
-    event_types::Validator,
-    EthTransaction,
-};
+use sp_avn_common::{event_types::Validator, EthTransaction};
 use sp_core::{ecdsa, H256};
 
 use core::convert::TryInto;
@@ -358,8 +355,7 @@ impl<T: Config> Pallet<T> {
         dispatched_data: DispatchedData<T::BlockNumber>,
         account_id: &T::AccountId,
     ) -> Option<(TransactionId, EthTransaction)> {
-        if !<Repository<T>>::contains_key(dispatched_data.transaction_id)
-        {
+        if !<Repository<T>>::contains_key(dispatched_data.transaction_id) {
             return None
         }
 
@@ -499,9 +495,7 @@ impl<T: Config> Pallet<T> {
     // ================================= Offchain Worker Helpers
     // ========================================
 
-    fn send_transaction_candidates(
-        authority: &Validator<T::AuthorityId, T::AccountId>,
-    ) {
+    fn send_transaction_candidates(authority: &Validator<T::AuthorityId, T::AccountId>) {
         for (tx_id, eth_transaction) in Self::transactions_ready_to_be_sent(&authority.account_id) {
             // TODO: Removed because the pallet will be removed
 

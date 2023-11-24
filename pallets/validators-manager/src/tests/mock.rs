@@ -32,10 +32,12 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
 };
 
-
 use codec::alloc::sync::Arc;
 use parking_lot::RwLock;
-use sp_staking::{offence::{ReportOffence, Offence, OffenceError}, SessionIndex};
+use sp_staking::{
+    offence::{Offence, OffenceError, ReportOffence},
+    SessionIndex,
+};
 use std::cell::RefCell;
 
 pub fn validator_id_1() -> AccountId {
@@ -126,9 +128,7 @@ use frame_system as system;
 use pallet_session as session;
 
 impl ValidatorManager {
-    pub fn insert_validators_action_data(
-        action_id: &ActionId<AccountId>,
-    ) {
+    pub fn insert_validators_action_data(action_id: &ActionId<AccountId>) {
         <<ValidatorManager as Store>::ValidatorActions>::insert(
             action_id.action_account_id,
             action_id.ingress_counter,
@@ -315,7 +315,6 @@ impl parachain_staking::Config for TestRuntime {
     type AccountToBytesConvert = AVN;
     type BridgePublisher = EthBridge;
 }
-
 
 /// An extrinsic type used for tests.
 type IdentificationTuple = (AccountId, AccountId);
