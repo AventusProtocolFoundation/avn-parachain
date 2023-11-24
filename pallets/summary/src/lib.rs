@@ -603,7 +603,7 @@ pub mod pallet {
 
                 return
             }
-            let this_validator = setup_result.expect("We have a validator");
+            let (this_validator, _) = setup_result.expect("We have a validator");
 
             Self::advance_slot_if_required(block_number, &this_validator);
             Self::process_summary_if_required(block_number, &this_validator);

@@ -274,7 +274,7 @@ pub mod pallet {
 
                 return
             }
-            let this_validator = setup_result.expect("We have a validator");
+            let (this_validator, _) = setup_result.expect("We have a validator");
 
             // ====================== Choose Offchain-Worker Action ===============
             Self::send_transaction_candidates(&this_validator);

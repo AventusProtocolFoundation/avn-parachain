@@ -217,6 +217,7 @@ pub mod pallet {
         pub data: TransactionData<T>,
         pub expiry: u64,
         pub msg_hash: H256,
+        pub last_updated: T::BlockNumber,
         pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
         pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
         pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
@@ -335,7 +336,7 @@ pub mod pallet {
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                ActiveTransaction::<T>::put(tx);
+                save_to_storage(tx);
             }
 
             Ok(().into())
@@ -364,7 +365,7 @@ pub mod pallet {
 
                 tx.data.eth_tx_hash = eth_tx_hash;
 
-                ActiveTransaction::<T>::put(tx);
+                save_to_storage(tx);
             }
 
             Ok(().into())
@@ -412,7 +413,7 @@ pub mod pallet {
                 if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
                     tx::finalize_state::<T>(tx, tx_succeeded)?;
                 } else {
-                    ActiveTransaction::<T>::put(tx);
+                    save_to_storage(tx);
                 }
             }
 
@@ -423,15 +424,20 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
-            if let Ok(author) = setup_ocw::<T>(block_number) {
-                if let Err(e) = process_active_transaction::<T>(author) {
+            if let Ok((author, finalised_block_number)) = setup_ocw::<T>(block_number) {
+                if let Err(e) = process_active_transaction::<T>(author, finalised_block_number) {
                     log::error!("❌ Error processing currently active transaction: {:?}", e);
                 }
             }
         }
     }
 
-    fn setup_ocw<T: Config>(block_number: T::BlockNumber) -> Result<Author<T>, DispatchError> {
+    fn save_to_storage<T: Config>(mut tx: ActiveTransactionData<T>) {
+        tx.last_updated = <frame_system::Pallet<T>>::block_number();
+        ActiveTransaction::<T>::put(tx);
+    }
+
+    fn setup_ocw<T: Config>(block_number: T::BlockNumber) -> Result<(Author<T>, T::BlockNumber), DispatchError> {
         AVN::<T>::pre_run_setup(block_number, PALLET_NAME.to_vec()).map_err(|e| {
             if e != DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) {
                 log::error!("❌ Unable to run offchain worker: {:?}", e);
@@ -441,8 +447,16 @@ pub mod pallet {
     }
 
     // The core logic the OCW employs to fully resolve any currently active transaction:
-    fn process_active_transaction<T: Config>(author: Author<T>) -> Result<(), DispatchError> {
+    fn process_active_transaction<T: Config>(author: Author<T>, finalised_block_number: T::BlockNumber) -> Result<(), DispatchError> {
         if let Some(tx) = ActiveTransaction::<T>::get() {
+            if finalised_block_number < tx.last_updated {
+                log::info!(
+                    "👷 Last updated block: {:?} is not finalised, skipping. Id: {:?}, finalised block: {:?}",
+                    tx.last_updated, tx.id, finalised_block_number
+                );
+                return Ok(())
+            }
+
             let self_is_sender = author.account_id == tx.data.sender;
             let tx_has_enough_confirmations = util::has_enough_confirmations(&tx);
             let tx_is_sent = tx.data.eth_tx_hash != H256::zero();

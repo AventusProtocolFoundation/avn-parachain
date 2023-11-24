@@ -789,7 +789,7 @@ pub mod pallet {
 
                 return
             }
-            let this_validator = setup_result.expect("We have a validator");
+            let (this_validator, finalised_block) = setup_result.expect("We have a validator");
 
             // Only primary validators can check and process events
             let is_primary = AVN::<T>::is_primary(block_number, &this_validator.account_id);
@@ -800,10 +800,10 @@ pub mod pallet {
 
             // =============================== Main Logic ===========================
             if is_primary.expect("Already checked for error.") {
-                Self::try_check_event(block_number, &this_validator);
-                Self::try_process_event(block_number, &this_validator);
+                Self::try_check_event(block_number, &this_validator, finalised_block);
+                Self::try_process_event(block_number, &this_validator, finalised_block);
             } else {
-                Self::try_validate_event(block_number, &this_validator);
+                Self::try_validate_event(block_number, &this_validator, finalised_block);
             }
         }
     }
@@ -949,8 +949,9 @@ impl<T: Config> Pallet<T> {
     fn try_check_event(
         block_number: T::BlockNumber,
         validator: &Validator<T::AuthorityId, T::AccountId>,
+        finalised_block_number: T::BlockNumber,
     ) {
-        let event_to_check = Self::get_events_to_check_if_required();
+        let event_to_check = Self::get_events_to_check_if_required(finalised_block_number);
 
         if let Some(event_to_check) = event_to_check {
             log::info!("** Checking events");
@@ -971,9 +972,10 @@ impl<T: Config> Pallet<T> {
     fn try_process_event(
         block_number: T::BlockNumber,
         validator: &Validator<T::AuthorityId, T::AccountId>,
+        finalised_block_number: T::BlockNumber
     ) {
         if let Some((event_to_process, ingress_counter, _)) =
-            Self::get_next_event_to_process(block_number)
+            Self::get_next_event_to_process(block_number, finalised_block_number)
         {
             log::info!("** Processing events");
 
@@ -988,9 +990,10 @@ impl<T: Config> Pallet<T> {
     fn try_validate_event(
         block_number: T::BlockNumber,
         validator: &Validator<T::AuthorityId, T::AccountId>,
+        finalised_block_number: T::BlockNumber,
     ) {
         if let Some((event_to_validate, ingress_counter, _)) =
-            Self::get_next_event_to_validate(&validator.account_id)
+            Self::get_next_event_to_validate(&validator.account_id, finalised_block_number)
         {
             log::info!("** Validating events");
 
@@ -1081,16 +1084,20 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn get_events_to_check_if_required() -> Option<(EthEventId, IngressCounter, T::BlockNumber)> {
+    fn get_events_to_check_if_required(finalised_block_number: T::BlockNumber,) -> Option<(EthEventId, IngressCounter, T::BlockNumber)> {
         if Self::unchecked_events().is_empty() {
             return None
         }
 
-        return Self::unchecked_events().into_iter().nth(0)
+        return Self::unchecked_events()
+            .into_iter()
+            .filter(|e| e.2 <= finalised_block_number)
+            .nth(0)
     }
 
     fn get_next_event_to_validate(
         validator_account_id: &T::AccountId,
+        finalised_block_number: T::BlockNumber,
     ) -> Option<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>
     {
         let storage = StorageValueRef::persistent(VALIDATED_EVENT_LOCAL_STORAGE);
@@ -1109,13 +1116,13 @@ impl<T: Config> Pallet<T> {
 
         return Self::events_pending_challenge()
             .into_iter()
-            .filter(|(checked, _counter, _submitted_at_block)| {
+            .filter(|(checked, _counter, submitted_at_block)| {
                 Self::can_validate_this_event(
                     checked,
                     validator_account_id,
                     &stored_validated_events,
                     node_has_never_validated_events,
-                )
+                ) && submitted_at_block <= &finalised_block_number
             })
             .nth(0)
     }
@@ -1141,12 +1148,14 @@ impl<T: Config> Pallet<T> {
 
     fn get_next_event_to_process(
         block_number: T::BlockNumber,
+        finalised_block_number: T::BlockNumber,
     ) -> Option<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>
     {
         return Self::events_pending_challenge()
             .into_iter()
-            .filter(|(checked, _counter, _submitted_at_block)| {
+            .filter(|(checked, _counter, submitted_at_block)| {
                 block_number > checked.ready_for_processing_after_block
+                && submitted_at_block <= &finalised_block_number
             })
             .last()
     }

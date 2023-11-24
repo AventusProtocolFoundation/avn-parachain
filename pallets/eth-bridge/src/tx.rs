@@ -144,6 +144,7 @@ fn set_up_active_tx<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> 
         data,
         expiry,
         msg_hash,
+        last_updated: <frame_system::Pallet<T>>::block_number(),
         confirmations: BoundedVec::default(),
         success_corroborations: BoundedVec::default(),
         failure_corroborations: BoundedVec::default(),
