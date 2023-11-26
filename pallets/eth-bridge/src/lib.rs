@@ -137,7 +137,9 @@ pub mod pallet {
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>;
+        #[pallet::constant]
         type MaxQueuedTxRequests: Get<u32>;
+        #[pallet::constant]
         type MinEthBlockConfirmation: Get<u64>;
         type AccountToBytesConvert: avn::AccountToBytesConverter<Self::AccountId>;
         type OnBridgePublisherResult: avn::OnBridgePublisherResult;
