@@ -62,7 +62,7 @@ const TOPIC_RECEIVER_INDEX: usize = 2;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
-type TransactionId = u64;
+type TransactionId = u32;
 
 frame_support::construct_runtime!(
     pub enum TestRuntime where

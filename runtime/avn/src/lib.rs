@@ -176,8 +176,10 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
                 current,
                 onchain
             );
-            let pre_upgrade_transaction_id: u64 =
-                pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+            // let pre_upgrade_transaction_id: u64 =
+            //     pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+
+            let pre_upgrade_transaction_id = 0u64;
 
             if let Ok(tx_id) =
                 <u64 as TryInto<u32>>::try_into(pre_upgrade_transaction_id).defensive()
@@ -199,9 +201,6 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        let pre_upgrade_transaction_id: u64 =
-            pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
-        Ok((pre_upgrade_transaction_id + 1u64).encode())
     }
 
     #[cfg(feature = "try-runtime")]
@@ -598,12 +597,6 @@ impl pallet_ethereum_events::Config for Runtime {
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_ethereum_transactions::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    type AccountToBytesConvert = Avn;
-    type WeightInfo = pallet_ethereum_transactions::default_weights::SubstrateWeight<Runtime>;
-}
 
 parameter_types! {
     pub const ValidatorManagerVotingPeriod: BlockNumber = 30 * MINUTES;
@@ -818,7 +811,6 @@ construct_runtime!(
         Avn: pallet_avn = 81,
         AvnOffenceHandler: pallet_avn_offence_handler = 83,
         EthereumEvents: pallet_ethereum_events = 84,
-        EthereumTransactions: pallet_ethereum_transactions = 85,
         NftManager: pallet_nft_manager = 86,
         TokenManager: pallet_token_manager = 87,
         Summary: pallet_summary = 88,
@@ -851,7 +843,6 @@ mod benches {
         [pallet_avn, Avn]
         [pallet_eth_bridge, EthBridge]
         [pallet_ethereum_events, EthereumEvents]
-        [pallet_ethereum_transactions, EthereumTransactions]
         [pallet_nft_manager, NftManager]
         [pallet_summary, Summary]
         [pallet_token_manager, TokenManager]

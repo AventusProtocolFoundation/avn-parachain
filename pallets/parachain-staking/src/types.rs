@@ -19,7 +19,7 @@
 use crate::{
     set::BoundedOrderedSet, BalanceOf, BottomNominations, CandidateInfo, Config, Delay, Era,
     EraIndex, Error, Event, GrowthPeriodIndex, MinCollatorStake, NominatorState, Pallet,
-    RewardPoint, TopNominations, Total, TransactionId, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
+    RewardPoint, TopNominations, Total, EthereumTransactionId, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -1367,7 +1367,7 @@ pub struct GrowthInfo<AccountId, Balance> {
     pub total_staker_reward: Balance,
     pub total_points: RewardPoint,
     pub collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
-    pub tx_id: Option<TransactionId>,
+    pub tx_id: Option<EthereumTransactionId>,
     pub triggered: Option<bool>,
 }
 

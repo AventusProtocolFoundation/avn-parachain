@@ -93,10 +93,6 @@ pub(crate) fn avn_test_runtime_genesis(
             quorum_factor: QUORUM_FACTOR,
             event_challenge_period,
         },
-        ethereum_transactions: EthereumTransactionsConfig {
-            _phantom: Default::default(),
-            get_publish_root_contract: avn_eth_contract.clone(),
-        },
         validators_manager: ValidatorsManagerConfig {
             validators: candidates
                 .iter()

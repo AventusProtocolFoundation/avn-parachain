@@ -102,7 +102,6 @@ pub use pallet::*;
 pub use types::*;
 
 pub type AVN<T> = pallet_avn::Pallet<T>;
-pub use pallet_ethereum_transactions::ethereum_transaction::TransactionId;
 
 pub const MAX_OFFENDERS: u32 = 2;
 
@@ -2407,7 +2406,7 @@ pub mod pallet {
                         log::warn!("Growth for period {:?} will be 0, skipping it.", growth_period);
                         <LastTriggeredGrowthPeriod<T>>::put(growth_period);
                         <Growth<T>>::mutate(growth_period, |growth| {
-                            growth.tx_id = Some(0u64);
+                            growth.tx_id = Some(0u32);
                         });
 
                         continue

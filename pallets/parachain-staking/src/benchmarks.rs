@@ -34,10 +34,10 @@ use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::{self as system, EventRecord, RawOrigin};
 use hex_literal::hex;
 use pallet_authorship::EventHandler;
-use pallet_ethereum_transactions::{
-    ethereum_transaction::{EthTransactionType, TriggerGrowthData},
-    CandidateTransactionSubmitter,
-};
+// use pallet_ethereum_transactions::{
+//     ethereum_transaction::{EthTransactionType, TriggerGrowthData},
+//     CandidateTransactionSubmitter,
+// };
 use rand::{RngCore, SeedableRng};
 use sp_application_crypto::KeyTypeId;
 use sp_core::{bounded::BoundedVec, ecdsa, ConstU32};

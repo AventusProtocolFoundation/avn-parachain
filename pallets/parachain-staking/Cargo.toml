@@ -33,7 +33,6 @@ substrate-fixed = { git = "https://github.com/encointer/substrate-fixed", defaul
 pallet-authorship = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v0.9.36" }
 pallet-avn = { default-features = false, path = "../avn" }
 pallet-session = {features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
-pallet-ethereum-transactions = { default-features = false, path = "../ethereum-transactions" }
 
 [dev-dependencies]
 similar-asserts = "1.1.0"
@@ -63,7 +62,6 @@ std = [
 	"pallet-authorship/std",
 	"pallet-avn/std",
 	"pallet-session/std",
-	"pallet-ethereum-transactions/std",
 	"log/std",
 
 ]

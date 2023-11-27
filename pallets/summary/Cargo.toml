@@ -18,7 +18,6 @@ hex-literal = { version = "0.3.4", default-features = false }
 scale-info = { version = "2.0", default-features = false, features = ["derive"] }
 
 sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
-pallet-ethereum-transactions = { default-features = false, path = "../ethereum-transactions" }
 pallet-avn = { path = "../avn", default-features = false }
 
 sp-std = {default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
@@ -62,12 +61,10 @@ std = [
 	"pallet-avn/std",
 	"sp-staking/std",
 	"pallet-session/std",
-	"pallet-ethereum-transactions/std"
 ]
 runtime-benchmarks = [
     "frame-benchmarking/runtime-benchmarks",
     "frame-support/runtime-benchmarks",
     "frame-system/runtime-benchmarks",
-    "pallet-ethereum-transactions/runtime-benchmarks",
 ]
 try-runtime = [ "frame-support/try-runtime" ]
