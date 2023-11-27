@@ -16,13 +16,13 @@ const UINT32: &[u8] = b"uint32";
 const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
 
-pub fn create_tx_data<T: Config>(
-    tx_request: &RequestData,
+pub fn create_send_tx_data<T: Config>(
+    tx_request: &SendRequest,
     expiry: u64,
 ) -> Result<TransactionData<T>, Error<T>> {
     let mut extended_params = unbound_params(&tx_request.params);
     extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
-    extended_params.push((UINT32.to_vec(), tx_request.tx_id.to_string().into_bytes()));
+    extended_params.push((UINT32.to_vec(), tx_request.id.to_string().into_bytes()));
 
     let tx_data = TransactionData {
         function_name: tx_request.function_name.clone(),
@@ -73,7 +73,7 @@ pub fn corroborate<T: Config>(
         if tx_hash_is_valid && confirmations.unwrap_or_default() < T::MinEthBlockConfirmation::get()
         {
             log::warn!("🚨 Transaction {:?} doesn't have the minimum eth confirmations yet, skipping corroboration. Current confirmation: {:?}",
-                tx.id, confirmations
+                tx.id(), confirmations
             );
             return Ok((None, None))
         }
@@ -88,7 +88,7 @@ fn check_tx_status<T: Config>(
     tx: &ActiveTransactionData<T>,
     author: &Author<T>,
 ) -> Result<Option<bool>, DispatchError> {
-    if let Ok(calldata) = generate_corroborate_calldata::<T>(tx.id, tx.expiry) {
+    if let Ok(calldata) = generate_corroborate_calldata::<T>(tx.id(), tx.expiry) {
         if let Ok(result) = call_corroborate_method::<T>(calldata, &author.account_id) {
             match result {
                 0 => return Ok(None),

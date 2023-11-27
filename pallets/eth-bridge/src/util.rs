@@ -14,8 +14,8 @@ pub fn has_enough_corroborations<T: Config>(corroborations: usize) -> bool {
     corroborations as u32 >= quorum
 }
 
-pub fn has_enough_confirmations<T: Config>(active_tx: &ActiveTransactionData<T>) -> bool {
-    let num_confirmations_including_sender = active_tx.confirmations.len() as u32 + 1;
+pub fn has_enough_confirmations<T: Config>(total_confirmations: u32) -> bool {
+    let num_confirmations_including_sender = total_confirmations + 1;
     num_confirmations_including_sender >= AVN::<T>::quorum()
 }
 
@@ -77,4 +77,13 @@ pub fn try_process_query_result<R: Decode, T: Config>(
     })?;
 
     return Ok((call_data, eth_query_response.num_confirmations))
+}
+
+pub fn get_request_id<T: Config>(
+    request: &Request,
+) -> Option<EthereumId> {
+    match request {
+        Request::Send(send) => Some(send.id),
+        Request::Confirm(confirm) => Some(confirm.id)
+    }
 }
