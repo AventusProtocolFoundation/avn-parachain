@@ -595,7 +595,6 @@ dependencies = [
  "pallet-conviction-voting",
  "pallet-eth-bridge",
  "pallet-ethereum-events",
- "pallet-ethereum-transactions",
  "pallet-im-online",
  "pallet-nft-manager",
  "pallet-offences",
@@ -675,7 +674,6 @@ dependencies = [
  "pallet-conviction-voting",
  "pallet-eth-bridge",
  "pallet-ethereum-events",
- "pallet-ethereum-transactions",
  "pallet-im-online",
  "pallet-nft-manager",
  "pallet-offences",
@@ -6896,30 +6894,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-ethereum-transactions"
-version = "3.5.1"
-dependencies = [
- "ethabi 13.0.0",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "hex-literal",
- "pallet-avn",
- "pallet-session",
- "parity-scale-codec 3.2.1",
- "parking_lot 0.12.1",
- "scale-info",
- "serde",
- "sp-application-crypto",
- "sp-avn-common",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-fast-unstake"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.36#cb4f2491b00af7d7817f3a54209c26b20faa1f51"
@@ -7205,7 +7179,6 @@ dependencies = [
  "pallet-avn-proxy",
  "pallet-balances",
  "pallet-eth-bridge",
- "pallet-ethereum-transactions",
  "pallet-session",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -7465,7 +7438,6 @@ dependencies = [
  "node-primitives",
  "pallet-avn",
  "pallet-eth-bridge",
- "pallet-ethereum-transactions",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec 3.2.1",
@@ -7531,7 +7503,6 @@ dependencies = [
  "pallet-avn",
  "pallet-balances",
  "pallet-eth-bridge",
- "pallet-ethereum-transactions",
  "pallet-parachain-staking",
  "pallet-session",
  "pallet-timestamp",
@@ -7642,7 +7613,6 @@ dependencies = [
  "pallet-avn-proxy",
  "pallet-balances",
  "pallet-eth-bridge",
- "pallet-ethereum-transactions",
  "pallet-parachain-staking",
  "pallet-session",
  "pallet-timestamp",
