@@ -88,61 +88,36 @@ pub struct ActiveTransactionData<T: Config> {
     pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+pub struct ActiveEthTransactionData<T: Config> {
+    pub function_name: BoundedVec<u8, FunctionLimit>,
+    pub eth_tx_params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub sender: T::AccountId,
+    pub expiry: u64,
+    pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+pub struct ActiveRequest<T: Config> {
+    pub request: Request,
+    pub msg_hash: H256,
+    pub last_updated: T::BlockNumber,
+    pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
+    pub eth_tx_data: Option<ActiveEthTransactionData<T>>,
+}
+
+impl<T: Config> Identifiable for ActiveRequest<T> {
+    fn id(&self) -> EthereumId {
+        return self.request.id();
+    }
+}
+
 impl<T: Config> Identifiable for ActiveTransactionData<T> {
     fn id(&self) -> EthereumId {
         return self.request.id();
     }
 }
 
-// #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-// pub struct SendRequest {
-//     pub tx_id: EthereumId,
-//     pub function_name: BoundedVec<u8, FunctionLimit>,
-//     pub params:
-//         BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-//     pub request_type: RequestType,
-// }
-
-// #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-// pub struct ConfirmationRequest {
-//     pub tx_id: EthereumId,
-//     pub params:
-//         BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-// }
-
-// #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-// pub struct TransactionData<T: Config> {
-//     pub function_name: BoundedVec<u8, FunctionLimit>,
-//     pub params:
-//         BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-//     pub sender: T::AccountId,
-//     pub eth_tx_hash: H256,
-//     pub tx_succeeded: bool,
-// }
-
-// #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-// pub struct ActiveTransactionData<T: Config> {
-//     pub id: EthereumId,
-//     pub request_data: Request,
-//     pub data: TransactionData<T>,
-//     pub expiry: u64,
-//     pub msg_hash: H256,
-//     pub last_updated: T::BlockNumber,
-//     pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-//     pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-//     pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-//     pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-//     pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-// }
-
-// #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-// pub struct ActiveTransactionData2<T: Config> {
-//     pub id: EthereumId,
-//     pub data: TransactionData<T>,
-//     pub expiry: u64,
-//     pub confirmation: ActiveConfirmationData<T>,
-//     pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-//     pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-//     pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-//     pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-// }

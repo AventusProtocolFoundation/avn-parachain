@@ -77,6 +77,7 @@ use sp_std::prelude::*;
 mod call;
 mod eth;
 mod tx;
+mod request;
 mod types;
 mod util;
 use crate::types::*;
@@ -195,24 +196,10 @@ pub mod pallet {
 
     #[pallet::storage]
     pub type ActiveConfirmation<T: Config> =
-        StorageValue<_, ActiveConfirmationData<T>, OptionQuery>;
+        StorageValue<_, ActiveRequest<T>, OptionQuery>;
 
     #[pallet::storage]
     pub type ActiveTransaction<T: Config> = StorageValue<_, ActiveTransactionData<T>, OptionQuery>;
-
-
-
-    // #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    // pub struct TransactionData<T: Config> {
-    //     pub function_name: BoundedVec<u8, FunctionLimit>,
-    //     pub params:
-    //         BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    //     pub sender: T::AccountId,
-    //     pub eth_tx_hash: H256,
-    //     pub tx_succeeded: bool,
-    // }
-
-
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -313,17 +300,18 @@ pub mod pallet {
             if tx::is_active_confirmation::<T>(tx_id) {
                 let mut data_to_confirm = ActiveConfirmation::<T>::get().expect("is active");
 
+                if util::has_enough_confirmations::<T>(data_to_confirm.confirmations.len() as u32) {
+                    return Ok(().into());
+                }
+
+                // Sender's confirmation is implicit.
                 match data_to_confirm.request {
-                    Request::Send(_)
-                        if Some(&author.account_id) == data_to_confirm.sender.as_ref() ||
-                            util::has_enough_confirmations::<T>(
-                                data_to_confirm.confirmations.len() as u32,
-                            ) =>
-                        return Ok(().into()),
-                    _ if util::has_enough_confirmations::<T>(
-                        data_to_confirm.confirmations.len() as u32,
-                    ) =>
-                        return Ok(().into()),
+                    Request::Send(_) if data_to_confirm.eth_tx_data.is_some() => {
+                        let sender = &data_to_confirm.eth_tx_data.as_ref().expect("send request has eth data").sender;
+                        if &author.account_id == sender {
+                            return Ok(().into())
+                        }
+                    },
                     _ => (),
                 };
 
@@ -483,7 +471,7 @@ pub mod pallet {
     // The core logic the OCW employs to fully resolve any currently active transaction:
     fn process_confirmation<T: Config>(
         author: Author<T>,
-        data_to_confirm: ActiveConfirmationData<T>,
+        data_to_confirm: ActiveRequest<T>,
     ) -> Result<(), DispatchError> {
         let has_enough_confirmations =
             util::has_enough_confirmations::<T>(data_to_confirm.confirmations.len() as u32);
@@ -607,7 +595,7 @@ pub mod pallet {
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<EthereumId, DispatchError> {
-            let tx_id = tx::add_new_send_request::<T>(function_name, params)
+            let tx_id = request::add_new_send_request::<T>(function_name, params)
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {

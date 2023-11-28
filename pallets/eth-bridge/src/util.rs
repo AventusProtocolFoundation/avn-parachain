@@ -78,12 +78,3 @@ pub fn try_process_query_result<R: Decode, T: Config>(
 
     return Ok((call_data, eth_query_response.num_confirmations))
 }
-
-pub fn get_request_id<T: Config>(
-    request: &Request,
-) -> Option<EthereumId> {
-    match request {
-        Request::Send(send) => Some(send.id),
-        Request::Confirm(confirm) => Some(confirm.id)
-    }
-}
