@@ -195,10 +195,6 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
 
     #[pallet::storage]
-    pub type ActiveConfirmation<T: Config> =
-        StorageValue<_, ActiveRequest<T>, OptionQuery>;
-
-    #[pallet::storage]
     pub type ActiveTransaction<T: Config> = StorageValue<_, ActiveRequest<T>, OptionQuery>;
 
     #[pallet::genesis_config]
@@ -299,7 +295,7 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active_request::<T>(tx_id) {
-                let mut data_to_confirm = ActiveConfirmation::<T>::get().expect("is active");
+                let mut data_to_confirm = ActiveTransaction::<T>::get().expect("is active");
 
                 if util::has_enough_confirmations::<T>(data_to_confirm.confirmation_data.confirmations.len() as u32) {
                     return Ok(().into());
@@ -330,7 +326,7 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
                 data_to_confirm.last_updated = <frame_system::Pallet<T>>::block_number();
-                ActiveConfirmation::<T>::put(data_to_confirm);
+                ActiveTransaction::<T>::put(data_to_confirm);
             }
 
             Ok(().into())
@@ -442,7 +438,7 @@ pub mod pallet {
     }
 
     fn run_offchain_worker<T: Config>(author: Author<T>, finalised_block_number: T::BlockNumber,) -> Result<(), DispatchError> {
-        if let Some(data_to_confirm) = ActiveConfirmation::<T>::get() {
+        if let Some(data_to_confirm) = ActiveTransaction::<T>::get() {
             if finalised_block_number < data_to_confirm.last_updated {
                 log::info!(
                     "👷 Last updated block: {:?} is not finalised, skipping confirmation. Id: {:?}, finalised block: {:?}",

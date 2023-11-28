@@ -32,6 +32,20 @@ pub struct SendRequest {
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 
+impl SendRequest {
+    pub fn extend_params<T: Config>(
+        &self,
+        expiry: u64,
+    ) -> Result<BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>, Error<T>> {
+        let mut extended_params = util::unbound_params(&self.params);
+        extended_params.push((eth::UINT256.to_vec(), expiry.to_string().into_bytes()));
+        extended_params.push((eth::UINT32.to_vec(), self.id.to_string().into_bytes()));
+
+        Ok(util::bound_params(&extended_params)?)
+    }
+
+}
+
 impl Identifiable for SendRequest {
     fn id(&self) -> EthereumId {
         return self.id;

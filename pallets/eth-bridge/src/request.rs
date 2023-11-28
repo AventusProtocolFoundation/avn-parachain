@@ -22,7 +22,7 @@ pub fn add_new_send_request<T: Config>(
         params: bound_params(&params.to_vec())?,
     });
 
-    if ActiveConfirmation::<T>::get().is_some() {
+    if ActiveTransaction::<T>::get().is_some() {
         queue_request(tx_request)?;
     } else {
         tx::set_up_active_tx(tx_request)?;
@@ -32,7 +32,6 @@ pub fn add_new_send_request<T: Config>(
 }
 
 pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
-    ActiveConfirmation::<T>::kill();
     ActiveTransaction::<T>::kill();
 
     if let Some(tx_request) = request::dequeue_tx_request::<T>() {

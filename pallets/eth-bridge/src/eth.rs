@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    util::{bound_params, try_process_query_result, unbound_params},
+    util::{try_process_query_result, unbound_params},
     Author, Config, AVN,
 };
 use ethabi::{Function, Int, Param, ParamType, Token};
@@ -10,22 +10,11 @@ use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
 use sp_std::vec;
 
-const UINT256: &[u8] = b"uint256";
-const UINT128: &[u8] = b"uint128";
-const UINT32: &[u8] = b"uint32";
-const BYTES: &[u8] = b"bytes";
-const BYTES32: &[u8] = b"bytes32";
-
-pub fn extend_params<T: Config>(
-    tx_request: &SendRequest,
-    expiry: u64,
-) -> Result<BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>, Error<T>> {
-    let mut extended_params = unbound_params(&tx_request.params);
-    extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
-    extended_params.push((UINT32.to_vec(), tx_request.id.to_string().into_bytes()));
-
-    Ok(bound_params(&extended_params)?)
-}
+pub const UINT256: &[u8] = b"uint256";
+pub const UINT128: &[u8] = b"uint128";
+pub const UINT32: &[u8] = b"uint32";
+pub const BYTES: &[u8] = b"bytes";
+pub const BYTES32: &[u8] = b"bytes32";
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);

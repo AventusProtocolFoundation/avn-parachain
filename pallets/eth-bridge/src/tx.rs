@@ -3,7 +3,7 @@ use crate::{offence::create_and_report_corroboration_offence, Config};
 use frame_support::BoundedVec;
 
 pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
-    ActiveConfirmation::<T>::get().map_or(false, |d| d.request.id() == id)
+    ActiveTransaction::<T>::get().map_or(false, |d| d.request.id() == id)
 }
 
 fn complete_transaction<T: Config>(
@@ -73,7 +73,7 @@ pub fn set_up_active_tx<T: Config>(tx_request: Request) -> Result<(), Error<T>> 
     let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
 
     if let Request::Send(ref req) = tx_request {
-        let extended_params = eth::extend_params(&req, expiry)?;
+        let extended_params = req.extend_params(expiry)?;
         let msg_hash = eth::generate_msg_hash(&extended_params)?;
 
         ActiveTransaction::<T>::put(ActiveRequest {
