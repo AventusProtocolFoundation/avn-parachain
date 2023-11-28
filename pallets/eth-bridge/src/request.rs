@@ -1,5 +1,5 @@
 use super::*;
-use crate::{offence::create_and_report_corroboration_offence, util::bound_params, Config};
+use crate::{util::bound_params, Config};
 use frame_support::BoundedVec;
 use sp_core::Get;
 
@@ -43,13 +43,8 @@ pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
 }
 
 pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
-    if let Request::Send(mut r) = tx.request {
-        r.id = use_next_tx_id::<T>();
-        tx.request = Request::Send(r);
-        return Ok(tx::set_up_active_tx(tx.request)?)
-    }
-
-    Err(Error::<T>::InvalidRequest)
+    tx.request.id = use_next_tx_id::<T>();
+    return Ok(tx::set_up_active_tx(Request::Send(tx.request))?)
 }
 
 fn queue_request<T: Config>(request: Request) -> Result<(), Error<T>> {

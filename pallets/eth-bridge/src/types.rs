@@ -74,18 +74,11 @@ pub struct TransactionData<T: Config> {
     pub tx_succeeded: bool,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveTransactionData<T: Config> {
-    pub request: Request,
-    pub data: TransactionData<T>,
-    pub expiry: u64,
-    pub msg_hash: H256,
-    pub last_updated: T::BlockNumber,
-    pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-    pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub request: SendRequest,
+    pub confirmation_data: ConfirmationData,
+    pub data: ActiveEthTransactionData<T>,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
@@ -94,24 +87,51 @@ pub struct ActiveEthTransactionData<T: Config> {
     pub eth_tx_params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
     pub sender: T::AccountId,
     pub expiry: u64,
+    pub eth_tx_hash: H256,
     pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
     pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
     pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
     pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub tx_succeeded: bool,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct ActiveRequest<T: Config> {
     pub request: Request,
-    pub msg_hash: H256,
+    pub confirmation_data: ConfirmationData,
+    pub tx_data: Option<ActiveEthTransactionData<T>>,
     pub last_updated: T::BlockNumber,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+pub struct ConfirmationData {
+    pub msg_hash: H256,
     pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-    pub eth_tx_data: Option<ActiveEthTransactionData<T>>,
 }
 
 impl<T: Config> Identifiable for ActiveRequest<T> {
     fn id(&self) -> EthereumId {
         return self.request.id();
+    }
+}
+
+impl<T: Config> ActiveRequest<T> {
+    pub fn as_active_tx(&self) -> Result<ActiveTransactionData<T>, Error<T>> {
+        if self.tx_data.is_none() {
+            return Err(Error::<T>::InvalidSendRequest)
+        }
+
+        match self.request {
+            Request::Send(ref req) =>
+                return Ok(ActiveTransactionData {
+                    request: req.clone(),
+                    confirmation_data: self.confirmation_data.clone(),
+                    data: self.tx_data.as_ref().expect("data is not null").clone(),
+                }),
+            _ => return Err(Error::<T>::InvalidSendRequest),
+        }
+
+
     }
 }
 

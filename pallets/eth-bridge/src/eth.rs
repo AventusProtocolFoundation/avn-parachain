@@ -16,23 +16,15 @@ const UINT32: &[u8] = b"uint32";
 const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
 
-pub fn create_send_tx_data<T: Config>(
+pub fn extend_params<T: Config>(
     tx_request: &SendRequest,
     expiry: u64,
-) -> Result<TransactionData<T>, Error<T>> {
+) -> Result<BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>, Error<T>> {
     let mut extended_params = unbound_params(&tx_request.params);
     extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
     extended_params.push((UINT32.to_vec(), tx_request.id.to_string().into_bytes()));
 
-    let tx_data = TransactionData {
-        function_name: tx_request.function_name.clone(),
-        params: bound_params(&extended_params)?,
-        sender: assign_sender()?,
-        eth_tx_hash: H256::zero(),
-        tx_succeeded: false,
-    };
-
-    Ok(tx_data)
+    Ok(bound_params(&extended_params)?)
 }
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
@@ -88,7 +80,7 @@ fn check_tx_status<T: Config>(
     tx: &ActiveTransactionData<T>,
     author: &Author<T>,
 ) -> Result<Option<bool>, DispatchError> {
-    if let Ok(calldata) = generate_corroborate_calldata::<T>(tx.id(), tx.expiry) {
+    if let Ok(calldata) = generate_corroborate_calldata::<T>(tx.id(), tx.data.expiry) {
         if let Ok(result) = call_corroborate_method::<T>(calldata, &author.account_id) {
             match result {
                 0 => return Ok(None),
@@ -121,9 +113,9 @@ fn check_tx_hash<T: Config>(
 }
 
 pub fn generate_msg_hash<T: pallet::Config>(
-    tx_data: &TransactionData<T>,
+    params: &BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 ) -> Result<H256, Error<T>> {
-    let params = unbound_params(&tx_data.params);
+    let params = unbound_params(params);
     let tokens: Result<Vec<_>, _> = params
         .iter()
         .map(|(type_bytes, value_bytes)| {
@@ -142,14 +134,14 @@ pub fn generate_send_calldata<T: Config>(
     tx: &ActiveTransactionData<T>,
 ) -> Result<Vec<u8>, Error<T>> {
     let mut concatenated_confirmations = Vec::new();
-    for conf in &tx.confirmations {
+    for conf in &tx.confirmation_data.confirmations {
         concatenated_confirmations.extend_from_slice(conf.as_ref());
     }
 
-    let mut full_params = unbound_params(&tx.data.params);
+    let mut full_params = unbound_params(&tx.request.params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
-    abi_encode_function(&tx.data.function_name.as_slice(), &full_params)
+    abi_encode_function(&tx.request.function_name.as_slice(), &full_params)
 }
 
 fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
@@ -161,7 +153,7 @@ fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<V
     abi_encode_function(b"corroborate", &params)
 }
 
-fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
+pub fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
     let current_block_number = <frame_system::Pallet<T>>::block_number();
 
     match AVN::<T>::calculate_primary_validator(current_block_number) {

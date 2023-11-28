@@ -20,11 +20,11 @@ pub fn has_enough_confirmations<T: Config>(total_confirmations: u32) -> bool {
 }
 
 pub fn requires_corroboration<T: Config>(
-    active_tx: &ActiveTransactionData<T>,
+    eth_tx: &ActiveEthTransactionData<T>,
     author: &Author<T>,
 ) -> bool {
-    !active_tx.success_corroborations.contains(&author.account_id) &&
-        !active_tx.failure_corroborations.contains(&author.account_id)
+    !eth_tx.success_corroborations.contains(&author.account_id) &&
+        !eth_tx.failure_corroborations.contains(&author.account_id)
 }
 
 pub fn bound_params<T>(
