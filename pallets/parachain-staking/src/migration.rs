@@ -8,8 +8,8 @@
 
 use crate::{
     avn::vote::VotingSessionData, BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32,
-    Decode, Encode, Growth, GrowthInfo, GrowthPeriodIndex, IngressCounter, MaxEncodedLen, Pallet,
-    RewardPoint, RuntimeDebug, EthereumTransactionId, TypeInfo,
+    Decode, Encode, EthereumTransactionId, Growth, GrowthInfo, GrowthPeriodIndex, IngressCounter,
+    MaxEncodedLen, Pallet, RewardPoint, RuntimeDebug, TypeInfo,
 };
 
 use frame_support::{

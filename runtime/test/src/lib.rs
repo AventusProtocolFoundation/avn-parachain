@@ -194,12 +194,10 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEth
 
             migration_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
 
-            log::info!(
-                "🚧 Migration successfull"
-            );
+            log::info!("🚧 Migration successfull");
 
-            return total_weight;
-        } 
+            return total_weight
+        }
         Weight::zero()
     }
 
@@ -227,29 +225,29 @@ fn try_seed_next_tx_id() -> Result<Weight, ()> {
 }
 
 fn get_nonce_seed() -> Result<u64, ()> {
-    let nonce_prefix = frame_support::storage::storage_prefix(ETHEREUM_TRANSACTIONS_PREFIX, b"Nonce");
+    let nonce_prefix =
+        frame_support::storage::storage_prefix(ETHEREUM_TRANSACTIONS_PREFIX, b"Nonce");
     frame_support::storage::unhashed::get::<u64>(&nonce_prefix).ok_or(())
 }
 
 fn clear_ethereum_transactions_storage() -> Weight {
     STORAGE_ITEM_NAMES.iter().fold(Weight::zero(), |acc, &item_name| {
-        let storage_prefix = frame_support::storage::storage_prefix(ETHEREUM_TRANSACTIONS_PREFIX, item_name.as_bytes());
+        let storage_prefix = frame_support::storage::storage_prefix(
+            ETHEREUM_TRANSACTIONS_PREFIX,
+            item_name.as_bytes(),
+        );
         let mut storage_key = [0u8; 32];
         storage_key[0..32].copy_from_slice(&storage_prefix);
 
         match item_name {
             "PublishRootContract" | "Nonce" | "StorageVersion" => {
                 frame_support::storage::unhashed::kill(&storage_key);
-                log::info!(
-                    "🚧 Successfully migrated {}", item_name
-                );
+                log::info!("🚧 Successfully migrated {}", item_name);
                 acc + <Runtime as frame_system::Config>::DbWeight::get().writes(1)
             },
             _ => {
                 frame_support::storage::unhashed::clear_prefix(&storage_key, None, None);
-                log::info!(
-                    "🚧 Successfully migrated {}", item_name
-                );
+                log::info!("🚧 Successfully migrated {}", item_name);
                 acc + <Runtime as frame_system::Config>::DbWeight::get().writes(1)
             },
         }
