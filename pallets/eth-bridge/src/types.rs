@@ -4,10 +4,11 @@ pub trait Identifiable {
     fn id(&self) -> EthereumId;
 }
 
+// The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
-    Send(SendRequest),
-    Confirm(ConfirmationRequest),
+    Send(SendRequestData),
+    Confirm(ConfirmationRequestData),
 }
 
 impl Default for Request {
@@ -25,14 +26,15 @@ impl Identifiable for Request {
     }
 }
 
+// Request data for a transaction we are sending to Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct SendRequest {
+pub struct SendRequestData {
     pub id: EthereumId,
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 
-impl SendRequest {
+impl SendRequestData {
     pub fn extend_params<T: Config>(
         &self,
         expiry: u64,
@@ -43,42 +45,35 @@ impl SendRequest {
 
         Ok(util::bound_params(&extended_params)?)
     }
-
 }
 
-impl Identifiable for SendRequest {
+impl Identifiable for SendRequestData {
     fn id(&self) -> EthereumId {
         return self.id;
     }
 }
 
+// Request data for a message that requires confirmation for Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ConfirmationRequest {
+pub struct ConfirmationRequestData {
     pub id: EthereumId,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 
-impl Identifiable for ConfirmationRequest {
+impl Identifiable for ConfirmationRequestData {
     fn id(&self) -> EthereumId {
         return self.id;
     }
 }
 
+// Data related to generating confirmations
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ActiveConfirmationData<T: Config> {
-    pub request: Request,
+pub struct ConfirmationData {
     pub msg_hash: H256,
-    pub sender: Option<T::AccountId>,
-    pub last_updated: T::BlockNumber,
     pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
 }
 
-impl<T: Config> Identifiable for ActiveConfirmationData<T> {
-    fn id(&self) -> EthereumId {
-        return self.request.id();
-    }
-}
-
+// Persisten storage struct to hold transactions sent to Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct TransactionData<T: Config> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
@@ -88,15 +83,57 @@ pub struct TransactionData<T: Config> {
     pub tx_succeeded: bool,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct ActiveTransactionData<T: Config> {
-    pub request: SendRequest,
+// Storage item for the active request being processed
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+pub struct ActiveRequestData<T: Config> {
+    pub request: Request,
     pub confirmation_data: ConfirmationData,
-    pub data: ActiveEthTransactionData<T>,
+    pub tx_data: Option<EthTransactionData<T>>,
+    pub last_updated: T::BlockNumber,
 }
 
+impl<T: Config> Identifiable for ActiveRequestData<T> {
+    fn id(&self) -> EthereumId {
+        return self.request.id();
+    }
+}
+
+impl<T: Config> ActiveRequestData<T> {
+    // Function to convert an active request into an active transaction request
+    pub fn as_active_tx(&self) -> Result<ActiveTxRequestData<T>, Error<T>> {
+        if self.tx_data.is_none() {
+            return Err(Error::<T>::InvalidSendRequest)
+        }
+
+        match self.request {
+            Request::Send(ref req) =>
+                return Ok(ActiveTxRequestData {
+                    request: req.clone(),
+                    confirmation_data: self.confirmation_data.clone(),
+                    data: self.tx_data.as_ref().expect("data is not null").clone(),
+                }),
+            _ => return Err(Error::<T>::InvalidSendRequest),
+        }
+    }
+}
+
+// Active request data specific for a transaction. 'data' is not optional.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct ActiveTxRequestData<T: Config> {
+    pub request: SendRequestData,
+    pub confirmation_data: ConfirmationData,
+    pub data: EthTransactionData<T>,
+}
+
+impl<T: Config> Identifiable for ActiveTxRequestData<T> {
+    fn id(&self) -> EthereumId {
+        return self.request.id();
+    }
+}
+
+// Transient data used for an active send transaction request
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ActiveEthTransactionData<T: Config> {
+pub struct EthTransactionData<T: Config> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub eth_tx_params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
     pub sender: T::AccountId,
@@ -108,50 +145,3 @@ pub struct ActiveEthTransactionData<T: Config> {
     pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
     pub tx_succeeded: bool,
 }
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ActiveRequest<T: Config> {
-    pub request: Request,
-    pub confirmation_data: ConfirmationData,
-    pub tx_data: Option<ActiveEthTransactionData<T>>,
-    pub last_updated: T::BlockNumber,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ConfirmationData {
-    pub msg_hash: H256,
-    pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-}
-
-impl<T: Config> Identifiable for ActiveRequest<T> {
-    fn id(&self) -> EthereumId {
-        return self.request.id();
-    }
-}
-
-impl<T: Config> ActiveRequest<T> {
-    pub fn as_active_tx(&self) -> Result<ActiveTransactionData<T>, Error<T>> {
-        if self.tx_data.is_none() {
-            return Err(Error::<T>::InvalidSendRequest)
-        }
-
-        match self.request {
-            Request::Send(ref req) =>
-                return Ok(ActiveTransactionData {
-                    request: req.clone(),
-                    confirmation_data: self.confirmation_data.clone(),
-                    data: self.tx_data.as_ref().expect("data is not null").clone(),
-                }),
-            _ => return Err(Error::<T>::InvalidSendRequest),
-        }
-
-
-    }
-}
-
-impl<T: Config> Identifiable for ActiveTransactionData<T> {
-    fn id(&self) -> EthereumId {
-        return self.request.id();
-    }
-}
-

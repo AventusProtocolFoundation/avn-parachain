@@ -212,7 +212,7 @@ mod add_confirmation {
     use frame_support::assert_ok;
     use frame_system::RawOrigin;
 
-    fn setup_confirmation_test(context: &Context) -> (u32, ActiveTransactionData<TestRuntime>) {
+    fn setup_confirmation_test(context: &Context) -> (u32, ActiveTxRequestData<TestRuntime>) {
         let tx_id = setup_eth_tx_request(&context);
 
         assert_ok!(EthBridge::add_confirmation(
@@ -275,7 +275,7 @@ mod add_eth_tx_hash {
     use frame_system::RawOrigin;
 
     fn setup_active_transaction_data(
-        setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>,
+        setup_fn: Option<fn(&mut ActiveTxRequestData<TestRuntime>)>,
     ) {
         if let Some(setup_fn) = setup_fn {
             let mut active_tx = ActiveTransaction::<TestRuntime>::get().expect("is active");
@@ -358,7 +358,7 @@ mod add_corroboration {
         context: &Context,
         is_tx_successful: bool,
         is_hash_valid: bool,
-    ) -> ActiveTransactionData<TestRuntime> {
+    ) -> ActiveTxRequestData<TestRuntime> {
         let tx_id = setup_eth_tx_request(&context);
 
         assert_ok!(EthBridge::add_corroboration(

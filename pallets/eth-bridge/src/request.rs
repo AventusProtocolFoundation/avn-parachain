@@ -15,7 +15,7 @@ pub fn add_new_send_request<T: Config>(
 
     let id = use_next_tx_id::<T>();
 
-    let tx_request: Request = Request::Send(SendRequest {
+    let tx_request: Request = Request::Send(SendRequestData {
         id,
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
@@ -41,7 +41,7 @@ pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
     Ok(())
 }
 
-pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
+pub fn replay_send_request<T: Config>(mut tx: ActiveTxRequestData<T>) -> Result<(), Error<T>> {
     tx.request.id = use_next_tx_id::<T>();
     return Ok(tx::set_up_active_tx(Request::Send(tx.request))?)
 }

@@ -7,7 +7,7 @@ pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
 }
 
 fn complete_transaction<T: Config>(
-    mut tx: ActiveTransactionData<T>,
+    mut tx: ActiveTxRequestData<T>,
     success: bool,
 ) -> Result<(), Error<T>> {
     // Alert the originating pallet:
@@ -56,7 +56,7 @@ fn complete_transaction<T: Config>(
 }
 
 pub fn finalize_state<T: Config>(
-    tx: ActiveTransactionData<T>,
+    tx: ActiveTxRequestData<T>,
     success: bool,
 ) -> Result<(), Error<T>> {
     // if the transaction failed and the tx hash is missing or pointing to a different transaction,
@@ -76,13 +76,13 @@ pub fn set_up_active_tx<T: Config>(tx_request: Request) -> Result<(), Error<T>> 
         let extended_params = req.extend_params(expiry)?;
         let msg_hash = eth::generate_msg_hash(&extended_params)?;
 
-        ActiveTransaction::<T>::put(ActiveRequest {
+        ActiveTransaction::<T>::put(ActiveRequestData {
             request: tx_request.clone(),
             confirmation_data: ConfirmationData {
                 msg_hash,
                 confirmations: BoundedVec::default(),
             },
-            tx_data: Some(ActiveEthTransactionData{
+            tx_data: Some(EthTransactionData{
                 function_name: req.function_name.clone(),
                 eth_tx_params: extended_params,
                 expiry,

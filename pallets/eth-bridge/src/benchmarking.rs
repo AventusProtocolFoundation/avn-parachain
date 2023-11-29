@@ -144,7 +144,7 @@ fn setup_active_tx<T: Config>(
         tx_succeeded: false,
     };
 
-    ActiveTransaction::<T>::put(ActiveTransactionData {
+    ActiveTransaction::<T>::put(ActiveTxRequestData {
         id: tx_id,
         request_data,
         data: tx_data,

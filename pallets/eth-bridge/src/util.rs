@@ -15,12 +15,11 @@ pub fn has_enough_corroborations<T: Config>(corroborations: usize) -> bool {
 }
 
 pub fn has_enough_confirmations<T: Config>(total_confirmations: u32) -> bool {
-    let num_confirmations_including_sender = total_confirmations + 1;
-    num_confirmations_including_sender >= AVN::<T>::quorum()
+    total_confirmations >= AVN::<T>::quorum()
 }
 
 pub fn requires_corroboration<T: Config>(
-    eth_tx: &ActiveEthTransactionData<T>,
+    eth_tx: &EthTransactionData<T>,
     author: &Author<T>,
 ) -> bool {
     !eth_tx.success_corroborations.contains(&author.account_id) &&

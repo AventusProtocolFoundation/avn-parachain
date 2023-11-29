@@ -195,7 +195,7 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
 
     #[pallet::storage]
-    pub type ActiveTransaction<T: Config> = StorageValue<_, ActiveRequest<T>, OptionQuery>;
+    pub type ActiveTransaction<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -295,38 +295,36 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active_request::<T>(tx_id) {
-                let mut data_to_confirm = ActiveTransaction::<T>::get().expect("is active");
-
-                if util::has_enough_confirmations::<T>(data_to_confirm.confirmation_data.confirmations.len() as u32) {
-                    return Ok(().into());
-                }
+                let mut req = ActiveTransaction::<T>::get().expect("is active");
 
                 // Sender's confirmation is implicit.
-                match data_to_confirm.request {
-                    Request::Send(_) if data_to_confirm.tx_data.is_some() => {
-                        let sender = &data_to_confirm.tx_data.as_ref().expect("send request has eth data").sender;
-                        if &author.account_id == sender {
+                match req.request {
+                    Request::Send(_) if req.tx_data.is_some() => {
+                        // Add the sender confirmation
+                        let total_confirmations = req.confirmation_data.confirmations.len() as u32 + 1u32;
+                        let sender = &req.tx_data.as_ref().expect("send request has eth data").sender;
+                        if &author.account_id == sender || util::has_enough_confirmations::<T>(total_confirmations) {
                             return Ok(().into())
                         }
                     },
+                    _ if util::has_enough_confirmations::<T>(req.confirmation_data.confirmations.len() as u32) => return Ok(().into()),
                     _ => (),
                 };
 
-                eth::verify_signature::<T>(data_to_confirm.confirmation_data.msg_hash, &author, &confirmation)?;
+                eth::verify_signature::<T>(req.confirmation_data.msg_hash, &author, &confirmation)?;
 
                 ensure!(
-                    !data_to_confirm.confirmation_data.confirmations.contains(&confirmation),
+                    !req.confirmation_data.confirmations.contains(&confirmation),
                     Error::<T>::DuplicateConfirmation
                 );
 
-                data_to_confirm
-                    .confirmation_data
+                req.confirmation_data
                     .confirmations
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                data_to_confirm.last_updated = <frame_system::Pallet<T>>::block_number();
-                ActiveTransaction::<T>::put(data_to_confirm);
+                req.last_updated = <frame_system::Pallet<T>>::block_number();
+                ActiveTransaction::<T>::put(req);
             }
 
             Ok(().into())
@@ -402,7 +400,8 @@ pub mod pallet {
                 if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
                     tx::finalize_state::<T>(tx.as_active_tx()?, tx_succeeded)?;
                 } else {
-                    save_to_storage(tx);
+                    tx.last_updated = <frame_system::Pallet<T>>::block_number();
+                    ActiveTransaction::<T>::put(tx);
                 }
             }
 
@@ -414,16 +413,11 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok((author, finalised_block_number)) = setup_ocw::<T>(block_number) {
-                if let Err(e) = run_offchain_worker::<T>(author, finalised_block_number) {
+                if let Err(e) = process_active_request::<T>(author, finalised_block_number) {
                     log::error!("❌ Error processing offchain worker: {:?}", e);
                 }
             }
         }
-    }
-
-    fn save_to_storage<T: Config>(mut tx: ActiveRequest<T>) {
-        tx.last_updated = <frame_system::Pallet<T>>::block_number();
-        ActiveTransaction::<T>::put(tx);
     }
 
     fn setup_ocw<T: Config>(
@@ -437,62 +431,60 @@ pub mod pallet {
         })
     }
 
-    fn run_offchain_worker<T: Config>(author: Author<T>, finalised_block_number: T::BlockNumber,) -> Result<(), DispatchError> {
-        if let Some(data_to_confirm) = ActiveTransaction::<T>::get() {
-            if finalised_block_number < data_to_confirm.last_updated {
+    // The core logic the OCW employs to fully resolve any currently active transaction:
+    fn process_active_request<T: Config>(
+        author: Author<T>,
+        finalised_block_number: T::BlockNumber,
+    ) -> Result<(), DispatchError> {
+        if let Some(req) = ActiveTransaction::<T>::get() {
+            if finalised_block_number < req.last_updated {
                 log::info!(
                     "👷 Last updated block: {:?} is not finalised, skipping confirmation. Id: {:?}, finalised block: {:?}",
-                    data_to_confirm.last_updated, data_to_confirm.id(), finalised_block_number
+                    req.last_updated, req.id(), finalised_block_number
                 );
                 return Ok(())
             }
 
-            return process_confirmation(author, data_to_confirm);
-        }
-
-        if let Some(tx) = ActiveTransaction::<T>::get() {
-            if finalised_block_number < tx.last_updated {
-                log::info!(
-                    "👷 Last updated block: {:?} is not finalised, skipping sending. Id: {:?}, finalised block: {:?}",
-                    tx.last_updated, tx.id(), finalised_block_number
-                );
-                return Ok(())
-            }
-
-            return process_sending_transaction(author, tx.as_active_tx()?);
-        }
-
-        return Ok(())
-    }
-
-    // The core logic the OCW employs to fully resolve any currently active transaction:
-    fn process_confirmation<T: Config>(
-        author: Author<T>,
-        data_to_confirm: ActiveRequest<T>,
-    ) -> Result<(), DispatchError> {
-        let has_enough_confirmations =
-            util::has_enough_confirmations::<T>(data_to_confirm.confirmation_data.confirmations.len() as u32);
-
-        if !has_enough_confirmations {
-            let confirmation = eth::sign_msg_hash::<T>(&data_to_confirm.confirmation_data.msg_hash)?;
-            if !data_to_confirm.confirmation_data.confirmations.contains(&confirmation) {
-                call::add_confirmation::<T>(data_to_confirm.id(), confirmation, author);
+            match req.request {
+                Request::Confirm(_) => {
+                    let has_enough_confirmations = util::has_enough_confirmations::<T>(req.confirmation_data.confirmations.len() as u32);
+                    if !has_enough_confirmations {
+                        let confirmation = eth::sign_msg_hash::<T>(&req.confirmation_data.msg_hash)?;
+                        if !req.confirmation_data.confirmations.contains(&confirmation) {
+                            call::add_confirmation::<T>(req.id(), confirmation, author);
+                        }
+                    }
+                },
+                Request::Send(_) => {
+                    let tx = req.as_active_tx()?;
+                    let self_is_sender = author.account_id == tx.data.sender;
+                    // Plus 1 for sender
+                    let has_enough_confirmations = util::has_enough_confirmations::<T>(tx.confirmation_data.confirmations.len() as u32 + 1u32);
+                    if !self_is_sender && !has_enough_confirmations {
+                        let confirmation = eth::sign_msg_hash::<T>(&tx.confirmation_data.msg_hash)?;
+                        if !tx.confirmation_data.confirmations.contains(&confirmation) {
+                            call::add_confirmation::<T>(tx.id(), confirmation, author);
+                        }
+                    } else {
+                        process_active_tx_request::<T>(author, tx, self_is_sender, has_enough_confirmations)?;
+                    }
+                }
             }
         }
 
         Ok(())
     }
 
-    // The core logic the OCW employs to fully resolve any currently active transaction:
-    fn process_sending_transaction<T: Config>(
+    fn process_active_tx_request<T: Config>(
         author: Author<T>,
-        tx: ActiveTransactionData<T>,
+        tx: ActiveTxRequestData<T>,
+        self_is_sender: bool,
+        tx_has_enough_confirmations: bool
     ) -> Result<(), DispatchError> {
-        let self_is_sender = author.account_id == tx.data.sender;
         let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
         let tx_is_past_expiry = util::time_now::<T>() > tx.data.expiry;
 
-        if self_is_sender && !tx_is_sent {
+        if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
             let lock_name = format!("eth_bridge_ocw::send::{}", tx.id()).as_bytes().to_vec();
             let mut lock = AVN::<T>::get_ocw_locker(&lock_name);
 
