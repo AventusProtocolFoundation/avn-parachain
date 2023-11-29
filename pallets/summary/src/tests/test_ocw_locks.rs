@@ -25,6 +25,7 @@ pub struct LocalContext {
     pub summary_last_block_in_range: BlockNumber,
     pub block_after_grace_period: BlockNumber,
     pub challenge_reason: SummaryChallengeReason,
+    pub finalised_block_vec: Option<Vec<u8>>,
 }
 
 pub fn setup_success_preconditions() -> LocalContext {
@@ -42,6 +43,7 @@ pub fn setup_success_preconditions() -> LocalContext {
     let other_validator = get_validator(FIRST_VALIDATOR_INDEX);
     let challenge_reason = SummaryChallengeReason::SlotNotAdvanced(slot_number.try_into().unwrap());
     let block_after_grace_period = block_number_for_next_slot + grace_period + 5;
+    let finalised_block_vec = Some(hex::encode(0u32.encode()).into());
 
     assert!(slot_validator != other_validator);
 
@@ -64,6 +66,7 @@ pub fn setup_success_preconditions() -> LocalContext {
         summary_last_block_in_range,
         block_after_grace_period,
         challenge_reason,
+        finalised_block_vec,
     }
 }
 
@@ -78,7 +81,7 @@ mod advance_slot_locks {
 
     #[test]
     fn lock_prevents_multiple_calls_for_same_block() {
-        let (mut ext, pool_state, _offchain_state) = ExtBuilder::build_default()
+        let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
             .with_validators()
             .for_offchain_worker()
             .as_externality_with_state();
@@ -87,6 +90,10 @@ mod advance_slot_locks {
             let context = setup_success_preconditions();
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             Summary::offchain_worker(context.block_number_for_next_slot);
 
             // First run succeeds and lock is in place
@@ -95,6 +102,10 @@ mod advance_slot_locks {
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
             // We should prevent multiple ocw's from running for the same block
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             Summary::offchain_worker(context.block_number_for_next_slot);
             assert_eq!(true, pool_state.read().transactions.is_empty());
         });
@@ -102,7 +113,7 @@ mod advance_slot_locks {
 
     #[test]
     fn lock_prevents_multiple_advance_slot_calls_for_same_slot() {
-        let (mut ext, pool_state, _offchain_state) = ExtBuilder::build_default()
+        let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
             .with_validators()
             .for_offchain_worker()
             .as_externality_with_state();
@@ -111,6 +122,10 @@ mod advance_slot_locks {
             let context = setup_success_preconditions();
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             Summary::offchain_worker(context.block_number_for_next_slot);
 
             //First run succeeds and lock is in place
@@ -120,12 +135,20 @@ mod advance_slot_locks {
 
             // the lock should prevent duplicate slot advancement calls even for different block
             // numbers
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             Summary::offchain_worker(context.block_number_for_next_slot + 1);
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
             expire_advance_slot_lock();
 
             // Although this is logically wrong, we can see that advance_slot is called
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             Summary::offchain_worker(context.block_number_for_next_slot + 2);
             assert_eq!(false, pool_state.read().transactions.is_empty());
         });
@@ -186,6 +209,10 @@ mod record_summary_locks {
             let context = setup_context();
             UintAuthorityId::set_all_keys(vec![UintAuthorityId(context.validator.account_id)]);
 
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             mock_response_of_get_roothash(
                 &mut offchain_state.write(),
                 context.url_param.clone(),
@@ -207,6 +234,10 @@ mod record_summary_locks {
             let _ = pool_state.write().transactions.pop();
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             Summary::offchain_worker(context.current_block_number + 1);
             // Lock prevents a duplicate 'process summary' call
             assert_eq!(true, pool_state.read().transactions.is_empty());
@@ -214,6 +245,10 @@ mod record_summary_locks {
             expire_process_summary_lock(context.last_block_in_range);
 
             // Although this is logically wrong, we can see that process summary is called
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             Summary::offchain_worker(context.current_block_number + 2);
             assert_eq!(false, pool_state.read().transactions.is_empty());
         });
@@ -233,6 +268,11 @@ mod record_summary_locks {
             setup_blocks(&context);
             setup_total_ingresses(&context);
 
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
+
             // Fails at the default current block
             let bad_failure_response = b"0".to_vec();
             mock_response_of_get_roothash(
@@ -248,6 +288,10 @@ mod record_summary_locks {
             assert_eq!(true, pool_state.read().transactions.is_empty());
 
             // Fix the error and try again without reseting the lock
+            mock_response_of_get_finalised_block(
+                &mut offchain_state.write(),
+                &context.finalised_block_vec,
+            );
             mock_response_of_get_roothash(
                 &mut offchain_state.write(),
                 context.url_param.clone(),

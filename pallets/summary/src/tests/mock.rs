@@ -602,6 +602,7 @@ pub struct Context {
     pub root_id: RootId<BlockNumber>,
     pub tx_id: EthereumTransactionId,
     pub current_slot: BlockNumber,
+    pub finalised_block_vec: Option<Vec<u8>>,
 }
 
 pub const DEFAULT_SCHEDULE_PERIOD: u64 = 2;
@@ -622,6 +623,7 @@ pub fn setup_context() -> Context {
     let validator = get_validator(FIRST_VALIDATOR_INDEX);
     let approval_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
     let tx_id = 0;
+    let finalised_block_vec = Some(hex::encode(0u32.encode()).into());
 
     Context {
         current_block_number,
@@ -641,6 +643,7 @@ pub fn setup_context() -> Context {
             last_block_in_range,
         ),
         tx_id,
+        finalised_block_vec,
     }
 }
 
@@ -686,6 +689,18 @@ pub fn mock_response_of_get_roothash(
         method: "GET".into(),
         uri: url.into(),
         response,
+        sent: true,
+        ..Default::default()
+    });
+}
+
+pub fn mock_response_of_get_finalised_block(state: &mut OffchainState, response: &Option<Vec<u8>>) {
+    let url = "http://127.0.0.1:2020/latest_finalised_block".to_string();
+
+    state.expect_request(PendingRequest {
+        method: "GET".into(),
+        uri: url.into(),
+        response: response.clone(),
         sent: true,
         ..Default::default()
     });

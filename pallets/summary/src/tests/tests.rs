@@ -1337,6 +1337,7 @@ mod if_process_summary_is_called_a_second_time {
         let root_range = RootRange::new(next_block_to_process, last_block_in_range);
         let ingress_counter = Summary::get_ingress_counter() + 1;
         let tx_id = 0;
+        let finalised_block_vec = Some(hex::encode(0u32.encode()).into());
 
         Context {
             current_block_number,
@@ -1356,6 +1357,7 @@ mod if_process_summary_is_called_a_second_time {
             ),
             tx_id,
             current_slot: CURRENT_SLOT + 1,
+            finalised_block_vec,
         }
     }
 
