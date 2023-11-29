@@ -10,7 +10,7 @@ use pallet_avn::vote::VotingSessionData;
 use sp_avn_common::IngressCounter;
 use sp_std::vec;
 
-use crate::{ActionId, Config, Pallet};
+use crate::*;
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -59,10 +59,14 @@ impl<T: Config> OnRuntimeUpgrade for RemovePalletVoting<T> {
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {}
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        Ok([0; 32].to_vec())
+    }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade(_input: Vec<u8>) -> Result<(), &'static str> {}
+    fn post_upgrade(_input: Vec<u8>) -> Result<(), &'static str> {
+        Ok(())
+    }
 }
 
 pub fn remove_storage_items<T: Config>() -> Weight {

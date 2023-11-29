@@ -205,8 +205,7 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEth
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        let pre_upgrade_transaction_id: u64 =
-            pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+        let pre_upgrade_transaction_id: u64 = get_nonce_seed().unwrap();
         Ok((pre_upgrade_transaction_id + 1u64).encode())
     }
 
