@@ -164,6 +164,10 @@ pub mod pallet {
             function_name: Vec<u8>,
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
+        LowerProofRequested {
+            tx_id: EthereumId,
+            params: Vec<(Vec<u8>, Vec<u8>)>,
+        },
         EthTxIdUpdated {
             eth_tx_id: EthereumId,
         },
@@ -609,6 +613,20 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::PublishToEthereum {
                 tx_id,
                 function_name: function_name.to_vec(),
+                params: params.to_vec(),
+            });
+
+            Ok(tx_id)
+        }
+
+        fn generate_proof(
+            params: &[(Vec<u8>, Vec<u8>)],
+        ) -> Result<EthereumId, DispatchError> {
+            let tx_id = request::add_new_proof_request::<T>(params)
+                .map_err(|e| DispatchError::Other(e.into()))?;
+
+            Self::deposit_event(Event::<T>::LowerProofRequested {
+                tx_id,
                 params: params.to_vec(),
             });
 

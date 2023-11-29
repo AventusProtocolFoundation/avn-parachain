@@ -31,6 +31,26 @@ pub fn add_new_send_request<T: Config>(
     Ok(id)
 }
 
+pub fn add_new_proof_request<T: Config>(
+    params: &[(Vec<u8>, Vec<u8>)]
+) -> Result<EthereumId, Error<T>> {
+    let id = use_next_tx_id::<T>();
+
+    let proof_req = ProofRequestData {
+        id,
+        params: bound_params(&params.to_vec())?,
+    };
+
+    if ActiveRequest::<T>::get().is_some() {
+        queue_request(Request::Proof(proof_req))?;
+    } else {
+        // TODO: create function
+        //tx::set_up_active_tx(proof_req)?;
+    }
+
+    Ok(id)
+}
+
 pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
     ActiveRequest::<T>::kill();
 
