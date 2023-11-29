@@ -155,42 +155,51 @@ pub type Executive = frame_executive::Executive<
     AllPalletsWithSystem,
     (
         pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
-        SeedAvnBridgeTransactionMigration,
+        SeedBridgeTransactionAndDropEthTransactions,
     ),
 >;
 
-pub struct SeedAvnBridgeTransactionMigration;
-impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        let storage_version: StorageVersion = StorageVersion::new(1);
+const ETHEREUM_TRANSACTIONS_PREFIX: &[u8] = b"EthereumTransactions";
+const STORAGE_ITEM_NAMES: &[&'static str] = &[
+    "Repository",
+    "DispatchedAvnTxIds",
+    "ReservedTransactions",
+    "PublishRootContract",
+    "Nonce",
+    "StorageVersion",
+];
+pub struct SeedBridgeTransactionAndDropEthTransactions;
 
+impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEthTransactions {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        let migration_version = StorageVersion::new(1);
         let current = pallet_eth_bridge::Pallet::<Runtime>::current_storage_version();
         let onchain = pallet_eth_bridge::Pallet::<Runtime>::on_chain_storage_version();
 
         if onchain < 1 {
             log::info!(
-                "🚧 🚧 Running migration to seed transaction Id. Current storage version: {:?}, onchain version: {:?}",
+                "🚧 Running migration. Current storage version: {:?}, on-chain version: {:?}",
                 current,
                 onchain
             );
-            let pre_upgrade_transaction_id: u64 =
-                pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
 
-            if let Ok(tx_id) =
-                <u64 as TryInto<u32>>::try_into(pre_upgrade_transaction_id).defensive()
-            {
-                <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(
-                    tx_id + 1u32,
-                );
-                storage_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
-                log::info!("✅ Transaction Id seeded successfully to {}", tx_id + 1u32);
-                return <Runtime as frame_system::Config>::DbWeight::get().reads(1) +
-                    <Runtime as frame_system::Config>::DbWeight::get().writes(1)
-            } else {
-                log::info!("💔 Failed to seed transaction Id");
+            let mut total_weight = Weight::zero();
+
+            match try_seed_next_tx_id() {
+                Ok(weight) => total_weight += weight,
+                Err(_) => log::info!("💔 Failed to seed transaction Id"),
             }
-        }
 
+            total_weight += clear_ethereum_transactions_storage();
+
+            migration_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
+
+            log::info!(
+                "🚧 Migration successfull"
+            );
+
+            return total_weight;
+        } 
         Weight::zero()
     }
 
@@ -207,6 +216,45 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedAvnBridgeTransactionMigrati
         assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
         Ok(())
     }
+}
+
+fn try_seed_next_tx_id() -> Result<Weight, ()> {
+    let nonce_seed = get_nonce_seed()?;
+    let tx_id: u32 = nonce_seed.try_into().map_err(|_| ())?;
+    <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(tx_id + 1);
+    log::info!("✅ Transaction Id seeded to {}", tx_id + 1);
+
+    Ok(<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1))
+}
+
+fn get_nonce_seed() -> Result<u64, ()> {
+    let nonce_prefix = frame_support::storage::storage_prefix(ETHEREUM_TRANSACTIONS_PREFIX, b"Nonce");
+    frame_support::storage::unhashed::get::<u64>(&nonce_prefix).ok_or(())
+}
+
+fn clear_ethereum_transactions_storage() -> Weight {
+    STORAGE_ITEM_NAMES.iter().fold(Weight::zero(), |acc, &item_name| {
+        let storage_prefix = frame_support::storage::storage_prefix(ETHEREUM_TRANSACTIONS_PREFIX, item_name.as_bytes());
+        let mut storage_key = [0u8; 32];
+        storage_key[0..32].copy_from_slice(&storage_prefix);
+
+        match item_name {
+            "PublishRootContract" | "Nonce" | "StorageVersion" => {
+                frame_support::storage::unhashed::kill(&storage_key);
+                log::info!(
+                    "🚧 Successfully migrated {}", item_name
+                );
+                acc + <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+            },
+            _ => {
+                frame_support::storage::unhashed::clear_prefix(&storage_key, None, None);
+                log::info!(
+                    "🚧 Successfully migrated {}", item_name
+                );
+                acc + <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+            },
+        }
+    })
 }
 
 impl_opaque_keys! {
@@ -614,13 +662,6 @@ impl pallet_ethereum_events::Config for Runtime {
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_ethereum_transactions::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    type AccountToBytesConvert = Avn;
-    type WeightInfo = pallet_ethereum_transactions::default_weights::SubstrateWeight<Runtime>;
-}
-
 parameter_types! {
     pub const ValidatorManagerVotingPeriod: BlockNumber = 30 * MINUTES;
 }
@@ -828,7 +869,6 @@ construct_runtime!(
         Avn: pallet_avn = 81,
         AvnOffenceHandler: pallet_avn_offence_handler = 83,
         EthereumEvents: pallet_ethereum_events = 84,
-        EthereumTransactions: pallet_ethereum_transactions = 85,
         NftManager: pallet_nft_manager = 86,
         TokenManager: pallet_token_manager = 87,
         Summary: pallet_summary = 88,
@@ -860,7 +900,6 @@ mod benches {
         [pallet_avn, Avn]
         [pallet_eth_bridge, EthBridge]
         [pallet_ethereum_events, EthereumEvents]
-        [pallet_ethereum_transactions, EthereumTransactions]
         [pallet_nft_manager, NftManager]
         [pallet_summary, Summary]
         [pallet_token_manager, TokenManager]

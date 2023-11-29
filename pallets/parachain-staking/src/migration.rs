@@ -9,7 +9,7 @@
 use crate::{
     avn::vote::VotingSessionData, BalanceOf, BoundedVec, Clone, CollatorScore, Config, ConstU32,
     Decode, Encode, Growth, GrowthInfo, GrowthPeriodIndex, IngressCounter, MaxEncodedLen, Pallet,
-    RewardPoint, RuntimeDebug, TransactionId, TypeInfo,
+    RewardPoint, RuntimeDebug, EthereumTransactionId, TypeInfo,
 };
 
 use frame_support::{
@@ -32,7 +32,7 @@ pub struct OldGrowthInfo<AccountId, Balance> {
     pub total_points: RewardPoint,
     pub collator_scores: BoundedVec<CollatorScore<AccountId>, ConstU32<10000>>,
     pub added_by: Option<AccountId>,
-    pub tx_id: Option<TransactionId>,
+    pub tx_id: Option<EthereumTransactionId>,
     pub triggered: Option<bool>,
 }
 
