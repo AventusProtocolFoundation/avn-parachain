@@ -8,7 +8,7 @@ pub trait Identifiable {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
     Send(SendRequestData),
-    Confirm(ConfirmationRequestData),
+    Proof(ProofRequestData), /*This of a better name*/
 }
 
 impl Default for Request {
@@ -21,7 +21,7 @@ impl Identifiable for Request {
     fn id(&self) -> EthereumId {
         match self {
             Request::Send(req) => req.id(),
-            Request::Confirm(req) => req.id(),
+            Request::Proof(req) => req.id(),
         }
     }
 }
@@ -58,12 +58,12 @@ impl Identifiable for SendRequestData {
 
 // Request data for a message that requires confirmation for Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ConfirmationRequestData {
+pub struct ProofRequestData {
     pub id: EthereumId,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 
-impl Identifiable for ConfirmationRequestData {
+impl Identifiable for ProofRequestData {
     fn id(&self) -> EthereumId {
         return self.id
     }
@@ -71,7 +71,7 @@ impl Identifiable for ConfirmationRequestData {
 
 // Data related to generating confirmations
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ConfirmationData {
+pub struct ActiveConfirmation {
     pub msg_hash: H256,
     pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
 }
@@ -90,8 +90,8 @@ pub struct TransactionData<T: Config> {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct ActiveRequestData<T: Config> {
     pub request: Request,
-    pub confirmation: ConfirmationData,
-    pub tx_data: Option<EthTransactionData<T>>,
+    pub confirmation: ActiveConfirmation,
+    pub tx_data: Option<ActiveEthTransaction<T>>,
     pub last_updated: T::BlockNumber,
 }
 
@@ -124,8 +124,8 @@ impl<T: Config> ActiveRequestData<T> {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveTransactionData<T: Config> {
     pub request: SendRequestData,
-    pub confirmation: ConfirmationData,
-    pub data: EthTransactionData<T>,
+    pub confirmation: ActiveConfirmation,
+    pub data: ActiveEthTransaction<T>,
 }
 
 impl<T: Config> Identifiable for ActiveTransactionData<T> {
@@ -136,7 +136,7 @@ impl<T: Config> Identifiable for ActiveTransactionData<T> {
 
 // Transient data used for an active send transaction request
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct EthTransactionData<T: Config> {
+pub struct ActiveEthTransaction<T: Config> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub eth_tx_params:
         BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,

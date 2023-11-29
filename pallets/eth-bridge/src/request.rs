@@ -37,7 +37,7 @@ pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
     if let Some(tx_request) = request::dequeue_tx_request::<T>() {
         return match tx_request {
             Request::Send(send_req) => tx::set_up_active_tx(send_req),
-            Request::Confirm(_) => /*TODO: call setup for a confirmation request*/ Ok(()),
+            Request::Proof(_) => /*TODO: call setup for a confirmation request*/ Ok(()),
         }
     };
 

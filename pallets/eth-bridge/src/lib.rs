@@ -110,7 +110,7 @@ pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 
 pub const TX_HASH_INVALID: bool = false;
-// TODO: should we use this for Sending and Confirmation?
+// TODO: should we use this for Sending and collecting confirmations?
 pub type EthereumId = u32;
 
 const PALLET_NAME: &'static [u8] = b"EthBridge";
@@ -455,7 +455,7 @@ pub mod pallet {
             }
 
             match req.request {
-                Request::Confirm(_) => {
+                Request::Proof(_) => {
                     let has_enough_confirmations = util::has_enough_confirmations::<T>(
                         req.confirmation.confirmations.len() as u32,
                     );
