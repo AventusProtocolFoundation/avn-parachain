@@ -137,6 +137,8 @@ pub mod pallet {
         MaxValidatorsExceeded,
         ResponseFailed,
         RequestFailed,
+        ErrorGettingFinalisedBlock,
+        ErrorDecodingU32,
     }
 
     #[pallet::storage]
@@ -196,7 +198,7 @@ impl<T: Config> Pallet<T> {
     pub fn pre_run_setup(
         block_number: T::BlockNumber,
         caller_id: Vec<u8>,
-    ) -> Result<Validator<T::AuthorityId, T::AccountId>, DispatchError> {
+    ) -> Result<(Validator<T::AuthorityId, T::AccountId>, T::BlockNumber), DispatchError> {
         if !sp_io::offchain::is_validator() {
             Err(Error::<T>::NotAValidator)?
         }
@@ -205,6 +207,8 @@ impl<T: Config> Pallet<T> {
         if maybe_validator.is_none() {
             Err(Error::<T>::NoLocalAccounts)?
         }
+
+        let finalised_block = Self::get_finalised_block_from_external_service()?;
 
         // Offchain workers could run multiple times for the same block number (re-orgs...)
         // so we need to make sure we only run this once per block
@@ -222,7 +226,7 @@ impl<T: Config> Pallet<T> {
             },
         })?;
 
-        Ok(maybe_validator.expect("Already checked"))
+        return Ok((maybe_validator.expect("Already checked"), finalised_block))
     }
 
     pub fn get_default_ocw_lock_expiry() -> u32 {
@@ -385,6 +389,27 @@ impl<T: Config> Pallet<T> {
                 active_validators.remove(validator_index);
             }
         });
+    }
+
+    // Called from OCW, no storage changes allowed
+    pub fn get_finalised_block_from_external_service() -> Result<T::BlockNumber, Error<T>> {
+        let response = Self::get_data_from_service(String::from("latest_finalised_block"))
+            .map_err(|e| {
+                error!("❌ Error getting finalised block from avn service: {:?}", e);
+                Error::<T>::ErrorGettingFinalisedBlock
+            })?;
+
+        let finalised_block_bytes = hex::decode(&response).map_err(|e| {
+            error!("❌ Error decoding finalised block data {:?}", e);
+            Error::<T>::InvalidResponse
+        })?;
+
+        let finalised_block = u32::decode(&mut &finalised_block_bytes[..]).map_err(|e| {
+            error!("❌ Finalised block is not a valid u32: {:?}", e);
+            Error::<T>::ErrorDecodingU32
+        })?;
+
+        return Ok(T::BlockNumber::from(finalised_block))
     }
 
     pub fn get_external_service_port_number() -> String {

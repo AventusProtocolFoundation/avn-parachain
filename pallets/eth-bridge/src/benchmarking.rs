@@ -150,6 +150,7 @@ fn setup_active_tx<T: Config>(
         data: tx_data,
         expiry,
         msg_hash: H256::repeat_byte(1),
+        last_updated: 0u32.into(),
         confirmations: {
             let mut confirmations = BoundedVec::default();
             for i in 0..num_confirmations {
