@@ -274,9 +274,7 @@ mod add_eth_tx_hash {
     use super::*;
     use frame_system::RawOrigin;
 
-    fn setup_active_transaction_data(
-        setup_fn: Option<fn(&mut ActiveTxRequestData<TestRuntime>)>,
-    ) {
+    fn setup_active_transaction_data(setup_fn: Option<fn(&mut ActiveTxRequestData<TestRuntime>)>) {
         if let Some(setup_fn) = setup_fn {
             let mut active_tx = ActiveTransaction::<TestRuntime>::get().expect("is active");
             setup_fn(&mut active_tx);

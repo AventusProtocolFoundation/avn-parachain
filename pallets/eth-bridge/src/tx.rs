@@ -41,13 +41,16 @@ fn complete_transaction<T: Config>(
     }
 
     // Write the tx data to permanent storage:
-    SettledTransactions::<T>::insert(tx.id(), TransactionData {
-        function_name: tx.request.function_name,
-        params: tx.request.params,
-        sender: tx.data.sender,
-        eth_tx_hash: tx.data.eth_tx_hash,
-        tx_succeeded: tx.data.tx_succeeded,
-    });
+    SettledTransactions::<T>::insert(
+        tx.id(),
+        TransactionData {
+            function_name: tx.request.function_name,
+            params: tx.request.params,
+            sender: tx.data.sender,
+            eth_tx_hash: tx.data.eth_tx_hash,
+            tx_succeeded: tx.data.tx_succeeded,
+        },
+    );
 
     // Process any new request from the queue
     request::process_next_request::<T>()?;
@@ -61,7 +64,9 @@ pub fn finalize_state<T: Config>(
 ) -> Result<(), Error<T>> {
     // if the transaction failed and the tx hash is missing or pointing to a different transaction,
     // replay transaction
-    if !success && util::has_enough_corroborations::<T>(tx.data.invalid_tx_hash_corroborations.len()) {
+    if !success &&
+        util::has_enough_corroborations::<T>(tx.data.invalid_tx_hash_corroborations.len())
+    {
         // raise an offence on the "sender" because the tx_hash they provided was invalid
         return Ok(request::replay_send_request(tx)?)
     }
@@ -78,11 +83,8 @@ pub fn set_up_active_tx<T: Config>(tx_request: Request) -> Result<(), Error<T>> 
 
         ActiveTransaction::<T>::put(ActiveRequestData {
             request: tx_request.clone(),
-            confirmation_data: ConfirmationData {
-                msg_hash,
-                confirmations: BoundedVec::default(),
-            },
-            tx_data: Some(EthTransactionData{
+            confirmation_data: ConfirmationData { msg_hash, confirmations: BoundedVec::default() },
+            tx_data: Some(EthTransactionData {
                 function_name: req.function_name.clone(),
                 eth_tx_params: extended_params,
                 expiry,

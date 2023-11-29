@@ -38,7 +38,10 @@ impl SendRequestData {
     pub fn extend_params<T: Config>(
         &self,
         expiry: u64,
-    ) -> Result<BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>, Error<T>> {
+    ) -> Result<
+        BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+        Error<T>,
+    > {
         let mut extended_params = util::unbound_params(&self.params);
         extended_params.push((eth::UINT256.to_vec(), expiry.to_string().into_bytes()));
         extended_params.push((eth::UINT32.to_vec(), self.id.to_string().into_bytes()));
@@ -49,7 +52,7 @@ impl SendRequestData {
 
 impl Identifiable for SendRequestData {
     fn id(&self) -> EthereumId {
-        return self.id;
+        return self.id
     }
 }
 
@@ -62,7 +65,7 @@ pub struct ConfirmationRequestData {
 
 impl Identifiable for ConfirmationRequestData {
     fn id(&self) -> EthereumId {
-        return self.id;
+        return self.id
     }
 }
 
@@ -94,7 +97,7 @@ pub struct ActiveRequestData<T: Config> {
 
 impl<T: Config> Identifiable for ActiveRequestData<T> {
     fn id(&self) -> EthereumId {
-        return self.request.id();
+        return self.request.id()
     }
 }
 
@@ -127,7 +130,7 @@ pub struct ActiveTxRequestData<T: Config> {
 
 impl<T: Config> Identifiable for ActiveTxRequestData<T> {
     fn id(&self) -> EthereumId {
-        return self.request.id();
+        return self.request.id()
     }
 }
 
@@ -135,7 +138,8 @@ impl<T: Config> Identifiable for ActiveTxRequestData<T> {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct EthTransactionData<T: Config> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
-    pub eth_tx_params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub eth_tx_params:
+        BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
     pub sender: T::AccountId,
     pub expiry: u64,
     pub eth_tx_hash: H256,

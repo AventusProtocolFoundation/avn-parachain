@@ -76,8 +76,8 @@ use sp_std::prelude::*;
 
 mod call;
 mod eth;
-mod tx;
 mod request;
+mod tx;
 mod types;
 mod util;
 use crate::types::*;
@@ -301,13 +301,20 @@ pub mod pallet {
                 match req.request {
                     Request::Send(_) if req.tx_data.is_some() => {
                         // Add the sender confirmation
-                        let total_confirmations = req.confirmation_data.confirmations.len() as u32 + 1u32;
-                        let sender = &req.tx_data.as_ref().expect("send request has eth data").sender;
-                        if &author.account_id == sender || util::has_enough_confirmations::<T>(total_confirmations) {
+                        let total_confirmations =
+                            req.confirmation_data.confirmations.len() as u32 + 1u32;
+                        let sender =
+                            &req.tx_data.as_ref().expect("send request has eth data").sender;
+                        if &author.account_id == sender ||
+                            util::has_enough_confirmations::<T>(total_confirmations)
+                        {
                             return Ok(().into())
                         }
                     },
-                    _ if util::has_enough_confirmations::<T>(req.confirmation_data.confirmations.len() as u32) => return Ok(().into()),
+                    _ if util::has_enough_confirmations::<T>(
+                        req.confirmation_data.confirmations.len() as u32,
+                    ) =>
+                        return Ok(().into()),
                     _ => (),
                 };
 
@@ -447,9 +454,12 @@ pub mod pallet {
 
             match req.request {
                 Request::Confirm(_) => {
-                    let has_enough_confirmations = util::has_enough_confirmations::<T>(req.confirmation_data.confirmations.len() as u32);
+                    let has_enough_confirmations = util::has_enough_confirmations::<T>(
+                        req.confirmation_data.confirmations.len() as u32,
+                    );
                     if !has_enough_confirmations {
-                        let confirmation = eth::sign_msg_hash::<T>(&req.confirmation_data.msg_hash)?;
+                        let confirmation =
+                            eth::sign_msg_hash::<T>(&req.confirmation_data.msg_hash)?;
                         if !req.confirmation_data.confirmations.contains(&confirmation) {
                             call::add_confirmation::<T>(req.id(), confirmation, author);
                         }
@@ -459,16 +469,23 @@ pub mod pallet {
                     let tx = req.as_active_tx()?;
                     let self_is_sender = author.account_id == tx.data.sender;
                     // Plus 1 for sender
-                    let has_enough_confirmations = util::has_enough_confirmations::<T>(tx.confirmation_data.confirmations.len() as u32 + 1u32);
+                    let has_enough_confirmations = util::has_enough_confirmations::<T>(
+                        tx.confirmation_data.confirmations.len() as u32 + 1u32,
+                    );
                     if !self_is_sender && !has_enough_confirmations {
                         let confirmation = eth::sign_msg_hash::<T>(&tx.confirmation_data.msg_hash)?;
                         if !tx.confirmation_data.confirmations.contains(&confirmation) {
                             call::add_confirmation::<T>(tx.id(), confirmation, author);
                         }
                     } else {
-                        process_active_tx_request::<T>(author, tx, self_is_sender, has_enough_confirmations)?;
+                        process_active_tx_request::<T>(
+                            author,
+                            tx,
+                            self_is_sender,
+                            has_enough_confirmations,
+                        )?;
                     }
-                }
+                },
             }
         }
 
@@ -479,7 +496,7 @@ pub mod pallet {
         author: Author<T>,
         tx: ActiveTxRequestData<T>,
         self_is_sender: bool,
-        tx_has_enough_confirmations: bool
+        tx_has_enough_confirmations: bool,
     ) -> Result<(), DispatchError> {
         let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
         let tx_is_past_expiry = util::time_now::<T>() > tx.data.expiry;

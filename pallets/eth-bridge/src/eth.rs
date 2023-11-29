@@ -119,9 +119,7 @@ pub fn generate_msg_hash<T: pallet::Config>(
     Ok(H256::from(msg_hash))
 }
 
-pub fn generate_send_calldata<T: Config>(
-    tx: &ActiveTxRequestData<T>,
-) -> Result<Vec<u8>, Error<T>> {
+pub fn generate_send_calldata<T: Config>(tx: &ActiveTxRequestData<T>) -> Result<Vec<u8>, Error<T>> {
     let mut concatenated_confirmations = Vec::new();
     for conf in &tx.confirmation_data.confirmations {
         concatenated_confirmations.extend_from_slice(conf.as_ref());
