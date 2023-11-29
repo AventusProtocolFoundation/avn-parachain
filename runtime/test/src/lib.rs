@@ -202,6 +202,20 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEth
         } 
         Weight::zero()
     }
+
+    #[cfg(feature = "try-runtime")]
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        let pre_upgrade_transaction_id: u64 =
+            pallet_ethereum_transactions::Pallet::<Runtime>::get_nonce();
+        Ok((pre_upgrade_transaction_id + 1u64).encode())
+    }
+
+    #[cfg(feature = "try-runtime")]
+    fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
+        let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
+        assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
+        Ok(())
+    }
 }
 
 fn try_seed_next_tx_id() -> Result<Weight, ()> {
