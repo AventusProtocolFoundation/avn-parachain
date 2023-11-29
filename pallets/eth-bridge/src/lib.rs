@@ -439,7 +439,9 @@ pub mod pallet {
         ActiveTransaction::<T>::put(tx);
     }
 
-    fn setup_ocw<T: Config>(block_number: T::BlockNumber) -> Result<(Author<T>, T::BlockNumber), DispatchError> {
+    fn setup_ocw<T: Config>(
+        block_number: T::BlockNumber,
+    ) -> Result<(Author<T>, T::BlockNumber), DispatchError> {
         AVN::<T>::pre_run_setup(block_number, PALLET_NAME.to_vec()).map_err(|e| {
             if e != DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) {
                 log::error!("❌ Unable to run offchain worker: {:?}", e);
@@ -449,7 +451,10 @@ pub mod pallet {
     }
 
     // The core logic the OCW employs to fully resolve any currently active transaction:
-    fn process_active_transaction<T: Config>(author: Author<T>, finalised_block_number: T::BlockNumber) -> Result<(), DispatchError> {
+    fn process_active_transaction<T: Config>(
+        author: Author<T>,
+        finalised_block_number: T::BlockNumber,
+    ) -> Result<(), DispatchError> {
         if let Some(tx) = ActiveTransaction::<T>::get() {
             if finalised_block_number < tx.last_updated {
                 log::info!(

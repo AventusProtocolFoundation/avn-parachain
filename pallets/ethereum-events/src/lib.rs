@@ -972,7 +972,7 @@ impl<T: Config> Pallet<T> {
     fn try_process_event(
         block_number: T::BlockNumber,
         validator: &Validator<T::AuthorityId, T::AccountId>,
-        finalised_block_number: T::BlockNumber
+        finalised_block_number: T::BlockNumber,
     ) {
         if let Some((event_to_process, ingress_counter, _)) =
             Self::get_next_event_to_process(block_number, finalised_block_number)
@@ -1084,7 +1084,9 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn get_events_to_check_if_required(finalised_block_number: T::BlockNumber,) -> Option<(EthEventId, IngressCounter, T::BlockNumber)> {
+    fn get_events_to_check_if_required(
+        finalised_block_number: T::BlockNumber,
+    ) -> Option<(EthEventId, IngressCounter, T::BlockNumber)> {
         if Self::unchecked_events().is_empty() {
             return None
         }
@@ -1154,8 +1156,8 @@ impl<T: Config> Pallet<T> {
         return Self::events_pending_challenge()
             .into_iter()
             .filter(|(checked, _counter, submitted_at_block)| {
-                block_number > checked.ready_for_processing_after_block
-                && submitted_at_block <= &finalised_block_number
+                block_number > checked.ready_for_processing_after_block &&
+                    submitted_at_block <= &finalised_block_number
             })
             .last()
     }
