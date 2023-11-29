@@ -15,35 +15,38 @@ pub fn add_new_send_request<T: Config>(
 
     let id = use_next_tx_id::<T>();
 
-    let tx_request: Request = Request::Send(SendRequestData {
+    let send_req = SendRequestData {
         id,
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
-    });
+    };
 
-    if ActiveTransaction::<T>::get().is_some() {
-        queue_request(tx_request)?;
+    if ActiveRequest::<T>::get().is_some() {
+        queue_request(Request::Send(send_req))?;
     } else {
-        tx::set_up_active_tx(tx_request)?;
+        tx::set_up_active_tx(send_req)?;
     }
 
     Ok(id)
 }
 
 pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
-    ActiveTransaction::<T>::kill();
+    ActiveRequest::<T>::kill();
 
     if let Some(tx_request) = request::dequeue_tx_request::<T>() {
-        tx::set_up_active_tx(tx_request)?;
-    }
+        return match tx_request {
+            Request::Send(send_req) => tx::set_up_active_tx(send_req),
+            Request::Confirm(_) => /*TODO: call setup for a confirmation request*/ Ok(()),
+        }
+    };
 
     Ok(())
 }
 
-pub fn replay_send_request<T: Config>(mut tx: ActiveTxRequestData<T>) -> Result<(), Error<T>> {
+pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
     tx.request.id = use_next_tx_id::<T>();
-    return Ok(tx::set_up_active_tx(Request::Send(tx.request))?)
+    return Ok(tx::set_up_active_tx(tx.request)?)
 }
 
 fn queue_request<T: Config>(request: Request) -> Result<(), Error<T>> {

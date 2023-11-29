@@ -144,7 +144,7 @@ fn setup_active_tx<T: Config>(
         tx_succeeded: false,
     };
 
-    ActiveTransaction::<T>::put(ActiveTxRequestData {
+    ActiveRequest::<T>::put(ActiveTransactionData {
         id: tx_id,
         request_data,
         data: tx_data,
@@ -194,7 +194,7 @@ benchmarks! {
 
         let tx_id = 1u32;
         setup_active_tx::<T>(tx_id, 1, sender.clone());
-        let active_tx = ActiveTransaction::<T>::get().expect("is active");
+        let active_tx = ActiveRequest::<T>::get().expect("is active");
 
         let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("53ea27badd00d7b5e4d7e7eb2542ea3abfcd2d8014d2153719f3f00d4058c4027eac360877d5d191cbfdfe8cd72dfe82abc9192fc6c8dce21f3c6f23c43e053f1c")).unwrap().into();
         let proof = (crate::ADD_CONFIRMATION_CONTEXT, tx_id, new_confirmation.clone(), author.account_id.clone()).encode();
@@ -206,7 +206,7 @@ benchmarks! {
 
     }: _(RawOrigin::None, tx_id, new_confirmation.clone(), author.clone(), signature)
     verify {
-        let active_tx = ActiveTransaction::<T>::get().expect("is active");
+        let active_tx = ActiveRequest::<T>::get().expect("is active");
         ensure!(active_tx.confirmations.contains(&new_confirmation), "Confirmation not added");
     }
 
@@ -223,7 +223,7 @@ benchmarks! {
         let signature = sender.key.sign(&proof).expect("Error signing proof");
     }: _(RawOrigin::None, tx_id, eth_tx_hash.clone(), sender.clone(), signature)
     verify {
-        let active_tx = ActiveTransaction::<T>::get().expect("is active");
+        let active_tx = ActiveRequest::<T>::get().expect("is active");
         assert_eq!(active_tx.data.eth_tx_hash, eth_tx_hash, "Eth tx hash not added");
     }
 
@@ -243,7 +243,7 @@ benchmarks! {
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: _(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
-        let active_tx = ActiveTransaction::<T>::get().expect("is active");
+        let active_tx = ActiveRequest::<T>::get().expect("is active");
         ensure!(active_tx.success_corroborations.contains(&author.account_id), "Corroboration not added");
     }
 }

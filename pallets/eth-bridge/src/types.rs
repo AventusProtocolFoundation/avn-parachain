@@ -90,7 +90,7 @@ pub struct TransactionData<T: Config> {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct ActiveRequestData<T: Config> {
     pub request: Request,
-    pub confirmation_data: ConfirmationData,
+    pub confirmation: ConfirmationData,
     pub tx_data: Option<EthTransactionData<T>>,
     pub last_updated: T::BlockNumber,
 }
@@ -103,16 +103,16 @@ impl<T: Config> Identifiable for ActiveRequestData<T> {
 
 impl<T: Config> ActiveRequestData<T> {
     // Function to convert an active request into an active transaction request
-    pub fn as_active_tx(&self) -> Result<ActiveTxRequestData<T>, Error<T>> {
+    pub fn as_active_tx(&self) -> Result<ActiveTransactionData<T>, Error<T>> {
         if self.tx_data.is_none() {
             return Err(Error::<T>::InvalidSendRequest)
         }
 
         match self.request {
             Request::Send(ref req) =>
-                return Ok(ActiveTxRequestData {
+                return Ok(ActiveTransactionData {
                     request: req.clone(),
-                    confirmation_data: self.confirmation_data.clone(),
+                    confirmation: self.confirmation.clone(),
                     data: self.tx_data.as_ref().expect("data is not null").clone(),
                 }),
             _ => return Err(Error::<T>::InvalidSendRequest),
@@ -122,13 +122,13 @@ impl<T: Config> ActiveRequestData<T> {
 
 // Active request data specific for a transaction. 'data' is not optional.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct ActiveTxRequestData<T: Config> {
+pub struct ActiveTransactionData<T: Config> {
     pub request: SendRequestData,
-    pub confirmation_data: ConfirmationData,
+    pub confirmation: ConfirmationData,
     pub data: EthTransactionData<T>,
 }
 
-impl<T: Config> Identifiable for ActiveTxRequestData<T> {
+impl<T: Config> Identifiable for ActiveTransactionData<T> {
     fn id(&self) -> EthereumId {
         return self.request.id()
     }

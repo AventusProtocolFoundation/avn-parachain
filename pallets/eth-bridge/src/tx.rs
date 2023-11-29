@@ -3,11 +3,11 @@ use crate::{offence::create_and_report_corroboration_offence, Config};
 use frame_support::BoundedVec;
 
 pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
-    ActiveTransaction::<T>::get().map_or(false, |d| d.request.id() == id)
+    ActiveRequest::<T>::get().map_or(false, |d| d.request.id() == id)
 }
 
 fn complete_transaction<T: Config>(
-    mut tx: ActiveTxRequestData<T>,
+    mut tx: ActiveTransactionData<T>,
     success: bool,
 ) -> Result<(), Error<T>> {
     // Alert the originating pallet:
@@ -59,7 +59,7 @@ fn complete_transaction<T: Config>(
 }
 
 pub fn finalize_state<T: Config>(
-    tx: ActiveTxRequestData<T>,
+    tx: ActiveTransactionData<T>,
     success: bool,
 ) -> Result<(), Error<T>> {
     // if the transaction failed and the tx hash is missing or pointing to a different transaction,
@@ -74,33 +74,28 @@ pub fn finalize_state<T: Config>(
     Ok(complete_transaction::<T>(tx, success)?)
 }
 
-pub fn set_up_active_tx<T: Config>(tx_request: Request) -> Result<(), Error<T>> {
+pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>> {
     let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
+    let extended_params = req.extend_params(expiry)?;
+    let msg_hash = eth::generate_msg_hash(&extended_params)?;
 
-    if let Request::Send(ref req) = tx_request {
-        let extended_params = req.extend_params(expiry)?;
-        let msg_hash = eth::generate_msg_hash(&extended_params)?;
+    ActiveRequest::<T>::put(ActiveRequestData {
+        request: Request::Send(req.clone()),
+        confirmation: ConfirmationData { msg_hash, confirmations: BoundedVec::default() },
+        tx_data: Some(EthTransactionData {
+            function_name: req.function_name.clone(),
+            eth_tx_params: extended_params,
+            expiry,
+            eth_tx_hash: H256::zero(),
+            sender: eth::assign_sender()?,
+            success_corroborations: BoundedVec::default(),
+            failure_corroborations: BoundedVec::default(),
+            valid_tx_hash_corroborations: BoundedVec::default(),
+            invalid_tx_hash_corroborations: BoundedVec::default(),
+            tx_succeeded: false,
+        }),
+        last_updated: <frame_system::Pallet<T>>::block_number(),
+    });
 
-        ActiveTransaction::<T>::put(ActiveRequestData {
-            request: tx_request.clone(),
-            confirmation_data: ConfirmationData { msg_hash, confirmations: BoundedVec::default() },
-            tx_data: Some(EthTransactionData {
-                function_name: req.function_name.clone(),
-                eth_tx_params: extended_params,
-                expiry,
-                eth_tx_hash: H256::zero(),
-                sender: eth::assign_sender()?,
-                success_corroborations: BoundedVec::default(),
-                failure_corroborations: BoundedVec::default(),
-                valid_tx_hash_corroborations: BoundedVec::default(),
-                invalid_tx_hash_corroborations: BoundedVec::default(),
-                tx_succeeded: false,
-            }),
-            last_updated: <frame_system::Pallet<T>>::block_number(),
-        });
-
-        return Ok(())
-    }
-
-    Err(Error::<T>::InvalidRequest)
+    return Ok(())
 }

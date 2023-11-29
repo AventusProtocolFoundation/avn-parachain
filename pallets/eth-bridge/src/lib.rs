@@ -46,6 +46,8 @@
 //!    consensus of corroborations determines the final state which is reported back to the
 //!    originating pallet.
 
+// TODO: Update description
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -108,6 +110,7 @@ pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 
 pub const TX_HASH_INVALID: bool = false;
+// TODO: should we use this for Sending and Confirmation?
 pub type EthereumId = u32;
 
 const PALLET_NAME: &'static [u8] = b"EthBridge";
@@ -195,7 +198,7 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
 
     #[pallet::storage]
-    pub type ActiveTransaction<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
+    pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -245,7 +248,6 @@ pub mod pallet {
         InvalidSendCalldata,
         InvalidUint,
         InvalidUTF8,
-        InvalidRequest,
         MsgHashError,
         ParamsLimitExceeded,
         ParamTypeEncodingError,
@@ -295,43 +297,37 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active_request::<T>(tx_id) {
-                let mut req = ActiveTransaction::<T>::get().expect("is active");
-
-                // Sender's confirmation is implicit.
+                let mut req = ActiveRequest::<T>::get().expect("is active");
+                let confirmations = req.confirmation.confirmations.len() as u32;
                 match req.request {
                     Request::Send(_) if req.tx_data.is_some() => {
-                        // Add the sender confirmation
-                        let total_confirmations =
-                            req.confirmation_data.confirmations.len() as u32 + 1u32;
-                        let sender =
-                            &req.tx_data.as_ref().expect("send request has eth data").sender;
+                        // The sender's confirmation is implicit so we only collect them from other authors:
+                        let total_confirmations = confirmations + 1u32;
+                        let sender = &req.tx_data.as_ref().expect("has data").sender;
                         if &author.account_id == sender ||
                             util::has_enough_confirmations::<T>(total_confirmations)
                         {
                             return Ok(().into())
                         }
                     },
-                    _ if util::has_enough_confirmations::<T>(
-                        req.confirmation_data.confirmations.len() as u32,
-                    ) =>
-                        return Ok(().into()),
+                    _ if util::has_enough_confirmations::<T>(confirmations) => return Ok(().into()),
                     _ => (),
                 };
 
-                eth::verify_signature::<T>(req.confirmation_data.msg_hash, &author, &confirmation)?;
+                eth::verify_signature::<T>(req.confirmation.msg_hash, &author, &confirmation)?;
 
                 ensure!(
-                    !req.confirmation_data.confirmations.contains(&confirmation),
+                    !req.confirmation.confirmations.contains(&confirmation),
                     Error::<T>::DuplicateConfirmation
                 );
 
-                req.confirmation_data
+                req.confirmation
                     .confirmations
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
                 req.last_updated = <frame_system::Pallet<T>>::block_number();
-                ActiveTransaction::<T>::put(req);
+                ActiveRequest::<T>::put(req);
             }
 
             Ok(().into())
@@ -349,16 +345,19 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active_request::<T>(tx_id) {
-                let mut tx = ActiveTransaction::<T>::get().expect("is active");
-                let mut data = tx.tx_data.expect("has data");
+                let mut tx = ActiveRequest::<T>::get().expect("is active");
 
-                ensure!(data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
-                ensure!(data.sender == author.account_id, Error::<T>::EthTxHashMustBeSetBySender);
+                if tx.tx_data.is_some() {
+                    let mut data = tx.tx_data.expect("has data");
 
-                data.eth_tx_hash = eth_tx_hash;
-                tx.tx_data = Some(data);
-                tx.last_updated = <frame_system::Pallet<T>>::block_number();
-                ActiveTransaction::<T>::put(tx);
+                    ensure!(data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
+                    ensure!(data.sender == author.account_id, Error::<T>::EthTxHashMustBeSetBySender);
+
+                    data.eth_tx_hash = eth_tx_hash;
+                    tx.tx_data = Some(data);
+                    tx.last_updated = <frame_system::Pallet<T>>::block_number();
+                    ActiveRequest::<T>::put(tx);
+                }
             }
 
             Ok(().into())
@@ -377,38 +376,41 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active_request::<T>(tx_id) {
-                let mut tx = ActiveTransaction::<T>::get().expect("is active");
-                let data = tx.tx_data.as_mut().expect("has data");
+                let mut tx = ActiveRequest::<T>::get().expect("is active");
 
-                if !util::requires_corroboration(&data, &author) {
-                    return Ok(().into())
-                }
+                if tx.tx_data.is_some() {
+                    let data = tx.tx_data.as_mut().expect("has data");
 
-                let tx_hash_corroborations = if tx_hash_is_valid {
-                    &mut data.valid_tx_hash_corroborations
-                } else {
-                    &mut data.invalid_tx_hash_corroborations
-                };
+                    if !util::requires_corroboration(&data, &author) {
+                        return Ok(().into())
+                    }
 
-                tx_hash_corroborations
-                    .try_push(author.account_id.clone())
-                    .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+                    let tx_hash_corroborations = if tx_hash_is_valid {
+                        &mut data.valid_tx_hash_corroborations
+                    } else {
+                        &mut data.invalid_tx_hash_corroborations
+                    };
 
-                let matching_corroborations = if tx_succeeded {
-                    &mut data.success_corroborations
-                } else {
-                    &mut data.failure_corroborations
-                };
+                    tx_hash_corroborations
+                        .try_push(author.account_id.clone())
+                        .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
 
-                matching_corroborations
-                    .try_push(author.account_id.clone())
-                    .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+                    let matching_corroborations = if tx_succeeded {
+                        &mut data.success_corroborations
+                    } else {
+                        &mut data.failure_corroborations
+                    };
 
-                if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
-                    tx::finalize_state::<T>(tx.as_active_tx()?, tx_succeeded)?;
-                } else {
-                    tx.last_updated = <frame_system::Pallet<T>>::block_number();
-                    ActiveTransaction::<T>::put(tx);
+                    matching_corroborations
+                        .try_push(author.account_id.clone())
+                        .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+
+                    if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
+                        tx::finalize_state::<T>(tx.as_active_tx()?, tx_succeeded)?;
+                    } else {
+                        tx.last_updated = <frame_system::Pallet<T>>::block_number();
+                        ActiveRequest::<T>::put(tx);
+                    }
                 }
             }
 
@@ -421,7 +423,7 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok((author, finalised_block_number)) = setup_ocw::<T>(block_number) {
                 if let Err(e) = process_active_request::<T>(author, finalised_block_number) {
-                    log::error!("❌ Error processing offchain worker: {:?}", e);
+                    log::error!("❌ Error processing currently active request: {:?}", e);
                 }
             }
         }
@@ -443,7 +445,7 @@ pub mod pallet {
         author: Author<T>,
         finalised_block_number: T::BlockNumber,
     ) -> Result<(), DispatchError> {
-        if let Some(req) = ActiveTransaction::<T>::get() {
+        if let Some(req) = ActiveRequest::<T>::get() {
             if finalised_block_number < req.last_updated {
                 log::info!(
                     "👷 Last updated block: {:?} is not finalised, skipping confirmation. Id: {:?}, finalised block: {:?}",
@@ -455,12 +457,12 @@ pub mod pallet {
             match req.request {
                 Request::Confirm(_) => {
                     let has_enough_confirmations = util::has_enough_confirmations::<T>(
-                        req.confirmation_data.confirmations.len() as u32,
+                        req.confirmation.confirmations.len() as u32,
                     );
                     if !has_enough_confirmations {
                         let confirmation =
-                            eth::sign_msg_hash::<T>(&req.confirmation_data.msg_hash)?;
-                        if !req.confirmation_data.confirmations.contains(&confirmation) {
+                            eth::sign_msg_hash::<T>(&req.confirmation.msg_hash)?;
+                        if !req.confirmation.confirmations.contains(&confirmation) {
                             call::add_confirmation::<T>(req.id(), confirmation, author);
                         }
                     }
@@ -470,11 +472,11 @@ pub mod pallet {
                     let self_is_sender = author.account_id == tx.data.sender;
                     // Plus 1 for sender
                     let has_enough_confirmations = util::has_enough_confirmations::<T>(
-                        tx.confirmation_data.confirmations.len() as u32 + 1u32,
+                        tx.confirmation.confirmations.len() as u32 + 1u32,
                     );
                     if !self_is_sender && !has_enough_confirmations {
-                        let confirmation = eth::sign_msg_hash::<T>(&tx.confirmation_data.msg_hash)?;
-                        if !tx.confirmation_data.confirmations.contains(&confirmation) {
+                        let confirmation = eth::sign_msg_hash::<T>(&tx.confirmation.msg_hash)?;
+                        if !tx.confirmation.confirmations.contains(&confirmation) {
                             call::add_confirmation::<T>(tx.id(), confirmation, author);
                         }
                     } else {
@@ -494,7 +496,7 @@ pub mod pallet {
 
     fn process_active_tx_request<T: Config>(
         author: Author<T>,
-        tx: ActiveTxRequestData<T>,
+        tx: ActiveTransactionData<T>,
         self_is_sender: bool,
         tx_has_enough_confirmations: bool,
     ) -> Result<(), DispatchError> {

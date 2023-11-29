@@ -73,20 +73,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 
-	// Storage: EthBridge ActiveTransaction (r:1 w:1)
+	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_confirmation() -> Weight {
 		Weight::from_ref_time(19_577_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// Storage: EthBridge ActiveTransaction (r:1 w:1)
+	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	fn add_eth_tx_hash() -> Weight {
 		Weight::from_ref_time(15_108_000)
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// Storage: EthBridge ActiveTransaction (r:1 w:1)
+	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_corroboration() -> Weight {
 		Weight::from_ref_time(19_797_000)
@@ -107,20 +107,20 @@ impl WeightInfo for () {
 		Weight::from_ref_time(17_263_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
-	// Storage: EthBridge ActiveTransaction (r:1 w:1)
+	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_confirmation() -> Weight {
 		Weight::from_ref_time(19_577_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
-	// Storage: EthBridge ActiveTransaction (r:1 w:1)
+	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	fn add_eth_tx_hash() -> Weight {
 		Weight::from_ref_time(15_108_000)
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
-	// Storage: EthBridge ActiveTransaction (r:1 w:1)
+	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_corroboration() -> Weight {
 		Weight::from_ref_time(19_797_000)
