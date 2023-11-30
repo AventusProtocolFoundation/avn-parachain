@@ -99,7 +99,7 @@ fn mock_send_challenge_transaction_from_ocw(
 fn test_get_event_to_validate_empty_pending_queue() {
     with_offchain_worker(eth_events_test_with_validators()).execute_with(|| {
         assert!(!EthereumEvents::has_events_to_validate());
-        assert!(EthereumEvents::get_next_event_to_validate(&account_id_0()).is_none());
+        assert!(EthereumEvents::get_next_event_to_validate(&account_id_0(), 0u64.into()).is_none());
     });
 }
 
@@ -113,7 +113,11 @@ fn test_get_event_to_validate_all_checked_by_us() {
         EthereumEvents::populate_events_pending_challenge(&this_validator_account_id, 5);
         assert_eq!(EthereumEvents::events_pending_challenge().len(), 5);
 
-        assert!(EthereumEvents::get_next_event_to_validate(&this_validator_account_id).is_none());
+        assert!(EthereumEvents::get_next_event_to_validate(
+            &this_validator_account_id,
+            0u64.into()
+        )
+        .is_none());
     });
 }
 
@@ -131,7 +135,8 @@ fn test_get_event_to_validate_past_challenge_window() {
 
         // Increase the current block_number so its passed the challenge period
         System::set_block_number(EVENT_CHALLENGE_PERIOD + 1);
-        assert!(EthereumEvents::get_next_event_to_validate(&new_validator_account_id).is_none());
+        assert!(EthereumEvents::get_next_event_to_validate(&new_validator_account_id, 0u64.into())
+            .is_none());
     });
 }
 
@@ -146,7 +151,8 @@ fn test_get_event_to_validate_1_good_event() {
         EthereumEvents::populate_events_pending_challenge(&this_validator_account_id, 1);
         assert_eq!(EthereumEvents::events_pending_challenge().len(), 1);
 
-        assert!(EthereumEvents::get_next_event_to_validate(&new_validator_account_id).is_some());
+        assert!(EthereumEvents::get_next_event_to_validate(&new_validator_account_id, 0u64.into())
+            .is_some());
     });
 }
 
@@ -160,7 +166,11 @@ fn test_get_event_to_validate_1_event_checked_by_us() {
         EthereumEvents::populate_events_pending_challenge(&this_validator_account_id, 1);
         assert_eq!(EthereumEvents::events_pending_challenge().len(), 1);
 
-        assert!(EthereumEvents::get_next_event_to_validate(&this_validator_account_id).is_none());
+        assert!(EthereumEvents::get_next_event_to_validate(
+            &this_validator_account_id,
+            0u64.into()
+        )
+        .is_none());
     });
 }
 
@@ -178,7 +188,8 @@ fn test_get_event_to_validate_1_event_past_challenge_window() {
 
         // Increase the current block_number so its after the challenge period
         System::set_block_number(EVENT_CHALLENGE_PERIOD + 1);
-        assert!(EthereumEvents::get_next_event_to_validate(&new_validator_account_id).is_none());
+        assert!(EthereumEvents::get_next_event_to_validate(&new_validator_account_id, 0u64.into())
+            .is_none());
     });
 }
 
@@ -196,7 +207,8 @@ fn test_get_event_to_validate_first_good_event() {
         assert_eq!(EthereumEvents::events_pending_challenge().len(), 3);
 
         let (next_event_to_validate, counter, _) =
-            EthereumEvents::get_next_event_to_validate(&this_validator_account_id).unwrap();
+            EthereumEvents::get_next_event_to_validate(&this_validator_account_id, 0u64.into())
+                .unwrap();
         let expected_event_id = EthEventId {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: H256::from([0; 32]), //0 is the first item of the vector
@@ -220,7 +232,8 @@ fn test_get_event_to_validate_third_good_event() {
         assert_eq!(EthereumEvents::events_pending_challenge().len(), 3);
 
         let (next_event_to_validate, counter, _) =
-            EthereumEvents::get_next_event_to_validate(&this_validator_account_id).unwrap();
+            EthereumEvents::get_next_event_to_validate(&this_validator_account_id, 0u64.into())
+                .unwrap();
         let expected_event_id = EthEventId {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: H256::from([2; 32]), //2 is the zero based index of the vector
@@ -248,7 +261,8 @@ fn test_get_event_to_validate_mixed() {
         assert_eq!(EthereumEvents::events_pending_challenge().len(), 4);
 
         let (next_event_to_validate, counter, _) =
-            EthereumEvents::get_next_event_to_validate(&this_validator_account_id).unwrap();
+            EthereumEvents::get_next_event_to_validate(&this_validator_account_id, 0u64.into())
+                .unwrap();
         let expected_event_id = EthEventId {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: H256::from([1; 32]),
@@ -257,7 +271,8 @@ fn test_get_event_to_validate_mixed() {
         assert_eq!(counter, 2);
 
         let (next_event_to_validate, counter, _) =
-            EthereumEvents::get_next_event_to_validate(&new_validator_account_id).unwrap();
+            EthereumEvents::get_next_event_to_validate(&new_validator_account_id, 0u64.into())
+                .unwrap();
         let expected_event_id = EthEventId {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: H256::from([0; 32]),
@@ -269,7 +284,8 @@ fn test_get_event_to_validate_mixed() {
         remove_from_events_pending_challenge(0);
 
         let (next_event_to_validate, counter, _) =
-            EthereumEvents::get_next_event_to_validate(&new_validator_account_id).unwrap();
+            EthereumEvents::get_next_event_to_validate(&new_validator_account_id, 0u64.into())
+                .unwrap();
         let expected_event_id = EthEventId {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: H256::from([3; 32]),

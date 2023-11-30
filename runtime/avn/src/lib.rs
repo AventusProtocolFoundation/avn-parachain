@@ -32,11 +32,13 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
     construct_runtime,
-    dispatch::DispatchClass,
+    dispatch::{DispatchClass, GetStorageVersion},
+    pallet_prelude::StorageVersion,
     parameter_types,
+    storage::unhashed,
     traits::{
-        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Imbalance, OnUnbalanced,
-        PrivilegeCmp,
+        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Defensive, Imbalance,
+        OnUnbalanced, PrivilegeCmp,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
@@ -154,43 +156,106 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    RemoveFinalityTracker,
+    (
+        pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
+        SeedBridgeTransactionAndDropEthTransactions,
+        pallet_validators_manager::migration::RemovePalletVoting<Runtime>,
+    ),
 >;
 
-pub struct RemoveFinalityTracker;
-impl frame_support::traits::OnRuntimeUpgrade for RemoveFinalityTracker {
+const ETHEREUM_TRANSACTIONS_PREFIX: &[u8] = b"EthereumTransactions";
+const STORAGE_ITEM_NAMES: &[&'static str] = &[
+    "Repository",
+    "DispatchedAvnTxIds",
+    "ReservedTransactions",
+    "PublishRootContract",
+    "Nonce",
+    "StorageVersion",
+];
+pub struct SeedBridgeTransactionAndDropEthTransactions;
+
+impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEthTransactions {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        use frame_support::storage::unhashed;
+        let migration_version = StorageVersion::new(1);
+        let current = pallet_eth_bridge::Pallet::<Runtime>::current_storage_version();
+        let onchain = pallet_eth_bridge::Pallet::<Runtime>::on_chain_storage_version();
 
-        use frame_support::storage;
-        let storage_prefix = storage::storage_prefix(b"AvnFinalityTracker", b"");
-        let mut key = vec![0u8; 32];
-        key[0..32].copy_from_slice(&storage_prefix);
-        let res = unhashed::clear_prefix(&key[0..16], None, None);
+        if onchain < 1 {
+            log::info!(
+                "🚧 Running migration. Current storage version: {:?}, on-chain version: {:?}",
+                current,
+                onchain
+            );
 
-        log::info!(
-            "✅ Cleared '{}' backend values from 'AvnFinalityTracker' storage prefix",
-            res.backend
-        );
+            let mut total_weight = Weight::zero();
 
-        log::info!("✅ Cleared '{}' entries from 'AvnFinalityTracker' storage prefix", res.unique);
+            match try_seed_next_tx_id() {
+                Ok(weight) => total_weight += weight,
+                Err(_) => log::info!("💔 Failed to seed transaction Id"),
+            }
 
-        if res.maybe_cursor.is_some() {
-            log::error!("Storage prefix 'AvnFinalityTracker' is not completely cleared.");
+            total_weight += clear_ethereum_transactions_storage();
+
+            migration_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
+
+            log::info!("🚧 Migration successfull");
+
+            return total_weight
         }
-
-        <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+        Weight::zero()
     }
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        Ok(vec![])
+        let pre_upgrade_transaction_id: u64 = get_nonce_seed().unwrap();
+        Ok((pre_upgrade_transaction_id + 1u64).encode())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
+    fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
+        let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
+        assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
         Ok(())
     }
+}
+
+fn try_seed_next_tx_id() -> Result<Weight, ()> {
+    let nonce_seed = get_nonce_seed()?;
+    let tx_id: u32 = nonce_seed.try_into().map_err(|_| ())?;
+    <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(tx_id + 1);
+    log::info!("✅ Transaction Id seeded to {}", tx_id + 1);
+
+    Ok(<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1))
+}
+
+fn get_nonce_seed() -> Result<u64, ()> {
+    let nonce_prefix =
+        frame_support::storage::storage_prefix(ETHEREUM_TRANSACTIONS_PREFIX, b"Nonce");
+    frame_support::storage::unhashed::get::<u64>(&nonce_prefix).ok_or(())
+}
+
+fn clear_ethereum_transactions_storage() -> Weight {
+    STORAGE_ITEM_NAMES.iter().fold(Weight::zero(), |acc, &item_name| {
+        let storage_prefix = frame_support::storage::storage_prefix(
+            ETHEREUM_TRANSACTIONS_PREFIX,
+            item_name.as_bytes(),
+        );
+        let mut storage_key = [0u8; 32];
+        storage_key[0..32].copy_from_slice(&storage_prefix);
+
+        match item_name {
+            "PublishRootContract" | "Nonce" | "StorageVersion" => {
+                frame_support::storage::unhashed::kill(&storage_key);
+                log::info!("🚧 Successfully migrated {}", item_name);
+                acc + <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+            },
+            _ => {
+                frame_support::storage::unhashed::clear_prefix(&storage_key, None, None);
+                log::info!("🚧 Successfully migrated {}", item_name);
+                acc + <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+            },
+        }
+    })
 }
 
 impl_opaque_keys! {
@@ -207,7 +272,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 53,
+    spec_version: 54,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -486,8 +551,7 @@ impl pallet_parachain_staking::Config for Runtime {
     type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
     type MaxCandidates = ConstU32<100>;
     type AccountToBytesConvert = Avn;
-    type CandidateTransactionSubmitter = EthereumTransactions;
-    type ReportGrowthOffence = Offences;
+    type BridgePublisher = EthBridge;
 }
 
 // Substrate pallets that AvN has dependency
@@ -580,13 +644,6 @@ impl pallet_ethereum_events::Config for Runtime {
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_ethereum_transactions::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    type AccountToBytesConvert = Avn;
-    type WeightInfo = pallet_ethereum_transactions::default_weights::SubstrateWeight<Runtime>;
-}
-
 parameter_types! {
     pub const ValidatorManagerVotingPeriod: BlockNumber = 30 * MINUTES;
 }
@@ -595,11 +652,10 @@ impl pallet_validators_manager::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type ProcessedEventsChecker = EthereumEvents;
     type VotingPeriod = ValidatorManagerVotingPeriod;
-    type CandidateTransactionSubmitter = EthereumTransactions;
     type AccountToBytesConvert = Avn;
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
-    type ReportValidatorOffence = Offences;
     type WeightInfo = pallet_validators_manager::default_weights::SubstrateWeight<Runtime>;
+    type BridgePublisher = EthBridge;
 }
 
 parameter_types! {
@@ -613,10 +669,10 @@ impl pallet_summary::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
-    type CandidateTransactionSubmitter = EthereumTransactions;
     type AccountToBytesConvert = Avn;
     type ReportSummaryOffence = Offences;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
+    type BridgePublisher = EthBridge;
 }
 
 pub type EthAddress = H160;
@@ -661,6 +717,18 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_eth_bridge::Config for Runtime {
+    type MaxQueuedTxRequests = ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type MinEthBlockConfirmation = MinEthBlockConfirmation;
+    type AccountToBytesConvert = Avn;
+    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
+    type ReportCorroborationOffence = Offences;
+    type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
+    type OnBridgePublisherResult = Summary;
 }
 
 // Other pallets
@@ -765,7 +833,7 @@ construct_runtime!(
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
         Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
         AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
-        ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>, ValidateUnsigned} = 96,
+        ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 96,
 
         // Since the ValidatorsManager integrates with the ParachainStaking pallet, we want to initialise after it.
         ValidatorsManager: pallet_validators_manager = 18,
@@ -789,12 +857,12 @@ construct_runtime!(
         Avn: pallet_avn = 81,
         AvnOffenceHandler: pallet_avn_offence_handler = 83,
         EthereumEvents: pallet_ethereum_events = 84,
-        EthereumTransactions: pallet_ethereum_transactions = 85,
         NftManager: pallet_nft_manager = 86,
         TokenManager: pallet_token_manager = 87,
         Summary: pallet_summary = 88,
         AvnProxy: pallet_avn_proxy = 89,
         AvnTransactionPayment: pallet_avn_transaction_payment = 90,
+        EthBridge: pallet_eth_bridge = 91,
 
         // OpenGov pallets
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 97,
@@ -819,8 +887,8 @@ mod benches {
         [pallet_avn_offence_handler, AvnOffenceHandler]
         [pallet_avn_proxy, AvnProxy]
         [pallet_avn, Avn]
+        [pallet_eth_bridge, EthBridge]
         [pallet_ethereum_events, EthereumEvents]
-        [pallet_ethereum_transactions, EthereumTransactions]
         [pallet_nft_manager, NftManager]
         [pallet_summary, Summary]
         [pallet_token_manager, TokenManager]

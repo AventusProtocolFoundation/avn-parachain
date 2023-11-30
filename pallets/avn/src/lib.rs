@@ -16,26 +16,29 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
-
-use frame_support::{
-    dispatch::DispatchResult,
-    ensure,
-    log::*,
-    traits::{Get, OneSessionHandler},
+use alloc::{
+    format,
+    string::{String, ToString},
 };
+
+use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
 use frame_system::{ensure_root, pallet_prelude::OriginFor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
     event_types::{EthEventId, Validator},
-    offchain_worker_storage_lock::{self as OcwLock, OcwStorageError},
+    ocw_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
 use sp_core::{ecdsa, H160};
 use sp_runtime::{
-    offchain::{http, storage::StorageValueRef, Duration},
+    offchain::{
+        http,
+        storage::StorageValueRef,
+        storage_lock::{BlockAndTime, StorageLock},
+        Duration,
+    },
     traits::Member,
     DispatchError, WeakBoundedVec,
 };
@@ -69,6 +72,8 @@ pub mod sr25519 {
     // An identifier using sr25519 as its crypto.
     pub type AuthorityId = app_sr25519::Public;
 }
+
+const AVN_SERVICE_CALL_EXPIRY: u32 = 300_000;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -120,9 +125,8 @@ pub mod pallet {
         ErrorDecodingHex,
         ErrorRecordingOffchainWorkerRun,
         NoValidatorsFound,
-        RequestTimedOut,
-        DeadlineReached,
         UnexpectedStatusCode,
+        InvalidResponse,
         InvalidVotingSession,
         InvalidContractAddress,
         DuplicateVote,
@@ -131,6 +135,10 @@ pub mod pallet {
         InvalidECDSASignature,
         VectorBoundsExceeded,
         MaxValidatorsExceeded,
+        ResponseFailed,
+        RequestFailed,
+        ErrorGettingFinalisedBlock,
+        ErrorDecodingU32,
     }
 
     #[pallet::storage]
@@ -190,7 +198,7 @@ impl<T: Config> Pallet<T> {
     pub fn pre_run_setup(
         block_number: T::BlockNumber,
         caller_id: Vec<u8>,
-    ) -> Result<Validator<T::AuthorityId, T::AccountId>, DispatchError> {
+    ) -> Result<(Validator<T::AuthorityId, T::AccountId>, T::BlockNumber), DispatchError> {
         if !sp_io::offchain::is_validator() {
             Err(Error::<T>::NotAValidator)?
         }
@@ -200,24 +208,33 @@ impl<T: Config> Pallet<T> {
             Err(Error::<T>::NoLocalAccounts)?
         }
 
+        let finalised_block = Self::get_finalised_block_from_external_service()?;
+
         // Offchain workers could run multiple times for the same block number (re-orgs...)
         // so we need to make sure we only run this once per block
         OcwLock::record_block_run(block_number, caller_id).map_err(|e| match e {
             OcwStorageError::OffchainWorkerAlreadyRun => {
-                info!("** Offchain worker has already run for block number: {:?}", block_number);
+                info!("❌ Offchain worker has already run for block number: {:?}", block_number);
                 Error::<T>::OffchainWorkerAlreadyRun
             },
             OcwStorageError::ErrorRecordingOffchainWorkerRun => {
                 error!(
-                    "** Unable to record offchain worker run for block {:?}, skipping",
+                    "❌ Unable to record offchain worker run for block {:?}, skipping",
                     block_number
                 );
                 Error::<T>::ErrorRecordingOffchainWorkerRun
             },
         })?;
-        OcwLock::cleanup_expired_entries(&block_number);
 
-        Ok(maybe_validator.expect("Already checked"))
+        return Ok((maybe_validator.expect("Already checked"), finalised_block))
+    }
+
+    pub fn get_default_ocw_lock_expiry() -> u32 {
+        let avn_block_generation_in_millisec = 12_000 as u32;
+        let delay: u32 = 5;
+        let lock_expiry_in_blocks =
+            (AVN_SERVICE_CALL_EXPIRY / avn_block_generation_in_millisec) + delay;
+        return lock_expiry_in_blocks
     }
 
     // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
@@ -259,6 +276,15 @@ impl<T: Config> Pallet<T> {
                 local_keys.binary_search(&validator.key).ok().map(|_| validator)
             })
             .nth(0)
+    }
+
+    pub fn quorum() -> u32 {
+        let total_num_of_validators = Self::validators().len() as u32;
+        Self::calculate_quorum(total_num_of_validators)
+    }
+
+    pub fn calculate_quorum(num: u32) -> u32 {
+        num - num * 2 / 3
     }
 
     pub fn get_data_from_service(url_path: String) -> Result<Vec<u8>, DispatchError> {
@@ -365,13 +391,25 @@ impl<T: Config> Pallet<T> {
         });
     }
 
-    pub fn calculate_two_third_quorum() -> u32 {
-        let len = Self::active_validators().len() as u32;
-        if len < 3 {
-            return len
-        } else {
-            return (2 * len / 3) + 1
-        }
+    // Called from OCW, no storage changes allowed
+    pub fn get_finalised_block_from_external_service() -> Result<T::BlockNumber, Error<T>> {
+        let response = Self::get_data_from_service(String::from("latest_finalised_block"))
+            .map_err(|e| {
+                error!("❌ Error getting finalised block from avn service: {:?}", e);
+                Error::<T>::ErrorGettingFinalisedBlock
+            })?;
+
+        let finalised_block_bytes = hex::decode(&response).map_err(|e| {
+            error!("❌ Error decoding finalised block data {:?}", e);
+            Error::<T>::InvalidResponse
+        })?;
+
+        let finalised_block = u32::decode(&mut &finalised_block_bytes[..]).map_err(|e| {
+            error!("❌ Finalised block is not a valid u32: {:?}", e);
+            Error::<T>::ErrorDecodingU32
+        })?;
+
+        return Ok(T::BlockNumber::from(finalised_block))
     }
 
     pub fn get_external_service_port_number() -> String {
@@ -409,32 +447,51 @@ impl<T: Config> Pallet<T> {
         url_path: String,
     ) -> Result<Vec<u8>, DispatchError> {
         // TODO: Make this configurable
-        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(300_000));
-        let external_service_port_number = Self::get_external_service_port_number();
+        let deadline =
+            sp_io::offchain::timestamp().add(Duration::from_millis(AVN_SERVICE_CALL_EXPIRY as u64));
+        let url = format!(
+            "http://127.0.0.1:{}/{}",
+            Self::get_external_service_port_number(),
+            url_path.trim_start_matches('/')
+        );
 
-        let mut url = String::from("http://127.0.0.1:");
-        url.push_str(&external_service_port_number);
-        url.push_str(&"/".to_string());
-        url.push_str(&url_path);
-
-        let pending = request
+        let response = request
             .deadline(deadline)
             .url(&url)
             .send()
-            .map_err(|_| Error::<T>::RequestTimedOut)?;
-
-        let response = pending
+            .map_err(|e| {
+                error!("❌ Request failed: {:?}", e);
+                Error::<T>::RequestFailed
+            })?
             .try_wait(deadline)
-            .map_err(|_| Error::<T>::DeadlineReached)?
-            .map_err(|_| Error::<T>::DeadlineReached)?;
+            .map_err(|e| {
+                error!("❌ Response failed: {:?}", e);
+                Error::<T>::ResponseFailed
+            })?
+            .map_err(|e| {
+                error!("❌ Invalid response: {:?}", e);
+                Error::<T>::InvalidResponse
+            })?;
 
         if response.code != 200 {
             error!("❌ Unexpected status code: {}", response.code);
             return Err(Error::<T>::UnexpectedStatusCode)?
         }
 
-        let result: Vec<u8> = response.body().collect::<Vec<u8>>();
-        return Ok(result)
+        Ok(response.body().collect())
+    }
+
+    pub fn get_ocw_locker<'a>(
+        lock_name: &'a [u8],
+    ) -> StorageLock<'a, BlockAndTime<frame_system::Pallet<T>>> {
+        Self::get_ocw_locker_with_custom_expiry(lock_name, Self::get_default_ocw_lock_expiry())
+    }
+
+    pub fn get_ocw_locker_with_custom_expiry<'a>(
+        lock_name: &'a [u8],
+        expiry_in_blocks: u32,
+    ) -> StorageLock<'a, BlockAndTime<frame_system::Pallet<T>>> {
+        OcwLock::get_offchain_worker_locker::<frame_system::Pallet<T>>(&lock_name, expiry_in_blocks)
     }
 }
 
@@ -605,6 +662,14 @@ pub trait CollatorPayoutDustHandler<Balance> {
 
 impl<Balance> CollatorPayoutDustHandler<Balance> for () {
     fn handle_dust(_imbalance: Balance) {}
+}
+
+pub trait BridgePublisher {
+    fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
+}
+
+pub trait OnBridgePublisherResult {
+    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult;
 }
 
 #[cfg(test)]

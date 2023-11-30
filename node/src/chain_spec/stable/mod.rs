@@ -9,8 +9,9 @@ use crate::chain_spec::{
     ImOnlineId, ParaId,
 };
 use avn_parachain_runtime::{
-    self as avn_runtime, AuthorityDiscoveryConfig, EthereumEventsConfig, ImOnlineConfig,
-    ParachainStakingConfig, SudoConfig, SummaryConfig, TokenManagerConfig, ValidatorsManagerConfig,
+    self as avn_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig,
+    ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig, TokenManagerConfig,
+    ValidatorsManagerConfig,
 };
 use node_primitives::AccountId;
 
@@ -82,6 +83,11 @@ pub(crate) fn testnet_genesis(
         // no need to pass anything to aura, in fact it will panic if we do. Session will take care
         // of this.
         assets: Default::default(),
+        eth_bridge: EthBridgeConfig {
+            _phantom: Default::default(),
+            eth_tx_lifetime_secs: 60 * 30 as u64, // 30 minutes
+            next_tx_id: 1 as u32,
+        },
         ethereum_events: EthereumEventsConfig {
             nft_t1_contracts: nft_eth_contracts,
             processed_events: vec![],
@@ -112,7 +118,6 @@ pub(crate) fn testnet_genesis(
             min_collator_stake: COLLATOR_DEPOSIT,
             min_total_nominator_stake: 10 * AVT,
             delay: 2,
-            voting_period: 100,
         },
         polkadot_xcm: avn_runtime::PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
         sudo: SudoConfig { key: Some(sudo_account) },

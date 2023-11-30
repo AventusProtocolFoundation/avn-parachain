@@ -90,11 +90,11 @@ pallet-avn-offence-handler = { path = "../../pallets/avn-offence-handler", defau
 pallet-validators-manager = { path = "../../pallets/validators-manager", default-features = false }
 pallet-ethereum-events = { path = "../../pallets/ethereum-events", default-features = false }
 pallet-avn = { path = "../../pallets/avn", default-features = false }
-pallet-ethereum-transactions = { path = "../../pallets/ethereum-transactions", default-features = false }
 pallet-summary = { path = "../../pallets/summary", default-features = false }
 pallet-token-manager = { path = "../../pallets/token-manager", default-features = false }
 pallet-nft-manager = { path = "../../pallets/nft-manager", default-features = false }
 pallet-avn-proxy = { path = "../../pallets/avn-proxy", default-features = false }
+pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = false }
 
 pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
 
@@ -155,8 +155,8 @@ std = [
 	"sp-avn-common/std",
 	"pallet-avn/std",
 	"pallet-avn-offence-handler/std",
+	"pallet-eth-bridge/std",
 	"pallet-ethereum-events/std",
-	"pallet-ethereum-transactions/std",
 	"pallet-nft-manager/std",
 	"pallet-summary/std",
 	"pallet-token-manager/std",
@@ -190,8 +190,8 @@ runtime-benchmarks = [
 	# AvN pallets
 	"pallet-avn-proxy/runtime-benchmarks",
 	"pallet-avn-offence-handler/runtime-benchmarks",
+	"pallet-eth-bridge/runtime-benchmarks",
 	"pallet-ethereum-events/runtime-benchmarks",
-	"pallet-ethereum-transactions/runtime-benchmarks",
 	"pallet-avn/runtime-benchmarks",
 	"pallet-nft-manager/runtime-benchmarks",
 	"pallet-summary/runtime-benchmarks",
@@ -233,12 +233,12 @@ try-runtime = [
 	"pallet-validators-manager/try-runtime",
 	"pallet-ethereum-events/try-runtime",
 	"pallet-avn/try-runtime",
-	"pallet-ethereum-transactions/try-runtime",
 	"pallet-summary/try-runtime",
 	"pallet-token-manager/try-runtime",
 	"pallet-nft-manager/try-runtime",
 	"pallet-avn-proxy/try-runtime",
 	"pallet-parachain-staking/try-runtime",
+	"pallet-eth-bridge/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-offences/try-runtime",

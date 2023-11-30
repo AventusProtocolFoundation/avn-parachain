@@ -44,7 +44,6 @@ pub fn vote_to_approve_root(
         RawOrigin::None.into(),
         context.root_id,
         validator.clone(),
-        context.approval_signature.clone(),
         context.record_summary_calculation_signature.clone(),
     )
     .is_ok()
@@ -83,7 +82,6 @@ mod approve_root {
                     RawOrigin::None.into(),
                     context.root_id,
                     context.validator.clone(),
-                    context.approval_signature.clone(),
                     context.record_summary_calculation_signature.clone()
                 )
                 .is_ok());
@@ -124,7 +122,6 @@ mod approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         second_validator.clone(),
-                        context.approval_signature.clone(),
                         context.record_summary_calculation_signature.clone()
                     )
                 );
@@ -168,7 +165,6 @@ mod approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         second_validator.clone(),
-                        context.approval_signature.clone(),
                         context.record_summary_calculation_signature.clone()
                     )
                 );
@@ -211,7 +207,6 @@ mod approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         third_validator.clone(),
-                        context.approval_signature.clone(),
                         context.record_summary_calculation_signature.clone()
                     )
                 );
@@ -255,39 +250,10 @@ mod approve_root {
                         RuntimeOrigin::signed(Default::default()),
                         context.root_id,
                         context.validator,
-                        context.approval_signature,
                         context.record_summary_calculation_signature
                     ),
                     BadOrigin
                 );
-            });
-        }
-
-        #[test]
-        fn when_voter_is_invalid_validator() {
-            let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-                .with_validators()
-                .for_offchain_worker()
-                .as_externality_with_state();
-
-            ext.execute_with(|| {
-                let context = setup_context();
-
-                setup_voting_for_root_id(&context);
-                set_mock_recovered_account_id(get_non_validator().account_id);
-
-                let result = Summary::approve_root(
-                        RawOrigin::None.into(),
-                        context.root_id,
-                        get_non_validator(),
-                        context.approval_signature,
-                        context.record_summary_calculation_signature);
-
-                // We can't use assert_noop here because we return an error after mutating storage
-                assert_matches!(
-                    result,
-                    Err(e) if e == DispatchError::from(AvNError::<TestRuntime>::InvalidECDSASignature));
-
             });
         }
 
@@ -309,7 +275,6 @@ mod approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         context.validator,
-                        context.approval_signature,
                         context.record_summary_calculation_signature
                     ),
                     AvNError::<TestRuntime>::InvalidVote
@@ -335,7 +300,6 @@ mod approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         context.validator,
-                        context.approval_signature,
                         context.record_summary_calculation_signature
                     ),
                     Error::<TestRuntime>::RootDataNotFound
@@ -361,7 +325,6 @@ mod approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         context.validator,
-                        context.approval_signature,
                         context.record_summary_calculation_signature
                     ),
                     AvNError::<TestRuntime>::DuplicateVote
@@ -387,7 +350,6 @@ mod approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         context.validator,
-                        context.approval_signature,
                         context.record_summary_calculation_signature
                     ),
                     AvNError::<TestRuntime>::DuplicateVote
@@ -419,7 +381,6 @@ mod approve_root {
                         RawOrigin::None.into(),
                         context.root_id,
                         fourth_validator.clone(),
-                        context.approval_signature.clone(),
                         context.record_summary_calculation_signature.clone()
                     ),
                     AvNError::<TestRuntime>::InvalidVote
@@ -780,7 +741,6 @@ mod cast_votes_if_required {
         use super::*;
 
         #[test]
-        #[ignore]
         fn when_setting_lock_with_expiry_has_error() {
             let (mut ext, pool_state, _offchain_state) = ExtBuilder::build_default()
                 .with_validators()
@@ -794,15 +754,17 @@ mod cast_votes_if_required {
 
                 // TODO [TYPE: test][PRI: medium][JIRA: 321]: mock of set_lock_with_expiry returns
                 // error
-                assert!(set_vote_lock_with_expiry(context.current_block_number, &context.root_id));
+                let lock_name = vote::create_vote_lock_name::<TestRuntime>(&context.root_id);
+                let mut lock = AVN::<TestRuntime>::get_ocw_locker(&lock_name);
 
-                let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
-                cast_votes_if_required::<TestRuntime>(
-                    context.current_block_number,
-                    &second_validator,
-                );
+                // Protect against sending more than once. When guard is out of scope the lock will
+                // be released.
+                if let Ok(_guard) = lock.try_lock() {
+                    let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
+                    cast_votes_if_required::<TestRuntime>(&second_validator);
 
-                assert!(pool_state.read().transactions.is_empty());
+                    assert!(pool_state.read().transactions.is_empty());
+                };
             });
         }
 
@@ -825,10 +787,7 @@ mod cast_votes_if_required {
                 setup_voting_for_root_id(&context);
                 let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-                cast_votes_if_required::<TestRuntime>(
-                    context.current_block_number,
-                    &second_validator,
-                );
+                cast_votes_if_required::<TestRuntime>(&second_validator);
 
                 assert!(pool_state.read().transactions.is_empty());
             });
@@ -850,16 +809,11 @@ mod cast_votes_if_required {
                 context.url_param.clone(),
                 Some(context.root_hash_vec.clone()),
             );
-            mock_response_of_get_ecdsa_signature(
-                &mut offchain_state.write(),
-                context.sign_url_param.clone(),
-                Some(hex::encode([1; 65].to_vec()).as_bytes().to_vec()),
-            );
 
             setup_voting_for_root_id(&context);
             let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-            cast_votes_if_required::<TestRuntime>(context.current_block_number, &second_validator);
+            cast_votes_if_required::<TestRuntime>(&second_validator);
 
             let tx = pool_state.write().transactions.pop().unwrap();
             assert!(pool_state.read().transactions.is_empty());
@@ -871,13 +825,10 @@ mod cast_votes_if_required {
                 mock::RuntimeCall::Summary(crate::Call::approve_root {
                     root_id: context.root_id,
                     validator: second_validator.clone(),
-                    approval_signature: context.approval_signature.clone(),
                     signature: get_signature_for_approve_cast_vote(
                         &second_validator,
                         CAST_VOTE_CONTEXT,
                         &context.root_id,
-                        &context.sign_url_param,
-                        &context.approval_signature
                     )
                 })
             );
@@ -903,7 +854,7 @@ mod cast_votes_if_required {
             setup_voting_for_root_id(&context);
             let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-            cast_votes_if_required::<TestRuntime>(context.current_block_number, &second_validator);
+            cast_votes_if_required::<TestRuntime>(&second_validator);
 
             let tx = pool_state.write().transactions.pop().unwrap();
             assert!(pool_state.read().transactions.is_empty());
@@ -934,8 +885,10 @@ mod end_voting_period {
 
         #[test]
         fn when_a_vote_reached_quorum() {
-            let (mut ext, _pool_state, _offchain_state) =
-                ExtBuilder::build_default().for_offchain_worker().as_externality_with_state();
+            let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
+                .with_validators()
+                .for_offchain_worker()
+                .as_externality_with_state();
 
             ext.execute_with(|| {
                 let context = setup_context();
@@ -944,13 +897,17 @@ mod end_voting_period {
                 Summary::set_current_slot(10);
                 Summary::set_previous_summary_slot(5);
 
-                assert!(Summary::end_voting_period(
+                let primary_validator_id =
+                    AVN::<TestRuntime>::calculate_primary_validator(context.current_block_number)
+                        .expect("Should be able to calculate primary validator.");
+                let primary_validator = get_validator(primary_validator_id);
+
+                assert_ok!(Summary::end_voting_period(
                     RawOrigin::None.into(),
                     context.root_id,
-                    context.validator.clone(),
+                    primary_validator.clone(),
                     context.record_summary_calculation_signature.clone(),
-                )
-                .is_ok());
+                ));
                 assert!(Summary::get_root_data(&context.root_id).is_validated);
                 assert!(!<Summary as Store>::PendingApproval::contains_key(&context.root_id.range));
                 assert_eq!(
@@ -1085,37 +1042,6 @@ mod end_voting_period {
                 });
             }
 
-            #[test]
-            fn submit_candidate_transaction_to_tier1_fails() {
-                let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
-                    .with_validators()
-                    .for_offchain_worker()
-                    .as_externality_with_state();
-
-                ext.execute_with(|| {
-                    let context = setup_context();
-
-                    setup_approved_root(context.clone());
-                    let tx_id = INITIAL_TRANSACTION_ID;
-                    Summary::insert_root_hash(
-                        &context.root_id,
-                        get_root_hash_return_submit_to_tier1_fails(),
-                        context.validator.account_id.clone(),
-                        tx_id,
-                    );
-
-                    assert_noop!(
-                        Summary::end_voting_period(
-                            RawOrigin::None.into(),
-                            context.root_id,
-                            context.validator.clone(),
-                            context.record_summary_calculation_signature.clone(),
-                        ),
-                        Error::<TestRuntime>::ErrorSubmitCandidateTxnToTier1
-                    );
-                });
-            }
-
             // More tests after the TODO when we didn't get enough votes to approve this root has
             // been implemented
         }
@@ -1124,7 +1050,7 @@ mod end_voting_period {
     mod offence_logic {
         use super::*;
 
-        const TEST_VALIDATOR_COUNT: u64 = 5;
+        const TEST_VALIDATOR_COUNT: u64 = 7;
 
         fn validator_indices() -> Vec<ValidatorId> {
             return (1..=TEST_VALIDATOR_COUNT).collect::<Vec<ValidatorId>>()
