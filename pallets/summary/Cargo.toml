@@ -30,8 +30,6 @@ frame-system = {default-features = false, git = "https://github.com/paritytech/s
 sp-staking = {default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 pallet-session = {default-features = false, features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
 
-
-
 # Optional imports for benchmarking
 frame-benchmarking = {default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }
 
