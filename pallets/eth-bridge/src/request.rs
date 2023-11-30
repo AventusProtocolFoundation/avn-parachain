@@ -68,6 +68,31 @@ pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Resul
     return Ok(tx::set_up_active_tx(tx.request)?)
 }
 
+pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
+    let confirmations = req.confirmation.confirmations.len() as u32;
+    match req.request {
+        // The sender's confirmation is implicit so we only collect them from other authors:
+        Request::Send(_) => util::has_enough_confirmations::<T>(confirmations),
+        Request::LowerProof(_) => util::has_supermajority_confirmations::<T>(confirmations),
+    }
+}
+
+pub fn complete_lower_proof_request<T: Config>(req: &ActiveRequestData<T>) -> Result<(), Error<T>> {
+    // Write the tx data to permanent storage:
+    // TODO: eth.abi_encode_lower_data()
+    LowersReadyToClaim::<T>::insert(
+        req.id(),
+        BoundedVec::<u8, LowerDataLimit>::try_from(/*TODO: eth.abi_encode_lower_data()*/vec![]).map_err(|_| Error::<T>::ParamsLimitExceeded)?,
+    );
+
+    // TODO: raise an event here
+
+    // Process any new request from the queue
+    request::process_next_request::<T>()?;
+
+    Ok(())
+}
+
 fn set_up_active_lower_proof<T: Config>(req: LowerProofRequestData) -> Result<(), Error<T>> {
     let msg_hash = eth::generate_msg_hash(&req.params)?;
 

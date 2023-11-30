@@ -102,12 +102,15 @@ use offence::CorroborationOffence;
 pub type AVN<T> = avn::Pallet<T>;
 pub type Author<T> =
     Validator<<T as avn::Config>::AuthorityId, <T as frame_system::Config>::AccountId>;
+pub type LowerData = BoundedVec<u8, LowerDataLimit>;
 
 pub type ConfirmationsLimit = ConstU32<100>; // Max confirmations or corroborations (must be > 1/3 of authors)
 pub type FunctionLimit = ConstU32<32>; // Max chars allowed in T1 function name
 pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
+pub type LowerDataLimit = ConstU32<130>; // Max chars in a param's value
+
 
 pub const TX_HASH_INVALID: bool = false;
 // TODO: should we use this for Sending and collecting confirmations?
@@ -200,6 +203,11 @@ pub mod pallet {
     #[pallet::getter(fn get_transaction_data)]
     pub type SettledTransactions<T: Config> =
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_ready_to_claim_lower)]
+    pub type LowersReadyToClaim<T: Config> =
+        StorageMap<_, Blake2_128Concat, EthereumId, LowerData, OptionQuery>;
 
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
@@ -302,21 +310,17 @@ pub mod pallet {
 
             if tx::is_active_request::<T>(tx_id) {
                 let mut req = ActiveRequest::<T>::get().expect("is active");
-                let confirmations = req.confirmation.confirmations.len() as u32;
-                match req.request {
-                    Request::Send(_) if req.tx_data.is_some() => {
-                        // The sender's confirmation is implicit so we only collect them from other authors:
-                        let total_confirmations = confirmations + 1u32;
-                        let sender = &req.tx_data.as_ref().expect("has data").sender;
-                        if &author.account_id == sender ||
-                            util::has_enough_confirmations::<T>(total_confirmations)
-                        {
-                            return Ok(().into())
-                        }
-                    },
-                    _ if util::has_enough_confirmations::<T>(confirmations) => return Ok(().into()),
-                    _ => (),
-                };
+
+                if request::has_enough_confirmations(&req) {
+                    return Ok(().into())
+                }
+
+                if matches!(req.request, Request::Send(_) if req.tx_data.is_some()) {
+                    let sender = &req.tx_data.as_ref().expect("has data").sender;
+                    if &author.account_id == sender {
+                        return Ok(().into())
+                    }
+                }
 
                 eth::verify_signature::<T>(req.confirmation.msg_hash, &author, &confirmation)?;
 
@@ -330,8 +334,12 @@ pub mod pallet {
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                req.last_updated = <frame_system::Pallet<T>>::block_number();
-                ActiveRequest::<T>::put(req);
+                if matches!(req.request, Request::LowerProof(_)) && request::has_enough_confirmations(&req) {
+                    request::complete_lower_proof_request::<T>(&req)?
+                } else {
+                    req.last_updated = <frame_system::Pallet<T>>::block_number();
+                    ActiveRequest::<T>::put(req);
+                }
             }
 
             Ok(().into())

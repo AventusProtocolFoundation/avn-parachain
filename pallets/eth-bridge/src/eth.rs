@@ -15,6 +15,7 @@ pub const UINT128: &[u8] = b"uint128";
 pub const UINT32: &[u8] = b"uint32";
 pub const BYTES: &[u8] = b"bytes";
 pub const BYTES32: &[u8] = b"bytes32";
+pub const BYTES32ARRAY: &[u8] = b"bytes32[]";
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);
@@ -151,6 +152,12 @@ pub fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
         Err(_) => Err(Error::<T>::ErrorAssigningSender),
     }
 }
+
+// pub fn abi_encode_lower_data(req: ActiveRequestData) -> Result<Vec<u8>, Error<T>> {
+//     let params = vec![(BYTES32.to_vec(), vec![0; 32])];
+//     sdasdsa
+//     // Complete me
+// }
 
 fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],

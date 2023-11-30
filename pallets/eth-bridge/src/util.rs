@@ -14,8 +14,13 @@ pub fn has_enough_corroborations<T: Config>(corroborations: usize) -> bool {
     corroborations as u32 >= quorum
 }
 
-pub fn has_enough_confirmations<T: Config>(total_confirmations: u32) -> bool {
-    total_confirmations >= AVN::<T>::quorum()
+pub fn has_enough_confirmations<T: Config>(confirmations: u32) -> bool {
+    let num_confirmations_including_sender = confirmations + 1u32;
+    num_confirmations_including_sender >= AVN::<T>::quorum()
+}
+
+pub fn has_supermajority_confirmations<T: Config>(confirmations: u32) -> bool {
+    confirmations >= confirmations * 2 / 3
 }
 
 pub fn requires_corroboration<T: Config>(
