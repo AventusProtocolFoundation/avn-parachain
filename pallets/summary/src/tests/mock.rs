@@ -381,7 +381,7 @@ impl BridgePublisher for TestRuntime {
         Err(Error::<TestRuntime>::ErrorPublishingSummary.into())
     }
 
-    fn generate_proof(params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError> {
+    fn generate_lower_proof(params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError> {
         return Ok(INITIAL_TRANSACTION_ID)
     }
 }

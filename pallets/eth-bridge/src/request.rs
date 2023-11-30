@@ -31,21 +31,20 @@ pub fn add_new_send_request<T: Config>(
     Ok(id)
 }
 
-pub fn add_new_proof_request<T: Config>(
+pub fn add_new_lower_proof_request<T: Config>(
     params: &[(Vec<u8>, Vec<u8>)]
 ) -> Result<EthereumId, Error<T>> {
     let id = use_next_tx_id::<T>();
 
-    let proof_req = ProofRequestData {
+    let proof_req = LowerProofRequestData {
         id,
         params: bound_params(&params.to_vec())?,
     };
 
     if ActiveRequest::<T>::get().is_some() {
-        queue_request(Request::Proof(proof_req))?;
+        queue_request(Request::LowerProof(proof_req))?;
     } else {
-        // TODO: create function
-        //tx::set_up_active_tx(proof_req)?;
+        set_up_active_lower_proof(proof_req)?;
     }
 
     Ok(id)
@@ -57,7 +56,7 @@ pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
     if let Some(tx_request) = request::dequeue_tx_request::<T>() {
         return match tx_request {
             Request::Send(send_req) => tx::set_up_active_tx(send_req),
-            Request::Proof(_) => /*TODO: call setup for a confirmation request*/ Ok(()),
+            Request::LowerProof(lower_proof_req) => set_up_active_lower_proof(lower_proof_req),
         }
     };
 
@@ -67,6 +66,19 @@ pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
 pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
     tx.request.id = use_next_tx_id::<T>();
     return Ok(tx::set_up_active_tx(tx.request)?)
+}
+
+fn set_up_active_lower_proof<T: Config>(req: LowerProofRequestData) -> Result<(), Error<T>> {
+    let msg_hash = eth::generate_msg_hash(&req.params)?;
+
+    ActiveRequest::<T>::put(ActiveRequestData {
+        request: Request::LowerProof(req.clone()),
+        confirmation: ActiveConfirmation { msg_hash, confirmations: BoundedVec::default() },
+        tx_data: None,
+        last_updated: <frame_system::Pallet<T>>::block_number(),
+    });
+
+    return Ok(())
 }
 
 fn queue_request<T: Config>(request: Request) -> Result<(), Error<T>> {

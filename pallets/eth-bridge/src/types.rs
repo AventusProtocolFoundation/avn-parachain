@@ -8,7 +8,7 @@ pub trait Identifiable {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
     Send(SendRequestData),
-    Proof(ProofRequestData), /*This of a better name*/
+    LowerProof(LowerProofRequestData), /*This of a better name*/
 }
 
 impl Default for Request {
@@ -21,7 +21,7 @@ impl Identifiable for Request {
     fn id(&self) -> EthereumId {
         match self {
             Request::Send(req) => req.id(),
-            Request::Proof(req) => req.id(),
+            Request::LowerProof(req) => req.id(),
         }
     }
 }
@@ -58,12 +58,12 @@ impl Identifiable for SendRequestData {
 
 // Request data for a message that requires confirmation for Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ProofRequestData {
+pub struct LowerProofRequestData {
     pub id: EthereumId,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 
-impl Identifiable for ProofRequestData {
+impl Identifiable for LowerProofRequestData {
     fn id(&self) -> EthereumId {
         return self.id
     }

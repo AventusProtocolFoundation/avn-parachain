@@ -459,7 +459,7 @@ pub mod pallet {
             }
 
             match req.request {
-                Request::Proof(_) => {
+                Request::LowerProof(_) => {
                     let has_enough_confirmations = util::has_enough_confirmations::<T>(
                         req.confirmation.confirmations.len() as u32,
                     );
@@ -619,10 +619,10 @@ pub mod pallet {
             Ok(tx_id)
         }
 
-        fn generate_proof(
+        fn generate_lower_proof(
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<EthereumId, DispatchError> {
-            let tx_id = request::add_new_proof_request::<T>(params)
+            let tx_id = request::add_new_lower_proof_request::<T>(params)
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
