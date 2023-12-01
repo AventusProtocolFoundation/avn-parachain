@@ -76,8 +76,11 @@ use sp_std::prelude::*;
 
 mod call;
 mod eth;
+mod request;
 mod tx;
+mod types;
 mod util;
+use crate::types::*;
 
 mod benchmarking;
 #[cfg(test)]
@@ -193,39 +196,6 @@ pub mod pallet {
 
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveTransactionData<T>, OptionQuery>;
-
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub struct Request {
-        pub tx_id: EthereumId,
-        pub function_name: BoundedVec<u8, FunctionLimit>,
-        pub params:
-            BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    }
-
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub struct TransactionData<T: Config> {
-        pub function_name: BoundedVec<u8, FunctionLimit>,
-        pub params:
-            BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-        pub sender: T::AccountId,
-        pub eth_tx_hash: H256,
-        pub tx_succeeded: bool,
-    }
-
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub struct ActiveTransactionData<T: Config> {
-        pub id: EthereumId,
-        pub request_data: Request,
-        pub data: TransactionData<T>,
-        pub expiry: u64,
-        pub msg_hash: H256,
-        pub last_updated: T::BlockNumber,
-        pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-        pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-        pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-        pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-        pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    }
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -581,7 +551,7 @@ pub mod pallet {
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<EthereumId, DispatchError> {
-            let tx_id = tx::add_new_request::<T>(function_name, params)
+            let tx_id = request::add_new_request::<T>(function_name, params)
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {

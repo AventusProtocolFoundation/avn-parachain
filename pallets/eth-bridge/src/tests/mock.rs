@@ -1,5 +1,5 @@
 use super::*;
-use crate::{self as eth_bridge, tx::add_new_request};
+use crate::{self as eth_bridge, request::add_new_request};
 use avn;
 use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
