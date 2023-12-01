@@ -642,6 +642,9 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
     type AvnTreasuryPotId = AvnTreasuryPotId;
     type WeightInfo = pallet_token_manager::default_weights::SubstrateWeight<Runtime>;
+    type Scheduler = Scheduler;
+    type Preimages = Preimage;
+    type PalletsOrigin = OriginCaller;
 }
 
 impl pallet_nft_manager::Config for Runtime {

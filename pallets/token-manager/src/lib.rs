@@ -23,7 +23,14 @@ use core::convert::{TryFrom, TryInto};
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo},
     ensure, log,
-    traits::{Currency, ExistenceRequirement, Get, Imbalance, IsSubType, WithdrawReasons},
+    traits::{
+        Currency, ExistenceRequirement, Get, Imbalance, IsSubType, WithdrawReasons,
+        schedule::{
+			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
+			DispatchTime, HARD_DEADLINE
+		},
+        QueryPreimage, StorePreimage
+    },
     PalletId, Parameter,
 };
 use frame_system::ensure_signed;
@@ -51,6 +58,8 @@ type BalanceOf<T> =
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
+
+type CallOf<T> = <T as Config>::RuntimeCall;
 
 mod benchmarking;
 
@@ -103,7 +112,8 @@ pub mod pallet {
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>
-            + GetDispatchInfo;
+            + GetDispatchInfo
+            + From<frame_system::Call<Self>>;
 
         /// Currency type for lifting
         type Currency: Currency<Self::AccountId>;
@@ -137,6 +147,15 @@ pub mod pallet {
 
         /// Handler to notify the runtime when AVT growth is lifted.
         type OnGrowthLiftedHandler: OnGrowthLiftedHandler<BalanceOf<Self>>;
+
+        type Scheduler: ScheduleAnon<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>
+	    + ScheduleNamed<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>;
+
+        /// The preimage provider.
+	type Preimages: QueryPreimage + StorePreimage;
+
+        /// Overarching type of all pallets origins.
+	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
 
         type WeightInfo: WeightInfo;
     }
@@ -214,6 +233,8 @@ pub mod pallet {
         ErrorConvertingTokenBalance,
         ErrorConvertingToBalance,
         NoTier1EventForLogAvtGrowthLifted,
+        Overflow,
+        InvalidLowerCall,
     }
 
     #[pallet::storage]
@@ -428,6 +449,30 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::AvtTransferredFromTreasury { recipient, amount });
 
             Ok(())
+        }
+
+        /// Lower an amount of token from tier2 to tier1
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token().max(<T as pallet::Config>::WeightInfo::lower_non_avt_token()))]
+        #[pallet::call_index(5)]
+        pub fn execute_lower(
+            origin: OriginFor<T>,
+            from: T::AccountId,
+            to_account_id: T::AccountId,
+            token_id: T::TokenId,
+            amount: u128,
+            t1_recipient: H160,
+        ) -> DispatchResultWithPostInfo {
+            let _ = ensure_root(origin)?;
+
+            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
+
+            let final_weight = if token_id == Self::avt_token_contract().into() {
+                <T as pallet::Config>::WeightInfo::lower_avt_token()
+            } else {
+                <T as pallet::Config>::WeightInfo::lower_non_avt_token()
+            };
+
+            Ok(Some(final_weight).into())
         }
     }
 }
