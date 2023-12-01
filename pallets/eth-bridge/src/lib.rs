@@ -253,6 +253,7 @@ pub mod pallet {
         TypeNameLengthExceeded,
         ValueLengthExceeded,
         ErrorGettingEthereumCallData,
+        IncompatibleRequest,
     }
 
     #[pallet::call]
