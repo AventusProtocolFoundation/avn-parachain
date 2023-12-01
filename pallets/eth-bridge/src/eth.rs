@@ -3,7 +3,7 @@ use crate::{
     util::{try_process_query_result, unbound_params},
     Author, Config, AVN,
 };
-use ethabi::{Function, Int, Param, ParamType, Token};
+use ethabi::{Function, Int, Param, ParamType, Token, Address};
 use pallet_avn::AccountToBytesConverter;
 use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
 use sp_core::{ecdsa, Get, H256};
@@ -15,7 +15,7 @@ pub const UINT128: &[u8] = b"uint128";
 pub const UINT32: &[u8] = b"uint32";
 pub const BYTES: &[u8] = b"bytes";
 pub const BYTES32: &[u8] = b"bytes32";
-pub const BYTES32ARRAY: &[u8] = b"bytes32[]";
+pub const ADDRESS: &[u8] = b"address";
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);
@@ -120,12 +120,16 @@ pub fn generate_msg_hash<T: pallet::Config>(
     Ok(H256::from(msg_hash))
 }
 
-pub fn generate_send_calldata<T: Config>(tx: &ActiveTransactionData<T>) -> Result<Vec<u8>, Error<T>> {
+pub fn encode_confirmations(confirmations: &BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Vec<u8> {
     let mut concatenated_confirmations = Vec::new();
-    for conf in &tx.confirmation.confirmations {
+    for conf in confirmations {
         concatenated_confirmations.extend_from_slice(conf.as_ref());
     }
+    concatenated_confirmations
+}
 
+pub fn generate_send_calldata<T: Config>(tx: &ActiveTransactionData<T>) -> Result<Vec<u8>, Error<T>> {
+    let concatenated_confirmations = encode_confirmations(&tx.confirmation.confirmations);
     let mut full_params = unbound_params(&tx.request.params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
@@ -141,23 +145,25 @@ fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<V
     abi_encode_function(b"corroborate", &params)
 }
 
-pub fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
-    let current_block_number = <frame_system::Pallet<T>>::block_number();
+pub fn generate_abi_encoded_lower_proof<T: Config>(
+    lower_req: &LowerProofRequestData,
+    confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Result<Vec<u8>, Error<T>>
+{
+    let concatenated_confirmations = encode_confirmations(&confirmations);
+    let mut lower_params = unbound_params(&lower_req.params);
+    lower_params.push((UINT256.to_vec(), lower_req.id().to_string().into_bytes()));
+    lower_params.push((BYTES.to_vec(), concatenated_confirmations));
 
-    match AVN::<T>::calculate_primary_validator(current_block_number) {
-        Ok(primary_validator) => {
-            let sender = primary_validator;
-            Ok(sender)
-        },
-        Err(_) => Err(Error::<T>::ErrorAssigningSender),
-    }
+    let tokens: Result<Vec<_>, _> = lower_params
+        .iter()
+        .map(|(type_bytes, value_bytes)| {
+            let param_type = to_param_type(type_bytes).ok_or_else(|| Error::<T>::LowerParamsError)?;
+            to_token_type(&param_type, value_bytes)
+        })
+        .collect();
+
+    Ok(ethabi::encode(&tokens?))
 }
-
-// pub fn abi_encode_lower_data(req: ActiveRequestData) -> Result<Vec<u8>, Error<T>> {
-//     let params = vec![(BYTES32.to_vec(), vec![0; 32])];
-//     sdasdsa
-//     // Complete me
-// }
 
 fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
@@ -196,6 +202,7 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
         UINT32 => Some(ParamType::Uint(32)),
         UINT128 => Some(ParamType::Uint(128)),
         UINT256 => Some(ParamType::Uint(256)),
+        ADDRESS => Some(ParamType::Address),
 
         _ => None,
     }
@@ -218,6 +225,7 @@ fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<To
             }
             Ok(Token::FixedBytes(value.to_vec()))
         },
+        ParamType::Address => Ok(Token::Address(Address::from_slice(value))),
         _ => Err(Error::<T>::InvalidParamData),
     }
 }

@@ -109,7 +109,7 @@ pub type FunctionLimit = ConstU32<32>; // Max chars allowed in T1 function name
 pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
-pub type LowerDataLimit = ConstU32<130>; // Max chars in a param's value
+pub type LowerDataLimit = ConstU32<1000000>; // Max lower proof len. 1MB
 
 
 pub const TX_HASH_INVALID: bool = false;
@@ -269,6 +269,8 @@ pub mod pallet {
         ValueLengthExceeded,
         ErrorGettingEthereumCallData,
         InvalidSendRequest,
+        LowerParamsError,
+        LowerDataLimitExceeded,
     }
 
     #[pallet::call]
@@ -334,11 +336,14 @@ pub mod pallet {
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                if matches!(req.request, Request::LowerProof(_)) && request::has_enough_confirmations(&req) {
-                    request::complete_lower_proof_request::<T>(&req)?
-                } else {
-                    req.last_updated = <frame_system::Pallet<T>>::block_number();
-                    ActiveRequest::<T>::put(req);
+                match req.request {
+                    Request::LowerProof(lower_req) if request::has_enough_confirmations(&req) => {
+                        request::complete_lower_proof_request::<T>(&lower_req, req.confirmation.confirmations)?
+                    },
+                    _ => {
+                        req.last_updated = <frame_system::Pallet<T>>::block_number();
+                        ActiveRequest::<T>::put(req);
+                    }
                 }
             }
 
@@ -630,8 +635,7 @@ pub mod pallet {
         fn generate_lower_proof(
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<EthereumId, DispatchError> {
-            let tx_id = request::add_new_lower_proof_request::<T>(params)
-                .map_err(|e| DispatchError::Other(e.into()))?;
+            let tx_id = request::add_new_lower_proof_request::<T>(params)?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
                 tx_id,

@@ -87,7 +87,7 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
             eth_tx_params: extended_params,
             expiry,
             eth_tx_hash: H256::zero(),
-            sender: eth::assign_sender()?,
+            sender: assign_sender()?,
             success_corroborations: BoundedVec::default(),
             failure_corroborations: BoundedVec::default(),
             valid_tx_hash_corroborations: BoundedVec::default(),
@@ -98,4 +98,16 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
     });
 
     return Ok(())
+}
+
+fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
+    let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+    match AVN::<T>::calculate_primary_validator(current_block_number) {
+        Ok(primary_validator) => {
+            let sender = primary_validator;
+            Ok(sender)
+        },
+        Err(_) => Err(Error::<T>::ErrorAssigningSender),
+    }
 }

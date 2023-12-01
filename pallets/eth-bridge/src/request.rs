@@ -77,12 +77,13 @@ pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
     }
 }
 
-pub fn complete_lower_proof_request<T: Config>(req: &ActiveRequestData<T>) -> Result<(), Error<T>> {
+pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData, confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Result<(), Error<T>> {
     // Write the tx data to permanent storage:
-    // TODO: eth.abi_encode_lower_data()
+    let lower_proof = eth::generate_abi_encoded_lower_proof(lower_req, confirmations)?;
+
     LowersReadyToClaim::<T>::insert(
-        req.id(),
-        BoundedVec::<u8, LowerDataLimit>::try_from(/*TODO: eth.abi_encode_lower_data()*/vec![]).map_err(|_| Error::<T>::ParamsLimitExceeded)?,
+        lower_req.id,
+        BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
     );
 
     // TODO: raise an event here

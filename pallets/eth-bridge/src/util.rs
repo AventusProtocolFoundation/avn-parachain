@@ -20,7 +20,7 @@ pub fn has_enough_confirmations<T: Config>(confirmations: u32) -> bool {
 }
 
 pub fn has_supermajority_confirmations<T: Config>(confirmations: u32) -> bool {
-    confirmations >= confirmations * 2 / 3
+    confirmations >= AVN::<T>::supermajority_quorum()
 }
 
 pub fn requires_corroboration<T: Config>(

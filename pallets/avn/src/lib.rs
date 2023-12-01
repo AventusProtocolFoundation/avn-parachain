@@ -278,9 +278,15 @@ impl<T: Config> Pallet<T> {
             .nth(0)
     }
 
+    // Minimum number required to reach the threshold.
     pub fn quorum() -> u32 {
         let total_num_of_validators = Self::validators().len() as u32;
         Self::calculate_quorum(total_num_of_validators)
+    }
+
+    pub fn supermajority_quorum() -> u32 {
+        let total_num_of_validators = Self::validators().len() as u32;
+        total_num_of_validators * 2 / 3
     }
 
     pub fn calculate_quorum(num: u32) -> u32 {

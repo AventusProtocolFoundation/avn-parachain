@@ -18,6 +18,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::format;
+
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use frame_support::{
@@ -29,7 +34,7 @@ use frame_support::{
 use frame_system::ensure_signed;
 pub use pallet::*;
 use pallet_avn::{
-    self as avn, CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
+    self as avn, CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker, BridgePublisher,
 };
 use sp_avn_common::{
     event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
@@ -112,7 +117,7 @@ pub mod pallet {
 
         /// The type of token identifier
         /// (a H160 because this is an Ethereum address)
-        type TokenId: Parameter + Default + Copy + From<H160> + MaxEncodedLen;
+        type TokenId: Parameter + Default + Copy + From<H160> + Into<H160> + MaxEncodedLen;
 
         type ProcessedEventsChecker: ProcessedEventsChecker;
 
@@ -136,6 +141,8 @@ pub mod pallet {
 
         /// Handler to notify the runtime when AVT growth is lifted.
         type OnGrowthLiftedHandler: OnGrowthLiftedHandler<BalanceOf<Self>>;
+
+        type BridgePublisher: avn::BridgePublisher;
 
         type WeightInfo: WeightInfo;
     }
@@ -176,12 +183,14 @@ pub mod pallet {
             recipient: T::AccountId,
             amount: u128,
             t1_recipient: H160,
+            lower_id: u32,
         },
         AvtLowered {
             sender: T::AccountId,
             recipient: T::AccountId,
             amount: u128,
             t1_recipient: H160,
+            lower_id: u32,
         },
         AvtTransferredFromTreasury {
             recipient: T::AccountId,
@@ -489,6 +498,7 @@ impl<T: Config> Pallet<T> {
         amount: u128,
         t1_recipient: H160,
     ) -> DispatchResult {
+
         if token_id == Self::avt_token_contract().into() {
             let lower_amount = <BalanceOf<T> as TryFrom<u128>>::try_from(amount)
                 .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
@@ -510,13 +520,6 @@ impl<T: Config> Pallet<T> {
             // Decreases the total issued AVT when this negative imbalance is dropped
             // so that total issued AVT becomes equal to total supply once again.
             drop(imbalance);
-
-            Self::deposit_event(Event::<T>::AvtLowered {
-                sender: from.clone(),
-                recipient: to.clone(),
-                amount,
-                t1_recipient,
-            });
         } else {
             let lower_amount = <T::TokenBalance as TryFrom<u128>>::try_from(amount)
                 .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
@@ -524,13 +527,31 @@ impl<T: Config> Pallet<T> {
             ensure!(sender_balance >= lower_amount, Error::<T>::InsufficientSenderBalance);
 
             <Balances<T>>::mutate((token_id, from), |balance| *balance -= lower_amount);
+        }
 
+        let params = vec![
+            (b"address".to_vec(), token_id.into().as_fixed_bytes().to_vec()),
+            (b"uint256".to_vec(), format!("{}", amount).as_bytes().to_vec()),
+            (b"address".to_vec(), t1_recipient.as_fixed_bytes().to_vec()),
+        ];
+        let lower_id = T::BridgePublisher::generate_lower_proof(&params)?;
+
+        if token_id == Self::avt_token_contract().into() {
+            Self::deposit_event(Event::<T>::AvtLowered {
+                sender: from.clone(),
+                recipient: to.clone(),
+                amount,
+                t1_recipient,
+                lower_id
+            });
+        } else {
             Self::deposit_event(Event::<T>::TokenLowered {
                 token_id,
                 sender: from.clone(),
                 recipient: to.clone(),
                 amount,
                 t1_recipient,
+                lower_id
             });
         }
 

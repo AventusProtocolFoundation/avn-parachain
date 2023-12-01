@@ -667,6 +667,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type OnGrowthLiftedHandler = ParachainStaking;
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
     type AvnTreasuryPotId = AvnTreasuryPotId;
+    type BridgePublisher = EthBridge;
     type WeightInfo = pallet_token_manager::default_weights::SubstrateWeight<Runtime>;
 }
 
