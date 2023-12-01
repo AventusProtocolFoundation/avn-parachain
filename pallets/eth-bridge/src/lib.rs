@@ -105,7 +105,7 @@ pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 
 pub const TX_HASH_INVALID: bool = false;
-pub type EthereumTransactionId = u32;
+pub type EthereumId = u32;
 
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
@@ -154,12 +154,12 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         PublishToEthereum {
-            tx_id: u32,
+            tx_id: EthereumId,
             function_name: Vec<u8>,
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
         EthTxIdUpdated {
-            eth_tx_id: u32,
+            eth_tx_id: EthereumId,
         },
         EthTxLifetimeUpdated {
             eth_tx_lifetime_secs: u64,
@@ -176,7 +176,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_next_tx_id)]
-    pub type NextTxId<T: Config> = StorageValue<_, u32, ValueQuery>;
+    pub type NextTxId<T: Config> = StorageValue<_, EthereumId, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_eth_tx_lifetime_secs)]
@@ -184,19 +184,19 @@ pub mod pallet {
 
     #[pallet::storage]
     pub type RequestQueue<T: Config> =
-        StorageValue<_, BoundedVec<RequestData, T::MaxQueuedTxRequests>, OptionQuery>;
+        StorageValue<_, BoundedVec<Request, T::MaxQueuedTxRequests>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]
     pub type SettledTransactions<T: Config> =
-        StorageMap<_, Blake2_128Concat, u32, TransactionData<T>, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
 
     #[pallet::storage]
-    pub type ActiveTransaction<T: Config> = StorageValue<_, ActiveTransactionData<T>, OptionQuery>;
+    pub type ActiveRequest<T: Config> = StorageValue<_, ActiveTransactionData<T>, OptionQuery>;
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-    pub struct RequestData {
-        pub tx_id: u32,
+    pub struct Request {
+        pub tx_id: EthereumId,
         pub function_name: BoundedVec<u8, FunctionLimit>,
         pub params:
             BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
@@ -214,8 +214,8 @@ pub mod pallet {
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
     pub struct ActiveTransactionData<T: Config> {
-        pub id: u32,
-        pub request_data: RequestData,
+        pub id: EthereumId,
+        pub request_data: Request,
         pub data: TransactionData<T>,
         pub expiry: u64,
         pub msg_hash: H256,
@@ -231,7 +231,7 @@ pub mod pallet {
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub eth_tx_lifetime_secs: u64,
-        pub next_tx_id: u32,
+        pub next_tx_id: EthereumId,
     }
 
     #[cfg(feature = "std")]
@@ -301,7 +301,7 @@ pub mod pallet {
 
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_id())]
-        pub fn set_eth_tx_id(origin: OriginFor<T>, eth_tx_id: u32) -> DispatchResultWithPostInfo {
+        pub fn set_eth_tx_id(origin: OriginFor<T>, eth_tx_id: EthereumId) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             NextTxId::<T>::put(eth_tx_id);
             Self::deposit_event(Event::<T>::EthTxIdUpdated { eth_tx_id });
@@ -312,7 +312,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::add_confirmation())]
         pub fn add_confirmation(
             origin: OriginFor<T>,
-            tx_id: u32,
+            tx_id: EthereumId,
             confirmation: ecdsa::Signature,
             author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
@@ -320,7 +320,7 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active::<T>(tx_id) {
-                let mut tx = ActiveTransaction::<T>::get().expect("is active");
+                let mut tx = ActiveRequest::<T>::get().expect("is active");
 
                 // The sender's confirmation is implicit so we only collect them from other authors:
                 if author.account_id == tx.data.sender || util::has_enough_confirmations(&tx) {
@@ -348,7 +348,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
         pub fn add_eth_tx_hash(
             origin: OriginFor<T>,
-            tx_id: u32,
+            tx_id: EthereumId,
             eth_tx_hash: H256,
             author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
@@ -356,7 +356,7 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active::<T>(tx_id) {
-                let mut tx = ActiveTransaction::<T>::get().expect("is active");
+                let mut tx = ActiveRequest::<T>::get().expect("is active");
 
                 ensure!(tx.data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
 
@@ -377,7 +377,7 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::add_corroboration())]
         pub fn add_corroboration(
             origin: OriginFor<T>,
-            tx_id: u32,
+            tx_id: EthereumId,
             tx_succeeded: bool,
             tx_hash_is_valid: bool,
             author: Author<T>,
@@ -386,7 +386,7 @@ pub mod pallet {
             ensure_none(origin)?;
 
             if tx::is_active::<T>(tx_id) {
-                let mut tx = ActiveTransaction::<T>::get().expect("is active");
+                let mut tx = ActiveRequest::<T>::get().expect("is active");
 
                 if !util::requires_corroboration(&tx, &author) {
                     return Ok(().into())
@@ -427,7 +427,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok((author, finalised_block_number)) = setup_ocw::<T>(block_number) {
-                if let Err(e) = process_active_transaction::<T>(author, finalised_block_number) {
+                if let Err(e) = process_active_request::<T>(author, finalised_block_number) {
                     log::error!("❌ Error processing currently active transaction: {:?}", e);
                 }
             }
@@ -436,7 +436,7 @@ pub mod pallet {
 
     fn save_to_storage<T: Config>(mut tx: ActiveTransactionData<T>) {
         tx.last_updated = <frame_system::Pallet<T>>::block_number();
-        ActiveTransaction::<T>::put(tx);
+        ActiveRequest::<T>::put(tx);
     }
 
     fn setup_ocw<T: Config>(
@@ -451,11 +451,11 @@ pub mod pallet {
     }
 
     // The core logic the OCW employs to fully resolve any currently active transaction:
-    fn process_active_transaction<T: Config>(
+    fn process_active_request<T: Config>(
         author: Author<T>,
         finalised_block_number: T::BlockNumber,
     ) -> Result<(), DispatchError> {
-        if let Some(tx) = ActiveTransaction::<T>::get() {
+        if let Some(tx) = ActiveRequest::<T>::get() {
             if finalised_block_number < tx.last_updated {
                 log::info!(
                     "👷 Last updated block: {:?} is not finalised, skipping. Id: {:?}, finalised block: {:?}",
@@ -580,7 +580,7 @@ pub mod pallet {
         fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
-        ) -> Result<u32, DispatchError> {
+        ) -> Result<EthereumId, DispatchError> {
             let tx_id = tx::add_new_request::<T>(function_name, params)
                 .map_err(|e| DispatchError::Other(e.into()))?;
 

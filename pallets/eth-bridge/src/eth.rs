@@ -17,7 +17,7 @@ const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
 
 pub fn create_tx_data<T: Config>(
-    tx_request: &RequestData,
+    tx_request: &Request,
     expiry: u64,
 ) -> Result<TransactionData<T>, Error<T>> {
     let mut extended_params = unbound_params(&tx_request.params);
@@ -152,7 +152,7 @@ pub fn generate_send_calldata<T: Config>(
     abi_encode_function(&tx.data.function_name.as_slice(), &full_params)
 }
 
-fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
+fn generate_corroborate_calldata<T: Config>(tx_id: EthereumId, expiry: u64) -> Result<Vec<u8>, Error<T>> {
     let params = vec![
         (UINT32.to_vec(), tx_id.to_string().into_bytes()),
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
