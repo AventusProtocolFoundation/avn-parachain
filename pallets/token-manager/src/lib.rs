@@ -534,7 +534,9 @@ impl<T: Config> Pallet<T> {
             (b"uint256".to_vec(), format!("{}", amount).as_bytes().to_vec()),
             (b"address".to_vec(), t1_recipient.as_fixed_bytes().to_vec()),
         ];
-        let lower_id = T::BridgePublisher::generate_lower_proof(&params)?;
+        // Update me when deferred lower is merged
+        let lower_id = 0u32;
+        T::BridgePublisher::generate_lower_proof(0u32, &params)?;
 
         if token_id == Self::avt_token_contract().into() {
             Self::deposit_event(Event::<T>::AvtLowered {

@@ -168,7 +168,7 @@ pub mod pallet {
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
         LowerProofRequested {
-            tx_id: EthereumId,
+            lower_id: EthereumId,
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
         EthTxIdUpdated {
@@ -271,6 +271,7 @@ pub mod pallet {
         InvalidSendRequest,
         LowerParamsError,
         LowerDataLimitExceeded,
+        LowerProofAlreadyGenerated,
     }
 
     #[pallet::call]
@@ -633,16 +634,21 @@ pub mod pallet {
         }
 
         fn generate_lower_proof(
+            lower_id: EthereumId,
             params: &[(Vec<u8>, Vec<u8>)],
-        ) -> Result<EthereumId, DispatchError> {
-            let tx_id = request::add_new_lower_proof_request::<T>(params)?;
+        ) -> Result<(), DispatchError> {
+            if <LowersReadyToClaim::<T>>::contains_key(&lower_id) {
+                return Err(Error::<T>::LowerProofAlreadyGenerated.into())
+            }
+
+            request::add_new_lower_proof_request::<T>(lower_id, params)?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
-                tx_id,
+                lower_id,
                 params: params.to_vec(),
             });
 
-            Ok(tx_id)
+            Ok(())
         }
     }
 }

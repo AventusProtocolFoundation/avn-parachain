@@ -80,7 +80,8 @@ pub struct ActiveConfirmation {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct TransactionData<T: Config> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
-    pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub params:
+        BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
     pub sender: T::AccountId,
     pub eth_tx_hash: H256,
     pub tx_succeeded: bool,

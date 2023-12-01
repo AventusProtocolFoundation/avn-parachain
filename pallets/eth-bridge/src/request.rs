@@ -32,12 +32,11 @@ pub fn add_new_send_request<T: Config>(
 }
 
 pub fn add_new_lower_proof_request<T: Config>(
+    lower_id: EthereumId,
     params: &[(Vec<u8>, Vec<u8>)]
-) -> Result<EthereumId, Error<T>> {
-    let id = use_next_tx_id::<T>();
-
+) -> Result<(), Error<T>> {
     let proof_req = LowerProofRequestData {
-        id,
+        id: lower_id,
         params: bound_params(&params.to_vec())?,
     };
 
@@ -47,7 +46,7 @@ pub fn add_new_lower_proof_request<T: Config>(
         set_up_active_lower_proof(proof_req)?;
     }
 
-    Ok(id)
+    Ok(())
 }
 
 pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {

@@ -112,7 +112,7 @@ fn bound_params(
 }
 
 fn setup_active_tx<T: Config>(
-    tx_id: u32,
+    tx_id: EthereumId,
     num_confirmations: u8,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
 ) {

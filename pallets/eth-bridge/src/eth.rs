@@ -136,7 +136,7 @@ pub fn generate_send_calldata<T: Config>(tx: &ActiveTransactionData<T>) -> Resul
     abi_encode_function(&tx.request.function_name.as_slice(), &full_params)
 }
 
-fn generate_corroborate_calldata<T: Config>(tx_id: u32, expiry: u64) -> Result<Vec<u8>, Error<T>> {
+fn generate_corroborate_calldata<T: Config>(tx_id: EthereumId, expiry: u64) -> Result<Vec<u8>, Error<T>> {
     let params = vec![
         (UINT32.to_vec(), tx_id.to_string().into_bytes()),
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
