@@ -54,6 +54,7 @@ type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 
 mod benchmarking;
 
+pub mod migration;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
@@ -142,6 +143,7 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
+    #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -237,11 +239,16 @@ pub mod pallet {
     #[pallet::getter(fn avt_token_contract)]
     pub type AVTTokenContract<T: Config> = StorageValue<_, H160, ValueQuery>;
 
+    /// The number of blocks lower transactions are delayed before executing
+    #[pallet::storage]
+    #[pallet::getter(fn lower_schedule_period)]
+    pub type LowerSchedulePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub lower_account_id: H256,
         pub avt_token_contract: H160,
+        pub lower_schedule_period: T::BlockNumber,
     }
 
     #[cfg(feature = "std")]
@@ -251,6 +258,7 @@ pub mod pallet {
                 _phantom: Default::default(),
                 lower_account_id: H256::zero(),
                 avt_token_contract: H160::zero(),
+                lower_schedule_period: T::BlockNumber::zero(),
             }
         }
     }
@@ -258,8 +266,10 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
+            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
             <LowerAccountId<T>>::put(self.lower_account_id);
             <AVTTokenContract<T>>::put(self.avt_token_contract);
+            <LowerSchedulePeriod<T>>::put(self.lower_schedule_period);
         }
     }
 
