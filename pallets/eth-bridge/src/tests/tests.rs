@@ -80,7 +80,7 @@ fn run_checks(
         let current_time = 1_695_809_729_000;
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
 
-        let tx_id = add_new_request::<TestRuntime>(&function_name, &params).unwrap();
+        let tx_id = add_new_send_request::<TestRuntime>(&function_name, &params).unwrap();
         let active_tx = ActiveRequest::<TestRuntime>::get().expect("is active");
         assert_eq!(tx_id, active_tx.id);
 
