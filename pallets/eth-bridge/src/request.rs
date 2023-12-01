@@ -13,7 +13,7 @@ pub fn add_new_send_request<T: Config>(
         return Err(Error::<T>::EmptyFunctionName)
     }
 
-    let id = use_next_tx_id::<T>();
+    let id = tx::use_next_tx_id::<T>();
 
     let send_req = SendRequestData {
         id,
@@ -52,19 +52,14 @@ pub fn add_new_lower_proof_request<T: Config>(
 pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
     ActiveRequest::<T>::kill();
 
-    if let Some(tx_request) = request::dequeue_tx_request::<T>() {
-        return match tx_request {
+    if let Some(req) = request::dequeue_request::<T>() {
+        return match req {
             Request::Send(send_req) => tx::set_up_active_tx(send_req),
             Request::LowerProof(lower_proof_req) => set_up_active_lower_proof(lower_proof_req),
         }
     };
 
     Ok(())
-}
-
-pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
-    tx.request.id = use_next_tx_id::<T>();
-    return Ok(tx::set_up_active_tx(tx.request)?)
 }
 
 pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
@@ -77,7 +72,7 @@ pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
 }
 
 pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData, confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Result<(), Error<T>> {
-    // Write the tx data to permanent storage:
+    // Write the data to permanent storage:
     let lower_proof = eth::generate_abi_encoded_lower_proof(lower_req, confirmations)?;
 
     LowersReadyToClaim::<T>::insert(
@@ -122,7 +117,7 @@ fn queue_request<T: Config>(request: Request) -> Result<(), Error<T>> {
     })
 }
 
-fn dequeue_tx_request<T: Config>() -> Option<Request> {
+fn dequeue_request<T: Config>() -> Option<Request> {
     let mut queue = <RequestQueue<T>>::take();
 
     let next_tx_request = match &mut queue {
@@ -137,10 +132,4 @@ fn dequeue_tx_request<T: Config>() -> Option<Request> {
     }
 
     next_tx_request
-}
-
-fn use_next_tx_id<T: Config>() -> u32 {
-    let tx_id = NextTxId::<T>::get();
-    NextTxId::<T>::put(tx_id + 1);
-    tx_id
 }

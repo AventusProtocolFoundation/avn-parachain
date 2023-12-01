@@ -68,7 +68,7 @@ pub fn finalize_state<T: Config>(
         util::has_enough_corroborations::<T>(tx.data.invalid_tx_hash_corroborations.len())
     {
         // raise an offence on the "sender" because the tx_hash they provided was invalid
-        return Ok(request::replay_send_request(tx)?)
+        return Ok(replay_send_request(tx)?)
     }
 
     Ok(complete_transaction::<T>(tx, success)?)
@@ -98,6 +98,17 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
     });
 
     return Ok(())
+}
+
+pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
+    tx.request.id = use_next_tx_id::<T>();
+    return Ok(set_up_active_tx(tx.request)?)
+}
+
+pub fn use_next_tx_id<T: Config>() -> u32 {
+    let tx_id = NextTxId::<T>::get();
+    NextTxId::<T>::put(tx_id + 1);
+    tx_id
 }
 
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
