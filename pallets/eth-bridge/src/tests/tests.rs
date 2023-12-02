@@ -97,7 +97,7 @@ fn run_checks(
         assert_eq!(calldata, expected_calldata);
     })
 }
-/*
+
 #[cfg(test)]
 mod set_eth_tx_lifetime_secs {
     use super::*;
@@ -224,9 +224,9 @@ mod add_confirmation {
             context.test_signature.clone(),
         ));
 
-        let active_tx =
+        let active_request =
             ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present");
-        (tx_id, active_tx)
+        (tx_id, active_request.as_active_tx().unwrap())
     }
 
     #[test]
@@ -237,7 +237,7 @@ mod add_confirmation {
             let (_, active_tx) = setup_confirmation_test(&context);
 
             assert!(
-                active_tx.confirmations.contains(&context.confirmation_signature),
+                active_tx.confirmation.confirmations.contains(&context.confirmation_signature),
                 "Confirmation should be present"
             );
 
@@ -277,9 +277,14 @@ mod add_eth_tx_hash {
 
     fn setup_active_transaction_data(setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>) {
         if let Some(setup_fn) = setup_fn {
-            let mut active_tx = ActiveRequest::<TestRuntime>::get().expect("is active");
+            let mut active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
+            let mut active_tx = active_req.as_active_tx().unwrap();
             setup_fn(&mut active_tx);
-            ActiveRequest::<TestRuntime>::put(active_tx);
+            active_req.request = types::Request::Send(active_tx.request);
+            active_req.confirmation = active_tx.confirmation;
+            active_req.tx_data = Some(active_tx.data);
+
+            ActiveRequest::<TestRuntime>::put(active_req);
         }
     }
 
@@ -369,7 +374,7 @@ mod add_corroboration {
             context.test_signature.clone(),
         ));
 
-        ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present")
+        ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present").as_active_tx().unwrap()
     }
 
     #[test]
@@ -393,10 +398,10 @@ mod add_corroboration {
             ));
 
             let active_tx = ActiveRequest::<TestRuntime>::get()
-                .expect("Active transaction should be present");
+                .expect("Active transaction should be present").as_active_tx().unwrap();
 
-            assert_eq!(active_tx.valid_tx_hash_corroborations.len(), 0);
-            assert!(active_tx.invalid_tx_hash_corroborations.len() > 0);
+            assert_eq!(active_tx.data.valid_tx_hash_corroborations.len(), 0);
+            assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);
         });
     }
 
@@ -407,7 +412,7 @@ mod add_corroboration {
             let context = setup_context();
             let active_tx = setup_corroboration_test(&context, true, false);
 
-            assert!(active_tx.invalid_tx_hash_corroborations.len() > 0);
+            assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);
         });
     }
 
@@ -418,7 +423,7 @@ mod add_corroboration {
             let context = setup_context();
             let active_tx = setup_corroboration_test(&context, true, true);
 
-            assert!(active_tx.valid_tx_hash_corroborations.len() > 0);
+            assert!(active_tx.data.valid_tx_hash_corroborations.len() > 0);
         });
     }
 
@@ -459,7 +464,7 @@ fn publish_to_ethereum_creates_new_transaction_request() {
             let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
             let transaction_id = EthBridge::publish(&function_name, &params).unwrap();
-            let active_tx = ActiveRequest::<TestRuntime>::get().unwrap();
+            let active_tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
             assert_eq!(active_tx.id(), transaction_id);
             assert_eq!(active_tx.data.function_name, function_name);
 
@@ -536,8 +541,8 @@ fn publish_and_confirm_transaction() {
 
         // Verify that the confirmation was added to the transaction
         let tx = ActiveRequest::<TestRuntime>::get().unwrap();
-        assert_eq!(tx.confirmations.len(), 1);
-        assert_eq!(tx.confirmations[0], context.confirmation_signature.clone());
+        assert_eq!(tx.confirmation.confirmations.len(), 1);
+        assert_eq!(tx.confirmation.confirmations[0], context.confirmation_signature.clone());
     });
 }
 
@@ -571,7 +576,7 @@ fn publish_and_send_transaction() {
 
         assert_ok!(result);
 
-        let tx = ActiveRequest::<TestRuntime>::get().unwrap();
+        let tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
         assert_eq!(tx.data.eth_tx_hash, context.eth_tx_hash);
     });
 }
@@ -629,4 +634,3 @@ fn publish_and_corroborate_transaction() {
         assert_eq!(ActiveRequest::<TestRuntime>::get(), None);
     });
 }
-*/

@@ -45,7 +45,7 @@ fn complete_transaction<T: Config>(
         tx.id(),
         TransactionData {
             function_name: tx.request.function_name,
-            params: tx.request.params,
+            params: tx.data.eth_tx_params,
             sender: tx.data.sender,
             eth_tx_hash: tx.data.eth_tx_hash,
             tx_succeeded: tx.data.tx_succeeded,

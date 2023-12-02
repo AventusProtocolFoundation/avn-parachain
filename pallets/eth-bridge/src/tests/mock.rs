@@ -203,7 +203,7 @@ parameter_types! {
 
 thread_local! {
     // validator accounts (aka public addresses, public keys-ish)
-    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3, 4, 5,6]));
+    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3, 4, 5, 6]));
     static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
     static MOCK_RECOVERED_ACCOUNT_ID: RefCell<AccountId> = RefCell::new(1);
 }

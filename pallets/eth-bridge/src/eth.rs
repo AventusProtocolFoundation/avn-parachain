@@ -130,7 +130,7 @@ pub fn encode_confirmations(confirmations: &BoundedVec<ecdsa::Signature, Confirm
 
 pub fn generate_send_calldata<T: Config>(tx: &ActiveTransactionData<T>) -> Result<Vec<u8>, Error<T>> {
     let concatenated_confirmations = encode_confirmations(&tx.confirmation.confirmations);
-    let mut full_params = unbound_params(&tx.request.params);
+    let mut full_params = unbound_params(&tx.data.eth_tx_params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
     abi_encode_function(&tx.request.function_name.as_slice(), &full_params)
