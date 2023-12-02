@@ -342,8 +342,7 @@ pub mod pallet {
                         request::complete_lower_proof_request::<T>(&lower_req, req.confirmation.confirmations)?
                     },
                     _ => {
-                        req.last_updated = <frame_system::Pallet<T>>::block_number();
-                        ActiveRequest::<T>::put(req);
+                        save_active_request_to_storage(req);
                     }
                 }
             }
@@ -373,8 +372,8 @@ pub mod pallet {
 
                     data.eth_tx_hash = eth_tx_hash;
                     tx.tx_data = Some(data);
-                    tx.last_updated = <frame_system::Pallet<T>>::block_number();
-                    ActiveRequest::<T>::put(tx);
+
+                    save_active_request_to_storage(tx);
                 }
             }
 
@@ -420,14 +419,13 @@ pub mod pallet {
                     };
 
                     matching_corroborations
-                        .try_push(author.account_id.clone())
+                        .try_push(author.account_id)
                         .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
 
                     if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
                         tx::finalize_state::<T>(tx.as_active_tx()?, tx_succeeded)?;
                     } else {
-                        tx.last_updated = <frame_system::Pallet<T>>::block_number();
-                        ActiveRequest::<T>::put(tx);
+                        save_active_request_to_storage(tx);
                     }
                 }
             }
@@ -445,6 +443,12 @@ pub mod pallet {
                 }
             }
         }
+    }
+
+
+    fn save_active_request_to_storage<T: Config>(mut tx: ActiveRequestData<T>) {
+        tx.last_updated = <frame_system::Pallet<T>>::block_number();
+        ActiveRequest::<T>::put(tx);
     }
 
     fn setup_ocw<T: Config>(

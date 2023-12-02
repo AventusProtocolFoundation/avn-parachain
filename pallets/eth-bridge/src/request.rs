@@ -92,7 +92,7 @@ fn set_up_active_lower_proof<T: Config>(req: LowerProofRequestData) -> Result<()
     let msg_hash = eth::generate_msg_hash(&req.params)?;
 
     ActiveRequest::<T>::put(ActiveRequestData {
-        request: Request::LowerProof(req.clone()),
+        request: Request::LowerProof(req),
         confirmation: ActiveConfirmation { msg_hash, confirmations: BoundedVec::default() },
         tx_data: None,
         last_updated: <frame_system::Pallet<T>>::block_number(),

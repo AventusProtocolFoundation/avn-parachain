@@ -277,14 +277,14 @@ mod add_eth_tx_hash {
 
     fn setup_active_transaction_data(setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>) {
         if let Some(setup_fn) = setup_fn {
-            let mut active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
-            let mut active_tx = active_req.as_active_tx().unwrap();
+            let mut active_tx = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
             setup_fn(&mut active_tx);
-            active_req.request = types::Request::Send(active_tx.request);
-            active_req.confirmation = active_tx.confirmation;
-            active_req.tx_data = Some(active_tx.data);
-
-            ActiveRequest::<TestRuntime>::put(active_req);
+            ActiveRequest::<TestRuntime>::put(ActiveRequestData {
+                request: types::Request::Send(active_tx.request),
+                confirmation: active_tx.confirmation,
+                tx_data: Some(active_tx.data),
+                last_updated: 0u64,
+            });
         }
     }
 

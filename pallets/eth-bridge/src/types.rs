@@ -103,19 +103,21 @@ impl<T: Config> Identifiable for ActiveRequestData<T> {
 }
 
 impl<T: Config> ActiveRequestData<T> {
-    // Function to convert an active request into an active transaction request
-    pub fn as_active_tx(&self) -> Result<ActiveTransactionData<T>, Error<T>> {
+    // Function to convert an active request into an active transaction request.
+    pub fn as_active_tx(self) -> Result<ActiveTransactionData<T>, Error<T>> {
         if self.tx_data.is_none() {
             return Err(Error::<T>::InvalidSendRequest)
         }
 
         match self.request {
-            Request::Send(ref req) =>
-                return Ok(ActiveTransactionData {
-                    request: req.clone(),
-                    confirmation: self.confirmation.clone(),
-                    data: self.tx_data.as_ref().expect("data is not null").clone(),
-                }),
+            Request::Send(req) => {
+                let tx_data = self.tx_data.expect("data is not null");
+                Ok(ActiveTransactionData {
+                    request: req,
+                    confirmation: self.confirmation,
+                    data: tx_data,
+                })
+            }
             _ => return Err(Error::<T>::InvalidSendRequest),
         }
     }
