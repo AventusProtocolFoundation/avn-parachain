@@ -173,6 +173,10 @@ pub mod pallet {
         LowerReadyToClaim {
             lower_id: EthereumId
         },
+        RegeneratingLowerProof {
+            lower_id: EthereumId,
+            requester: T::AccountId
+        },
         EthTxIdUpdated {
             eth_tx_id: EthereumId,
         },
@@ -274,6 +278,7 @@ pub mod pallet {
         LowerParamsError,
         LowerDataLimitExceeded,
         LowerProofAlreadyGenerated,
+        InvalidLowerId,
     }
 
     #[pallet::call]
@@ -433,6 +438,27 @@ pub mod pallet {
             }
 
             Ok(().into())
+        }
+
+        #[pallet::call_index(5)]
+        #[pallet::weight(0)] // TODO: bench me
+        pub fn regenerate_lower_proof(
+            origin: OriginFor<T>,
+            lower_id: EthereumId,
+        ) -> DispatchResultWithPostInfo {
+            let requester = ensure_signed(origin)?;
+
+            if <LowersReadyToClaim<T>>::contains_key(lower_id) {
+                // Remove the existing lower and resubmit it
+                let lower = <LowersReadyToClaim<T>>::take(lower_id).expect("lower exists");
+                request::add_new_lower_proof_request::<T>(lower_id, &util::unbound_params(&lower.params))?;
+
+                Self::deposit_event(Event::<T>::RegeneratingLowerProof { lower_id,  requester });
+
+                return Ok(().into())
+            }
+
+            Err(Error::<T>::InvalidLowerId)?
         }
     }
 
