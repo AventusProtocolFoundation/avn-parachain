@@ -44,6 +44,7 @@ impl Identifiable for SendRequestData {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofRequestData {
     pub id: EthereumId,
+    pub lower_id: u32,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 
@@ -58,6 +59,14 @@ impl Identifiable for LowerProofRequestData {
 pub struct ActiveConfirmation {
     pub msg_hash: H256,
     pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
+}
+
+// Persisten storage struct to hold lower proof that can be claimed on ethereum
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+pub struct LowerProofData {
+    pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub lower_data: BoundedVec<u8, LowerDataLimit>,
+    pub is_claimed: Option<bool>,
 }
 
 // Persisten storage struct to hold transactions sent to Ethereum
@@ -87,20 +96,22 @@ impl<T: Config> Identifiable for ActiveRequestData<T> {
 }
 
 impl<T: Config> ActiveRequestData<T> {
-    // Function to convert an active request into an active transaction request
-    pub fn as_active_tx(&self) -> Result<ActiveTransactionDataV2<T>, Error<T>> {
+    // Function to convert an active request into an active transaction request.
+    pub fn as_active_tx(self) -> Result<ActiveTransactionDataV2<T>, Error<T>> {
         if self.tx_data.is_none() {
-            return Err(Error::<T>::IncompatibleRequest)
+            return Err(Error::<T>::InvalidSendRequest)
         }
 
         match self.request {
-            Request::Send(ref req) =>
-                return Ok(ActiveTransactionDataV2 {
-                    request: req.clone(),
-                    confirmation: self.confirmation.clone(),
-                    data: self.tx_data.as_ref().expect("data is not null").clone(),
-                }),
-            _ => return Err(Error::<T>::IncompatibleRequest),
+            Request::Send(req) => {
+                let tx_data = self.tx_data.expect("data is not null");
+                Ok(ActiveTransactionDataV2 {
+                    request: req,
+                    confirmation: self.confirmation,
+                    data: tx_data,
+                })
+            }
+            _ => return Err(Error::<T>::InvalidSendRequest),
         }
     }
 }
