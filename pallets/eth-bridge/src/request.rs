@@ -34,9 +34,12 @@ pub fn add_new_send_request<T: Config>(
 pub fn add_new_lower_proof_request<T: Config>(
     lower_id: EthereumId,
     params: &[(Vec<u8>, Vec<u8>)]
-) -> Result<(), Error<T>> {
+) -> Result<EthereumId, Error<T>> {
+    let id = tx::use_next_tx_id::<T>();
+
     let proof_req = LowerProofRequestData {
-        id: lower_id,
+        id,
+        lower_id,
         params: bound_params(&params.to_vec())?,
     };
 
@@ -46,7 +49,7 @@ pub fn add_new_lower_proof_request<T: Config>(
         set_up_active_lower_proof(proof_req)?;
     }
 
-    Ok(())
+    Ok(id)
 }
 
 pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
@@ -76,7 +79,7 @@ pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData
     let lower_proof = eth::generate_abi_encoded_lower_proof(lower_req, confirmations)?;
 
     LowersReadyToClaim::<T>::insert(
-        lower_req.id,
+        lower_req.lower_id,
         LowerProofData {
             params: lower_req.params.clone(),
             lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
@@ -85,7 +88,7 @@ pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData
     );
 
     <crate::Pallet<T>>::deposit_event(Event::<T>::LowerReadyToClaim {
-        lower_id: lower_req.id
+        lower_id: lower_req.lower_id
     });
 
     // Process any new request from the queue

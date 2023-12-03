@@ -60,6 +60,7 @@ impl Identifiable for SendRequestData {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofRequestData {
     pub id: EthereumId,
+    pub lower_id: u32,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 

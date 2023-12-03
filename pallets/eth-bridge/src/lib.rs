@@ -167,8 +167,9 @@ pub mod pallet {
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
         LowerProofRequested {
-            lower_id: EthereumId,
+            lower_id: u32,
             params: Vec<(Vec<u8>, Vec<u8>)>,
+            proof_request_id: EthereumId
         },
         LowerReadyToClaim {
             lower_id: EthereumId
@@ -669,15 +670,18 @@ pub mod pallet {
             lower_id: EthereumId,
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<(), DispatchError> {
-            if <LowersReadyToClaim::<T>>::contains_key(&lower_id) {
-                return Err(Error::<T>::LowerProofAlreadyGenerated.into())
-            }
+            // Note: we are not checking the queue for duplicates because we trust the calling pallet
+            ensure!(
+                !<LowersReadyToClaim::<T>>::contains_key(&lower_id),
+                Error::<T>::LowerProofAlreadyGenerated
+            );
 
-            request::add_new_lower_proof_request::<T>(lower_id, params)?;
+            let proof_request_id = request::add_new_lower_proof_request::<T>(lower_id, params)?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
                 lower_id,
                 params: params.to_vec(),
+                proof_request_id
             });
 
             Ok(())
