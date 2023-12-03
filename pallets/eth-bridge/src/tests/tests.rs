@@ -2,9 +2,8 @@
 
 #![cfg(test)]
 use crate::{
-    eth::{generate_send_calldata, *},
+    eth::generate_send_calldata,
     mock::*,
-    tx::*,
     request::*,
     *,
 };
