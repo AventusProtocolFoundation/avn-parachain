@@ -77,10 +77,16 @@ pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData
 
     LowersReadyToClaim::<T>::insert(
         lower_req.id,
-        BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
+        LowerProofData {
+            params: lower_req.params.clone(),
+            lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
+            is_claimed: None,
+        }
     );
 
-    // TODO: raise an event here
+    <crate::Pallet<T>>::deposit_event(Event::<T>::LowerReadyToClaim {
+        lower_id: lower_req.id
+    });
 
     // Process any new request from the queue
     request::process_next_request::<T>()?;

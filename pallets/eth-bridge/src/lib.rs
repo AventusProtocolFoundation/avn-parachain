@@ -102,7 +102,6 @@ use offence::CorroborationOffence;
 pub type AVN<T> = avn::Pallet<T>;
 pub type Author<T> =
     Validator<<T as avn::Config>::AuthorityId, <T as frame_system::Config>::AccountId>;
-pub type LowerData = BoundedVec<u8, LowerDataLimit>;
 
 pub type ConfirmationsLimit = ConstU32<100>; // Max confirmations or corroborations (must be > 1/3 of authors)
 pub type FunctionLimit = ConstU32<32>; // Max chars allowed in T1 function name
@@ -171,6 +170,9 @@ pub mod pallet {
             lower_id: EthereumId,
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
+        LowerReadyToClaim {
+            lower_id: EthereumId
+        },
         EthTxIdUpdated {
             eth_tx_id: EthereumId,
         },
@@ -207,7 +209,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_ready_to_claim_lower)]
     pub type LowersReadyToClaim<T: Config> =
-        StorageMap<_, Blake2_128Concat, EthereumId, LowerData, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, EthereumId, LowerProofData, OptionQuery>;
 
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
