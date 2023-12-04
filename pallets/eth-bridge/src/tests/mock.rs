@@ -187,6 +187,12 @@ pub fn setup_context() -> Context {
     }
 }
 
+pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 8]) {
+    let account_id = AccountId::decode(&mut account_id_bytes.to_vec().as_slice()).unwrap();
+    MOCK_RECOVERED_ACCOUNT_ID.with(|acc_id| {
+        *acc_id.borrow_mut() = account_id;
+    });
+}
 
 parameter_types! {
     pub const Period: u64 = 1;

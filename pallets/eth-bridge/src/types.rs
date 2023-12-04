@@ -8,7 +8,7 @@ pub trait Identifiable {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
     Send(SendRequestData),
-    LowerProof(LowerProofRequestData), /*This of a better name*/
+    LowerProof(LowerProofRequestData),
 }
 
 impl Default for Request {
