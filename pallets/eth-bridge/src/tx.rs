@@ -6,7 +6,7 @@ use sp_core::Get;
 pub fn add_new_request<T: Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
-) -> Result<u32, Error<T>> {
+) -> Result<EthereumId, Error<T>> {
     let function_name_string =
         String::from_utf8(function_name.to_vec()).map_err(|_| Error::<T>::FunctionNameError)?;
     if function_name_string.is_empty() {
@@ -15,14 +15,14 @@ pub fn add_new_request<T: Config>(
 
     let tx_id = use_next_tx_id::<T>();
 
-    let tx_request = RequestData {
+    let tx_request = Request {
         tx_id,
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
     };
 
-    if ActiveTransaction::<T>::get().is_some() {
+    if ActiveRequest::<T>::get().is_some() {
         queue_tx_request(tx_request)?;
     } else {
         set_up_active_tx(tx_request)?;
@@ -31,8 +31,8 @@ pub fn add_new_request<T: Config>(
     Ok(tx_id)
 }
 
-pub fn is_active<T: Config>(tx_id: u32) -> bool {
-    ActiveTransaction::<T>::get().map_or(false, |active_tx| active_tx.id == tx_id)
+pub fn is_active<T: Config>(tx_id: EthereumId) -> bool {
+    ActiveRequest::<T>::get().map_or(false, |active_tx| active_tx.id == tx_id)
 }
 
 fn replay_transaction<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
@@ -80,7 +80,7 @@ fn complete_transaction<T: Config>(
     if let Some(tx_request) = dequeue_tx_request::<T>() {
         set_up_active_tx(tx_request)?;
     } else {
-        ActiveTransaction::<T>::kill();
+        ActiveRequest::<T>::kill();
     }
 
     Ok(())
@@ -100,7 +100,7 @@ pub fn finalize_state<T: Config>(
     Ok(complete_transaction::<T>(tx, success)?)
 }
 
-fn queue_tx_request<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> {
+fn queue_tx_request<T: Config>(tx_request: Request) -> Result<(), Error<T>> {
     RequestQueue::<T>::mutate(|maybe_queue| {
         let mut queue: Vec<_> = maybe_queue.clone().unwrap_or_else(Default::default).into();
 
@@ -116,7 +116,7 @@ fn queue_tx_request<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> 
     })
 }
 
-fn dequeue_tx_request<T: Config>() -> Option<RequestData> {
+fn dequeue_tx_request<T: Config>() -> Option<Request> {
     let mut queue = <RequestQueue<T>>::take();
 
     let next_tx_request = match &mut queue {
@@ -133,12 +133,12 @@ fn dequeue_tx_request<T: Config>() -> Option<RequestData> {
     next_tx_request
 }
 
-fn set_up_active_tx<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> {
+fn set_up_active_tx<T: Config>(tx_request: Request) -> Result<(), Error<T>> {
     let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
     let data = eth::create_tx_data(&tx_request, expiry)?;
     let msg_hash = eth::generate_msg_hash(&data)?;
 
-    ActiveTransaction::<T>::put(ActiveTransactionData {
+    ActiveRequest::<T>::put(ActiveTransactionData {
         id: tx_request.tx_id,
         request_data: tx_request,
         data,
@@ -155,7 +155,7 @@ fn set_up_active_tx<T: Config>(tx_request: RequestData) -> Result<(), Error<T>> 
     Ok(())
 }
 
-fn use_next_tx_id<T: Config>() -> u32 {
+fn use_next_tx_id<T: Config>() -> EthereumId {
     let tx_id = NextTxId::<T>::get();
     NextTxId::<T>::put(tx_id + 1);
     tx_id

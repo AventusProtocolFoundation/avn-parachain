@@ -81,7 +81,7 @@ fn run_checks(
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
 
         let tx_id = add_new_request::<TestRuntime>(&function_name, &params).unwrap();
-        let active_tx = ActiveTransaction::<TestRuntime>::get().expect("is active");
+        let active_tx = ActiveRequest::<TestRuntime>::get().expect("is active");
         assert_eq!(tx_id, active_tx.id);
 
         let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
@@ -212,7 +212,7 @@ mod add_confirmation {
     use frame_support::assert_ok;
     use frame_system::RawOrigin;
 
-    fn setup_confirmation_test(context: &Context) -> (u32, ActiveTransactionData<TestRuntime>) {
+    fn setup_confirmation_test(context: &Context) -> (EthereumId, ActiveTransactionData<TestRuntime>) {
         let tx_id = setup_eth_tx_request(&context);
 
         assert_ok!(EthBridge::add_confirmation(
@@ -224,7 +224,7 @@ mod add_confirmation {
         ));
 
         let active_tx =
-            ActiveTransaction::<TestRuntime>::get().expect("Active transaction should be present");
+            ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present");
         (tx_id, active_tx)
     }
 
@@ -278,9 +278,9 @@ mod add_eth_tx_hash {
         setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>,
     ) {
         if let Some(setup_fn) = setup_fn {
-            let mut active_tx = ActiveTransaction::<TestRuntime>::get().expect("is active");
+            let mut active_tx = ActiveRequest::<TestRuntime>::get().expect("is active");
             setup_fn(&mut active_tx);
-            ActiveTransaction::<TestRuntime>::put(active_tx);
+            ActiveRequest::<TestRuntime>::put(active_tx);
         }
     }
 
@@ -370,7 +370,7 @@ mod add_corroboration {
             context.test_signature.clone(),
         ));
 
-        ActiveTransaction::<TestRuntime>::get().expect("Active transaction should be present")
+        ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present")
     }
 
     #[test]
@@ -393,7 +393,7 @@ mod add_corroboration {
                 context.test_signature.clone(),
             ));
 
-            let active_tx = ActiveTransaction::<TestRuntime>::get()
+            let active_tx = ActiveRequest::<TestRuntime>::get()
                 .expect("Active transaction should be present");
 
             assert_eq!(active_tx.valid_tx_hash_corroborations.len(), 0);
@@ -460,7 +460,7 @@ fn publish_to_ethereum_creates_new_transaction_request() {
             let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
             let transaction_id = EthBridge::publish(&function_name, &params).unwrap();
-            let active_tx = ActiveTransaction::<TestRuntime>::get().unwrap();
+            let active_tx = ActiveRequest::<TestRuntime>::get().unwrap();
             assert_eq!(active_tx.id, transaction_id);
             assert_eq!(active_tx.data.function_name, function_name);
 
@@ -536,7 +536,7 @@ fn publish_and_confirm_transaction() {
         assert_ok!(result);
 
         // Verify that the confirmation was added to the transaction
-        let tx = ActiveTransaction::<TestRuntime>::get().unwrap();
+        let tx = ActiveRequest::<TestRuntime>::get().unwrap();
         assert_eq!(tx.confirmations.len(), 1);
         assert_eq!(tx.confirmations[0], context.confirmation_signature.clone());
     });
@@ -572,7 +572,7 @@ fn publish_and_send_transaction() {
 
         assert_ok!(result);
 
-        let tx = ActiveTransaction::<TestRuntime>::get().unwrap();
+        let tx = ActiveRequest::<TestRuntime>::get().unwrap();
         assert_eq!(tx.data.eth_tx_hash, context.eth_tx_hash);
     });
 }
@@ -626,7 +626,7 @@ fn publish_and_corroborate_transaction() {
         .unwrap();
 
         // Verify that the transaction is finalized
-        // let tx = ActiveTransaction::<TestRuntime>::get().unwrap();
-        assert_eq!(ActiveTransaction::<TestRuntime>::get(), None);
+        // let tx = ActiveRequest::<TestRuntime>::get().unwrap();
+        assert_eq!(ActiveRequest::<TestRuntime>::get(), None);
     });
 }

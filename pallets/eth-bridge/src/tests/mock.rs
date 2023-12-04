@@ -146,7 +146,7 @@ fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignat
     author.key.sign(&(context).encode()).expect("Signature is signed")
 }
 
-pub fn setup_eth_tx_request(context: &Context) -> u32 {
+pub fn setup_eth_tx_request(context: &Context) -> EthereumId {
     add_new_request::<TestRuntime>(&context.request_function_name, &context.request_params).unwrap()
 }
 
@@ -293,7 +293,7 @@ impl ExtBuilder {
 }
 
 impl OnBridgePublisherResult for TestRuntime {
-    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+    fn process_result(_tx_id: EthereumId, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }
 }
