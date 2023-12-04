@@ -13,10 +13,10 @@ pub fn add_new_send_request<T: Config>(
         return Err(Error::<T>::EmptyFunctionName)
     }
 
-    let id = tx::use_next_tx_id::<T>();
+    let tx_id = tx::use_next_tx_id::<T>();
 
     let send_req = SendRequestData {
-        id,
+        tx_id,
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
@@ -28,17 +28,15 @@ pub fn add_new_send_request<T: Config>(
         tx::set_up_active_tx(send_req)?;
     }
 
-    Ok(id)
+    Ok(tx_id)
 }
 
 pub fn add_new_lower_proof_request<T: Config>(
-    lower_id: EthereumId,
+    lower_id: LowerId,
     params: &[(Vec<u8>, Vec<u8>)]
-) -> Result<EthereumId, Error<T>> {
-    let id = tx::use_next_tx_id::<T>();
+) -> Result<(), Error<T>> {
 
     let proof_req = LowerProofRequestData {
-        id,
         lower_id,
         params: bound_params(&params.to_vec())?,
     };
@@ -49,7 +47,7 @@ pub fn add_new_lower_proof_request<T: Config>(
         set_up_active_lower_proof(proof_req)?;
     }
 
-    Ok(id)
+    Ok(())
 }
 
 pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
@@ -83,7 +81,6 @@ pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData
         LowerProofData {
             params: lower_req.params.clone(),
             lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
-            is_claimed: None,
         }
     );
 

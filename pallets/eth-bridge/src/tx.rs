@@ -3,7 +3,7 @@ use crate::{offence::create_and_report_corroboration_offence, Config};
 use frame_support::BoundedVec;
 
 pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
-    ActiveRequest::<T>::get().map_or(false, |d| d.request.id() == id)
+    ActiveRequest::<T>::get().map_or(false, |r| r.request.id_matches(&id))
 }
 
 fn complete_transaction<T: Config>(
@@ -11,7 +11,7 @@ fn complete_transaction<T: Config>(
     success: bool,
 ) -> Result<(), Error<T>> {
     // Alert the originating pallet:
-    T::OnBridgePublisherResult::process_result(tx.id(), success)
+    T::OnBridgePublisherResult::process_result(tx.request.tx_id, success)
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     tx.data.tx_succeeded = success;
@@ -42,7 +42,7 @@ fn complete_transaction<T: Config>(
 
     // Write the tx data to permanent storage:
     SettledTransactions::<T>::insert(
-        tx.id(),
+        tx.request.tx_id,
         TransactionData {
             function_name: tx.request.function_name,
             params: tx.data.eth_tx_params,
@@ -101,7 +101,7 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
 }
 
 pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
-    tx.request.id = use_next_tx_id::<T>();
+    tx.request.tx_id = use_next_tx_id::<T>();
     return Ok(set_up_active_tx(tx.request)?)
 }
 

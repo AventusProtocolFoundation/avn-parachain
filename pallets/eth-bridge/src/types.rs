@@ -1,9 +1,5 @@
 use crate::*;
 
-pub trait Identifiable {
-    fn id(&self) -> EthereumId;
-}
-
 // The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
@@ -17,11 +13,11 @@ impl Default for Request {
     }
 }
 
-impl Identifiable for Request {
-    fn id(&self) -> EthereumId {
+impl Request {
+    pub fn id_matches(&self, id: &u32) -> bool {
         match self {
-            Request::Send(req) => req.id(),
-            Request::LowerProof(req) => req.id(),
+            Request::Send(req) => &req.tx_id == id,
+            Request::LowerProof(req) => &req.lower_id == id,
         }
     }
 }
@@ -29,7 +25,7 @@ impl Identifiable for Request {
 // Request data for a transaction we are sending to Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct SendRequestData {
-    pub id: EthereumId,
+    pub tx_id: EthereumId,
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
@@ -44,30 +40,17 @@ impl SendRequestData {
     > {
         let mut extended_params = util::unbound_params(&self.params);
         extended_params.push((eth::UINT256.to_vec(), expiry.to_string().into_bytes()));
-        extended_params.push((eth::UINT32.to_vec(), self.id.to_string().into_bytes()));
+        extended_params.push((eth::UINT32.to_vec(), self.tx_id.to_string().into_bytes()));
 
         Ok(util::bound_params(&extended_params)?)
-    }
-}
-
-impl Identifiable for SendRequestData {
-    fn id(&self) -> EthereumId {
-        return self.id
     }
 }
 
 // Request data for a message that requires confirmation for Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofRequestData {
-    pub id: EthereumId,
-    pub lower_id: u32,
+    pub lower_id: LowerId,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-}
-
-impl Identifiable for LowerProofRequestData {
-    fn id(&self) -> EthereumId {
-        return self.id
-    }
 }
 
 // Data related to generating confirmations
@@ -82,7 +65,6 @@ pub struct ActiveConfirmation {
 pub struct LowerProofData {
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
     pub lower_data: BoundedVec<u8, LowerDataLimit>,
-    pub is_claimed: Option<bool>,
 }
 
 // Persisten storage struct to hold transactions sent to Ethereum
@@ -103,12 +85,6 @@ pub struct ActiveRequestData<T: Config> {
     pub confirmation: ActiveConfirmation,
     pub tx_data: Option<ActiveEthTransaction<T>>,
     pub last_updated: T::BlockNumber,
-}
-
-impl<T: Config> Identifiable for ActiveRequestData<T> {
-    fn id(&self) -> EthereumId {
-        return self.request.id()
-    }
 }
 
 impl<T: Config> ActiveRequestData<T> {
@@ -138,12 +114,6 @@ pub struct ActiveTransactionData<T: Config> {
     pub request: SendRequestData,
     pub confirmation: ActiveConfirmation,
     pub data: ActiveEthTransaction<T>,
-}
-
-impl<T: Config> Identifiable for ActiveTransactionData<T> {
-    fn id(&self) -> EthereumId {
-        return self.request.id()
-    }
 }
 
 // Transient data used for an active send transaction request

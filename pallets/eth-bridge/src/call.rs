@@ -2,10 +2,10 @@ use super::*;
 use crate::{Author, Config};
 use sp_core::{ecdsa, H256};
 
-pub fn add_confirmation<T: Config>(tx_id: EthereumId, confirmation: ecdsa::Signature, author: Author<T>) {
-    let proof = add_confirmation_proof::<T>(tx_id, &confirmation, &author.account_id);
+pub fn add_confirmation<T: Config>(request_id: EthereumId, confirmation: ecdsa::Signature, author: Author<T>) {
+    let proof = add_confirmation_proof::<T>(request_id, &confirmation, &author.account_id);
     let signature = author.key.sign(&proof).expect("Error signing proof");
-    let call = Call::<T>::add_confirmation { tx_id, confirmation, author, signature };
+    let call = Call::<T>::add_confirmation { request_id, confirmation, author, signature };
     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 }
 

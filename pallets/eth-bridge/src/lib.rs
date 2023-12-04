@@ -114,6 +114,7 @@ pub type LowerDataLimit = ConstU32<1000000>; // Max lower proof len. 1MB
 pub const TX_HASH_INVALID: bool = false;
 // TODO: should we use this for Sending and collecting confirmations?
 pub type EthereumId = u32;
+pub type LowerId = u32;
 
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
@@ -167,15 +168,14 @@ pub mod pallet {
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
         LowerProofRequested {
-            lower_id: u32,
-            params: Vec<(Vec<u8>, Vec<u8>)>,
-            proof_request_id: EthereumId
+            lower_id: LowerId,
+            params: Vec<(Vec<u8>, Vec<u8>)>
         },
         LowerReadyToClaim {
-            lower_id: EthereumId
+            lower_id: LowerId
         },
         RegeneratingLowerProof {
-            lower_id: EthereumId,
+            lower_id: LowerId,
             requester: T::AccountId
         },
         EthTxIdUpdated {
@@ -214,7 +214,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_ready_to_claim_lower)]
     pub type LowersReadyToClaim<T: Config> =
-        StorageMap<_, Blake2_128Concat, EthereumId, LowerProofData, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, LowerId, LowerProofData, OptionQuery>;
 
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
@@ -312,14 +312,14 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::add_confirmation())]
         pub fn add_confirmation(
             origin: OriginFor<T>,
-            tx_id: EthereumId,
+            request_id: u32,
             confirmation: ecdsa::Signature,
             author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active_request::<T>(tx_id) {
+            if tx::is_active_request::<T>(request_id) {
                 let mut req = ActiveRequest::<T>::get().expect("is active");
 
                 if request::has_enough_confirmations(&req) {
@@ -445,7 +445,7 @@ pub mod pallet {
         #[pallet::weight(0)] // TODO: bench me
         pub fn regenerate_lower_proof(
             origin: OriginFor<T>,
-            lower_id: EthereumId,
+            lower_id: LowerId,
         ) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
 
@@ -499,14 +499,14 @@ pub mod pallet {
         if let Some(req) = ActiveRequest::<T>::get() {
             if finalised_block_number < req.last_updated {
                 log::info!(
-                    "👷 Last updated block: {:?} is not finalised, skipping confirmation. Id: {:?}, finalised block: {:?}",
-                    req.last_updated, req.id(), finalised_block_number
+                    "👷 Last updated block: {:?} is not finalised, skipping confirmation. Request: {:?}, finalised block: {:?}",
+                    req.last_updated, req.request, finalised_block_number
                 );
                 return Ok(())
             }
 
             match req.request {
-                Request::LowerProof(_) => {
+                Request::LowerProof(lower_req) => {
                     let has_enough_confirmations = util::has_enough_confirmations::<T>(
                         req.confirmation.confirmations.len() as u32,
                     );
@@ -514,7 +514,7 @@ pub mod pallet {
                         let confirmation =
                             eth::sign_msg_hash::<T>(&req.confirmation.msg_hash)?;
                         if !req.confirmation.confirmations.contains(&confirmation) {
-                            call::add_confirmation::<T>(req.id(), confirmation, author);
+                            call::add_confirmation::<T>(lower_req.lower_id, confirmation, author);
                         }
                     }
                 },
@@ -528,7 +528,7 @@ pub mod pallet {
                     if !self_is_sender && !has_enough_confirmations {
                         let confirmation = eth::sign_msg_hash::<T>(&tx.confirmation.msg_hash)?;
                         if !tx.confirmation.confirmations.contains(&confirmation) {
-                            call::add_confirmation::<T>(tx.id(), confirmation, author);
+                            call::add_confirmation::<T>(tx.request.tx_id, confirmation, author);
                         }
                     } else {
                         process_active_tx_request::<T>(
@@ -555,25 +555,25 @@ pub mod pallet {
         let tx_is_past_expiry = util::time_now::<T>() > tx.data.expiry;
 
         if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
-            let lock_name = format!("eth_bridge_ocw::send::{}", tx.id()).as_bytes().to_vec();
+            let lock_name = format!("eth_bridge_ocw::send::{}", tx.request.tx_id).as_bytes().to_vec();
             let mut lock = AVN::<T>::get_ocw_locker(&lock_name);
 
             // Protect against sending more than once
             if let Ok(guard) = lock.try_lock() {
                 let eth_tx_hash = eth::send_tx::<T>(&tx)?;
-                call::add_eth_tx_hash::<T>(tx.id(), eth_tx_hash, author);
+                call::add_eth_tx_hash::<T>(tx.request.tx_id, eth_tx_hash, author);
                 guard.forget(); // keep the lock so we don't send again
             } else {
                 log::info!(
                     "👷 Skipping sending txId: {:?} because ocw is locked already.",
-                    tx.id()
+                    tx.request.tx_id
                 );
             };
         } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
             if util::requires_corroboration::<T>(&tx.data, &author) {
                 match eth::corroborate::<T>(&tx, &author)? {
                     (Some(status), tx_hash_is_valid) => call::add_corroboration::<T>(
-                        tx.id(),
+                        tx.request.tx_id,
                         status,
                         tx_hash_is_valid.unwrap_or_default(),
                         author,
@@ -592,14 +592,14 @@ pub mod pallet {
         // Confirm that the call comes from an author before it can enter the pool:
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
-                Call::add_confirmation { tx_id, confirmation, author, signature } =>
+                Call::add_confirmation { request_id, confirmation, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, &author.account_id),
+                        &(ADD_CONFIRMATION_CONTEXT, request_id, confirmation, &author.account_id),
                         &author,
                         signature,
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeAddConfirmation")
-                            .and_provides((call, tx_id))
+                            .and_provides((call, request_id))
                             .priority(TransactionPriority::max_value())
                             .build()
                     } else {
@@ -667,7 +667,7 @@ pub mod pallet {
         }
 
         fn generate_lower_proof(
-            lower_id: EthereumId,
+            lower_id: LowerId,
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<(), DispatchError> {
             // Note: we are not checking the queue for duplicates because we trust the calling pallet
@@ -676,12 +676,11 @@ pub mod pallet {
                 Error::<T>::LowerProofAlreadyGenerated
             );
 
-            let proof_request_id = request::add_new_lower_proof_request::<T>(lower_id, params)?;
+            request::add_new_lower_proof_request::<T>(lower_id, params)?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
                 lower_id,
-                params: params.to_vec(),
-                proof_request_id
+                params: params.to_vec()
             });
 
             Ok(())

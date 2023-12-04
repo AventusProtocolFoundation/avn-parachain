@@ -82,7 +82,7 @@ fn run_checks(
 
         let tx_id = add_new_send_request::<TestRuntime>(&function_name, &params).unwrap();
         let active_tx = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
-        assert_eq!(tx_id, active_tx.id());
+        assert_eq!(tx_id, active_tx.request.tx_id);
 
         let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
         let expected_expiry = current_time / 1000 + eth_tx_lifetime_secs;
@@ -464,7 +464,7 @@ fn publish_to_ethereum_creates_new_transaction_request() {
 
             let transaction_id = EthBridge::publish(&function_name, &params).unwrap();
             let active_tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
-            assert_eq!(active_tx.id(), transaction_id);
+            assert_eq!(active_tx.request.tx_id, transaction_id);
             assert_eq!(active_tx.data.function_name, function_name);
 
             assert!(System::events().iter().any(|record| matches!(

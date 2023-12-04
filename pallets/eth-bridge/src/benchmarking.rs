@@ -131,7 +131,7 @@ fn setup_active_tx<T: Config>(
     params.push((b"uint32".to_vec(), tx_id.to_string().into_bytes()));
 
     let request_data = SendRequestData {
-        id: tx_id,
+        tx_id,
         function_name: function_name.clone(),
         params: bound_params(request_params.to_vec()),
     };
