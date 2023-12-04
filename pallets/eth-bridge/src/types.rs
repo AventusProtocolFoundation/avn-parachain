@@ -66,7 +66,6 @@ pub struct ActiveConfirmation {
 pub struct LowerProofData {
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
     pub lower_data: BoundedVec<u8, LowerDataLimit>,
-    pub is_claimed: Option<bool>,
 }
 
 // Persistent storage struct to hold transactions sent to Ethereum
