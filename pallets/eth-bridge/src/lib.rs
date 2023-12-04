@@ -187,7 +187,7 @@ pub mod pallet {
 
     #[pallet::storage]
     pub type RequestQueue<T: Config> =
-        StorageValue<_, BoundedVec<Request, T::MaxQueuedTxRequests>, OptionQuery>;
+        StorageValue<_, BoundedVec<SendRequestData, T::MaxQueuedTxRequests>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]
@@ -551,7 +551,7 @@ pub mod pallet {
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
         ) -> Result<EthereumId, DispatchError> {
-            let tx_id = request::add_new_request::<T>(function_name, params)
+            let tx_id = request::add_new_send_request::<T>(function_name, params)
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {

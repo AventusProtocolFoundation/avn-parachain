@@ -17,12 +17,12 @@ const BYTES: &[u8] = b"bytes";
 const BYTES32: &[u8] = b"bytes32";
 
 pub fn create_tx_data<T: Config>(
-    tx_request: &Request,
+    tx_request: &SendRequestData,
     expiry: u64,
 ) -> Result<TransactionData<T>, Error<T>> {
     let mut extended_params = unbound_params(&tx_request.params);
     extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
-    extended_params.push((UINT32.to_vec(), tx_request.tx_id.to_string().into_bytes()));
+    extended_params.push((UINT32.to_vec(), tx_request.id.to_string().into_bytes()));
 
     let tx_data = TransactionData {
         function_name: tx_request.function_name.clone(),

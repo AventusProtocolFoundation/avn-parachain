@@ -3,7 +3,7 @@ use crate::{util::bound_params, Config};
 use frame_support::BoundedVec;
 use sp_core::Get;
 
-pub fn add_new_request<T: Config>(
+pub fn add_new_send_request<T: Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<EthereumId, Error<T>> {
@@ -13,30 +13,30 @@ pub fn add_new_request<T: Config>(
         return Err(Error::<T>::EmptyFunctionName)
     }
 
-    let tx_id = use_next_tx_id::<T>();
+    let id = use_next_tx_id::<T>();
 
-    let tx_request = Request {
-        tx_id,
+    let send_req = SendRequestData {
+        id,
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
     };
 
     if ActiveRequest::<T>::get().is_some() {
-        request::queue_tx_request(tx_request)?;
+        request::queue_tx_request(send_req)?;
     } else {
-        tx::set_up_active_tx(tx_request)?;
+        tx::set_up_active_tx(send_req)?;
     }
 
-    Ok(tx_id)
+    Ok(id)
 }
 
 pub fn replay_transaction<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
-    tx.request_data.tx_id = use_next_tx_id::<T>();
+    tx.request_data.id = use_next_tx_id::<T>();
     Ok(tx::set_up_active_tx(tx.request_data)?)
 }
 
-pub fn queue_tx_request<T: Config>(tx_request: Request) -> Result<(), Error<T>> {
+pub fn queue_tx_request<T: Config>(tx_request: SendRequestData) -> Result<(), Error<T>> {
     RequestQueue::<T>::mutate(|maybe_queue| {
         let mut queue: Vec<_> = maybe_queue.clone().unwrap_or_else(Default::default).into();
 
@@ -52,7 +52,7 @@ pub fn queue_tx_request<T: Config>(tx_request: Request) -> Result<(), Error<T>> 
     })
 }
 
-pub fn dequeue_tx_request<T: Config>() -> Option<Request> {
+pub fn dequeue_tx_request<T: Config>() -> Option<SendRequestData> {
     let mut queue = <RequestQueue<T>>::take();
 
     let next_tx_request = match &mut queue {

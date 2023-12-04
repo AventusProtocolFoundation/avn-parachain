@@ -67,13 +67,13 @@ pub fn finalize_state<T: Config>(
     Ok(complete_transaction::<T>(tx, success)?)
 }
 
-pub fn set_up_active_tx<T: Config>(tx_request: Request) -> Result<(), Error<T>> {
+pub fn set_up_active_tx<T: Config>(tx_request: SendRequestData) -> Result<(), Error<T>> {
     let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
     let data = eth::create_tx_data(&tx_request, expiry)?;
     let msg_hash = eth::generate_msg_hash(&data)?;
 
     ActiveRequest::<T>::put(ActiveTransactionData {
-        id: tx_request.tx_id,
+        id: tx_request.id,
         request_data: tx_request,
         data,
         expiry,

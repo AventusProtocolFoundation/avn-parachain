@@ -1,5 +1,5 @@
 use super::*;
-use crate::{self as eth_bridge, request::add_new_request};
+use crate::{self as eth_bridge, request::add_new_send_request};
 use avn;
 use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
@@ -147,7 +147,7 @@ fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignat
 }
 
 pub fn setup_eth_tx_request(context: &Context) -> EthereumId {
-    add_new_request::<TestRuntime>(&context.request_function_name, &context.request_params).unwrap()
+    add_new_send_request::<TestRuntime>(&context.request_function_name, &context.request_params).unwrap()
 }
 
 pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
