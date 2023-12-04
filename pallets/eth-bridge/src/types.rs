@@ -61,7 +61,7 @@ pub struct ActiveConfirmation {
     pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
 }
 
-// Persisten storage struct to hold lower proof that can be claimed on ethereum
+// Persistent storage struct to hold lower proof that can be claimed on ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofData {
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
@@ -69,7 +69,7 @@ pub struct LowerProofData {
     pub is_claimed: Option<bool>,
 }
 
-// Persisten storage struct to hold transactions sent to Ethereum
+// Persistent storage struct to hold transactions sent to Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct TransactionData<T: Config> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
@@ -130,8 +130,6 @@ pub struct ActiveTransactionData<T: Config> {
     pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
     pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
 }
-
-
 
 // Active request data specific for a transaction. 'data' is not optional.
 // ** NOTE: ** Next PR will rename this to ActiveTransactionData and remove the existing ActiveTransactionData struct above
