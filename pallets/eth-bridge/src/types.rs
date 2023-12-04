@@ -1,9 +1,5 @@
 use crate::*;
 
-pub trait Identifiable {
-    fn id(&self) -> EthereumId;
-}
-
 // The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
@@ -17,11 +13,11 @@ impl Default for Request {
     }
 }
 
-impl Identifiable for Request {
-    fn id(&self) -> EthereumId {
+impl Request {
+    pub fn id_matches(&self, id: &u32) -> bool {
         match self {
-            Request::Send(req) => req.id(),
-            Request::LowerProof(req) => req.id(),
+            Request::Send(req) => &req.id == id,
+            Request::LowerProof(req) => &req.lower_id == id,
         }
     }
 }
@@ -34,24 +30,12 @@ pub struct SendRequestData {
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 
-impl Identifiable for SendRequestData {
-    fn id(&self) -> EthereumId {
-        return self.id
-    }
-}
 
 // Request data for a message that requires confirmation for Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofRequestData {
-    pub id: EthereumId,
-    pub lower_id: u32,
+    pub lower_id: LowerId,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-}
-
-impl Identifiable for LowerProofRequestData {
-    fn id(&self) -> EthereumId {
-        return self.id
-    }
 }
 
 // Data related to generating confirmations
@@ -86,12 +70,6 @@ pub struct ActiveRequestData<T: Config> {
     pub confirmation: ActiveConfirmation,
     pub tx_data: Option<ActiveEthTransaction<T>>,
     pub last_updated: T::BlockNumber,
-}
-
-impl<T: Config> Identifiable for ActiveRequestData<T> {
-    fn id(&self) -> EthereumId {
-        return self.request.id()
-    }
 }
 
 impl<T: Config> ActiveRequestData<T> {
@@ -137,12 +115,6 @@ pub struct ActiveTransactionDataV2<T: Config> {
     pub request: SendRequestData,
     pub confirmation: ActiveConfirmation,
     pub data: ActiveEthTransaction<T>,
-}
-
-impl<T: Config> Identifiable for ActiveTransactionDataV2<T> {
-    fn id(&self) -> EthereumId {
-        return self.request.id()
-    }
 }
 
 // Transient data used for an active send transaction request

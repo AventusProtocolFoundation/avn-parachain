@@ -110,6 +110,7 @@ pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
 
 pub const TX_HASH_INVALID: bool = false;
 pub type EthereumId = u32;
+pub type LowerId = u32;
 
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
@@ -188,7 +189,7 @@ pub mod pallet {
 
     #[pallet::storage]
     pub type RequestQueue<T: Config> =
-        StorageValue<_, BoundedVec<SendRequestData, T::MaxQueuedTxRequests>, OptionQuery>;
+        StorageValue<_, BoundedVec<Request, T::MaxQueuedTxRequests>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]
