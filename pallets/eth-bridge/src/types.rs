@@ -16,7 +16,7 @@ impl Default for Request {
 impl Request {
     pub fn id_matches(&self, id: &u32) -> bool {
         match self {
-            Request::Send(req) => &req.id == id,
+            Request::Send(req) => &req.tx_id == id,
             Request::LowerProof(req) => &req.lower_id == id,
         }
     }
@@ -25,11 +25,26 @@ impl Request {
 // Request data for a transaction we are sending to Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct SendRequestData {
-    pub id: EthereumId,
+    pub tx_id: EthereumId,
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 }
 
+impl SendRequestData {
+    pub fn extend_params<T: Config>(
+        &self,
+        expiry: u64,
+    ) -> Result<
+        BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+        Error<T>,
+    > {
+        let mut extended_params = util::unbound_params(&self.params);
+        extended_params.push((eth::UINT256.to_vec(), expiry.to_string().into_bytes()));
+        extended_params.push((eth::UINT32.to_vec(), self.tx_id.to_string().into_bytes()));
+
+        Ok(util::bound_params(&extended_params)?)
+    }
+}
 
 // Request data for a message that requires confirmation for Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
@@ -74,7 +89,7 @@ pub struct ActiveRequestData<T: Config> {
 
 impl<T: Config> ActiveRequestData<T> {
     // Function to convert an active request into an active transaction request.
-    pub fn as_active_tx(self) -> Result<ActiveTransactionDataV2<T>, Error<T>> {
+    pub fn as_active_tx(self) -> Result<ActiveTransactionData<T>, Error<T>> {
         if self.tx_data.is_none() {
             return Err(Error::<T>::InvalidSendRequest)
         }
@@ -82,7 +97,7 @@ impl<T: Config> ActiveRequestData<T> {
         match self.request {
             Request::Send(req) => {
                 let tx_data = self.tx_data.expect("data is not null");
-                Ok(ActiveTransactionDataV2 {
+                Ok(ActiveTransactionData {
                     request: req,
                     confirmation: self.confirmation,
                     data: tx_data,
@@ -93,25 +108,9 @@ impl<T: Config> ActiveRequestData<T> {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ActiveTransactionData<T: Config> {
-    pub id: EthereumId,
-    pub request_data: SendRequestData,
-    pub data: TransactionData<T>,
-    pub expiry: u64,
-    pub msg_hash: H256,
-    pub last_updated: T::BlockNumber,
-    pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-    pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-}
-
 // Active request data specific for a transaction. 'data' is not optional.
-// ** NOTE: ** Next PR will rename this to ActiveTransactionData and remove the existing ActiveTransactionData struct above
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct ActiveTransactionDataV2<T: Config> {
+pub struct ActiveTransactionData<T: Config> {
     pub request: SendRequestData,
     pub confirmation: ActiveConfirmation,
     pub data: ActiveEthTransaction<T>,

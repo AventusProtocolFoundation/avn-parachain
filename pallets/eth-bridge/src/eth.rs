@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    util::{bound_params, try_process_query_result, unbound_params},
+    util::{try_process_query_result, unbound_params},
     Author, Config, AVN,
 };
 use ethabi::{Function, Int, Param, ParamType, Token};
@@ -10,30 +10,12 @@ use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
 use sp_std::vec;
 
-const UINT256: &[u8] = b"uint256";
-const UINT128: &[u8] = b"uint128";
-const UINT32: &[u8] = b"uint32";
-const BYTES: &[u8] = b"bytes";
-const BYTES32: &[u8] = b"bytes32";
+pub const UINT256: &[u8] = b"uint256";
+pub const UINT128: &[u8] = b"uint128";
+pub const UINT32: &[u8] = b"uint32";
+pub const BYTES: &[u8] = b"bytes";
+pub const BYTES32: &[u8] = b"bytes32";
 
-pub fn create_tx_data<T: Config>(
-    tx_request: &SendRequestData,
-    expiry: u64,
-) -> Result<TransactionData<T>, Error<T>> {
-    let mut extended_params = unbound_params(&tx_request.params);
-    extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
-    extended_params.push((UINT32.to_vec(), tx_request.id.to_string().into_bytes()));
-
-    let tx_data = TransactionData {
-        function_name: tx_request.function_name.clone(),
-        params: bound_params(&extended_params)?,
-        sender: assign_sender()?,
-        eth_tx_hash: H256::zero(),
-        tx_succeeded: false,
-    };
-
-    Ok(tx_data)
-}
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);
@@ -73,7 +55,7 @@ pub fn corroborate<T: Config>(
         if tx_hash_is_valid && confirmations.unwrap_or_default() < T::MinEthBlockConfirmation::get()
         {
             log::warn!("🚨 Transaction {:?} doesn't have the minimum eth confirmations yet, skipping corroboration. Current confirmation: {:?}",
-                tx.id, confirmations
+                tx.request.tx_id, confirmations
             );
             return Ok((None, None))
         }
@@ -88,7 +70,7 @@ fn check_tx_status<T: Config>(
     tx: &ActiveTransactionData<T>,
     author: &Author<T>,
 ) -> Result<Option<bool>, DispatchError> {
-    if let Ok(calldata) = generate_corroborate_calldata::<T>(tx.id, tx.expiry) {
+    if let Ok(calldata) = generate_corroborate_calldata::<T>(tx.request.tx_id, tx.data.expiry) {
         if let Ok(result) = call_corroborate_method::<T>(calldata, &author.account_id) {
             match result {
                 0 => return Ok(None),
@@ -121,9 +103,9 @@ fn check_tx_hash<T: Config>(
 }
 
 pub fn generate_msg_hash<T: pallet::Config>(
-    tx_data: &TransactionData<T>,
+    params: &BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
 ) -> Result<H256, Error<T>> {
-    let params = unbound_params(&tx_data.params);
+    let params = unbound_params(params);
     let tokens: Result<Vec<_>, _> = params
         .iter()
         .map(|(type_bytes, value_bytes)| {
@@ -138,18 +120,20 @@ pub fn generate_msg_hash<T: pallet::Config>(
     Ok(H256::from(msg_hash))
 }
 
-pub fn generate_send_calldata<T: Config>(
-    tx: &ActiveTransactionData<T>,
-) -> Result<Vec<u8>, Error<T>> {
+pub fn encode_confirmations(confirmations: &BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Vec<u8> {
     let mut concatenated_confirmations = Vec::new();
-    for conf in &tx.confirmations {
+    for conf in confirmations {
         concatenated_confirmations.extend_from_slice(conf.as_ref());
     }
+    concatenated_confirmations
+}
 
-    let mut full_params = unbound_params(&tx.data.params);
+pub fn generate_send_calldata<T: Config>(tx: &ActiveTransactionData<T>) -> Result<Vec<u8>, Error<T>> {
+    let concatenated_confirmations = encode_confirmations(&tx.confirmation.confirmations);
+    let mut full_params = unbound_params(&tx.data.eth_tx_params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
 
-    abi_encode_function(&tx.data.function_name.as_slice(), &full_params)
+    abi_encode_function(&tx.request.function_name.as_slice(), &full_params)
 }
 
 fn generate_corroborate_calldata<T: Config>(tx_id: EthereumId, expiry: u64) -> Result<Vec<u8>, Error<T>> {
@@ -161,17 +145,6 @@ fn generate_corroborate_calldata<T: Config>(tx_id: EthereumId, expiry: u64) -> R
     abi_encode_function(b"corroborate", &params)
 }
 
-fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
-    let current_block_number = <frame_system::Pallet<T>>::block_number();
-
-    match AVN::<T>::calculate_primary_validator(current_block_number) {
-        Ok(primary_validator) => {
-            let sender = primary_validator;
-            Ok(sender)
-        },
-        Err(_) => Err(Error::<T>::ErrorAssigningSender),
-    }
-}
 
 fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],

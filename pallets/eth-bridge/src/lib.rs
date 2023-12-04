@@ -197,7 +197,7 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
 
     #[pallet::storage]
-    pub type ActiveRequest<T: Config> = StorageValue<_, ActiveTransactionData<T>, OptionQuery>;
+    pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -285,33 +285,40 @@ pub mod pallet {
         #[pallet::weight(<T as Config>::WeightInfo::add_confirmation())]
         pub fn add_confirmation(
             origin: OriginFor<T>,
-            tx_id: EthereumId,
+            request_id: u32,
             confirmation: ecdsa::Signature,
             author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active::<T>(tx_id) {
-                let mut tx = ActiveRequest::<T>::get().expect("is active");
+            if tx::is_active_request::<T>(request_id) {
+                let mut req = ActiveRequest::<T>::get().expect("is active");
 
-                // The sender's confirmation is implicit so we only collect them from other authors:
-                if author.account_id == tx.data.sender || util::has_enough_confirmations(&tx) {
+                if request::has_enough_confirmations(&req) {
                     return Ok(().into())
                 }
 
-                eth::verify_signature::<T>(tx.msg_hash, &author, &confirmation)?;
+                if matches!(req.request, Request::Send(_) if req.tx_data.is_some()) {
+                    let sender = &req.tx_data.as_ref().expect("has data").sender;
+                    if &author.account_id == sender {
+                        return Ok(().into())
+                    }
+                }
+
+                eth::verify_signature::<T>(req.confirmation.msg_hash, &author, &confirmation)?;
 
                 ensure!(
-                    !tx.confirmations.contains(&confirmation),
+                    !req.confirmation.confirmations.contains(&confirmation),
                     Error::<T>::DuplicateConfirmation
                 );
 
-                tx.confirmations
+                req.confirmation
+                    .confirmations
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                save_to_storage(tx);
+                save_active_request_to_storage(req);
             }
 
             Ok(().into())
@@ -328,19 +335,20 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active::<T>(tx_id) {
+            if tx::is_active_request::<T>(tx_id) {
                 let mut tx = ActiveRequest::<T>::get().expect("is active");
 
-                ensure!(tx.data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
+                if tx.tx_data.is_some() {
+                    let mut data = tx.tx_data.expect("has data");
 
-                ensure!(
-                    tx.data.sender == author.account_id,
-                    Error::<T>::EthTxHashMustBeSetBySender
-                );
+                    ensure!(data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
+                    ensure!(data.sender == author.account_id, Error::<T>::EthTxHashMustBeSetBySender);
 
-                tx.data.eth_tx_hash = eth_tx_hash;
+                    data.eth_tx_hash = eth_tx_hash;
+                    tx.tx_data = Some(data);
 
-                save_to_storage(tx);
+                    save_active_request_to_storage(tx);
+                }
             }
 
             Ok(().into())
@@ -358,42 +366,47 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active::<T>(tx_id) {
+            if tx::is_active_request::<T>(tx_id) {
                 let mut tx = ActiveRequest::<T>::get().expect("is active");
 
-                if !util::requires_corroboration(&tx, &author) {
-                    return Ok(().into())
-                }
+                if tx.tx_data.is_some() {
+                    let data = tx.tx_data.as_mut().expect("has data");
 
-                let tx_hash_corroborations = if tx_hash_is_valid {
-                    &mut tx.valid_tx_hash_corroborations
-                } else {
-                    &mut tx.invalid_tx_hash_corroborations
-                };
+                    if !util::requires_corroboration(&data, &author) {
+                        return Ok(().into())
+                    }
 
-                tx_hash_corroborations
-                    .try_push(author.account_id.clone())
-                    .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+                    let tx_hash_corroborations = if tx_hash_is_valid {
+                        &mut data.valid_tx_hash_corroborations
+                    } else {
+                        &mut data.invalid_tx_hash_corroborations
+                    };
 
-                let matching_corroborations = if tx_succeeded {
-                    &mut tx.success_corroborations
-                } else {
-                    &mut tx.failure_corroborations
-                };
+                    tx_hash_corroborations
+                        .try_push(author.account_id.clone())
+                        .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
 
-                matching_corroborations
-                    .try_push(author.account_id.clone())
-                    .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+                    let matching_corroborations = if tx_succeeded {
+                        &mut data.success_corroborations
+                    } else {
+                        &mut data.failure_corroborations
+                    };
 
-                if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
-                    tx::finalize_state::<T>(tx, tx_succeeded)?;
-                } else {
-                    save_to_storage(tx);
+                    matching_corroborations
+                        .try_push(author.account_id)
+                        .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+
+                    if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
+                        tx::finalize_state::<T>(tx.as_active_tx()?, tx_succeeded)?;
+                    } else {
+                        save_active_request_to_storage(tx);
+                    }
                 }
             }
 
             Ok(().into())
         }
+
     }
 
     #[pallet::hooks]
@@ -401,13 +414,14 @@ pub mod pallet {
         fn offchain_worker(block_number: T::BlockNumber) {
             if let Ok((author, finalised_block_number)) = setup_ocw::<T>(block_number) {
                 if let Err(e) = process_active_request::<T>(author, finalised_block_number) {
-                    log::error!("❌ Error processing currently active transaction: {:?}", e);
+                    log::error!("❌ Error processing currently active request: {:?}", e);
                 }
             }
         }
     }
 
-    fn save_to_storage<T: Config>(mut tx: ActiveTransactionData<T>) {
+
+    fn save_active_request_to_storage<T: Config>(mut tx: ActiveRequestData<T>) {
         tx.last_updated = <frame_system::Pallet<T>>::block_number();
         ActiveRequest::<T>::put(tx);
     }
@@ -492,14 +506,14 @@ pub mod pallet {
         // Confirm that the call comes from an author before it can enter the pool:
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
-                Call::add_confirmation { tx_id, confirmation, author, signature } =>
+                Call::add_confirmation { request_id, confirmation, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, &author.account_id),
+                        &(ADD_CONFIRMATION_CONTEXT, request_id, confirmation, &author.account_id),
                         &author,
                         signature,
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeAddConfirmation")
-                            .and_provides((call, tx_id))
+                            .and_provides((call, request_id))
                             .priority(TransactionPriority::max_value())
                             .build()
                     } else {

@@ -14,17 +14,21 @@ pub fn has_enough_corroborations<T: Config>(corroborations: usize) -> bool {
     corroborations as u32 >= quorum
 }
 
-pub fn has_enough_confirmations<T: Config>(active_tx: &ActiveTransactionData<T>) -> bool {
-    let num_confirmations_including_sender = active_tx.confirmations.len() as u32 + 1;
+pub fn has_enough_confirmations<T: Config>(confirmations: u32) -> bool {
+    let num_confirmations_including_sender = confirmations + 1u32;
     num_confirmations_including_sender >= AVN::<T>::quorum()
 }
 
+pub fn has_supermajority_confirmations<T: Config>(confirmations: u32) -> bool {
+    confirmations >= AVN::<T>::supermajority_quorum()
+}
+
 pub fn requires_corroboration<T: Config>(
-    active_tx: &ActiveTransactionData<T>,
+    eth_tx: &ActiveEthTransaction<T>,
     author: &Author<T>,
 ) -> bool {
-    !active_tx.success_corroborations.contains(&author.account_id) &&
-        !active_tx.failure_corroborations.contains(&author.account_id)
+    !eth_tx.success_corroborations.contains(&author.account_id) &&
+        !eth_tx.failure_corroborations.contains(&author.account_id)
 }
 
 pub fn bound_params<T>(

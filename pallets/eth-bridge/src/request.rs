@@ -13,10 +13,10 @@ pub fn add_new_send_request<T: Config>(
         return Err(Error::<T>::EmptyFunctionName)
     }
 
-    let id = tx::use_next_tx_id::<T>();
+    let tx_id = tx::use_next_tx_id::<T>();
 
     let send_req = SendRequestData {
-        id,
+        tx_id,
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
@@ -28,12 +28,7 @@ pub fn add_new_send_request<T: Config>(
         tx::set_up_active_tx(send_req)?;
     }
 
-    Ok(id)
-}
-
-pub fn replay_transaction<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
-    tx.request_data.id = tx::use_next_tx_id::<T>();
-    Ok(tx::set_up_active_tx(tx.request_data)?)
+    Ok(tx_id)
 }
 
 pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
@@ -48,6 +43,16 @@ pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
 
     Ok(())
 }
+
+pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
+    let confirmations = req.confirmation.confirmations.len() as u32;
+    match req.request {
+        // The sender's confirmation is implicit so we only collect them from other authors:
+        Request::Send(_) => util::has_enough_confirmations::<T>(confirmations),
+        Request::LowerProof(_) => util::has_supermajority_confirmations::<T>(confirmations),
+    }
+}
+
 fn queue_request<T: Config>(request: Request) -> Result<(), Error<T>> {
     RequestQueue::<T>::mutate(|maybe_queue| {
         let mut queue: Vec<_> = maybe_queue.clone().unwrap_or_else(Default::default).into();
