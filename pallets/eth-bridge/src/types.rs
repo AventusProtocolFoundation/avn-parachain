@@ -64,7 +64,7 @@ pub struct ActiveConfirmation {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofData {
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    pub lower_data: BoundedVec<u8, LowerDataLimit>,
+    pub abi_encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
 }
 
 // Persistent storage struct to hold transactions sent to Ethereum
