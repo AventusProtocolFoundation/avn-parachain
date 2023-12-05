@@ -5,14 +5,23 @@ use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
-use sp_core::{ConstU32, ConstU64, H256};
+use sp_core::{
+    ConstU32, ConstU64, H256,
+    offchain::{
+        testing::{
+            OffchainState, PendingRequest, PoolState, TestOffchainExt, TestTransactionPoolExt,
+        },
+        OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
+    },
+};
 use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     Perbill,
 };
 use sp_staking::offence::OffenceError;
-use std::cell::RefCell;
+use parking_lot::RwLock;
+use std::{cell::RefCell, convert::From, sync::Arc};
 
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
@@ -22,6 +31,7 @@ pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = u64;
+pub type BlockNumber = u64;
 
 type IdentificationTuple = (AccountId, AccountId);
 type Offence = crate::CorroborationOffence<IdentificationTuple>;
@@ -48,7 +58,12 @@ pub struct Context {
     pub second_confirming_author: Author<TestRuntime>,
     pub request_function_name: Vec<u8>,
     pub request_params: Vec<(Vec<u8>, Vec<u8>)>,
+    pub finalised_block_vec: Option<Vec<u8>>,
+    pub lower_id: u32,
+    pub block_number: BlockNumber,
+    pub expected_lower_msg_hash: String,
 }
+
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 
 frame_support::construct_runtime!(
@@ -171,6 +186,9 @@ pub fn setup_context() -> Context {
     let eth_tx_hash = H256::from_slice(&[0u8; 32]);
     let already_set_eth_tx_hash = H256::from_slice(&[1u8; 32]);
     let confirmation_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
+    let finalised_block_vec = Some(hex::encode(10u32.encode()).into());
+
+    UintAuthorityId::set_all_keys(vec![UintAuthorityId(primary_validator_id)]);
 
     Context {
         eth_tx_hash,
@@ -183,6 +201,11 @@ pub fn setup_context() -> Context {
         confirmation_signature,
         request_function_name: b"publishRoot".to_vec(),
         request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
+        finalised_block_vec,
+        lower_id: 10u32,
+        block_number: 1u64,
+        // if request_params changes, this should also change
+        expected_lower_msg_hash: "80e558b8aa9c55659b4a677593bf2934faa5f9e4aaf82f25a6bd21b41c53f088".to_string()
     }
 }
 
@@ -247,13 +270,26 @@ impl pallet_session::historical::SessionManager<AccountId, AccountId> for TestSe
 }
 
 pub struct ExtBuilder {
-    storage: sp_runtime::Storage,
+    pub storage: sp_runtime::Storage,
+    offchain_state: Option<Arc<RwLock<OffchainState>>>,
+    pool_state: Option<Arc<RwLock<PoolState>>>,
+    txpool_extension: Option<TestTransactionPoolExt>,
+    offchain_extension: Option<TestOffchainExt>,
+    offchain_registered: bool,
 }
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage = system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
-        Self { storage }
+        let storage =
+            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+        Self {
+            storage,
+            pool_state: None,
+            offchain_state: None,
+            txpool_extension: None,
+            offchain_extension: None,
+            offchain_registered: false,
+        }
     }
 
     pub fn as_externality(self) -> sp_io::TestExternalities {
@@ -288,6 +324,32 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut self.storage);
         self
+    }
+
+    pub fn for_offchain_worker(mut self) -> Self {
+        assert!(!self.offchain_registered);
+        let (offchain, offchain_state) = TestOffchainExt::new();
+        let (pool, pool_state) = TestTransactionPoolExt::new();
+        self.txpool_extension = Some(pool);
+        self.offchain_extension = Some(offchain);
+        self.pool_state = Some(pool_state);
+        self.offchain_state = Some(offchain_state);
+        self.offchain_registered = true;
+        self
+    }
+
+    pub fn as_externality_with_state(
+        self,
+    ) -> (sp_io::TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock<OffchainState>>) {
+        assert!(self.offchain_registered);
+        let mut ext = sp_io::TestExternalities::from(self.storage);
+        ext.register_extension(OffchainDbExt::new(self.offchain_extension.clone().unwrap()));
+        ext.register_extension(OffchainWorkerExt::new(self.offchain_extension.unwrap()));
+        ext.register_extension(TransactionPoolExt::new(self.txpool_extension.unwrap()));
+        assert!(self.pool_state.is_some());
+        assert!(self.offchain_state.is_some());
+        ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into()));
+        (ext, self.pool_state.unwrap(), self.offchain_state.unwrap())
     }
 }
 

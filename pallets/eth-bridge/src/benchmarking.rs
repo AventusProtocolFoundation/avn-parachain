@@ -183,7 +183,6 @@ fn set_recovered_account_for_tests<T: Config>(sender_account_id: &T::AccountId) 
     let bytes = sender_account_id.encode();
     let mut vector: [u8; 8] = Default::default();
     vector.copy_from_slice(&bytes[0..8]);
-    println!("set_recovered_account_for_tests {}", sender_account_id);
     mock::set_mock_recovered_account_id(vector);
 }
 

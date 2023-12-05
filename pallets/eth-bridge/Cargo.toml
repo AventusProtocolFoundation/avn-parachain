@@ -33,6 +33,7 @@ pallet-session = {default-features = false, features = ["historical"], git = "ht
 frame-benchmarking = {  default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }
 
 [dev-dependencies]
+parking_lot = { version = "0.12.0" }
 
 [features]
 migrate = []
