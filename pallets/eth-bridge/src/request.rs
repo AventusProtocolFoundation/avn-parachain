@@ -83,7 +83,7 @@ pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData
         lower_req.lower_id,
         LowerProofData {
             params: lower_req.params.clone(),
-            lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
+            abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
         }
     );
 
