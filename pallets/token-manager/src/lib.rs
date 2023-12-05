@@ -213,6 +213,13 @@ pub mod pallet {
             collators_share: BalanceOf<T>,
             eth_tx_hash: H256,
         },
+        LowerRequested {
+            token_id: T::TokenId,
+            from: T::AccountId,
+            amount: u128,
+            t1_recipient: H160,
+            sender_nonce: Option<u64>,
+        },
     }
 
     #[pallet::error]
@@ -354,10 +361,10 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Lower an amount of token from tier2 to tier1
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token().max(<T as pallet::Config>::WeightInfo::lower_non_avt_token()))]
+        /// Schedule a call to lower an amount of token from tier2 to tier1
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token())]
         #[pallet::call_index(2)]
-        pub fn lower(
+        pub fn schedule_direct_lower(
             origin: OriginFor<T>,
             from: T::AccountId,
             token_id: T::TokenId,
@@ -371,21 +378,15 @@ pub mod pallet {
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
                 .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
 
-            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
+            Self::schedule_lower(&from, to_account_id, token_id, amount, t1_recipient, None)?;
 
-            let final_weight = if token_id == Self::avt_token_contract().into() {
-                <T as pallet::Config>::WeightInfo::lower_avt_token()
-            } else {
-                <T as pallet::Config>::WeightInfo::lower_non_avt_token()
-            };
-
-            Ok(Some(final_weight).into())
+            Ok(Some(<T as pallet::Config>::WeightInfo::lower_avt_token()).into())
         }
 
-        /// Lower an amount of token from tier2 to tier1 by a relayer
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token().max(<T as pallet::Config>::WeightInfo::signed_lower_non_avt_token()))]
+        /// Schedule a call to lower an amount of token from tier2 to tier1 by a relayer
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token())]
         #[pallet::call_index(3)]
-        pub fn signed_lower(
+        pub fn schedule_signed_lower(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
             from: T::AccountId,
@@ -416,15 +417,11 @@ pub mod pallet {
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
                 .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
 
-            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
+            Self::schedule_lower(&from, to_account_id, token_id, amount, t1_recipient, Some(sender_nonce))?;
 
-            let final_weight = if token_id == Self::avt_token_contract().into() {
-                <T as pallet::Config>::WeightInfo::signed_lower_avt_token()
-            } else {
-                <T as pallet::Config>::WeightInfo::signed_lower_non_avt_token()
-            };
+            <Nonces<T>>::mutate(from, |n| *n += 1);
 
-            Ok(Some(final_weight).into())
+            Ok(Some(<T as pallet::Config>::WeightInfo::signed_lower_avt_token()).into())
         }
 
         /// Transfer AVT from the treasury account. The origin must be root.
@@ -589,8 +586,6 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        <Nonces<T>>::mutate(from, |n| *n += 1);
-
         Ok(())
     }
 
@@ -718,7 +713,7 @@ impl<T: Config> Pallet<T> {
 
                 return Some((proof, encoded_data))
             },
-            Call::signed_lower { proof, from, token_id, amount, t1_recipient } => {
+            Call::schedule_signed_lower { proof, from, token_id, amount, t1_recipient } => {
                 let sender_nonce = Self::nonce(&proof.signer);
                 let encoded_data = Self::encode_signed_lower_params(
                     proof,
@@ -811,6 +806,44 @@ impl<T: Config> Pallet<T> {
         <T as pallet::Config>::Currency::free_balance(&Self::compute_treasury_account_id())
             .saturating_sub(<T as pallet::Config>::Currency::minimum_balance())
     }
+
+    fn schedule_lower(
+        from: &T::AccountId,
+        to_account_id: T::AccountId,
+        token_id: T::TokenId,
+        amount: u128,
+        t1_recipient: H160,
+        sender_nonce: Option<u64>) -> DispatchResult {
+            let schedule_name = ("Lower", from, &token_id, &amount, &t1_recipient, sender_nonce.unwrap_or(0u64)).using_encoded(sp_io::hashing::blake2_256);
+            let call = Box::new(
+                Call::execute_lower {
+                    from: from.clone(),
+                    to_account_id,
+                    token_id,
+                    amount,
+                    t1_recipient,
+                }
+            );
+
+            T::Scheduler::schedule_named(
+                schedule_name,
+                DispatchTime::After(Self::lower_schedule_period()),
+                None,
+                HARD_DEADLINE,
+                frame_system::RawOrigin::Root.into(),
+                T::Preimages::bound(CallOf::<T>::from(*call)).map_err(|_| Error::<T>::InvalidLowerCall)?,
+            )?;
+
+            Self::deposit_event(Event::<T>::LowerRequested {
+                token_id,
+                from: from.clone(),
+                amount,
+                t1_recipient,
+                sender_nonce,
+            });
+
+            Ok(())
+    }
 }
 
 impl<T: Config> ProcessedEventHandler for Pallet<T> {
@@ -835,7 +868,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
 
         match call {
             Call::signed_transfer { proof, .. } => return Ok(proof.clone()),
-            Call::signed_lower { proof, .. } => return Ok(proof.clone()),
+            Call::schedule_signed_lower { proof, .. } => return Ok(proof.clone()),
             _ => return Err(Error::TransactionNotSupported),
         }
     }
