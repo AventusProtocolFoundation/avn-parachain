@@ -64,7 +64,7 @@ pub struct ActiveConfirmation {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofData {
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    pub lower_data: BoundedVec<u8, LowerDataLimit>,
+    pub abi_encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
 }
 
 // Persistent storage struct to hold transactions sent to Ethereum
@@ -111,6 +111,31 @@ impl<T: Config> ActiveRequestData<T> {
 // Active request data specific for a transaction. 'data' is not optional.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ActiveTransactionData<T: Config> {
+    pub request: SendRequestData,
+    pub confirmation: ActiveConfirmation,
+    pub data: ActiveEthTransaction<T>,
+}
+
+// Transient data used for an active send transaction request
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+pub struct ActiveEthTransaction<T: Config> {
+    pub function_name: BoundedVec<u8, FunctionLimit>,
+    pub eth_tx_params:
+        BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub sender: T::AccountId,
+    pub expiry: u64,
+    pub eth_tx_hash: H256,
+    pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub tx_succeeded: bool,
+}
+
+// Active request data specific for a transaction. 'data' is not optional.
+// ** NOTE: ** Next PR will rename this to ActiveTransactionData and remove the existing ActiveTransactionData struct above
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct ActiveTransactionDataV2<T: Config> {
     pub request: SendRequestData,
     pub confirmation: ActiveConfirmation,
     pub data: ActiveEthTransaction<T>,
