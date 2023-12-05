@@ -44,11 +44,8 @@ fn complete_transaction<T: Config>(
     // Write the tx data to permanent storage:
     SettledTransactions::<T>::insert(tx.id, tx.data);
 
-    if let Some(tx_request) = request::dequeue_tx_request::<T>() {
-        set_up_active_tx(tx_request)?;
-    } else {
-        ActiveRequest::<T>::kill();
-    }
+    // Process any new request from the queue
+    request::process_next_request::<T>()?;
 
     Ok(())
 }
@@ -61,7 +58,7 @@ pub fn finalize_state<T: Config>(
     // replay transaction
     if !success && util::has_enough_corroborations::<T>(tx.invalid_tx_hash_corroborations.len()) {
         // raise an offence on the "sender" because the tx_hash they provided was invalid
-        return Ok(request::replay_transaction(tx)?)
+        return Ok(replay_send_request(tx)?)
     }
 
     Ok(complete_transaction::<T>(tx, success)?)
@@ -87,4 +84,26 @@ pub fn set_up_active_tx<T: Config>(tx_request: SendRequestData) -> Result<(), Er
     });
 
     Ok(())
+}
+pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
+    tx.id = use_next_tx_id::<T>();
+    return Ok(set_up_active_tx(tx.request_data)?)
+}
+
+pub fn use_next_tx_id<T: Config>() -> u32 {
+    let tx_id = NextTxId::<T>::get();
+    NextTxId::<T>::put(tx_id + 1);
+    tx_id
+}
+
+fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
+    let current_block_number = <frame_system::Pallet<T>>::block_number();
+
+    match AVN::<T>::calculate_primary_validator(current_block_number) {
+        Ok(primary_validator) => {
+            let sender = primary_validator;
+            Ok(sender)
+        },
+        Err(_) => Err(Error::<T>::ErrorAssigningSender),
+    }
 }

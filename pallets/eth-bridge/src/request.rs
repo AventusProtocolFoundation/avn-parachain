@@ -13,7 +13,7 @@ pub fn add_new_send_request<T: Config>(
         return Err(Error::<T>::EmptyFunctionName)
     }
 
-    let id = use_next_tx_id::<T>();
+    let id = tx::use_next_tx_id::<T>();
 
     let send_req = SendRequestData {
         id,
@@ -23,7 +23,7 @@ pub fn add_new_send_request<T: Config>(
     };
 
     if ActiveRequest::<T>::get().is_some() {
-        request::queue_tx_request(send_req)?;
+        queue_request(Request::Send(send_req))?;
     } else {
         tx::set_up_active_tx(send_req)?;
     }
@@ -32,16 +32,28 @@ pub fn add_new_send_request<T: Config>(
 }
 
 pub fn replay_transaction<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
-    tx.request_data.id = use_next_tx_id::<T>();
+    tx.request_data.id = tx::use_next_tx_id::<T>();
     Ok(tx::set_up_active_tx(tx.request_data)?)
 }
 
-pub fn queue_tx_request<T: Config>(tx_request: SendRequestData) -> Result<(), Error<T>> {
+pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
+    ActiveRequest::<T>::kill();
+
+    if let Some(req) = request::dequeue_request::<T>() {
+        return match req {
+            Request::Send(send_req) => tx::set_up_active_tx(send_req),
+            Request::LowerProof(lower_proof_req) => /*Implement me*/ Ok(()),
+        }
+    };
+
+    Ok(())
+}
+fn queue_request<T: Config>(request: Request) -> Result<(), Error<T>> {
     RequestQueue::<T>::mutate(|maybe_queue| {
         let mut queue: Vec<_> = maybe_queue.clone().unwrap_or_else(Default::default).into();
 
         if queue.len() < T::MaxQueuedTxRequests::get() as usize {
-            queue.push(tx_request);
+            queue.push(request);
             let bounded_queue =
                 BoundedVec::try_from(queue).expect("Size known to be in bounds here");
             *maybe_queue = Some(bounded_queue);
@@ -52,7 +64,7 @@ pub fn queue_tx_request<T: Config>(tx_request: SendRequestData) -> Result<(), Er
     })
 }
 
-pub fn dequeue_tx_request<T: Config>() -> Option<SendRequestData> {
+pub fn dequeue_request<T: Config>() -> Option<Request> {
     let mut queue = <RequestQueue<T>>::take();
 
     let next_tx_request = match &mut queue {
@@ -67,10 +79,4 @@ pub fn dequeue_tx_request<T: Config>() -> Option<SendRequestData> {
     }
 
     next_tx_request
-}
-
-fn use_next_tx_id<T: Config>() -> u32 {
-    let tx_id = NextTxId::<T>::get();
-    NextTxId::<T>::put(tx_id + 1);
-    tx_id
 }
