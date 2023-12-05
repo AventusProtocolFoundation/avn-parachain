@@ -56,7 +56,6 @@ fn add_confirmations(count: u32) {
 
 fn complete_send_request(context: &Context) {
     let mut active_request = ActiveRequest::<TestRuntime>::get().unwrap();
-    //let mut tx_request = active_request.as_active_tx().unwrap();
 
     active_request.tx_data.as_mut().unwrap().eth_tx_hash = context.eth_tx_hash;
     for (index, _) in (1..AVN::<TestRuntime>::quorum()).enumerate() {
