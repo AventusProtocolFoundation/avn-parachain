@@ -162,6 +162,7 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
+    #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -302,6 +303,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
+            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
             <LowerAccountId<T>>::put(self.lower_account_id);
             <AVTTokenContract<T>>::put(self.avt_token_contract);
             <LowerSchedulePeriod<T>>::put(self.lower_schedule_period);
