@@ -311,7 +311,7 @@ fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), Dis
     let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
     let (call_data, eth_tx_confirmations) = try_process_query_result::<Vec<u8>, T>(result_bytes)
         .map_err(|e| {
-            log::error!("❌ Error processing query result from ethereum: {:?}", e);
+            log::error!("❌ Error processing query result from Ethereum: {:?}", e);
             e
         })?;
 

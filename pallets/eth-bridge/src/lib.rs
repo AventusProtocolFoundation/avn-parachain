@@ -106,6 +106,7 @@ pub type FunctionLimit = ConstU32<32>; // Max chars allowed in T1 function name
 pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
+pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
 
 pub const TX_HASH_INVALID: bool = false;
 pub type EthereumId = u32;
@@ -253,6 +254,7 @@ pub mod pallet {
         TypeNameLengthExceeded,
         ValueLengthExceeded,
         ErrorGettingEthereumCallData,
+        InvalidSendRequest,
     }
 
     #[pallet::call]
