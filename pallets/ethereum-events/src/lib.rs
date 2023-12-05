@@ -16,27 +16,20 @@ use frame_support::{
     traits::{Get, IsSubType},
 };
 use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
-use pallet_avn::AvnBridgeContractAddress;
-use simple_json2::json::JsonValue;
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
-    offchain::{
-        http,
-        storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
-        Duration,
-    },
+    offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
     scale_info::TypeInfo,
     traits::{CheckedAdd, Dispatchable, Hash, IdentifyAccount, Verify, Zero},
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    RuntimeDebug,
+    DispatchError, RuntimeDebug,
 };
 use sp_std::{cmp, prelude::*};
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use simple_json2::{self as json};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     event_types::{
@@ -45,7 +38,8 @@ use sp_avn_common::{
         NftEndBatchListingData, NftMintData, NftTransferToData, ProcessedEventHandler, ValidEvents,
         Validator,
     },
-    verify_signature, IngressCounter, InnerCallValidator, Proof,
+    verify_signature, EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
+    IngressCounter, InnerCallValidator, Proof,
 };
 
 use pallet_session::historical::IdentificationTuple;
@@ -58,9 +52,7 @@ use crate::offence::{
 };
 
 pub mod event_parser;
-use crate::event_parser::{
-    find_event, get_data, get_events, get_num_confirmations, get_status, get_topics,
-};
+use crate::event_parser::{find_event, get_status, parse_response_to_json};
 use sp_runtime::BoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;
@@ -294,18 +286,6 @@ pub mod pallet {
         PrevChallengesOverflow,
         EventsPendingChallengeOverflow,
     }
-
-    #[pallet::storage]
-    #[pallet::getter(fn validator_manager_contract_address)]
-    // TODO [TYPE: refactoring][PRI: low]: replace these contract addresses by a map.
-    // (note: low value. This is simple to use, and there are few contracts)
-    #[deprecated]
-    pub type ValidatorManagerContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn lifting_contract_address)]
-    #[deprecated]
-    pub type LiftingContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn ingress_counter)]
@@ -809,7 +789,7 @@ pub mod pallet {
 
                 return
             }
-            let this_validator = setup_result.expect("We have a validator");
+            let (this_validator, finalised_block) = setup_result.expect("We have a validator");
 
             // Only primary validators can check and process events
             let is_primary = AVN::<T>::is_primary(block_number, &this_validator.account_id);
@@ -820,22 +800,10 @@ pub mod pallet {
 
             // =============================== Main Logic ===========================
             if is_primary.expect("Already checked for error.") {
-                Self::try_check_event(block_number, &this_validator);
-                Self::try_process_event(block_number, &this_validator);
+                Self::try_check_event(block_number, &this_validator, finalised_block);
+                Self::try_process_event(block_number, &this_validator, finalised_block);
             } else {
-                Self::try_validate_event(block_number, &this_validator);
-            }
-        }
-
-        // Note: this "special" function will run during every runtime upgrade. Any complicated
-        // migration logic should be done in a separate function so it can be tested
-        // properly.
-        fn on_runtime_upgrade() -> Weight {
-            if StorageVersion::<T>::get() != Releases::V4_0_0 || !StorageVersion::<T>::exists() {
-                log::info!("Performing bridge contract migration");
-                return migrations::migrate_to_bridge_contract::<T>()
-            } else {
-                return Weight::from_ref_time(0)
+                Self::try_validate_event(block_number, &this_validator, finalised_block);
             }
         }
     }
@@ -981,8 +949,9 @@ impl<T: Config> Pallet<T> {
     fn try_check_event(
         block_number: T::BlockNumber,
         validator: &Validator<T::AuthorityId, T::AccountId>,
+        finalised_block_number: T::BlockNumber,
     ) {
-        let event_to_check = Self::get_events_to_check_if_required();
+        let event_to_check = Self::get_events_to_check_if_required(finalised_block_number);
 
         if let Some(event_to_check) = event_to_check {
             log::info!("** Checking events");
@@ -1003,9 +972,10 @@ impl<T: Config> Pallet<T> {
     fn try_process_event(
         block_number: T::BlockNumber,
         validator: &Validator<T::AuthorityId, T::AccountId>,
+        finalised_block_number: T::BlockNumber,
     ) {
         if let Some((event_to_process, ingress_counter, _)) =
-            Self::get_next_event_to_process(block_number)
+            Self::get_next_event_to_process(block_number, finalised_block_number)
         {
             log::info!("** Processing events");
 
@@ -1020,9 +990,10 @@ impl<T: Config> Pallet<T> {
     fn try_validate_event(
         block_number: T::BlockNumber,
         validator: &Validator<T::AuthorityId, T::AccountId>,
+        finalised_block_number: T::BlockNumber,
     ) {
         if let Some((event_to_validate, ingress_counter, _)) =
-            Self::get_next_event_to_validate(&validator.account_id)
+            Self::get_next_event_to_validate(&validator.account_id, finalised_block_number)
         {
             log::info!("** Validating events");
 
@@ -1113,16 +1084,22 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn get_events_to_check_if_required() -> Option<(EthEventId, IngressCounter, T::BlockNumber)> {
+    fn get_events_to_check_if_required(
+        finalised_block_number: T::BlockNumber,
+    ) -> Option<(EthEventId, IngressCounter, T::BlockNumber)> {
         if Self::unchecked_events().is_empty() {
             return None
         }
 
-        return Self::unchecked_events().into_iter().nth(0)
+        return Self::unchecked_events()
+            .into_iter()
+            .filter(|e| e.2 <= finalised_block_number)
+            .nth(0)
     }
 
     fn get_next_event_to_validate(
         validator_account_id: &T::AccountId,
+        finalised_block_number: T::BlockNumber,
     ) -> Option<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>
     {
         let storage = StorageValueRef::persistent(VALIDATED_EVENT_LOCAL_STORAGE);
@@ -1141,13 +1118,13 @@ impl<T: Config> Pallet<T> {
 
         return Self::events_pending_challenge()
             .into_iter()
-            .filter(|(checked, _counter, _submitted_at_block)| {
+            .filter(|(checked, _counter, submitted_at_block)| {
                 Self::can_validate_this_event(
                     checked,
                     validator_account_id,
                     &stored_validated_events,
                     node_has_never_validated_events,
-                )
+                ) && submitted_at_block <= &finalised_block_number
             })
             .nth(0)
     }
@@ -1173,12 +1150,14 @@ impl<T: Config> Pallet<T> {
 
     fn get_next_event_to_process(
         block_number: T::BlockNumber,
+        finalised_block_number: T::BlockNumber,
     ) -> Option<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>
     {
         return Self::events_pending_challenge()
             .into_iter()
-            .filter(|(checked, _counter, _submitted_at_block)| {
-                block_number > checked.ready_for_processing_after_block
+            .filter(|(checked, _counter, submitted_at_block)| {
+                block_number > checked.ready_for_processing_after_block &&
+                    submitted_at_block <= &finalised_block_number
             })
             .last()
     }
@@ -1368,7 +1347,7 @@ impl<T: Config> Pallet<T> {
     // The outcome of the check must be reported back, even if the check fails
     fn compute_result(
         block_number: T::BlockNumber,
-        response_body: Result<Vec<u8>, http::Error>,
+        response_body: Result<Vec<u8>, DispatchError>,
         event_id: &EthEventId,
         validator_account_id: &T::AccountId,
     ) -> EthEventCheckResult<T::BlockNumber, T::AccountId> {
@@ -1397,84 +1376,43 @@ impl<T: Config> Pallet<T> {
             )
         }
 
-        let body = response_body.expect("Checked for error.");
-        let response_body_str = &core::str::from_utf8(&body);
-        if let Err(e) = response_body_str {
-            log::error!("❌ Invalid response from ethereum: {:?}", e);
-            return invalid_result
-        }
+        let (response_data_object, num_confirmations) =
+            parse_response_to_json(response_body.expect("Checked for error."))
+                .unwrap_or((vec![], 0));
 
-        let response_json = json::parse_json(response_body_str.expect("Checked for error"));
-        if let Err(e) = response_json {
-            log::error!("❌ Response from ethereum is not valid json: {:?}", e);
+        if response_data_object.len() == 0 {
+            log::error!("❌ Response data json is empty");
             return invalid_result
-        }
-        let response = response_json.expect("Checked for error.");
+        };
 
-        let status = get_status(&response);
-        if let Err(e) = status {
-            log::error!("❌ Unable to extract transaction status from response: {:?}", e);
-            return invalid_result
-        }
-
-        let status = status.expect("Already checked");
+        // make sure the transaction has been successfully executed
+        let status = get_status(&response_data_object).unwrap_or(0);
         if status != 1 {
-            log::error!("❌ This was not executed successfully on Ethereum");
+            log::error!("❌ Transaction was not executed successfully on Ethereum");
             return invalid_result
         }
 
-        let events = get_events(&response);
-        if let Err(e) = events {
-            log::error!("❌ Unable to extract events from response: {:?}", e);
+        let event_object: Option<(_, _, _)> = find_event(&response_data_object, event_id.signature);
+        if event_object.is_none() {
+            log::error!("❌ Event missing from response or response is not valid. Response: {:?}, event topic: {:?}", response_data_object, event_id.signature);
             return invalid_result
         }
-
-        let (event, contract_address) =
-            find_event(&events.expect("Checked for error."), event_id.signature)
-                .map_or_else(|| (&JsonValue::Null, H160::zero()), |(e, c)| (e, c));
-        if event.is_null() || contract_address == H160::zero() {
-            log::error!("❌ Unable to find event");
-            return invalid_result
-        }
+        let (data, topics, contract_address) = event_object.expect("Value is not none");
 
         if Self::is_event_contract_valid(&contract_address, event_id) == false {
             log::error!("❌ Event contract address {:?} is not recognised", contract_address);
             return invalid_result
         }
 
-        let data = get_data(event);
-        if let Err(e) = data {
-            log::error!("❌ Unable to extract event data from response: {:?}", e);
+        let parsed_event = Self::parse_tier1_event(event_id.clone(), data, topics);
+        if let Err(e) = parsed_event {
+            log::error!("❌ Unable to parse tier 1 event data {:?}", e);
             return invalid_result
         }
 
-        let topics = get_topics(event);
-        if let Err(e) = topics {
-            log::error!("❌ Unable to extract topics from response: {:?}", e);
-            return invalid_result
-        }
-
-        let event_data = Self::parse_tier1_event(
-            event_id.clone(),
-            data.expect("Checked for error."),
-            topics.expect("Checked for error."),
-        );
-
-        if let Err(e) = event_data {
-            log::error!("❌ Unable to parse event data: {:?}", e);
-            return invalid_result
-        }
-
-        let num_confirmations = get_num_confirmations(&response);
-        if let Err(e) = num_confirmations {
-            log::error!("❌ Unable to extract confirmations from response: {:?}", e);
-            return invalid_result
-        }
-
-        let num_confirmations = num_confirmations.expect("Checked already");
         if num_confirmations < <T as Config>::MinEthBlockConfirmation::get() {
             log::error!(
-                "❌ There aren't enough confirmations for this event. Current confirmations: {:?}",
+                "📢 There aren't enough confirmations for this event. Current confirmations: {:?}",
                 num_confirmations
             );
             return EthEventCheckResult::new(
@@ -1492,33 +1430,23 @@ impl<T: Config> Pallet<T> {
             ready_after_block,
             CheckResult::Ok,
             event_id,
-            &event_data.expect("Checked for error."),
+            &parsed_event.expect("Value is not an error"),
             validator_account_id.clone(),
             block_number,
             Default::default(),
         )
     }
 
-    fn fetch_event(event_id: &EthEventId) -> Result<Vec<u8>, http::Error> {
-        let deadline = sp_io::offchain::timestamp().add(Duration::from_millis(2_000));
-        let external_service_port_number = AVN::<T>::get_external_service_port_number();
+    fn fetch_event(event_id: &EthEventId) -> Result<Vec<u8>, DispatchError> {
+        let calldata = EthQueryRequest {
+            tx_hash: event_id.transaction_hash,
+            response_type: EthQueryResponseType::TransactionReceipt,
+        };
+        let sender = [0; 32];
+        let contract_address = AVN::<T>::get_bridge_contract_address();
+        let ethereum_call = EthTransaction::new(sender, contract_address, calldata.encode());
 
-        let mut url = String::from("http://127.0.0.1:");
-        url.push_str(&external_service_port_number);
-        url.push_str(&"/eth/events/0x".to_string());
-        url.push_str(&hex::encode(&event_id.transaction_hash.as_bytes()));
-
-        let request = http::Request::get(&url);
-        let pending = request.deadline(deadline).send().map_err(|_| http::Error::IoError)?;
-
-        let response = pending.try_wait(deadline).map_err(|_| http::Error::DeadlineReached)??;
-
-        if response.code != 200 {
-            log::error!("Unexpected status code: {}", response.code);
-            return Err(http::Error::Unknown)
-        }
-
-        Ok(response.body().collect::<Vec<u8>>())
+        AVN::<T>::post_data_to_service("/eth/query".to_string(), ethereum_call.encode())
     }
 
     fn event_exists_in_system(event_id: &EthEventId) -> bool {
@@ -1528,6 +1456,7 @@ impl<T: Config> Pallet<T> {
                 .iter()
                 .any(|(event, _counter, _)| &event.event.event_id == event_id)
     }
+
     /// Adds an event: tx_hash must be a nonzero hash
     fn add_event(event_type: ValidEvents, tx_hash: H256, sender: T::AccountId) -> DispatchResult {
         let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
@@ -1681,42 +1610,5 @@ enum Releases {
 impl Default for Releases {
     fn default() -> Self {
         Releases::V4_0_0
-    }
-}
-
-pub mod migrations {
-    use super::*;
-    use frame_support::pallet_prelude::Weight;
-
-    pub fn get_migration_address<T: Config>() -> H160 {
-        let val_manager = ValidatorManagerContractAddress::<T>::get();
-        let lifting = LiftingContractAddress::<T>::get();
-
-        if !val_manager.is_zero() {
-            return val_manager
-        } else {
-            return lifting
-        }
-    }
-
-    pub fn migrate_to_bridge_contract<T: Config>() -> frame_support::weights::Weight {
-        sp_runtime::runtime_logger::RuntimeLogger::init();
-        log::info!("ℹ️  Ethereum events pallet data migration invoked");
-
-        let mut consumed_weight = Weight::from_ref_time(0);
-
-        if AvnBridgeContractAddress::<T>::get().is_zero() {
-            <AvnBridgeContractAddress<T>>::put(get_migration_address::<T>());
-            log::info!("ℹ️  Updated bridge contract address successfully in ethereum events");
-            consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().reads_writes(4, 1));
-        }
-
-        LiftingContractAddress::<T>::kill();
-        ValidatorManagerContractAddress::<T>::kill();
-
-        StorageVersion::<T>::put(Releases::V4_0_0);
-        consumed_weight = consumed_weight.saturating_add(T::DbWeight::get().writes(4));
-
-        return consumed_weight
     }
 }

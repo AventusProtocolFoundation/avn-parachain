@@ -8,8 +8,10 @@ use frame_support::{
 };
 use hex_literal::hex;
 use pallet_balances as balances;
+use pallet_eth_bridge::offence::CorroborationOffence;
 use pallet_parachain_staking::{self as parachain_staking};
 
+use pallet_avn::OnBridgePublisherResult;
 use pallet_timestamp as timestamp;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
@@ -23,19 +25,19 @@ use sp_core::{
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    sr25519, ByteArray, Pair, H256,
+    sr25519, ByteArray, ConstU64, Pair, H256,
 };
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
 };
-use sp_staking::{
-    offence::{OffenceError, ReportOffence},
-    SessionIndex,
-};
 
 use codec::alloc::sync::Arc;
 use parking_lot::RwLock;
+use sp_staking::{
+    offence::{Offence, OffenceError, ReportOffence},
+    SessionIndex,
+};
 use std::cell::RefCell;
 
 pub fn validator_id_1() -> AccountId {
@@ -117,6 +119,8 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
+        EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
 
@@ -124,65 +128,16 @@ use frame_system as system;
 use pallet_session as session;
 
 impl ValidatorManager {
-    pub fn insert_pending_approval(action_id: &ActionId<AccountId>) {
-        <<ValidatorManager as Store>::PendingApprovals>::insert(
-            action_id.action_account_id,
-            action_id.ingress_counter,
-        );
-    }
-
-    pub fn remove_pending_approval(action_id: &ActionId<AccountId>) {
-        <<ValidatorManager as Store>::PendingApprovals>::remove(action_id.action_account_id);
-    }
-
-    pub fn get_voting_session_for_deregistration(
-        action_id: &ActionId<AccountId>,
-    ) -> VotingSessionData<AccountId, BlockNumber> {
-        <ValidatorManager as Store>::VotesRepository::get(action_id)
-    }
-
-    pub fn create_voting_session(
-        action_id: &ActionId<AccountId>,
-        quorum: u32,
-        voting_period_end: u64,
-    ) {
-        <<ValidatorManager as Store>::VotesRepository>::insert(
-            action_id,
-            VotingSessionData::new(action_id.session_id(), quorum, voting_period_end, 0),
-        );
-    }
-
-    pub fn insert_validators_action_data(
-        action_id: &ActionId<AccountId>,
-        reserved_eth_tx: EthTransactionType,
-    ) {
+    pub fn insert_validators_action_data(action_id: &ActionId<AccountId>) {
         <<ValidatorManager as Store>::ValidatorActions>::insert(
             action_id.action_account_id,
             action_id.ingress_counter,
             ValidatorsActionData::new(
                 ValidatorsActionStatus::AwaitingConfirmation,
-                sender(),
                 INITIAL_TRANSACTION_ID,
                 ValidatorsActionType::Resignation,
-                reserved_eth_tx,
             ),
         );
-    }
-
-    pub fn remove_voting_session(action_id: &ActionId<AccountId>) {
-        <<ValidatorManager as Store>::VotesRepository>::remove(action_id);
-    }
-
-    pub fn record_approve_vote(action_id: &ActionId<AccountId>, voter: AccountId) {
-        <<ValidatorManager as Store>::VotesRepository>::mutate(action_id, |vote| {
-            vote.ayes.try_push(voter).expect("Failed to record aye vote");
-        });
-    }
-
-    pub fn record_reject_vote(action_id: &ActionId<AccountId>, voter: AccountId) {
-        <<ValidatorManager as Store>::VotesRepository>::mutate(action_id, |vote| {
-            vote.nays.try_push(voter).expect("Failed to record nay vote");
-        });
     }
 
     pub fn event_emitted(event: &RuntimeEvent) -> bool {
@@ -191,71 +146,6 @@ impl ValidatorManager {
 
     pub fn create_mock_identification_tuple(account_id: AccountId) -> (AccountId, AccountId) {
         return (account_id, account_id)
-    }
-
-    pub fn emitted_event_for_offence_of_type(offence_type: ValidatorOffenceType) -> bool {
-        return System::events()
-            .iter()
-            .any(|e| Self::event_matches_offence_type(&e.event, offence_type.clone()))
-    }
-
-    pub fn event_matches_offence_type(
-        event: &RuntimeEvent,
-        this_type: ValidatorOffenceType,
-    ) -> bool {
-        return matches!(event,
-            RuntimeEvent::ValidatorManager(
-                crate::Event::<TestRuntime>::OffenceReported{ offence_type, offenders: _ }
-            )
-            if this_type == *offence_type
-        )
-    }
-
-    pub fn get_offence_record() -> Vec<(Vec<ValidatorId>, Offence)> {
-        return OFFENCES.with(|o| o.borrow().to_vec())
-    }
-
-    pub fn offence_reported(
-        reporter: AccountId,
-        validator_count: u32,
-        offenders: Vec<ValidatorId>,
-        offence_type: ValidatorOffenceType,
-    ) -> bool {
-        let offences = Self::get_offence_record();
-
-        return offences.iter().any(|o| {
-            Self::offence_matches_criteria(
-                o,
-                vec![reporter],
-                validator_count,
-                offenders.iter().map(|v| Self::create_mock_identification_tuple(*v)).collect(),
-                offence_type.clone(),
-            )
-        })
-    }
-
-    fn offence_matches_criteria(
-        this_report: &(Vec<ValidatorId>, Offence),
-        these_reporters: Vec<ValidatorId>,
-        this_count: u32,
-        these_offenders: Vec<(ValidatorId, FullIdentification)>,
-        this_type: ValidatorOffenceType,
-    ) -> bool {
-        return matches!(
-            this_report,
-            (
-                reporters,
-                ValidatorOffence {
-                    session_index: _,
-                    validator_set_count,
-                    offenders,
-                    offence_type}
-            )
-            if these_reporters == *reporters
-            && this_count == *validator_set_count
-            && these_offenders == *offenders
-            && this_type == *offence_type
-        )
     }
 }
 
@@ -268,10 +158,9 @@ impl Config for TestRuntime {
     type ProcessedEventsChecker = Self;
     type VotingPeriod = VotingPeriod;
     type AccountToBytesConvert = AVN;
-    type CandidateTransactionSubmitter = Self;
-    type ReportValidatorOffence = OffenceHandler;
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = ();
+    type BridgePublisher = EthBridge;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -349,32 +238,27 @@ impl timestamp::Config for TestRuntime {
     type WeightInfo = ();
 }
 
+impl pallet_eth_bridge::Config for TestRuntime {
+    type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type TimeProvider = Timestamp;
+    type MinEthBlockConfirmation = ConstU64<20>;
+    type RuntimeCall = RuntimeCall;
+    type WeightInfo = ();
+    type AccountToBytesConvert = AVN;
+    type OnBridgePublisherResult = Self;
+    type ReportCorroborationOffence = ();
+}
+
+impl OnBridgePublisherResult for TestRuntime {
+    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+        Ok(())
+    }
+}
+
 parameter_types! {
     pub const Period: u64 = 1;
     pub const Offset: u64 = 0;
-}
-
-impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
-    fn submit_candidate_transaction_to_tier1(
-        _candidate_type: EthTransactionType,
-        _tx_id: TransactionId,
-        _submitter: AccountId,
-        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
-    ) -> DispatchResult {
-        Ok(())
-    }
-
-    fn reserve_transaction_id(
-        _candidate_type: &EthTransactionType,
-    ) -> Result<TransactionId, DispatchError> {
-        let value = MOCK_TX_ID.with(|tx_id| *tx_id.borrow());
-        MOCK_TX_ID.with(|tx_id| {
-            *tx_id.borrow_mut() += 1;
-        });
-        return Ok(value)
-    }
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 impl session::Config for TestRuntime {
@@ -429,28 +313,13 @@ impl parachain_staking::Config for TestRuntime {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
-    type CandidateTransactionSubmitter = Self;
-    type ReportGrowthOffence = ();
-}
-
-/// A mock offence report handler.
-pub struct OffenceHandler;
-impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
-    fn report_offence(reporters: Vec<AccountId>, offence: Offence) -> Result<(), OffenceError> {
-        OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
-        Ok(())
-    }
-
-    fn is_known_offence(_offenders: &[IdentificationTuple], _time_slot: &SessionIndex) -> bool {
-        false
-    }
+    type BridgePublisher = EthBridge;
 }
 
 /// An extrinsic type used for tests.
 type IdentificationTuple = (AccountId, AccountId);
-type Offence = crate::ValidatorOffence<IdentificationTuple>;
 
-pub const INITIAL_TRANSACTION_ID: TransactionId = 0;
+pub const INITIAL_TRANSACTION_ID: EthereumTransactionId = 0;
 
 thread_local! {
     static PROCESSED_EVENTS: RefCell<Vec<EthEventId>> = RefCell::new(vec![]);
@@ -463,9 +332,7 @@ thread_local! {
         validator_id_5(),
     ]));
 
-    static MOCK_TX_ID: RefCell<TransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
-
-    pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
+    static MOCK_TX_ID: RefCell<EthereumTransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
 }
 
 impl ProcessedEventsChecker for TestRuntime {
@@ -621,7 +488,6 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: 10,
             min_total_nominator_stake: 5,
-            voting_period: 100,
         }
         .assimilate_storage(&mut self.storage);
 

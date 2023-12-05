@@ -116,9 +116,8 @@ fn get_topic_20_bytes(n: u8) -> Vec<u8> {
 fn get_lifted_avt_topics() -> Vec<Vec<u8>> {
     let topic_event_signature = get_topic_32_bytes(10);
     let topic_contract = get_topic_20_bytes(20);
-    let topic_sender = get_topic_20_bytes(50);
     let topic_receiver = get_topic_32_bytes(30);
-    return vec![topic_event_signature, topic_contract, topic_sender, topic_receiver]
+    return vec![topic_event_signature, topic_contract, topic_receiver]
 }
 
 fn get_lifted_avt_few_topics() -> Vec<Vec<u8>> {
@@ -151,7 +150,7 @@ fn get_lifted_avt_with_long_topic() -> Vec<Vec<u8>> {
 #[test]
 fn test_lifted_avt_parse_bytes_good_case() {
     let expected_contract_address = H160(hex!("1414141414141414141414141414141414141414"));
-    let expected_sender_address = H160(hex!("3232323232323232323232323232323232323232"));
+    let expected_sender_address = H160::zero();
     let expected_receiver_address =
         H256(hex!("1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e"));
     let expected_amount = 10000u32;
@@ -174,7 +173,7 @@ fn test_lifted_avt_parse_bytes_good_case() {
 #[test]
 fn test_lifted_avt_parse_bytes_max_values() {
     let expected_contract_address = H160(hex!("1414141414141414141414141414141414141414"));
-    let expected_sender_address = H160(hex!("3232323232323232323232323232323232323232"));
+    let expected_sender_address = H160::zero();
     let expected_receiver_address =
         H256(hex!("1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e"));
     let expected_amount = u128::max_value();
@@ -197,7 +196,7 @@ fn test_lifted_avt_parse_bytes_max_values() {
 #[test]
 fn test_lifted_avt_parse_bytes_endianness() {
     let expected_contract_address = H160(hex!("1414141414141414141414141414141414141414"));
-    let expected_sender_address = H160(hex!("3232323232323232323232323232323232323232"));
+    let expected_sender_address = H160::zero();
     let expected_receiver_address =
         H256(hex!("1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e"));
     let expected_amount = 1u128 << 127;

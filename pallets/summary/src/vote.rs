@@ -6,10 +6,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use sp_avn_common::{
-    event_types::Validator,
-    offchain_worker_storage_lock::{self as OcwLock},
-};
+use sp_avn_common::event_types::Validator;
 use sp_std::prelude::*;
 
 use frame_support::{
@@ -19,12 +16,11 @@ use frame_support::{
 use frame_system::offchain::SubmitTransaction;
 use pallet_avn::{self as avn, vote::*, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_core::ecdsa;
 use sp_runtime::scale_info::TypeInfo;
 use sp_std::fmt::Debug;
 
 use super::{Call, Config};
-use crate::{Pallet as Summary, RootId, Store};
+use crate::{OcwLock, Pallet as Summary, RootId, Store, AVN};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"root_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"root_end_voting_period";
@@ -91,18 +87,11 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotin
             self.is_valid()
     }
 
-    fn record_approve_vote(
-        &self,
-        voter: T::AccountId,
-        approval_signature: ecdsa::Signature,
-    ) -> DispatchResult {
+    fn record_approve_vote(&self, voter: T::AccountId) -> DispatchResult {
         <Summary<T> as Store>::VotesRepository::try_mutate(
             &self.root_id,
             |vote| -> DispatchResult {
                 vote.ayes.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
-                vote.confirmations
-                    .try_push(approval_signature)
-                    .map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
                 Ok(())
             },
         )?;
@@ -127,7 +116,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotin
 
 /***************** Functions that run in an offchain worker context  **************** */
 
-pub fn create_vote_lock_name<T: Config>(root_id: &RootId<T::BlockNumber>) -> OcwLock::PersistentId {
+pub fn create_vote_lock_name<T: Config>(root_id: &RootId<T::BlockNumber>) -> Vec<u8> {
     let mut name = b"vote_summary::hash::".to_vec();
     name.extend_from_slice(&mut root_id.range.from_block.encode());
     name.extend_from_slice(&mut root_id.range.to_block.encode());
@@ -137,11 +126,10 @@ pub fn create_vote_lock_name<T: Config>(root_id: &RootId<T::BlockNumber>) -> Ocw
 
 fn is_vote_in_transaction_pool<T: Config>(root_id: &RootId<T::BlockNumber>) -> bool {
     let persistent_data = create_vote_lock_name::<T>(root_id);
-    return OcwLock::is_locked(&persistent_data)
+    return OcwLock::is_locked::<frame_system::Pallet<T>>(&persistent_data)
 }
 
 pub fn cast_votes_if_required<T: Config>(
-    block_number: T::BlockNumber,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
     let root_ids: Vec<RootId<T::BlockNumber>> = <Summary<T> as Store>::PendingApproval::iter()
@@ -155,46 +143,51 @@ pub fn cast_votes_if_required<T: Config>(
 
     // try to send 1 of MAX_VOTING_SESSIONS_RETURNED votes
     for root_id in root_ids {
-        if OcwLock::set_lock_with_expiry(
-            block_number,
-            Summary::<T>::lock_till_request_expires(),
-            create_vote_lock_name::<T>(&root_id),
-        )
-        .is_err()
-        {
+        let vote_lock_name = create_vote_lock_name::<T>(&root_id);
+        let mut lock = AVN::<T>::get_ocw_locker(&vote_lock_name);
+
+        if let Ok(guard) = lock.try_lock() {
+            let root_hash =
+                Summary::<T>::compute_root_hash(root_id.range.from_block, root_id.range.to_block);
+
+            if root_hash.is_err() {
+                log::error!(
+                    "💔️ Error getting root hash while signing root id {:?} to vote",
+                    &root_id
+                );
+                continue
+            }
+
+            let root_data = Summary::<T>::try_get_root_data(&root_id);
+            if let Err(e) = root_data {
+                log::error!(
+                    "💔️ Error getting root data while signing root id {:?} to vote. {:?}",
+                    &root_id,
+                    e
+                );
+                continue
+            }
+
+            if root_hash.expect("has valid hash") == root_data.expect("checked for error").root_hash
+            {
+                if send_approve_vote::<T>(&root_id, this_validator).is_err() {
+                    // TODO: should we output any error message here?
+                    continue
+                }
+            } else {
+                if send_reject_vote::<T>(&root_id, this_validator).is_err() {
+                    // TODO: should we output any error message here?
+                    continue
+                }
+            }
+
+            // keep the lock until it expires
+            guard.forget();
+            return
+        } else {
             log::trace!(target: "avn", "🤷 Unable to acquire local lock for root {:?}. Lock probably exists already", &root_id);
             continue
-        }
-        let root_hash =
-            Summary::<T>::compute_root_hash(root_id.range.from_block, root_id.range.to_block);
-        if root_hash.is_err() {
-            log::error!("💔️ Error getting root hash while signing root id {:?} to vote", &root_id);
-            continue
-        }
-
-        let root_data = Summary::<T>::try_get_root_data(&root_id);
-        if let Err(e) = root_data {
-            log::error!(
-                "💔️ Error getting root data while signing root id {:?} to vote. {:?}",
-                &root_id,
-                e
-            );
-            continue
-        }
-
-        if root_hash.expect("has valid hash") == root_data.expect("checked for error").root_hash {
-            if send_approve_vote::<T>(&root_id, this_validator).is_err() {
-                // TODO: should we output any error message here?
-                continue
-            }
-        } else {
-            if send_reject_vote::<T>(&root_id, this_validator).is_err() {
-                // TODO: should we output any error message here?
-                continue
-            }
-        }
-
-        return
+        };
     }
 }
 
@@ -266,15 +259,8 @@ fn send_approve_vote<T: Config>(
     root_id: &RootId<T::BlockNumber>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
-    let (eth_encoded_data, eth_signature) =
-        Summary::<T>::sign_root_for_ethereum(&root_id).map_err(|_| ())?;
-
-    let approve_vote_extrinsic_signature = sign_for_approve_vote_extrinsic::<T>(
-        root_id,
-        this_validator,
-        eth_encoded_data,
-        &eth_signature,
-    )?;
+    let approve_vote_extrinsic_signature =
+        sign_for_approve_vote_extrinsic::<T>(root_id, this_validator)?;
 
     log::trace!(target: "avn", "🖊️  Worker sends approval vote for summary calculation: {:?}]", &root_id);
 
@@ -282,7 +268,6 @@ fn send_approve_vote<T: Config>(
         Call::approve_root {
             root_id: root_id.clone(),
             validator: this_validator.clone(),
-            approval_signature: eth_signature,
             signature: approve_vote_extrinsic_signature,
         }
         .into(),
@@ -301,8 +286,6 @@ fn send_approve_vote<T: Config>(
 fn sign_for_approve_vote_extrinsic<T: Config>(
     root_id: &RootId<T::BlockNumber>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
-    eth_encoded_data: String,
-    eth_signature: &ecdsa::Signature,
 ) -> Result<<T::AuthorityId as RuntimeAppPublic>::Signature, ()> {
     let voting_session_data = Summary::<T>::get_root_voting_session(&root_id).state();
     if voting_session_data.is_err() {
@@ -312,16 +295,9 @@ fn sign_for_approve_vote_extrinsic<T: Config>(
 
     let voting_session_id =
         voting_session_data.expect("voting session data is ok").voting_session_id;
-    let signature = this_validator.key.sign(
-        &(
-            CAST_VOTE_CONTEXT,
-            voting_session_id,
-            APPROVE_VOTE,
-            eth_encoded_data.encode(),
-            eth_signature.encode(),
-        )
-            .encode(),
-    );
+    let signature = this_validator
+        .key
+        .sign(&(CAST_VOTE_CONTEXT, voting_session_id, APPROVE_VOTE).encode());
 
     if signature.is_none() {
         log::error!("💔️ Error signing root id {:?} to vote", &root_id);

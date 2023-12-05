@@ -14,7 +14,7 @@ use sp_runtime::{
 };
 use sp_std::{fmt::Debug, prelude::*};
 
-use super::{Config, OcwLock, OcwOperationExpiration as OcwLockExpiry};
+use super::{Config, OcwLock};
 use crate::{Call, Pallet as Summary, Store, AVN};
 
 pub const CHALLENGE_CONTEXT: &'static [u8] = b"root_challenge";
@@ -121,11 +121,7 @@ pub fn challenge_slot_if_required<T: Config>(
     );
 
     if can_challenge::<T>(&challenge, this_validator, offchain_worker_block_number) {
-        let _ = send_challenge_transaction::<T>(
-            &challenge,
-            this_validator,
-            offchain_worker_block_number,
-        );
+        let _ = send_challenge_transaction::<T>(&challenge, this_validator);
     }
 }
 
@@ -134,7 +130,7 @@ fn can_challenge<T: Config>(
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
     ocw_block_number: T::BlockNumber,
 ) -> bool {
-    if OcwLock::is_locked(&challenge_lock_name::<T>(challenge)) {
+    if OcwLock::is_locked::<frame_system::Pallet<T>>(&challenge_lock_name::<T>(challenge)) {
         return false
     }
 
@@ -149,7 +145,6 @@ fn can_challenge<T: Config>(
 fn send_challenge_transaction<T: Config>(
     challenge: &SummaryChallenge<T::AccountId>,
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
-    ocw_block_number: T::BlockNumber,
 ) -> Result<(), ()> {
     let signature = this_validator.key.sign(&(CHALLENGE_CONTEXT, challenge).encode());
 
@@ -170,21 +165,20 @@ fn send_challenge_transaction<T: Config>(
         return Err(())
     }
 
+    let challenge_lock_name = challenge_lock_name::<T>(challenge);
+    let mut lock = AVN::<T>::get_ocw_locker(&challenge_lock_name);
+
     // Add a lock to record the fact that we have sent a challenge.
-    if let Err(()) = OcwLock::set_lock_with_expiry(
-        ocw_block_number,
-        OcwLockExpiry::Fast,
-        challenge_lock_name::<T>(challenge),
-    ) {
+    if let Ok(guard) = lock.try_lock() {
+        guard.forget();
+    } else {
         log::warn!("ℹ️  Error adding a lock for `challenge transaction`: {:?}.", &challenge);
-    }
+    };
 
     Ok(())
 }
 
-pub fn challenge_lock_name<T: Config>(
-    challenge: &SummaryChallenge<T::AccountId>,
-) -> OcwLock::PersistentId {
+pub fn challenge_lock_name<T: Config>(challenge: &SummaryChallenge<T::AccountId>) -> Vec<u8> {
     let mut name = b"challenge_summary::slot::".to_vec();
     name.extend_from_slice(&mut challenge.encode());
     name

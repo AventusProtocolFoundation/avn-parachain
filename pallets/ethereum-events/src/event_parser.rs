@@ -1,17 +1,19 @@
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+use crate::EthQueryResponse;
+#[cfg(not(feature = "std"))]
+use alloc::{format, string::String};
+use codec::Decode;
+use frame_support::log;
 use hex::FromHex;
 use simple_json2::{
+    self as json,
     impls::SimpleError,
     json::{JsonObject, JsonValue},
     parser::Error,
 };
 use sp_core::{H160, H256};
 use sp_std::prelude::*;
-
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-#[cfg(not(feature = "std"))]
-use alloc::string::String;
-
 // TODO [TYPE: refactoring][PRI: unknown][NOTE: clarify]: extend the parser to work with named
 // properties
 const INDEX_EVENT_SIGNATURE_TOPIC: usize = 0;
@@ -26,46 +28,105 @@ fn get_value_of(key: String, object: &JsonObject) -> Result<&JsonValue, SimpleEr
     return Err(SimpleError::plain_str("key not found in object"))
 }
 
-fn get_result(json_response: &JsonValue) -> Result<&JsonObject, SimpleError> {
-    let response = json_response.get_object()?;
-    if response.len() == 0 {
-        return Err(SimpleError::plain_str("empty response"))
-    }
-    let result = get_value_of(String::from("result"), response)?.get_object()?;
-    return Ok(result)
+pub fn parse_response_to_json(response_body: Vec<u8>) -> Result<(JsonObject, u64), ()> {
+    let body = hex::decode(&response_body).map_err(|e| {
+        log::error!("❌ Error decoding hex response {:?} - {:?}", response_body, e);
+    })?;
+
+    let eth_query_response = EthQueryResponse::decode(&mut &body[..]).map_err(|e| {
+        log::error!("❌ Error decoding eth query response {:?} - {:?}", body, e);
+    })?;
+
+    let response_data_bytes: Vec<u8> =
+        Decode::decode(&mut &eth_query_response.data[..]).map_err(|e| {
+            log::error!(
+                "❌ Invalid response data from ethereum: {:?} - {:?}",
+                eth_query_response.data,
+                e
+            );
+        })?;
+
+    let response_data_string = &core::str::from_utf8(&response_data_bytes).map_err(|e| {
+        log::error!(
+            "❌ Invalid (non utf8) response data bytes {:?} - {:?}",
+            response_data_bytes,
+            e
+        );
+    })?;
+
+    let response_data_json = json::parse_json(&response_data_string).map_err(|e| {
+        log::error!(
+            "❌ Response from ethereum is not a valid json {:?} - {:?}",
+            response_data_string,
+            e
+        );
+    })?;
+
+    let response_json_object = response_data_json.get_object().map_err(|e| {
+        log::error!(
+            "❌ Error converting json {:?} into a json object - {:?}",
+            response_data_json,
+            e
+        );
+    })?;
+
+    return Ok((response_json_object.clone(), eth_query_response.num_confirmations))
 }
 
-// TODO: Refactor to use fn get_result.
-pub fn get_events(json_response: &JsonValue) -> Result<&Vec<JsonValue>, SimpleError> {
-    let response = json_response.get_object()?;
-    if response.len() == 0 {
-        return Err(SimpleError::plain_str("empty response"))
-    }
-    let result = get_value_of(String::from("result"), response)?.get_object()?;
-    let events = get_value_of(String::from("logs"), result)?.get_array()?;
-
-    return Ok(events)
-}
-
-pub fn find_event(events: &Vec<JsonValue>, topic: H256) -> Option<(&JsonValue, H160)> {
+pub fn find_event(
+    response: &JsonObject,
+    topic: H256,
+) -> Option<(Option<Vec<u8>>, Vec<Vec<u8>>, H160)> {
+    let empty_events = &vec![];
+    let events = get_events(response).unwrap_or(empty_events);
     let event = events
         .into_iter()
         .find(|event| topic_matches(event, topic).map_or_else(|_| false, |v| v));
 
     if let Some(event) = event {
-        let contract_address = get_contract_address(event);
-
-        if let Ok(contract_address) = contract_address {
-            return Some((event, contract_address))
+        if let Ok(contract_address) = get_contract_address(event) {
+            if let Ok((data, topics)) = get_topics_with_data(&event) {
+                return Some((data, topics, contract_address))
+            }
         }
     }
 
     return None
 }
 
-pub fn get_data(event: &JsonValue) -> Result<Option<Vec<u8>>, SimpleError> {
+pub fn get_status(response: &JsonObject) -> Result<u8, SimpleError> {
+    let status = get_value_of(String::from("status"), response)?.get_string()?;
+    match u8::from_str_radix(status.trim_start_matches("0x"), 16) {
+        Ok(s) => Ok(s),
+        Err(e) => {
+            log::error!("❌ Status {:?} is not a valid hex number - {:?}", status, e);
+            Err(SimpleError::plain_str("not a valid hex number"))
+        },
+    }
+}
+
+fn get_topics_with_data(event: &JsonValue) -> Result<(Option<Vec<u8>>, Vec<Vec<u8>>), SimpleError> {
+    let topics = get_topics(event)?;
+    let data = get_data(event)?;
+    return Ok((data, topics))
+}
+
+fn get_events(response: &JsonObject) -> Result<&Vec<JsonValue>, SimpleError> {
+    let events = get_value_of(String::from("logs"), response)?.get_array().map_err(|e| {
+        log::error!("❌ Unable to find events from response {:?} - {:?}", response, e);
+        e
+    })?;
+
+    return Ok(events)
+}
+
+fn get_data(event: &JsonValue) -> Result<Option<Vec<u8>>, SimpleError> {
     let event = event.get_object()?;
-    let data = get_value_of(String::from("data"), event)?.get_string()?;
+    let data = get_value_of(String::from("data"), event)?.get_string().map_err(|e| {
+        log::error!("❌ Unable to extract data from event {:?} - {:?}", event, e);
+        e
+    })?;
+
     let bytes = hex_to_bytes(data)?;
 
     if bytes.len() > 0 {
@@ -75,25 +136,13 @@ pub fn get_data(event: &JsonValue) -> Result<Option<Vec<u8>>, SimpleError> {
     return Ok(None)
 }
 
-pub fn get_num_confirmations(json_response: &JsonValue) -> Result<u64, SimpleError> {
-    let num_confirmations =
-        get_value_of(String::from("num_confirmations"), json_response.get_object()?)?
-            .get_number_f64()?;
-    return Ok(num_confirmations as u64)
-}
-
-pub fn get_status(json_response: &JsonValue) -> Result<u8, SimpleError> {
-    let result = get_result(json_response)?;
-    let status = get_value_of(String::from("status"), result)?.get_string()?;
-    match u8::from_str_radix(status.trim_start_matches("0x"), 16) {
-        Ok(s) => Ok(s),
-        Err(_e) => Err(SimpleError::plain_str("Status is not a valid hex number")),
-    }
-}
-
-pub fn get_topics(event: &JsonValue) -> Result<Vec<Vec<u8>>, SimpleError> {
+fn get_topics(event: &JsonValue) -> Result<Vec<Vec<u8>>, SimpleError> {
     let event = event.get_object()?;
-    let topics = get_value_of(String::from("topics"), event)?.get_array()?;
+    let topics = get_value_of(String::from("topics"), event)?.get_array().map_err(|e| {
+        log::error!("❌ Unable to extract topics from event {:?} - {:?}", event, e);
+        e
+    })?;
+
     let mut topics_bytes: Vec<Vec<u8>> = Vec::<Vec<u8>>::new();
     for topic in topics.into_iter() {
         let topic_string = topic.get_string()?;

@@ -35,7 +35,7 @@ fn test_try_check_event_no_change_when_no_events() {
     ext.execute_with(|| {
         let validator = keys_setup_return_good_validator();
         // when
-        EthereumEvents::try_check_event(1u64, &validator);
+        EthereumEvents::try_check_event(1u64, &validator, 0u32.into());
         // then
         assert!(pool_state.read().transactions.is_empty());
     });
@@ -137,7 +137,7 @@ fn check_event_and_submit_result(
 
         let tx = pool_state.write().transactions.pop();
         match tx {
-            None => assert!(expected_result == CheckResult::Unknown),
+            None => assert_eq!(expected_result, CheckResult::Unknown),
             Some(tx) => {
                 assert!(expected_result != CheckResult::Unknown);
                 // Only one Tx submitted
@@ -235,7 +235,7 @@ fn test_try_process_event_no_change_when_no_events() {
     ext.execute_with(|| {
         let validator = keys_setup_return_good_validator();
         // when
-        EthereumEvents::try_process_event(1u64, &validator);
+        EthereumEvents::try_process_event(1u64, &validator, 0u32.into());
         // then
         assert!(pool_state.read().transactions.is_empty());
     });
@@ -294,7 +294,7 @@ fn test_try_validate_event_no_change_when_no_events() {
     ext.execute_with(|| {
         let validator = keys_setup_return_good_validator();
         // when
-        EthereumEvents::try_validate_event(1u64, &validator);
+        EthereumEvents::try_validate_event(1u64, &validator, 0u32.into());
         // then
         assert!(pool_state.read().transactions.is_empty());
     });

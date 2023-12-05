@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{crypto::KeyTypeId, ecdsa, H160};
+use sp_core::{crypto::KeyTypeId, ecdsa, H160, H256};
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -21,7 +21,7 @@ pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
 pub mod avn_tests_helpers;
 pub mod eth_key_actions;
 pub mod event_types;
-pub mod offchain_worker_storage_lock;
+pub mod ocw_lock;
 
 /// Ingress counter type for a counter that can sign the same message with a different signature
 /// each time
@@ -123,14 +123,6 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
     Ok(left.checked_sub(&right).ok_or(())?.into())
 }
 
-pub fn calculate_two_third_quorum(total_num_of_validators: u32) -> u32 {
-    if total_num_of_validators < 3 {
-        return total_num_of_validators
-    } else {
-        return (2 * total_num_of_validators / 3) + 1
-    }
-}
-
 pub fn recover_public_key_from_ecdsa_signature(
     signature: ecdsa::Signature,
     message: String,
@@ -151,8 +143,7 @@ pub fn hash_with_ethereum_prefix(hex_message: String) -> Result<[u8; 32], ECDSAV
         .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
     let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
-    let hashed_message = keccak_256(&message_bytes);
-    prefixed_message.append(&mut hashed_message.to_vec());
+    prefixed_message.append(&mut message_bytes.to_vec());
     Ok(keccak_256(&prefixed_message))
 }
 
@@ -169,4 +160,28 @@ pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member
             false => Err(()),
         },
     }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub struct EthQueryRequest {
+    pub tx_hash: H256,
+    pub response_type: EthQueryResponseType,
+}
+
+impl EthQueryRequest {
+    pub fn new(tx_hash: H256, response_type: EthQueryResponseType) -> Self {
+        return EthQueryRequest { tx_hash, response_type }
+    }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub enum EthQueryResponseType {
+    CallData,
+    TransactionReceipt,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub struct EthQueryResponse {
+    pub data: Vec<u8>,
+    pub num_confirmations: u64,
 }

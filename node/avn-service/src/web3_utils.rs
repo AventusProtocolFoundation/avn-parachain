@@ -9,7 +9,10 @@ pub use std::{
 use web3::{
     signing::keccak256,
     transports::Http,
-    types::{Address, Bytes, CallRequest, TransactionParameters, TransactionReceipt, H160, U256},
+    types::{
+        Address, Bytes, CallRequest, Transaction, TransactionParameters, TransactionReceipt, H160,
+        U256,
+    },
     Web3,
 };
 use web3Secp256k1::{All, PublicKey, Secp256k1, SecretKey};
@@ -108,6 +111,14 @@ pub async fn build_raw_transaction(
     })
 }
 
+pub async fn build_call_request(view_request: &EthTransaction) -> anyhow::Result<CallRequest> {
+    Ok(CallRequest {
+        to: Some(H160::from_slice(view_request.to.as_bytes())),
+        data: Some(Bytes(view_request.data.clone())),
+        ..Default::default()
+    })
+}
+
 #[allow(dead_code)]
 pub async fn get_chain_id(web3: &Web3<Http>) -> anyhow::Result<u64> {
     Ok(web3
@@ -154,6 +165,16 @@ pub async fn get_tx_receipt(
     tx_hash: ethereum_types::H256,
 ) -> anyhow::Result<Option<TransactionReceipt>> {
     Ok(web3.eth().transaction_receipt(web3::types::H256(tx_hash.0)).await?)
+}
+
+pub async fn get_tx_call_data(
+    web3: &Web3<Http>,
+    tx_hash: ethereum_types::H256,
+) -> anyhow::Result<Option<Transaction>> {
+    Ok(web3
+        .eth()
+        .transaction(web3::types::TransactionId::Hash(web3::types::H256(tx_hash.0)))
+        .await?)
 }
 
 pub async fn send_raw_transaction(

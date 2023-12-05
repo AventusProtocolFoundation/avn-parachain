@@ -37,7 +37,7 @@ mod advance_slot {
         let summary_last_block_in_range = next_block_to_process + schedule_period - 1;
 
         let current_block = summary_last_block_in_range + min_block_age + arbitrary_margin;
-        let slot_number = 3;
+        let slot_number = 6;
         let block_number_for_next_slot = current_block;
 
         // index - Validators:
@@ -45,7 +45,7 @@ mod advance_slot {
         // 1 - SECOND_VALIDATOR_INDEX
         // 2 - THIRD_VALIDATOR_INDEX
         // 3 - FOURTH_VALIDATOR_INDEX
-        let slot_validator = get_validator(FOURTH_VALIDATOR_INDEX);
+        let slot_validator = get_validator(SIXTH_VALIDATOR_INDEX);
         let other_validator = get_validator(FIRST_VALIDATOR_INDEX);
 
         assert!(slot_validator != other_validator);
@@ -752,11 +752,10 @@ mod cases_for_no_summary_created_offences {
         pub fn setup_approved_root(context: &LocalContext, root_context: RootContext) {
             let root_id = root_context.root_id;
             let root_hash = root_context.root_hash;
-            let tx_id = root_context.tx_id;
             let validator = &context.slot_validator;
 
             // Setup voting data
-            Summary::insert_root_hash(&root_id, root_hash, validator.account_id, tx_id);
+            Summary::insert_root_hash(&root_id, root_hash, validator.account_id, 0);
             Summary::insert_pending_approval(&root_id);
             Summary::register_root_for_voting(&root_id, QUORUM, VOTING_PERIOD_END);
             assert_eq!(Summary::get_vote(&root_id).ayes.is_empty(), true);

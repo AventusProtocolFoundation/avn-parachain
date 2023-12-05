@@ -24,21 +24,19 @@ use frame_support::{
     PalletId,
 };
 use frame_system::{self as system, limits};
-use pallet_ethereum_transactions::{
-    ethereum_transaction::EthTransactionType, CandidateTransactionSubmitter,
-};
+
+use pallet_avn::OnBridgePublisherResult;
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
-    bounds::MaximumValidatorsBound,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{bounded::BoundedVec, ecdsa, sr25519, Pair, H256};
+use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
-    DispatchError, Perbill, SaturatedConversion,
+    Perbill, SaturatedConversion,
 };
 
 use hex_literal::hex;
@@ -60,11 +58,11 @@ pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 pub const NON_AVT_TOKEN_ID: H160 = H160(hex!("1414141414141414141414141414141414141414"));
 pub const NON_AVT_TOKEN_ID_2: H160 = H160(hex!("2020202020202020202020202020202020202020"));
 
-const TOPIC_RECEIVER_INDEX: usize = 3;
+const TOPIC_RECEIVER_INDEX: usize = 2;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
-type TransactionId = u64;
+type TransactionId = u32;
 
 frame_support::construct_runtime!(
     pub enum TestRuntime where
@@ -80,6 +78,8 @@ frame_support::construct_runtime!(
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
+        EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
 
@@ -254,8 +254,7 @@ impl parachain_staking::Config for TestRuntime {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
-    type CandidateTransactionSubmitter = Self;
-    type ReportGrowthOffence = ();
+    type BridgePublisher = EthBridge;
 }
 
 impl pallet_session::historical::Config for TestRuntime {
@@ -263,23 +262,29 @@ impl pallet_session::historical::Config for TestRuntime {
     type FullIdentificationOf = ConvertInto;
 }
 
-impl CandidateTransactionSubmitter<AccountId> for TestRuntime {
-    fn submit_candidate_transaction_to_tier1(
-        _candidate_type: EthTransactionType,
-        _tx_id: TransactionId,
-        _submitter: AccountId,
-        _signatures: BoundedVec<ecdsa::Signature, MaximumValidatorsBound>,
-    ) -> DispatchResult {
+impl pallet_eth_bridge::Config for TestRuntime {
+    type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type TimeProvider = Timestamp;
+    type RuntimeCall = RuntimeCall;
+    type MinEthBlockConfirmation = ConstU64<20>;
+    type WeightInfo = ();
+    type AccountToBytesConvert = AVN;
+    type OnBridgePublisherResult = Self;
+    type ReportCorroborationOffence = ();
+}
+
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = frame_support::traits::ConstU64<12000>;
+    type WeightInfo = ();
+}
+
+impl OnBridgePublisherResult for TestRuntime {
+    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }
-
-    fn reserve_transaction_id(
-        _candidate_type: &EthTransactionType,
-    ) -> Result<TransactionId, DispatchError> {
-        return Ok(0)
-    }
-    #[cfg(feature = "runtime-benchmarks")]
-    fn set_transaction_id(_candidate_type: &EthTransactionType, _id: TransactionId) {}
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -399,7 +404,6 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: 10,
             min_total_nominator_stake: 5,
-            voting_period: 100,
         }
         .assimilate_storage(&mut self.storage);
 
@@ -552,19 +556,17 @@ impl MockData {
     fn get_lifted_avt_token_topics(use_receiver_with_existing_amount: bool) -> Vec<Vec<u8>> {
         let topic_event_signature = Self::get_topic_32_bytes(10);
         let topic_contract = Self::get_contract_topic(true);
-        let topic_sender = Self::get_topic_20_bytes(30);
         let topic_receiver = Self::get_receiver_topic(use_receiver_with_existing_amount);
 
-        return vec![topic_event_signature, topic_contract, topic_sender, topic_receiver]
+        return vec![topic_event_signature, topic_contract, topic_receiver]
     }
 
     fn get_lifted_non_avt_token_topics(use_receiver_with_existing_amount: bool) -> Vec<Vec<u8>> {
         let topic_event_signature = Self::get_topic_32_bytes(10);
         let topic_contract = Self::get_contract_topic(false);
-        let topic_sender = Self::get_topic_20_bytes(30);
         let topic_receiver = Self::get_receiver_topic(use_receiver_with_existing_amount);
 
-        return vec![topic_event_signature, topic_contract, topic_sender, topic_receiver]
+        return vec![topic_event_signature, topic_contract, topic_receiver]
     }
 
     fn get_contract_topic(use_avt_token_contract: bool) -> Vec<u8> {

@@ -16,11 +16,11 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  ECR_REPO: 189013141504.dkr.ecr.eu-west-2.amazonaws.com/avn/avn-node-parachain
+  ECR_REPO: public.ecr.aws/aventus/node-parachain
 
 jobs:
   docker-build:
-    runs-on: ubuntu-20.04
+    runs-on: avn-runner
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
@@ -56,16 +56,9 @@ jobs:
         run: |
           docker tag $ECR_REPO:${GITHUB_SHA::7} $ECR_REPO:$DOCKER_TAG
 
-      - name: Configure AWS credentials from TestNet
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.TESTNET_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.TESTNET_AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-2
-
       - name: Login to the AWS registry
         run: |
-          aws ecr get-login-password --region eu-west-2 | docker login --username AWS --password-stdin 189013141504.dkr.ecr.eu-west-2.amazonaws.com
+          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
 
       - name: Push the images to the registry
         run: |
