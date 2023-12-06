@@ -101,13 +101,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
-	// Storage: EthBridge LowersReadyToClaim (r:1 w:1)
-	// Storage: EthBridge ActiveRequest (r:1 w:1)
-	fn regenerate_lower_proof() -> Weight {
-		Weight::from_ref_time(53_816_000)
-			.saturating_add(T::DbWeight::get().reads(2))
-			.saturating_add(T::DbWeight::get().writes(2))
-	}
 }
 
 // For backwards compatibility and tests
@@ -149,12 +142,5 @@ impl WeightInfo for () {
 		Weight::from_ref_time(27_195_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))
-	}
-	// Storage: EthBridge LowersReadyToClaim (r:1 w:1)
-	// Storage: EthBridge ActiveRequest (r:1 w:1)
-	fn regenerate_lower_proof() -> Weight {
-		Weight::from_ref_time(53_816_000)
-			.saturating_add(RocksDbWeight::get().reads(2))
-			.saturating_add(RocksDbWeight::get().writes(2))
 	}
 }
