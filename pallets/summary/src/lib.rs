@@ -1109,7 +1109,7 @@ pub mod pallet {
                     let function_name: &[u8] = b"publishRoot";
                     let params =
                         vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
-                    let tx_id = T::BridgePublisher::publish(function_name, &params, PALLET_ID.to_vec())
+                    let tx_id = T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
                         .map_err(|e| DispatchError::Other(e.into()))?;
 
                     <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
@@ -1358,7 +1358,7 @@ impl<AccountId> Default for RootData<AccountId> {
         }
     }
 }
-impl<T: Config> OnBridgePublisherResult for Pallet<T> {
+impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
         if caller_id == PALLET_ID.to_vec() && <TxIdToRoot<T>>::contains_key(tx_id) {
             if succeeded {

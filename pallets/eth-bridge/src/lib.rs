@@ -451,11 +451,11 @@ pub mod pallet {
             match req.expect("request is not empty").request {
                 Request::Send(send_req) => {
                     request_id = send_req.tx_id;
-                    let _ = T::OnBridgePublisherResult::process_result(send_req.tx_id, send_req.caller_id.clone().into(), false);
+                    let _ = T::BridgeInterfaceNotification::process_result(send_req.tx_id, send_req.caller_id.clone().into(), false);
                 },
                 Request::LowerProof(lower_req) => {
                     request_id = lower_req.lower_id;
-                    let _ = T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()));
+                    let _ = T::BridgeInterfaceNotification::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()));
                 },
             };
 

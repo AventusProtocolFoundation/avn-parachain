@@ -28,7 +28,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_avn::{
     self as avn, AccountToBytesConverter, DisabledValidatorChecker, Enforcer,
     EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
-    ValidatorRegistrationNotifier, OnBridgePublisherResult
+    ValidatorRegistrationNotifier, BridgeInterfaceNotification
 };
 
 use sp_avn_common::{
@@ -411,7 +411,7 @@ impl<T: Config> Pallet<T> {
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
         ];
-        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params, PALLET_ID.to_vec())
+        let tx_id = <T as pallet::Config>::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
             .map_err(|e| DispatchError::Other(e.into()))?;
 
         let new_collator_id =
@@ -484,7 +484,7 @@ impl<T: Config> Pallet<T> {
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
         ];
-        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params, PALLET_ID.to_vec())
+        let tx_id = <T as pallet::Config>::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
             .map_err(|e| DispatchError::Other(e.into()))?;
 
         TotalIngresses::<T>::put(ingress_counter);
@@ -610,7 +610,7 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> OnBridgePublisherResult for Pallet<T> {
+impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
         // TODO: Update data structure to use tx_id as key
         if caller_id == PALLET_ID.to_vec() {

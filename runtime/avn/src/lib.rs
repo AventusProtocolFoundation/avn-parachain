@@ -728,7 +728,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type OnBridgePublisherResult = (Summary, ParachainStaking);
+    type BridgeInterfaceNotification = (Summary, ParachainStaking);
 }
 
 // Other pallets

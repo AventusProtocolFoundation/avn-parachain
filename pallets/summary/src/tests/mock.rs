@@ -363,7 +363,7 @@ impl pallet_timestamp::Config for TestRuntime {
     type WeightInfo = ();
 }
 
-impl OnBridgePublisherResult for TestRuntime {
+impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(_tx_id: u32, _caller_id: Vec<u8>, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }
@@ -373,7 +373,7 @@ parameter_types! {
     pub const Period: u64 = 1;
     pub const Offset: u64 = 0;
 }
-impl BridgePublisher for TestRuntime {
+impl BridgeInterface for TestRuntime {
     fn publish(function_name: &[u8], _params: &[(Vec<u8>, Vec<u8>)], _caller_id: Vec<u8>) -> Result<u32, DispatchError> {
         if function_name == b"publishRoot" {
             return Ok(INITIAL_TRANSACTION_ID)
