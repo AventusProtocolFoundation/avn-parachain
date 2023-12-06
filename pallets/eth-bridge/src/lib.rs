@@ -208,13 +208,6 @@ pub mod pallet {
     pub type SettledTransactions<T: Config> =
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
 
-
-
-    #[pallet::storage]
-    #[pallet::getter(fn get_ready_to_claim_lower)]
-    pub type LowersReadyToClaim<T: Config> =
-        StorageMap<_, Blake2_128Concat, LowerId, LowerProofData, OptionQuery>;
-
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
 

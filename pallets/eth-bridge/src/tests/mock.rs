@@ -169,6 +169,10 @@ pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
     Author::<TestRuntime> { key: UintAuthorityId(author_id), account_id: author_id }
 }
 
+pub fn lower_is_ready_to_be_claimed(lower_id: &u32) -> bool {
+    LOWERSREADYTOCLAIM.with(|lowers| lowers.borrow_mut().iter().any(|l| l == lower_id))
+}
+
 pub fn setup_context() -> Context {
     let primary_validator_id = AVN::calculate_primary_validator(System::block_number()).unwrap();
     let author = Author::<TestRuntime> {
@@ -227,6 +231,7 @@ thread_local! {
     pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3, 4, 5, 6]));
     static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
     static MOCK_RECOVERED_ACCOUNT_ID: RefCell<AccountId> = RefCell::new(1);
+    pub static LOWERSREADYTOCLAIM: RefCell<Vec<u32>> = RefCell::new(vec![]);
 }
 
 pub type SessionIndex = u32;
@@ -355,6 +360,11 @@ impl ExtBuilder {
 
 impl OnBridgePublisherResult for TestRuntime {
     fn process_result(_tx_id: EthereumId, _caller_id: Vec<u8>, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+        Ok(())
+    }
+
+    fn process_lower_proof_result(lower_id: u32, _caller_id: Vec<u8>, _abi_encoded_lower: Result<Vec<u8>, ()>) -> sp_runtime::DispatchResult {
+        LOWERSREADYTOCLAIM.with(|l| l.borrow_mut().push(lower_id));
         Ok(())
     }
 }

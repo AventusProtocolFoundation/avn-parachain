@@ -3,7 +3,7 @@
 #![cfg(test)]
 
 use crate::mock::*;
-use crate::{ ActiveRequest, AVN, LowersReadyToClaim, RequestQueue, SettledTransactions, request::* };
+use crate::{ ActiveRequest, AVN, RequestQueue, SettledTransactions, request::* };
 use codec::{Encode, Decode, alloc::sync::Arc};
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
@@ -176,7 +176,7 @@ mod lower_proofs {
 
             // ensure there is no request in storage
             assert!(ActiveRequest::<TestRuntime>::get().is_some());
-            assert!(!LowersReadyToClaim::<TestRuntime>::contains_key(context.lower_id));
+            assert_eq!(false, lower_is_ready_to_be_claimed(&context.lower_id));
 
             // Ensure the mem pool is empty
             assert_eq!(true, pool_state.read().transactions.is_empty());
@@ -192,11 +192,7 @@ mod lower_proofs {
 
             // The proof should be generated now
             assert!(ActiveRequest::<TestRuntime>::get().is_none());
-            assert!(LowersReadyToClaim::<TestRuntime>::contains_key(context.lower_id));
-
-            assert!(event_emitted(RuntimeEvent::EthBridge(crate::Event::LowerReadyToClaim {
-                lower_id: context.lower_id
-            })));
+            assert_eq!(true, lower_is_ready_to_be_claimed(&context.lower_id));
         });
     }
 
@@ -231,10 +227,7 @@ mod lower_proofs {
             tx.call.dispatch(frame_system::RawOrigin::None.into()).map(|_| ()).unwrap();
 
             // The proof should be generated now
-            assert!(LowersReadyToClaim::<TestRuntime>::contains_key(context.lower_id));
-            assert!(event_emitted(RuntimeEvent::EthBridge(crate::Event::LowerReadyToClaim {
-                lower_id: context.lower_id
-            })));
+            assert_eq!(true, lower_is_ready_to_be_claimed(&context.lower_id));
 
             // The next active request should be lower_id + 1
             let new_active_lower = ActiveRequest::<TestRuntime>::get().unwrap();
@@ -269,7 +262,7 @@ mod lower_proofs {
             call_ocw_and_dispatch(&context, offchain_state.clone(), &pool_state, 1u64, context.block_number);
 
             // Ensure the lower proof is generated (quorum is met)
-            assert!(LowersReadyToClaim::<TestRuntime>::contains_key(context.lower_id));
+            assert_eq!(true, lower_is_ready_to_be_claimed(&context.lower_id));
 
             // The next active request should be the send request
             let new_active_send = ActiveRequest::<TestRuntime>::get().unwrap();
@@ -307,8 +300,8 @@ mod lower_proofs {
             call_ocw_and_dispatch(&context, offchain_state.clone(), &pool_state, 1u64, 3u64);
 
             // Ensure the lower proof is generated (quorum is met)
-            assert!(LowersReadyToClaim::<TestRuntime>::contains_key(context.lower_id));
-            assert!(LowersReadyToClaim::<TestRuntime>::contains_key(duplicate_lower_id));
+            assert_eq!(true, lower_is_ready_to_be_claimed(&context.lower_id));
+            assert_eq!(true, lower_is_ready_to_be_claimed(&duplicate_lower_id));
 
             // No active request left
             assert_eq!(true, ActiveRequest::<TestRuntime>::get().is_none());

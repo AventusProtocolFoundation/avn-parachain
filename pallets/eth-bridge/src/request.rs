@@ -95,11 +95,17 @@ pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
 }
 
 pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData, confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Result<(), Error<T>> {
-    // Write the data to permanent storage:
-    let lower_proof = eth::generate_abi_encoded_lower_proof(lower_req, confirmations)?;
+    let result = match eth::generate_abi_encoded_lower_proof::<T>(lower_req, confirmations) {
+        Ok(lower_proof) => T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Ok(lower_proof)),
+        Err(e) => {
+            log::error!(target: "runtime::eth-bridge", "Error generating abi encoded lower proof: {:?}", e);
+            T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()))
+        }
+    };
 
-    T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Ok(lower_proof))
-        .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
+    if let Err(e) = result {
+        log::error!(target: "runtime::eth-bridge", "Lower proof notification failed: {:?}", e);
+    }
 
     // Process any new request from the queue
     request::process_next_request::<T>();
