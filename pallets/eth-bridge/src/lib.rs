@@ -211,6 +211,11 @@ pub mod pallet {
 
 
     #[pallet::storage]
+    #[pallet::getter(fn get_ready_to_claim_lower)]
+    pub type LowersReadyToClaim<T: Config> =
+        StorageMap<_, Blake2_128Concat, LowerId, LowerProofData, OptionQuery>;
+
+    #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
 
     #[pallet::genesis_config]
@@ -644,7 +649,6 @@ pub mod pallet {
             caller_id: Vec<u8>,
         ) -> Result<(), DispatchError> {
             // Note: we are not checking the queue for duplicates because we trust the calling pallet
-
             request::add_new_lower_proof_request::<T>(lower_id, params, &caller_id)?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
