@@ -188,7 +188,6 @@ pub fn setup_context() -> Context {
 
 pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 8]) {
     let account_id = AccountId::decode(&mut account_id_bytes.to_vec().as_slice()).unwrap();
-    println!("Setting mock recovered account id to {}", account_id);
     MOCK_RECOVERED_ACCOUNT_ID.with(|acc_id| {
         *acc_id.borrow_mut() = account_id;
     });
@@ -202,7 +201,7 @@ parameter_types! {
 
 thread_local! {
     // validator accounts (aka public addresses, public keys-ish)
-    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3, 4, 5,6]));
+    pub static VALIDATORS: RefCell<Option<Vec<u64>>> = RefCell::new(Some(vec![1, 2, 3, 4, 5, 6]));
     static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
     static MOCK_RECOVERED_ACCOUNT_ID: RefCell<AccountId> = RefCell::new(1);
 }

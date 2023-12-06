@@ -130,39 +130,38 @@ fn setup_active_tx<T: Config>(
     params.push((b"uint256".to_vec(), expiry.to_string().into_bytes()));
     params.push((b"uint32".to_vec(), tx_id.to_string().into_bytes()));
 
-    let request_data = Request {
+    let request_data = SendRequestData {
         tx_id,
         function_name: function_name.clone(),
         params: bound_params(request_params.to_vec()),
     };
 
-    let tx_data = TransactionData {
-        function_name,
-        params: bound_params(params),
-        sender: sender.account_id,
-        eth_tx_hash: H256::zero(),
-        tx_succeeded: false,
-    };
-
-    ActiveRequest::<T>::put(ActiveTransactionData {
-        id: tx_id,
-        request_data,
-        data: tx_data,
-        expiry,
-        msg_hash: H256::repeat_byte(1),
-        last_updated: 0u32.into(),
-        confirmations: {
-            let mut confirmations = BoundedVec::default();
-            for i in 0..num_confirmations {
-                let confirmation = generate_dummy_ecdsa_signature(i);
-                confirmations.try_push(confirmation).unwrap();
-            }
-            confirmations
+    ActiveRequest::<T>::put(ActiveRequestData {
+        request: Request::Send(request_data),
+        confirmation: ActiveConfirmation {
+            msg_hash: H256::repeat_byte(1),
+            confirmations: {
+                let mut confirmations = BoundedVec::default();
+                for i in 0..num_confirmations {
+                    let confirmation = generate_dummy_ecdsa_signature(i);
+                    confirmations.try_push(confirmation).unwrap();
+                }
+                confirmations
+            },
         },
-        success_corroborations: BoundedVec::default(),
-        failure_corroborations: BoundedVec::default(),
-        valid_tx_hash_corroborations: BoundedVec::default(),
-        invalid_tx_hash_corroborations: BoundedVec::default(),
+        tx_data: Some(ActiveEthTransaction {
+            function_name: function_name.clone(),
+            eth_tx_params: bound_params(params),
+            sender: sender.account_id,
+            expiry,
+            eth_tx_hash: H256::zero(),
+            success_corroborations: BoundedVec::default(),
+            failure_corroborations: BoundedVec::default(),
+            valid_tx_hash_corroborations: BoundedVec::default(),
+            invalid_tx_hash_corroborations: BoundedVec::default(),
+            tx_succeeded: false,
+        }),
+        last_updated: 0u32.into(),
     });
 }
 
@@ -207,7 +206,7 @@ benchmarks! {
     }: _(RawOrigin::None, tx_id, new_confirmation.clone(), author.clone(), signature)
     verify {
         let active_tx = ActiveRequest::<T>::get().expect("is active");
-        ensure!(active_tx.confirmations.contains(&new_confirmation), "Confirmation not added");
+        ensure!(active_tx.confirmation.confirmations.contains(&new_confirmation), "Confirmation not added");
     }
 
     add_eth_tx_hash {
@@ -224,7 +223,7 @@ benchmarks! {
     }: _(RawOrigin::None, tx_id, eth_tx_hash.clone(), sender.clone(), signature)
     verify {
         let active_tx = ActiveRequest::<T>::get().expect("is active");
-        assert_eq!(active_tx.data.eth_tx_hash, eth_tx_hash, "Eth tx hash not added");
+        assert_eq!(active_tx.tx_data.unwrap().eth_tx_hash, eth_tx_hash, "Eth tx hash not added");
     }
 
     add_corroboration {
@@ -244,7 +243,7 @@ benchmarks! {
     }: _(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
         let active_tx = ActiveRequest::<T>::get().expect("is active");
-        ensure!(active_tx.success_corroborations.contains(&author.account_id), "Corroboration not added");
+        ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
     }
 }
 
