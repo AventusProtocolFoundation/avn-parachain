@@ -6,6 +6,7 @@ use sp_core::Get;
 pub fn add_new_send_request<T: Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
+    caller_id: &Vec<u8>,
 ) -> Result<EthereumId, Error<T>> {
     let function_name_string =
         String::from_utf8(function_name.to_vec()).map_err(|_| Error::<T>::FunctionNameError)?;
@@ -20,6 +21,8 @@ pub fn add_new_send_request<T: Config>(
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
+        caller_id: BoundedVec::<_, CallerIdLimit>::try_from(caller_id.clone())
+            .map_err(|_| Error::<T>::CallerIdLengthExceeded)?
     };
 
     if ActiveRequest::<T>::get().is_some() {
@@ -33,7 +36,8 @@ pub fn add_new_send_request<T: Config>(
 
 pub fn add_new_lower_proof_request<T: Config>(
     lower_id: LowerId,
-    params: &Vec<(Vec<u8>, Vec<u8>)>
+    params: &Vec<(Vec<u8>, Vec<u8>)>,
+    caller_id: &Vec<u8>
 ) -> Result<(), Error<T>> {
 
     let mut extended_params = params.clone();
@@ -42,6 +46,8 @@ pub fn add_new_lower_proof_request<T: Config>(
     let proof_req = LowerProofRequestData {
         lower_id,
         params: bound_params(&extended_params.to_vec())?,
+        caller_id: BoundedVec::<_, CallerIdLimit>::try_from(caller_id.clone())
+            .map_err(|_| Error::<T>::CallerIdLengthExceeded)?
     };
 
     if ActiveRequest::<T>::get().is_some() {

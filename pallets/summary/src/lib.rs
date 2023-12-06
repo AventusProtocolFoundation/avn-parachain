@@ -1109,7 +1109,7 @@ pub mod pallet {
                     let function_name: &[u8] = b"publishRoot";
                     let params =
                         vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
-                    let tx_id = T::BridgePublisher::publish(function_name, &params)
+                    let tx_id = T::BridgePublisher::publish(function_name, &params, NAME.to_vec())
                         .map_err(|e| DispatchError::Other(e.into()))?;
 
                     <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
@@ -1359,15 +1359,17 @@ impl<AccountId> Default for RootData<AccountId> {
     }
 }
 impl<T: Config> OnBridgePublisherResult for Pallet<T> {
-    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
-        if succeeded {
-            let root_id = <TxIdToRoot<T>>::get(tx_id);
-            <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
-                root.is_finalised = true;
-            });
-            log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
-        } else {
-            log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+    fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
+        if caller_id == NAME.to_vec() && <TxIdToRoot<T>>::contains_key(tx_id) {
+            if succeeded {
+                let root_id = <TxIdToRoot<T>>::get(tx_id);
+                <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
+                    root.is_finalised = true;
+                });
+                log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
+            } else {
+                log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+            }
         }
 
         Ok(())

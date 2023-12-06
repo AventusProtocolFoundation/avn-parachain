@@ -364,7 +364,7 @@ impl pallet_timestamp::Config for TestRuntime {
 }
 
 impl OnBridgePublisherResult for TestRuntime {
-    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+    fn process_result(_tx_id: u32, _caller_id: Vec<u8>, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }
 }
@@ -374,11 +374,15 @@ parameter_types! {
     pub const Offset: u64 = 0;
 }
 impl BridgePublisher for TestRuntime {
-    fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError> {
+    fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)], caller_id: Vec<u8>) -> Result<u32, DispatchError> {
         if function_name == b"publishRoot" {
             return Ok(INITIAL_TRANSACTION_ID)
         }
         Err(Error::<TestRuntime>::ErrorPublishingSummary.into())
+    }
+
+    fn generate_lower_proof(_: u32, _: &Vec<(Vec<u8>, Vec<u8>)>, _: Vec<u8>) -> Result<(), DispatchError> {
+        Ok(())
     }
 }
 

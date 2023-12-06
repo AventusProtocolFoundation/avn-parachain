@@ -132,6 +132,7 @@ fn setup_active_tx<T: Config>(
         tx_id,
         function_name: function_name.clone(),
         params: bound_params(request_params.to_vec()),
+        caller_id: BoundedVec::<_, CallerIdLimit>::try_from(vec![]).unwrap()
     };
 
     ActiveRequest::<T>::put(ActiveRequestData {
@@ -172,7 +173,7 @@ fn setup_lowers_to_claim<T: Config>(
 
     let lower_proof_data = LowerProofData {
         params: bound_params(params.clone()),
-        lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(params.encode()).unwrap(),
+        abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(params.encode()).unwrap(),
     };
 
     LowersReadyToClaim::<T>::insert(lower_id, lower_proof_data);
