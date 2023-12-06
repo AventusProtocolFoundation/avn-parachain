@@ -185,6 +185,9 @@ pub mod pallet {
             offence_type: CorroborationOffenceType,
             offenders: Vec<IdentificationTuple<T>>,
         },
+        ActiveRequestRemoved {
+            request_id: u32
+        }
     }
 
     #[pallet::pallet]
@@ -271,10 +274,8 @@ pub mod pallet {
         ErrorGettingEthereumCallData,
         InvalidSendRequest,
         LowerParamsError,
-        LowerDataLimitExceeded,
-        LowerProofAlreadyGenerated,
-        InvalidLowerId,
         CallerIdLengthExceeded,
+        NoActiveRequest,
     }
 
     #[pallet::call]
@@ -435,6 +436,33 @@ pub mod pallet {
 
             Ok(().into())
         }
+
+        #[pallet::call_index(5)]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_active_request())]
+        pub fn remove_active_request(
+            origin: OriginFor<T>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            let req = ActiveRequest::<T>::get();
+            ensure!(req.is_some(), Error::<T>::NoActiveRequest);
+
+            let request_id;
+            match req.expect("request is not empty").request {
+                Request::Send(send_req) => {
+                    request_id = send_req.tx_id;
+                    let _ = T::OnBridgePublisherResult::process_result(send_req.tx_id, send_req.caller_id.clone().into(), false);
+                },
+                Request::LowerProof(lower_req) => {
+                    request_id = lower_req.lower_id;
+                    let _ = T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()));
+                },
+            };
+
+            request::process_next_request::<T>();
+            Self::deposit_event(Event::<T>::ActiveRequestRemoved { request_id });
+            Ok(().into())
+        }
     }
 
     #[pallet::hooks]
@@ -447,7 +475,6 @@ pub mod pallet {
             }
         }
     }
-
 
     fn save_active_request_to_storage<T: Config>(mut tx: ActiveRequestData<T>) {
         tx.last_updated = <frame_system::Pallet<T>>::block_number();
@@ -644,7 +671,6 @@ pub mod pallet {
             caller_id: Vec<u8>,
         ) -> Result<(), DispatchError> {
             // Note: we are not checking the queue for duplicates because we trust the calling pallet
-
             request::add_new_lower_proof_request::<T>(lower_id, params, &caller_id)?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {

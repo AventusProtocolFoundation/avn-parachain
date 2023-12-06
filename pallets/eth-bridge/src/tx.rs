@@ -11,7 +11,7 @@ fn complete_transaction<T: Config>(
     success: bool,
 ) -> Result<(), Error<T>> {
     // Alert the originating pallet:
-    T::BridgeInterfaceNotification::process_result(tx.request.tx_id, tx.request.caller_id.into(), success)
+    T::OnBridgePublisherResult::process_result(tx.request.tx_id, tx.request.caller_id.into(), success)
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     tx.data.tx_succeeded = success;

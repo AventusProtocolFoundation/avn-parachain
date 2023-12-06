@@ -50,7 +50,7 @@ use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryO
 
 pub type EthereumTransactionId = u32;
 
-const NAME: &'static [u8; 7] = b"summary";
+const PALLET_ID: &'static [u8; 7] = b"summary";
 const UPDATE_BLOCK_NUMBER_CONTEXT: &'static [u8] = b"update_last_processed_block_number";
 const ADVANCE_SLOT_CONTEXT: &'static [u8] = b"advance_slot";
 
@@ -590,7 +590,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             log::info!("🚧 🚧 Running offchain worker for block: {:?}", block_number);
-            let setup_result = AVN::<T>::pre_run_setup(block_number, NAME.to_vec());
+            let setup_result = AVN::<T>::pre_run_setup(block_number, PALLET_ID.to_vec());
             if let Err(e) = setup_result {
                 match e {
                     _ if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => {
@@ -1109,7 +1109,7 @@ pub mod pallet {
                     let function_name: &[u8] = b"publishRoot";
                     let params =
                         vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
-                    let tx_id = T::BridgeInterface::publish(function_name, &params, NAME.to_vec())
+                    let tx_id = T::BridgePublisher::publish(function_name, &params, PALLET_ID.to_vec())
                         .map_err(|e| DispatchError::Other(e.into()))?;
 
                     <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
@@ -1358,9 +1358,9 @@ impl<AccountId> Default for RootData<AccountId> {
         }
     }
 }
-impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
+impl<T: Config> OnBridgePublisherResult for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
-        if caller_id == NAME.to_vec() && <TxIdToRoot<T>>::contains_key(tx_id) {
+        if caller_id == PALLET_ID.to_vec() && <TxIdToRoot<T>>::contains_key(tx_id) {
             if succeeded {
                 let root_id = <TxIdToRoot<T>>::get(tx_id);
                 <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {

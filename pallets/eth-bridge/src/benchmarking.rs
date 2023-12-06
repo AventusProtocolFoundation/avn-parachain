@@ -266,18 +266,15 @@ benchmarks! {
         ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
     }
 
-    regenerate_lower_proof {
-        let lower_id = 3u32;
-        setup_lowers_to_claim::<T>(lower_id);
-        let pre_request_active_tx = ActiveRequest::<T>::get();
-        let user: T::AccountId = whitelisted_caller();
-    }: _(RawOrigin::<T::AccountId>::Signed(user), lower_id)
+    remove_active_request {
+        let authors = setup_authors::<T>(2);
+        let tx_id = 1u32;
+        setup_active_tx::<T>(tx_id, 1, authors[1].clone());
+        // Make sure there is an active request
+        let _ = ActiveRequest::<T>::get().expect("is active");
+    }: _(RawOrigin::Root)
     verify {
-        // We expect the lower data to be removed from the ready-to-claim storage and move to the active storage
-        let active_tx = ActiveRequest::<T>::get();
-        ensure!(pre_request_active_tx.is_none(), "Active request should not be set at the start");
-        ensure!(active_tx.unwrap().request.id_matches(&lower_id), "Active request id is not a match");
-        ensure!(!LowersReadyToClaim::<T>::contains_key(lower_id), "Lower data not removed from ready storage");
+        ensure!(ActiveRequest::<T>::get().is_none(), "Active request not removed");
     }
 }
 

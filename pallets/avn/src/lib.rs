@@ -675,13 +675,15 @@ pub trait BridgeInterface {
     fn generate_lower_proof(lower_id: u32, params: &Vec<(Vec<u8>, Vec<u8>)>, caller_id: Vec<u8>) -> Result<(), DispatchError>;
 }
 
-pub trait BridgeInterfaceNotification {
+pub trait OnBridgePublisherResult {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult;
-    fn process_lower_proof_result(lower_id: u32, caller_id: Vec<u8>, abi_encoded_lower: Result<Vec<u8>, ()>) -> DispatchResult;
+    fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
+        Ok(())
+    }
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
-impl BridgeInterfaceNotification for Tuple {
+impl OnBridgePublisherResult for Tuple {
     fn process_result(_tx_id: u32, _caller_id: Vec<u8>, _succeeded: bool) -> DispatchResult {
         for_tuples!( #( Tuple::process_result(_tx_id, _caller_id.clone(), _succeeded)?; )* );
         Ok(())
