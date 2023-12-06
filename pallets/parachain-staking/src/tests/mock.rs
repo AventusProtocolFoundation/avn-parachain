@@ -364,7 +364,7 @@ impl OnBridgePublisherResult for Test {
         Ok(())
     }
 
-    fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, DispatchError>) -> DispatchResult {
+    fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
         Ok(())
     }
 }
