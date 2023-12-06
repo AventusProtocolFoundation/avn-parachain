@@ -1,5 +1,5 @@
 [package]
-name = "avn-lower-rpc-api"
+name = "avn-lower-rpc"
 license = "GPL-3.0"
 
 version = { workspace = true }

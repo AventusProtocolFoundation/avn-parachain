@@ -23,7 +23,7 @@ rust-version = "1.64.0"
 members = [
     "node",
     "node/avn-service",
-    "node/avn-lower-rpc-api",
+    "node/avn-lower-rpc",
     "pallets/*",
     "primitives/*",
     "runtime/*",

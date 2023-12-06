@@ -92,7 +92,7 @@ cumulus-relay-chain-interface = { git = "https://github.com/paritytech/cumulus.g
 
 # AvN
 avn-service = { path = "avn-service"}
-avn-lower-rpc-api = { path = "avn-lower-rpc-api"}
+avn-lower-rpc = { path = "avn-lower-rpc"}
 
 pallet-avn = { path = "../pallets/avn", default-features = false }
 tiny-bip39 = "0.8.2"
