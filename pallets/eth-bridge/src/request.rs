@@ -69,7 +69,7 @@ pub fn process_next_request<T: Config>() {
                 if let Err(e) = tx::set_up_active_tx::<T>(send_req.clone()) {
                     // If we failed to setup the next request, notify caller
                     log::error!(target: "runtime::eth-bridge", "Error processing send request from queue: {:?}", e);
-                    let _ = T::OnBridgePublisherResult::process_result(send_req.tx_id, send_req.caller_id.clone().into(), false);
+                    let _ = T::BridgeInterfaceNotification::process_result(send_req.tx_id, send_req.caller_id.clone().into(), false);
                     process_next_request::<T>();
                 }
             },
@@ -77,7 +77,7 @@ pub fn process_next_request<T: Config>() {
                 if let Err(e) = set_up_active_lower_proof::<T>(lower_req.clone()) {
                     // If we failed to setup the next request, notify caller
                     log::error!(target: "runtime::eth-bridge", "Error processing lower proof request from queue: {:?}", e);
-                    let _ = T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()));
+                    let _ = T::BridgeInterfaceNotification::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()));
                     process_next_request::<T>();
                 }
             },
@@ -98,7 +98,7 @@ pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData
     // Write the data to permanent storage:
     let lower_proof = eth::generate_abi_encoded_lower_proof(lower_req, confirmations)?;
 
-    T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Ok(lower_proof))
+    T::BridgeInterfaceNotification::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Ok(lower_proof))
         .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     // Process any new request from the queue

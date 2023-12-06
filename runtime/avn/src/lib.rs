@@ -551,7 +551,7 @@ impl pallet_parachain_staking::Config for Runtime {
     type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
     type MaxCandidates = ConstU32<100>;
     type AccountToBytesConvert = Avn;
-    type BridgePublisher = EthBridge;
+    type BridgeInterface = EthBridge;
 }
 
 // Substrate pallets that AvN has dependency
@@ -655,7 +655,7 @@ impl pallet_validators_manager::Config for Runtime {
     type AccountToBytesConvert = Avn;
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
     type WeightInfo = pallet_validators_manager::default_weights::SubstrateWeight<Runtime>;
-    type BridgePublisher = EthBridge;
+    type BridgeInterface = EthBridge;
 }
 
 parameter_types! {
@@ -672,7 +672,7 @@ impl pallet_summary::Config for Runtime {
     type AccountToBytesConvert = Avn;
     type ReportSummaryOffence = Offences;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
-    type BridgePublisher = EthBridge;
+    type BridgeInterface = EthBridge;
 }
 
 pub type EthAddress = H160;
@@ -728,7 +728,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type OnBridgePublisherResult = (Summary, ParachainStaking);
+    type BridgeInterfaceNotification = (Summary, ParachainStaking);
 }
 
 // Other pallets

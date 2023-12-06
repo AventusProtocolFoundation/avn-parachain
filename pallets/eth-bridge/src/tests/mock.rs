@@ -101,7 +101,7 @@ impl Config for TestRuntime {
     type WeightInfo = ();
     type MinEthBlockConfirmation = ConstU64<20>;
     type AccountToBytesConvert = U64To32BytesConverter;
-    type OnBridgePublisherResult = TestRuntime;
+    type BridgeInterfaceNotification = TestRuntime;
     type ReportCorroborationOffence = OffenceHandler;
 }
 
@@ -353,7 +353,7 @@ impl ExtBuilder {
     }
 }
 
-impl OnBridgePublisherResult for TestRuntime {
+impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(_tx_id: EthereumId, _caller_id: Vec<u8>, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }

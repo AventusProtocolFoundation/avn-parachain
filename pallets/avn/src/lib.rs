@@ -670,18 +670,18 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
     fn handle_dust(_imbalance: Balance) {}
 }
 
-pub trait BridgePublisher {
+pub trait BridgeInterface {
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)], caller_id: Vec<u8>) -> Result<u32, DispatchError>;
     fn generate_lower_proof(lower_id: u32, params: &Vec<(Vec<u8>, Vec<u8>)>, caller_id: Vec<u8>) -> Result<(), DispatchError>;
 }
 
-pub trait OnBridgePublisherResult {
+pub trait BridgeInterfaceNotification {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult;
     fn process_lower_proof_result(lower_id: u32, caller_id: Vec<u8>, abi_encoded_lower: Result<Vec<u8>, ()>) -> DispatchResult;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
-impl OnBridgePublisherResult for Tuple {
+impl BridgeInterfaceNotification for Tuple {
     fn process_result(_tx_id: u32, _caller_id: Vec<u8>, _succeeded: bool) -> DispatchResult {
         for_tuples!( #( Tuple::process_result(_tx_id, _caller_id.clone(), _succeeded)?; )* );
         Ok(())
