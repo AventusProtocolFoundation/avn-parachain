@@ -357,8 +357,4 @@ impl OnBridgePublisherResult for TestRuntime {
     fn process_result(_tx_id: EthereumId, _caller_id: Vec<u8>, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }
-
-    fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
-        Ok(())
-    }
 }

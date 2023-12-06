@@ -625,10 +625,6 @@ impl<T: Config> OnBridgePublisherResult for Pallet<T> {
 
         Ok(())
     }
-
-    fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
-        Ok(())
-    }
 }
 
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
