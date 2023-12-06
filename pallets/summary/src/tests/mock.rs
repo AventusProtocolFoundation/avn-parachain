@@ -374,7 +374,7 @@ parameter_types! {
     pub const Offset: u64 = 0;
 }
 impl BridgePublisher for TestRuntime {
-    fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)], caller_id: Vec<u8>) -> Result<u32, DispatchError> {
+    fn publish(function_name: &[u8], _params: &[(Vec<u8>, Vec<u8>)], _caller_id: Vec<u8>) -> Result<u32, DispatchError> {
         if function_name == b"publishRoot" {
             return Ok(INITIAL_TRANSACTION_ID)
         }
@@ -625,7 +625,6 @@ pub fn setup_context() -> Context {
         DEFAULT_INGRESS_COUNTER,
     );
     let validator = get_validator(FIRST_VALIDATOR_INDEX);
-    let approval_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
     let tx_id = 0;
     let finalised_block_vec = Some(hex::encode(0u32.encode()).into());
 

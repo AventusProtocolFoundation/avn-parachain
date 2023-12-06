@@ -1,6 +1,6 @@
 use super::*;
 use crate::{util::bound_params, Config};
-use frame_support::BoundedVec;
+use frame_support::{BoundedVec, log};
 use sp_core::Get;
 
 pub fn add_new_send_request<T: Config>(
@@ -59,17 +59,30 @@ pub fn add_new_lower_proof_request<T: Config>(
     Ok(())
 }
 
-pub fn process_next_request<T: Config>() -> Result<(), Error<T>> {
+// This function cannot error. Otherwise we need a way to resume processing queued requests.
+pub fn process_next_request<T: Config>() {
     ActiveRequest::<T>::kill();
 
     if let Some(req) = request::dequeue_request::<T>() {
-        return match req {
-            Request::Send(send_req) => tx::set_up_active_tx(send_req),
-            Request::LowerProof(lower_proof_req) => set_up_active_lower_proof(lower_proof_req),
-        }
+        match req {
+            Request::Send(send_req) => {
+                if let Err(e) = tx::set_up_active_tx::<T>(send_req.clone()) {
+                    // If we failed to setup the next request, notify caller
+                    log::error!(target: "runtime::eth-bridge", "Error processing send request from queue: {:?}", e);
+                    let _ = T::OnBridgePublisherResult::process_result(send_req.tx_id, send_req.caller_id.clone().into(), false);
+                    process_next_request::<T>();
+                }
+            },
+            Request::LowerProof(lower_req) => {
+                if let Err(e) = set_up_active_lower_proof::<T>(lower_req.clone()) {
+                    // If we failed to setup the next request, notify caller
+                    log::error!(target: "runtime::eth-bridge", "Error processing lower proof request from queue: {:?}", e);
+                    let _ = T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()));
+                    process_next_request::<T>();
+                }
+            },
+        };
     };
-
-    Ok(())
 }
 
 pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
@@ -82,23 +95,20 @@ pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
 }
 
 pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData, confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Result<(), Error<T>> {
-    // Write the data to permanent storage:
-    let lower_proof = eth::generate_abi_encoded_lower_proof(lower_req, confirmations)?;
-
-    LowersReadyToClaim::<T>::insert(
-        lower_req.lower_id,
-        LowerProofData {
-            params: lower_req.params.clone(),
-            abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
+    let result = match eth::generate_abi_encoded_lower_proof::<T>(lower_req, confirmations) {
+        Ok(lower_proof) => T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Ok(lower_proof)),
+        Err(e) => {
+            log::error!(target: "runtime::eth-bridge", "Error generating abi encoded lower proof: {:?}", e);
+            T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()))
         }
-    );
+    };
 
-    <crate::Pallet<T>>::deposit_event(Event::<T>::LowerReadyToClaim {
-        lower_id: lower_req.lower_id
-    });
+    if let Err(e) = result {
+        log::error!(target: "runtime::eth-bridge", "Lower proof notification failed: {:?}", e);
+    }
 
     // Process any new request from the queue
-    request::process_next_request::<T>()?;
+    request::process_next_request::<T>();
 
     Ok(())
 }

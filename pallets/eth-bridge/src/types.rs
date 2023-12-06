@@ -62,13 +62,6 @@ pub struct ActiveConfirmation {
     pub confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
 }
 
-// Persistent storage struct to hold lower proof that can be claimed on Ethereum
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct LowerProofData {
-    pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    pub abi_encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
-}
-
 // Persistent storage struct to hold transactions sent to Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct TransactionData<T: Config> {

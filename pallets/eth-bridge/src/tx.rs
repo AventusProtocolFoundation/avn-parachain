@@ -53,7 +53,7 @@ fn complete_transaction<T: Config>(
     );
 
     // Process any new request from the queue
-    request::process_next_request::<T>()?;
+    request::process_next_request::<T>();
 
     Ok(())
 }
