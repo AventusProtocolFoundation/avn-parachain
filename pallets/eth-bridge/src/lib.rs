@@ -440,7 +440,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(5)]
-        #[pallet::weight(0)] // TODO: bench me
+        #[pallet::weight(<T as Config>::WeightInfo::regenerate_lower_proof())]
         pub fn regenerate_lower_proof(
             origin: OriginFor<T>,
             lower_id: LowerId,

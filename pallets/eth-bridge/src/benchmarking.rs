@@ -7,17 +7,15 @@
 
 use crate::{Pallet, *};
 
-use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::{account, benchmarks, whitelisted_caller, impl_benchmark_test_suite};
 use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_runtime::WeakBoundedVec;
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
-    let mnemonic: &str =
-        "basic anxiety marine match castle rival moral whisper insane away avoid bike";
     let mut new_authors: Vec<crate::Author<T>> = Vec::new();
     let current_authors = avn::Validators::<T>::get();
 
@@ -25,7 +23,7 @@ fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::
         let account = account("dummy_validator", i, i);
         let key =
             <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
-        set_session_key::<T>(&account, current_authors.len() as u32 + i);
+        let _ = set_session_key::<T>(&account, current_authors.len() as u32 + i);
         new_authors.push(crate::Author::<T>::new(account, key));
     }
 
@@ -165,6 +163,21 @@ fn setup_active_tx<T: Config>(
     });
 }
 
+fn setup_lowers_to_claim<T: Config>(
+    lower_id: LowerId,
+) {
+    let mut params = vec![];
+    params.push((b"address".to_vec(), H160::zero().as_fixed_bytes().to_vec()));
+    params.push((b"uint256".to_vec(), lower_id.to_string().into_bytes()));
+
+    let lower_proof_data = LowerProofData {
+        params: bound_params(params.clone()),
+        lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(params.encode()).unwrap(),
+    };
+
+    LowersReadyToClaim::<T>::insert(lower_id, lower_proof_data);
+}
+
 #[cfg(test)]
 fn set_recovered_account_for_tests<T: Config>(sender_account_id: &T::AccountId) {
     let bytes = sender_account_id.encode();
@@ -180,6 +193,13 @@ benchmarks! {
     }: _(RawOrigin::Root, eth_tx_lifetime_secs)
     verify {
         assert_eq!(EthTxLifetimeSecs::<T>::get(), eth_tx_lifetime_secs);
+    }
+
+    set_eth_tx_id {
+        let eth_tx_id = 300u32;
+    }: _(RawOrigin::Root, eth_tx_id)
+    verify {
+        assert_eq!(NextTxId::<T>::get(), eth_tx_id);
     }
 
     add_confirmation {
@@ -244,6 +264,20 @@ benchmarks! {
     verify {
         let active_tx = ActiveRequest::<T>::get().expect("is active");
         ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
+    }
+
+    regenerate_lower_proof {
+        let lower_id = 3u32;
+        setup_lowers_to_claim::<T>(lower_id);
+        let pre_request_active_tx = ActiveRequest::<T>::get();
+        let user: T::AccountId = whitelisted_caller();
+    }: _(RawOrigin::<T::AccountId>::Signed(user), lower_id)
+    verify {
+        // We expect the lower data to be removed from the ready-to-claim storage and move to the active storage
+        let active_tx = ActiveRequest::<T>::get();
+        ensure!(pre_request_active_tx.is_none(), "Active request should not be set at the start");
+        ensure!(active_tx.unwrap().request.id_matches(&lower_id), "Active request id is not a match");
+        ensure!(!LowersReadyToClaim::<T>::contains_key(lower_id), "Lower data not removed from ready storage");
     }
 }
 
