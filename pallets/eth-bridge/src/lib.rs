@@ -91,6 +91,9 @@ mod mock;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "tests/lower_proof_tests.rs"]
+mod lower_proof_tests;
 
 pub use pallet::*;
 pub mod default_weights;
@@ -503,11 +506,10 @@ pub mod pallet {
                 return Ok(())
             }
 
+            let has_enough_confirmations = request::has_enough_confirmations::<T>(&req);
+
             match req.request {
                 Request::LowerProof(lower_req) => {
-                    let has_enough_confirmations = util::has_enough_confirmations::<T>(
-                        req.confirmation.confirmations.len() as u32,
-                    );
                     if !has_enough_confirmations {
                         let confirmation =
                             eth::sign_msg_hash::<T>(&req.confirmation.msg_hash)?;
@@ -520,9 +522,6 @@ pub mod pallet {
                     let tx = req.as_active_tx()?;
                     let self_is_sender = author.account_id == tx.data.sender;
                     // Plus 1 for sender
-                    let has_enough_confirmations = util::has_enough_confirmations::<T>(
-                        tx.confirmation.confirmations.len() as u32 + 1u32,
-                    );
                     if !self_is_sender && !has_enough_confirmations {
                         let confirmation = eth::sign_msg_hash::<T>(&tx.confirmation.msg_hash)?;
                         if !tx.confirmation.confirmations.contains(&confirmation) {
@@ -666,7 +665,7 @@ pub mod pallet {
 
         fn generate_lower_proof(
             lower_id: LowerId,
-            params: &[(Vec<u8>, Vec<u8>)],
+            params: &Vec<(Vec<u8>, Vec<u8>)>,
         ) -> Result<(), DispatchError> {
             // Note: we are not checking the queue for duplicates because we trust the calling pallet
             ensure!(

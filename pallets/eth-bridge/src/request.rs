@@ -33,12 +33,15 @@ pub fn add_new_send_request<T: Config>(
 
 pub fn add_new_lower_proof_request<T: Config>(
     lower_id: LowerId,
-    params: &[(Vec<u8>, Vec<u8>)]
+    params: &Vec<(Vec<u8>, Vec<u8>)>
 ) -> Result<(), Error<T>> {
+
+    let mut extended_params = params.clone();
+    extended_params.push((eth::UINT256.to_vec(), lower_id.to_string().into_bytes()));
 
     let proof_req = LowerProofRequestData {
         lower_id,
-        params: bound_params(&params.to_vec())?,
+        params: bound_params(&extended_params.to_vec())?,
     };
 
     if ActiveRequest::<T>::get().is_some() {

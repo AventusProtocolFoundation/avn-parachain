@@ -190,21 +190,6 @@ pub fn bad_authority() -> Validator<<TestRuntime as Config>::AuthorityId, Accoun
 }
 
 #[allow(dead_code)]
-pub fn mock_get_request(state: &mut OffchainState, url_param: String, response: Option<Vec<u8>>) {
-    let mut url = "http://127.0.0.1:2020/eth/sign/".to_string();
-    url.push_str(&url_param);
-
-    state.expect_request(PendingRequest {
-        method: "GET".into(),
-        uri: url.into(),
-        response,
-        headers: vec![],
-        sent: true,
-        ..Default::default()
-    });
-}
-
-#[allow(dead_code)]
 pub fn mock_post_request(state: &mut OffchainState, body: Vec<u8>, response: Option<Vec<u8>>) {
     state.expect_request(PendingRequest {
         method: "POST".into(),
