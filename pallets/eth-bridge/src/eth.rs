@@ -3,7 +3,7 @@ use crate::{
     util::{try_process_query_result, unbound_params},
     Author, Config, AVN,
 };
-use ethabi::{Function, Int, Param, ParamType, Token};
+use ethabi::{Function, Int, Param, ParamType, Token, Address};
 use pallet_avn::AccountToBytesConverter;
 use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
 use sp_core::{ecdsa, Get, H256};
@@ -15,7 +15,7 @@ pub const UINT128: &[u8] = b"uint128";
 pub const UINT32: &[u8] = b"uint32";
 pub const BYTES: &[u8] = b"bytes";
 pub const BYTES32: &[u8] = b"bytes32";
-
+pub const ADDRESS: &[u8] = b"address";
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);
@@ -145,6 +145,26 @@ fn generate_corroborate_calldata<T: Config>(tx_id: EthereumId, expiry: u64) -> R
     abi_encode_function(b"corroborate", &params)
 }
 
+pub fn generate_abi_encoded_lower_proof<T: Config>(
+    lower_req: &LowerProofRequestData,
+    confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Result<Vec<u8>, Error<T>>
+{
+    let concatenated_confirmations = encode_confirmations(&confirmations);
+    let mut lower_params = unbound_params(&lower_req.params);
+    // TODO: remove this if token manager is adding it
+    lower_params.push((UINT256.to_vec(), lower_req.lower_id.to_string().into_bytes()));
+    lower_params.push((BYTES.to_vec(), concatenated_confirmations));
+
+    let tokens: Result<Vec<_>, _> = lower_params
+        .iter()
+        .map(|(type_bytes, value_bytes)| {
+            let param_type = to_param_type(type_bytes).ok_or_else(|| Error::<T>::LowerParamsError)?;
+            to_token_type(&param_type, value_bytes)
+        })
+        .collect();
+
+    Ok(ethabi::encode(&tokens?))
+}
 
 fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
@@ -183,6 +203,7 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
         UINT32 => Some(ParamType::Uint(32)),
         UINT128 => Some(ParamType::Uint(128)),
         UINT256 => Some(ParamType::Uint(256)),
+        ADDRESS => Some(ParamType::Address),
 
         _ => None,
     }
@@ -205,6 +226,7 @@ fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<To
             }
             Ok(Token::FixedBytes(value.to_vec()))
         },
+        ParamType::Address => Ok(Token::Address(Address::from_slice(value))),
         _ => Err(Error::<T>::InvalidParamData),
     }
 }

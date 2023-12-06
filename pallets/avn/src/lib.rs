@@ -672,6 +672,7 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
 
 pub trait BridgePublisher {
     fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
+    fn generate_lower_proof(lower_id: u32, params: &[(Vec<u8>, Vec<u8>)]) -> Result<(), DispatchError>;
 }
 
 pub trait OnBridgePublisherResult {

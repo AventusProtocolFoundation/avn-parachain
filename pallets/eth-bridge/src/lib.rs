@@ -46,6 +46,8 @@
 //!    consensus of corroborations determines the final state which is reported back to the
 //!    originating pallet.
 
+// TODO: Update description
+
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -163,6 +165,17 @@ pub mod pallet {
             function_name: Vec<u8>,
             params: Vec<(Vec<u8>, Vec<u8>)>,
         },
+        LowerProofRequested {
+            lower_id: LowerId,
+            params: Vec<(Vec<u8>, Vec<u8>)>
+        },
+        LowerReadyToClaim {
+            lower_id: LowerId
+        },
+        RegeneratingLowerProof {
+            lower_id: LowerId,
+            requester: T::AccountId
+        },
         EthTxIdUpdated {
             eth_tx_id: EthereumId,
         },
@@ -195,6 +208,11 @@ pub mod pallet {
     #[pallet::getter(fn get_transaction_data)]
     pub type SettledTransactions<T: Config> =
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_ready_to_claim_lower)]
+    pub type LowersReadyToClaim<T: Config> =
+        StorageMap<_, Blake2_128Concat, LowerId, LowerProofData, OptionQuery>;
 
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
@@ -256,6 +274,10 @@ pub mod pallet {
         ValueLengthExceeded,
         ErrorGettingEthereumCallData,
         InvalidSendRequest,
+        LowerParamsError,
+        LowerDataLimitExceeded,
+        LowerProofAlreadyGenerated,
+        InvalidLowerId,
     }
 
     #[pallet::call]
@@ -274,7 +296,10 @@ pub mod pallet {
 
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_id())]
-        pub fn set_eth_tx_id(origin: OriginFor<T>, eth_tx_id: EthereumId) -> DispatchResultWithPostInfo {
+        pub fn set_eth_tx_id(
+            origin: OriginFor<T>,
+            eth_tx_id: EthereumId,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             NextTxId::<T>::put(eth_tx_id);
             Self::deposit_event(Event::<T>::EthTxIdUpdated { eth_tx_id });
@@ -318,7 +343,14 @@ pub mod pallet {
                     .try_push(confirmation)
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
-                save_active_request_to_storage(req);
+                match req.request {
+                    Request::LowerProof(lower_req) if request::has_enough_confirmations(&req) => {
+                        request::complete_lower_proof_request::<T>(&lower_req, req.confirmation.confirmations)?
+                    },
+                    _ => {
+                        save_active_request_to_storage(req);
+                    }
+                }
             }
 
             Ok(().into())
@@ -407,6 +439,26 @@ pub mod pallet {
             Ok(().into())
         }
 
+        #[pallet::call_index(5)]
+        #[pallet::weight(0)] // TODO: bench me
+        pub fn regenerate_lower_proof(
+            origin: OriginFor<T>,
+            lower_id: LowerId,
+        ) -> DispatchResultWithPostInfo {
+            let requester = ensure_signed(origin)?;
+
+            if <LowersReadyToClaim<T>>::contains_key(lower_id) {
+                // Remove the existing lower and resubmit it
+                let lower = <LowersReadyToClaim<T>>::take(lower_id).expect("lower exists");
+                request::add_new_lower_proof_request::<T>(lower_id, &util::unbound_params(&lower.params))?;
+
+                Self::deposit_event(Event::<T>::RegeneratingLowerProof { lower_id,  requester });
+
+                return Ok(().into())
+            }
+
+            Err(Error::<T>::InvalidLowerId)?
+        }
     }
 
     #[pallet::hooks]
@@ -442,57 +494,89 @@ pub mod pallet {
         author: Author<T>,
         finalised_block_number: T::BlockNumber,
     ) -> Result<(), DispatchError> {
-        if let Some(tx) = ActiveRequest::<T>::get() {
-            if finalised_block_number < tx.last_updated {
+        if let Some(req) = ActiveRequest::<T>::get() {
+            if finalised_block_number < req.last_updated {
                 log::info!(
-                    "👷 Last updated block: {:?} is not finalised, skipping. Id: {:?}, finalised block: {:?}",
-                    tx.last_updated, tx.id, finalised_block_number
+                    "👷 Last updated block: {:?} is not finalised, skipping confirmation. Request: {:?}, finalised block: {:?}",
+                    req.last_updated, req.request, finalised_block_number
                 );
                 return Ok(())
             }
 
-            let self_is_sender = author.account_id == tx.data.sender;
-            let tx_has_enough_confirmations = util::has_enough_confirmations(&tx);
-            let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
-            let tx_is_past_expiry = util::time_now::<T>() > tx.expiry;
-
-            if !self_is_sender && !tx_has_enough_confirmations {
-                let confirmation = eth::sign_msg_hash::<T>(&tx.msg_hash)?;
-                if !tx.confirmations.contains(&confirmation) {
-                    call::add_confirmation::<T>(tx.id, confirmation, author);
-                }
-            } else if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
-                let lock_name = format!("eth_bridge_ocw::send::{}", tx.id).as_bytes().to_vec();
-                let mut lock = AVN::<T>::get_ocw_locker(&lock_name);
-
-                // Protect against sending more than once
-                if let Ok(guard) = lock.try_lock() {
-                    let eth_tx_hash = eth::send_tx::<T>(&tx)?;
-                    call::add_eth_tx_hash::<T>(tx.id, eth_tx_hash, author);
-                    guard.forget(); // keep the lock so we don't send again
-                } else {
-                    log::info!(
-                        "👷 Skipping sending txId: {:?} because ocw is locked already.",
-                        tx.id
+            match req.request {
+                Request::LowerProof(lower_req) => {
+                    let has_enough_confirmations = util::has_enough_confirmations::<T>(
+                        req.confirmation.confirmations.len() as u32,
                     );
-                };
-            } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
-                if util::requires_corroboration::<T>(&tx, &author) {
-                    match eth::corroborate::<T>(&tx, &author)? {
-                        (Some(true), tx_hash_is_valid) => call::add_corroboration::<T>(
-                            tx.id,
-                            true,
-                            tx_hash_is_valid.unwrap_or_default(),
-                            author,
-                        ),
-                        (Some(false), tx_hash_is_valid) => call::add_corroboration::<T>(
-                            tx.id,
-                            false,
-                            tx_hash_is_valid.unwrap_or_default(),
-                            author,
-                        ),
-                        (None, _) => {},
+                    if !has_enough_confirmations {
+                        let confirmation =
+                            eth::sign_msg_hash::<T>(&req.confirmation.msg_hash)?;
+                        if !req.confirmation.confirmations.contains(&confirmation) {
+                            call::add_confirmation::<T>(lower_req.lower_id, confirmation, author);
+                        }
                     }
+                },
+                Request::Send(_) => {
+                    let tx = req.as_active_tx()?;
+                    let self_is_sender = author.account_id == tx.data.sender;
+                    // Plus 1 for sender
+                    let has_enough_confirmations = util::has_enough_confirmations::<T>(
+                        tx.confirmation.confirmations.len() as u32 + 1u32,
+                    );
+                    if !self_is_sender && !has_enough_confirmations {
+                        let confirmation = eth::sign_msg_hash::<T>(&tx.confirmation.msg_hash)?;
+                        if !tx.confirmation.confirmations.contains(&confirmation) {
+                            call::add_confirmation::<T>(tx.request.tx_id, confirmation, author);
+                        }
+                    } else {
+                        process_active_tx_request::<T>(
+                            author,
+                            tx,
+                            self_is_sender,
+                            has_enough_confirmations,
+                        )?;
+                    }
+                },
+            }
+        }
+
+        Ok(())
+    }
+
+    fn process_active_tx_request<T: Config>(
+        author: Author<T>,
+        tx: ActiveTransactionData<T>,
+        self_is_sender: bool,
+        tx_has_enough_confirmations: bool,
+    ) -> Result<(), DispatchError> {
+        let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
+        let tx_is_past_expiry = util::time_now::<T>() > tx.data.expiry;
+
+        if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
+            let lock_name = format!("eth_bridge_ocw::send::{}", tx.request.tx_id).as_bytes().to_vec();
+            let mut lock = AVN::<T>::get_ocw_locker(&lock_name);
+
+            // Protect against sending more than once
+            if let Ok(guard) = lock.try_lock() {
+                let eth_tx_hash = eth::send_tx::<T>(&tx)?;
+                call::add_eth_tx_hash::<T>(tx.request.tx_id, eth_tx_hash, author);
+                guard.forget(); // keep the lock so we don't send again
+            } else {
+                log::info!(
+                    "👷 Skipping sending txId: {:?} because ocw is locked already.",
+                    tx.request.tx_id
+                );
+            };
+        } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
+            if util::requires_corroboration::<T>(&tx.data, &author) {
+                match eth::corroborate::<T>(&tx, &author)? {
+                    (Some(status), tx_hash_is_valid) => call::add_corroboration::<T>(
+                        tx.request.tx_id,
+                        status,
+                        tx_hash_is_valid.unwrap_or_default(),
+                        author,
+                    ),
+                    (None, _) => {},
                 }
             }
         }
@@ -578,6 +662,26 @@ pub mod pallet {
             });
 
             Ok(tx_id)
+        }
+
+        fn generate_lower_proof(
+            lower_id: LowerId,
+            params: &[(Vec<u8>, Vec<u8>)],
+        ) -> Result<(), DispatchError> {
+            // Note: we are not checking the queue for duplicates because we trust the calling pallet
+            ensure!(
+                !<LowersReadyToClaim::<T>>::contains_key(&lower_id),
+                Error::<T>::LowerProofAlreadyGenerated
+            );
+
+            request::add_new_lower_proof_request::<T>(lower_id, params)?;
+
+            Self::deposit_event(Event::<T>::LowerProofRequested {
+                lower_id,
+                params: params.to_vec()
+            });
+
+            Ok(())
         }
     }
 }
