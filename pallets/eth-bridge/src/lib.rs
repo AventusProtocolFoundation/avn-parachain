@@ -108,11 +108,11 @@ pub type Author<T> =
 
 pub type ConfirmationsLimit = ConstU32<100>; // Max confirmations or corroborations (must be > 1/3 of authors)
 pub type FunctionLimit = ConstU32<32>; // Max chars allowed in T1 function name
+pub type CallerIdLimit = ConstU32<50>; // Max chars in caller id value
+// TODO: make these config constants
 pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
-pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
-pub type CallerIdLimit = ConstU32<50>; // Max chars in caller id value
 
 pub const TX_HASH_INVALID: bool = false;
 pub type EthereumId = u32;
@@ -175,13 +175,6 @@ pub mod pallet {
             params: Vec<(Vec<u8>, Vec<u8>)>,
             caller_id: Vec<u8>,
         },
-        LowerReadyToClaim {
-            lower_id: LowerId
-        },
-        RegeneratingLowerProof {
-            lower_id: LowerId,
-            requester: T::AccountId
-        },
         EthTxIdUpdated {
             eth_tx_id: EthereumId,
         },
@@ -215,10 +208,7 @@ pub mod pallet {
     pub type SettledTransactions<T: Config> =
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
 
-    #[pallet::storage]
-    #[pallet::getter(fn get_ready_to_claim_lower)]
-    pub type LowersReadyToClaim<T: Config> =
-        StorageMap<_, Blake2_128Concat, LowerId, LowerProofData, OptionQuery>;
+
 
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
@@ -445,27 +435,6 @@ pub mod pallet {
 
             Ok(().into())
         }
-
-        #[pallet::call_index(5)]
-        #[pallet::weight(<T as Config>::WeightInfo::regenerate_lower_proof())]
-        pub fn regenerate_lower_proof(
-            origin: OriginFor<T>,
-            lower_id: LowerId,
-        ) -> DispatchResultWithPostInfo {
-            let requester = ensure_signed(origin)?;
-
-            if <LowersReadyToClaim<T>>::contains_key(lower_id) {
-                // Remove the existing lower and resubmit it
-                let lower = <LowersReadyToClaim<T>>::take(lower_id).expect("lower exists");
-                request::add_new_lower_proof_request::<T>(lower_id, &util::unbound_params(&lower.params), &vec![])?;
-
-                Self::deposit_event(Event::<T>::RegeneratingLowerProof { lower_id,  requester });
-
-                return Ok(().into())
-            }
-
-            Err(Error::<T>::InvalidLowerId)?
-        }
     }
 
     #[pallet::hooks]
@@ -675,10 +644,6 @@ pub mod pallet {
             caller_id: Vec<u8>,
         ) -> Result<(), DispatchError> {
             // Note: we are not checking the queue for duplicates because we trust the calling pallet
-            ensure!(
-                !<LowersReadyToClaim::<T>>::contains_key(&lower_id),
-                Error::<T>::LowerProofAlreadyGenerated
-            );
 
             request::add_new_lower_proof_request::<T>(lower_id, params, &caller_id)?;
 

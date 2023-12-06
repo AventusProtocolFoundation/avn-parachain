@@ -85,17 +85,8 @@ pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData
     // Write the data to permanent storage:
     let lower_proof = eth::generate_abi_encoded_lower_proof(lower_req, confirmations)?;
 
-    LowersReadyToClaim::<T>::insert(
-        lower_req.lower_id,
-        LowerProofData {
-            params: lower_req.params.clone(),
-            abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_proof).map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
-        }
-    );
-
-    <crate::Pallet<T>>::deposit_event(Event::<T>::LowerReadyToClaim {
-        lower_id: lower_req.lower_id
-    });
+    T::OnBridgePublisherResult::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Ok(lower_proof))
+        .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     // Process any new request from the queue
     request::process_next_request::<T>()?;

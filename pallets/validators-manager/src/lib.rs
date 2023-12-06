@@ -14,7 +14,6 @@ use alloc::string::{String, ToString};
 
 pub type EthereumTransactionId = u32;
 
-use avn::OnBridgePublisherResult;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, transactional};
 use frame_system::{offchain::SendTransactionTypes, RawOrigin};
 use pallet_session::{self as session, Config as SessionConfig};
@@ -29,7 +28,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_avn::{
     self as avn, AccountToBytesConverter, DisabledValidatorChecker, Enforcer,
     EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
-    ValidatorRegistrationNotifier,
+    ValidatorRegistrationNotifier, OnBridgePublisherResult
 };
 
 use sp_avn_common::{
@@ -624,6 +623,10 @@ impl<T: Config> OnBridgePublisherResult for Pallet<T> {
             }
         }
 
+        Ok(())
+    }
+
+    fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, DispatchError>) -> DispatchResult {
         Ok(())
     }
 }
