@@ -83,10 +83,6 @@ fn complete_send_request(context: &Context) {
     ).unwrap();
 }
 
-fn event_emitted(expected_event: RuntimeEvent) -> bool {
-    System::events().iter().any(|record| record.event == expected_event)
-}
-
 fn call_ocw(context: &Context, offchain_state: Arc<RwLock<OffchainState>>, author: AccountId, block_number: BlockNumber) {
     mock_get_finalised_block(&mut offchain_state.write(), &context.finalised_block_vec);
     mock_ecdsa_sign(

@@ -7,7 +7,7 @@ use crate::{
     request::*,
     *,
 };
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, assert_noop, error::BadOrigin};
 use sp_runtime::DispatchError;
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 const REWARDS: &[u8] = b"15043665996000000000";
@@ -200,6 +200,67 @@ mod set_eth_tx_id {
                     error: DispatchError::BadOrigin,
                 }),
                 "Only root can set eth tx id"
+            );
+        });
+    }
+}
+
+#[cfg(test)]
+mod remove_active_request {
+    use super::*;
+    use frame_support::{
+        assert_ok,
+        dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
+    };
+    use frame_system::RawOrigin;
+
+    #[test]
+    fn remove_active_request_success() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = setup_context();
+            let tx_id = add_new_send_request::<TestRuntime>(&b"removeAuthor".to_vec(), &context.request_params, &vec![]).unwrap();
+            // Show that we have an active request
+            let _ = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+
+            assert_ok!(EthBridge::remove_active_request(RawOrigin::Root.into()));
+
+            assert!(ActiveRequest::<TestRuntime>::get().is_none(), "Eth tx id should be updated");
+            assert_eq!(true, request_failed(&tx_id));
+            assert!(System::events().iter().any(|record| matches!(
+                record.event,
+                mock::RuntimeEvent::EthBridge(crate::Event::ActiveRequestRemoved { request_id })
+                if request_id == tx_id
+            )));
+        });
+    }
+
+    #[test]
+    fn remove_active_request_non_root_fails() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = setup_context();
+            let _ = add_new_send_request::<TestRuntime>(&b"removeAuthor".to_vec(), &context.request_params, &vec![]).unwrap();
+            // Show that we have an active request
+            let _ = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+
+            assert_noop!(
+                EthBridge::remove_active_request(RawOrigin::None.into()),
+                BadOrigin
+            );
+        });
+    }
+
+    #[test]
+    fn remove_active_request_missing_request_fails() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            // Show that we don't have an active request
+            assert!(ActiveRequest::<TestRuntime>::get().is_none());
+
+            assert_noop!(
+                EthBridge::remove_active_request(RawOrigin::Root.into()),
+                Error::<TestRuntime>::NoActiveRequest
             );
         });
     }

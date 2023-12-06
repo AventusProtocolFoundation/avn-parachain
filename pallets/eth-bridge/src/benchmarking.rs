@@ -7,7 +7,7 @@
 
 use crate::{Pallet, *};
 
-use frame_benchmarking::{account, benchmarks, whitelisted_caller, impl_benchmark_test_suite};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
@@ -249,6 +249,17 @@ benchmarks! {
     verify {
         let active_tx = ActiveRequest::<T>::get().expect("is active");
         ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
+    }
+
+    remove_active_request {
+        let authors = setup_authors::<T>(2);
+        let tx_id = 1u32;
+        setup_active_tx::<T>(tx_id, 1, authors[1].clone());
+        // Make sure there is an active request
+        let _ = ActiveRequest::<T>::get().expect("is active");
+    }: _(RawOrigin::Root)
+    verify {
+        ensure!(ActiveRequest::<T>::get().is_none(), "Active request not removed");
     }
 }
 
