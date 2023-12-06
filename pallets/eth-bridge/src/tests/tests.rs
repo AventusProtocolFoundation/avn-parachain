@@ -80,7 +80,7 @@ fn run_checks(
         let current_time = 1_695_809_729_000;
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
 
-        let tx_id = add_new_send_request::<TestRuntime>(&function_name, &params).unwrap();
+        let tx_id = add_new_send_request::<TestRuntime>(&function_name, &params, &vec![]).unwrap();
         let active_tx = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
         assert_eq!(tx_id, active_tx.request.tx_id);
 
@@ -462,14 +462,14 @@ fn publish_to_ethereum_creates_new_transaction_request() {
             let function_name = b"publishRoot".to_vec();
             let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-            let transaction_id = EthBridge::publish(&function_name, &params).unwrap();
+            let transaction_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
             let active_tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
             assert_eq!(active_tx.request.tx_id, transaction_id);
             assert_eq!(active_tx.data.function_name, function_name);
 
             assert!(System::events().iter().any(|record| matches!(
                 &record.event,
-                mock::RuntimeEvent::EthBridge(crate::Event::PublishToEthereum { function_name, params, tx_id })
+                mock::RuntimeEvent::EthBridge(crate::Event::PublishToEthereum { function_name, params, tx_id, caller_id: _ })
                 if function_name == &b"publishRoot".to_vec() && tx_id == &transaction_id && params == &vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())]
             )));
         });
@@ -482,7 +482,7 @@ fn publish_fails_with_empty_function_name() {
         let function_name: &[u8] = b"";
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-        let result = EthBridge::publish(function_name, &params);
+        let result = EthBridge::publish(function_name, &params, vec![]);
         assert_err!(result, DispatchError::Other(Error::<TestRuntime>::EmptyFunctionName.into()));
     });
 }
@@ -494,7 +494,7 @@ fn publish_fails_with_exceeding_params_limit() {
         let function_name: &[u8] = b"publishRoot";
         let params = vec![(b"param1".to_vec(), b"value1".to_vec()); 6]; // ParamsLimit is 5
 
-        let result = EthBridge::publish(function_name, &params);
+        let result = EthBridge::publish(function_name, &params, vec![]);
         assert_err!(result, DispatchError::Other(Error::<TestRuntime>::ParamsLimitExceeded.into()));
     });
 }
@@ -506,7 +506,7 @@ fn publish_fails_with_exceeding_type_limit_in_params() {
         let function_name: &[u8] = b"publishRoot";
         let params = vec![(vec![b'a'; 8], b"value1".to_vec())]; // TypeLimit is 7
 
-        let result = EthBridge::publish(function_name, &params);
+        let result = EthBridge::publish(function_name, &params, vec![]);
 
         assert_err!(
             result,
@@ -524,7 +524,7 @@ fn publish_and_confirm_transaction() {
         let function_name = b"publishRoot".to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-        let tx_id = EthBridge::publish(&function_name, &params).unwrap();
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
 
         // Simulate confirming the transaction by an author
 
@@ -554,7 +554,7 @@ fn publish_and_send_transaction() {
         let function_name = b"publishRoot".to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-        let tx_id = EthBridge::publish(&function_name, &params).unwrap();
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
 
         EthBridge::add_confirmation(
             RuntimeOrigin::none(),
@@ -589,7 +589,7 @@ fn publish_and_corroborate_transaction() {
         let function_name = b"publishRoot".to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-        let tx_id = EthBridge::publish(&function_name, &params).unwrap();
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
 
         EthBridge::add_confirmation(
             RuntimeOrigin::none(),

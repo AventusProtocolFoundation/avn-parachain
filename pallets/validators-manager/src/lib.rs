@@ -45,6 +45,8 @@ use pallet_avn::BridgePublisher;
 pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 
+const PALLET_ID: &'static [u8; 14] = b"author_manager";
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -410,7 +412,7 @@ impl<T: Config> Pallet<T> {
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
         ];
-        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params)
+        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params, PALLET_ID.to_vec())
             .map_err(|e| DispatchError::Other(e.into()))?;
 
         let new_collator_id =
@@ -483,7 +485,7 @@ impl<T: Config> Pallet<T> {
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
         ];
-        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params)
+        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params, PALLET_ID.to_vec())
             .map_err(|e| DispatchError::Other(e.into()))?;
 
         TotalIngresses::<T>::put(ingress_counter);
@@ -610,13 +612,16 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> OnBridgePublisherResult for Pallet<T> {
-    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
-        if succeeded {
-            log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
-            Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumSucceeded { tx_id });
-        } else {
-            log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
-            Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumFailed { tx_id });
+    fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
+        // TODO: Update data structure to use tx_id as key
+        if caller_id == PALLET_ID.to_vec() {
+            if succeeded {
+                log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
+                Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumSucceeded { tx_id });
+            } else {
+                log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+                Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumFailed { tx_id });
+            }
         }
 
         Ok(())

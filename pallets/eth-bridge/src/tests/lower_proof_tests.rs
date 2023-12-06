@@ -3,15 +3,14 @@
 #![cfg(test)]
 
 use crate::mock::*;
-use crate::{ ActiveRequest, AVN, ecdsa::Signature, LowersReadyToClaim, RequestQueue, SettledTransactions, request::* };
+use crate::{ ActiveRequest, AVN, LowersReadyToClaim, RequestQueue, SettledTransactions, request::* };
 use codec::{Encode, Decode, alloc::sync::Arc};
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
 use sp_core::{ecdsa, offchain::testing::{OffchainState, PoolState, PendingRequest}};
 use sp_runtime::{
-    offchain::storage::StorageValueRef,
-    testing::{TestSignature, UintAuthorityId},
-    traits::{BadOrigin, Dispatchable}
+    testing::UintAuthorityId,
+    traits::Dispatchable
 };
 
 pub fn mock_get_finalised_block(state: &mut OffchainState, response: &Option<Vec<u8>>) {
@@ -132,7 +131,7 @@ mod lower_proofs {
         ext.execute_with(|| {
             let context = setup_context();
 
-            add_new_lower_proof_request::<TestRuntime>(context.lower_id, &context.request_params).unwrap();
+            add_new_lower_proof_request::<TestRuntime>(context.lower_id, &context.request_params, &vec![]).unwrap();
 
             // Ensure the mem pool is empty
             assert_eq!(true, pool_state.read().transactions.is_empty());
@@ -151,10 +150,10 @@ mod lower_proofs {
 
             assert!(matches!(tx.call,
                 RuntimeCall::EthBridge(crate::Call::add_confirmation {
-                    request_id,
-                    confirmation,
-                    author,
-                    signature
+                    request_id: _,
+                    confirmation: _,
+                    author: _,
+                    signature: _
                 })
             ))
         });
@@ -171,7 +170,7 @@ mod lower_proofs {
         ext.execute_with(|| {
             let context = setup_context();
 
-            add_new_lower_proof_request::<TestRuntime>(context.lower_id, &context.request_params).unwrap();
+            add_new_lower_proof_request::<TestRuntime>(context.lower_id, &context.request_params, &vec![]).unwrap();
             // Add enough confirmations so the last one will complete the quorum
             add_confirmations(AVN::<TestRuntime>::supermajority_quorum() - 1);
 
@@ -212,10 +211,10 @@ mod lower_proofs {
         ext.execute_with(|| {
             let context = setup_context();
 
-            add_new_lower_proof_request::<TestRuntime>(context.lower_id, &context.request_params).unwrap();
+            add_new_lower_proof_request::<TestRuntime>(context.lower_id, &context.request_params, &vec![]).unwrap();
 
             let new_lower_id = context.lower_id + 1;
-            add_new_lower_proof_request::<TestRuntime>(new_lower_id, &context.request_params).unwrap();
+            add_new_lower_proof_request::<TestRuntime>(new_lower_id, &context.request_params, &vec![]).unwrap();
 
             // Add enough confirmations so the last one will complete the quorum
             add_confirmations(AVN::<TestRuntime>::supermajority_quorum() - 1);
@@ -255,15 +254,15 @@ mod lower_proofs {
             let mut context = setup_context();
 
             // add a lower request as Active
-            add_new_lower_proof_request::<TestRuntime>(context.lower_id, &context.request_params).unwrap();
+            add_new_lower_proof_request::<TestRuntime>(context.lower_id, &context.request_params, &vec![]).unwrap();
 
             // Queue a send tx request
-            let tx_id = add_new_send_request::<TestRuntime>(&b"removeAuthor".to_vec(), &context.request_params).unwrap();
+            let tx_id = add_new_send_request::<TestRuntime>(&b"removeAuthor".to_vec(), &context.request_params, &vec![]).unwrap();
             assert!(context.lower_id != tx_id);
 
             // Re-use the same Id and queue another lower request
             let duplicate_lower_id = tx_id;
-            add_new_lower_proof_request::<TestRuntime>(duplicate_lower_id, &context.request_params).unwrap();
+            add_new_lower_proof_request::<TestRuntime>(duplicate_lower_id, &context.request_params, &vec![]).unwrap();
 
             // Add enough confirmations to the 1st request so the last one will complete the quorum
             add_confirmations(AVN::<TestRuntime>::supermajority_quorum() - 1);

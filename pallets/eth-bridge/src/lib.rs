@@ -112,6 +112,7 @@ pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry,
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
+pub type CallerIdLimit = ConstU32<50>; // Max chars in caller id value
 
 pub const TX_HASH_INVALID: bool = false;
 pub type EthereumId = u32;
@@ -167,10 +168,12 @@ pub mod pallet {
             tx_id: EthereumId,
             function_name: Vec<u8>,
             params: Vec<(Vec<u8>, Vec<u8>)>,
+            caller_id: Vec<u8>,
         },
         LowerProofRequested {
             lower_id: LowerId,
-            params: Vec<(Vec<u8>, Vec<u8>)>
+            params: Vec<(Vec<u8>, Vec<u8>)>,
+            caller_id: Vec<u8>,
         },
         LowerReadyToClaim {
             lower_id: LowerId
@@ -281,6 +284,7 @@ pub mod pallet {
         LowerDataLimitExceeded,
         LowerProofAlreadyGenerated,
         InvalidLowerId,
+        CallerIdLengthExceeded,
     }
 
     #[pallet::call]
@@ -453,7 +457,7 @@ pub mod pallet {
             if <LowersReadyToClaim<T>>::contains_key(lower_id) {
                 // Remove the existing lower and resubmit it
                 let lower = <LowersReadyToClaim<T>>::take(lower_id).expect("lower exists");
-                request::add_new_lower_proof_request::<T>(lower_id, &util::unbound_params(&lower.params))?;
+                request::add_new_lower_proof_request::<T>(lower_id, &util::unbound_params(&lower.params), &vec![])?;
 
                 Self::deposit_event(Event::<T>::RegeneratingLowerProof { lower_id,  requester });
 
@@ -650,14 +654,16 @@ pub mod pallet {
         fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
+            caller_id: Vec<u8>,
         ) -> Result<EthereumId, DispatchError> {
-            let tx_id = request::add_new_send_request::<T>(function_name, params)
+            let tx_id = request::add_new_send_request::<T>(function_name, params, &caller_id)
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
             Self::deposit_event(Event::<T>::PublishToEthereum {
                 tx_id,
                 function_name: function_name.to_vec(),
                 params: params.to_vec(),
+                caller_id,
             });
 
             Ok(tx_id)
@@ -666,6 +672,7 @@ pub mod pallet {
         fn generate_lower_proof(
             lower_id: LowerId,
             params: &Vec<(Vec<u8>, Vec<u8>)>,
+            caller_id: Vec<u8>,
         ) -> Result<(), DispatchError> {
             // Note: we are not checking the queue for duplicates because we trust the calling pallet
             ensure!(
@@ -673,11 +680,12 @@ pub mod pallet {
                 Error::<T>::LowerProofAlreadyGenerated
             );
 
-            request::add_new_lower_proof_request::<T>(lower_id, params)?;
+            request::add_new_lower_proof_request::<T>(lower_id, params, &caller_id)?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
                 lower_id,
-                params: params.to_vec()
+                params: params.to_vec(),
+                caller_id
             });
 
             Ok(())

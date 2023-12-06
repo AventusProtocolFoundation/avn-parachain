@@ -9,7 +9,7 @@ use sp_core::{
     ConstU32, ConstU64, H256,
     offchain::{
         testing::{
-            OffchainState, PendingRequest, PoolState, TestOffchainExt, TestTransactionPoolExt,
+            OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt,
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
@@ -162,7 +162,7 @@ fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignat
 }
 
 pub fn setup_eth_tx_request(context: &Context) -> EthereumId {
-    add_new_send_request::<TestRuntime>(&context.request_function_name, &context.request_params).unwrap()
+    add_new_send_request::<TestRuntime>(&context.request_function_name, &context.request_params, &vec![]).unwrap()
 }
 
 pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
@@ -354,7 +354,7 @@ impl ExtBuilder {
 }
 
 impl OnBridgePublisherResult for TestRuntime {
-    fn process_result(_tx_id: EthereumId, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+    fn process_result(_tx_id: EthereumId, _caller_id: Vec<u8>, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }
 }

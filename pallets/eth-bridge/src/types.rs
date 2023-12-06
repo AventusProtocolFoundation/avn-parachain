@@ -28,6 +28,7 @@ pub struct SendRequestData {
     pub tx_id: EthereumId,
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub caller_id: BoundedVec<u8, CallerIdLimit>,
 }
 
 impl SendRequestData {
@@ -51,6 +52,7 @@ impl SendRequestData {
 pub struct LowerProofRequestData {
     pub lower_id: LowerId,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub caller_id: BoundedVec<u8, CallerIdLimit>,
 }
 
 // Data related to generating confirmations
