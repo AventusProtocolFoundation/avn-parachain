@@ -12,12 +12,10 @@ use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
-use sp_core::H256;
+use sp_core::{H160, H256};
 use sp_runtime::WeakBoundedVec;
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
-    let mnemonic: &str =
-        "basic anxiety marine match castle rival moral whisper insane away avoid bike";
     let mut new_authors: Vec<crate::Author<T>> = Vec::new();
     let current_authors = avn::Validators::<T>::get();
 
@@ -25,7 +23,7 @@ fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::
         let account = account("dummy_validator", i, i);
         let key =
             <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
-        set_session_key::<T>(&account, current_authors.len() as u32 + i);
+        let _ = set_session_key::<T>(&account, current_authors.len() as u32 + i);
         new_authors.push(crate::Author::<T>::new(account, key));
     }
 
@@ -112,7 +110,7 @@ fn bound_params(
 }
 
 fn setup_active_tx<T: Config>(
-    tx_id: u32,
+    tx_id: EthereumId,
     num_confirmations: u8,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
 ) {
@@ -130,39 +128,39 @@ fn setup_active_tx<T: Config>(
     params.push((b"uint256".to_vec(), expiry.to_string().into_bytes()));
     params.push((b"uint32".to_vec(), tx_id.to_string().into_bytes()));
 
-    let request_data = RequestData {
+    let request_data = SendRequestData {
         tx_id,
         function_name: function_name.clone(),
         params: bound_params(request_params.to_vec()),
+        caller_id: BoundedVec::<_, CallerIdLimit>::try_from(vec![]).unwrap(),
     };
 
-    let tx_data = TransactionData {
-        function_name,
-        params: bound_params(params),
-        sender: sender.account_id,
-        eth_tx_hash: H256::zero(),
-        tx_succeeded: false,
-    };
-
-    ActiveTransaction::<T>::put(ActiveTransactionData {
-        id: tx_id,
-        request_data,
-        data: tx_data,
-        expiry,
-        msg_hash: H256::repeat_byte(1),
-        last_updated: 0u32.into(),
-        confirmations: {
-            let mut confirmations = BoundedVec::default();
-            for i in 0..num_confirmations {
-                let confirmation = generate_dummy_ecdsa_signature(i);
-                confirmations.try_push(confirmation).unwrap();
-            }
-            confirmations
+    ActiveRequest::<T>::put(ActiveRequestData {
+        request: Request::Send(request_data),
+        confirmation: ActiveConfirmation {
+            msg_hash: H256::repeat_byte(1),
+            confirmations: {
+                let mut confirmations = BoundedVec::default();
+                for i in 0..num_confirmations {
+                    let confirmation = generate_dummy_ecdsa_signature(i);
+                    confirmations.try_push(confirmation).unwrap();
+                }
+                confirmations
+            },
         },
-        success_corroborations: BoundedVec::default(),
-        failure_corroborations: BoundedVec::default(),
-        valid_tx_hash_corroborations: BoundedVec::default(),
-        invalid_tx_hash_corroborations: BoundedVec::default(),
+        tx_data: Some(ActiveEthTransaction {
+            function_name: function_name.clone(),
+            eth_tx_params: bound_params(params),
+            sender: sender.account_id,
+            expiry,
+            eth_tx_hash: H256::zero(),
+            success_corroborations: BoundedVec::default(),
+            failure_corroborations: BoundedVec::default(),
+            valid_tx_hash_corroborations: BoundedVec::default(),
+            invalid_tx_hash_corroborations: BoundedVec::default(),
+            tx_succeeded: false,
+        }),
+        last_updated: 0u32.into(),
     });
 }
 
@@ -171,7 +169,6 @@ fn set_recovered_account_for_tests<T: Config>(sender_account_id: &T::AccountId) 
     let bytes = sender_account_id.encode();
     let mut vector: [u8; 8] = Default::default();
     vector.copy_from_slice(&bytes[0..8]);
-    println!("set_recovered_account_for_tests {}", sender_account_id);
     mock::set_mock_recovered_account_id(vector);
 }
 
@@ -181,6 +178,13 @@ benchmarks! {
     }: _(RawOrigin::Root, eth_tx_lifetime_secs)
     verify {
         assert_eq!(EthTxLifetimeSecs::<T>::get(), eth_tx_lifetime_secs);
+    }
+
+    set_eth_tx_id {
+        let eth_tx_id = 300u32;
+    }: _(RawOrigin::Root, eth_tx_id)
+    verify {
+        assert_eq!(NextTxId::<T>::get(), eth_tx_id);
     }
 
     add_confirmation {
@@ -194,7 +198,7 @@ benchmarks! {
 
         let tx_id = 1u32;
         setup_active_tx::<T>(tx_id, 1, sender.clone());
-        let active_tx = ActiveTransaction::<T>::get().expect("is active");
+        let active_tx = ActiveRequest::<T>::get().expect("is active");
 
         let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("53ea27badd00d7b5e4d7e7eb2542ea3abfcd2d8014d2153719f3f00d4058c4027eac360877d5d191cbfdfe8cd72dfe82abc9192fc6c8dce21f3c6f23c43e053f1c")).unwrap().into();
         let proof = (crate::ADD_CONFIRMATION_CONTEXT, tx_id, new_confirmation.clone(), author.account_id.clone()).encode();
@@ -206,8 +210,8 @@ benchmarks! {
 
     }: _(RawOrigin::None, tx_id, new_confirmation.clone(), author.clone(), signature)
     verify {
-        let active_tx = ActiveTransaction::<T>::get().expect("is active");
-        ensure!(active_tx.confirmations.contains(&new_confirmation), "Confirmation not added");
+        let active_tx = ActiveRequest::<T>::get().expect("is active");
+        ensure!(active_tx.confirmation.confirmations.contains(&new_confirmation), "Confirmation not added");
     }
 
     add_eth_tx_hash {
@@ -223,8 +227,8 @@ benchmarks! {
         let signature = sender.key.sign(&proof).expect("Error signing proof");
     }: _(RawOrigin::None, tx_id, eth_tx_hash.clone(), sender.clone(), signature)
     verify {
-        let active_tx = ActiveTransaction::<T>::get().expect("is active");
-        assert_eq!(active_tx.data.eth_tx_hash, eth_tx_hash, "Eth tx hash not added");
+        let active_tx = ActiveRequest::<T>::get().expect("is active");
+        assert_eq!(active_tx.tx_data.unwrap().eth_tx_hash, eth_tx_hash, "Eth tx hash not added");
     }
 
     add_corroboration {
@@ -243,8 +247,19 @@ benchmarks! {
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: _(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
-        let active_tx = ActiveTransaction::<T>::get().expect("is active");
-        ensure!(active_tx.success_corroborations.contains(&author.account_id), "Corroboration not added");
+        let active_tx = ActiveRequest::<T>::get().expect("is active");
+        ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
+    }
+
+    remove_active_request {
+        let authors = setup_authors::<T>(2);
+        let tx_id = 1u32;
+        setup_active_tx::<T>(tx_id, 1, authors[1].clone());
+        // Make sure there is an active request
+        let _ = ActiveRequest::<T>::get().expect("is active");
+    }: _(RawOrigin::Root)
+    verify {
+        ensure!(ActiveRequest::<T>::get().is_none(), "Active request not removed");
     }
 }
 

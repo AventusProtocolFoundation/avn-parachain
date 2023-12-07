@@ -14,7 +14,6 @@ use alloc::string::{String, ToString};
 
 pub type EthereumTransactionId = u32;
 
-use avn::OnBridgePublisherResult;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, transactional};
 use frame_system::{offchain::SendTransactionTypes, RawOrigin};
 use pallet_session::{self as session, Config as SessionConfig};
@@ -27,8 +26,8 @@ use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_avn::{
-    self as avn, AccountToBytesConverter, DisabledValidatorChecker, Enforcer,
-    EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
+    self as avn, AccountToBytesConverter, BridgeInterfaceNotification, DisabledValidatorChecker,
+    Enforcer, EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
     ValidatorRegistrationNotifier,
 };
 
@@ -40,10 +39,12 @@ use sp_core::{bounded::BoundedVec, ecdsa, H512};
 
 pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, PositiveImbalanceOf};
 
-use pallet_avn::BridgePublisher;
+use pallet_avn::BridgeInterface;
 
 pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
+
+const PALLET_ID: &'static [u8; 14] = b"author_manager";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -84,7 +85,7 @@ pub mod pallet {
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
-        type BridgePublisher: avn::BridgePublisher;
+        type BridgeInterface: avn::BridgeInterface;
     }
 
     #[pallet::error]
@@ -410,8 +411,12 @@ impl<T: Config> Pallet<T> {
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
         ];
-        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params)
-            .map_err(|e| DispatchError::Other(e.into()))?;
+        let tx_id = <T as pallet::Config>::BridgeInterface::publish(
+            function_name,
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|e| DispatchError::Other(e.into()))?;
 
         let new_collator_id =
             <T as SessionConfig>::ValidatorIdOf::convert(collator_account_id.clone())
@@ -483,8 +488,12 @@ impl<T: Config> Pallet<T> {
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
         ];
-        let tx_id = <T as pallet::Config>::BridgePublisher::publish(function_name, &params)
-            .map_err(|e| DispatchError::Other(e.into()))?;
+        let tx_id = <T as pallet::Config>::BridgeInterface::publish(
+            function_name,
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|e| DispatchError::Other(e.into()))?;
 
         TotalIngresses::<T>::put(ingress_counter);
         <ValidatorActions<T>>::insert(
@@ -609,14 +618,24 @@ impl<T: Config> Pallet<T> {
     }
 }
 
-impl<T: Config> OnBridgePublisherResult for Pallet<T> {
-    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
-        if succeeded {
-            log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
-            Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumSucceeded { tx_id });
-        } else {
-            log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
-            Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumFailed { tx_id });
+impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
+    fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
+        // TODO: Update data structure to use tx_id as key
+        if caller_id == PALLET_ID.to_vec() {
+            if succeeded {
+                log::info!(
+                    "✅  Transaction with ID {} was successfully published to Ethereum.",
+                    tx_id
+                );
+                Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumSucceeded {
+                    tx_id,
+                });
+            } else {
+                log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+                Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumFailed {
+                    tx_id,
+                });
+            }
         }
 
         Ok(())

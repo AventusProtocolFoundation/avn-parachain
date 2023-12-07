@@ -244,7 +244,7 @@ impl Config for Test {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
-    type BridgePublisher = EthBridge;
+    type BridgeInterface = EthBridge;
 }
 
 // Deal with any positive imbalance by sending it to the fake treasury
@@ -348,7 +348,7 @@ impl pallet_eth_bridge::Config for Test {
     type MinEthBlockConfirmation = ConstU64<20>;
     type WeightInfo = ();
     type AccountToBytesConvert = AVN;
-    type OnBridgePublisherResult = Self;
+    type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
 }
 
@@ -359,8 +359,12 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-impl OnBridgePublisherResult for Test {
-    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+impl BridgeInterfaceNotification for Test {
+    fn process_result(
+        _tx_id: u32,
+        _caller_id: Vec<u8>,
+        _tx_succeeded: bool,
+    ) -> sp_runtime::DispatchResult {
         Ok(())
     }
 }

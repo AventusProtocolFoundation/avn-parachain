@@ -1,13 +1,8 @@
 // Copyright 2023 Aventus Network Systems (UK) Ltd.
 
 #![cfg(test)]
-use crate::{
-    eth::{generate_send_calldata, *},
-    mock::*,
-    tx::*,
-    *,
-};
-use frame_support::{assert_err, assert_ok};
+use crate::{eth::generate_send_calldata, mock::*, request::*, *};
+use frame_support::{assert_err, assert_noop, assert_ok, error::BadOrigin};
 use sp_runtime::DispatchError;
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 const REWARDS: &[u8] = b"15043665996000000000";
@@ -80,15 +75,16 @@ fn run_checks(
         let current_time = 1_695_809_729_000;
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
 
-        let tx_id = add_new_request::<TestRuntime>(&function_name, &params).unwrap();
-        let active_tx = ActiveTransaction::<TestRuntime>::get().expect("is active");
-        assert_eq!(tx_id, active_tx.id);
+        let tx_id = add_new_send_request::<TestRuntime>(&function_name, &params, &vec![]).unwrap();
+        let active_tx =
+            ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+        assert_eq!(tx_id, active_tx.request.tx_id);
 
         let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
         let expected_expiry = current_time / 1000 + eth_tx_lifetime_secs;
-        assert_eq!(active_tx.expiry, expected_expiry);
+        assert_eq!(active_tx.data.expiry, expected_expiry);
 
-        let msg_hash = hex::encode(active_tx.msg_hash);
+        let msg_hash = hex::encode(active_tx.confirmation.msg_hash);
         assert_eq!(msg_hash, expected_msg_hash);
 
         let calldata = generate_send_calldata::<TestRuntime>(&active_tx).unwrap();
@@ -206,6 +202,74 @@ mod set_eth_tx_id {
 }
 
 #[cfg(test)]
+mod remove_active_request {
+    use super::*;
+    use frame_support::{
+        assert_ok,
+        dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
+    };
+    use frame_system::RawOrigin;
+
+    #[test]
+    fn remove_active_request_success() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = setup_context();
+            let tx_id = add_new_send_request::<TestRuntime>(
+                &b"removeAuthor".to_vec(),
+                &context.request_params,
+                &vec![],
+            )
+            .unwrap();
+            // Show that we have an active request
+            let _ = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+
+            assert_ok!(EthBridge::remove_active_request(RawOrigin::Root.into()));
+
+            assert!(ActiveRequest::<TestRuntime>::get().is_none(), "Eth tx id should be updated");
+            assert_eq!(true, request_failed(&tx_id));
+            assert!(System::events().iter().any(|record| matches!(
+                record.event,
+                mock::RuntimeEvent::EthBridge(crate::Event::ActiveRequestRemoved { request_id })
+                if request_id == tx_id
+            )));
+        });
+    }
+
+    #[test]
+    fn remove_active_request_non_root_fails() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = setup_context();
+            let _ = add_new_send_request::<TestRuntime>(
+                &b"removeAuthor".to_vec(),
+                &context.request_params,
+                &vec![],
+            )
+            .unwrap();
+            // Show that we have an active request
+            let _ = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+
+            assert_noop!(EthBridge::remove_active_request(RawOrigin::None.into()), BadOrigin);
+        });
+    }
+
+    #[test]
+    fn remove_active_request_missing_request_fails() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            // Show that we don't have an active request
+            assert!(ActiveRequest::<TestRuntime>::get().is_none());
+
+            assert_noop!(
+                EthBridge::remove_active_request(RawOrigin::Root.into()),
+                Error::<TestRuntime>::NoActiveRequest
+            );
+        });
+    }
+}
+
+#[cfg(test)]
 mod add_confirmation {
 
     use super::*;
@@ -223,9 +287,9 @@ mod add_confirmation {
             context.test_signature.clone(),
         ));
 
-        let active_tx =
-            ActiveTransaction::<TestRuntime>::get().expect("Active transaction should be present");
-        (tx_id, active_tx)
+        let active_request =
+            ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present");
+        (tx_id, active_request.as_active_tx().unwrap())
     }
 
     #[test]
@@ -236,7 +300,7 @@ mod add_confirmation {
             let (_, active_tx) = setup_confirmation_test(&context);
 
             assert!(
-                active_tx.confirmations.contains(&context.confirmation_signature),
+                active_tx.confirmation.confirmations.contains(&context.confirmation_signature),
                 "Confirmation should be present"
             );
 
@@ -278,9 +342,15 @@ mod add_eth_tx_hash {
         setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>,
     ) {
         if let Some(setup_fn) = setup_fn {
-            let mut active_tx = ActiveTransaction::<TestRuntime>::get().expect("is active");
+            let mut active_tx =
+                ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
             setup_fn(&mut active_tx);
-            ActiveTransaction::<TestRuntime>::put(active_tx);
+            ActiveRequest::<TestRuntime>::put(ActiveRequestData {
+                request: types::Request::Send(active_tx.request),
+                confirmation: active_tx.confirmation,
+                tx_data: Some(active_tx.data),
+                last_updated: 0u64,
+            });
         }
     }
 
@@ -370,7 +440,10 @@ mod add_corroboration {
             context.test_signature.clone(),
         ));
 
-        ActiveTransaction::<TestRuntime>::get().expect("Active transaction should be present")
+        ActiveRequest::<TestRuntime>::get()
+            .expect("Active transaction should be present")
+            .as_active_tx()
+            .unwrap()
     }
 
     #[test]
@@ -393,11 +466,13 @@ mod add_corroboration {
                 context.test_signature.clone(),
             ));
 
-            let active_tx = ActiveTransaction::<TestRuntime>::get()
-                .expect("Active transaction should be present");
+            let active_tx = ActiveRequest::<TestRuntime>::get()
+                .expect("Active transaction should be present")
+                .as_active_tx()
+                .unwrap();
 
-            assert_eq!(active_tx.valid_tx_hash_corroborations.len(), 0);
-            assert!(active_tx.invalid_tx_hash_corroborations.len() > 0);
+            assert_eq!(active_tx.data.valid_tx_hash_corroborations.len(), 0);
+            assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);
         });
     }
 
@@ -408,7 +483,7 @@ mod add_corroboration {
             let context = setup_context();
             let active_tx = setup_corroboration_test(&context, true, false);
 
-            assert!(active_tx.invalid_tx_hash_corroborations.len() > 0);
+            assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);
         });
     }
 
@@ -419,7 +494,7 @@ mod add_corroboration {
             let context = setup_context();
             let active_tx = setup_corroboration_test(&context, true, true);
 
-            assert!(active_tx.valid_tx_hash_corroborations.len() > 0);
+            assert!(active_tx.data.valid_tx_hash_corroborations.len() > 0);
         });
     }
 
@@ -459,14 +534,14 @@ fn publish_to_ethereum_creates_new_transaction_request() {
             let function_name = b"publishRoot".to_vec();
             let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-            let transaction_id = EthBridge::publish(&function_name, &params).unwrap();
-            let active_tx = ActiveTransaction::<TestRuntime>::get().unwrap();
-            assert_eq!(active_tx.id, transaction_id);
+            let transaction_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
+            let active_tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
+            assert_eq!(active_tx.request.tx_id, transaction_id);
             assert_eq!(active_tx.data.function_name, function_name);
 
             assert!(System::events().iter().any(|record| matches!(
                 &record.event,
-                mock::RuntimeEvent::EthBridge(crate::Event::PublishToEthereum { function_name, params, tx_id })
+                mock::RuntimeEvent::EthBridge(crate::Event::PublishToEthereum { function_name, params, tx_id, caller_id: _ })
                 if function_name == &b"publishRoot".to_vec() && tx_id == &transaction_id && params == &vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())]
             )));
         });
@@ -479,7 +554,7 @@ fn publish_fails_with_empty_function_name() {
         let function_name: &[u8] = b"";
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-        let result = EthBridge::publish(function_name, &params);
+        let result = EthBridge::publish(function_name, &params, vec![]);
         assert_err!(result, DispatchError::Other(Error::<TestRuntime>::EmptyFunctionName.into()));
     });
 }
@@ -491,7 +566,7 @@ fn publish_fails_with_exceeding_params_limit() {
         let function_name: &[u8] = b"publishRoot";
         let params = vec![(b"param1".to_vec(), b"value1".to_vec()); 6]; // ParamsLimit is 5
 
-        let result = EthBridge::publish(function_name, &params);
+        let result = EthBridge::publish(function_name, &params, vec![]);
         assert_err!(result, DispatchError::Other(Error::<TestRuntime>::ParamsLimitExceeded.into()));
     });
 }
@@ -503,7 +578,7 @@ fn publish_fails_with_exceeding_type_limit_in_params() {
         let function_name: &[u8] = b"publishRoot";
         let params = vec![(vec![b'a'; 8], b"value1".to_vec())]; // TypeLimit is 7
 
-        let result = EthBridge::publish(function_name, &params);
+        let result = EthBridge::publish(function_name, &params, vec![]);
 
         assert_err!(
             result,
@@ -521,7 +596,7 @@ fn publish_and_confirm_transaction() {
         let function_name = b"publishRoot".to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-        let tx_id = EthBridge::publish(&function_name, &params).unwrap();
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
 
         // Simulate confirming the transaction by an author
 
@@ -536,9 +611,9 @@ fn publish_and_confirm_transaction() {
         assert_ok!(result);
 
         // Verify that the confirmation was added to the transaction
-        let tx = ActiveTransaction::<TestRuntime>::get().unwrap();
-        assert_eq!(tx.confirmations.len(), 1);
-        assert_eq!(tx.confirmations[0], context.confirmation_signature.clone());
+        let tx = ActiveRequest::<TestRuntime>::get().unwrap();
+        assert_eq!(tx.confirmation.confirmations.len(), 1);
+        assert_eq!(tx.confirmation.confirmations[0], context.confirmation_signature.clone());
     });
 }
 
@@ -551,7 +626,7 @@ fn publish_and_send_transaction() {
         let function_name = b"publishRoot".to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-        let tx_id = EthBridge::publish(&function_name, &params).unwrap();
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
 
         EthBridge::add_confirmation(
             RuntimeOrigin::none(),
@@ -572,7 +647,7 @@ fn publish_and_send_transaction() {
 
         assert_ok!(result);
 
-        let tx = ActiveTransaction::<TestRuntime>::get().unwrap();
+        let tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
         assert_eq!(tx.data.eth_tx_hash, context.eth_tx_hash);
     });
 }
@@ -586,7 +661,7 @@ fn publish_and_corroborate_transaction() {
         let function_name = b"publishRoot".to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
-        let tx_id = EthBridge::publish(&function_name, &params).unwrap();
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
 
         EthBridge::add_confirmation(
             RuntimeOrigin::none(),
@@ -626,7 +701,7 @@ fn publish_and_corroborate_transaction() {
         .unwrap();
 
         // Verify that the transaction is finalized
-        // let tx = ActiveTransaction::<TestRuntime>::get().unwrap();
-        assert_eq!(ActiveTransaction::<TestRuntime>::get(), None);
+        // let tx = ActiveRequest::<TestRuntime>::get().unwrap();
+        assert_eq!(ActiveRequest::<TestRuntime>::get(), None);
     });
 }
