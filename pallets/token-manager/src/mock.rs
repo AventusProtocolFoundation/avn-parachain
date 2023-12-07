@@ -25,7 +25,7 @@ use frame_support::{
 };
 use frame_system::{self as system, limits};
 
-use pallet_avn::OnBridgePublisherResult;
+use pallet_avn::BridgeInterfaceNotification;
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
@@ -254,7 +254,7 @@ impl parachain_staking::Config for TestRuntime {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
-    type BridgePublisher = EthBridge;
+    type BridgeInterface = EthBridge;
 }
 
 impl pallet_session::historical::Config for TestRuntime {
@@ -270,7 +270,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type MinEthBlockConfirmation = ConstU64<20>;
     type WeightInfo = ();
     type AccountToBytesConvert = AVN;
-    type OnBridgePublisherResult = Self;
+    type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
 }
 
@@ -281,7 +281,7 @@ impl pallet_timestamp::Config for TestRuntime {
     type WeightInfo = ();
 }
 
-impl OnBridgePublisherResult for TestRuntime {
+impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(_tx_id: u32, _caller_id: Vec<u8>, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
         Ok(())
     }

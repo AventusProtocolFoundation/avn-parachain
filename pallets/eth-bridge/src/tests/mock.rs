@@ -101,7 +101,7 @@ impl Config for TestRuntime {
     type WeightInfo = ();
     type MinEthBlockConfirmation = ConstU64<20>;
     type AccountToBytesConvert = U64To32BytesConverter;
-    type OnBridgePublisherResult = TestRuntime;
+    type BridgeInterfaceNotification = TestRuntime;
     type ReportCorroborationOffence = OffenceHandler;
 }
 
@@ -363,7 +363,7 @@ impl ExtBuilder {
     }
 }
 
-impl OnBridgePublisherResult for TestRuntime {
+impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(tx_id: EthereumId, _caller_id: Vec<u8>, tx_succeeded: bool) -> sp_runtime::DispatchResult {
         if !tx_succeeded {
             FAILEDREQUESTS.with(|l| l.borrow_mut().push(tx_id));
