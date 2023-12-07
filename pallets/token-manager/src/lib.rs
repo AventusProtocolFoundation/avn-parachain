@@ -28,12 +28,12 @@ use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo},
     ensure, log,
     traits::{
-        Currency, ExistenceRequirement, Get, Imbalance, IsSubType, WithdrawReasons,
         schedule::{
-			v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
-			DispatchTime, HARD_DEADLINE
-		},
-        QueryPreimage, StorePreimage
+            v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
+            DispatchTime, HARD_DEADLINE,
+        },
+        Currency, ExistenceRequirement, Get, Imbalance, IsSubType, QueryPreimage, StorePreimage,
+        WithdrawReasons,
     },
     BoundedVec, PalletId, Parameter,
 };
@@ -74,10 +74,11 @@ pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry,
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
+
 mod benchmarking;
 
-pub mod migration;
 pub mod default_weights;
+pub mod migration;
 pub use default_weights::WeightInfo;
 
 #[cfg(test)]
@@ -120,7 +121,6 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
@@ -128,21 +128,16 @@ pub mod pallet {
             + From<Call<Self>>
             + GetDispatchInfo
             + From<frame_system::Call<Self>>;
-
         /// Currency type for lifting
         type Currency: Currency<Self::AccountId>;
-
         /// The units in which we record balances of tokens others than AVT
         type TokenBalance: Member + Parameter + AtLeast32Bit + Default + Copy + MaxEncodedLen;
-
         /// The type of token identifier
         /// (a H160 because this is an Ethereum address)
         type TokenId: Parameter + Default + Copy + From<H160> + Into<H160> + MaxEncodedLen;
         type ProcessedEventsChecker: ProcessedEventsChecker;
-
         /// A type that can be used to verify signatures
         type Public: IdentifyAccount<AccountId = Self::AccountId>;
-
         /// The signature type used by accounts/transactions.
         type Signature: Verify<Signer = Self::Public>
             + Member
@@ -150,28 +145,20 @@ pub mod pallet {
             + Encode
             + From<sp_core::sr25519::Signature>
             + TypeInfo;
-
         /// Id of the account that will hold treasury funds
         type AvnTreasuryPotId: Get<PalletId>;
-
         /// Percentage of growth to store in the treasury
         #[pallet::constant]
         type TreasuryGrowthPercentage: Get<Perbill>;
-
         /// Handler to notify the runtime when AVT growth is lifted.
         type OnGrowthLiftedHandler: OnGrowthLiftedHandler<BalanceOf<Self>>;
-
         type Scheduler: ScheduleAnon<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>
-	    + ScheduleNamed<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>;
-
+            + ScheduleNamed<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>;
         /// The preimage provider.
-	type Preimages: QueryPreimage + StorePreimage;
-
+        type Preimages: QueryPreimage + StorePreimage;
         /// Overarching type of all pallets origins.
-	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
-	
+        type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
         type BridgeInterface: BridgeInterface;
-	
         type WeightInfo: WeightInfo;
     }
 
@@ -478,7 +465,14 @@ pub mod pallet {
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
                 .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
 
-            Self::schedule_lower(&from, to_account_id, token_id, amount, t1_recipient, Some(sender_nonce))?;
+            Self::schedule_lower(
+                &from,
+                to_account_id,
+                token_id,
+                amount,
+                t1_recipient,
+                Some(sender_nonce),
+            )?;
 
             <Nonces<T>>::mutate(from, |n| *n += 1);
 
@@ -532,6 +526,91 @@ pub mod pallet {
             };
 
             Ok(Some(final_weight).into())
+        }
+
+        // #[pallet::weight(<T as Config>::WeightInfo::regenerate_lower_proof())]
+        #[pallet::call_index(6)]
+        #[pallet::weight(0)]
+        pub fn regenerate_lower_proof(
+            origin: OriginFor<T>,
+            lower_id: LowerId,
+        ) -> DispatchResultWithPostInfo {
+            let requester = ensure_signed(origin)?;
+
+            if <LowersReadyToClaim<T>>::contains_key(lower_id) {
+                // Remove the existing lower and resubmit it
+                let lower = <LowersReadyToClaim<T>>::take(lower_id).expect("lower exists");
+                let unbounded_params = lower
+                    .params
+                    .iter()
+                    .map(|(type_bounded, value_bounded)| {
+                        (type_bounded.as_slice().to_vec(), value_bounded.as_slice().to_vec())
+                    })
+                    .collect();
+
+                <LowersPendingProof<T>>::insert(lower_id, lower.params);
+                T::BridgeInterface::generate_lower_proof(
+                    lower_id,
+                    &unbounded_params,
+                    PALLET_ID.to_vec(),
+                )?;
+
+                Self::deposit_event(Event::<T>::RegeneratingLowerProof { lower_id, requester });
+
+                return Ok(().into())
+            }
+
+            Err(Error::<T>::InvalidLowerId)?
+        }
+
+        #[pallet::call_index(7)]
+        #[pallet::weight(0)]
+        pub fn regenerate_failed_lower_proof(
+            origin: OriginFor<T>,
+            lower_id: LowerId,
+        ) -> DispatchResultWithPostInfo {
+            let requester = ensure_signed(origin)?;
+
+            if <FailedLowerProofs<T>>::contains_key(lower_id) {
+                // Remove the existing lower and resubmit it
+                let lower_params = <FailedLowerProofs<T>>::take(lower_id).expect("lower exists");
+                let unbounded_params = lower_params
+                    .iter()
+                    .map(|(type_bounded, value_bounded)| {
+                        (type_bounded.as_slice().to_vec(), value_bounded.as_slice().to_vec())
+                    })
+                    .collect();
+
+                <LowersPendingProof<T>>::insert(lower_id, lower_params);
+                T::BridgeInterface::generate_lower_proof(
+                    lower_id,
+                    &unbounded_params,
+                    PALLET_ID.to_vec(),
+                )?;
+
+                Self::deposit_event(Event::<T>::RegeneratingFailedLowerProof {
+                    lower_id,
+                    requester,
+                });
+
+                return Ok(().into())
+            }
+
+            Err(Error::<T>::InvalidLowerId)?
+        }
+
+        #[pallet::call_index(8)]
+        #[pallet::weight(0)]
+        pub fn set_lower_schedule_period(
+            origin: OriginFor<T>,
+            new_period: T::BlockNumber,
+        ) -> DispatchResult {
+            let _ = ensure_root(origin)?;
+
+            <LowerSchedulePeriod<T>>::put(new_period);
+            Self::deposit_event(Event::<T>::LowerSchedulePeriodUpdated { new_period });
+
+            return Ok(())
         }
     }
 }
@@ -887,7 +966,8 @@ impl<T: Config> Pallet<T> {
         token_id: T::TokenId,
         amount: u128,
         t1_recipient: H160,
-        sender_nonce: Option<u64>) -> DispatchResult {
+        sender_nonce: Option<u64>,
+    ) -> DispatchResult {
         let lower_id = Self::lower_id();
         let schedule_name = ("Lower", &lower_id).using_encoded(sp_io::hashing::blake2_256);
         let call = Box::new(Call::execute_lower {
@@ -1007,4 +1087,37 @@ impl<T: Config> CollatorPayoutDustHandler<BalanceOf<T>> for Pallet<T> {
 pub struct LowerProofData {
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
     pub abi_encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
+}
+
+impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
+    fn process_result(_: u32, _: Vec<u8>, _: bool) -> DispatchResult {
+        Ok(())
+    }
+
+    fn process_lower_proof_result(
+        lower_id: u32,
+        caller_id: Vec<u8>,
+        data: Result<Vec<u8>, ()>,
+    ) -> DispatchResult {
+        if LowersPendingProof::<T>::contains_key(&lower_id) && caller_id == PALLET_ID.to_vec() {
+            let pending_lower = <LowersPendingProof<T>>::take(lower_id).expect("entry exists");
+            if let Ok(lower_data) = data {
+                let lower_proof = LowerProofData {
+                    params: pending_lower,
+                    abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data)
+                        .map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
+                };
+
+                <LowersReadyToClaim<T>>::insert(lower_id, lower_proof);
+                <crate::Pallet<T>>::deposit_event(Event::<T>::LowerReadyToClaim { lower_id });
+            } else {
+                <FailedLowerProofs<T>>::insert(lower_id, pending_lower);
+                <crate::Pallet<T>>::deposit_event(Event::<T>::FailedToGenerateLowerProof {
+                    lower_id,
+                });
+            }
+        }
+
+        Ok(())
+    }
 }
