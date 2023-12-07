@@ -2,13 +2,17 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, request::*, ActiveRequest, RequestQueue, SettledTransactions, AVN};
+use crate::{
+    eth::generate_abi_encoded_lower_proof, mock::*, request::*, ActiveRequest, Request,
+    RequestQueue, SettledTransactions, AVN,
+};
 use codec::{alloc::sync::Arc, Decode, Encode};
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
 use sp_core::{
     ecdsa,
     offchain::testing::{OffchainState, PendingRequest, PoolState},
+    H160,
 };
 use sp_runtime::{testing::UintAuthorityId, traits::Dispatchable};
 
@@ -359,5 +363,73 @@ mod lower_proofs {
             // No active request left
             assert_eq!(true, ActiveRequest::<TestRuntime>::get().is_none());
         });
+    }
+}
+
+mod lower_proof_encoding {
+    use super::*;
+
+    #[test]
+    fn check_lower_message_hash_generation() {
+        let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .for_offchain_worker()
+            .as_externality_with_state();
+
+        ext.execute_with(|| {
+            let lower_id = 0u32;
+            let token_id = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
+            let amount = 10u128;
+            let t1_recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
+
+            let params = vec![
+                (b"address".to_vec(), token_id.as_fixed_bytes().to_vec()),
+                (b"uint256".to_vec(), format!("{}", amount).as_bytes().to_vec()),
+                (b"address".to_vec(), t1_recipient.as_fixed_bytes().to_vec()),
+            ];
+
+            let expected_msg_hash =
+                "81e8e98363d4931985ae6ef91682378da615c423bee7e7ffe86ce442e47dc606";
+
+            add_new_lower_proof_request::<TestRuntime>(lower_id, &params, &vec![]).unwrap();
+            let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
+            assert_eq!(true, active_req.request.id_matches(&lower_id));
+
+            let msg_hash = hex::encode(active_req.confirmation.msg_hash);
+            assert_eq!(msg_hash, expected_msg_hash);
+        })
+    }
+
+    #[test]
+    fn check_lower_proof_encoding() {
+        let (mut ext, _pool_state, _offchain_state) = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .for_offchain_worker()
+            .as_externality_with_state();
+
+        ext.execute_with(|| {
+            let lower_id = 0u32;
+            let token_id = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
+            let amount = 10u128;
+            let t1_recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
+            let params = vec![
+                (b"address".to_vec(), token_id.as_fixed_bytes().to_vec()),
+                (b"uint256".to_vec(), format!("{}", amount).as_bytes().to_vec()),
+                (b"address".to_vec(), t1_recipient.as_fixed_bytes().to_vec()),
+            ];
+
+            add_new_lower_proof_request::<TestRuntime>(lower_id, &params, &vec![]).unwrap();
+            let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
+
+            let expected_abi_encoded_proof = "00000000000000000000000097d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000de7e1091cde63c05aa4d82c62e4c54edbc701b22000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000";
+            if let Request::LowerProof(lower_req) = active_req.request {
+                let abi_encoded_proof = generate_abi_encoded_lower_proof::<TestRuntime>(&lower_req, active_req.confirmation.confirmations).unwrap();
+                assert_eq!(expected_abi_encoded_proof, hex::encode(abi_encoded_proof));
+            } else {
+                assert!(false, "active request is not a lower proof");
+            }
+        })
     }
 }

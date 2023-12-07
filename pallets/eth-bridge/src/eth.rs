@@ -158,8 +158,7 @@ pub fn generate_abi_encoded_lower_proof<T: Config>(
 ) -> Result<Vec<u8>, Error<T>> {
     let concatenated_confirmations = encode_confirmations(&confirmations);
     let mut lower_params = unbound_params(&lower_req.params);
-    // TODO: remove this if token manager is adding it
-    lower_params.push((UINT256.to_vec(), lower_req.lower_id.to_string().into_bytes()));
+
     lower_params.push((BYTES.to_vec(), concatenated_confirmations));
 
     let tokens: Result<Vec<_>, _> = lower_params
