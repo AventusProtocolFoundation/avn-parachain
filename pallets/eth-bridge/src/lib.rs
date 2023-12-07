@@ -64,7 +64,7 @@ use frame_system::{
     offchain::{SendTransactionTypes, SubmitTransaction},
     pallet_prelude::OriginFor,
 };
-use pallet_avn::{self as avn, BridgeInterface, Error as avn_error, BridgeInterfaceNotification};
+use pallet_avn::{self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error};
 
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
@@ -86,14 +86,14 @@ use crate::types::*;
 
 mod benchmarking;
 #[cfg(test)]
+#[path = "tests/lower_proof_tests.rs"]
+mod lower_proof_tests;
+#[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
-#[cfg(test)]
-#[path = "tests/lower_proof_tests.rs"]
-mod lower_proof_tests;
 
 pub use pallet::*;
 pub mod default_weights;
@@ -109,7 +109,7 @@ pub type Author<T> =
 pub type ConfirmationsLimit = ConstU32<100>; // Max confirmations or corroborations (must be > 1/3 of authors)
 pub type FunctionLimit = ConstU32<32>; // Max chars allowed in T1 function name
 pub type CallerIdLimit = ConstU32<50>; // Max chars in caller id value
-// TODO: make these config constants
+                                       // TODO: make these config constants
 pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
@@ -186,8 +186,8 @@ pub mod pallet {
             offenders: Vec<IdentificationTuple<T>>,
         },
         ActiveRequestRemoved {
-            request_id: u32
-        }
+            request_id: u32,
+        },
     }
 
     #[pallet::pallet]
@@ -210,8 +210,6 @@ pub mod pallet {
     #[pallet::getter(fn get_transaction_data)]
     pub type SettledTransactions<T: Config> =
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
-
-
 
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
@@ -342,12 +340,14 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
                 match req.request {
-                    Request::LowerProof(lower_req) if request::has_enough_confirmations(&req) => {
-                        request::complete_lower_proof_request::<T>(&lower_req, req.confirmation.confirmations)?
-                    },
+                    Request::LowerProof(lower_req) if request::has_enough_confirmations(&req) =>
+                        request::complete_lower_proof_request::<T>(
+                            &lower_req,
+                            req.confirmation.confirmations,
+                        )?,
                     _ => {
                         save_active_request_to_storage(req);
-                    }
+                    },
                 }
             }
 
@@ -372,7 +372,10 @@ pub mod pallet {
                     let mut data = tx.tx_data.expect("has data");
 
                     ensure!(data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
-                    ensure!(data.sender == author.account_id, Error::<T>::EthTxHashMustBeSetBySender);
+                    ensure!(
+                        data.sender == author.account_id,
+                        Error::<T>::EthTxHashMustBeSetBySender
+                    );
 
                     data.eth_tx_hash = eth_tx_hash;
                     tx.tx_data = Some(data);
@@ -439,9 +442,7 @@ pub mod pallet {
 
         #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_active_request())]
-        pub fn remove_active_request(
-            origin: OriginFor<T>,
-        ) -> DispatchResultWithPostInfo {
+        pub fn remove_active_request(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             let req = ActiveRequest::<T>::get();
@@ -451,11 +452,19 @@ pub mod pallet {
             match req.expect("request is not empty").request {
                 Request::Send(send_req) => {
                     request_id = send_req.tx_id;
-                    let _ = T::BridgeInterfaceNotification::process_result(send_req.tx_id, send_req.caller_id.clone().into(), false);
+                    let _ = T::BridgeInterfaceNotification::process_result(
+                        send_req.tx_id,
+                        send_req.caller_id.clone().into(),
+                        false,
+                    );
                 },
                 Request::LowerProof(lower_req) => {
                     request_id = lower_req.lower_id;
-                    let _ = T::BridgeInterfaceNotification::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()));
+                    let _ = T::BridgeInterfaceNotification::process_lower_proof_result(
+                        lower_req.lower_id,
+                        lower_req.caller_id.clone().into(),
+                        Err(()),
+                    );
                 },
             };
 
@@ -509,15 +518,13 @@ pub mod pallet {
             let has_enough_confirmations = request::has_enough_confirmations::<T>(&req);
 
             match req.request {
-                Request::LowerProof(lower_req) => {
+                Request::LowerProof(lower_req) =>
                     if !has_enough_confirmations {
-                        let confirmation =
-                            eth::sign_msg_hash::<T>(&req.confirmation.msg_hash)?;
+                        let confirmation = eth::sign_msg_hash::<T>(&req.confirmation.msg_hash)?;
                         if !req.confirmation.confirmations.contains(&confirmation) {
                             call::add_confirmation::<T>(lower_req.lower_id, confirmation, author);
                         }
-                    }
-                },
+                    },
                 Request::Send(_) => {
                     let tx = req.as_active_tx()?;
                     let self_is_sender = author.account_id == tx.data.sender;
@@ -552,7 +559,8 @@ pub mod pallet {
         let tx_is_past_expiry = util::time_now::<T>() > tx.data.expiry;
 
         if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
-            let lock_name = format!("eth_bridge_ocw::send::{}", tx.request.tx_id).as_bytes().to_vec();
+            let lock_name =
+                format!("eth_bridge_ocw::send::{}", tx.request.tx_id).as_bytes().to_vec();
             let mut lock = AVN::<T>::get_ocw_locker(&lock_name);
 
             // Protect against sending more than once
@@ -670,13 +678,14 @@ pub mod pallet {
             params: &Vec<(Vec<u8>, Vec<u8>)>,
             caller_id: Vec<u8>,
         ) -> Result<(), DispatchError> {
-            // Note: we are not checking the queue for duplicates because we trust the calling pallet
+            // Note: we are not checking the queue for duplicates because we trust the calling
+            // pallet
             request::add_new_lower_proof_request::<T>(lower_id, params, &caller_id)?;
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
                 lower_id,
                 params: params.to_vec(),
-                caller_id
+                caller_id,
             });
 
             Ok(())

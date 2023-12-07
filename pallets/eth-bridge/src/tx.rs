@@ -11,8 +11,12 @@ fn complete_transaction<T: Config>(
     success: bool,
 ) -> Result<(), Error<T>> {
     // Alert the originating pallet:
-    T::BridgeInterfaceNotification::process_result(tx.request.tx_id, tx.request.caller_id.into(), success)
-        .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
+    T::BridgeInterfaceNotification::process_result(
+        tx.request.tx_id,
+        tx.request.caller_id.into(),
+        success,
+    )
+    .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
 
     tx.data.tx_succeeded = success;
 
@@ -64,7 +68,9 @@ pub fn finalize_state<T: Config>(
 ) -> Result<(), Error<T>> {
     // if the transaction failed and the tx hash is missing or pointing to a different transaction,
     // replay transaction
-    if !success && util::has_enough_corroborations::<T>(tx.data.invalid_tx_hash_corroborations.len()) {
+    if !success &&
+        util::has_enough_corroborations::<T>(tx.data.invalid_tx_hash_corroborations.len())
+    {
         // raise an offence on the "sender" because the tx_hash they provided was invalid
         return Ok(replay_send_request(tx)?)
     }

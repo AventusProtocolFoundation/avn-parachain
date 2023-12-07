@@ -7,10 +7,7 @@ use codec::alloc::sync::Arc;
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
 use sp_core::offchain::testing::PoolState;
-use sp_runtime::{
-    offchain::storage::StorageValueRef,
-    testing::{UintAuthorityId},
-};
+use sp_runtime::{offchain::storage::StorageValueRef, testing::UintAuthorityId};
 
 type MockValidator = Validator<UintAuthorityId, u64>;
 

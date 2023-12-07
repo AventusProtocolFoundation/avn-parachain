@@ -3,7 +3,7 @@ use crate::{
     util::{try_process_query_result, unbound_params},
     Author, Config, AVN,
 };
-use ethabi::{Function, Int, Param, ParamType, Token, Address};
+use ethabi::{Address, Function, Int, Param, ParamType, Token};
 use pallet_avn::AccountToBytesConverter;
 use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
 use sp_core::{ecdsa, Get, H256};
@@ -120,7 +120,9 @@ pub fn generate_msg_hash<T: pallet::Config>(
     Ok(H256::from(msg_hash))
 }
 
-pub fn encode_confirmations(confirmations: &BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Vec<u8> {
+pub fn encode_confirmations(
+    confirmations: &BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
+) -> Vec<u8> {
     let mut concatenated_confirmations = Vec::new();
     for conf in confirmations {
         concatenated_confirmations.extend_from_slice(conf.as_ref());
@@ -128,7 +130,9 @@ pub fn encode_confirmations(confirmations: &BoundedVec<ecdsa::Signature, Confirm
     concatenated_confirmations
 }
 
-pub fn generate_send_calldata<T: Config>(tx: &ActiveTransactionData<T>) -> Result<Vec<u8>, Error<T>> {
+pub fn generate_send_calldata<T: Config>(
+    tx: &ActiveTransactionData<T>,
+) -> Result<Vec<u8>, Error<T>> {
     let concatenated_confirmations = encode_confirmations(&tx.confirmation.confirmations);
     let mut full_params = unbound_params(&tx.data.eth_tx_params);
     full_params.push((BYTES.to_vec(), concatenated_confirmations));
@@ -136,7 +140,10 @@ pub fn generate_send_calldata<T: Config>(tx: &ActiveTransactionData<T>) -> Resul
     abi_encode_function(&tx.request.function_name.as_slice(), &full_params)
 }
 
-fn generate_corroborate_calldata<T: Config>(tx_id: EthereumId, expiry: u64) -> Result<Vec<u8>, Error<T>> {
+fn generate_corroborate_calldata<T: Config>(
+    tx_id: EthereumId,
+    expiry: u64,
+) -> Result<Vec<u8>, Error<T>> {
     let params = vec![
         (UINT32.to_vec(), tx_id.to_string().into_bytes()),
         (UINT256.to_vec(), expiry.to_string().into_bytes()),
@@ -147,8 +154,8 @@ fn generate_corroborate_calldata<T: Config>(tx_id: EthereumId, expiry: u64) -> R
 
 pub fn generate_abi_encoded_lower_proof<T: Config>(
     lower_req: &LowerProofRequestData,
-    confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Result<Vec<u8>, Error<T>>
-{
+    confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
+) -> Result<Vec<u8>, Error<T>> {
     let concatenated_confirmations = encode_confirmations(&confirmations);
     let mut lower_params = unbound_params(&lower_req.params);
     // TODO: remove this if token manager is adding it
@@ -158,7 +165,8 @@ pub fn generate_abi_encoded_lower_proof<T: Config>(
     let tokens: Result<Vec<_>, _> = lower_params
         .iter()
         .map(|(type_bytes, value_bytes)| {
-            let param_type = to_param_type(type_bytes).ok_or_else(|| Error::<T>::LowerParamsError)?;
+            let param_type =
+                to_param_type(type_bytes).ok_or_else(|| Error::<T>::LowerParamsError)?;
             to_token_type(&param_type, value_bytes)
         })
         .collect();

@@ -132,7 +132,7 @@ fn setup_active_tx<T: Config>(
         tx_id,
         function_name: function_name.clone(),
         params: bound_params(request_params.to_vec()),
-        caller_id: BoundedVec::<_, CallerIdLimit>::try_from(vec![]).unwrap()
+        caller_id: BoundedVec::<_, CallerIdLimit>::try_from(vec![]).unwrap(),
     };
 
     ActiveRequest::<T>::put(ActiveRequestData {

@@ -671,8 +671,16 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
 }
 
 pub trait BridgeInterface {
-    fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)], caller_id: Vec<u8>) -> Result<u32, DispatchError>;
-    fn generate_lower_proof(lower_id: u32, params: &Vec<(Vec<u8>, Vec<u8>)>, caller_id: Vec<u8>) -> Result<(), DispatchError>;
+    fn publish(
+        function_name: &[u8],
+        params: &[(Vec<u8>, Vec<u8>)],
+        caller_id: Vec<u8>,
+    ) -> Result<u32, DispatchError>;
+    fn generate_lower_proof(
+        lower_id: u32,
+        params: &Vec<(Vec<u8>, Vec<u8>)>,
+        caller_id: Vec<u8>,
+    ) -> Result<(), DispatchError>;
 }
 
 pub trait BridgeInterfaceNotification {
@@ -689,7 +697,11 @@ impl BridgeInterfaceNotification for Tuple {
         Ok(())
     }
 
-    fn process_lower_proof_result(_lower_id: u32, _caller_id: Vec<u8>, _abi_encoded_lower: Result<Vec<u8>, ()>) -> DispatchResult {
+    fn process_lower_proof_result(
+        _lower_id: u32,
+        _caller_id: Vec<u8>,
+        _abi_encoded_lower: Result<Vec<u8>, ()>,
+    ) -> DispatchResult {
         for_tuples!( #( Tuple::process_lower_proof_result(_lower_id, _caller_id.clone(), _abi_encoded_lower.clone())?; )* );
         Ok(())
     }

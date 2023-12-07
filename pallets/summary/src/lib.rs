@@ -1109,8 +1109,9 @@ pub mod pallet {
                     let function_name: &[u8] = b"publishRoot";
                     let params =
                         vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
-                    let tx_id = T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
-                        .map_err(|e| DispatchError::Other(e.into()))?;
+                    let tx_id =
+                        T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
+                            .map_err(|e| DispatchError::Other(e.into()))?;
 
                     <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
                         root.tx_id = Some(tx_id)
@@ -1366,7 +1367,10 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
                 <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
                     root.is_finalised = true;
                 });
-                log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
+                log::info!(
+                    "✅  Transaction with ID {} was successfully published to Ethereum.",
+                    tx_id
+                );
             } else {
                 log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
             }

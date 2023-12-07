@@ -1,13 +1,8 @@
 // Copyright 2023 Aventus Network Systems (UK) Ltd.
 
 #![cfg(test)]
-use crate::{
-    eth::generate_send_calldata,
-    mock::*,
-    request::*,
-    *,
-};
-use frame_support::{assert_err, assert_ok, assert_noop, error::BadOrigin};
+use crate::{eth::generate_send_calldata, mock::*, request::*, *};
+use frame_support::{assert_err, assert_noop, assert_ok, error::BadOrigin};
 use sp_runtime::DispatchError;
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 const REWARDS: &[u8] = b"15043665996000000000";
@@ -81,7 +76,8 @@ fn run_checks(
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
 
         let tx_id = add_new_send_request::<TestRuntime>(&function_name, &params, &vec![]).unwrap();
-        let active_tx = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+        let active_tx =
+            ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
         assert_eq!(tx_id, active_tx.request.tx_id);
 
         let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
@@ -219,7 +215,12 @@ mod remove_active_request {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup_context();
-            let tx_id = add_new_send_request::<TestRuntime>(&b"removeAuthor".to_vec(), &context.request_params, &vec![]).unwrap();
+            let tx_id = add_new_send_request::<TestRuntime>(
+                &b"removeAuthor".to_vec(),
+                &context.request_params,
+                &vec![],
+            )
+            .unwrap();
             // Show that we have an active request
             let _ = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
 
@@ -240,14 +241,16 @@ mod remove_active_request {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup_context();
-            let _ = add_new_send_request::<TestRuntime>(&b"removeAuthor".to_vec(), &context.request_params, &vec![]).unwrap();
+            let _ = add_new_send_request::<TestRuntime>(
+                &b"removeAuthor".to_vec(),
+                &context.request_params,
+                &vec![],
+            )
+            .unwrap();
             // Show that we have an active request
             let _ = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
 
-            assert_noop!(
-                EthBridge::remove_active_request(RawOrigin::None.into()),
-                BadOrigin
-            );
+            assert_noop!(EthBridge::remove_active_request(RawOrigin::None.into()), BadOrigin);
         });
     }
 
@@ -335,9 +338,12 @@ mod add_eth_tx_hash {
     use super::*;
     use frame_system::RawOrigin;
 
-    fn setup_active_transaction_data(setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>) {
+    fn setup_active_transaction_data(
+        setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>,
+    ) {
         if let Some(setup_fn) = setup_fn {
-            let mut active_tx = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+            let mut active_tx =
+                ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
             setup_fn(&mut active_tx);
             ActiveRequest::<TestRuntime>::put(ActiveRequestData {
                 request: types::Request::Send(active_tx.request),
@@ -434,7 +440,10 @@ mod add_corroboration {
             context.test_signature.clone(),
         ));
 
-        ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present").as_active_tx().unwrap()
+        ActiveRequest::<TestRuntime>::get()
+            .expect("Active transaction should be present")
+            .as_active_tx()
+            .unwrap()
     }
 
     #[test]
@@ -458,7 +467,9 @@ mod add_corroboration {
             ));
 
             let active_tx = ActiveRequest::<TestRuntime>::get()
-                .expect("Active transaction should be present").as_active_tx().unwrap();
+                .expect("Active transaction should be present")
+                .as_active_tx()
+                .unwrap();
 
             assert_eq!(active_tx.data.valid_tx_hash_corroborations.len(), 0);
             assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);

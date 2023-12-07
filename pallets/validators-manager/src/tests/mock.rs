@@ -251,7 +251,11 @@ impl pallet_eth_bridge::Config for TestRuntime {
 }
 
 impl BridgeInterfaceNotification for TestRuntime {
-    fn process_result(_tx_id: u32, _caller_id: Vec<u8>, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+    fn process_result(
+        _tx_id: u32,
+        _caller_id: Vec<u8>,
+        _tx_succeeded: bool,
+    ) -> sp_runtime::DispatchResult {
         Ok(())
     }
 }

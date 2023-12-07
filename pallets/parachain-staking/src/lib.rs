@@ -122,8 +122,7 @@ pub mod pallet {
         proxy_methods::*,
         set::OrderedSet,
         types::*,
-        WeightInfo, AVN, MAX_OFFENDERS,
-        PALLET_ID,
+        WeightInfo, AVN, MAX_OFFENDERS, PALLET_ID,
     };
     pub use frame_support::{
         dispatch::{GetDispatchInfo, PostDispatchInfo},
@@ -139,8 +138,9 @@ pub mod pallet {
         pallet_prelude::*,
     };
     pub use pallet_avn::{
-        self as avn, AccountToBytesConverter, BridgeInterface, CollatorPayoutDustHandler,
-        Error as avn_error, BridgeInterfaceNotification, OnGrowthLiftedHandler, ProcessedEventsChecker,
+        self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification,
+        CollatorPayoutDustHandler, Error as avn_error, OnGrowthLiftedHandler,
+        ProcessedEventsChecker,
     };
 
     pub use sp_avn_common::{

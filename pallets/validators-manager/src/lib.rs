@@ -26,9 +26,9 @@ use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_avn::{
-    self as avn, AccountToBytesConverter, DisabledValidatorChecker, Enforcer,
-    EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
-    ValidatorRegistrationNotifier, BridgeInterfaceNotification
+    self as avn, AccountToBytesConverter, BridgeInterfaceNotification, DisabledValidatorChecker,
+    Enforcer, EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
+    ValidatorRegistrationNotifier,
 };
 
 use sp_avn_common::{
@@ -411,8 +411,12 @@ impl<T: Config> Pallet<T> {
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
         ];
-        let tx_id = <T as pallet::Config>::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
-            .map_err(|e| DispatchError::Other(e.into()))?;
+        let tx_id = <T as pallet::Config>::BridgeInterface::publish(
+            function_name,
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|e| DispatchError::Other(e.into()))?;
 
         let new_collator_id =
             <T as SessionConfig>::ValidatorIdOf::convert(collator_account_id.clone())
@@ -484,8 +488,12 @@ impl<T: Config> Pallet<T> {
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
         ];
-        let tx_id = <T as pallet::Config>::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
-            .map_err(|e| DispatchError::Other(e.into()))?;
+        let tx_id = <T as pallet::Config>::BridgeInterface::publish(
+            function_name,
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|e| DispatchError::Other(e.into()))?;
 
         TotalIngresses::<T>::put(ingress_counter);
         <ValidatorActions<T>>::insert(
@@ -615,11 +623,18 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
         // TODO: Update data structure to use tx_id as key
         if caller_id == PALLET_ID.to_vec() {
             if succeeded {
-                log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
-                Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumSucceeded { tx_id });
+                log::info!(
+                    "✅  Transaction with ID {} was successfully published to Ethereum.",
+                    tx_id
+                );
+                Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumSucceeded {
+                    tx_id,
+                });
             } else {
                 log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
-                Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumFailed { tx_id });
+                Self::deposit_event(Event::<T>::PublishingValidatorActionOnEthereumFailed {
+                    tx_id,
+                });
             }
         }
 

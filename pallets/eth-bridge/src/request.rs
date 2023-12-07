@@ -1,6 +1,6 @@
 use super::*;
 use crate::{util::bound_params, Config};
-use frame_support::{BoundedVec, log};
+use frame_support::{log, BoundedVec};
 use sp_core::Get;
 
 pub fn add_new_send_request<T: Config>(
@@ -22,7 +22,7 @@ pub fn add_new_send_request<T: Config>(
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
         caller_id: BoundedVec::<_, CallerIdLimit>::try_from(caller_id.clone())
-            .map_err(|_| Error::<T>::CallerIdLengthExceeded)?
+            .map_err(|_| Error::<T>::CallerIdLengthExceeded)?,
     };
 
     if ActiveRequest::<T>::get().is_some() {
@@ -37,9 +37,8 @@ pub fn add_new_send_request<T: Config>(
 pub fn add_new_lower_proof_request<T: Config>(
     lower_id: LowerId,
     params: &Vec<(Vec<u8>, Vec<u8>)>,
-    caller_id: &Vec<u8>
+    caller_id: &Vec<u8>,
 ) -> Result<(), Error<T>> {
-
     let mut extended_params = params.clone();
     extended_params.push((eth::UINT256.to_vec(), lower_id.to_string().into_bytes()));
 
@@ -47,7 +46,7 @@ pub fn add_new_lower_proof_request<T: Config>(
         lower_id,
         params: bound_params(&extended_params.to_vec())?,
         caller_id: BoundedVec::<_, CallerIdLimit>::try_from(caller_id.clone())
-            .map_err(|_| Error::<T>::CallerIdLengthExceeded)?
+            .map_err(|_| Error::<T>::CallerIdLengthExceeded)?,
     };
 
     if ActiveRequest::<T>::get().is_some() {
@@ -69,7 +68,11 @@ pub fn process_next_request<T: Config>() {
                 if let Err(e) = tx::set_up_active_tx::<T>(send_req.clone()) {
                     // If we failed to setup the next request, notify caller
                     log::error!(target: "runtime::eth-bridge", "Error processing send request from queue: {:?}", e);
-                    let _ = T::BridgeInterfaceNotification::process_result(send_req.tx_id, send_req.caller_id.clone().into(), false);
+                    let _ = T::BridgeInterfaceNotification::process_result(
+                        send_req.tx_id,
+                        send_req.caller_id.clone().into(),
+                        false,
+                    );
                     process_next_request::<T>();
                 }
             },
@@ -77,7 +80,11 @@ pub fn process_next_request<T: Config>() {
                 if let Err(e) = set_up_active_lower_proof::<T>(lower_req.clone()) {
                     // If we failed to setup the next request, notify caller
                     log::error!(target: "runtime::eth-bridge", "Error processing lower proof request from queue: {:?}", e);
-                    let _ = T::BridgeInterfaceNotification::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()));
+                    let _ = T::BridgeInterfaceNotification::process_lower_proof_result(
+                        lower_req.lower_id,
+                        lower_req.caller_id.clone().into(),
+                        Err(()),
+                    );
                     process_next_request::<T>();
                 }
             },
@@ -94,13 +101,24 @@ pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
     }
 }
 
-pub fn complete_lower_proof_request<T: Config>(lower_req: &LowerProofRequestData, confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>) -> Result<(), Error<T>> {
+pub fn complete_lower_proof_request<T: Config>(
+    lower_req: &LowerProofRequestData,
+    confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
+) -> Result<(), Error<T>> {
     let result = match eth::generate_abi_encoded_lower_proof::<T>(lower_req, confirmations) {
-        Ok(lower_proof) => T::BridgeInterfaceNotification::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Ok(lower_proof)),
+        Ok(lower_proof) => T::BridgeInterfaceNotification::process_lower_proof_result(
+            lower_req.lower_id,
+            lower_req.caller_id.clone().into(),
+            Ok(lower_proof),
+        ),
         Err(e) => {
             log::error!(target: "runtime::eth-bridge", "Error generating abi encoded lower proof: {:?}", e);
-            T::BridgeInterfaceNotification::process_lower_proof_result(lower_req.lower_id, lower_req.caller_id.clone().into(), Err(()))
-        }
+            T::BridgeInterfaceNotification::process_lower_proof_result(
+                lower_req.lower_id,
+                lower_req.caller_id.clone().into(),
+                Err(()),
+            )
+        },
     };
 
     if let Err(e) = result {

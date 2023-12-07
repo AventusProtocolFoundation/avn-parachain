@@ -5,14 +5,13 @@ use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
+use parking_lot::RwLock;
 use sp_core::{
-    ConstU32, ConstU64, H256,
     offchain::{
-        testing::{
-            OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt,
-        },
+        testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
+    ConstU32, ConstU64, H256,
 };
 use sp_runtime::{
     testing::{Header, TestSignature, TestXt, UintAuthorityId},
@@ -20,7 +19,6 @@ use sp_runtime::{
     Perbill,
 };
 use sp_staking::offence::OffenceError;
-use parking_lot::RwLock;
 use std::{cell::RefCell, convert::From, sync::Arc};
 
 thread_local! {
@@ -162,7 +160,12 @@ fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignat
 }
 
 pub fn setup_eth_tx_request(context: &Context) -> EthereumId {
-    add_new_send_request::<TestRuntime>(&context.request_function_name, &context.request_params, &vec![]).unwrap()
+    add_new_send_request::<TestRuntime>(
+        &context.request_function_name,
+        &context.request_params,
+        &vec![],
+    )
+    .unwrap()
 }
 
 pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
@@ -213,7 +216,8 @@ pub fn setup_context() -> Context {
         lower_id: 10u32,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "80e558b8aa9c55659b4a677593bf2934faa5f9e4aaf82f25a6bd21b41c53f088".to_string()
+        expected_lower_msg_hash: "80e558b8aa9c55659b4a677593bf2934faa5f9e4aaf82f25a6bd21b41c53f088"
+            .to_string(),
     }
 }
 
@@ -364,7 +368,11 @@ impl ExtBuilder {
 }
 
 impl BridgeInterfaceNotification for TestRuntime {
-    fn process_result(tx_id: EthereumId, _caller_id: Vec<u8>, tx_succeeded: bool) -> sp_runtime::DispatchResult {
+    fn process_result(
+        tx_id: EthereumId,
+        _caller_id: Vec<u8>,
+        tx_succeeded: bool,
+    ) -> sp_runtime::DispatchResult {
         if !tx_succeeded {
             FAILEDREQUESTS.with(|l| l.borrow_mut().push(tx_id));
         }
@@ -372,7 +380,11 @@ impl BridgeInterfaceNotification for TestRuntime {
         Ok(())
     }
 
-    fn process_lower_proof_result(lower_id: u32, _caller_id: Vec<u8>, data: Result<Vec<u8>, ()>) -> sp_runtime::DispatchResult {
+    fn process_lower_proof_result(
+        lower_id: u32,
+        _caller_id: Vec<u8>,
+        data: Result<Vec<u8>, ()>,
+    ) -> sp_runtime::DispatchResult {
         if let Ok(_) = data {
             LOWERSREADYTOCLAIM.with(|l| l.borrow_mut().push(lower_id));
         } else {
