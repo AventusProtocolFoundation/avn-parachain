@@ -7,7 +7,7 @@
 
 use crate::{Pallet, *};
 
-use frame_benchmarking::{account, benchmarks, whitelisted_caller, impl_benchmark_test_suite};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
@@ -162,21 +162,6 @@ fn setup_active_tx<T: Config>(
         }),
         last_updated: 0u32.into(),
     });
-}
-
-fn setup_lowers_to_claim<T: Config>(
-    lower_id: LowerId,
-) {
-    let mut params = vec![];
-    params.push((b"address".to_vec(), H160::zero().as_fixed_bytes().to_vec()));
-    params.push((b"uint256".to_vec(), lower_id.to_string().into_bytes()));
-
-    let lower_proof_data = LowerProofData {
-        params: bound_params(params.clone()),
-        abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(params.encode()).unwrap(),
-    };
-
-    LowersReadyToClaim::<T>::insert(lower_id, lower_proof_data);
 }
 
 #[cfg(test)]
