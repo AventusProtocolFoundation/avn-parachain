@@ -278,9 +278,15 @@ impl<T: Config> Pallet<T> {
             .nth(0)
     }
 
+    // Minimum number required to reach the threshold.
     pub fn quorum() -> u32 {
         let total_num_of_validators = Self::validators().len() as u32;
         Self::calculate_quorum(total_num_of_validators)
+    }
+
+    pub fn supermajority_quorum() -> u32 {
+        let total_num_of_validators = Self::validators().len() as u32;
+        total_num_of_validators * 2 / 3
     }
 
     pub fn calculate_quorum(num: u32) -> u32 {
@@ -664,12 +670,41 @@ impl<Balance> CollatorPayoutDustHandler<Balance> for () {
     fn handle_dust(_imbalance: Balance) {}
 }
 
-pub trait BridgePublisher {
-    fn publish(function_name: &[u8], params: &[(Vec<u8>, Vec<u8>)]) -> Result<u32, DispatchError>;
+pub trait BridgeInterface {
+    fn publish(
+        function_name: &[u8],
+        params: &[(Vec<u8>, Vec<u8>)],
+        caller_id: Vec<u8>,
+    ) -> Result<u32, DispatchError>;
+    fn generate_lower_proof(
+        lower_id: u32,
+        params: &Vec<(Vec<u8>, Vec<u8>)>,
+        caller_id: Vec<u8>,
+    ) -> Result<(), DispatchError>;
 }
 
-pub trait OnBridgePublisherResult {
-    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult;
+pub trait BridgeInterfaceNotification {
+    fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult;
+    fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
+        Ok(())
+    }
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl BridgeInterfaceNotification for Tuple {
+    fn process_result(_tx_id: u32, _caller_id: Vec<u8>, _succeeded: bool) -> DispatchResult {
+        for_tuples!( #( Tuple::process_result(_tx_id, _caller_id.clone(), _succeeded)?; )* );
+        Ok(())
+    }
+
+    fn process_lower_proof_result(
+        _lower_id: u32,
+        _caller_id: Vec<u8>,
+        _abi_encoded_lower: Result<Vec<u8>, ()>,
+    ) -> DispatchResult {
+        for_tuples!( #( Tuple::process_lower_proof_result(_lower_id, _caller_id.clone(), _abi_encoded_lower.clone())?; )* );
+        Ok(())
+    }
 }
 
 #[cfg(test)]

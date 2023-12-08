@@ -23,7 +23,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-use avn::OnBridgePublisherResult;
+use avn::BridgeInterfaceNotification;
 use core::convert::TryInto;
 use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, weights::Weight};
 use frame_system::{
@@ -50,7 +50,7 @@ use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryO
 
 pub type EthereumTransactionId = u32;
 
-const NAME: &'static [u8; 7] = b"summary";
+const PALLET_ID: &'static [u8; 7] = b"summary";
 const UPDATE_BLOCK_NUMBER_CONTEXT: &'static [u8] = b"update_last_processed_block_number";
 const ADVANCE_SLOT_CONTEXT: &'static [u8] = b"advance_slot";
 
@@ -75,7 +75,7 @@ use crate::vote::*;
 pub mod challenge;
 use crate::challenge::*;
 
-use pallet_avn::BridgePublisher;
+use pallet_avn::BridgeInterface;
 
 mod benchmarking;
 pub mod default_weights;
@@ -121,7 +121,7 @@ pub mod pallet {
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
 
-        type BridgePublisher: avn::BridgePublisher;
+        type BridgeInterface: avn::BridgeInterface;
     }
 
     #[pallet::pallet]
@@ -590,7 +590,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn offchain_worker(block_number: T::BlockNumber) {
             log::info!("🚧 🚧 Running offchain worker for block: {:?}", block_number);
-            let setup_result = AVN::<T>::pre_run_setup(block_number, NAME.to_vec());
+            let setup_result = AVN::<T>::pre_run_setup(block_number, PALLET_ID.to_vec());
             if let Err(e) = setup_result {
                 match e {
                     _ if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => {
@@ -1109,8 +1109,9 @@ pub mod pallet {
                     let function_name: &[u8] = b"publishRoot";
                     let params =
                         vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
-                    let tx_id = T::BridgePublisher::publish(function_name, &params)
-                        .map_err(|e| DispatchError::Other(e.into()))?;
+                    let tx_id =
+                        T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
+                            .map_err(|e| DispatchError::Other(e.into()))?;
 
                     <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
                         root.tx_id = Some(tx_id)
@@ -1358,16 +1359,21 @@ impl<AccountId> Default for RootData<AccountId> {
         }
     }
 }
-impl<T: Config> OnBridgePublisherResult for Pallet<T> {
-    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
-        if succeeded {
-            let root_id = <TxIdToRoot<T>>::get(tx_id);
-            <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
-                root.is_finalised = true;
-            });
-            log::info!("✅  Transaction with ID {} was successfully published to Ethereum.", tx_id);
-        } else {
-            log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
+    fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
+        if caller_id == PALLET_ID.to_vec() && <TxIdToRoot<T>>::contains_key(tx_id) {
+            if succeeded {
+                let root_id = <TxIdToRoot<T>>::get(tx_id);
+                <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
+                    root.is_finalised = true;
+                });
+                log::info!(
+                    "✅  Transaction with ID {} was successfully published to Ethereum.",
+                    tx_id
+                );
+            } else {
+                log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+            }
         }
 
         Ok(())

@@ -6875,6 +6875,7 @@ dependencies = [
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec 3.2.1",
+ "parking_lot 0.12.1",
  "rand 0.7.3",
  "scale-info",
  "sp-application-crypto",

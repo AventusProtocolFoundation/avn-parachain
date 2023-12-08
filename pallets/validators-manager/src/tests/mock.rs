@@ -11,7 +11,7 @@ use pallet_balances as balances;
 use pallet_eth_bridge::offence::CorroborationOffence;
 use pallet_parachain_staking::{self as parachain_staking};
 
-use pallet_avn::OnBridgePublisherResult;
+use pallet_avn::BridgeInterfaceNotification;
 use pallet_timestamp as timestamp;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
@@ -160,7 +160,7 @@ impl Config for TestRuntime {
     type AccountToBytesConvert = AVN;
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = ();
-    type BridgePublisher = EthBridge;
+    type BridgeInterface = EthBridge;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -246,12 +246,16 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
     type AccountToBytesConvert = AVN;
-    type OnBridgePublisherResult = Self;
+    type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
 }
 
-impl OnBridgePublisherResult for TestRuntime {
-    fn process_result(_tx_id: u32, _tx_succeeded: bool) -> sp_runtime::DispatchResult {
+impl BridgeInterfaceNotification for TestRuntime {
+    fn process_result(
+        _tx_id: u32,
+        _caller_id: Vec<u8>,
+        _tx_succeeded: bool,
+    ) -> sp_runtime::DispatchResult {
         Ok(())
     }
 }
@@ -313,7 +317,7 @@ impl parachain_staking::Config for TestRuntime {
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
-    type BridgePublisher = EthBridge;
+    type BridgeInterface = EthBridge;
 }
 
 /// An extrinsic type used for tests.

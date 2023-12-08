@@ -102,7 +102,7 @@ pub use pallet::*;
 pub use types::*;
 
 pub type AVN<T> = pallet_avn::Pallet<T>;
-
+pub const PALLET_ID: &'static [u8; 17] = b"parachain_staking";
 pub const MAX_OFFENDERS: u32 = 2;
 
 #[pallet]
@@ -122,7 +122,7 @@ pub mod pallet {
         proxy_methods::*,
         set::OrderedSet,
         types::*,
-        WeightInfo, AVN, MAX_OFFENDERS,
+        WeightInfo, AVN, MAX_OFFENDERS, PALLET_ID,
     };
     pub use frame_support::{
         dispatch::{GetDispatchInfo, PostDispatchInfo},
@@ -138,8 +138,9 @@ pub mod pallet {
         pallet_prelude::*,
     };
     pub use pallet_avn::{
-        self as avn, AccountToBytesConverter, BridgePublisher, CollatorPayoutDustHandler,
-        Error as avn_error, OnBridgePublisherResult, OnGrowthLiftedHandler, ProcessedEventsChecker,
+        self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification,
+        CollatorPayoutDustHandler, Error as avn_error, OnGrowthLiftedHandler,
+        ProcessedEventsChecker,
     };
 
     pub use sp_avn_common::{
@@ -248,7 +249,7 @@ pub mod pallet {
 
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
 
-        type BridgePublisher: pallet_avn::BridgePublisher;
+        type BridgeInterface: pallet_avn::BridgeInterface;
     }
 
     #[pallet::error]
@@ -2445,7 +2446,7 @@ pub mod pallet {
                 ),
                 (b"uint32".to_vec(), format!("{}", growth_period).as_bytes().to_vec()),
             ];
-            let tx_id = T::BridgePublisher::publish(function_name, &params)
+            let tx_id = T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
             <LastTriggeredGrowthPeriod<T>>::put(growth_period);
@@ -2501,10 +2502,10 @@ pub mod pallet {
     }
 }
 
-impl<T: Config> OnBridgePublisherResult for Pallet<T> {
-    fn process_result(tx_id: u32, succeeded: bool) -> DispatchResult {
+impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
+    fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
         // The tx_id might not be relevant for this pallet so we must not error if we don't know it.
-        if <PublishedGrowth<T>>::contains_key(tx_id) {
+        if caller_id == PALLET_ID.to_vec() && <PublishedGrowth<T>>::contains_key(tx_id) {
             let growth_period = <PublishedGrowth<T>>::get(tx_id);
             <Growth<T>>::mutate(growth_period, |growth| growth.triggered = Some(succeeded));
         }
