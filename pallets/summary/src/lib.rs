@@ -58,11 +58,6 @@ const ADVANCE_SLOT_CONTEXT: &'static [u8] = b"advance_slot";
 const ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY: u8 = 10;
 const ERROR_CODE_INVALID_ROOT_RANGE: u8 = 30;
 
-// used in benchmarks and weights calculation only
-const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
-const MAX_OFFENDERS: u32 = 2; // maximum of offenders need to be less one third of minimum validators so the benchmark won't panic
-const MAX_NUMBER_OF_ROOT_DATA_PER_RANGE: u32 = 2;
-
 const MIN_SCHEDULE_PERIOD: u32 = 120; // 6 MINUTES
 const DEFAULT_SCHEDULE_PERIOD: u32 = 28800; // 1 DAY
 const MIN_VOTING_PERIOD: u32 = 100; // 5 MINUTES
@@ -385,10 +380,7 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::record_summary_calculation(
-            MAX_VALIDATOR_ACCOUNT_IDS,
-            MAX_NUMBER_OF_ROOT_DATA_PER_RANGE
-        ))]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::record_summary_calculation())]
         #[pallet::call_index(1)]
         pub fn record_summary_calculation(
             origin: OriginFor<T>,
@@ -451,8 +443,8 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::approve_root_with_end_voting(MAX_VALIDATOR_ACCOUNT_IDS, MAX_OFFENDERS).max(
-            <T as Config>::WeightInfo::approve_root_without_end_voting(MAX_VALIDATOR_ACCOUNT_IDS)
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::approve_root_with_end_voting().max(
+            <T as Config>::WeightInfo::approve_root_without_end_voting()
         ))]
         #[pallet::call_index(2)]
         pub fn approve_root(
@@ -477,8 +469,8 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::reject_root_with_end_voting(MAX_VALIDATOR_ACCOUNT_IDS, MAX_OFFENDERS).max(
-            <T as Config>::WeightInfo::reject_root_without_end_voting(MAX_VALIDATOR_ACCOUNT_IDS)
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::reject_root_with_end_voting().max(
+            <T as Config>::WeightInfo::reject_root_without_end_voting()
         ))]
         #[pallet::call_index(3)]
         pub fn reject_root(
@@ -500,8 +492,8 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::end_voting_period_with_rejected_valid_votes(MAX_OFFENDERS).max(
-            <T as Config>::WeightInfo::end_voting_period_with_approved_invalid_votes(MAX_OFFENDERS)
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::end_voting_period_with_rejected_valid_votes().max(
+            <T as Config>::WeightInfo::end_voting_period_with_approved_invalid_votes()
         ))]
         #[pallet::call_index(4)]
         pub fn end_voting_period(
