@@ -556,7 +556,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(8)]
+        #[pallet::call_index(7)]
         #[pallet::weight(0)]
         pub fn set_lower_schedule_period(
             origin: OriginFor<T>,
