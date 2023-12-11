@@ -538,65 +538,22 @@ pub mod pallet {
             let requester = ensure_signed(origin)?;
 
             if <LowersReadyToClaim<T>>::contains_key(lower_id) {
-                // Remove the existing lower and resubmit it
                 let lower = <LowersReadyToClaim<T>>::take(lower_id).expect("lower exists");
-                let unbounded_params = lower
-                    .params
-                    .iter()
-                    .map(|(type_bounded, value_bounded)| {
-                        (type_bounded.as_slice().to_vec(), value_bounded.as_slice().to_vec())
-                    })
-                    .collect();
-
-                <LowersPendingProof<T>>::insert(lower_id, lower.params);
-                T::BridgeInterface::generate_lower_proof(
-                    lower_id,
-                    &unbounded_params,
-                    PALLET_ID.to_vec(),
-                )?;
+                Self::regenerate_proof(lower_id, lower.params)?;
 
                 Self::deposit_event(Event::<T>::RegeneratingLowerProof { lower_id, requester });
 
                 return Ok(().into())
-            }
-
-            Err(Error::<T>::InvalidLowerId)?
-        }
-
-        #[pallet::call_index(7)]
-        #[pallet::weight(0)]
-        pub fn regenerate_failed_lower_proof(
-            origin: OriginFor<T>,
-            lower_id: LowerId,
-        ) -> DispatchResultWithPostInfo {
-            let requester = ensure_signed(origin)?;
-
-            if <FailedLowerProofs<T>>::contains_key(lower_id) {
-                // Remove the existing lower and resubmit it
+            } else if <FailedLowerProofs<T>>::contains_key(lower_id) {
                 let lower_params = <FailedLowerProofs<T>>::take(lower_id).expect("lower exists");
-                let unbounded_params = lower_params
-                    .iter()
-                    .map(|(type_bounded, value_bounded)| {
-                        (type_bounded.as_slice().to_vec(), value_bounded.as_slice().to_vec())
-                    })
-                    .collect();
+                Self::regenerate_proof(lower_id, lower_params)?;
 
-                <LowersPendingProof<T>>::insert(lower_id, lower_params);
-                T::BridgeInterface::generate_lower_proof(
-                    lower_id,
-                    &unbounded_params,
-                    PALLET_ID.to_vec(),
-                )?;
-
-                Self::deposit_event(Event::<T>::RegeneratingFailedLowerProof {
-                    lower_id,
-                    requester,
-                });
-
-                return Ok(().into())
+                Self::deposit_event(Event::<T>::RegeneratingFailedLowerProof { lower_id, requester });
+            } else {
+                Err(Error::<T>::InvalidLowerId)?
             }
 
-            Err(Error::<T>::InvalidLowerId)?
+            Ok(().into())
         }
 
         #[pallet::call_index(8)]
@@ -800,6 +757,23 @@ impl<T: Config> Pallet<T> {
         let new_balance = current_balance.checked_add(amount).ok_or(Error::<T>::AmountOverflow)?;
 
         <Balances<T>>::mutate((token_id, recipient_account_id), |balance| *balance = new_balance);
+
+        Ok(())
+    }
+
+    fn regenerate_proof(lower_id: u32, params: LowerParams) -> DispatchResult {
+        let unbounded_params = params
+            .iter()
+            .map(|(type_bounded, value_bounded)| {
+                (type_bounded.as_slice().to_vec(), value_bounded.as_slice().to_vec())
+        }).collect();
+
+        <LowersPendingProof<T>>::insert(lower_id, params);
+        T::BridgeInterface::generate_lower_proof(
+            lower_id,
+            &unbounded_params,
+            PALLET_ID.to_vec(),
+        )?;
 
         Ok(())
     }
