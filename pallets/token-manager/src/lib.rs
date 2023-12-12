@@ -409,76 +409,6 @@ pub mod pallet {
             Ok(())
         }
 
-        /// Schedule a call to lower an amount of token from tier2 to tier1
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token())]
-        #[pallet::call_index(2)]
-        pub fn schedule_direct_lower(
-            origin: OriginFor<T>,
-            from: T::AccountId,
-            token_id: T::TokenId,
-            amount: u128,
-            t1_recipient: H160, // the receiver address on tier1
-        ) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
-            ensure!(sender == from, Error::<T>::SenderNotValid);
-            ensure!(amount != 0, Error::<T>::AmountIsZero);
-
-            let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
-                .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
-
-            Self::schedule_lower(&from, to_account_id, token_id, amount, t1_recipient, None)?;
-
-            Ok(Some(<T as pallet::Config>::WeightInfo::lower_avt_token()).into())
-        }
-
-        /// Schedule a call to lower an amount of token from tier2 to tier1 by a relayer
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token())]
-        #[pallet::call_index(3)]
-        pub fn schedule_signed_lower(
-            origin: OriginFor<T>,
-            proof: Proof<T::Signature, T::AccountId>,
-            from: T::AccountId,
-            token_id: T::TokenId,
-            amount: u128,
-            t1_recipient: H160, // the receiver address on tier1
-        ) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
-            ensure!(sender == from, Error::<T>::SenderNotValid);
-            ensure!(amount != 0, Error::<T>::AmountIsZero);
-
-            let sender_nonce = Self::nonce(&sender);
-            let signed_payload = Self::encode_signed_lower_params(
-                &proof,
-                &from,
-                &token_id,
-                &amount,
-                &t1_recipient,
-                sender_nonce,
-            );
-
-            ensure!(
-                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
-                    .is_ok(),
-                Error::<T>::UnauthorizedSignedLowerTransaction
-            );
-
-            let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
-                .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
-
-            Self::schedule_lower(
-                &from,
-                to_account_id,
-                token_id,
-                amount,
-                t1_recipient,
-                Some(sender_nonce),
-            )?;
-
-            <Nonces<T>>::mutate(from, |n| *n += 1);
-
-            Ok(Some(<T as pallet::Config>::WeightInfo::signed_lower_avt_token()).into())
-        }
-
         /// Transfer AVT from the treasury account. The origin must be root.
         // TODO: benchmark me
         #[pallet::call_index(4)]
@@ -528,8 +458,78 @@ pub mod pallet {
             Ok(Some(final_weight).into())
         }
 
-        // #[pallet::weight(<T as Config>::WeightInfo::regenerate_lower_proof())]
+        /// Schedule a call to lower an amount of token from tier2 to tier1
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token())]
         #[pallet::call_index(6)]
+        pub fn schedule_direct_lower(
+            origin: OriginFor<T>,
+            from: T::AccountId,
+            token_id: T::TokenId,
+            amount: u128,
+            t1_recipient: H160, // the receiver address on tier1
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == from, Error::<T>::SenderNotValid);
+            ensure!(amount != 0, Error::<T>::AmountIsZero);
+
+            let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
+                .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
+
+            Self::schedule_lower(&from, to_account_id, token_id, amount, t1_recipient, None)?;
+
+            Ok(Some(<T as pallet::Config>::WeightInfo::lower_avt_token()).into())
+        }
+
+        /// Schedule a call to lower an amount of token from tier2 to tier1 by a relayer
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token())]
+        #[pallet::call_index(7)]
+        pub fn schedule_signed_lower(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            from: T::AccountId,
+            token_id: T::TokenId,
+            amount: u128,
+            t1_recipient: H160, // the receiver address on tier1
+        ) -> DispatchResultWithPostInfo {
+            let sender = ensure_signed(origin)?;
+            ensure!(sender == from, Error::<T>::SenderNotValid);
+            ensure!(amount != 0, Error::<T>::AmountIsZero);
+
+            let sender_nonce = Self::nonce(&sender);
+            let signed_payload = Self::encode_signed_lower_params(
+                &proof,
+                &from,
+                &token_id,
+                &amount,
+                &t1_recipient,
+                sender_nonce,
+            );
+
+            ensure!(
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
+                Error::<T>::UnauthorizedSignedLowerTransaction
+            );
+
+            let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
+                .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
+
+            Self::schedule_lower(
+                &from,
+                to_account_id,
+                token_id,
+                amount,
+                t1_recipient,
+                Some(sender_nonce),
+            )?;
+
+            <Nonces<T>>::mutate(from, |n| *n += 1);
+
+            Ok(Some(<T as pallet::Config>::WeightInfo::signed_lower_avt_token()).into())
+        }
+
+        // #[pallet::weight(<T as Config>::WeightInfo::regenerate_lower_proof())]
+        #[pallet::call_index(8)]
         #[pallet::weight(0)]
         pub fn regenerate_lower_proof(
             origin: OriginFor<T>,
@@ -556,7 +556,7 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(7)]
+        #[pallet::call_index(9)]
         #[pallet::weight(0)]
         pub fn set_lower_schedule_period(
             origin: OriginFor<T>,
