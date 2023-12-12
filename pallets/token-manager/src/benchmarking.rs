@@ -118,6 +118,7 @@ struct Lower<T: Config> {
     amount: u32,
     non_avt_token_id: T::TokenId,
     t1_recipient: H160,
+    lower_id: u32,
 }
 
 impl<T: Config> Lower<T> {
@@ -135,6 +136,8 @@ impl<T: Config> Lower<T> {
             H160(hex!("1414141414141414141414141414141414141414")).into();
         let t1_recipient: H160 = H160(hex!("afdf36201bf70F1232111b5c6a9a424558755134"));
 
+        let lower_id = 1;
+
         Lower {
             from_account_id,
             lower_account,
@@ -142,6 +145,7 @@ impl<T: Config> Lower<T> {
             amount: 1000,
             non_avt_token_id,
             t1_recipient,
+            lower_id
         }
     }
 
@@ -259,7 +263,8 @@ benchmarks! {
             sender: lower.from_account_id,
             recipient: lower.lower_account_id,
             amount: lower.amount.into(),
-            t1_recipient: lower.t1_recipient
+            t1_recipient: lower.t1_recipient,
+            lower_id: lower.lower_id
         }.into());
     }
 
@@ -290,7 +295,8 @@ benchmarks! {
         lower.from_account_id.clone(),
         lower.non_avt_token_id,
         lower.amount.into(),
-        lower.t1_recipient
+        lower.t1_recipient,
+        lower.lower_id,
     )
     verify {
         assert_eq!(Balances::<T>::get((lower.non_avt_token_id, lower.from_account_id.clone())), 0u32.into());
@@ -300,6 +306,7 @@ benchmarks! {
             recipient: lower.lower_account_id,
             amount: lower.amount.into(),
             t1_recipient: lower.t1_recipient
+            lower_id: lower.lower_id
         }.into());
     }
 
@@ -314,6 +321,32 @@ benchmarks! {
     verify {
         assert_eq!(<T as pallet::Config>::Currency::free_balance(&treasury_account), amount.into());
         assert_eq!(<T as pallet::Config>::Currency::free_balance(&recipient), amount.into());
+    }
+
+    regenerate_lower_proof {
+        let lower_id: u32 = 1;
+        let params: LowerParams = vec![
+        (BoundedVec::truncate_from(vec![0u8; 32]), BoundedVec::truncate_from(vec![1u8; 32]))];
+        let lower_data = vec![0u8; 32]; 
+
+        let lower_proof_data = LowerProofData {
+            params: params.clone(),
+            abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data)
+                .map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
+        };
+
+        <LowersReadyToClaim<T>>::insert(lower_id, lower_proof_data);
+    }: _(RawOrigin::Root, lower_id)
+    verify {
+        assert!(<LowersPendingProof<T>>::contains_key(lower_id));
+        assert_last_event::<T>(Event::<T>::RegeneratingLowerProof { lower_id, requester: RawOrigin::Root.into() }.into());
+    }
+
+    set_lower_schedule_period {
+        let new_period: T::BlockNumber = 100u32.into();
+    }: _(RawOrigin::Root, new_period)
+    verify {
+        assert_eq!(LowerSchedulePeriod::<T>::get(), new_period);
     }
 }
 
