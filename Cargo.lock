@@ -7524,6 +7524,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "log",
  "pallet-avn",
  "pallet-balances",
  "pallet-eth-bridge",

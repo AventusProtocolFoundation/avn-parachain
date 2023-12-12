@@ -18,6 +18,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::format;
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use frame_support::{
@@ -31,18 +35,19 @@ use frame_support::{
 		},
         QueryPreimage, StorePreimage
     },
-    PalletId, Parameter,
+    BoundedVec, PalletId, Parameter,
 };
 use frame_system::ensure_signed;
 pub use pallet::*;
 use pallet_avn::{
-    self as avn, CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
+    self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
+    OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
 use sp_avn_common::{
     event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
     verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
-use sp_core::{H160, H256};
+use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{
@@ -60,7 +65,15 @@ type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::PositiveImbalance;
 
 type CallOf<T> = <T as Config>::RuntimeCall;
+pub type LowerId = u32;
+pub type LowerParams =
+    BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>;
 
+// TODO: make these config constants
+pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
+pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
+pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
+pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
 mod benchmarking;
 
 pub mod migration;
@@ -90,6 +103,7 @@ mod test_growth;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
+const PALLET_ID: &'static [u8; 13] = b"token_manager";
 
 pub use pallet::*;
 
@@ -123,8 +137,7 @@ pub mod pallet {
 
         /// The type of token identifier
         /// (a H160 because this is an Ethereum address)
-        type TokenId: Parameter + Default + Copy + From<H160> + MaxEncodedLen;
-
+        type TokenId: Parameter + Default + Copy + From<H160> + Into<H160> + MaxEncodedLen;
         type ProcessedEventsChecker: ProcessedEventsChecker;
 
         /// A type that can be used to verify signatures
@@ -156,7 +169,9 @@ pub mod pallet {
 
         /// Overarching type of all pallets origins.
 	type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
-
+	
+        type BridgeInterface: BridgeInterface;
+	
         type WeightInfo: WeightInfo;
     }
 
@@ -197,14 +212,14 @@ pub mod pallet {
             recipient: T::AccountId,
             amount: u128,
             t1_recipient: H160,
-            lower_nonce: u64,
+            lower_id: LowerId,
         },
         AvtLowered {
             sender: T::AccountId,
             recipient: T::AccountId,
             amount: u128,
             t1_recipient: H160,
-            lower_nonce: u64,
+            lower_id: LowerId,
         },
         AvtTransferredFromTreasury {
             recipient: T::AccountId,
@@ -221,7 +236,24 @@ pub mod pallet {
             amount: u128,
             t1_recipient: H160,
             sender_nonce: Option<u64>,
-            lower_nonce: u64,
+            lower_id: LowerId,
+        },
+        LowerReadyToClaim {
+            lower_id: LowerId,
+        },
+        FailedToGenerateLowerProof {
+            lower_id: LowerId,
+        },
+        RegeneratingLowerProof {
+            lower_id: LowerId,
+            requester: T::AccountId,
+        },
+        RegeneratingFailedLowerProof {
+            lower_id: LowerId,
+            requester: T::AccountId,
+        },
+        LowerSchedulePeriodUpdated {
+            new_period: T::BlockNumber,
         },
     }
 
@@ -245,6 +277,11 @@ pub mod pallet {
         NoTier1EventForLogAvtGrowthLifted,
         Overflow,
         InvalidLowerCall,
+        LowerDataLimitExceeded,
+        InvalidLowerId,
+        LowerTypeNameLengthExceeded,
+        LowerValueLengthExceeded,
+        LowerParamsLimitExceeded,
     }
 
     #[pallet::storage]
@@ -270,10 +307,25 @@ pub mod pallet {
     #[pallet::getter(fn avt_token_contract)]
     pub type AVTTokenContract<T: Config> = StorageValue<_, H160, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn get_ready_to_claim_lower)]
+    pub type LowersReadyToClaim<T: Config> =
+        StorageMap<_, Blake2_128Concat, LowerId, LowerProofData, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_lower_pending_proof)]
+    pub type LowersPendingProof<T: Config> =
+        StorageMap<_, Blake2_128Concat, LowerId, LowerParams, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_failed_lower_proof)]
+    pub type FailedLowerProofs<T: Config> =
+        StorageMap<_, Blake2_128Concat, LowerId, LowerParams, OptionQuery>;
+
     /// A nonce to uniquely identify each lower request
     #[pallet::storage]
-    #[pallet::getter(fn lower_nonce)]
-    pub type LowerNonce<T: Config> = StorageValue<_, u64, ValueQuery>;
+    #[pallet::getter(fn lower_id)]
+    pub type LowerNonce<T: Config> = StorageValue<_, LowerId, ValueQuery>;
 
     /// The number of blocks lower transactions are delayed before executing
     #[pallet::storage]
@@ -467,11 +519,11 @@ pub mod pallet {
             token_id: T::TokenId,
             amount: u128,
             t1_recipient: H160,
-            lower_nonce: u64,
+            lower_id: LowerId,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
 
-            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient, lower_nonce)?;
+            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient, lower_id)?;
 
             let final_weight = if token_id == Self::avt_token_contract().into() {
                 <T as pallet::Config>::WeightInfo::lower_avt_token()
@@ -550,7 +602,7 @@ impl<T: Config> Pallet<T> {
         to: &T::AccountId,
         amount: u128,
         t1_recipient: H160,
-        lower_nonce: u64,
+        lower_id: LowerId,
     ) -> DispatchResult {
         if token_id == Self::avt_token_contract().into() {
             let lower_amount = <BalanceOf<T> as TryFrom<u128>>::try_from(amount)
@@ -579,7 +631,7 @@ impl<T: Config> Pallet<T> {
                 recipient: to.clone(),
                 amount,
                 t1_recipient,
-                lower_nonce,
+                lower_id,
             });
         } else {
             let lower_amount = <T::TokenBalance as TryFrom<u128>>::try_from(amount)
@@ -595,9 +647,18 @@ impl<T: Config> Pallet<T> {
                 recipient: to.clone(),
                 amount,
                 t1_recipient,
-                lower_nonce,
+                lower_id,
             });
         }
+
+        let params = vec![
+            (b"address".to_vec(), token_id.into().as_fixed_bytes().to_vec()),
+            (b"uint256".to_vec(), format!("{}", amount).as_bytes().to_vec()),
+            (b"address".to_vec(), t1_recipient.as_fixed_bytes().to_vec()),
+        ];
+
+        <LowersPendingProof<T>>::insert(lower_id, Self::bound_lower_params(&params)?);
+        T::BridgeInterface::generate_lower_proof(lower_id, &params, PALLET_ID.to_vec())?;
 
         Ok(())
     }
@@ -827,40 +888,60 @@ impl<T: Config> Pallet<T> {
         amount: u128,
         t1_recipient: H160,
         sender_nonce: Option<u64>) -> DispatchResult {
-            let lower_nonce = Self::lower_nonce();
-            let schedule_name = ("Lower", from, &token_id, &amount, &t1_recipient, sender_nonce.unwrap_or(0u64), &lower_nonce).using_encoded(sp_io::hashing::blake2_256);
-            let call = Box::new(
-                Call::execute_lower {
-                    from: from.clone(),
-                    to_account_id,
-                    token_id,
-                    amount,
-                    t1_recipient,
-                    lower_nonce
-                }
-            );
+        let lower_id = Self::lower_id();
+        let schedule_name = ("Lower", &lower_id).using_encoded(sp_io::hashing::blake2_256);
+        let call = Box::new(Call::execute_lower {
+            from: from.clone(),
+            to_account_id,
+            token_id,
+            amount,
+            t1_recipient,
+            lower_id,
+        });
 
-            T::Scheduler::schedule_named(
-                schedule_name,
-                DispatchTime::After(Self::lower_schedule_period()),
-                None,
-                HARD_DEADLINE,
-                frame_system::RawOrigin::Root.into(),
-                T::Preimages::bound(CallOf::<T>::from(*call)).map_err(|_| Error::<T>::InvalidLowerCall)?,
-            )?;
+        T::Scheduler::schedule_named(
+            schedule_name,
+            DispatchTime::After(Self::lower_schedule_period()),
+            None,
+            HARD_DEADLINE,
+            frame_system::RawOrigin::Root.into(),
+            T::Preimages::bound(CallOf::<T>::from(*call))
+                .map_err(|_| Error::<T>::InvalidLowerCall)?,
+        )?;
 
-            <LowerNonce<T>>::mutate(|nonce| *nonce += 1);
+        <LowerNonce<T>>::mutate(|nonce| *nonce += 1);
 
-            Self::deposit_event(Event::<T>::LowerRequested {
-                token_id,
-                from: from.clone(),
-                amount,
-                t1_recipient,
-                sender_nonce,
-                lower_nonce,
-            });
+        Self::deposit_event(Event::<T>::LowerRequested {
+            token_id,
+            from: from.clone(),
+            amount,
+            t1_recipient,
+            sender_nonce,
+            lower_id,
+        });
 
-            Ok(())
+        Ok(())
+    }
+
+    pub fn bound_lower_params(
+        params: &[(Vec<u8>, Vec<u8>)],
+    ) -> Result<
+        BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+        Error<T>,
+    > {
+        let result: Result<Vec<_>, _> = params
+            .iter()
+            .map(|(type_vec, value_vec)| {
+                let type_bounded = BoundedVec::try_from(type_vec.clone())
+                    .map_err(|_| Error::<T>::LowerTypeNameLengthExceeded)?;
+                let value_bounded = BoundedVec::try_from(value_vec.clone())
+                    .map_err(|_| Error::<T>::LowerValueLengthExceeded)?;
+                Ok::<_, Error<T>>((type_bounded, value_bounded))
+            })
+            .collect();
+
+        BoundedVec::<_, ParamsLimit>::try_from(result?)
+            .map_err(|_| Error::<T>::LowerParamsLimitExceeded)
     }
 }
 
@@ -920,4 +1001,10 @@ impl<T: Config> CollatorPayoutDustHandler<BalanceOf<T>> for Pallet<T> {
         // If the deposit succeeds, when this function goes out of scope, total issuance will
         // increase by "imbalance"
     }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+pub struct LowerProofData {
+    pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub abi_encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
 }

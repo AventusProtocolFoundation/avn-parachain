@@ -1,4 +1,4 @@
-use crate::{Config, Pallet, LowerSchedulePeriod};
+use crate::{Config, LowerSchedulePeriod, Pallet};
 use frame_support::{
     dispatch::GetStorageVersion,
     pallet_prelude::{PhantomData, StorageVersion},
@@ -7,7 +7,6 @@ use frame_support::{
 };
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
-
 
 pub fn set_lower_schedule_period<T: Config>() -> Weight {
     let default_lower_schedule_period: T::BlockNumber = 3275u32.into(); // ~ 12 hrs
@@ -57,12 +56,19 @@ impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
-        let initial_lower_schedule_period: T::BlockNumber = Decode::decode(&mut input.as_slice()).expect("Initial lower schedule is invalid");
-        if initial_lower_schedule_period == T::BlockNumber::zero()  {
+        let initial_lower_schedule_period: T::BlockNumber =
+            Decode::decode(&mut input.as_slice()).expect("Initial lower schedule is invalid");
+        if initial_lower_schedule_period == T::BlockNumber::zero() {
             assert_eq!(initial_lower_schedule_period, 3275u32.into());
-            log::info!("💽 lower_schedule_period updated successfully to {:?}", <LowerSchedulePeriod<T>>::get());
+            log::info!(
+                "💽 lower_schedule_period updated successfully to {:?}",
+                <LowerSchedulePeriod<T>>::get()
+            );
         } else {
-            log::info!("💽 lower_schedule_period was not updated because it had a non zero value: {:?}", initial_lower_schedule_period);
+            log::info!(
+                "💽 lower_schedule_period was not updated because it had a non zero value: {:?}",
+                initial_lower_schedule_period
+            );
         }
 
         Ok(())
