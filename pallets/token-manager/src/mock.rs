@@ -19,11 +19,11 @@ use crate::{self as token_manager};
 use frame_support::{
     dispatch::{DispatchClass, DispatchInfo},
     parameter_types,
-    traits::{ConstU8, GenesisBuild},
+    traits::{ConstU8, EqualPrivilegeOnly, GenesisBuild},
     weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
 };
-use frame_system::{self as system, limits};
+use frame_system::{self as system, limits, EnsureRoot};
 
 use pallet_avn::BridgeInterfaceNotification;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -31,7 +31,7 @@ use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{sr25519, ConstU64, Pair, H256};
+use sp_core::{sr25519, ConstU64, ConstU128, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
@@ -80,6 +80,8 @@ frame_support::construct_runtime!(
         Historical: pallet_session::historical::{Pallet, Storage},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Preimage: pallet_preimage,
+		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -101,6 +103,10 @@ impl token_manager::Config for TestRuntime {
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
     type OnGrowthLiftedHandler = ParachainStaking;
     type WeightInfo = ();
+    type Scheduler = Scheduler;
+    type Preimages = Preimage;
+    type PalletsOrigin = OriginCaller;
+    type BridgeInterface = EthBridge;
 }
 
 impl avn::Config for TestRuntime {
@@ -110,6 +116,32 @@ impl avn::Config for TestRuntime {
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
     type WeightInfo = ();
+}
+
+parameter_types! {
+	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_preimage::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<AccountId>;
+	type BaseDeposit = ConstU128<0>;
+	type ByteDeposit = ConstU128<0>;
+}
+
+impl pallet_scheduler::Config for TestRuntime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeOrigin = RuntimeOrigin;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type MaximumWeight = MaximumSchedulerWeight;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
+	type MaxScheduledPerBlock = ConstU32<100>;
+	type WeightInfo = ();
+	type OriginPrivilegeCmp = EqualPrivilegeOnly;
+	type Preimages = ();
 }
 
 impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {

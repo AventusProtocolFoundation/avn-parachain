@@ -7529,6 +7529,8 @@ dependencies = [
  "pallet-balances",
  "pallet-eth-bridge",
  "pallet-parachain-staking",
+ "pallet-preimage",
+ "pallet-scheduler",
  "pallet-session",
  "pallet-timestamp",
  "pallet-transaction-payment",
