@@ -130,7 +130,6 @@ const SUBMIT_CHECKEVENT_RESULT_CONTEXT: &'static [u8] = b"submit_checkevent_resu
 const CHALLENGE_EVENT_CONTEXT: &'static [u8] = b"challenge_event";
 const PROCESS_EVENT_CONTEXT: &'static [u8] = b"process_event";
 
-const MAX_NUMBER_OF_VALIDATORS_ACCOUNTS: u32 = 10;
 const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 10;
 const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 10;
 const MAX_CHALLENGES: u32 = 10;
@@ -421,10 +420,7 @@ pub mod pallet {
         /// This extrinsic is being deprecated. Use add_ethereum_log
         // We need to maintain this till SYS-888 is resolved. After that it can be removed.
         #[pallet::call_index(0)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_validator_log(
-            MAX_NUMBER_OF_UNCHECKED_EVENTS,
-            MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
-        ))]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_validator_log())]
         pub fn add_validator_log(origin: OriginFor<T>, tx_hash: H256) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
             ensure!(&tx_hash != &H256::zero(), Error::<T>::MalformedHash);
@@ -449,10 +445,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkevent_result(
-            MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
-            MAX_NUMBER_OF_UNCHECKED_EVENTS
-        ))]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkevent_result())]
         pub fn submit_checkevent_result(
             origin: OriginFor<T>,
             result: EthEventCheckResult<T::BlockNumber, T::AccountId>,
@@ -506,14 +499,8 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::process_event_with_successful_challenge(
-                MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
-                MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
-            ).max(<T as Config>::WeightInfo::process_event_without_successful_challenge(
-                MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
-                MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
-            )
-        ))]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::process_event_with_successful_challenge()
+            .max(<T as Config>::WeightInfo::process_event_without_successful_challenge()))]
         pub fn process_event(
             origin: OriginFor<T>,
             event_id: EthEventId,
@@ -607,15 +594,9 @@ pub mod pallet {
             }
 
             let final_weight = if successful_challenge {
-                <T as Config>::WeightInfo::process_event_with_successful_challenge(
-                    MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
-                    MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
-                )
+                <T as Config>::WeightInfo::process_event_with_successful_challenge()
             } else {
-                <T as Config>::WeightInfo::process_event_without_successful_challenge(
-                    MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
-                    MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
-                )
+                <T as Config>::WeightInfo::process_event_without_successful_challenge()
             };
 
             // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
@@ -623,11 +604,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::challenge_event(
-            MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
-            MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
-            MAX_CHALLENGES
-        ))]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::challenge_event())]
         pub fn challenge_event(
             origin: OriginFor<T>,
             challenge: Challenge<T::AccountId>,
@@ -688,10 +665,7 @@ pub mod pallet {
 
         /// Submits an ethereum transaction hash into the chain
         #[pallet::call_index(5)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_ethereum_log(
-            MAX_NUMBER_OF_UNCHECKED_EVENTS,
-            MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
-        ))]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_ethereum_log())]
         pub fn add_ethereum_log(
             origin: OriginFor<T>,
             event_type: ValidEvents,
@@ -706,10 +680,7 @@ pub mod pallet {
 
         // # </weight>
         #[pallet::call_index(6)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::signed_add_ethereum_log(
-            MAX_NUMBER_OF_UNCHECKED_EVENTS,
-            MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
-        ))]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::signed_add_ethereum_log())]
         pub fn signed_add_ethereum_log(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
@@ -742,8 +713,7 @@ pub mod pallet {
         /// Sets the address for ethereum contracts
         #[pallet::call_index(7)]
         #[pallet::weight(
-            <T as pallet::Config>::WeightInfo::set_ethereum_contract_map_storage().max(<T as Config>::WeightInfo::set_ethereum_contract_storage()
-        ))]
+            <T as pallet::Config>::WeightInfo::set_nft_contract_map_storage())]
         pub fn insert_nft_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
