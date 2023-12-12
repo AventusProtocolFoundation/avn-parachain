@@ -19,7 +19,7 @@ use crate::{self as token_manager};
 use frame_support::{
     dispatch::{DispatchClass, DispatchInfo},
     parameter_types,
-    traits::{ConstU8, EqualPrivilegeOnly, GenesisBuild},
+    traits::{ConstU8, EqualPrivilegeOnly, GenesisBuild, Hooks},
     weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
 };
@@ -141,7 +141,7 @@ impl pallet_scheduler::Config for TestRuntime {
 	type MaxScheduledPerBlock = ConstU32<100>;
 	type WeightInfo = ();
 	type OriginPrivilegeCmp = EqualPrivilegeOnly;
-	type Preimages = ();
+	type Preimages = Preimage;
 }
 
 impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {
@@ -159,7 +159,7 @@ where
 pub const BASE_FEE: u64 = 12;
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-const MAX_BLOCK_WEIGHT: Weight = Weight::from_ref_time(1024).set_proof_size(u64::MAX);
+const MAX_BLOCK_WEIGHT: Weight = Weight::from_ref_time(2_000_000_000_000).set_proof_size(u64::MAX);
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -498,6 +498,23 @@ pub fn account_id_with_seed_item(seed_item: u8) -> <TestRuntime as system::Confi
     let account_with_max_avt = key_pair_for_account_with_max_avt.public().to_vec();
     return <TestRuntime as system::Config>::AccountId::decode(&mut account_with_max_avt.as_slice())
         .unwrap()
+}
+
+pub fn next_block() {
+    Scheduler::on_finalize(System::block_number());
+	System::set_block_number(System::block_number() + 1);
+	Scheduler::on_initialize(System::block_number());
+}
+
+pub fn fast_forward_to_block(n: u64) {
+    println!("fast_forward_to_block: {}", n);
+	while System::block_number() < n {
+		next_block();
+	}
+}
+
+pub fn get_expected_execution_block() -> u64 {
+    return System::block_number() + LowerSchedulePeriod::<TestRuntime>::get() + 1;
 }
 
 pub struct MockData {

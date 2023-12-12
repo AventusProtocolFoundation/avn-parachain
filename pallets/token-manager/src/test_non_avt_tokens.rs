@@ -750,13 +750,17 @@ fn avn_test_lower_all_non_avt_token_succeed() {
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id));
         let amount = from_account_balance_before;
 
-        assert_ok!(TokenManager::lower(
+        assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
             from_account_id,
             NON_AVT_TOKEN_ID,
             amount,
             t1_recipient
         ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
         assert_eq!(
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)),
             from_account_balance_before - amount
@@ -767,7 +771,8 @@ fn avn_test_lower_all_non_avt_token_succeed() {
                 sender: from_account_id,
                 recipient: to_account_id,
                 amount,
-                t1_recipient
+                t1_recipient,
+                lower_id: 0
             })));
     });
 }
@@ -783,13 +788,17 @@ fn avn_test_lower_some_non_avt_token_succeed() {
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id));
         let amount = from_account_balance_before / 2;
 
-        assert_ok!(TokenManager::lower(
+        assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
             from_account_id,
             NON_AVT_TOKEN_ID,
             amount,
             t1_recipient
         ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
         assert_eq!(
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)),
             from_account_balance_before - amount
@@ -800,7 +809,8 @@ fn avn_test_lower_some_non_avt_token_succeed() {
                 sender: from_account_id,
                 recipient: to_account_id,
                 amount,
-                t1_recipient
+                t1_recipient,
+                lower_id: 0
             })));
     });
 }
@@ -818,7 +828,7 @@ fn avn_test_lower_non_avt_token_should_fail_when_sender_does_not_have_enough_tok
         let amount = 1;
 
         assert_noop!(
-            TokenManager::lower(
+            TokenManager::schedule_direct_lower(
                 RuntimeOrigin::signed(from_account_id),
                 from_account_id,
                 NON_AVT_TOKEN_ID,
@@ -844,13 +854,17 @@ fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id));
         let mut amount = from_account_balance_before;
 
-        assert_ok!(TokenManager::lower(
+        assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
             from_account_id,
             NON_AVT_TOKEN_ID,
             amount,
             t1_recipient
         ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
         assert_eq!(
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)),
             from_account_balance_before - amount
@@ -861,7 +875,8 @@ fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok
                 sender: from_account_id,
                 recipient: to_account_id,
                 amount,
-                t1_recipient
+                t1_recipient,
+                lower_id: 0
             })));
 
         // Lift and lower non-AVT tokens again
@@ -870,13 +885,17 @@ fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok
         from_account_balance_before =
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id));
 
-        assert_ok!(TokenManager::lower(
+        assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
             from_account_id,
             NON_AVT_TOKEN_ID,
             amount,
             t1_recipient
         ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
         assert_eq!(
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)),
             from_account_balance_before - amount
@@ -887,7 +906,8 @@ fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok
                 sender: from_account_id,
                 recipient: to_account_id,
                 amount,
-                t1_recipient
+                t1_recipient,
+                lower_id: 1
             })));
     });
 }
