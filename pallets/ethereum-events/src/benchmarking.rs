@@ -16,6 +16,8 @@ use sp_runtime::WeakBoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;
 
+const MAX_NUMBER_OF_VALIDATORS_ACCOUNTS: u32 = 10;
+
 fn setup_unchecked_events<T: Config>(event_type: &ValidEvents, number_of_unchecked_events: u32) {
     let mut unchecked_added_validator_events: Vec<(EthEventId, IngressCounter, T::BlockNumber)> =
         Vec::new();
