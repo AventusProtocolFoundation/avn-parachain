@@ -74,7 +74,6 @@ pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry,
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
-
 mod benchmarking;
 
 pub mod default_weights;
