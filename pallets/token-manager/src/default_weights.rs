@@ -19,11 +19,11 @@
 //!
 //! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 4.0.0-dev
 //! DATE: 2023-12-13, STEPS: `50`, REPEAT: 20, LOW RANGE: `[]`, HIGH RANGE: `[]`
-//! HOSTNAME: `nahu-Precision-7560`, CPU: `11th Gen Intel(R) Core(TM) i7-11850H @ 2.50GHz`
+//! HOSTNAME: `ip-172-31-13-238`, CPU: `AMD EPYC 7R32`
 //! EXECUTION: Some(Wasm), WASM-EXECUTION: Compiled, CHAIN: Some("dev"), DB CACHE: 1024
 
 // Executed Command:
-// ./target/release/avn-parachain-collator
+// ./avn-parachain-collator
 // benchmark
 // pallet
 // --chain
@@ -31,7 +31,7 @@
 // --execution=wasm
 // --wasm-execution=compiled
 // --template
-// .maintain/frame-weight-template.hbs
+// frame-weight-template.hbs
 // --pallet
 // pallet_token_manager
 // --extrinsic
@@ -41,7 +41,7 @@
 // --repeat
 // 20
 // --output
-// pallets/token-manager/src/default_weights.rs
+// token_mgr_weights.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -70,7 +70,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn proxy_with_non_avt_token() -> Weight {
-		Weight::from_ref_time(136_968_000)
+		Weight::from_ref_time(193_134_000)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -78,7 +78,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn signed_transfer() -> Weight {
-		Weight::from_ref_time(133_598_000)
+		Weight::from_ref_time(185_924_000)
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -88,7 +88,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Scheduler Lookup (r:1 w:1)
 	// Storage: Scheduler Agenda (r:1 w:1)
 	fn schedule_direct_lower() -> Weight {
-		Weight::from_ref_time(44_538_000)
+		Weight::from_ref_time(42_251_000)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -97,7 +97,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: TokenManager LowersPendingProof (r:0 w:1)
 	fn execute_avt_lower() -> Weight {
-		Weight::from_ref_time(67_618_000)
+		Weight::from_ref_time(68_142_000)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -106,7 +106,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: TokenManager LowersPendingProof (r:0 w:1)
 	fn execute_non_avt_lower() -> Weight {
-		Weight::from_ref_time(60_837_000)
+		Weight::from_ref_time(55_522_000)
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
@@ -117,13 +117,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: Scheduler Lookup (r:1 w:1)
 	// Storage: Scheduler Agenda (r:1 w:1)
 	fn schedule_signed_lower() -> Weight {
-		Weight::from_ref_time(145_520_000)
+		Weight::from_ref_time(195_374_000)
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
 	// Storage: System Account (r:2 w:2)
 	fn transfer_from_treasury() -> Weight {
-		Weight::from_ref_time(47_823_000)
+		Weight::from_ref_time(43_861_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -131,13 +131,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: TokenManager LowersPendingProof (r:0 w:1)
 	fn regenerate_lower_proof() -> Weight {
-		Weight::from_ref_time(47_816_000)
+		Weight::from_ref_time(47_801_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: TokenManager LowerSchedulePeriod (r:0 w:1)
 	fn set_lower_schedule_period() -> Weight {
-		Weight::from_ref_time(18_754_000)
+		Weight::from_ref_time(16_250_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
@@ -148,7 +148,7 @@ impl WeightInfo for () {
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn proxy_with_non_avt_token() -> Weight {
-		Weight::from_ref_time(136_968_000)
+		Weight::from_ref_time(193_134_000)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
@@ -156,7 +156,7 @@ impl WeightInfo for () {
 	// Storage: TokenManager AVTTokenContract (r:1 w:0)
 	// Storage: TokenManager Balances (r:2 w:2)
 	fn signed_transfer() -> Weight {
-		Weight::from_ref_time(133_598_000)
+		Weight::from_ref_time(185_924_000)
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
@@ -166,7 +166,7 @@ impl WeightInfo for () {
 	// Storage: Scheduler Lookup (r:1 w:1)
 	// Storage: Scheduler Agenda (r:1 w:1)
 	fn schedule_direct_lower() -> Weight {
-		Weight::from_ref_time(44_538_000)
+		Weight::from_ref_time(42_251_000)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
@@ -175,7 +175,7 @@ impl WeightInfo for () {
 	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: TokenManager LowersPendingProof (r:0 w:1)
 	fn execute_avt_lower() -> Weight {
-		Weight::from_ref_time(67_618_000)
+		Weight::from_ref_time(68_142_000)
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
@@ -184,7 +184,7 @@ impl WeightInfo for () {
 	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: TokenManager LowersPendingProof (r:0 w:1)
 	fn execute_non_avt_lower() -> Weight {
-		Weight::from_ref_time(60_837_000)
+		Weight::from_ref_time(55_522_000)
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
@@ -195,13 +195,13 @@ impl WeightInfo for () {
 	// Storage: Scheduler Lookup (r:1 w:1)
 	// Storage: Scheduler Agenda (r:1 w:1)
 	fn schedule_signed_lower() -> Weight {
-		Weight::from_ref_time(145_520_000)
+		Weight::from_ref_time(195_374_000)
 			.saturating_add(RocksDbWeight::get().reads(6))
 			.saturating_add(RocksDbWeight::get().writes(4))
 	}
 	// Storage: System Account (r:2 w:2)
 	fn transfer_from_treasury() -> Weight {
-		Weight::from_ref_time(47_823_000)
+		Weight::from_ref_time(43_861_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
@@ -209,13 +209,13 @@ impl WeightInfo for () {
 	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: TokenManager LowersPendingProof (r:0 w:1)
 	fn regenerate_lower_proof() -> Weight {
-		Weight::from_ref_time(47_816_000)
+		Weight::from_ref_time(47_801_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: TokenManager LowerSchedulePeriod (r:0 w:1)
 	fn set_lower_schedule_period() -> Weight {
-		Weight::from_ref_time(18_754_000)
+		Weight::from_ref_time(16_250_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }
