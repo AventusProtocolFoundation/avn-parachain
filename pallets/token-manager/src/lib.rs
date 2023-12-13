@@ -21,7 +21,7 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::format;
+use alloc::{format, string::{String, ToString},};
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use frame_support::{
@@ -432,7 +432,7 @@ pub mod pallet {
         }
 
         /// Lower an amount of token from tier2 to tier1
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token().max(<T as pallet::Config>::WeightInfo::lower_non_avt_token()))]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::execute_avt_lower().max(<T as pallet::Config>::WeightInfo::execute_non_avt_lower()))]
         #[pallet::call_index(5)]
         pub fn execute_lower(
             origin: OriginFor<T>,
@@ -448,16 +448,16 @@ pub mod pallet {
             Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient, lower_id)?;
 
             let final_weight = if token_id == Self::avt_token_contract().into() {
-                <T as pallet::Config>::WeightInfo::lower_avt_token()
+                <T as pallet::Config>::WeightInfo::execute_avt_lower()
             } else {
-                <T as pallet::Config>::WeightInfo::lower_non_avt_token()
+                <T as pallet::Config>::WeightInfo::execute_non_avt_lower()
             };
 
             Ok(Some(final_weight).into())
         }
 
         /// Schedule a call to lower an amount of token from tier2 to tier1
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::schedule_direct_lower())]
         #[pallet::call_index(6)]
         pub fn schedule_direct_lower(
             origin: OriginFor<T>,
@@ -475,11 +475,11 @@ pub mod pallet {
 
             Self::schedule_lower(&from, to_account_id, token_id, amount, t1_recipient, None)?;
 
-            Ok(Some(<T as pallet::Config>::WeightInfo::lower_avt_token()).into())
+            Ok(().into())
         }
 
         /// Schedule a call to lower an amount of token from tier2 to tier1 by a relayer
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::schedule_signed_lower())]
         #[pallet::call_index(7)]
         pub fn schedule_signed_lower(
             origin: OriginFor<T>,
@@ -523,12 +523,11 @@ pub mod pallet {
 
             <Nonces<T>>::mutate(from, |n| *n += 1);
 
-            Ok(Some(<T as pallet::Config>::WeightInfo::signed_lower_avt_token()).into())
+            Ok(().into())
         }
 
-        // #[pallet::weight(<T as Config>::WeightInfo::regenerate_lower_proof())]
         #[pallet::call_index(8)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::regenerate_lower_proof())]
         pub fn regenerate_lower_proof(
             origin: OriginFor<T>,
             lower_id: LowerId,
@@ -558,7 +557,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(9)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_lower_schedule_period())]
         pub fn set_lower_schedule_period(
             origin: OriginFor<T>,
             new_period: T::BlockNumber,
