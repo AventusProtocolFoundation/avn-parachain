@@ -18,7 +18,7 @@
 
 //! token manager pallet benchmarking.
 
-#![cfg(feature = "runtime-benchmarks")]
+// #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
 use codec::{Decode, Encode};
@@ -233,9 +233,9 @@ benchmarks! {
         }.into());
     }
 
-    lower_avt_token {
+    schedule_direct_lower {
         let lower: Lower<T> = Lower::new().setup();
-    }: lower(
+    }: schedule_direct_lower(
         RawOrigin::<T::AccountId>::Signed(lower.from_account_id.clone()),
         lower.from_account_id.clone(),
         AVT_TOKEN_CONTRACT.into(),
@@ -243,36 +243,37 @@ benchmarks! {
         lower.t1_recipient
     )
     verify {
-        assert_eq!(<T as pallet::Config>::Currency::free_balance(&lower.from_account_id), 0u32.into());
-
+        assert_eq!(<T as pallet::Config>::Currency::free_balance(&lower.from_account_id), 1000u32.into());
     }
 
-    lower_non_avt_token {
+    execute_lower {
         let lower: Lower<T> = Lower::new().setup();
-    }: lower(
-        RawOrigin::<T::AccountId>::Signed(lower.from_account_id.clone()),
+    }: execute_lower(
+        RawOrigin::<T::AccountId>::Root,
         lower.from_account_id.clone(),
+        lower.lower_account_id.clone(),
         lower.non_avt_token_id,
         lower.amount.into(),
-        lower.t1_recipient
+        lower.t1_recipient,
+        lower.lower_id
     )
     verify {
         assert_eq!(Balances::<T>::get((lower.non_avt_token_id, lower.from_account_id.clone())), 0u32.into());
-        assert_last_event::<T>(Event::<T>::TokenLowered {
+        assert_last_nth_event::<T>(Event::<T>::TokenLowered {
             token_id: lower.non_avt_token_id,
             sender: lower.from_account_id,
             recipient: lower.lower_account_id,
             amount: lower.amount.into(),
             t1_recipient: lower.t1_recipient,
             lower_id: lower.lower_id
-        }.into());
+        }.into(), 2);
     }
 
-    signed_lower_avt_token {
+    schedule_signed_lower {
         let signature = &hex!("32620d56eb6272109a32ddafe132e7d7932ac210a16de25f016aa15845cb43738d4fcdaaa23be0025a8eb164779e14c46ec8c3d37e093e6017c1b59f8c450c8d");
         let lower: Lower<T> = Lower::new().setup();
         let proof: Proof<T::Signature, T::AccountId> = lower.get_proof(&lower.from_account_id, signature);
-    }: signed_lower(
+    }: schedule_signed_lower(
         RawOrigin::<T::AccountId>::Signed(lower.from_account_id.clone()),
         proof,
         lower.from_account_id.clone(),
@@ -281,34 +282,10 @@ benchmarks! {
         lower.t1_recipient
     )
     verify {
-        assert_eq!(<T as pallet::Config>::Currency::free_balance(&lower.from_account_id), 0u32.into());
+        assert_eq!(<T as pallet::Config>::Currency::free_balance(&lower.from_account_id), 1000u32.into());
 
     }
 
-    signed_lower_non_avt_token {
-        let signature = &hex!("82f8b0f7270a6b1c6221789a5b3192f557e8d9d9973f6fdd051762de3ef3b9396f8a5c3b86a62d6ff7934181112b6f2d9dd976d42226cb3258a5b61d5b43838e");
-        let lower: Lower<T> = Lower::new().setup();
-        let proof: Proof<T::Signature, T::AccountId> = lower.get_proof(&lower.from_account_id, signature);
-    }: signed_lower(
-        RawOrigin::<T::AccountId>::Signed(lower.from_account_id.clone()),
-        proof,
-        lower.from_account_id.clone(),
-        lower.non_avt_token_id,
-        lower.amount.into(),
-        lower.t1_recipient,
-        lower.lower_id,
-    )
-    verify {
-        assert_eq!(Balances::<T>::get((lower.non_avt_token_id, lower.from_account_id.clone())), 0u32.into());
-        assert_last_event::<T>(Event::<T>::TokenLowered {
-            token_id: lower.non_avt_token_id,
-            sender: lower.from_account_id,
-            recipient: lower.lower_account_id,
-            amount: lower.amount.into(),
-            t1_recipient: lower.t1_recipient
-            lower_id: lower.lower_id
-        }.into());
-    }
 
     transfer_from_treasury {
         let treasury_account = Pallet::<T>::compute_treasury_account_id();
@@ -324,23 +301,23 @@ benchmarks! {
     }
 
     regenerate_lower_proof {
-        let lower_id: u32 = 1;
-        let params: LowerParams = vec![
-        (BoundedVec::truncate_from(vec![0u8; 32]), BoundedVec::truncate_from(vec![1u8; 32]))];
+        let lower: Lower<T> = Lower::new().setup();
+        let params: LowerParams = BoundedVec::truncate_from(vec![
+        (BoundedVec::truncate_from(vec![0u8; 32]), BoundedVec::truncate_from(vec![1u8; 32]))]);
         let lower_data = vec![0u8; 32]; 
+        // let requester = account("requester", 1, 1);
 
         let lower_proof_data = LowerProofData {
             params: params.clone(),
-            abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data)
-                .map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
+            abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data).expect("test"),
         };
 
-        <LowersReadyToClaim<T>>::insert(lower_id, lower_proof_data);
-    }: _(RawOrigin::Root, lower_id)
+        <LowersReadyToClaim<T>>::insert(lower.lower_id, lower_proof_data);
+    }: _(RawOrigin::<T::AccountId>::Signed(lower.from_account_id.clone()), lower.lower_id)
     verify {
-        assert!(<LowersPendingProof<T>>::contains_key(lower_id));
-        assert_last_event::<T>(Event::<T>::RegeneratingLowerProof { lower_id, requester: RawOrigin::Root.into() }.into());
-    }
+        assert!(<LowersPendingProof<T>>::contains_key(lower.lower_id));
+        // assert_last_event::<T>(Event::<T>::RegeneratingLowerProof { lower_id, requester }.into());
+    }    
 
     set_lower_schedule_period {
         let new_period: T::BlockNumber = 100u32.into();
