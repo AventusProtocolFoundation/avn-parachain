@@ -547,7 +547,10 @@ pub mod pallet {
                 let lower_params = <FailedLowerProofs<T>>::take(lower_id).expect("lower exists");
                 Self::regenerate_proof(lower_id, lower_params)?;
 
-                Self::deposit_event(Event::<T>::RegeneratingFailedLowerProof { lower_id, requester });
+                Self::deposit_event(Event::<T>::RegeneratingFailedLowerProof {
+                    lower_id,
+                    requester,
+                });
             } else {
                 Err(Error::<T>::InvalidLowerId)?
             }
@@ -765,14 +768,11 @@ impl<T: Config> Pallet<T> {
             .iter()
             .map(|(type_bounded, value_bounded)| {
                 (type_bounded.as_slice().to_vec(), value_bounded.as_slice().to_vec())
-        }).collect();
+            })
+            .collect();
 
         <LowersPendingProof<T>>::insert(lower_id, params);
-        T::BridgeInterface::generate_lower_proof(
-            lower_id,
-            &unbounded_params,
-            PALLET_ID.to_vec(),
-        )?;
+        T::BridgeInterface::generate_lower_proof(lower_id, &unbounded_params, PALLET_ID.to_vec())?;
 
         Ok(())
     }

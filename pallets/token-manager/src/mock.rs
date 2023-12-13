@@ -31,7 +31,7 @@ use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{sr25519, ConstU64, ConstU128, Pair, H256};
+use sp_core::{sr25519, ConstU128, ConstU64, Pair, H256};
 use sp_keystore::{testing::KeyStore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
@@ -81,7 +81,7 @@ frame_support::construct_runtime!(
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
         Preimage: pallet_preimage,
-		Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -119,29 +119,29 @@ impl avn::Config for TestRuntime {
 }
 
 parameter_types! {
-	pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_preimage::Config for TestRuntime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-	type Currency = Balances;
-	type ManagerOrigin = EnsureRoot<AccountId>;
-	type BaseDeposit = ConstU128<0>;
-	type ByteDeposit = ConstU128<0>;
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type BaseDeposit = ConstU128<0>;
+    type ByteDeposit = ConstU128<0>;
 }
 
 impl pallet_scheduler::Config for TestRuntime {
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
-	type PalletsOrigin = OriginCaller;
-	type RuntimeCall = RuntimeCall;
-	type MaximumWeight = MaximumSchedulerWeight;
-	type ScheduleOrigin = EnsureRoot<AccountId>;
-	type MaxScheduledPerBlock = ConstU32<100>;
-	type WeightInfo = ();
-	type OriginPrivilegeCmp = EqualPrivilegeOnly;
-	type Preimages = Preimage;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = ConstU32<100>;
+    type WeightInfo = ();
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type Preimages = Preimage;
 }
 
 impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {
@@ -502,19 +502,19 @@ pub fn account_id_with_seed_item(seed_item: u8) -> <TestRuntime as system::Confi
 
 pub fn next_block() {
     Scheduler::on_finalize(System::block_number());
-	System::set_block_number(System::block_number() + 1);
-	Scheduler::on_initialize(System::block_number());
+    System::set_block_number(System::block_number() + 1);
+    Scheduler::on_initialize(System::block_number());
 }
 
 pub fn fast_forward_to_block(n: u64) {
     println!("fast_forward_to_block: {}", n);
-	while System::block_number() < n {
-		next_block();
-	}
+    while System::block_number() < n {
+        next_block();
+    }
 }
 
 pub fn get_expected_execution_block() -> u64 {
-    return System::block_number() + LowerSchedulePeriod::<TestRuntime>::get() + 1;
+    return System::block_number() + LowerSchedulePeriod::<TestRuntime>::get() + 1
 }
 
 pub struct MockData {

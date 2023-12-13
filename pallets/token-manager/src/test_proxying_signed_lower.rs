@@ -235,14 +235,15 @@ mod proxy_signed_lower {
 
                 let proof = create_proof_for_signed_lower_with_nonce(NON_ZERO_NONCE);
 
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof,
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
 
                 assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call.clone()));
 
@@ -265,14 +266,15 @@ mod proxy_signed_lower {
                 setup(&sender, NON_ZERO_NONCE);
                 let proof = create_proof_for_signed_lower_with_nonce(NON_ZERO_NONCE);
 
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof,
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
 
                 assert_eq!(System::events().len(), 0);
                 assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call.clone()));
@@ -312,13 +314,15 @@ mod proxy_signed_lower {
             default_setup();
             let proof = create_default_proof_for_signed_lower();
 
-            let call = Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
-                proof,
-                from: sender,
-                token_id: NON_AVT_TOKEN_ID,
-                amount: DEFAULT_AMOUNT,
-                t1_recipient,
-            }));
+            let call = Box::new(MockCall::TokenManager(
+                super::Call::<TestRuntime>::schedule_signed_lower {
+                    proof,
+                    from: sender,
+                    token_id: NON_AVT_TOKEN_ID,
+                    amount: DEFAULT_AMOUNT,
+                    t1_recipient,
+                },
+            ));
             let call_hash = Hashing::hash_of(&call);
 
             assert_eq!(System::events().len(), 0);
@@ -393,14 +397,15 @@ mod proxy_signed_lower {
                 default_setup();
                 let proof = create_default_proof_for_signed_lower();
 
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof: proof.clone(),
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: mismatching_amount,
                         t1_recipient,
-                    }));
+                    },
+                ));
 
                 assert_eq!(System::events().len(), 0);
                 assert_err!(
@@ -441,14 +446,15 @@ mod proxy_signed_lower {
                     t1_recipient,
                 );
 
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof: mismatching_proof,
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
 
                 assert_err!(
                     TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
@@ -489,14 +495,15 @@ mod proxy_signed_lower {
                     t1_recipient,
                 );
 
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof: mismatching_proof,
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
 
                 assert_err!(
                     TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
@@ -529,14 +536,15 @@ mod proxy_signed_lower {
                 default_setup();
                 let mismatching_proof =
                     create_proof_for_signed_lower_with_relayer(&other_relayer_account_id);
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof: mismatching_proof,
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
 
                 assert_err!(
                     TokenManager::proxy(RuntimeOrigin::signed(relayer), call.clone()),
@@ -576,14 +584,15 @@ mod proxy_signed_lower {
                     t1_recipient,
                 );
 
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof: mismatching_proof,
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
 
                 assert_err!(
                     TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
@@ -628,14 +637,15 @@ mod proxy_signed_lower {
                 let mismatching_proof =
                     Proof { signer: sender, relayer, signature: alternative_signature };
 
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof: mismatching_proof,
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
                 assert_err!(
                     TokenManager::proxy(RuntimeOrigin::signed(relayer), call),
                     Error::<TestRuntime>::UnauthorizedSignedLowerTransaction
@@ -744,13 +754,15 @@ mod get_proof {
             let t1_recipient = default_t1_recipient();
 
             let proof = create_default_proof_for_signed_lower();
-            let call = Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
-                proof: proof.clone(),
-                from: sender,
-                token_id: NON_AVT_TOKEN_ID,
-                amount: DEFAULT_AMOUNT,
-                t1_recipient,
-            }));
+            let call = Box::new(MockCall::TokenManager(
+                super::Call::<TestRuntime>::schedule_signed_lower {
+                    proof: proof.clone(),
+                    from: sender,
+                    token_id: NON_AVT_TOKEN_ID,
+                    amount: DEFAULT_AMOUNT,
+                    t1_recipient,
+                },
+            ));
 
             let result = TokenManager::get_proof(&call);
             assert!(result.is_ok());
@@ -798,14 +810,15 @@ mod fees {
                 );
 
                 // Prepare the calls
-                let inner_call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let inner_call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof: proof.clone(),
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
                 let outer_call = &MockCall::TokenManager(token_manager::Call::proxy {
                     call: inner_call.clone(),
                 });
@@ -934,14 +947,15 @@ mod fees {
                 );
 
                 // Prepare the calls
-                let inner_call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let inner_call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof: proof.clone(),
                         from: sender,
                         token_id: NON_AVT_TOKEN_ID,
                         amount: DEFAULT_AMOUNT,
                         t1_recipient,
-                    }));
+                    },
+                ));
                 let outer_call = &MockCall::TokenManager(token_manager::Call::proxy {
                     call: inner_call.clone(),
                 });
@@ -1046,14 +1060,15 @@ mod wrapped_signature_verification {
                     &data_to_sign.encode()
                 ));
 
-                let call =
-                    Box::new(MockCall::TokenManager(super::Call::<TestRuntime>::schedule_signed_lower {
+                let call = Box::new(MockCall::TokenManager(
+                    super::Call::<TestRuntime>::schedule_signed_lower {
                         proof,
                         from: sender,
                         token_id: token,
                         amount,
                         t1_recipient,
-                    }));
+                    },
+                ));
 
                 assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call.clone()));
 
