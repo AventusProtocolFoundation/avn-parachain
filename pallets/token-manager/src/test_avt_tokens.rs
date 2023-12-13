@@ -19,7 +19,7 @@ use crate::{
     mock::{Balances, RuntimeEvent, *},
     *,
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use hex_literal::hex;
 use pallet_balances::Error as BalancesError;
 
@@ -155,13 +155,17 @@ fn avn_test_lower_all_avt_token_succeed() {
         let from_account_balance_before = Balances::free_balance(from_account_id);
         let amount = from_account_balance_before;
 
-        assert_ok!(TokenManager::lower(
+        assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
             from_account_id,
             AVT_TOKEN_CONTRACT,
             amount,
             t1_recipient
         ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw {
@@ -173,7 +177,8 @@ fn avn_test_lower_all_avt_token_succeed() {
                 sender: from_account_id,
                 recipient: to_account_id,
                 amount,
-                t1_recipient
+                t1_recipient,
+                lower_id: 0
             })));
     });
 }
@@ -191,13 +196,17 @@ fn avn_test_lower_some_avt_token_succeed() {
         let from_account_balance_before = Balances::free_balance(from_account_id);
         let amount = from_account_balance_before / 2;
 
-        assert_ok!(TokenManager::lower(
+        assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
             from_account_id,
             AVT_TOKEN_CONTRACT,
             amount,
             t1_recipient
         ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw {
@@ -209,7 +218,8 @@ fn avn_test_lower_some_avt_token_succeed() {
                 sender: from_account_id,
                 recipient: to_account_id,
                 amount,
-                t1_recipient
+                t1_recipient,
+                lower_id: 0
             })));
     });
 }
@@ -226,16 +236,32 @@ fn avn_test_lower_avt_token_should_fail_when_sender_does_not_have_enough_avt_tok
                 .unwrap();
         let amount = 1;
 
-        assert_noop!(
-            TokenManager::lower(
-                RuntimeOrigin::signed(from_account_id),
-                from_account_id,
-                AVT_TOKEN_CONTRACT,
-                amount,
-                t1_recipient
-            ),
-            BalancesError::<TestRuntime, _>::InsufficientBalance
-        );
+        assert_eq!(Balances::free_balance(from_account_id), 0);
+        // Even if the user has no money, the scheduling will pass
+        assert_ok!(TokenManager::schedule_direct_lower(
+            RuntimeOrigin::signed(from_account_id),
+            from_account_id,
+            AVT_TOKEN_CONTRACT,
+            amount,
+            t1_recipient
+        ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
+        assert_eq!(Balances::free_balance(from_account_id), 0);
+
+        let dispatch_result = System::events().iter().find_map(|a| match a.event {
+            RuntimeEvent::Scheduler(pallet_scheduler::Event::<TestRuntime>::Dispatched {
+                task: _,
+                id: _,
+                result,
+            }) => Some(result),
+            _ => None,
+        });
+
+        assert!(dispatch_result.is_some());
+        assert_err!(dispatch_result.unwrap(), BalancesError::<TestRuntime, _>::InsufficientBalance);
     });
 }
 
@@ -254,13 +280,17 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         let mut amount = from_account_balance_before;
         let t1_recipient = H160(hex!("0000000000000000000000000000000000000001"));
 
-        assert_ok!(TokenManager::lower(
+        assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
             from_account_id,
             AVT_TOKEN_CONTRACT,
             amount,
             t1_recipient
         ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw {
@@ -272,7 +302,8 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
                 sender: from_account_id,
                 recipient: to_account_id,
                 amount,
-                t1_recipient
+                t1_recipient,
+                lower_id: 0
             })));
 
         // Lift and lower AVT tokens again
@@ -280,13 +311,17 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
         MockData::set_avt_balance(from_account_id, amount);
         from_account_balance_before = Balances::free_balance(from_account_id);
 
-        assert_ok!(TokenManager::lower(
+        assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
             from_account_id,
             AVT_TOKEN_CONTRACT,
             amount,
             t1_recipient
         ));
+
+        // move a few blocks to trigger the execution
+        fast_forward_to_block(get_expected_execution_block());
+
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw {
@@ -298,7 +333,8 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
                 sender: from_account_id,
                 recipient: to_account_id,
                 amount,
-                t1_recipient
+                t1_recipient,
+                lower_id: 1
             })));
     });
 }

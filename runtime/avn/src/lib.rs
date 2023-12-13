@@ -693,6 +693,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type Scheduler = Scheduler;
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
+    type BridgeInterface = EthBridge;
 }
 
 impl pallet_nft_manager::Config for Runtime {
@@ -731,7 +732,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type BridgeInterfaceNotification = (Summary, ParachainStaking);
+    type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
 }
 
 // Other pallets

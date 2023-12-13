@@ -164,7 +164,7 @@ fn avn_test_lower_should_fail_when_origin_is_not_signed() {
         let (_, from_account_id, _, t1_recipient) = MockData::setup_lower_request_data();
 
         assert_noop!(
-            TokenManager::lower(
+            TokenManager::schedule_direct_lower(
                 RawOrigin::None.into(),
                 from_account_id,
                 NON_AVT_TOKEN_ID,
@@ -185,7 +185,7 @@ fn avn_test_lower_should_fail_when_sender_does_not_own_from_account() {
         let sender = account_id_with_seed_item(70u8);
 
         assert_noop!(
-            TokenManager::lower(
+            TokenManager::schedule_direct_lower(
                 RuntimeOrigin::signed(sender),
                 from_account_id,
                 NON_AVT_TOKEN_ID,
@@ -205,7 +205,7 @@ fn avn_test_lower_should_fail_when_amount_is_zero() {
         let (_, from_account_id, _, t1_recipient) = MockData::setup_lower_request_data();
 
         assert_noop!(
-            TokenManager::lower(
+            TokenManager::schedule_direct_lower(
                 RuntimeOrigin::signed(from_account_id),
                 from_account_id,
                 NON_AVT_TOKEN_ID,
