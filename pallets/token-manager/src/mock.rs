@@ -62,7 +62,6 @@ const TOPIC_RECEIVER_INDEX: usize = 2;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
-type TransactionId = u32;
 
 frame_support::construct_runtime!(
     pub enum TestRuntime where
@@ -321,6 +320,20 @@ impl BridgeInterfaceNotification for TestRuntime {
     ) -> sp_runtime::DispatchResult {
         Ok(())
     }
+
+    fn process_lower_proof_result(
+        lower_id: u32,
+        _caller_id: Vec<u8>,
+        data: Result<Vec<u8>, ()>,
+    ) -> sp_runtime::DispatchResult {
+        if let Ok(_) = data {
+            LOWERSREADYTOCLAIM.with(|l| l.borrow_mut().push(lower_id));
+        } else {
+            FAILEDLOWERREQUESTS.with(|l| l.borrow_mut().push(lower_id));
+        }
+
+        Ok(())
+    }
 }
 
 impl WeightToFeeT for WeightToFee {
@@ -365,8 +378,18 @@ impl TestAccount {
     }
 }
 
+pub fn lower_is_ready_to_be_claimed(lower_id: &u32) -> bool {
+    LOWERSREADYTOCLAIM.with(|lowers| lowers.borrow_mut().iter().any(|l| l == lower_id))
+}
+
+pub fn request_failed(id: &u32) -> bool {
+    FAILEDLOWERREQUESTS.with(|reqs| reqs.borrow_mut().iter().any(|r| r == id))
+}
+
 thread_local! {
     static PROCESSED_EVENTS: RefCell<Vec<EthEventId>> = RefCell::new(vec![]);
+    pub static LOWERSREADYTOCLAIM: RefCell<Vec<u32>> = RefCell::new(vec![]);
+    pub static FAILEDLOWERREQUESTS: RefCell<Vec<u32>> = RefCell::new(vec![]);
 }
 
 pub fn insert_to_mock_processed_events(event_id: &EthEventId) {
@@ -500,7 +523,7 @@ pub fn account_id_with_seed_item(seed_item: u8) -> <TestRuntime as system::Confi
         .unwrap()
 }
 
-pub fn next_block() {
+pub fn forward_to_next_block() {
     Scheduler::on_finalize(System::block_number());
     System::set_block_number(System::block_number() + 1);
     Scheduler::on_initialize(System::block_number());
@@ -509,7 +532,7 @@ pub fn next_block() {
 pub fn fast_forward_to_block(n: u64) {
     println!("fast_forward_to_block: {}", n);
     while System::block_number() < n {
-        next_block();
+        forward_to_next_block();
     }
 }
 
