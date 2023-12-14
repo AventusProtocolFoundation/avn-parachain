@@ -74,6 +74,8 @@ pub mod sr25519 {
 }
 
 const AVN_SERVICE_CALL_EXPIRY: u32 = 300_000;
+pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
+pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -678,7 +680,7 @@ pub trait BridgeInterface {
     ) -> Result<u32, DispatchError>;
     fn generate_lower_proof(
         lower_id: u32,
-        params: &Vec<(Vec<u8>, Vec<u8>)>,
+        params: &LowerParams,
         caller_id: Vec<u8>,
     ) -> Result<(), DispatchError>;
 }

@@ -29,13 +29,15 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for AvnProxyConfig {
                 token_id: _,
                 amount: _,
             }) => return Some(proof.clone()),
-            RuntimeCall::TokenManager(pallet_token_manager::pallet::Call::schedule_signed_lower {
-                proof,
-                from: _,
-                token_id: _,
-                amount: _,
-                t1_recipient: _,
-            }) => return Some(proof.clone()),
+            RuntimeCall::TokenManager(
+                pallet_token_manager::pallet::Call::schedule_signed_lower {
+                    proof,
+                    from: _,
+                    token_id: _,
+                    amount: _,
+                    t1_recipient: _,
+                },
+            ) => return Some(proof.clone()),
             RuntimeCall::NftManager(pallet_nft_manager::Call::signed_mint_single_nft {
                 proof,
                 unique_external_ref: _,

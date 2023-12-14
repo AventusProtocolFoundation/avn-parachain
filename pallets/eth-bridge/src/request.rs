@@ -36,15 +36,12 @@ pub fn add_new_send_request<T: Config>(
 
 pub fn add_new_lower_proof_request<T: Config>(
     lower_id: LowerId,
-    params: &Vec<(Vec<u8>, Vec<u8>)>,
+    params: &LowerParams,
     caller_id: &Vec<u8>,
 ) -> Result<(), Error<T>> {
-    let mut extended_params = params.clone();
-    extended_params.push((eth::UINT256.to_vec(), lower_id.to_string().into_bytes()));
-
     let proof_req = LowerProofRequestData {
         lower_id,
-        params: bound_params(&extended_params.to_vec())?,
+        params: *params,
         caller_id: BoundedVec::<_, CallerIdLimit>::try_from(caller_id.clone())
             .map_err(|_| Error::<T>::CallerIdLengthExceeded)?,
     };
@@ -105,21 +102,12 @@ pub fn complete_lower_proof_request<T: Config>(
     lower_req: &LowerProofRequestData,
     confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
 ) -> Result<(), Error<T>> {
-    let result = match eth::generate_abi_encoded_lower_proof::<T>(lower_req, confirmations) {
-        Ok(lower_proof) => T::BridgeInterfaceNotification::process_lower_proof_result(
-            lower_req.lower_id,
-            lower_req.caller_id.clone().into(),
-            Ok(lower_proof),
-        ),
-        Err(e) => {
-            log::error!(target: "runtime::eth-bridge", "Error generating abi encoded lower proof: {:?}", e);
-            T::BridgeInterfaceNotification::process_lower_proof_result(
-                lower_req.lower_id,
-                lower_req.caller_id.clone().into(),
-                Err(()),
-            )
-        },
-    };
+    let lower_proof = eth::generate_abi_encoded_lower_proof::<T>(lower_req, confirmations);
+    let result = T::BridgeInterfaceNotification::process_lower_proof_result(
+        lower_req.lower_id,
+        lower_req.caller_id.clone().into(),
+        Ok(lower_proof),
+    );
 
     if let Err(e) = result {
         log::error!(target: "runtime::eth-bridge", "Lower proof notification failed: {:?}", e);
@@ -132,7 +120,7 @@ pub fn complete_lower_proof_request<T: Config>(
 }
 
 fn set_up_active_lower_proof<T: Config>(req: LowerProofRequestData) -> Result<(), Error<T>> {
-    let msg_hash = eth::generate_msg_hash(&req.params)?;
+    let msg_hash = H256::from(keccak_256(&req.params));
 
     ActiveRequest::<T>::put(ActiveRequestData {
         request: Request::LowerProof(req),

@@ -3,10 +3,7 @@ use crate::{
     mock::{RuntimeEvent, *},
     *,
 };
-use codec::Encode;
-use frame_support::{assert_noop, assert_ok};
-use pallet_scheduler::Agenda;
-use sp_runtime::DispatchError;
+use frame_support::assert_ok;
 
 fn schedule_lower(
     from: AccountId,
