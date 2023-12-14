@@ -1042,7 +1042,7 @@ impl<T: Config> CollatorPayoutDustHandler<BalanceOf<T>> for Pallet<T> {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofData {
     pub params: LowerParams,
-    pub abi_encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
+    pub encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
 }
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
@@ -1060,7 +1060,7 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
             if let Ok(lower_data) = data {
                 let lower_proof = LowerProofData {
                     params: pending_lower,
-                    abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data)
+                    encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data)
                         .map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
                 };
 

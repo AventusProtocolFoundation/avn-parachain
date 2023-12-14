@@ -702,9 +702,9 @@ impl BridgeInterfaceNotification for Tuple {
     fn process_lower_proof_result(
         _lower_id: u32,
         _caller_id: Vec<u8>,
-        _abi_encoded_lower: Result<Vec<u8>, ()>,
+        _encoded_lower: Result<Vec<u8>, ()>,
     ) -> DispatchResult {
-        for_tuples!( #( Tuple::process_lower_proof_result(_lower_id, _caller_id.clone(), _abi_encoded_lower.clone())?; )* );
+        for_tuples!( #( Tuple::process_lower_proof_result(_lower_id, _caller_id.clone(), _encoded_lower.clone())?; )* );
         Ok(())
     }
 }

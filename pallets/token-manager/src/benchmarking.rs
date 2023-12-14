@@ -338,7 +338,7 @@ benchmarks! {
 
         let lower_proof_data = LowerProofData {
             params,
-            abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data).expect("test"),
+            encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data).expect("test"),
         };
 
         <LowersReadyToClaim<T>>::insert(lower.lower_id, lower_proof_data);

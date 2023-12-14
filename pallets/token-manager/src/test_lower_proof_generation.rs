@@ -60,7 +60,7 @@ fn lower_proof_generation_works() {
         assert_eq!(
             <LowersReadyToClaim<TestRuntime>>::get(expected_lower_id)
                 .unwrap()
-                .abi_encoded_lower_data,
+                .encoded_lower_data,
             test_proof_data
         );
 

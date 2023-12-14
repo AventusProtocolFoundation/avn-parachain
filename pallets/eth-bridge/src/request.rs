@@ -102,7 +102,7 @@ pub fn complete_lower_proof_request<T: Config>(
     lower_req: &LowerProofRequestData,
     confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
 ) -> Result<(), Error<T>> {
-    let lower_proof = eth::generate_abi_encoded_lower_proof::<T>(lower_req, confirmations);
+    let lower_proof = eth::generate_encoded_lower_proof::<T>(lower_req, confirmations);
     let result = T::BridgeInterfaceNotification::process_lower_proof_result(
         lower_req.lower_id,
         lower_req.caller_id.clone().into(),

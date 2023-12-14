@@ -3,7 +3,7 @@
 #![cfg(test)]
 
 use crate::{
-    eth::generate_abi_encoded_lower_proof, mock::*, request::*, ActiveRequest, LowerId, Request,
+    eth::generate_encoded_lower_proof, mock::*, request::*, ActiveRequest, LowerId, Request,
     RequestQueue, SettledTransactions, AVN,
 };
 use codec::{alloc::sync::Arc, Decode, Encode};
@@ -436,10 +436,10 @@ mod lower_proof_encoding {
             add_new_lower_proof_request::<TestRuntime>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
 
-            let expected_abi_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b2200000000";
+            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b2200000000";
             if let Request::LowerProof(lower_req) = active_req.request {
-                let abi_encoded_proof = generate_abi_encoded_lower_proof::<TestRuntime>(&lower_req, active_req.confirmation.confirmations);
-                assert_eq!(expected_abi_encoded_proof, hex::encode(abi_encoded_proof));
+                let encoded_proof = generate_encoded_lower_proof::<TestRuntime>(&lower_req, active_req.confirmation.confirmations);
+                assert_eq!(expected_encoded_proof, hex::encode(encoded_proof));
             } else {
                 assert!(false, "active request is not a lower proof");
             }

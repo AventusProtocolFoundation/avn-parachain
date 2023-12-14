@@ -134,7 +134,7 @@ fn generate_corroborate_calldata<T: Config>(
     abi_encode_function(b"corroborate", &params)
 }
 
-pub fn generate_abi_encoded_lower_proof<T: Config>(
+pub fn generate_encoded_lower_proof<T: Config>(
     lower_req: &LowerProofRequestData,
     confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
 ) -> Vec<u8> {
