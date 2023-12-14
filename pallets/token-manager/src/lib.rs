@@ -260,9 +260,6 @@ pub mod pallet {
         InvalidLowerCall,
         LowerDataLimitExceeded,
         InvalidLowerId,
-        LowerTypeNameLengthExceeded,
-        LowerValueLengthExceeded,
-        LowerParamsLimitExceeded,
     }
 
     #[pallet::storage]
