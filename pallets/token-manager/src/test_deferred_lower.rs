@@ -1,11 +1,10 @@
-
 #![cfg(test)]
 use crate::{
     mock::{RuntimeEvent, *},
     *,
 };
-use pallet_scheduler::Agenda;
 use frame_support::{assert_noop, assert_ok};
+use pallet_scheduler::Agenda;
 use sp_runtime::DispatchError;
 
 fn schedule_lower(from: AccountId, amount: u128, t1_recipient: H160) {
@@ -28,7 +27,8 @@ fn simple_non_avt_token_lower_works() {
         let amount = pre_lower_balance;
 
         let expected_lower_id = 0;
-        let expected_schedule_name = ("Lower", &expected_lower_id).using_encoded(sp_io::hashing::blake2_256);
+        let expected_schedule_name =
+            ("Lower", &expected_lower_id).using_encoded(sp_io::hashing::blake2_256);
         let expected_execution_block = get_expected_execution_block();
         schedule_lower(from, amount, t1_recipient);
 
@@ -45,8 +45,7 @@ fn simple_non_avt_token_lower_works() {
                 sender_nonce: None,
                 lower_id: expected_lower_id,
                 schedule_name: expected_schedule_name,
-            }))
-        );
+            })));
 
         // No tokens have been burned
         assert_eq!(
@@ -81,8 +80,7 @@ fn simple_non_avt_token_lower_works() {
                 amount,
                 t1_recipient,
                 lower_id: 0
-            }))
-        );
+            })));
 
         // There is nothing scheduled
         assert_eq!(0, Agenda::<TestRuntime>::get(expected_execution_block).len());
@@ -107,21 +105,33 @@ fn lower_id_is_unique() {
         // Event emitted
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
-                token_id: NON_AVT_TOKEN_ID, sender, recipient, amount, t1_recipient, lower_id: 0
-            }))
-        );
+                token_id: NON_AVT_TOKEN_ID,
+                sender,
+                recipient,
+                amount,
+                t1_recipient,
+                lower_id: 0
+            })));
 
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
-                token_id: NON_AVT_TOKEN_ID, sender, recipient, amount: amount + 1, t1_recipient, lower_id: 1
-            }))
-        );
+                token_id: NON_AVT_TOKEN_ID,
+                sender,
+                recipient,
+                amount: amount + 1,
+                t1_recipient,
+                lower_id: 1
+            })));
 
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::TokenLowered {
-                token_id: NON_AVT_TOKEN_ID, sender, recipient, amount: amount + 2, t1_recipient, lower_id: 2
-            }))
-        );
+                token_id: NON_AVT_TOKEN_ID,
+                sender,
+                recipient,
+                amount: amount + 2,
+                t1_recipient,
+                lower_id: 2
+            })));
     });
 }
 
@@ -188,7 +198,8 @@ fn multiple_requests_in_different_blocks_works() {
             pre_lower_balance - amount
         );
 
-        let balance_after_first_lower = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let balance_after_first_lower =
+            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
         forward_to_next_block();
 
         // The second lower has been executed
@@ -197,11 +208,12 @@ fn multiple_requests_in_different_blocks_works() {
             balance_after_first_lower - (amount + 1)
         );
 
-        let balance_after_second_lower = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let balance_after_second_lower =
+            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
         forward_to_next_block();
 
-         // The third lower has been executed
-         assert_eq!(
+        // The third lower has been executed
+        assert_eq!(
             <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
             balance_after_second_lower - (amount + 2)
         );
@@ -220,11 +232,13 @@ mod cancelling {
 
         ext.execute_with(|| {
             let (_, from, _, t1_recipient) = MockData::setup_lower_request_data();
-            let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+            let pre_lower_balance =
+                <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
             let amount = pre_lower_balance;
 
             let expected_lower_id = 0;
-            let expected_schedule_name = ("Lower", &expected_lower_id).using_encoded(sp_io::hashing::blake2_256);
+            let expected_schedule_name =
+                ("Lower", &expected_lower_id).using_encoded(sp_io::hashing::blake2_256);
             let expected_execution_block = get_expected_execution_block();
 
             schedule_lower(from, amount, t1_recipient);
@@ -242,8 +256,7 @@ mod cancelling {
                     sender_nonce: None,
                     lower_id: expected_lower_id,
                     schedule_name: expected_schedule_name,
-                }))
-            );
+                })));
 
             // Cancel the lower
             assert_ok!(Scheduler::cancel_named(RuntimeOrigin::root(), expected_schedule_name));
@@ -268,11 +281,13 @@ mod cancelling {
 
         ext.execute_with(|| {
             let (_, from, _, t1_recipient) = MockData::setup_lower_request_data();
-            let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+            let pre_lower_balance =
+                <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
             let amount = pre_lower_balance;
 
             let expected_lower_id = 0;
-            let expected_schedule_name = ("Lower", &expected_lower_id).using_encoded(sp_io::hashing::blake2_256);
+            let expected_schedule_name =
+                ("Lower", &expected_lower_id).using_encoded(sp_io::hashing::blake2_256);
             let expected_execution_block = get_expected_execution_block();
 
             schedule_lower(from, amount, t1_recipient);
@@ -281,7 +296,10 @@ mod cancelling {
             assert_eq!(1, Agenda::<TestRuntime>::get(expected_execution_block).len());
 
             // Only root can cancel the lower
-            assert_noop!(Scheduler::cancel_named(RuntimeOrigin::signed(from), expected_schedule_name), DispatchError::BadOrigin);
+            assert_noop!(
+                Scheduler::cancel_named(RuntimeOrigin::signed(from), expected_schedule_name),
+                DispatchError::BadOrigin
+            );
         });
     }
 }

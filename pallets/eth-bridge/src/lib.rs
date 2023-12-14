@@ -1,15 +1,17 @@
 // Copyright 2023 Aventus Network Services (UK) Ltd.
 
 //! This pallet implements the AvN pallet's **BridgeInterface** interface, providing a **publish**
-//! method which other pallets, implementing the **BridgeInterfaceNotification**, can use to execute
-//! any author function on the Ethereum-based **avn-bridge** contract. They do so
-//! by passing the name of the desired avn-bridge function, along with an array of data type and
-//! value parameter tuples. Upon receipt of a **publish** request, this pallet takes charge of
-//! the entire transaction process. The process culminates in a callback to the originating pallet
-//! detailing the final outcome, which can be used to commit or rollback state. Transaction requests
-//! are handled sequentially and requests are queued if required.
+//! and **generate_lower_proof** methods which other pallets, implementing the
+//! **BridgeInterfaceNotification**, can use to execute any author function on the Ethereum-based
+//! **avn-bridge** contract or request a proof to be generated to lower tokens on Ethereum.
+//! To publish transactions, callers need to pass the name of the desired avn-bridge function,
+//! along with an array of data type and value parameter tuples. Upon receipt of a **publish**
+//! request, this pallet takes charge of the entire transaction process. The process culminates in a
+//! callback to the originating pallet detailing the final outcome, which can be used to commit or
+//! rollback state. Transaction requests are handled sequentially and requests are queued if
+//! required.
 //!
-//! Specifically, the pallet manages:
+//! When sending transactions to Ethereum, the pallet manages:
 //! - Accepting and managing external pallet requests to be processed to completion in the order
 //!   they arrive.
 //!
@@ -46,8 +48,6 @@
 //!    consensus of corroborations determines the final state which is reported back to the
 //!    originating pallet.
 
-// TODO: Update description
-
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(not(feature = "std"))]
 extern crate alloc;
@@ -64,7 +64,9 @@ use frame_system::{
     offchain::{SendTransactionTypes, SubmitTransaction},
     pallet_prelude::OriginFor,
 };
-use pallet_avn::{self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error};
+use pallet_avn::{
+    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
+};
 
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
@@ -172,7 +174,7 @@ pub mod pallet {
         },
         LowerProofRequested {
             lower_id: LowerId,
-            params: Vec<(Vec<u8>, Vec<u8>)>,
+            params: LowerParams,
             caller_id: Vec<u8>,
         },
         EthTxIdUpdated {
@@ -675,7 +677,7 @@ pub mod pallet {
 
         fn generate_lower_proof(
             lower_id: LowerId,
-            params: &Vec<(Vec<u8>, Vec<u8>)>,
+            params: &LowerParams,
             caller_id: Vec<u8>,
         ) -> Result<(), DispatchError> {
             // Note: we are not checking the queue for duplicates because we trust the calling
@@ -684,7 +686,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::<T>::LowerProofRequested {
                 lower_id,
-                params: params.to_vec(),
+                params: *params,
                 caller_id,
             });
 

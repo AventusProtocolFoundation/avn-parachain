@@ -134,7 +134,7 @@ impl<T: Config> Lower<T> {
             H160(hex!("1414141414141414141414141414141414141414")).into();
         let t1_recipient: H160 = H160(hex!("afdf36201bf70F1232111b5c6a9a424558755134"));
 
-        let lower_id = 1;
+        let lower_id = 0;
 
         Lower {
             from_account_id,
@@ -143,7 +143,7 @@ impl<T: Config> Lower<T> {
             amount: 1000,
             non_avt_token_id,
             t1_recipient,
-            lower_id
+            lower_id,
         }
     }
 
@@ -178,24 +178,6 @@ impl<T: Config> Lower<T> {
             signature: sr25519::Signature::from_slice(signature).unwrap().into(),
         }
     }
-}
-
-fn bound_params(
-    params: Vec<(Vec<u8>, Vec<u8>)>,
-) -> BoundedVec<
-    (BoundedVec<u8, crate::TypeLimit>, BoundedVec<u8, crate::ValueLimit>),
-    crate::ParamsLimit,
-> {
-    let intermediate: Vec<_> = params
-        .into_iter()
-        .map(|(type_vec, value_vec)| {
-            let type_bounded = BoundedVec::try_from(type_vec).expect("TypeNameLengthExceeded");
-            let value_bounded = BoundedVec::try_from(value_vec).expect("ValueLengthExceeded");
-            (type_bounded, value_bounded)
-        })
-        .collect();
-
-    BoundedVec::<_, crate::ParamsLimit>::try_from(intermediate).expect("crate::ParamsLimitExceeded")
 }
 
 benchmarks! {
@@ -328,7 +310,8 @@ benchmarks! {
                 amount: lower.amount.into(),
                 t1_recipient: lower.t1_recipient,
                 sender_nonce: Some(0),
-                lower_id: 0,
+                schedule_name: ("Lower", &lower.lower_id).using_encoded(sp_io::hashing::blake2_256),
+                lower_id: lower.lower_id,
             }.into()
         );
     }
@@ -349,16 +332,13 @@ benchmarks! {
     regenerate_lower_proof {
         let lower: Lower<T> = Lower::new().setup();
         let token_id = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
-        let params = vec![
-            (b"address".to_vec(), token_id.as_fixed_bytes().to_vec()),
-            (b"uint32".to_vec(), 1u32.to_string().into_bytes()),
-        ];
+        let params = crate::Pallet::<T>::concat_lower_data(lower.lower_id, token_id.into(), &lower.amount.into(), &token_id);
 
         let lower_data = vec![0u8; 32];
 
         let lower_proof_data = LowerProofData {
-            params: bound_params(params.clone()),
-            abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data).expect("test"),
+            params,
+            encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data).expect("test"),
         };
 
         <LowersReadyToClaim<T>>::insert(lower.lower_id, lower_proof_data);

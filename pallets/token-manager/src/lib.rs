@@ -21,7 +21,10 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::{format, string::{String, ToString},};
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use frame_support::{
@@ -41,7 +44,7 @@ use frame_system::ensure_signed;
 pub use pallet::*;
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
-    OnGrowthLiftedHandler, ProcessedEventsChecker,
+    LowerParams, OnGrowthLiftedHandler, ProcessedEventsChecker, PACKED_LOWER_PARAM_SIZE,
 };
 use sp_avn_common::{
     event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
@@ -66,16 +69,9 @@ type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 
 type CallOf<T> = <T as Config>::RuntimeCall;
 pub type LowerId = u32;
-pub type LowerParams =
-    BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>;
-
-// TODO: make these config constants
-pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
-pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
-pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
-mod benchmarking;
 
+mod benchmarking;
 pub mod default_weights;
 pub mod migration;
 pub use default_weights::WeightInfo;
@@ -83,21 +79,21 @@ pub use default_weights::WeightInfo;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
-mod test_proxying_signed_transfer;
-#[cfg(test)]
-mod test_proxying_signed_lower;
+mod test_avt_tokens;
 #[cfg(test)]
 mod test_common_cases;
 #[cfg(test)]
-mod test_avt_tokens;
-#[cfg(test)]
-mod test_non_avt_tokens;
+mod test_deferred_lower;
 #[cfg(test)]
 mod test_growth;
 #[cfg(test)]
-mod test_deferred_lower;
-#[cfg(test)]
 mod test_lower_proof_generation;
+#[cfg(test)]
+mod test_non_avt_tokens;
+#[cfg(test)]
+mod test_proxying_signed_lower;
+#[cfg(test)]
+mod test_proxying_signed_transfer;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
@@ -264,9 +260,6 @@ pub mod pallet {
         InvalidLowerCall,
         LowerDataLimitExceeded,
         InvalidLowerId,
-        LowerTypeNameLengthExceeded,
-        LowerValueLengthExceeded,
-        LowerParamsLimitExceeded,
     }
 
     #[pallet::storage]
@@ -687,14 +680,10 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        let params = vec![
-            (b"address".to_vec(), token_id.into().as_fixed_bytes().to_vec()),
-            (b"uint256".to_vec(), format!("{}", amount).as_bytes().to_vec()),
-            (b"address".to_vec(), t1_recipient.as_fixed_bytes().to_vec()),
-        ];
+        let lower_params = Self::concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
 
-        <LowersPendingProof<T>>::insert(lower_id, Self::bound_lower_params(&params)?);
-        T::BridgeInterface::generate_lower_proof(lower_id, &params, PALLET_ID.to_vec())?;
+        <LowersPendingProof<T>>::insert(lower_id, &lower_params);
+        T::BridgeInterface::generate_lower_proof(lower_id, &lower_params, PALLET_ID.to_vec())?;
 
         Ok(())
     }
@@ -762,17 +751,30 @@ impl<T: Config> Pallet<T> {
     }
 
     fn regenerate_proof(lower_id: u32, params: LowerParams) -> DispatchResult {
-        let unbounded_params = params
-            .iter()
-            .map(|(type_bounded, value_bounded)| {
-                (type_bounded.as_slice().to_vec(), value_bounded.as_slice().to_vec())
-            })
-            .collect();
-
         <LowersPendingProof<T>>::insert(lower_id, params);
-        T::BridgeInterface::generate_lower_proof(lower_id, &unbounded_params, PALLET_ID.to_vec())?;
+        T::BridgeInterface::generate_lower_proof(lower_id, &params, PALLET_ID.to_vec())?;
 
         Ok(())
+    }
+
+    pub fn concat_lower_data(
+        lower_id: LowerId,
+        token_id: T::TokenId,
+        amount: &u128,
+        t1_recipient: &H160,
+    ) -> LowerParams {
+        let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
+
+        // TokenId = 20 bytes
+        lower_params[0..20].copy_from_slice(&token_id.into().as_fixed_bytes()[0..20]);
+        // TokenBalance = 32 bytes
+        lower_params[36..52].copy_from_slice(&amount.to_be_bytes()[0..16]);
+        // T1Recipient = 20 bytes
+        lower_params[52..72].copy_from_slice(&t1_recipient.as_fixed_bytes()[0..20]);
+        // LowerId = 4 bytes
+        lower_params[72..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
+
+        return lower_params
     }
 
     fn encode_signed_transfer_params(
@@ -974,27 +976,6 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
-
-    pub fn bound_lower_params(
-        params: &[(Vec<u8>, Vec<u8>)],
-    ) -> Result<
-        BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-        Error<T>,
-    > {
-        let result: Result<Vec<_>, _> = params
-            .iter()
-            .map(|(type_vec, value_vec)| {
-                let type_bounded = BoundedVec::try_from(type_vec.clone())
-                    .map_err(|_| Error::<T>::LowerTypeNameLengthExceeded)?;
-                let value_bounded = BoundedVec::try_from(value_vec.clone())
-                    .map_err(|_| Error::<T>::LowerValueLengthExceeded)?;
-                Ok::<_, Error<T>>((type_bounded, value_bounded))
-            })
-            .collect();
-
-        BoundedVec::<_, ParamsLimit>::try_from(result?)
-            .map_err(|_| Error::<T>::LowerParamsLimitExceeded)
-    }
 }
 
 impl<T: Config> ProcessedEventHandler for Pallet<T> {
@@ -1055,10 +1036,10 @@ impl<T: Config> CollatorPayoutDustHandler<BalanceOf<T>> for Pallet<T> {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofData {
-    pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    pub abi_encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
+    pub params: LowerParams,
+    pub encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
 }
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
@@ -1076,7 +1057,7 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
             if let Ok(lower_data) = data {
                 let lower_proof = LowerProofData {
                     params: pending_lower,
-                    abi_encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data)
+                    encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data)
                         .map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
                 };
 
