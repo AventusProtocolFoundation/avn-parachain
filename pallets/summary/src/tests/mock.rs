@@ -5,7 +5,7 @@ use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,
-    PACKED_LOWER_PARAM_SIZE,
+    LowerParams, PACKED_LOWER_PARAM_SIZE,
 };
 use pallet_eth_bridge::offence::CorroborationOffence;
 use pallet_session as session;
