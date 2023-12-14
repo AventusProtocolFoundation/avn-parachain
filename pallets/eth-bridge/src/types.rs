@@ -48,10 +48,10 @@ impl SendRequestData {
 }
 
 // Request data for a message that requires confirmation for Ethereum
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct LowerProofRequestData {
     pub lower_id: LowerId,
-    pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    pub params: LowerParams,
     pub caller_id: BoundedVec<u8, CallerIdLimit>,
 }
 

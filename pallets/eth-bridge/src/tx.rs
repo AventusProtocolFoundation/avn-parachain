@@ -1,5 +1,5 @@
 use super::*;
-use crate::{offence::create_and_report_corroboration_offence, Config};
+use crate::{offence::create_and_report_corroboration_offence, util::unbound_params, Config};
 use frame_support::BoundedVec;
 
 pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
@@ -81,7 +81,7 @@ pub fn finalize_state<T: Config>(
 pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>> {
     let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
     let extended_params = req.extend_params(expiry)?;
-    let msg_hash = eth::generate_msg_hash(&extended_params)?;
+    let msg_hash = generate_msg_hash::<T>(&extended_params)?;
 
     ActiveRequest::<T>::put(ActiveRequestData {
         request: Request::Send(req.clone()),
@@ -113,6 +113,25 @@ pub fn use_next_tx_id<T: Config>() -> u32 {
     let tx_id = NextTxId::<T>::get();
     NextTxId::<T>::put(tx_id + 1);
     tx_id
+}
+
+fn generate_msg_hash<T: pallet::Config>(
+    params: &BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+) -> Result<H256, Error<T>> {
+    let params = unbound_params(params);
+    let tokens: Result<Vec<_>, _> = params
+        .iter()
+        .map(|(type_bytes, value_bytes)| {
+            let param_type =
+                eth::to_param_type(type_bytes).ok_or_else(|| Error::<T>::MsgHashError)?;
+            eth::to_token_type(&param_type, value_bytes)
+        })
+        .collect();
+
+    let encoded = ethabi::encode(&tokens?);
+    let msg_hash = keccak_256(&encoded);
+
+    Ok(H256::from(msg_hash))
 }
 
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {

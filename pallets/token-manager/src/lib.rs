@@ -18,24 +18,39 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo},
     ensure, log,
-    traits::{Currency, ExistenceRequirement, Get, Imbalance, IsSubType, WithdrawReasons},
-    PalletId, Parameter,
+    traits::{
+        schedule::{
+            v3::{Anon as ScheduleAnon, Named as ScheduleNamed, TaskName},
+            DispatchTime, HARD_DEADLINE,
+        },
+        Currency, ExistenceRequirement, Get, Imbalance, IsSubType, QueryPreimage, StorePreimage,
+        WithdrawReasons,
+    },
+    BoundedVec, PalletId, Parameter,
 };
 use frame_system::ensure_signed;
 pub use pallet::*;
 use pallet_avn::{
-    self as avn, CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
+    self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
+    LowerParams, OnGrowthLiftedHandler, ProcessedEventsChecker, PACKED_LOWER_PARAM_SIZE,
 };
 use sp_avn_common::{
     event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
     verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
-use sp_core::{H160, H256};
+use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{
@@ -52,34 +67,37 @@ type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
 
-mod benchmarking;
+type CallOf<T> = <T as Config>::RuntimeCall;
+pub type LowerId = u32;
+pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
 
+mod benchmarking;
 pub mod default_weights;
+pub mod migration;
 pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
-
+#[cfg(test)]
+mod test_avt_tokens;
+#[cfg(test)]
+mod test_common_cases;
+#[cfg(test)]
+mod test_deferred_lower;
+#[cfg(test)]
+mod test_growth;
+#[cfg(test)]
+mod test_lower_proof_generation;
+#[cfg(test)]
+mod test_non_avt_tokens;
+#[cfg(test)]
+mod test_proxying_signed_lower;
 #[cfg(test)]
 mod test_proxying_signed_transfer;
 
-#[cfg(test)]
-mod test_proxying_signed_lower;
-
-#[cfg(test)]
-mod test_common_cases;
-
-#[cfg(test)]
-mod test_avt_tokens;
-
-#[cfg(test)]
-mod test_non_avt_tokens;
-
-#[cfg(test)]
-mod test_growth;
-
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
+const PALLET_ID: &'static [u8; 13] = b"token_manager";
 
 pub use pallet::*;
 
@@ -96,29 +114,23 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
         /// The overarching call type.
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
             + From<Call<Self>>
-            + GetDispatchInfo;
-
+            + GetDispatchInfo
+            + From<frame_system::Call<Self>>;
         /// Currency type for lifting
         type Currency: Currency<Self::AccountId>;
-
         /// The units in which we record balances of tokens others than AVT
         type TokenBalance: Member + Parameter + AtLeast32Bit + Default + Copy + MaxEncodedLen;
-
         /// The type of token identifier
         /// (a H160 because this is an Ethereum address)
-        type TokenId: Parameter + Default + Copy + From<H160> + MaxEncodedLen;
-
+        type TokenId: Parameter + Default + Copy + From<H160> + Into<H160> + MaxEncodedLen;
         type ProcessedEventsChecker: ProcessedEventsChecker;
-
         /// A type that can be used to verify signatures
         type Public: IdentifyAccount<AccountId = Self::AccountId>;
-
         /// The signature type used by accounts/transactions.
         type Signature: Verify<Signer = Self::Public>
             + Member
@@ -126,22 +138,26 @@ pub mod pallet {
             + Encode
             + From<sp_core::sr25519::Signature>
             + TypeInfo;
-
         /// Id of the account that will hold treasury funds
         type AvnTreasuryPotId: Get<PalletId>;
-
         /// Percentage of growth to store in the treasury
         #[pallet::constant]
         type TreasuryGrowthPercentage: Get<Perbill>;
-
         /// Handler to notify the runtime when AVT growth is lifted.
         type OnGrowthLiftedHandler: OnGrowthLiftedHandler<BalanceOf<Self>>;
-
+        type Scheduler: ScheduleAnon<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>
+            + ScheduleNamed<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>;
+        /// The preimage provider.
+        type Preimages: QueryPreimage + StorePreimage;
+        /// Overarching type of all pallets origins.
+        type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
+        type BridgeInterface: BridgeInterface;
         type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
+    #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -176,12 +192,14 @@ pub mod pallet {
             recipient: T::AccountId,
             amount: u128,
             t1_recipient: H160,
+            lower_id: LowerId,
         },
         AvtLowered {
             sender: T::AccountId,
             recipient: T::AccountId,
             amount: u128,
             t1_recipient: H160,
+            lower_id: LowerId,
         },
         AvtTransferredFromTreasury {
             recipient: T::AccountId,
@@ -191,6 +209,32 @@ pub mod pallet {
             treasury_share: BalanceOf<T>,
             collators_share: BalanceOf<T>,
             eth_tx_hash: H256,
+        },
+        LowerRequested {
+            token_id: T::TokenId,
+            from: T::AccountId,
+            amount: u128,
+            t1_recipient: H160,
+            sender_nonce: Option<u64>,
+            lower_id: LowerId,
+            schedule_name: TaskName,
+        },
+        LowerReadyToClaim {
+            lower_id: LowerId,
+        },
+        FailedToGenerateLowerProof {
+            lower_id: LowerId,
+        },
+        RegeneratingLowerProof {
+            lower_id: LowerId,
+            requester: T::AccountId,
+        },
+        RegeneratingFailedLowerProof {
+            lower_id: LowerId,
+            requester: T::AccountId,
+        },
+        LowerSchedulePeriodUpdated {
+            new_period: T::BlockNumber,
         },
     }
 
@@ -212,6 +256,10 @@ pub mod pallet {
         ErrorConvertingTokenBalance,
         ErrorConvertingToBalance,
         NoTier1EventForLogAvtGrowthLifted,
+        Overflow,
+        InvalidLowerCall,
+        LowerDataLimitExceeded,
+        InvalidLowerId,
     }
 
     #[pallet::storage]
@@ -237,11 +285,37 @@ pub mod pallet {
     #[pallet::getter(fn avt_token_contract)]
     pub type AVTTokenContract<T: Config> = StorageValue<_, H160, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn get_ready_to_claim_lower)]
+    pub type LowersReadyToClaim<T: Config> =
+        StorageMap<_, Blake2_128Concat, LowerId, LowerProofData, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_lower_pending_proof)]
+    pub type LowersPendingProof<T: Config> =
+        StorageMap<_, Blake2_128Concat, LowerId, LowerParams, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn get_failed_lower_proof)]
+    pub type FailedLowerProofs<T: Config> =
+        StorageMap<_, Blake2_128Concat, LowerId, LowerParams, OptionQuery>;
+
+    /// A nonce to uniquely identify each lower request
+    #[pallet::storage]
+    #[pallet::getter(fn lower_id)]
+    pub type LowerNonce<T: Config> = StorageValue<_, LowerId, ValueQuery>;
+
+    /// The number of blocks lower transactions are delayed before executing
+    #[pallet::storage]
+    #[pallet::getter(fn lower_schedule_period)]
+    pub type LowerSchedulePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub lower_account_id: H256,
         pub avt_token_contract: H160,
+        pub lower_schedule_period: T::BlockNumber,
     }
 
     #[cfg(feature = "std")]
@@ -251,6 +325,7 @@ pub mod pallet {
                 _phantom: Default::default(),
                 lower_account_id: H256::zero(),
                 avt_token_contract: H160::zero(),
+                lower_schedule_period: T::BlockNumber::zero(),
             }
         }
     }
@@ -258,8 +333,10 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
+            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
             <LowerAccountId<T>>::put(self.lower_account_id);
             <AVTTokenContract<T>>::put(self.avt_token_contract);
+            <LowerSchedulePeriod<T>>::put(self.lower_schedule_period);
         }
     }
 
@@ -323,10 +400,59 @@ pub mod pallet {
             Ok(())
         }
 
+        /// Transfer AVT from the treasury account. The origin must be root.
+        // TODO: benchmark me
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::transfer_from_treasury())]
+        pub fn transfer_from_treasury(
+            origin: OriginFor<T>,
+            recipient: T::AccountId,
+            amount: BalanceOf<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(amount != BalanceOf::<T>::zero(), Error::<T>::AmountIsZero);
+
+            <T as pallet::Config>::Currency::transfer(
+                &Self::compute_treasury_account_id(),
+                &recipient,
+                amount,
+                ExistenceRequirement::KeepAlive,
+            )?;
+
+            Self::deposit_event(Event::<T>::AvtTransferredFromTreasury { recipient, amount });
+
+            Ok(())
+        }
+
         /// Lower an amount of token from tier2 to tier1
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::lower_avt_token().max(<T as pallet::Config>::WeightInfo::lower_non_avt_token()))]
-        #[pallet::call_index(2)]
-        pub fn lower(
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::execute_avt_lower().max(<T as pallet::Config>::WeightInfo::execute_non_avt_lower()))]
+        #[pallet::call_index(5)]
+        pub fn execute_lower(
+            origin: OriginFor<T>,
+            from: T::AccountId,
+            to_account_id: T::AccountId,
+            token_id: T::TokenId,
+            amount: u128,
+            t1_recipient: H160,
+            lower_id: LowerId,
+        ) -> DispatchResultWithPostInfo {
+            let _ = ensure_root(origin)?;
+
+            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient, lower_id)?;
+
+            let final_weight = if token_id == Self::avt_token_contract().into() {
+                <T as pallet::Config>::WeightInfo::execute_avt_lower()
+            } else {
+                <T as pallet::Config>::WeightInfo::execute_non_avt_lower()
+            };
+
+            Ok(Some(final_weight).into())
+        }
+
+        /// Schedule a call to lower an amount of token from tier2 to tier1
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::schedule_direct_lower())]
+        #[pallet::call_index(6)]
+        pub fn schedule_direct_lower(
             origin: OriginFor<T>,
             from: T::AccountId,
             token_id: T::TokenId,
@@ -340,21 +466,15 @@ pub mod pallet {
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
                 .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
 
-            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
+            Self::schedule_lower(&from, to_account_id, token_id, amount, t1_recipient, None)?;
 
-            let final_weight = if token_id == Self::avt_token_contract().into() {
-                <T as pallet::Config>::WeightInfo::lower_avt_token()
-            } else {
-                <T as pallet::Config>::WeightInfo::lower_non_avt_token()
-            };
-
-            Ok(Some(final_weight).into())
+            Ok(().into())
         }
 
-        /// Lower an amount of token from tier2 to tier1 by a relayer
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_lower_avt_token().max(<T as pallet::Config>::WeightInfo::signed_lower_non_avt_token()))]
-        #[pallet::call_index(3)]
-        pub fn signed_lower(
+        /// Schedule a call to lower an amount of token from tier2 to tier1 by a relayer
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::schedule_signed_lower())]
+        #[pallet::call_index(7)]
+        pub fn schedule_signed_lower(
             origin: OriginFor<T>,
             proof: Proof<T::Signature, T::AccountId>,
             from: T::AccountId,
@@ -385,39 +505,62 @@ pub mod pallet {
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
                 .map_err(|_| Error::<T>::ErrorConvertingAccountId)?;
 
-            Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient)?;
-
-            let final_weight = if token_id == Self::avt_token_contract().into() {
-                <T as pallet::Config>::WeightInfo::signed_lower_avt_token()
-            } else {
-                <T as pallet::Config>::WeightInfo::signed_lower_non_avt_token()
-            };
-
-            Ok(Some(final_weight).into())
-        }
-
-        /// Transfer AVT from the treasury account. The origin must be root.
-        // TODO: benchmark me
-        #[pallet::call_index(4)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::transfer_from_treasury())]
-        pub fn transfer_from_treasury(
-            origin: OriginFor<T>,
-            recipient: T::AccountId,
-            amount: BalanceOf<T>,
-        ) -> DispatchResult {
-            ensure_root(origin)?;
-            ensure!(amount != BalanceOf::<T>::zero(), Error::<T>::AmountIsZero);
-
-            <T as pallet::Config>::Currency::transfer(
-                &Self::compute_treasury_account_id(),
-                &recipient,
+            Self::schedule_lower(
+                &from,
+                to_account_id,
+                token_id,
                 amount,
-                ExistenceRequirement::KeepAlive,
+                t1_recipient,
+                Some(sender_nonce),
             )?;
 
-            Self::deposit_event(Event::<T>::AvtTransferredFromTreasury { recipient, amount });
+            <Nonces<T>>::mutate(from, |n| *n += 1);
 
-            Ok(())
+            Ok(().into())
+        }
+
+        #[pallet::call_index(8)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::regenerate_lower_proof())]
+        pub fn regenerate_lower_proof(
+            origin: OriginFor<T>,
+            lower_id: LowerId,
+        ) -> DispatchResultWithPostInfo {
+            let requester = ensure_signed(origin)?;
+
+            if <LowersReadyToClaim<T>>::contains_key(lower_id) {
+                let lower = <LowersReadyToClaim<T>>::take(lower_id).expect("lower exists");
+                Self::regenerate_proof(lower_id, lower.params)?;
+
+                Self::deposit_event(Event::<T>::RegeneratingLowerProof { lower_id, requester });
+
+                return Ok(().into())
+            } else if <FailedLowerProofs<T>>::contains_key(lower_id) {
+                let lower_params = <FailedLowerProofs<T>>::take(lower_id).expect("lower exists");
+                Self::regenerate_proof(lower_id, lower_params)?;
+
+                Self::deposit_event(Event::<T>::RegeneratingFailedLowerProof {
+                    lower_id,
+                    requester,
+                });
+            } else {
+                Err(Error::<T>::InvalidLowerId)?
+            }
+
+            Ok(().into())
+        }
+
+        #[pallet::call_index(9)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_lower_schedule_period())]
+        pub fn set_lower_schedule_period(
+            origin: OriginFor<T>,
+            new_period: T::BlockNumber,
+        ) -> DispatchResult {
+            let _ = ensure_root(origin)?;
+
+            <LowerSchedulePeriod<T>>::put(new_period);
+            Self::deposit_event(Event::<T>::LowerSchedulePeriodUpdated { new_period });
+
+            return Ok(())
         }
     }
 }
@@ -488,6 +631,7 @@ impl<T: Config> Pallet<T> {
         to: &T::AccountId,
         amount: u128,
         t1_recipient: H160,
+        lower_id: LowerId,
     ) -> DispatchResult {
         if token_id == Self::avt_token_contract().into() {
             let lower_amount = <BalanceOf<T> as TryFrom<u128>>::try_from(amount)
@@ -516,6 +660,7 @@ impl<T: Config> Pallet<T> {
                 recipient: to.clone(),
                 amount,
                 t1_recipient,
+                lower_id,
             });
         } else {
             let lower_amount = <T::TokenBalance as TryFrom<u128>>::try_from(amount)
@@ -531,10 +676,14 @@ impl<T: Config> Pallet<T> {
                 recipient: to.clone(),
                 amount,
                 t1_recipient,
+                lower_id,
             });
         }
 
-        <Nonces<T>>::mutate(from, |n| *n += 1);
+        let lower_params = Self::concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
+
+        <LowersPendingProof<T>>::insert(lower_id, &lower_params);
+        T::BridgeInterface::generate_lower_proof(lower_id, &lower_params, PALLET_ID.to_vec())?;
 
         Ok(())
     }
@@ -601,6 +750,33 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    fn regenerate_proof(lower_id: u32, params: LowerParams) -> DispatchResult {
+        <LowersPendingProof<T>>::insert(lower_id, params);
+        T::BridgeInterface::generate_lower_proof(lower_id, &params, PALLET_ID.to_vec())?;
+
+        Ok(())
+    }
+
+    pub fn concat_lower_data(
+        lower_id: LowerId,
+        token_id: T::TokenId,
+        amount: &u128,
+        t1_recipient: &H160,
+    ) -> LowerParams {
+        let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
+
+        // TokenId = 20 bytes
+        lower_params[0..20].copy_from_slice(&token_id.into().as_fixed_bytes()[0..20]);
+        // TokenBalance = 32 bytes
+        lower_params[36..52].copy_from_slice(&amount.to_be_bytes()[0..16]);
+        // T1Recipient = 20 bytes
+        lower_params[52..72].copy_from_slice(&t1_recipient.as_fixed_bytes()[0..20]);
+        // LowerId = 4 bytes
+        lower_params[72..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
+
+        return lower_params
+    }
+
     fn encode_signed_transfer_params(
         proof: &Proof<T::Signature, T::AccountId>,
         from: &T::AccountId,
@@ -663,7 +839,7 @@ impl<T: Config> Pallet<T> {
 
                 return Some((proof, encoded_data))
             },
-            Call::signed_lower { proof, from, token_id, amount, t1_recipient } => {
+            Call::schedule_signed_lower { proof, from, token_id, amount, t1_recipient } => {
                 let sender_nonce = Self::nonce(&proof.signer);
                 let encoded_data = Self::encode_signed_lower_params(
                     proof,
@@ -756,6 +932,50 @@ impl<T: Config> Pallet<T> {
         <T as pallet::Config>::Currency::free_balance(&Self::compute_treasury_account_id())
             .saturating_sub(<T as pallet::Config>::Currency::minimum_balance())
     }
+
+    fn schedule_lower(
+        from: &T::AccountId,
+        to_account_id: T::AccountId,
+        token_id: T::TokenId,
+        amount: u128,
+        t1_recipient: H160,
+        sender_nonce: Option<u64>,
+    ) -> DispatchResult {
+        let lower_id = Self::lower_id();
+        let schedule_name = ("Lower", &lower_id).using_encoded(sp_io::hashing::blake2_256);
+        let call = Box::new(Call::execute_lower {
+            from: from.clone(),
+            to_account_id,
+            token_id,
+            amount,
+            t1_recipient,
+            lower_id,
+        });
+
+        T::Scheduler::schedule_named(
+            schedule_name,
+            DispatchTime::After(Self::lower_schedule_period()),
+            None,
+            HARD_DEADLINE,
+            frame_system::RawOrigin::Root.into(),
+            T::Preimages::bound(CallOf::<T>::from(*call))
+                .map_err(|_| Error::<T>::InvalidLowerCall)?,
+        )?;
+
+        <LowerNonce<T>>::mutate(|nonce| *nonce += 1);
+
+        Self::deposit_event(Event::<T>::LowerRequested {
+            token_id,
+            from: from.clone(),
+            amount,
+            t1_recipient,
+            sender_nonce,
+            lower_id,
+            schedule_name,
+        });
+
+        Ok(())
+    }
 }
 
 impl<T: Config> ProcessedEventHandler for Pallet<T> {
@@ -780,7 +1000,7 @@ impl<T: Config> CallDecoder for Pallet<T> {
 
         match call {
             Call::signed_transfer { proof, .. } => return Ok(proof.clone()),
-            Call::signed_lower { proof, .. } => return Ok(proof.clone()),
+            Call::schedule_signed_lower { proof, .. } => return Ok(proof.clone()),
             _ => return Err(Error::TransactionNotSupported),
         }
     }
@@ -813,5 +1033,44 @@ impl<T: Config> CollatorPayoutDustHandler<BalanceOf<T>> for Pallet<T> {
 
         // If the deposit succeeds, when this function goes out of scope, total issuance will
         // increase by "imbalance"
+    }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct LowerProofData {
+    pub params: LowerParams,
+    pub encoded_lower_data: BoundedVec<u8, LowerDataLimit>,
+}
+
+impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
+    fn process_result(_: u32, _: Vec<u8>, _: bool) -> DispatchResult {
+        Ok(())
+    }
+
+    fn process_lower_proof_result(
+        lower_id: u32,
+        caller_id: Vec<u8>,
+        data: Result<Vec<u8>, ()>,
+    ) -> DispatchResult {
+        if LowersPendingProof::<T>::contains_key(&lower_id) && caller_id == PALLET_ID.to_vec() {
+            let pending_lower = <LowersPendingProof<T>>::take(lower_id).expect("entry exists");
+            if let Ok(lower_data) = data {
+                let lower_proof = LowerProofData {
+                    params: pending_lower,
+                    encoded_lower_data: BoundedVec::<u8, LowerDataLimit>::try_from(lower_data)
+                        .map_err(|_| Error::<T>::LowerDataLimitExceeded)?,
+                };
+
+                <LowersReadyToClaim<T>>::insert(lower_id, lower_proof);
+                <crate::Pallet<T>>::deposit_event(Event::<T>::LowerReadyToClaim { lower_id });
+            } else {
+                <FailedLowerProofs<T>>::insert(lower_id, pending_lower);
+                <crate::Pallet<T>>::deposit_event(Event::<T>::FailedToGenerateLowerProof {
+                    lower_id,
+                });
+            }
+        }
+
+        Ok(())
     }
 }

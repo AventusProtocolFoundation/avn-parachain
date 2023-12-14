@@ -3,11 +3,12 @@
 #![cfg(test)]
 
 use crate::{
-    eth::generate_abi_encoded_lower_proof, mock::*, request::*, ActiveRequest, Request,
+    eth::generate_encoded_lower_proof, mock::*, request::*, ActiveRequest, LowerId, Request,
     RequestQueue, SettledTransactions, AVN,
 };
 use codec::{alloc::sync::Arc, Decode, Encode};
 use frame_support::traits::Hooks;
+use pallet_avn::{LowerParams, PACKED_LOWER_PARAM_SIZE};
 use parking_lot::RwLock;
 use sp_core::{
     ecdsa,
@@ -126,6 +127,26 @@ fn call_ocw_and_dispatch(
     tx.call.dispatch(frame_system::RawOrigin::None.into()).map(|_| ()).unwrap();
 }
 
+pub fn concat_lower_data(
+    lower_id: LowerId,
+    token_id: H160,
+    amount: &u128,
+    t1_recipient: &H160,
+) -> LowerParams {
+    let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
+
+    // TokenId = 20 bytes
+    lower_params[0..20].copy_from_slice(&token_id.as_fixed_bytes()[0..20]);
+    // TokenBalance = 32 bytes
+    lower_params[36..52].copy_from_slice(&amount.to_be_bytes()[0..16]);
+    // T1Recipient = 20 bytes
+    lower_params[52..72].copy_from_slice(&t1_recipient.as_fixed_bytes()[0..20]);
+    // LowerId = 4 bytes
+    lower_params[72..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
+
+    return lower_params
+}
+
 mod lower_proofs {
     use super::*;
 
@@ -142,7 +163,7 @@ mod lower_proofs {
 
             add_new_lower_proof_request::<TestRuntime>(
                 context.lower_id,
-                &context.request_params,
+                &context.lower_params,
                 &vec![],
             )
             .unwrap();
@@ -187,7 +208,7 @@ mod lower_proofs {
 
             add_new_lower_proof_request::<TestRuntime>(
                 context.lower_id,
-                &context.request_params,
+                &context.lower_params,
                 &vec![],
             )
             .unwrap();
@@ -229,7 +250,7 @@ mod lower_proofs {
 
             add_new_lower_proof_request::<TestRuntime>(
                 context.lower_id,
-                &context.request_params,
+                &context.lower_params,
                 &vec![],
             )
             .unwrap();
@@ -237,7 +258,7 @@ mod lower_proofs {
             let new_lower_id = context.lower_id + 1;
             add_new_lower_proof_request::<TestRuntime>(
                 new_lower_id,
-                &context.request_params,
+                &context.lower_params,
                 &vec![],
             )
             .unwrap();
@@ -279,7 +300,7 @@ mod lower_proofs {
             // add a lower request as Active
             add_new_lower_proof_request::<TestRuntime>(
                 context.lower_id,
-                &context.request_params,
+                &context.lower_params,
                 &vec![],
             )
             .unwrap();
@@ -297,7 +318,7 @@ mod lower_proofs {
             let duplicate_lower_id = tx_id;
             add_new_lower_proof_request::<TestRuntime>(
                 duplicate_lower_id,
-                &context.request_params,
+                &context.lower_params,
                 &vec![],
             )
             .unwrap();
@@ -327,6 +348,7 @@ mod lower_proofs {
             // taking into account the sender (hence why -2 instead of -1)
             add_confirmations(AVN::<TestRuntime>::quorum() - 2);
 
+            let original_msg_hash = context.expected_lower_msg_hash.clone();
             // Update the hash to match the second request (tx_id) and call ocw
             context.expected_lower_msg_hash =
                 "f6567b5fc754d7b5ec6543e28c68373851ec1cd91a7c228c8f1e4c40f8d9fd8d".to_string();
@@ -352,8 +374,8 @@ mod lower_proofs {
             add_confirmations(AVN::<TestRuntime>::supermajority_quorum() - 1);
 
             // Reset hash for the new lower id
-            context.expected_lower_msg_hash =
-                "c7b00196754f72fbdd51b612d0eb8c69495e8d7e092cd26d46d780d0ea15b4a8".to_string();
+            context.expected_lower_msg_hash = original_msg_hash;
+
             call_ocw_and_dispatch(&context, offchain_state.clone(), &pool_state, 1u64, 3u64);
 
             // Ensure the lower proof is generated (quorum is met)
@@ -383,14 +405,9 @@ mod lower_proof_encoding {
             let amount = 10u128;
             let t1_recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
 
-            let params = vec![
-                (b"address".to_vec(), token_id.as_fixed_bytes().to_vec()),
-                (b"uint256".to_vec(), format!("{}", amount).as_bytes().to_vec()),
-                (b"address".to_vec(), t1_recipient.as_fixed_bytes().to_vec()),
-            ];
-
+            let params = concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
             let expected_msg_hash =
-                "81e8e98363d4931985ae6ef91682378da615c423bee7e7ffe86ce442e47dc606";
+                "03c73bbc2756811e3d48189657f4b6e63447a7115eced7e172731cc8c7768e09";
 
             add_new_lower_proof_request::<TestRuntime>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
@@ -414,19 +431,15 @@ mod lower_proof_encoding {
             let token_id = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
             let amount = 10u128;
             let t1_recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
-            let params = vec![
-                (b"address".to_vec(), token_id.as_fixed_bytes().to_vec()),
-                (b"uint256".to_vec(), format!("{}", amount).as_bytes().to_vec()),
-                (b"address".to_vec(), t1_recipient.as_fixed_bytes().to_vec()),
-            ];
+            let params = concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
 
             add_new_lower_proof_request::<TestRuntime>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
 
-            let expected_abi_encoded_proof = "00000000000000000000000097d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000de7e1091cde63c05aa4d82c62e4c54edbc701b22000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000";
+            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b2200000000";
             if let Request::LowerProof(lower_req) = active_req.request {
-                let abi_encoded_proof = generate_abi_encoded_lower_proof::<TestRuntime>(&lower_req, active_req.confirmation.confirmations).unwrap();
-                assert_eq!(expected_abi_encoded_proof, hex::encode(abi_encoded_proof));
+                let encoded_proof = generate_encoded_lower_proof::<TestRuntime>(&lower_req, active_req.confirmation.confirmations);
+                assert_eq!(expected_encoded_proof, hex::encode(encoded_proof));
             } else {
                 assert!(false, "active request is not a lower proof");
             }

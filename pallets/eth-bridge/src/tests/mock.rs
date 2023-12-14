@@ -56,6 +56,7 @@ pub struct Context {
     pub second_confirming_author: Author<TestRuntime>,
     pub request_function_name: Vec<u8>,
     pub request_params: Vec<(Vec<u8>, Vec<u8>)>,
+    pub lower_params: LowerParams,
     pub finalised_block_vec: Option<Vec<u8>>,
     pub lower_id: u32,
     pub block_number: BlockNumber,
@@ -212,11 +213,12 @@ pub fn setup_context() -> Context {
         confirmation_signature,
         request_function_name: b"publishRoot".to_vec(),
         request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
+        lower_params: [1u8; 76],
         finalised_block_vec,
         lower_id: 10u32,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "80e558b8aa9c55659b4a677593bf2934faa5f9e4aaf82f25a6bd21b41c53f088"
+        expected_lower_msg_hash: "5892dee772ffe3d97e9525b62805bbcd91bac29026536cfa09269623128280ca"
             .to_string(),
     }
 }

@@ -102,24 +102,6 @@ fn check_tx_hash<T: Config>(
     return Ok((TX_HASH_INVALID, None))
 }
 
-pub fn generate_msg_hash<T: pallet::Config>(
-    params: &BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-) -> Result<H256, Error<T>> {
-    let params = unbound_params(params);
-    let tokens: Result<Vec<_>, _> = params
-        .iter()
-        .map(|(type_bytes, value_bytes)| {
-            let param_type = to_param_type(type_bytes).ok_or_else(|| Error::<T>::MsgHashError)?;
-            to_token_type(&param_type, value_bytes)
-        })
-        .collect();
-
-    let encoded = ethabi::encode(&tokens?);
-    let msg_hash = keccak_256(&encoded);
-
-    Ok(H256::from(msg_hash))
-}
-
 pub fn encode_confirmations(
     confirmations: &BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
 ) -> Vec<u8> {
@@ -152,25 +134,16 @@ fn generate_corroborate_calldata<T: Config>(
     abi_encode_function(b"corroborate", &params)
 }
 
-pub fn generate_abi_encoded_lower_proof<T: Config>(
+pub fn generate_encoded_lower_proof<T: Config>(
     lower_req: &LowerProofRequestData,
     confirmations: BoundedVec<ecdsa::Signature, ConfirmationsLimit>,
-) -> Result<Vec<u8>, Error<T>> {
+) -> Vec<u8> {
     let concatenated_confirmations = encode_confirmations(&confirmations);
-    let mut lower_params = unbound_params(&lower_req.params);
+    let mut compact_lower_data = Vec::new();
+    compact_lower_data.extend_from_slice(&lower_req.params.to_vec());
+    compact_lower_data.extend_from_slice(&concatenated_confirmations);
 
-    lower_params.push((BYTES.to_vec(), concatenated_confirmations));
-
-    let tokens: Result<Vec<_>, _> = lower_params
-        .iter()
-        .map(|(type_bytes, value_bytes)| {
-            let param_type =
-                to_param_type(type_bytes).ok_or_else(|| Error::<T>::LowerParamsError)?;
-            to_token_type(&param_type, value_bytes)
-        })
-        .collect();
-
-    Ok(ethabi::encode(&tokens?))
+    return compact_lower_data
 }
 
 fn abi_encode_function<T: pallet::Config>(
@@ -203,7 +176,7 @@ fn abi_encode_function<T: pallet::Config>(
     function.encode_input(&tokens?).map_err(|_| Error::<T>::FunctionEncodingError)
 }
 
-fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
+pub fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
     match key.as_slice() {
         BYTES => Some(ParamType::Bytes),
         BYTES32 => Some(ParamType::FixedBytes(32)),
@@ -219,7 +192,7 @@ fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
 /// Please note: `value` will accept any bytes and its up to the caller to ensure the bytes are
 /// valid for `kind`. The compiler will not catch these errors at compile time, but can error at
 /// runtime.
-fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
+pub fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Result<Token, Error<T>> {
     match kind {
         ParamType::Bytes => Ok(Token::Bytes(value.to_vec())),
         ParamType::Uint(_) => {
