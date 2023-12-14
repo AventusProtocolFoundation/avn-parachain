@@ -29,7 +29,7 @@ use frame_support::{
     ensure, log,
     traits::{
         schedule::{
-            v3::{Anon as ScheduleAnon, Named as ScheduleNamed},
+            v3::{Anon as ScheduleAnon, Named as ScheduleNamed, TaskName},
             DispatchTime, HARD_DEADLINE,
         },
         Currency, ExistenceRequirement, Get, Imbalance, IsSubType, QueryPreimage, StorePreimage,
@@ -82,24 +82,22 @@ pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
-
 #[cfg(test)]
 mod test_proxying_signed_transfer;
-
 #[cfg(test)]
 mod test_proxying_signed_lower;
-
 #[cfg(test)]
 mod test_common_cases;
-
 #[cfg(test)]
 mod test_avt_tokens;
-
 #[cfg(test)]
 mod test_non_avt_tokens;
-
 #[cfg(test)]
 mod test_growth;
+#[cfg(test)]
+mod test_deferred_lower;
+#[cfg(test)]
+mod test_lower_proof_generation;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
@@ -223,6 +221,7 @@ pub mod pallet {
             t1_recipient: H160,
             sender_nonce: Option<u64>,
             lower_id: LowerId,
+            schedule_name: TaskName,
         },
         LowerReadyToClaim {
             lower_id: LowerId,
@@ -970,6 +969,7 @@ impl<T: Config> Pallet<T> {
             t1_recipient,
             sender_nonce,
             lower_id,
+            schedule_name,
         });
 
         Ok(())
