@@ -29,6 +29,7 @@ pallet-authorship = { git = "https://github.com/paritytech/substrate", default-f
 pallet-avn = { default-features = false, path = "../avn" }
 pallet-session = {features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
 
+
 [dev-dependencies]
 similar-asserts = "1.1.0"
 
