@@ -188,7 +188,13 @@ pub mod pallet {
             offenders: Vec<IdentificationTuple<T>>,
         },
         ActiveRequestRemoved {
-            request_id: u32,
+            request_id: EthereumId,
+        },
+        ActiveRequestRetried {
+            function_name: BoundedVec<u8, FunctionLimit>,
+            params:
+                BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+            caller_id: BoundedVec<u8, CallerIdLimit>,
         },
     }
 

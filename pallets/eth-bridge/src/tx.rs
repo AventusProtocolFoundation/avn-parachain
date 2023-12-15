@@ -105,6 +105,12 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
 }
 
 pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
+    <crate::Pallet<T>>::deposit_event(Event::<T>::ActiveRequestRetried {
+        function_name: tx.request.function_name.clone(),
+        params: tx.request.params.clone(),
+        caller_id: tx.request.caller_id.clone(),
+    });
+
     tx.request.tx_id = use_next_tx_id::<T>();
     return Ok(set_up_active_tx(tx.request)?)
 }

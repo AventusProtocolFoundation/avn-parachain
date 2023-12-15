@@ -2,14 +2,48 @@
 
 #![cfg(test)]
 use crate::{eth::generate_send_calldata, mock::*, request::*, *};
-use frame_support::{assert_err, assert_noop, assert_ok, error::BadOrigin};
-use sp_runtime::DispatchError;
+use frame_support::{
+    assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo, error::BadOrigin,
+};
+use sp_runtime::{testing::UintAuthorityId, DispatchError};
+
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 const REWARDS: &[u8] = b"15043665996000000000";
 const AVG_STAKED: &[u8] = b"9034532443555111110000";
 const PERIOD: &[u8] = b"3";
 const T2_PUB_KEY: &str = "14aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a547";
 const T1_PUB_KEY: &str = "23d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea";
+
+fn corroborate_good_transactions(
+    tx_id: EthereumId,
+    author: &Validator<UintAuthorityId, AccountId>,
+    context: &Context,
+) -> DispatchResultWithPostInfo {
+    EthBridge::add_corroboration(
+        RuntimeOrigin::none(),
+        tx_id,
+        true,
+        true,
+        author.clone(),
+        context.test_signature.clone(),
+    )
+}
+
+fn corroborate_bad_transactions(
+    tx_id: EthereumId,
+    author: &Validator<UintAuthorityId, AccountId>,
+    context: &Context,
+) {
+    EthBridge::add_corroboration(
+        RuntimeOrigin::none(),
+        tx_id,
+        false,
+        false,
+        author.clone(),
+        context.test_signature.clone(),
+    )
+    .unwrap();
+}
 
 #[test]
 fn check_publish_root_encoding() {
@@ -204,10 +238,7 @@ mod set_eth_tx_id {
 #[cfg(test)]
 mod remove_active_request {
     use super::*;
-    use frame_support::{
-        assert_ok,
-        dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
-    };
+    use frame_support::assert_ok;
     use frame_system::RawOrigin;
 
     #[test]
@@ -513,14 +544,15 @@ mod add_corroboration {
                 context.test_signature.clone(),
             ));
 
-            let result = EthBridge::add_corroboration(
-                RawOrigin::None.into(),
-                tx_id,
-                true, // Successful transaction
-                true, // Valid hash
-                context.confirming_author.clone(),
-                context.test_signature.clone(),
-            );
+            let result = corroborate_good_transactions(tx_id, &context.confirming_author, &context);
+            // let result = EthBridge::add_corroboration(
+            //     RawOrigin::None.into(),
+            //     tx_id,
+            //     true, // Successful transaction
+            //     true, // Valid hash
+            //     context.confirming_author.clone(),
+            //     context.test_signature.clone(),
+            // );
 
             assert_eq!(result, Ok(().into()));
         });
@@ -680,28 +712,55 @@ fn publish_and_corroborate_transaction() {
         )
         .unwrap();
 
-        EthBridge::add_corroboration(
-            RuntimeOrigin::none(),
-            tx_id,
-            true,
-            true,
-            context.confirming_author.clone(),
-            context.test_signature.clone(),
-        )
-        .unwrap();
-
-        EthBridge::add_corroboration(
-            RuntimeOrigin::none(),
-            tx_id,
-            true,
-            true,
-            context.second_confirming_author.clone(),
-            context.test_signature.clone(),
-        )
-        .unwrap();
+        corroborate_good_transactions(tx_id, &context.confirming_author, &context).unwrap();
+        corroborate_good_transactions(tx_id, &context.second_confirming_author, &context).unwrap();
 
         // Verify that the transaction is finalized
         // let tx = ActiveRequest::<TestRuntime>::get().unwrap();
         assert_eq!(ActiveRequest::<TestRuntime>::get(), None);
+    });
+}
+
+#[test]
+fn unsent_transactions_are_replayed() {
+    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+    ext.execute_with(|| {
+        let context = setup_context();
+
+        let function_name = b"publishRoot".to_vec();
+        let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
+
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
+
+        EthBridge::add_confirmation(
+            RuntimeOrigin::none(),
+            tx_id,
+            context.confirmation_signature.clone(),
+            context.author.clone(),
+            context.test_signature.clone(),
+        )
+        .unwrap();
+        EthBridge::add_eth_tx_hash(
+            RuntimeOrigin::none(),
+            tx_id,
+            context.eth_tx_hash.clone(),
+            context.author.clone(),
+            context.test_signature.clone(),
+        )
+        .unwrap();
+
+        corroborate_bad_transactions(tx_id, &context.confirming_author, &context);
+        corroborate_bad_transactions(tx_id, &context.second_confirming_author, &context);
+
+        // the active request is retried with a new id
+        let tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
+        assert_eq!(tx_id + 1, tx.request.tx_id);
+
+        assert!(System::events().iter().any(|record| record.event ==
+            mock::RuntimeEvent::EthBridge(crate::Event::ActiveRequestRetried {
+                function_name: tx.request.function_name.clone(),
+                params: tx.request.params.clone(),
+                caller_id: tx.request.caller_id.clone(),
+            })));
     });
 }

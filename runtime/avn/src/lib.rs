@@ -194,6 +194,7 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEth
                 Err(_) => log::info!("💔 Failed to seed transaction Id"),
             }
 
+            total_weight += set_expiry();
             total_weight += clear_ethereum_transactions_storage();
 
             migration_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
@@ -214,7 +215,9 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEth
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
         let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
+        let expiry = <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::EthTxLifetimeSecs::get();
         assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
+        assert_eq!(expiry, 7200);
         Ok(())
     }
 }
@@ -226,6 +229,15 @@ fn try_seed_next_tx_id() -> Result<Weight, ()> {
     log::info!("✅ Transaction Id seeded to {}", tx_id + 1);
 
     Ok(<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1))
+}
+
+fn set_expiry() -> Weight {
+    <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::EthTxLifetimeSecs::put(
+        7200u64,
+    );
+    log::info!("✅ Transaction expiry set to 7200 seconds");
+
+    <Runtime as frame_system::Config>::DbWeight::get().reads_writes(0, 1)
 }
 
 fn get_nonce_seed() -> Result<u64, ()> {

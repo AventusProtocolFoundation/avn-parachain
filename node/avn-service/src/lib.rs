@@ -249,9 +249,12 @@ async fn get_tx_receipt(
         .await
         .map_err(|e| server_error(format!("Error getting tx receipt: {:?}", e)))?;
 
+    // This function must not error after this point.
     match maybe_receipt {
-        None =>
-            Err(server_error(format!("Transaction receipt for tx hash {:?} is empty", tx_hash))),
+        None => {
+            log::info!("⛓️ Transaction receipt for tx hash {:?} is empty", tx_hash);
+            Ok("".to_string())
+        },
         Some(receipt) => {
             let response = to_eth_query_response::<TransactionReceipt>(
                 &receipt,
@@ -499,8 +502,9 @@ where
 
     app.at("/latest_finalised_block").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            log::info!("⛓️  avn-service: latest finalised block");
+            log::info!("⛓️  avn-service: get latest finalised block");
             let finalised_block_number = get_latest_finalised_block(&req.state().client);
+            log::info!("⛓️  avn-service: latest finalised block: {:?}", finalised_block_number);
             Ok(hex::encode(finalised_block_number.encode()))
         },
     );
