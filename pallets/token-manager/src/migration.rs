@@ -1,12 +1,13 @@
-use crate::{Config, LowerSchedulePeriod, Pallet, Vec};
-use codec::{Decode, Encode};
+use crate::{Config, LowerSchedulePeriod, Pallet};
 use frame_support::{
     dispatch::GetStorageVersion,
     pallet_prelude::{PhantomData, StorageVersion},
     traits::{Get, OnRuntimeUpgrade},
     weights::Weight,
 };
-use sp_runtime::traits::Zero;
+
+#[cfg(feature = "try-runtime")]
+use crate::Vec;
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -53,11 +54,16 @@ impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        use codec::Encode;
+
         Ok(<LowerSchedulePeriod<T>>::get().encode())
     }
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
+        use codec::Decode;
+        use sp_runtime::traits::Zero;
+
         let initial_lower_schedule_period: T::BlockNumber =
             Decode::decode(&mut input.as_slice()).expect("Initial lower schedule is invalid");
         if initial_lower_schedule_period == T::BlockNumber::zero() {
