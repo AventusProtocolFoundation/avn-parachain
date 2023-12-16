@@ -545,15 +545,6 @@ mod add_corroboration {
             ));
 
             let result = corroborate_good_transactions(tx_id, &context.confirming_author, &context);
-            // let result = EthBridge::add_corroboration(
-            //     RawOrigin::None.into(),
-            //     tx_id,
-            //     true, // Successful transaction
-            //     true, // Valid hash
-            //     context.confirming_author.clone(),
-            //     context.test_signature.clone(),
-            // );
-
             assert_eq!(result, Ok(().into()));
         });
     }
@@ -716,7 +707,6 @@ fn publish_and_corroborate_transaction() {
         corroborate_good_transactions(tx_id, &context.second_confirming_author, &context).unwrap();
 
         // Verify that the transaction is finalized
-        // let tx = ActiveRequest::<TestRuntime>::get().unwrap();
         assert_eq!(ActiveRequest::<TestRuntime>::get(), None);
     });
 }
