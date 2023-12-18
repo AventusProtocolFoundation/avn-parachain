@@ -401,7 +401,6 @@ pub mod pallet {
         }
 
         /// Transfer AVT from the treasury account. The origin must be root.
-        // TODO: benchmark me
         #[pallet::call_index(4)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::transfer_from_treasury())]
         pub fn transfer_from_treasury(
