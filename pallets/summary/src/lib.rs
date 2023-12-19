@@ -25,7 +25,10 @@ use sp_std::prelude::*;
 
 use avn::BridgeInterfaceNotification;
 use core::convert::TryInto;
-use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, weights::Weight};
+use frame_support::{
+    dispatch::DispatchResult, ensure, log, pallet_prelude::StorageVersion, traits::Get,
+    weights::Weight,
+};
 use frame_system::{
     self as system, ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
@@ -45,6 +48,7 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
 use sp_staking::offence::ReportOffence;
 
+pub mod migration;
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
 
@@ -63,6 +67,8 @@ const DEFAULT_SCHEDULE_PERIOD: u32 = 28800; // 1 DAY
 const MIN_VOTING_PERIOD: u32 = 100; // 5 MINUTES
 const MAX_VOTING_PERIOD: u32 = 28800; // 1 DAY
 const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
+
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 pub mod vote;
 use crate::vote::*;
@@ -120,6 +126,7 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     #[pallet::generate_store(pub (super) trait Store)]
     pub struct Pallet<T>(_);
 
@@ -348,6 +355,8 @@ pub mod pallet {
             <CurrentSlotsValidator<T>>::put(
                 maybe_first_validator.expect("Validator is checked for none"),
             );
+
+            STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 
@@ -602,39 +611,6 @@ pub mod pallet {
             cast_votes_if_required::<T>(&this_validator);
             end_voting_if_required::<T>(block_number, &this_validator);
             challenge_slot_if_required::<T>(block_number, &this_validator);
-        }
-
-        // Note: this "special" function will run during every runtime upgrade. Any complicated
-        // migration logic should be done in a separate function so it can be tested
-        // properly.
-        fn on_runtime_upgrade() -> Weight {
-            let mut weight_write_counter = 0;
-            sp_runtime::runtime_logger::RuntimeLogger::init();
-            log::info!("ℹ️  Summary pallet data migration invoked");
-
-            if Self::schedule_period() == 0u32.into() {
-                log::info!(
-                    "ℹ️  Updating SchedulePeriod to a default value of {} blocks",
-                    DEFAULT_SCHEDULE_PERIOD
-                );
-                weight_write_counter += 1;
-                <SchedulePeriod<T>>::put(<T as frame_system::Config>::BlockNumber::from(
-                    DEFAULT_SCHEDULE_PERIOD,
-                ));
-            }
-
-            if Self::voting_period() == 0u32.into() {
-                log::info!(
-                    "ℹ️  Updating VotingPeriod to a default value of {} blocks",
-                    DEFAULT_VOTING_PERIOD
-                );
-                weight_write_counter += 1;
-                <VotingPeriod<T>>::put(<T as frame_system::Config>::BlockNumber::from(
-                    DEFAULT_VOTING_PERIOD,
-                ));
-            }
-
-            return T::DbWeight::get().writes(weight_write_counter as u64)
         }
     }
 

@@ -160,6 +160,7 @@ pub type Executive = frame_executive::Executive<
         pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
         SeedBridgeTransactionAndDropEthTransactions,
         pallet_validators_manager::migration::RemovePalletVoting<Runtime>,
+        pallet_summary::migration::MigrateSummaryRootData<Runtime>,
     ),
 >;
 
@@ -172,6 +173,7 @@ const STORAGE_ITEM_NAMES: &[&'static str] = &[
     "Nonce",
     "StorageVersion",
 ];
+
 pub struct SeedBridgeTransactionAndDropEthTransactions;
 
 impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEthTransactions {
@@ -182,7 +184,7 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEth
 
         if onchain < 1 {
             log::info!(
-                "🚧 Running migration. Current storage version: {:?}, on-chain version: {:?}",
+                "🚧 Running eth bridge migration. Current storage version: {:?}, on-chain version: {:?}",
                 current,
                 onchain
             );
@@ -208,16 +210,26 @@ impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEth
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        let pre_upgrade_transaction_id: u64 = get_nonce_seed().unwrap();
-        Ok((pre_upgrade_transaction_id + 1u64).encode())
+        let onchain = pallet_eth_bridge::Pallet::<Runtime>::on_chain_storage_version();
+
+        if onchain < 1 {
+            let pre_upgrade_transaction_id: u64 = get_nonce_seed().unwrap();
+            return Ok((pre_upgrade_transaction_id + 1u64).encode())
+        }
+
+        Ok(vec![])
     }
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
-        let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
-        let expiry = <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::EthTxLifetimeSecs::get();
-        assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
-        assert_eq!(expiry, 7200);
+        let current = pallet_eth_bridge::Pallet::<Runtime>::current_storage_version();
+
+        if current == 1 {
+            let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
+            let expiry = <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::EthTxLifetimeSecs::get();
+            assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
+            assert_eq!(expiry, 7200);
+        }
         Ok(())
     }
 }
