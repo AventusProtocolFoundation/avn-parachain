@@ -134,7 +134,12 @@ impl<T: Config> OnRuntimeUpgrade for EnableEthBridgeWireUp<T> {
 
     #[cfg(feature = "try-runtime")]
     fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        assert_eq!(true, storage_with_voting::VotingPeriod::<T>::exists());
+        let current = Pallet::<T>::current_storage_version();
+        let onchain = Pallet::<T>::on_chain_storage_version();
+
+        if onchain == 2 && current == 3 {
+            assert_eq!(true, storage_with_voting::VotingPeriod::<T>::exists());
+        }
 
         Ok(vec![])
     }
