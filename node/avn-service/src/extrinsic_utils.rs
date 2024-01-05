@@ -9,12 +9,10 @@ use codec::Encode;
 use log::{debug, error};
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use serde::{Deserialize, Serialize};
-use sp_api::CallApiAt;
 use sp_runtime::{
     generic::{BlockId, SignedBlock},
     traits::{Block as BlockT, SaturatedConversion},
 };
-use sp_state_machine::InspectState;
 pub use std::sync::Arc;
 
 /// A type that represents an abi encoded leaf which can be decoded by Ethereum
@@ -38,7 +36,7 @@ pub fn get_extrinsics_and_check_if_filter_target_exists<Block: BlockT, ClientT>(
     filter_data: LowerLeafFilter,
 ) -> Result<(Option<EncodedLeafData>, Vec<EncodedLeafData>)>
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     let mut leaves: Vec<Vec<u8>> = vec![];
     let mut filtered_leaf: Option<EncodedLeafData> = None;
@@ -71,57 +69,26 @@ pub fn process_extrinsics_in_block_and_check_if_filter_target_exists<Block: Bloc
     filter_data: Option<&LowerLeafFilter>,
 ) -> Result<(Option<EncodedLeafData>, Vec<EncodedLeafData>)>
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     let mut filtered_leaf: Option<EncodedLeafData> = None;
     let mut leaves: Vec<Vec<u8>> = vec![];
 
     let signed_block: SignedBlock<Block> = get_signed_block(client, block_number)?;
 
-    let block_events = client
-        .state_at(&BlockId::Number(block_number.into()))
-        .expect("reading state_at failed")
-        .inspect_state(|| avn_parachain_runtime::System::events());
-
     for (index, tx) in signed_block.block.extrinsics().iter().enumerate() {
         let is_match = extrinsic_matches_filter(index as u32, block_number, filter_data);
-        let tx_execution_failed = block_events
-            .iter()
-            .any(|e| event_belongs_to_extrinsic(e, index) && contains_failed_event(&e));
-
-        if !tx_execution_failed {
             let leaf = tx.encode();
 
             leaves.push(leaf.clone());
             if is_match {
-                filtered_leaf = Some(leaf.clone());
+                filtered_leaf = Some(leaf);
             }
+            
         }
-    }
+    
 
     Ok((filtered_leaf, leaves))
-}
-
-fn event_belongs_to_extrinsic(
-    event_record: &EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>,
-    extrinsic_index: usize,
-) -> bool {
-    if let Phase::ApplyExtrinsic(i) = event_record.phase {
-        i == extrinsic_index as u32
-    } else {
-        false
-    }
-}
-
-fn contains_failed_event(
-    event_record: &EventRecord<avn_parachain_runtime::RuntimeEvent, Hash>,
-) -> bool {
-    matches!(
-        event_record.event,
-        avn_parachain_runtime::RuntimeEvent::System(SystemEvent::ExtrinsicFailed { .. }) |
-            avn_parachain_runtime::RuntimeEvent::AvnProxy(AvnProxyEvent::InnerCallFailed { .. }) |
-            avn_parachain_runtime::RuntimeEvent::EthereumEvents(EthEvent::EventRejected { .. })
-    )
 }
 
 fn get_signed_block<Block: BlockT, ClientT>(
@@ -129,7 +96,7 @@ fn get_signed_block<Block: BlockT, ClientT>(
     block_number: u32,
 ) -> Result<SignedBlock<Block>>
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     let maybe_block = client.block(&BlockId::Number(block_number.into())).map_err(|e| {
         const ERROR_MESSAGE: &str = "Error getting block data";
@@ -168,7 +135,7 @@ where
 /// Returns the latest finalised block number
 pub fn get_latest_finalised_block<Block: BlockT, ClientT>(client: &Arc<ClientT>) -> u32
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     let finalised_block_number = client.usage_info().chain.finalized_number;
     return finalised_block_number.saturated_into::<u32>()

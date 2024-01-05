@@ -13,11 +13,9 @@ use runtime_common::opaque::Block;
 use sc_client_api::{client::BlockBackend, AuxStore, UsageProvider};
 pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
 use sc_transaction_pool_api::TransactionPool;
-use sp_api::{CallApiAt, ProvideRuntimeApi};
+use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-
-use avn_lower_rpc as lower_rpc;
 
 /// A type representing all RPC extensions.
 pub type RpcExtension = jsonrpsee::RpcModule<()>;
@@ -46,13 +44,12 @@ where
         + 'static,
     C: BlockBackend<Block>,
     C: UsageProvider<Block>,
-    C: CallApiAt<Block>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + Sync + Send + 'static,
 {
-    use lower_rpc::{LowerDataProvider, LowerDataProviderRpcServer};
+    use avn_lower_rpc::{LowerDataProvider, LowerDataProviderRpcServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
 

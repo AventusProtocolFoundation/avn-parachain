@@ -4,7 +4,6 @@ use hex::FromHex;
 use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
-use sp_api::CallApiAt;
 use sp_avn_common::{
     EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
     DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
@@ -67,7 +66,7 @@ impl From<Error> for i32 {
 #[derive(Clone)]
 pub struct Config<
     Block: BlockT,
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block>,
+    ClientT: BlockBackend<Block> + UsageProvider<Block>,
 > {
     pub keystore: Arc<LocalKeystore>,
     pub keystore_path: PathBuf,
@@ -78,7 +77,7 @@ pub struct Config<
     pub _block: PhantomData<Block>,
 }
 
-impl<Block: BlockT, ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block>>
+impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>>
     Config<Block, ClientT>
 {
     pub async fn initialise_web3(&self) -> Result<(), TideError> {
@@ -272,7 +271,7 @@ async fn send_main<Block: BlockT, ClientT>(
     mut req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     log::info!("⛓️  avn-service: send Request");
     let post_body = req.body_bytes().await?;
@@ -329,7 +328,7 @@ async fn view_main<Block: BlockT, ClientT>(
     mut req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     log::info!("⛓️  avn-service: view Request");
     let post_body = req.body_bytes().await?;
@@ -362,7 +361,7 @@ async fn tx_query_main<Block: BlockT, ClientT>(
     mut req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     log::info!("⛓️  avn-service: query Request.");
     let post_body = req.body_bytes().await?;
@@ -398,7 +397,7 @@ where
 
 pub async fn start<Block: BlockT, ClientT>(config: Config<Block, ClientT>)
 where
-    ClientT: BlockBackend<Block> + CallApiAt<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
     if config.initialise_web3().await.is_err() {
         return
