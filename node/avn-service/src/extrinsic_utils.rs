@@ -78,15 +78,13 @@ where
 
     for (index, tx) in signed_block.block.extrinsics().iter().enumerate() {
         let is_match = extrinsic_matches_filter(index as u32, block_number, filter_data);
-            let leaf = tx.encode();
+        let leaf = tx.encode();
 
-            leaves.push(leaf.clone());
-            if is_match {
-                filtered_leaf = Some(leaf);
-            }
-            
+        leaves.push(leaf.clone());
+        if is_match {
+            filtered_leaf = Some(leaf);
         }
-    
+    }
 
     Ok((filtered_leaf, leaves))
 }

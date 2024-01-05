@@ -64,10 +64,7 @@ impl From<Error> for i32 {
 }
 
 #[derive(Clone)]
-pub struct Config<
-    Block: BlockT,
-    ClientT: BlockBackend<Block> + UsageProvider<Block>,
-> {
+pub struct Config<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> {
     pub keystore: Arc<LocalKeystore>,
     pub keystore_path: PathBuf,
     pub avn_port: Option<String>,
@@ -77,9 +74,7 @@ pub struct Config<
     pub _block: PhantomData<Block>,
 }
 
-impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>>
-    Config<Block, ClientT>
-{
+impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<Block, ClientT> {
     pub async fn initialise_web3(&self) -> Result<(), TideError> {
         if let Some(mut web3_data_mutex) = self.web3_data_mutex.try_lock() {
             if web3_data_mutex.web3.is_some() {
