@@ -759,7 +759,6 @@ name = "avn-service"
 version = "5.0.0"
 dependencies = [
  "anyhow",
- "avn-parachain-runtime",
  "ethereum-types 0.11.0",
  "frame-system",
  "futures",
