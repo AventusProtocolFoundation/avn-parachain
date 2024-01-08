@@ -4,7 +4,6 @@ use jsonrpsee::{
     types::error::{CallError, ErrorCode, ErrorObject},
 };
 
-pub use avn_parachain_runtime::{AvnProxyEvent, EthEvent, EventRecord, Hash, Phase, SystemEvent};
 use codec::Encode;
 use log::{debug, error};
 use sc_client_api::{client::BlockBackend, UsageProvider};
