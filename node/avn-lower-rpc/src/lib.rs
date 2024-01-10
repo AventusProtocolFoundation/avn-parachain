@@ -1,6 +1,5 @@
 use codec::Codec;
 use sc_client_api::{client::BlockBackend, UsageProvider};
-use sp_api::CallApiAt;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
 
@@ -39,7 +38,7 @@ impl<C, Block> LowerDataProvider<C, Block> {
 impl<C, Block> LowerDataProviderRpcServer for LowerDataProvider<C, Block>
 where
     Block: BlockT,
-    C: Send + Sync + 'static + BlockBackend<Block> + UsageProvider<Block> + CallApiAt<Block>,
+    C: Send + Sync + 'static + BlockBackend<Block> + UsageProvider<Block>,
     AccountId: Clone + std::fmt::Display + Codec,
 {
     fn get_lower_data(
