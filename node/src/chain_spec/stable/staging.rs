@@ -50,9 +50,9 @@ pub fn staging_testnet_config() -> ChainSpec {
                 // SUDO account
                 get_account_id_from_seed::<sr25519::Public>("avn-sudo"),
                 // AVT contract
-                H160(hex!("97d9b397189e8b771FfAc3Cb04cf26C780a93431")),
+                H160(hex!("b3594297e1F257AD2A90222F66393645C6622263")),
                 // AVN contract
-                H160(hex!("d6C9731A8DCAf6d09076218584c0ab9A2F44485C")),
+                H160(hex!("2bb59e4f9Cd053779E5d6f6dB2724F5DF5e53ce6")),
                 vec![],
                 staging_ethereum_public_keys(),
                 vec![],
@@ -108,9 +108,9 @@ pub fn staging_dev_testnet_config() -> ChainSpec {
                 // SUDO account
                 hex!["20ef357ca657d8cce8fcfc2e230871347fc68b1451a575eaedb9797616101608"].into(),
                 // AVT contract
-                H160(hex!("97d9b397189e8b771FfAc3Cb04cf26C780a93431")),
+                H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730")),
                 // AVN contract
-                H160(hex!("4e20efBC16836Cfa09F44DD95be677034C4027DE")),
+                H160(hex!("0Dd31348e68b6400bf8BdE84a1AaF733D9fCBf9B")),
                 // TODO update this if needed with the nft contracts
                 vec![],
                 staging_dev_ethereum_public_keys(),
