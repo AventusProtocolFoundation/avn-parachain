@@ -46,7 +46,7 @@ pub fn avn_garde_local_config() -> ChainSpec {
                 // SUDO account
                 get_account_id_from_seed::<sr25519::Public>("Ferdie"),
                 // AVT contract
-                H160(hex!("97d9b397189e8b771FfAc3Cb04cf26C780a93431")),
+                H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730")),
                 // AVN contract
                 H160(hex!("9d6394ea67D297b4Fc777f719F82Ae1F1fc06383")),
                 vec![],
