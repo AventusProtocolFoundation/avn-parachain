@@ -52,15 +52,15 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_ethereum_events.
 pub trait WeightInfo {
-	fn add_validator_log() -> Weight;
+	fn add_validator_log(u: u32, e: u32, ) -> Weight;
 	fn add_lift_log(u: u32, e: u32, ) -> Weight;
-	fn add_ethereum_log() -> Weight;
-	fn signed_add_ethereum_log() -> Weight;
+	fn add_ethereum_log(u: u32, e: u32, ) -> Weight;
+	fn signed_add_ethereum_log(u: u32, e: u32, ) -> Weight;
 	fn set_nft_contract_map_storage() -> Weight;
-	fn submit_checkevent_result() -> Weight;
-	fn process_event_with_successful_challenge() -> Weight;
-	fn process_event_without_successful_challenge() -> Weight;
-	fn challenge_event() -> Weight;
+	fn submit_checkevent_result(v: u32, u: u32, ) -> Weight;
+	fn process_event_with_successful_challenge(v: u32, e: u32, ) -> Weight;
+	fn process_event_without_successful_challenge(v: u32, e: u32, ) -> Weight;
+	fn challenge_event(v: u32, e: u32, c: u32, ) -> Weight;
 	fn set_event_challenge_period() -> Weight;
 }
 
@@ -72,8 +72,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents TotalIngresses (r:1 w:1)
 	// Storage: Avn AvnBridgeContractAddress (r:1 w:0)
-	fn add_validator_log() -> Weight {
-		Weight::from_ref_time(39_781_000)
+	/// The range of component `u` is `[1, 9]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn add_validator_log(u: u32, e: u32, ) -> Weight {
+		Weight::from_ref_time(41_414_880)
+			// Standard Error: 44_960
+			.saturating_add(Weight::from_ref_time(290_565).saturating_mul(u.into()))
+			// Standard Error: 44_960
+			.saturating_add(Weight::from_ref_time(86_287).saturating_mul(e.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -82,14 +88,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents TotalIngresses (r:1 w:1)
 	// Storage: Avn AvnBridgeContractAddress (r:1 w:0)
-	/// The range of component `u` is `[1, 8]`.
-	/// The range of component `e` is `[1, 7]`.
+	/// The range of component `u` is `[1, 9]`.
+	/// The range of component `e` is `[1, 9]`.
 	fn add_lift_log(u: u32, e: u32, ) -> Weight {
-		Weight::from_ref_time(36_854_997)
-			// Standard Error: 8_555
-			.saturating_add(Weight::from_ref_time(61_990).saturating_mul(u.into()))
-			// Standard Error: 9_723
-			.saturating_add(Weight::from_ref_time(283_257).saturating_mul(e.into()))
+		Weight::from_ref_time(32_501_560)
+			// Standard Error: 70_939
+			.saturating_add(Weight::from_ref_time(760_193).saturating_mul(u.into()))
+			// Standard Error: 70_939
+			.saturating_add(Weight::from_ref_time(1_082_596).saturating_mul(e.into()))
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -97,8 +103,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents TotalIngresses (r:1 w:1)
-	fn add_ethereum_log() -> Weight {
-		Weight::from_ref_time(34_720_000)
+	/// The range of component `u` is `[1, 9]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn add_ethereum_log(_u: u32, e: u32, ) -> Weight {
+		Weight::from_ref_time(35_839_134)
+			// Standard Error: 58_437
+			.saturating_add(Weight::from_ref_time(1_113_322).saturating_mul(e.into()))
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -107,14 +117,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents TotalIngresses (r:1 w:1)
-	fn signed_add_ethereum_log() -> Weight {
-		Weight::from_ref_time(186_155_000)
+	/// The range of component `u` is `[1, 9]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn signed_add_ethereum_log(_u: u32, _e: u32, ) -> Weight {
+		Weight::from_ref_time(192_074_697)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
 	// Storage: EthereumEvents NftT1Contracts (r:0 w:1)
 	fn set_nft_contract_map_storage() -> Weight {
-		Weight::from_ref_time(7_400_000)
+		Weight::from_ref_time(6_838_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: Avn Validators (r:1 w:0)
@@ -122,8 +134,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthereumEvents EventChallengePeriod (r:1 w:0)
 	// Storage: EthereumEvents QuorumFactor (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:1)
-	fn submit_checkevent_result() -> Weight {
-		Weight::from_ref_time(43_151_000)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `u` is `[1, 9]`.
+	fn submit_checkevent_result(_v: u32, _u: u32, ) -> Weight {
+		Weight::from_ref_time(63_996_632)
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
@@ -139,8 +153,14 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnOffenceHandler ReportedOffenders (r:1 w:1)
 	// Storage: AvnOffenceHandler SlashingEnabled (r:1 w:0)
 	// Storage: EthereumEvents ProcessedEvents (r:0 w:1)
-	fn process_event_with_successful_challenge() -> Weight {
-		Weight::from_ref_time(103_143_000)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn process_event_with_successful_challenge(v: u32, e: u32, ) -> Weight {
+		Weight::from_ref_time(87_998_256)
+			// Standard Error: 93_112
+			.saturating_add(Weight::from_ref_time(1_532_456).saturating_mul(v.into()))
+			// Standard Error: 103_368
+			.saturating_add(Weight::from_ref_time(1_340_650).saturating_mul(e.into()))
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
@@ -156,22 +176,37 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: AvnOffenceHandler ReportedOffenders (r:1 w:1)
 	// Storage: AvnOffenceHandler SlashingEnabled (r:1 w:0)
 	// Storage: EthereumEvents ProcessedEvents (r:0 w:1)
-	fn process_event_without_successful_challenge() -> Weight {
-		Weight::from_ref_time(100_362_000)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn process_event_without_successful_challenge(v: u32, e: u32, ) -> Weight {
+		Weight::from_ref_time(84_333_955)
+			// Standard Error: 141_801
+			.saturating_add(Weight::from_ref_time(1_972_535).saturating_mul(v.into()))
+			// Standard Error: 157_421
+			.saturating_add(Weight::from_ref_time(2_006_796).saturating_mul(e.into()))
 			.saturating_add(T::DbWeight::get().reads(11))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents Challenges (r:1 w:1)
-	fn challenge_event() -> Weight {
-		Weight::from_ref_time(42_331_000)
+	/// The range of component `v` is `[3, 10]`.
+	/// The range of component `e` is `[1, 9]`.
+	/// The range of component `c` is `[1, 9]`.
+	fn challenge_event(v: u32, e: u32, c: u32, ) -> Weight {
+		Weight::from_ref_time(37_942_997)
+			// Standard Error: 135_581
+			.saturating_add(Weight::from_ref_time(698_641).saturating_mul(v.into()))
+			// Standard Error: 118_065
+			.saturating_add(Weight::from_ref_time(118_229).saturating_mul(e.into()))
+			// Standard Error: 118_065
+			.saturating_add(Weight::from_ref_time(929_903).saturating_mul(c.into()))
 			.saturating_add(T::DbWeight::get().reads(3))
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 	// Storage: EthereumEvents EventChallengePeriod (r:0 w:1)
 	fn set_event_challenge_period() -> Weight {
-		Weight::from_ref_time(16_020_000)
+		Weight::from_ref_time(18_444_000)
 			.saturating_add(T::DbWeight::get().writes(1))
 	}
 }
@@ -183,8 +218,14 @@ impl WeightInfo for () {
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents TotalIngresses (r:1 w:1)
 	// Storage: Avn AvnBridgeContractAddress (r:1 w:0)
-	fn add_validator_log() -> Weight {
-		Weight::from_ref_time(39_781_000)
+	/// The range of component `u` is `[1, 9]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn add_validator_log(u: u32, e: u32, ) -> Weight {
+		Weight::from_ref_time(41_414_880)
+			// Standard Error: 44_960
+			.saturating_add(Weight::from_ref_time(290_565).saturating_mul(u.into()))
+			// Standard Error: 44_960
+			.saturating_add(Weight::from_ref_time(86_287).saturating_mul(e.into()))
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
@@ -193,14 +234,14 @@ impl WeightInfo for () {
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents TotalIngresses (r:1 w:1)
 	// Storage: Avn AvnBridgeContractAddress (r:1 w:0)
-	/// The range of component `u` is `[1, 8]`.
-	/// The range of component `e` is `[1, 7]`.
+	/// The range of component `u` is `[1, 9]`.
+	/// The range of component `e` is `[1, 9]`.
 	fn add_lift_log(u: u32, e: u32, ) -> Weight {
-		Weight::from_ref_time(36_854_997)
-			// Standard Error: 8_555
-			.saturating_add(Weight::from_ref_time(61_990).saturating_mul(u.into()))
-			// Standard Error: 9_723
-			.saturating_add(Weight::from_ref_time(283_257).saturating_mul(e.into()))
+		Weight::from_ref_time(32_501_560)
+			// Standard Error: 70_939
+			.saturating_add(Weight::from_ref_time(760_193).saturating_mul(u.into()))
+			// Standard Error: 70_939
+			.saturating_add(Weight::from_ref_time(1_082_596).saturating_mul(e.into()))
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
@@ -208,8 +249,12 @@ impl WeightInfo for () {
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents TotalIngresses (r:1 w:1)
-	fn add_ethereum_log() -> Weight {
-		Weight::from_ref_time(34_720_000)
+	/// The range of component `u` is `[1, 9]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn add_ethereum_log(_u: u32, e: u32, ) -> Weight {
+		Weight::from_ref_time(35_839_134)
+			// Standard Error: 58_437
+			.saturating_add(Weight::from_ref_time(1_113_322).saturating_mul(e.into()))
 			.saturating_add(RocksDbWeight::get().reads(4))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
@@ -218,14 +263,16 @@ impl WeightInfo for () {
 	// Storage: EthereumEvents UncheckedEvents (r:1 w:1)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents TotalIngresses (r:1 w:1)
-	fn signed_add_ethereum_log() -> Weight {
-		Weight::from_ref_time(186_155_000)
+	/// The range of component `u` is `[1, 9]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn signed_add_ethereum_log(_u: u32, _e: u32, ) -> Weight {
+		Weight::from_ref_time(192_074_697)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 	// Storage: EthereumEvents NftT1Contracts (r:0 w:1)
 	fn set_nft_contract_map_storage() -> Weight {
-		Weight::from_ref_time(7_400_000)
+		Weight::from_ref_time(6_838_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: Avn Validators (r:1 w:0)
@@ -233,8 +280,10 @@ impl WeightInfo for () {
 	// Storage: EthereumEvents EventChallengePeriod (r:1 w:0)
 	// Storage: EthereumEvents QuorumFactor (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:1)
-	fn submit_checkevent_result() -> Weight {
-		Weight::from_ref_time(43_151_000)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `u` is `[1, 9]`.
+	fn submit_checkevent_result(_v: u32, _u: u32, ) -> Weight {
+		Weight::from_ref_time(63_996_632)
 			.saturating_add(RocksDbWeight::get().reads(5))
 			.saturating_add(RocksDbWeight::get().writes(2))
 	}
@@ -250,8 +299,14 @@ impl WeightInfo for () {
 	// Storage: AvnOffenceHandler ReportedOffenders (r:1 w:1)
 	// Storage: AvnOffenceHandler SlashingEnabled (r:1 w:0)
 	// Storage: EthereumEvents ProcessedEvents (r:0 w:1)
-	fn process_event_with_successful_challenge() -> Weight {
-		Weight::from_ref_time(103_143_000)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn process_event_with_successful_challenge(v: u32, e: u32, ) -> Weight {
+		Weight::from_ref_time(87_998_256)
+			// Standard Error: 93_112
+			.saturating_add(Weight::from_ref_time(1_532_456).saturating_mul(v.into()))
+			// Standard Error: 103_368
+			.saturating_add(Weight::from_ref_time(1_340_650).saturating_mul(e.into()))
 			.saturating_add(RocksDbWeight::get().reads(11))
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
@@ -267,22 +322,37 @@ impl WeightInfo for () {
 	// Storage: AvnOffenceHandler ReportedOffenders (r:1 w:1)
 	// Storage: AvnOffenceHandler SlashingEnabled (r:1 w:0)
 	// Storage: EthereumEvents ProcessedEvents (r:0 w:1)
-	fn process_event_without_successful_challenge() -> Weight {
-		Weight::from_ref_time(100_362_000)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `e` is `[1, 9]`.
+	fn process_event_without_successful_challenge(v: u32, e: u32, ) -> Weight {
+		Weight::from_ref_time(84_333_955)
+			// Standard Error: 141_801
+			.saturating_add(Weight::from_ref_time(1_972_535).saturating_mul(v.into()))
+			// Standard Error: 157_421
+			.saturating_add(Weight::from_ref_time(2_006_796).saturating_mul(e.into()))
 			.saturating_add(RocksDbWeight::get().reads(11))
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
 	// Storage: Avn Validators (r:1 w:0)
 	// Storage: EthereumEvents EventsPendingChallenge (r:1 w:0)
 	// Storage: EthereumEvents Challenges (r:1 w:1)
-	fn challenge_event() -> Weight {
-		Weight::from_ref_time(42_331_000)
+	/// The range of component `v` is `[3, 10]`.
+	/// The range of component `e` is `[1, 9]`.
+	/// The range of component `c` is `[1, 9]`.
+	fn challenge_event(v: u32, e: u32, c: u32, ) -> Weight {
+		Weight::from_ref_time(37_942_997)
+			// Standard Error: 135_581
+			.saturating_add(Weight::from_ref_time(698_641).saturating_mul(v.into()))
+			// Standard Error: 118_065
+			.saturating_add(Weight::from_ref_time(118_229).saturating_mul(e.into()))
+			// Standard Error: 118_065
+			.saturating_add(Weight::from_ref_time(929_903).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(3))
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 	// Storage: EthereumEvents EventChallengePeriod (r:0 w:1)
 	fn set_event_challenge_period() -> Weight {
-		Weight::from_ref_time(16_020_000)
+		Weight::from_ref_time(18_444_000)
 			.saturating_add(RocksDbWeight::get().writes(1))
 	}
 }

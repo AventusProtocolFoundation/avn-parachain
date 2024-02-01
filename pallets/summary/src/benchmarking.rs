@@ -20,10 +20,6 @@ pub const ROOT_HASH_BYTES: [u8; 32] = [
     62, 135, 36, 194, 129, 236, 232, 173, 148, 200, 195,
 ];
 
-const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
-const MAX_OFFENDERS: u32 = 2; // maximum of offenders need to be less one third of minimum validators so the benchmark won't panic
-const MAX_NUMBER_OF_ROOT_DATA_PER_RANGE: u32 = 2;
-
 fn setup_publish_root_voting<T: Config>(
     validators: Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>>,
 ) -> (
