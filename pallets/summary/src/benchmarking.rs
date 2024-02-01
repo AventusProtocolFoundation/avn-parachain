@@ -419,8 +419,9 @@ benchmarks! {
     }
 
     end_voting_period_with_rejected_valid_votes {
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let validators = setup_validators::<T>(number_of_validators);
+        let v in 7 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let o in 1 .. MAX_OFFENDERS;
+        let validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
 
@@ -433,8 +434,7 @@ benchmarks! {
 
         // setup offenders votes
         let (_, offenders) = validators.split_at(quorum as usize);
-        let number_of_reject_votes = MAX_OFFENDERS;
-        setup_reject_votes::<T>(&offenders.to_vec(), number_of_reject_votes, &root_id);
+        setup_reject_votes::<T>(&offenders.to_vec(), o, &root_id);
     }: end_voting_period(RawOrigin::None, root_id.clone(), sender.clone(), signature)
     verify {
         assert_eq!(true, NextBlockToProcess::<T>::get() == root_id.range.to_block + 1u32.into());
@@ -457,8 +457,9 @@ benchmarks! {
     }
 
     end_voting_period_with_approved_invalid_votes {
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let validators = setup_validators::<T>(number_of_validators);
+        let v in 7 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let o in 1 .. MAX_OFFENDERS;
+        let validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
 
@@ -471,8 +472,7 @@ benchmarks! {
 
         // setup offenders votes
         let (_, offenders) = validators.split_at(quorum as usize);
-        let number_of_approval_votes = MAX_OFFENDERS;
-        setup_approval_votes::<T>(&offenders.to_vec(), number_of_approval_votes, &root_id);
+        setup_approval_votes::<T>(&offenders.to_vec(), o, &root_id);
     }: end_voting_period(RawOrigin::None, root_id.clone(), sender.clone(), signature)
     verify {
         assert_eq!(false, NextBlockToProcess::<T>::get() == root_id.range.to_block + 1u32.into());
@@ -496,9 +496,10 @@ benchmarks! {
     }
 
     advance_slot_with_offence {
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let validators = setup_validators::<T>(number_of_validators);
-        let (sender, _, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
+        // There can only be 1 offender here (the validator that failed to create a summary) so skip using MAX_OFFENDERS
+        let v in 5 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let validators = setup_validators::<T>(v);
+        let (sender, _, signature, quorum) = setup_publish_root_voting::<T>(validators);
 
         advance_block::<T>(SchedulePeriod::<T>::get());
         CurrentSlotsValidator::<T>::put(sender.account_id.clone());
@@ -539,8 +540,9 @@ benchmarks! {
     }
 
     advance_slot_without_offence {
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let validators = setup_validators::<T>(number_of_validators);
+        // No offence committed, so skip using MAX_OFFENDERS
+        let v in 3 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let validators = setup_validators::<T>(v);
         let (sender, _, signature, _) = setup_publish_root_voting::<T>(validators.clone());
 
         advance_block::<T>(SchedulePeriod::<T>::get());
@@ -564,8 +566,9 @@ benchmarks! {
     }
 
     add_challenge {
-        let number_of_validators = 4;
-        let validators = setup_validators::<T>(number_of_validators);
+        // There can only be 1 offender here (the validator that failed to advance the slot) so skip using MAX_OFFENDERS
+        let v in 3 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let validators = setup_validators::<T>(v);
         let (sender, _,  signature, _) = setup_publish_root_voting::<T>(validators.clone());
 
         let current_block_number = SchedulePeriod::<T>::get() + T::MinBlockAge::get();
