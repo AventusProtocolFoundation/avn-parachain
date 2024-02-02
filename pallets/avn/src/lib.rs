@@ -74,6 +74,10 @@ pub mod sr25519 {
 }
 
 const AVN_SERVICE_CALL_EXPIRY: u32 = 300_000;
+
+// used in benchmarks and weights calculation only
+pub const MAX_VALIDATOR_ACCOUNTS: u32 = 10;
+
 pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
