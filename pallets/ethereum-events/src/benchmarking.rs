@@ -17,6 +17,10 @@ use sp_runtime::WeakBoundedVec;
 pub type AVN<T> = avn::Pallet<T>;
 
 const MAX_NUMBER_OF_VALIDATORS_ACCOUNTS: u32 = 10;
+const MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH: u32 = MAX_NUMBER_OF_UNCHECKED_EVENTS - 1;
+const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH: u32 =
+    MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES - 1;
+const MAX_CHALLENGES_BENCH: u32 = MAX_CHALLENGES - 1;
 
 fn setup_unchecked_events<T: Config>(event_type: &ValidEvents, number_of_unchecked_events: u32) {
     let mut unchecked_added_validator_events: Vec<(EthEventId, IngressCounter, T::BlockNumber)> =
@@ -146,8 +150,8 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 
 benchmarks! {
     add_validator_log {
-        let u = MAX_NUMBER_OF_UNCHECKED_EVENTS-2;
-        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
+        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
+        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
 
         let event_type = ValidEvents::AddedValidator;
         setup_unchecked_events::<T>(&event_type, u);
@@ -173,8 +177,8 @@ benchmarks! {
     }
 
     add_lift_log {
-        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS-2;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
+        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
+        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
 
         let event_type = ValidEvents::Lifted;
         setup_unchecked_events::<T>(&event_type, u);
@@ -199,8 +203,8 @@ benchmarks! {
     }
 
     add_ethereum_log {
-        let u = MAX_NUMBER_OF_UNCHECKED_EVENTS-2;
-        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
+        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
+        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
 
         let event_type = ValidEvents::NftMint;
         setup_unchecked_events::<T>(&event_type, u);
@@ -224,8 +228,8 @@ benchmarks! {
     }
 
     signed_add_ethereum_log {
-        let u = MAX_NUMBER_OF_UNCHECKED_EVENTS-2;
-        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
+        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
+        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
 
         let event_type = ValidEvents::NftMint;
         setup_unchecked_events::<T>(&event_type, u);
@@ -267,8 +271,8 @@ benchmarks! {
     }
 
     submit_checkevent_result {
-        let v = MAX_NUMBER_OF_VALIDATORS_ACCOUNTS-2;
-        let u = MAX_NUMBER_OF_UNCHECKED_EVENTS-3;
+        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
+        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
 
         let event_type = ValidEvents::Lifted;
         setup_unchecked_events::<T>(&event_type, u);
@@ -298,8 +302,8 @@ benchmarks! {
     }
 
     process_event_with_successful_challenge {
-        let v = MAX_NUMBER_OF_VALIDATORS_ACCOUNTS-2;
-        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
+        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
+        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
 
         let validators = setup_validators::<T>(v);
         let (result, ingress_counter, signature, validator) = setup_extrinsics_inputs::<T>(validators.clone());
@@ -320,8 +324,8 @@ benchmarks! {
     }
 
     process_event_without_successful_challenge {
-        let v = MAX_NUMBER_OF_VALIDATORS_ACCOUNTS-2;
-        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
+        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
+        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
 
         let validators = setup_validators::<T>(v);
         let (mut result, ingress_counter, signature, validator) = setup_extrinsics_inputs::<T>(validators.clone());
@@ -339,9 +343,9 @@ benchmarks! {
     }
 
     challenge_event {
-        let v = MAX_NUMBER_OF_VALIDATORS_ACCOUNTS-2;
-        let e = MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES-3;
-        let c = MAX_CHALLENGES-2;
+        let v in 3 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
+        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
+        let c in 1 .. MAX_CHALLENGES_BENCH;
 
         let mut validators = setup_validators::<T>(v);
         let (result, ingress_counter, signature, validator) = setup_extrinsics_inputs::<T>(validators.clone());

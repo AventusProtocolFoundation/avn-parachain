@@ -227,13 +227,13 @@ benchmarks! {
     }
 
     record_summary_calculation {
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let mut validators = setup_validators::<T>(number_of_validators);
-        let max_root = MAX_NUMBER_OF_ROOT_DATA_PER_RANGE;
+        let v in 3 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let r in 1 .. MAX_NUMBER_OF_ROOT_DATA_PER_RANGE;
 
+        let validators = setup_validators::<T>(v);
         let validator = validators[validators.len() - (1 as usize)].clone();
         let (new_block_number, root_hash, ingress_counter, signature) = setup_record_summary_calculation::<T>();
-        setup_roots::<T>(max_root, validator.account_id.clone(), ingress_counter);
+        setup_roots::<T>(r, validator.account_id.clone(), ingress_counter);
         let next_block_to_process = NextBlockToProcess::<T>::get();
     }: _(RawOrigin::None, new_block_number, root_hash, ingress_counter, validator.clone(), signature)
     verify {
@@ -252,9 +252,10 @@ benchmarks! {
     }
 
     approve_root_with_end_voting {
-        let number_of_offenders = MAX_OFFENDERS;
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let mut validators = setup_validators::<T>(number_of_validators);
+        let v in 3 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let o in 1 .. MAX_OFFENDERS;
+
+        let mut validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         validators.remove(validators.len() - (1 as usize)); // Avoid setting up sender to approve vote automatically
 
@@ -266,7 +267,7 @@ benchmarks! {
 
         let mut reject_voters = validators.clone();
         reject_voters.reverse();
-        setup_reject_votes::<T>(&reject_voters, number_of_offenders, &root_id);
+        setup_reject_votes::<T>(&reject_voters, o, &root_id);
 
         CurrentSlot::<T>::put::<T::BlockNumber>(3u32.into());
 
@@ -319,8 +320,8 @@ benchmarks! {
     }
 
     approve_root_without_end_voting {
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let mut validators = setup_validators::<T>(number_of_validators);
+        let v in 4 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter - 1);
 
@@ -343,9 +344,10 @@ benchmarks! {
     }
 
     reject_root_with_end_voting {
-        let number_of_offenders = MAX_OFFENDERS;
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let mut validators = setup_validators::<T>(number_of_validators);
+        let v in 7 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let o in 1 .. MAX_OFFENDERS;
+
+        let mut validators = setup_validators::<T>(v);
         let (sender, root_id, signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         validators.remove(validators.len() - (1 as usize)); // Avoid setting up sender to reject vote automatically
 
@@ -357,7 +359,7 @@ benchmarks! {
 
         let mut approve_voters = validators.clone();
         approve_voters.reverse();
-        setup_approval_votes::<T>(&approve_voters, number_of_offenders, &root_id);
+        setup_approval_votes::<T>(&approve_voters, o, &root_id);
     }: reject_root(RawOrigin::None, root_id.clone(), sender.clone(), signature)
     verify {
         assert_eq!(false, NextBlockToProcess::<T>::get() == root_id.range.to_block + 1u32.into());
@@ -395,8 +397,8 @@ benchmarks! {
     }
 
     reject_root_without_end_voting {
-        let number_of_validators = MAX_VALIDATOR_ACCOUNT_IDS;
-        let mut validators = setup_validators::<T>(number_of_validators);
+        let v in 4 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let mut validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         validators.remove(validators.len() - (1 as usize)); // Avoid setting up sender to reject vote automatically
 
