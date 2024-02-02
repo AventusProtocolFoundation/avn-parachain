@@ -223,7 +223,7 @@ benchmarks! {
     }
 
     remove_validator {
-        let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in (MINIMUM_ADDITIONAL_BENCHMARKS_VALIDATORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNTS;
 
         setup_additional_validators::<T>(v);
         let (caller_account, caller_id, _) = generate_sender_collator_account_details::<T>();

@@ -16,7 +16,6 @@ use sp_runtime::WeakBoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;
 
-const MAX_NUMBER_OF_VALIDATORS_ACCOUNTS: u32 = 10;
 const MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH: u32 = MAX_NUMBER_OF_UNCHECKED_EVENTS - 1;
 const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH: u32 =
     MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES - 1;
@@ -271,7 +270,7 @@ benchmarks! {
     }
 
     submit_checkevent_result {
-        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
+        let v in 1 .. MAX_VALIDATOR_ACCOUNTS;
         let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
 
         let event_type = ValidEvents::Lifted;
@@ -302,7 +301,7 @@ benchmarks! {
     }
 
     process_event_with_successful_challenge {
-        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
+        let v in 1 .. MAX_VALIDATOR_ACCOUNTS;
         let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
 
         let validators = setup_validators::<T>(v);
@@ -324,7 +323,7 @@ benchmarks! {
     }
 
     process_event_without_successful_challenge {
-        let v in 1 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
+        let v in 1 .. MAX_VALIDATOR_ACCOUNTS;
         let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
 
         let validators = setup_validators::<T>(v);
@@ -343,7 +342,7 @@ benchmarks! {
     }
 
     challenge_event {
-        let v in 3 .. MAX_NUMBER_OF_VALIDATORS_ACCOUNTS;
+        let v in 3 .. MAX_VALIDATOR_ACCOUNTS;
         let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
         let c in 1 .. MAX_CHALLENGES_BENCH;
 
