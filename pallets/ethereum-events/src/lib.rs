@@ -45,7 +45,7 @@ use sp_avn_common::{
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
-use pallet_avn::{self as avn, Error as avn_error, ProcessedEventsChecker};
+use pallet_avn::{self as avn, Error as avn_error, ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS};
 pub mod offence;
 use crate::offence::{
     create_and_report_invalid_log_offence, EthereumLogOffenceType, InvalidEthereumLogOffence,
@@ -448,7 +448,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkevent_result(MAX_NUMBER_OF_VALIDATORS_ACCOUNTS, MAX_NUMBER_OF_UNCHECKED_EVENTS))]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkevent_result(MAX_VALIDATOR_ACCOUNTS, MAX_NUMBER_OF_UNCHECKED_EVENTS))]
         pub fn submit_checkevent_result(
             origin: OriginFor<T>,
             result: EthEventCheckResult<T::BlockNumber, T::AccountId>,
@@ -503,11 +503,11 @@ pub mod pallet {
 
         #[pallet::call_index(3)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::process_event_with_successful_challenge(
-            MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
+            MAX_VALIDATOR_ACCOUNTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
         )
             .max(<T as Config>::WeightInfo::process_event_without_successful_challenge(
-                MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
+                MAX_VALIDATOR_ACCOUNTS,
                 MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
             )))]
         pub fn process_event(
@@ -604,12 +604,12 @@ pub mod pallet {
 
             let final_weight = if successful_challenge {
                 <T as Config>::WeightInfo::process_event_with_successful_challenge(
-                    MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
+                    MAX_VALIDATOR_ACCOUNTS,
                     MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
                 )
             } else {
                 <T as Config>::WeightInfo::process_event_without_successful_challenge(
-                    MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
+                    MAX_VALIDATOR_ACCOUNTS,
                     MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
                 )
             };
@@ -620,7 +620,7 @@ pub mod pallet {
 
         #[pallet::call_index(4)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::challenge_event(
-            MAX_NUMBER_OF_VALIDATORS_ACCOUNTS,
+            MAX_VALIDATOR_ACCOUNTS,
             MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
             MAX_CHALLENGES
         ))]

@@ -28,7 +28,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_avn::{
     self as avn, AccountToBytesConverter, BridgeInterfaceNotification, DisabledValidatorChecker,
     Enforcer, EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
-    ValidatorRegistrationNotifier,
+    ValidatorRegistrationNotifier, MAX_VALIDATOR_ACCOUNTS,
 };
 
 use sp_avn_common::{
@@ -254,7 +254,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_validator(MAX_VALIDATOR_ACCOUNT_IDS))]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_validator(MAX_VALIDATOR_ACCOUNTS))]
         #[transactional]
         pub fn remove_validator(
             origin: OriginFor<T>,
@@ -368,9 +368,6 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 pub mod migration;
-
-// used in benchmarks and weights calculation only
-const MAX_VALIDATOR_ACCOUNT_IDS: u32 = 10;
 
 // TODO [TYPE: review][PRI: medium]: if needed, make this the default value to a configurable
 // option. See MinimumValidatorCount in Staking pallet as a reference

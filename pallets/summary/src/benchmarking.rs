@@ -223,7 +223,7 @@ benchmarks! {
     }
 
     record_summary_calculation {
-        let v in 3 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 3 .. MAX_VALIDATOR_ACCOUNTS;
         let r in 1 .. MAX_NUMBER_OF_ROOT_DATA_PER_RANGE;
 
         let validators = setup_validators::<T>(v);
@@ -248,7 +248,7 @@ benchmarks! {
     }
 
     approve_root_with_end_voting {
-        let v in 3 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 3 .. MAX_VALIDATOR_ACCOUNTS;
         let o in 1 .. MAX_OFFENDERS;
 
         let mut validators = setup_validators::<T>(v);
@@ -316,7 +316,7 @@ benchmarks! {
     }
 
     approve_root_without_end_voting {
-        let v in 4 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 4 .. MAX_VALIDATOR_ACCOUNTS;
         let validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter - 1);
@@ -340,7 +340,7 @@ benchmarks! {
     }
 
     reject_root_with_end_voting {
-        let v in 7 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 7 .. MAX_VALIDATOR_ACCOUNTS;
         let o in 1 .. MAX_OFFENDERS;
 
         let mut validators = setup_validators::<T>(v);
@@ -393,7 +393,7 @@ benchmarks! {
     }
 
     reject_root_without_end_voting {
-        let v in 4 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 4 .. MAX_VALIDATOR_ACCOUNTS;
         let mut validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         validators.remove(validators.len() - (1 as usize)); // Avoid setting up sender to reject vote automatically
@@ -415,7 +415,7 @@ benchmarks! {
     }
 
     end_voting_period_with_rejected_valid_votes {
-        let v in 7 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 7 .. MAX_VALIDATOR_ACCOUNTS;
         let o in 1 .. MAX_OFFENDERS;
         let validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
@@ -453,7 +453,7 @@ benchmarks! {
     }
 
     end_voting_period_with_approved_invalid_votes {
-        let v in 7 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 7 .. MAX_VALIDATOR_ACCOUNTS;
         let o in 1 .. MAX_OFFENDERS;
         let validators = setup_validators::<T>(v);
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
@@ -493,7 +493,7 @@ benchmarks! {
 
     advance_slot_with_offence {
         // There can only be 1 offender here (the validator that failed to create a summary) so skip using MAX_OFFENDERS
-        let v in 5 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 5 .. MAX_VALIDATOR_ACCOUNTS;
         let validators = setup_validators::<T>(v);
         let (sender, _, signature, quorum) = setup_publish_root_voting::<T>(validators);
 
@@ -537,7 +537,7 @@ benchmarks! {
 
     advance_slot_without_offence {
         // No offence committed, so skip using MAX_OFFENDERS
-        let v in 3 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 3 .. MAX_VALIDATOR_ACCOUNTS;
         let validators = setup_validators::<T>(v);
         let (sender, _, signature, _) = setup_publish_root_voting::<T>(validators.clone());
 
@@ -563,7 +563,7 @@ benchmarks! {
 
     add_challenge {
         // There can only be 1 offender here (the validator that failed to advance the slot) so skip using MAX_OFFENDERS
-        let v in 3 .. MAX_VALIDATOR_ACCOUNT_IDS;
+        let v in 3 .. MAX_VALIDATOR_ACCOUNTS;
         let validators = setup_validators::<T>(v);
         let (sender, _,  signature, _) = setup_publish_root_voting::<T>(validators.clone());
 
