@@ -28,7 +28,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_avn::{
     self as avn, AccountToBytesConverter, BridgeInterfaceNotification, DisabledValidatorChecker,
     Enforcer, EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
-    ValidatorRegistrationNotifier, MAX_VALIDATOR_ACCOUNTS
+    ValidatorRegistrationNotifier, MAX_VALIDATOR_ACCOUNTS,
 };
 
 use sp_avn_common::{

@@ -40,8 +40,7 @@ use pallet_avn::{
         process_reject_vote, reject_vote_validate_unsigned, VotingSessionData,
         VotingSessionManager,
     },
-    Error as avn_error,
-    MAX_VALIDATOR_ACCOUNTS,
+    Error as avn_error, MAX_VALIDATOR_ACCOUNTS,
 };
 use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
