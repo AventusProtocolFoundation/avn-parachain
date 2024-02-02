@@ -130,7 +130,6 @@ const SUBMIT_CHECKEVENT_RESULT_CONTEXT: &'static [u8] = b"submit_checkevent_resu
 const CHALLENGE_EVENT_CONTEXT: &'static [u8] = b"challenge_event";
 const PROCESS_EVENT_CONTEXT: &'static [u8] = b"process_event";
 
-const MAX_NUMBER_OF_VALIDATORS_ACCOUNTS: u32 = 10;
 const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 10;
 const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 10;
 const MAX_CHALLENGES: u32 = 10;
