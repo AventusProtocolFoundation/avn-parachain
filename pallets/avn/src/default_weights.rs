@@ -25,7 +25,7 @@
 // --repeat
 // 20
 // --output
-// avt_weights.rs
+// avn_weights.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]

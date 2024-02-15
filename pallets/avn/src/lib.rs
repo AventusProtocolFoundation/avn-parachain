@@ -26,7 +26,7 @@ use frame_system::{ensure_root, pallet_prelude::{BlockNumberFor, OriginFor}};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
-    event_types::{Validator},
+    event_types::Validator,
     ocw_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
@@ -39,7 +39,7 @@ use sp_runtime::{
         storage_lock::{BlockAndTime, StorageLock},
         Duration,
     },
-    traits::{Member},
+    traits::Member,
     DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
@@ -166,7 +166,6 @@ pub mod pallet {
         pub bridge_contract_address: H160,
     }
 
-    // #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self { _phantom: Default::default(), bridge_contract_address: H160::zero() }
