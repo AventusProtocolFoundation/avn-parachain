@@ -4,15 +4,15 @@ use crate::{self as avn_offence_handler, *};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     parameter_types,
-    traits::GenesisBuild,
     BasicExternalities,
 };
 use frame_system as system;
 use pallet_session as session;
 use sp_core::H256;
 use sp_runtime::{
-    testing::{Header, UintAuthorityId},
+    testing::UintAuthorityId,
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    BuildStorage
 };
 
 use std::cell::RefCell;
@@ -21,16 +21,11 @@ pub const VALIDATOR_ID_1: u64 = 1;
 pub const VALIDATOR_ID_2: u64 = 2;
 pub const VALIDATOR_ID_CAN_CAUSE_SLASH_ERROR: u64 = 3;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
-    {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+    pub enum TestRuntime {
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
         AvnOffenceHandler: avn_offence_handler::{Pallet, Call, Storage, Event<T>},
@@ -97,13 +92,12 @@ impl system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -141,7 +135,7 @@ pub struct ExtBuilder {
 impl ExtBuilder {
     pub fn build_default() -> Self {
         let storage =
-            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+            frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
         Self { storage }
     }
 
@@ -191,7 +185,7 @@ impl TestExternalitiesBuilder {
     // Build a genesis storage key/value store
     pub fn build<R>(self, execute: impl FnOnce() -> R) -> sp_io::TestExternalities {
         let storage =
-            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+            frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
 
         let mut ext = sp_io::TestExternalities::new(storage);
         ext.execute_with(|| {
