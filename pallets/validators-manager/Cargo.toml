@@ -12,39 +12,46 @@ rust-version = { workspace = true }
 
 [dependencies]
 log = { version = "0.4.17", default-features = false }
-serde = { version = "1.0.137", optional = true }
-codec = { package = "parity-scale-codec", version = "3.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.163", default-features = false, optional = true }
+codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"], default-features = false }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
-scale-info = { version = "2.0", default-features = false, features = ["derive"] }
-rand = { version = "0.7.2", default-features = false, optional = true }
+scale-info = { version = "2.5.0", default-features = false, features = [
+	"derive",
+] }
+rand = { version = "0.8.5", features = ["std_rng"], default-features = false, optional = true }
 
 sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
 pallet-avn = { default-features = false, path = "../avn" }
 
-sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-pallet-session = { features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", default-features = false }
-sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-sp-staking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-hex-literal = { version = "0.3.4", default-features = false }
-libsecp256k1 = { version = "0.3.2", default-features = false, features = ["hmac"], optional = true }
+sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-staking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+
+frame-support = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+pallet-session = { features = [
+	"historical",
+], git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", default-features = false }
+hex-literal = { version = "0.4.1", default-features = false }
+libsecp256k1 = { version = "0.7.0", default-features = false, features = [
+	"hmac","static-context"
+], optional = true }
 sha3 = { version = "0.8", default-features = false, optional = true }
 #Staking
 pallet-parachain-staking = { path = "../parachain-staking", default-features = false }
 
 # Optional imports for benchmarking
-frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36", optional = true }
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", optional = true }
 
 [dev-dependencies]
-frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
-substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+frame-election-provider-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+substrate-test-utils = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 parking_lot = { version = "0.12.0" }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.36" }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0",features=["insecure_zero_ed"] }
 pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
 pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
 
@@ -53,27 +60,29 @@ migrate = []
 default = ["std", "pallet-session/historical"]
 std = [
 	"frame-benchmarking?/std",
-	"serde",
+	"serde/std",
+	"scale-info/std",
 	"codec/std",
 	"sp-std/std",
+	"sp-io/std",
 	"sp-core/std",
-	"frame-support/std",
 	"sp-runtime/std",
-	"pallet-session/std",
+	"sp-application-crypto/std",
+	"frame-support/std",
 	"frame-system/std",
 	"sp-avn-common/std",
 	"sp-staking/std",
 	"pallet-avn/std",
-	"pallet-avn-proxy/std",
 	"pallet-parachain-staking/std",
-	"libsecp256k1/std",
+	"pallet-session/std",
+	"libsecp256k1?/std",
 ]
 runtime-benchmarks = [
-    "frame-benchmarking/runtime-benchmarks",
-    "frame-support/runtime-benchmarks",
-    "frame-system/runtime-benchmarks",
-    "rand",
-    "libsecp256k1",
-    "sha3",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"rand",
+	"libsecp256k1",
+	"sha3",
 ]
-try-runtime = [ "frame-support/try-runtime" ]
+try-runtime = ["frame-support/try-runtime"]

@@ -14,10 +14,10 @@ use hex_literal::hex;
 use pallet_avn::{self as avn};
 use pallet_parachain_staking::{Currency, Pallet as ParachainStaking};
 use pallet_session::Pallet as Session;
-use secp256k1::{PublicKey, SecretKey};
+use libsecp256k1::{PublicKey, SecretKey};
 use sp_avn_common::eth_key_actions::decompress_eth_public_key;
 use sp_core::{ecdsa::Public, H512};
-use sp_runtime::WeakBoundedVec;
+use sp_runtime::{WeakBoundedVec, RuntimeAppPublic};
 
 // Resigner keys derived from [6u8; 32] private key
 const RESIGNING_COLLATOR_PUBLIC_KEY_BYTES: [u8; 32] =
