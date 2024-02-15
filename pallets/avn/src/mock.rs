@@ -3,7 +3,7 @@
 #![cfg(test)]
 
 use crate::{self as pallet_avn, *};
-use frame_support::{parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities};
+use frame_support::{parameter_types, weights::Weight, BasicExternalities};
 use frame_system as system;
 use hex_literal::hex;
 use pallet_session as session;
@@ -12,25 +12,22 @@ use sp_core::{
     H256,
 };
 use sp_runtime::{
-    testing::{Header, UintAuthorityId},
+    testing::UintAuthorityId,
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     Perbill,
+    BuildStorage
 };
 use std::cell::RefCell;
 
 pub type AccountId = <TestRuntime as system::Config>::AccountId;
 pub type AVN = Pallet<TestRuntime>;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Avn: pallet_avn::{Pallet, Storage, Event},
     }
@@ -47,7 +44,7 @@ impl Config for TestRuntime {
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
+    pub const MaximumBlockWeight: Weight = Weight::from_parts(1024 as u64, 0);
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const ChallengePeriod: u64 = 2;
@@ -59,14 +56,13 @@ impl system::Config for TestRuntime {
     type BlockLength = ();
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -123,7 +119,7 @@ pub struct ExtBuilder {
 impl ExtBuilder {
     pub fn build_default() -> Self {
         let storage =
-            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+            frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap().into();
         Self { storage }
     }
 
