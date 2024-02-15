@@ -73,7 +73,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub (super) trait Store)]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -100,7 +99,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::charge_fee().saturating_add(call.get_dispatch_info().weight).saturating_add(Weight::from_ref_time(50_000)))]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::charge_fee().saturating_add(call.get_dispatch_info().weight).saturating_add(Weight::from_parts(50_000 as u64, 0)))]
         pub fn proxy(
             origin: OriginFor<T>,
             call: Box<<T as Config>::RuntimeCall>,
@@ -108,7 +107,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
             let mut final_weight =
-                call.get_dispatch_info().weight.saturating_add(Weight::from_ref_time(50_000));
+                call.get_dispatch_info().weight.saturating_add(Weight::from_parts(50_000 as u64, 0));
 
             let proof = <T as Config>::ProxyConfig::get_proof(&call)
                 .ok_or(Error::<T>::TransactionNotSupported)?;
@@ -117,7 +116,7 @@ pub mod pallet {
             if let Some(payment_info) = payment_info {
                 final_weight = T::WeightInfo::charge_fee()
                     .saturating_add(call.get_dispatch_info().weight)
-                    .saturating_add(Weight::from_ref_time(50_000));
+                    .saturating_add(Weight::from_parts(50_000 as u64, 0));
 
                 // Always try to charge a fee, regardless of the outcome of execution.
                 // If the payment signature is not valid, the nonce is not incremented and the
