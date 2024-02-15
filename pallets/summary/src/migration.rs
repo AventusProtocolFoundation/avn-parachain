@@ -17,7 +17,6 @@ use frame_support::{
     traits::{Get, OnRuntimeUpgrade},
     weights::Weight,
 };
-use sp_std::prelude::*;
 
 #[derive(Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct OldRootData<AccountId> {
@@ -29,7 +28,7 @@ pub struct OldRootData<AccountId> {
 }
 
 pub fn migrate_roots<T: Config>() -> Weight {
-    let mut consumed_weight: Weight = Weight::from_ref_time(0);
+    let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
@@ -39,7 +38,7 @@ pub fn migrate_roots<T: Config>() -> Weight {
 
     Roots::<T>::translate::<OldRootData<T::AccountId>, _>(
         |_range, _ingress, old_root_data: OldRootData<T::AccountId>| {
-            add_weight(1, 1, Weight::from_ref_time(0));
+            add_weight(1, 1, Weight::from_parts(0 as u64, 0));
 
             let new_transaction_id: Option<EthereumTransactionId> =
                 old_root_data.tx_id.map(|value| value.try_into().ok()).flatten();
@@ -56,7 +55,7 @@ pub fn migrate_roots<T: Config>() -> Weight {
     );
 
     //Write: [STORAGE_VERSION]
-    add_weight(0, 1, Weight::from_ref_time(0));
+    add_weight(0, 1, Weight::from_parts(0 as u64, 0));
     STORAGE_VERSION.put::<Pallet<T>>();
 
     log::info!(
@@ -65,7 +64,7 @@ pub fn migrate_roots<T: Config>() -> Weight {
     );
 
     // add a bit extra as safety margin for computation
-    return consumed_weight + Weight::from_ref_time(25_000_000_000)
+    return consumed_weight + Weight::from_parts(25_000_000_000 as u64, 0)
 }
 
 /// Migration to enable staking pallet
