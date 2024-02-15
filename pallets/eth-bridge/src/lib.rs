@@ -62,7 +62,7 @@ use frame_support::{dispatch::DispatchResultWithPostInfo, log, traits::IsSubType
 use frame_system::{
     ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
-    pallet_prelude::OriginFor,
+    pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
@@ -131,7 +131,6 @@ pub mod pallet {
 
     use super::*;
     use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
-    use frame_system::pallet_prelude::*;
 
     #[pallet::config]
     pub trait Config:
@@ -199,7 +198,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub trait Store)]
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
@@ -229,7 +227,7 @@ pub mod pallet {
         pub next_tx_id: EthereumId,
     }
 
-    #[cfg(feature = "std")]
+    // #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self { _phantom: Default::default(), eth_tx_lifetime_secs: 60 * 30, next_tx_id: 0 }
@@ -237,7 +235,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             EthTxLifetimeSecs::<T>::put(self.eth_tx_lifetime_secs);
             NextTxId::<T>::put(self.next_tx_id);
@@ -484,7 +482,7 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn offchain_worker(block_number: T::BlockNumber) {
+        fn offchain_worker(block_number: BlockNumberFor<T>) {
             if let Ok((author, finalised_block_number)) = setup_ocw::<T>(block_number) {
                 if let Err(e) = process_active_request::<T>(author, finalised_block_number) {
                     log::error!("❌ Error processing currently active request: {:?}", e);
@@ -499,8 +497,8 @@ pub mod pallet {
     }
 
     fn setup_ocw<T: Config>(
-        block_number: T::BlockNumber,
-    ) -> Result<(Author<T>, T::BlockNumber), DispatchError> {
+        block_number: BlockNumberFor<T>,
+    ) -> Result<(Author<T>, BlockNumberFor<T>), DispatchError> {
         AVN::<T>::pre_run_setup(block_number, PALLET_NAME.to_vec()).map_err(|e| {
             if e != DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) {
                 log::error!("❌ Unable to run offchain worker: {:?}", e);
@@ -512,7 +510,7 @@ pub mod pallet {
     // The core logic the OCW employs to fully resolve any currently active transaction:
     fn process_active_request<T: Config>(
         author: Author<T>,
-        finalised_block_number: T::BlockNumber,
+        finalised_block_number: BlockNumberFor<T>,
     ) -> Result<(), DispatchError> {
         if let Some(req) = ActiveRequest::<T>::get() {
             if finalised_block_number < req.last_updated {
