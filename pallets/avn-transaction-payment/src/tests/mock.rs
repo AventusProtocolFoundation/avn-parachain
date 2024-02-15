@@ -1,4 +1,4 @@
-use crate::{self as pallet_avn_transaction_payment, system::limits, AvnCurrencyAdapter, Store};
+use crate::{self as pallet_avn_transaction_payment, system::limits, AvnCurrencyAdapter, KnownSenders};
 use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::DispatchClass,
@@ -9,33 +9,29 @@ use frame_support::{
 use pallet_balances;
 use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, IdentityLookup, Verify},
     Perbill, SaturatedConversion,
+    BuildStorage
 };
 pub use std::sync::Arc;
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-pub const MAX_BLOCK_WEIGHT: Weight = Weight::from_ref_time(1024).set_proof_size(u64::MAX);
+pub const MAX_BLOCK_WEIGHT: Weight = Weight::from_parts(1024 as u64, u64::MAX);
 pub const BASE_FEE: u64 = 12;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime 
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config<T>},
         AvnTransactionPayment: pallet_avn_transaction_payment::{Pallet, Call, Storage, Event<T>}
     }
 );
@@ -43,9 +39,9 @@ frame_support::construct_runtime!(
 parameter_types! {
     pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(1024, NORMAL_DISPATCH_RATIO);
     pub RuntimeBlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
-        .base_block(Weight::from_ref_time(10))
+        .base_block(Weight::from_parts(10 as u64,0))
         .for_class(DispatchClass::all(), |weights| {
-            weights.base_extrinsic = Weight::from_ref_time(BASE_FEE);
+            weights.base_extrinsic = Weight::from_parts(BASE_FEE, 0);
         })
         .for_class(DispatchClass::Normal, |weights| {
             weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT);
@@ -67,13 +63,12 @@ impl frame_system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = ConstU64<250>;
     type Version = ();
@@ -153,6 +148,10 @@ impl pallet_balances::Config for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type MaxHolds = ();
+    type RuntimeHoldReason = ();
 }
 
 impl AvnTransactionPayment {
@@ -201,7 +200,7 @@ pub(crate) fn roll_one_block() -> u64 {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    let t = frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+    let t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| System::set_block_number(1));
     ext
