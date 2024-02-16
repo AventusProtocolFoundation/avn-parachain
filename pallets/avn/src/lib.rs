@@ -22,16 +22,16 @@ use alloc::{
 };
 
 use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
-use frame_system::{ensure_root, pallet_prelude::OriginFor};
+use frame_system::{ensure_root, pallet_prelude::{BlockNumberFor, OriginFor}};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
-    event_types::{EthEventId, Validator},
+    event_types::Validator,
     ocw_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
-use sp_core::{ecdsa, H160};
+use sp_core::{ecdsa, H160, H256};
 use sp_runtime::{
     offchain::{
         http,
@@ -117,7 +117,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub (super) trait Store)]
     pub struct Pallet<T>(_);
 
     #[pallet::error]
@@ -167,7 +166,6 @@ pub mod pallet {
         pub bridge_contract_address: H160,
     }
 
-    #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self { _phantom: Default::default(), bridge_contract_address: H160::zero() }
@@ -175,7 +173,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             AvnBridgeContractAddress::<T>::put(self.bridge_contract_address);
         }
@@ -184,7 +182,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_bridge_contract_storage())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_bridge_contract())]
         pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(&contract_address != &H160::zero(), Error::<T>::InvalidContractAddress);
@@ -202,9 +200,9 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
     pub fn pre_run_setup(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
         caller_id: Vec<u8>,
-    ) -> Result<(Validator<T::AuthorityId, T::AccountId>, T::BlockNumber), DispatchError> {
+    ) -> Result<(Validator<T::AuthorityId, T::AccountId>, BlockNumberFor<T>), DispatchError> {
         if !sp_io::offchain::is_validator() {
             Err(Error::<T>::NotAValidator)?
         }
@@ -245,7 +243,7 @@ impl<T: Config> Pallet<T> {
 
     // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
     pub fn is_primary(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
         current_validator: &T::AccountId,
     ) -> Result<bool, Error<T>> {
         let primary_validator = Self::calculate_primary_validator(block_number)?;
@@ -253,7 +251,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn calculate_primary_validator(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
     ) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
 
@@ -370,7 +368,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn convert_block_number_to_u32(block_number: T::BlockNumber) -> Result<u32, Error<T>> {
+    pub fn convert_block_number_to_u32(block_number: BlockNumberFor<T>) -> Result<u32, Error<T>> {
         let block_number: u32 = TryInto::<u32>::try_into(block_number)
             .map_err(|_| Error::<T>::ErrorConvertingBlockNumber)?;
 
@@ -404,7 +402,7 @@ impl<T: Config> Pallet<T> {
     }
 
     // Called from OCW, no storage changes allowed
-    pub fn get_finalised_block_from_external_service() -> Result<T::BlockNumber, Error<T>> {
+    pub fn get_finalised_block_from_external_service() -> Result<BlockNumberFor<T>, Error<T>> {
         let response = Self::get_data_from_service(String::from("latest_finalised_block"))
             .map_err(|e| {
                 error!("❌ Error getting finalised block from avn service: {:?}", e);
@@ -421,7 +419,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ErrorDecodingU32
         })?;
 
-        return Ok(T::BlockNumber::from(finalised_block))
+        return Ok(BlockNumberFor::<T>::from(finalised_block))
     }
 
     pub fn get_external_service_port_number() -> String {
@@ -648,11 +646,11 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
 }
 
 pub trait ProcessedEventsChecker {
-    fn check_event(event_id: &EthEventId) -> bool;
+    fn check_event(event_id: &(H256,H256)) -> bool;
 }
 
 impl ProcessedEventsChecker for () {
-    fn check_event(_event_id: &EthEventId) -> bool {
+    fn check_event(_event_id: &(H256,H256)) -> bool {
         return false
     }
 }

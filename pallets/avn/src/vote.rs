@@ -11,6 +11,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, VotingSessionIdBound},
@@ -123,7 +124,7 @@ pub trait VotingSessionManager<AccountId, BlockNumber> {
 }
 
 pub fn process_approve_vote<T: Config>(
-    voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
+    voting_session: &Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>,
     voter: T::AccountId,
 ) -> DispatchResult {
     validate_vote::<T>(voting_session, &voter)?;
@@ -133,7 +134,7 @@ pub fn process_approve_vote<T: Config>(
 }
 
 pub fn validate_vote<T: Config>(
-    voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
+    voting_session: &Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>,
     voter: &T::AccountId,
 ) -> DispatchResult {
     ensure!(AVN::<T>::is_validator(voter), Error::<T>::NotAValidator);
@@ -143,7 +144,7 @@ pub fn validate_vote<T: Config>(
 }
 
 pub fn process_reject_vote<T: Config>(
-    voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
+    voting_session: &Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>,
     voter: T::AccountId,
 ) -> DispatchResult {
     validate_vote::<T>(voting_session, &voter)?;
@@ -153,7 +154,7 @@ pub fn process_reject_vote<T: Config>(
 }
 
 fn end_voting_if_outcome_reached<T: Config>(
-    voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
+    voting_session: &Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>,
     voter: T::AccountId,
 ) -> DispatchResult {
     if voting_session.state()?.has_outcome() && voting_session.is_active() {
@@ -164,7 +165,7 @@ fn end_voting_if_outcome_reached<T: Config>(
 }
 
 pub fn end_voting_period_validate_unsigned<T: Config>(
-    voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
+    voting_session: &Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>,
     validator: &Validator<T::AuthorityId, T::AccountId>,
     signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
 ) -> TransactionValidity {
@@ -205,7 +206,7 @@ pub fn end_voting_period_validate_unsigned<T: Config>(
 /// dispatch method being called. ECDSA sig validation is different because we cannot raise an
 /// offence (and mutate storage) from validate_unsigned.
 pub fn approve_vote_validate_unsigned<T: Config>(
-    voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
+    voting_session: &Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>,
     validator: &Validator<T::AuthorityId, T::AccountId>,
     signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
 ) -> TransactionValidity {
@@ -244,12 +245,12 @@ pub fn approve_vote_validate_unsigned<T: Config>(
 }
 
 pub fn reject_vote_validate_unsigned<T: Config>(
-    voting_session: &Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>,
+    voting_session: &Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>,
     validator: &Validator<T::AuthorityId, T::AccountId>,
     signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
 ) -> TransactionValidity {
     // TODO: Check if we can end the vote here
-    if validate_vote::<T>(&voting_session, &validator.account_id).is_err() {
+    if validate_vote::<T>(voting_session, &validator.account_id).is_err() {
         return InvalidTransaction::Custom(REJECT_VOTE_IS_NOT_VALID).into()
     }
 
