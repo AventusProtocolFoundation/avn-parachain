@@ -11,7 +11,7 @@ use frame_support::assert_noop;
 use pallet_avn::vote::VotingSessionData;
 use parking_lot::RwLock;
 
-use sp_core::{ecdsa, offchain::testing::PoolState, H256};
+use sp_core::{offchain::testing::PoolState, H256};
 use sp_runtime::{offchain::storage::StorageValueRef, testing::UintAuthorityId, traits::BadOrigin};
 use system::RawOrigin;
 

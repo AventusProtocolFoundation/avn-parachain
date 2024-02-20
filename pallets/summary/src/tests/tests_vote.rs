@@ -3,7 +3,6 @@
 #![cfg(test)]
 
 use crate::{mock::*, system};
-use assert_matches::assert_matches;
 use frame_support::{assert_noop, assert_ok};
 use pallet_avn::Error as AvNError;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
