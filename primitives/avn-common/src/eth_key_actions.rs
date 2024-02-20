@@ -2,10 +2,10 @@ use sp_core::{ecdsa, H512};
 
 pub fn decompress_eth_public_key(
     compressed_eth_public_key: ecdsa::Public,
-) -> Result<H512, secp256k1::Error> {
-    let decompressed = secp256k1::PublicKey::parse_slice(
+) -> Result<H512, libsecp256k1::Error> {
+    let decompressed = libsecp256k1::PublicKey::parse_slice(
         &compressed_eth_public_key.0,
-        Some(secp256k1::PublicKeyFormat::Compressed),
+        Some(libsecp256k1::PublicKeyFormat::Compressed),
     );
     match decompressed {
         Ok(public_key) => {
