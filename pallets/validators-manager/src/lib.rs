@@ -155,7 +155,6 @@ pub mod pallet {
         pub validators: Vec<(T::AccountId, ecdsa::Public)>,
     }
 
-    // #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self { validators: Vec::<(T::AccountId, ecdsa::Public)>::new() }
