@@ -128,7 +128,6 @@ pub mod pallet {
         pub _phantom: sp_std::marker::PhantomData<T>,
     }
 
-    #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self { _phantom: Default::default() }
@@ -136,7 +135,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             crate::STORAGE_VERSION.put::<Pallet<T>>();
         }
@@ -785,7 +784,7 @@ pub mod pallet {
                 onchain_version,
                 Pallet::<T>::current_storage_version(),
             );
-            return Weight::from_ref_time(0)
+            return Weight::from_parts(0 as u64, 0)
         }
     }
 }
