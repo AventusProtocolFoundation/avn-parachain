@@ -22,7 +22,7 @@ const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH: u32 =
 const MAX_CHALLENGES_BENCH: u32 = MAX_CHALLENGES - 1;
 
 fn setup_unchecked_events<T: Config>(event_type: &ValidEvents, number_of_unchecked_events: u32) {
-    let mut unchecked_added_validator_events: Vec<(EthEventId, IngressCounter, T::BlockNumber)> =
+    let mut unchecked_added_validator_events: Vec<(EthEventId, IngressCounter, BlockNumberFor<T>)> =
         Vec::new();
     for i in 1..=number_of_unchecked_events {
         unchecked_added_validator_events.push((
@@ -40,9 +40,9 @@ fn setup_events_pending_challenge<T: Config>(
     number_of_events_pending_challenge: u32,
 ) {
     let mut events_pending_challenge: Vec<(
-        EthEventCheckResult<T::BlockNumber, T::AccountId>,
+        EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
         IngressCounter,
-        T::BlockNumber,
+        BlockNumberFor<T>,
     )> = Vec::new();
     for i in 1..=number_of_events_pending_challenge {
         events_pending_challenge.push((
@@ -105,7 +105,7 @@ fn setup_validators<T: Config>(
 fn setup_extrinsics_inputs<T: Config>(
     validators: Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>>,
 ) -> (
-    EthEventCheckResult<T::BlockNumber, T::AccountId>,
+    EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
     u64,
     <T::AuthorityId as RuntimeAppPublic>::Signature,
     Validator<T::AuthorityId, T::AccountId>,
@@ -114,7 +114,7 @@ fn setup_extrinsics_inputs<T: Config>(
         signature: ValidEvents::AddedValidator.signature(),
         transaction_hash: H256::from([4; 32]),
     };
-    let result: EthEventCheckResult<T::BlockNumber, T::AccountId> = EthEventCheckResult::new(
+    let result: EthEventCheckResult<BlockNumberFor<T>, T::AccountId> = EthEventCheckResult::new(
         0u32.into(),
         CheckResult::Ok,
         &event_id.clone(),
