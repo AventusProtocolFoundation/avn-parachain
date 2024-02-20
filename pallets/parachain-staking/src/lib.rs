@@ -2490,9 +2490,6 @@ pub mod pallet {
             );
         }
 
-        // fn note_uncle(_author: T::AccountId, _age: BlockNumberFor<T>) {
-        //     //TODO: can we ignore this?
-        // }
     }
     impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
         fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {

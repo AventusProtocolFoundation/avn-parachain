@@ -26,8 +26,6 @@ use sp_std::prelude::*;
 /// An ordered set backed by `Vec`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(
-    // Serialize,
-    // Deserialize,
     RuntimeDebug,
     PartialEq,
     Eq,
@@ -103,8 +101,6 @@ impl<T: Ord> From<Vec<T>> for OrderedSet<T> {
 /// An ordered set backed by `BoundedVec`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(
-    // Serialize,
-    // Deserialize,
     RuntimeDebug,
     PartialEq,
     Eq,
