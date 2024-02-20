@@ -25,7 +25,16 @@ use sp_std::prelude::*;
 
 /// An ordered set backed by `Vec`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(RuntimeDebug, PartialEq, Eq, Encode, Decode, Default, Clone, TypeInfo)]
+#[derive(
+    RuntimeDebug,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    Default,
+    Clone,
+    TypeInfo,
+)]
 pub struct OrderedSet<T>(pub Vec<T>);
 
 impl<T: Ord> OrderedSet<T> {
@@ -91,7 +100,16 @@ impl<T: Ord> From<Vec<T>> for OrderedSet<T> {
 
 /// An ordered set backed by `BoundedVec`
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-#[derive(RuntimeDebug, PartialEq, Eq, Encode, Decode, TypeInfo, Clone, MaxEncodedLen)]
+#[derive(
+    RuntimeDebug,
+    PartialEq,
+    Eq,
+    Encode,
+    Decode,
+    TypeInfo,
+    Clone,
+    MaxEncodedLen,
+)]
 #[scale_info(skip_type_params(S))]
 pub struct BoundedOrderedSet<T, S: Get<u32>>(pub BoundedVec<T, S>);
 
