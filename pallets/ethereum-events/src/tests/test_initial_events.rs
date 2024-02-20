@@ -4,7 +4,7 @@
 
 use crate::{mock::*, *};
 
-pub type BlockNumber = <TestRuntime as frame_system::Config>::BlockNumber;
+pub type BlockNumber = BlockNumberFor<TestRuntime>;
 
 mod initial_lifts {
     use super::*;

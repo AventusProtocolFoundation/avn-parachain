@@ -32,7 +32,7 @@ fn get_event_check_result(
     id: &EthEventId,
     data: &EventData,
     result: CheckResult,
-) -> EthEventCheckResult<<TestRuntime as frame_system::Config>::BlockNumber, AccountId> {
+) -> EthEventCheckResult<BlockNumberFor<TestRuntime>, AccountId> {
     return EthEventCheckResult::new(10, result, id, data, account_id_0(), 5, 0)
 }
 
