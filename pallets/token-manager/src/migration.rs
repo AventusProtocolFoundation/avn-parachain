@@ -5,6 +5,7 @@ use frame_support::{
     traits::{Get, OnRuntimeUpgrade},
     weights::Weight,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 
 #[cfg(feature = "try-runtime")]
 use crate::Vec;
@@ -12,8 +13,8 @@ use crate::Vec;
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 pub fn set_lower_schedule_period<T: Config>() -> Weight {
-    let default_lower_schedule_period: T::BlockNumber = 3275u32.into(); // ~ 12 hrs
-    let mut consumed_weight: Weight = Weight::from_ref_time(0);
+    let default_lower_schedule_period: BlockNumberFor<T> = 3275u32.into(); // ~ 12 hrs
+    let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
@@ -24,13 +25,13 @@ pub fn set_lower_schedule_period<T: Config>() -> Weight {
     <LowerSchedulePeriod<T>>::put(default_lower_schedule_period);
 
     //Write: [LowerSchedulePeriod, STORAGE_VERSION]
-    add_weight(0, 2, Weight::from_ref_time(0));
+    add_weight(0, 2, Weight::from_parts(0 as u64, 0));
     STORAGE_VERSION.put::<Pallet<T>>();
 
     log::info!("✅ Lower schedule period successfully");
 
     // add a bit extra as safety margin for computation
-    return consumed_weight + Weight::from_ref_time(25_000_000)
+    return consumed_weight + Weight::from_parts(25_000_000 as u64, 0)
 }
 
 /// Migration to enable staking pallet
@@ -64,9 +65,9 @@ impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
         use codec::Decode;
         use sp_runtime::traits::Zero;
 
-        let initial_lower_schedule_period: T::BlockNumber =
+        let initial_lower_schedule_period: BlockNumberFor<T> =
             Decode::decode(&mut input.as_slice()).expect("Initial lower schedule is invalid");
-        if initial_lower_schedule_period == T::BlockNumber::zero() {
+        if initial_lower_schedule_period == BlockNumberFor::<T>::zero() {
             assert_eq!(initial_lower_schedule_period, 3275u32.into());
             log::info!(
                 "💽 lower_schedule_period updated successfully to {:?}",

@@ -21,7 +21,7 @@
 use super::*;
 use codec::{Decode, Encode};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
-use frame_system::{EventRecord, RawOrigin};
+use frame_system::{EventRecord, RawOrigin, pallet_prelude::BlockNumberFor};
 use hex_literal::hex;
 use sp_core::sr25519;
 use sp_runtime::RuntimeAppPublic;
@@ -349,7 +349,7 @@ benchmarks! {
     }
 
     set_lower_schedule_period {
-        let new_period: T::BlockNumber = 100u32.into();
+        let new_period: BlockNumberFor<T> = 100u32.into();
     }: _(RawOrigin::Root, new_period)
     verify {
         assert_eq!(LowerSchedulePeriod::<T>::get(), new_period);

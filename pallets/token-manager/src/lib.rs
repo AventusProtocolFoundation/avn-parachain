@@ -23,7 +23,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::{
     format,
-    string::{String, ToString},
+    string::String,
 };
 use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
@@ -145,8 +145,8 @@ pub mod pallet {
         type TreasuryGrowthPercentage: Get<Perbill>;
         /// Handler to notify the runtime when AVT growth is lifted.
         type OnGrowthLiftedHandler: OnGrowthLiftedHandler<BalanceOf<Self>>;
-        type Scheduler: ScheduleAnon<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>
-            + ScheduleNamed<Self::BlockNumber, CallOf<Self>, Self::PalletsOrigin>;
+        type Scheduler: ScheduleAnon<BlockNumberFor<Self>, CallOf<Self>, Self::PalletsOrigin>
+            + ScheduleNamed<BlockNumberFor<Self>, CallOf<Self>, Self::PalletsOrigin>;
         /// The preimage provider.
         type Preimages: QueryPreimage + StorePreimage;
         /// Overarching type of all pallets origins.
@@ -234,7 +234,7 @@ pub mod pallet {
             requester: T::AccountId,
         },
         LowerSchedulePeriodUpdated {
-            new_period: T::BlockNumber,
+            new_period: BlockNumberFor<T>,
         },
     }
 
@@ -308,30 +308,30 @@ pub mod pallet {
     /// The number of blocks lower transactions are delayed before executing
     #[pallet::storage]
     #[pallet::getter(fn lower_schedule_period)]
-    pub type LowerSchedulePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type LowerSchedulePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub lower_account_id: H256,
         pub avt_token_contract: H160,
-        pub lower_schedule_period: T::BlockNumber,
+        pub lower_schedule_period: BlockNumberFor<T>,
     }
 
-    #[cfg(feature = "std")]
+    // #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
                 _phantom: Default::default(),
                 lower_account_id: H256::zero(),
                 avt_token_contract: H160::zero(),
-                lower_schedule_period: T::BlockNumber::zero(),
+                lower_schedule_period: BlockNumberFor::<T>::zero(),
             }
         }
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
             <LowerAccountId<T>>::put(self.lower_account_id);
@@ -552,7 +552,7 @@ pub mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_lower_schedule_period())]
         pub fn set_lower_schedule_period(
             origin: OriginFor<T>,
-            new_period: T::BlockNumber,
+            new_period: BlockNumberFor<T>,
         ) -> DispatchResult {
             let _ = ensure_root(origin)?;
 
