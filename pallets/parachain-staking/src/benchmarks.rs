@@ -205,21 +205,21 @@ fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::RuntimeEvent, 
 /// Run to end block and author
 fn roll_to_and_author<T: Config>(era_delay: u32, author: T::AccountId) {
     let total_eras = era_delay + 1u32;
-    let era_length: T::BlockNumber = Pallet::<T>::era().length.into();
+    let era_length: BlockNumberFor<T> = Pallet::<T>::era().length.into();
     let mut now = <frame_system::Pallet<T>>::block_number() + 1u32.into();
     let end = Pallet::<T>::era().first + (era_length * total_eras.into());
     while now < end {
         parachain_staking_on_finalize::<T>(author.clone());
-        <frame_system::Pallet<T> as OnFinalize<T::BlockNumber>>::on_finalize(
+        <frame_system::Pallet<T> as OnFinalize<BlockNumberFor<T>>>::on_finalize(
             <frame_system::Pallet<T>>::block_number(),
         );
         <frame_system::Pallet<T>>::set_block_number(
             <frame_system::Pallet<T>>::block_number() + 1u32.into(),
         );
-        <frame_system::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(
+        <frame_system::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(
             <frame_system::Pallet<T>>::block_number(),
         );
-        <pallet::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(
+        <pallet::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(
             <frame_system::Pallet<T>>::block_number(),
         );
         now += 1u32.into();
@@ -1363,7 +1363,7 @@ benchmarks! {
         )> = nominators.iter().map(|x| (x.clone(), T::Currency::free_balance(&x))).collect();
         // PREPARE RUN_TO_BLOCK LOOP
         let before_running_era_index = Pallet::<T>::era().current;
-        let era_length: T::BlockNumber = Pallet::<T>::era().length.into();
+        let era_length: BlockNumberFor<T> = Pallet::<T>::era().length.into();
         let reward_delay = <<T as Config>::RewardPaymentDelay as Get<u32>>::get() + 2u32;
         let mut now = <frame_system::Pallet<T>>::block_number() + 1u32.into();
         let mut counter = 0usize;
@@ -1375,12 +1375,12 @@ benchmarks! {
 
             let author = collators[counter % collators.len()].clone();
             parachain_staking_on_finalize::<T>(author);
-            <frame_system::Pallet<T> as OnFinalize<T::BlockNumber>>::on_finalize(<frame_system::Pallet<T>>::block_number());
+            <frame_system::Pallet<T> as OnFinalize<BlockNumberFor<T>>>::on_finalize(<frame_system::Pallet<T>>::block_number());
             <frame_system::Pallet<T>>::set_block_number(
                 <frame_system::Pallet<T>>::block_number() + 1u32.into()
             );
-            <frame_system::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(<frame_system::Pallet<T>>::block_number());
-            <pallet::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(<frame_system::Pallet<T>>::block_number());
+            <frame_system::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
+            <pallet::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
             now += 1u32.into();
             counter += 1usize;
         }
@@ -1389,12 +1389,12 @@ benchmarks! {
         // Set some rewards to payout
         T::Currency::make_free_balance_be(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000u32.into());
 
-        <frame_system::Pallet<T> as OnFinalize<T::BlockNumber>>::on_finalize(<frame_system::Pallet<T>>::block_number());
+        <frame_system::Pallet<T> as OnFinalize<BlockNumberFor<T>>>::on_finalize(<frame_system::Pallet<T>>::block_number());
         <frame_system::Pallet<T>>::set_block_number(
             <frame_system::Pallet<T>>::block_number() + 1u32.into()
         );
-        <frame_system::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(<frame_system::Pallet<T>>::block_number());
-    }: { <pallet::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(<frame_system::Pallet<T>>::block_number()); }
+        <frame_system::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
+    }: { <pallet::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number()); }
     verify {
         // Collators have been paid
         for (col, initial) in collator_starting_balances {
@@ -1507,13 +1507,13 @@ benchmarks! {
         )?;
         let start = <frame_system::Pallet<T>>::block_number();
         parachain_staking_on_finalize::<T>(collator.clone());
-        <frame_system::Pallet<T> as OnFinalize<T::BlockNumber>>::on_finalize(start);
+        <frame_system::Pallet<T> as OnFinalize<BlockNumberFor<T>>>::on_finalize(start);
         <frame_system::Pallet<T>>::set_block_number(
             start + 1u32.into()
         );
         let end = <frame_system::Pallet<T>>::block_number();
-        <frame_system::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(end);
-    }: { <pallet::Pallet<T> as OnInitialize<T::BlockNumber>>::on_initialize(end); }
+        <frame_system::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(end);
+    }: { <pallet::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(end); }
     verify {
         // Era transitions
         assert_eq!(start + 1u32.into(), end);
@@ -1549,7 +1549,7 @@ benchmarks! {
             candidate_count
         )?;
 
-        let new_block: T::BlockNumber = 10u32.into();
+        let new_block: BlockNumberFor<T> = 10u32.into();
         let now = <Era<T>>::get().current;
 
         frame_system::Pallet::<T>::set_block_number(new_block);
