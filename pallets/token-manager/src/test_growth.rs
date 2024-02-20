@@ -273,6 +273,8 @@ mod transfering_from_treasury_works {
 }
 
 mod transfering_from_treasury_fails {
+    use sp_runtime::TokenError;
+
     use super::*;
 
     #[test]
@@ -342,7 +344,7 @@ mod transfering_from_treasury_fails {
                     recipient,
                     treasury_balance + 1
                 ),
-                BalancesError::<TestRuntime>::InsufficientBalance
+                TokenError::FundsUnavailable
             );
         });
     }

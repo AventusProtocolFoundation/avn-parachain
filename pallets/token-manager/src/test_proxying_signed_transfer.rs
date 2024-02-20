@@ -21,7 +21,7 @@ use crate::{
     *,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, traits::fungible::Unbalanced};
 use pallet_parachain_staking::Weight;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use sp_core::{sr25519, Pair};
@@ -65,7 +65,7 @@ fn pay_gas_and_proxy_call(
         ChargeTransactionPayment::from(0), // we do not pay any tip
         relayer,
         outer_call,
-        &info_from_weight(Weight::from_ref_time(1)),
+        &info_from_weight(Weight::from_parts(1 as u64, 0)),
         TX_LEN,
     )
     .map_err(|e| <&'static str>::from(e))?;
@@ -85,7 +85,7 @@ fn pay_gas_and_call_transfer_directly(
         ChargeTransactionPayment::from(0),
         sender,
         call,
-        &info_from_weight(Weight::from_ref_time(1)),
+        &info_from_weight(Weight::from_parts(1 as u64, 0)),
         TX_LEN,
     )
     .map_err(|e| <&'static str>::from(e))?;
@@ -253,7 +253,7 @@ fn avt_proxy_signed_transfer_succeeds() {
     ext.execute_with(|| {
         let sender = account_id_with_100_avt();
         let relayer = account_id2_with_100_avt();
-        let recipient = default_receiver();
+        let recipient = account_id3_with_100_avt();
 
         let sender_init_avt_balance = Balances::free_balance(sender);
         let recipient_init_avt_balance = Balances::free_balance(recipient);
@@ -361,7 +361,7 @@ fn avt_direct_signed_transfer_succeeds() {
     ext.execute_with(|| {
         let sender = account_id_with_100_avt();
         let relayer = account_id2_with_100_avt();
-        let recipient = default_receiver(); // just some arbitrary account id
+        let recipient = account_id3_with_100_avt(); // just some arbitrary account id
 
         let sender_init_avt_balance = Balances::free_balance(sender);
         let recipient_init_avt_balance = Balances::free_balance(recipient);
@@ -538,7 +538,7 @@ fn avn_test_proxy_signed_transfer_fails_with_mismatched_proof_other_keys() {
         let relayer = default_relayer();
         let recipient = default_receiver();
 
-        let other_sender_keys = sr25519::Pair::from_entropy(&[2u8; 32], None).0;
+        let other_sender_keys = sr25519::Pair::from_seed_slice(&[2u8; 32]).unwrap();
 
         default_setup();
         let mismatching_proof = create_proof_for_signed_transfer(
