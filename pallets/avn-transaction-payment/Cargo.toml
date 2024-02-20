@@ -28,7 +28,6 @@ frame-system = { default-features = false, git = "https://github.com/paritytech/
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "polkadot-v1.0.0" }
 
 # Optional imports for benchmarking
-# serde = { version = "1.0.163", default-features = false, optional = true}
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", optional = true }
 
 [dev-dependencies]
@@ -40,7 +39,6 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 default = ["std"]
 std = [
 	"frame-benchmarking?/std",
-	# "serde/std",
 	"codec/std",
 	"scale-info/std",
 	"sp-std/std",
