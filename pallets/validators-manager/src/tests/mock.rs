@@ -13,9 +13,10 @@ use pallet_parachain_staking::{self as parachain_staking};
 
 use pallet_avn::BridgeInterfaceNotification;
 use pallet_timestamp as timestamp;
+use parachain_staking::BlockNumberFor;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
-    event_types::{AddedValidatorData, EthEvent, EthEventId, EventData, ValidEvents},
+    event_types::{AddedValidatorData, EthEvent, EventData, ValidEvents},
 };
 use sp_core::{
     ecdsa::Public,
@@ -29,7 +30,7 @@ use sp_core::{
 };
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},BuildStorage
 };
 
 use codec::alloc::sync::Arc;
@@ -71,7 +72,7 @@ pub const REGISTERING_VALIDATOR_TIER1_ID: u128 = 200;
 pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
-pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
+pub type BlockNumber = BlockNumberFor<TestRuntime>;
 pub type ValidatorId = <TestRuntime as session::Config>::ValidatorId;
 pub type FullIdentification = AccountId;
 /// The signature type used by accounts/transactions.
@@ -108,12 +109,9 @@ impl TestAccount {
 }
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         ValidatorManager: validators_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -182,13 +180,12 @@ impl system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -225,6 +222,10 @@ impl balances::Config for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type RuntimeHoldReason = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 parameter_types! {
@@ -326,7 +327,7 @@ type IdentificationTuple = (AccountId, AccountId);
 pub const INITIAL_TRANSACTION_ID: EthereumTransactionId = 0;
 
 thread_local! {
-    static PROCESSED_EVENTS: RefCell<Vec<EthEventId>> = RefCell::new(vec![]);
+    static PROCESSED_EVENTS: RefCell<Vec<(H256,H256)>> = RefCell::new(vec![]);
 
     pub static VALIDATORS: RefCell<Option<Vec<AccountId>>> = RefCell::new(Some(vec![
         validator_id_1(),
@@ -340,7 +341,7 @@ thread_local! {
 }
 
 impl ProcessedEventsChecker for TestRuntime {
-    fn check_event(event_id: &EthEventId) -> bool {
+    fn check_event(event_id: &(H256,H256)) -> bool {
         return PROCESSED_EVENTS.with(|l| l.borrow_mut().iter().any(|event| event == event_id))
     }
 }
@@ -411,7 +412,7 @@ pub struct ExtBuilder {
 impl ExtBuilder {
     pub fn build_default() -> Self {
         let storage =
-            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+            frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
         Self {
             storage,
             pool_state: None,
@@ -425,7 +426,10 @@ impl ExtBuilder {
     pub fn as_externality(self) -> sp_io::TestExternalities {
         let mut ext = sp_io::TestExternalities::from(self.storage);
         // Events do not get emitted on block 0, so we increment the block here
-        ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into()));
+        ext.execute_with(|| {
+            Timestamp::set_timestamp(1);
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into())
+        });
         ext
     }
 
@@ -537,7 +541,10 @@ impl ExtBuilder {
         ext.register_extension(TransactionPoolExt::new(self.txpool_extension.unwrap()));
         assert!(self.pool_state.is_some());
         assert!(self.offchain_state.is_some());
-        ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into()));
+        ext.execute_with(|| {
+            Timestamp::set_timestamp(1);
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into())
+        });
         (ext, self.pool_state.unwrap(), self.offchain_state.unwrap())
     }
 }
@@ -552,10 +559,7 @@ pub struct MockData {
 
 impl MockData {
     pub fn setup_valid() -> Self {
-        let event_id = EthEventId {
-            signature: ValidEvents::AddedValidator.signature(),
-            transaction_hash: H256::random(),
-        };
+        let event_id = (ValidEvents::AddedValidator.signature(),H256::random());
         let data = Some(LogDataHelper::get_validator_data(REGISTERING_VALIDATOR_TIER1_ID));
         let topics = MockData::get_validator_token_topics();
         let validator_data = AddedValidatorData::parse_bytes(data.clone(), topics.clone()).unwrap();

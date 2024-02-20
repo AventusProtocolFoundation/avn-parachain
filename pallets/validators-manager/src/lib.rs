@@ -10,7 +10,7 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
+use alloc::string::String;
 
 pub type EthereumTransactionId = u32;
 
@@ -42,7 +42,6 @@ pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, Positiv
 use pallet_avn::BridgeInterface;
 
 pub use pallet::*;
-use sp_application_crypto::RuntimeAppPublic;
 
 const PALLET_ID: &'static [u8; 14] = b"author_manager";
 
@@ -74,7 +73,7 @@ pub mod pallet {
         /// processes an event
         type ProcessedEventsChecker: ProcessedEventsChecker;
         /// A period (in block number) where validators are allowed to vote
-        type VotingPeriod: Get<Self::BlockNumber>;
+        type VotingPeriod: Get<BlockNumberFor<Self>>;
         /// A trait that allows converting between accountIds <-> public keys
         type AccountToBytesConvert: AccountToBytesConverter<Self::AccountId>;
         /// A trait that allows extra work to be done during validator registration
@@ -156,7 +155,6 @@ pub mod pallet {
         pub validators: Vec<(T::AccountId, ecdsa::Public)>,
     }
 
-    #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self { validators: Vec::<(T::AccountId, ecdsa::Public)>::new() }
@@ -164,7 +162,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             log::debug!(
                 "Validators Manager Genesis build entrypoint - total validators: {}",
@@ -248,7 +246,7 @@ pub mod pallet {
                     .or_else(|| Some(Weight::zero()))
                     .expect("Has default value")
                     .saturating_add(T::DbWeight::get().reads_writes(0, 2))
-                    .saturating_add(Weight::from_ref_time(40_000_000)),
+                    .saturating_add(Weight::from_parts(40_000_000 as u64, 0)),
             )
             .into())
         }
@@ -287,7 +285,7 @@ pub mod pallet {
                     .actual_weight
                     .or_else(|| Some(Weight::zero()))
                     .expect("Has default value")
-                    .saturating_add(Weight::from_ref_time(40_000_000)),
+                    .saturating_add(Weight::from_parts(40_000_000 as u64, 0)),
             )
             .into())
         }
