@@ -20,7 +20,7 @@ use sp_core::{H160, H256};
 use hex_literal::hex;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<avn_runtime::GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<avn_runtime::RuntimeGenesisConfig, Extensions>;
 
 /// Generate the session keys from individual elements.
 ///
@@ -52,8 +52,8 @@ pub(crate) fn testnet_genesis(
     event_challenge_period: BlockNumber,
     schedule_period: BlockNumber,
     voting_period: BlockNumber,
-) -> avn_runtime::GenesisConfig {
-    avn_runtime::GenesisConfig {
+) -> avn_runtime::RuntimeGenesisConfig {
+    avn_runtime::RuntimeGenesisConfig {
         avn: pallet_avn::GenesisConfig {
             _phantom: Default::default(),
             bridge_contract_address: avn_eth_contract.clone(),
@@ -62,11 +62,12 @@ pub(crate) fn testnet_genesis(
             code: avn_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
+            ..Default::default()
         },
         balances: avn_runtime::BalancesConfig {
             balances: endowed_accounts.iter().cloned().map(|(k, a)| (k, a)).collect(),
         },
-        parachain_info: avn_runtime::ParachainInfoConfig { parachain_id: id },
+        parachain_info: avn_runtime::ParachainInfoConfig { parachain_id: id, ..Default::default() },
         session: avn_runtime::SessionConfig {
             keys: candidates
                 .iter()
@@ -79,6 +80,7 @@ pub(crate) fn testnet_genesis(
                     )
                 })
                 .collect(),
+            ..Default::default()
         },
         // no need to pass anything to aura, in fact it will panic if we do. Session will take care
         // of this.
@@ -102,7 +104,7 @@ pub(crate) fn testnet_genesis(
                 .zip(eth_public_keys.iter().map(|pk| pk.clone()))
                 .collect::<Vec<_>>(),
         },
-        authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+        authority_discovery: AuthorityDiscoveryConfig { keys: vec![], ..Default::default() },
         aura: Default::default(),
         aura_ext: Default::default(),
         im_online: ImOnlineConfig { keys: vec![] },
@@ -119,7 +121,10 @@ pub(crate) fn testnet_genesis(
             min_total_nominator_stake: 10 * AVT,
             delay: 2,
         },
-        polkadot_xcm: avn_runtime::PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
+        polkadot_xcm: avn_runtime::PolkadotXcmConfig {
+            safe_xcm_version: Some(SAFE_XCM_VERSION),
+            ..Default::default()
+        },
         sudo: SudoConfig { key: Some(sudo_account) },
         summary: SummaryConfig { schedule_period, voting_period },
         token_manager: TokenManagerConfig {

@@ -9,7 +9,7 @@ use log::{debug, error};
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    generic::{BlockId, SignedBlock},
+    generic::{SignedBlock},
     traits::{Block as BlockT, SaturatedConversion},
 };
 pub use std::sync::Arc;
@@ -95,7 +95,33 @@ fn get_signed_block<Block: BlockT, ClientT>(
 where
     ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
-    let maybe_block = client.block(&BlockId::Number(block_number.into())).map_err(|e| {
+    let block_hash_result = client.block_hash(block_number.into());
+
+    let block_hash = match block_hash_result {
+        Ok(Some(hash)) => hash,
+        Ok(None) => {
+            // Handle the case where no hash was found
+            let error_message = "No hash found for the given block number";
+            error!("[RPC] {}", error_message);
+            return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+                ErrorCode::ServerError(Error::ResponseError.into()).code(),
+                error_message.to_string(),
+                None::<()>,
+            ))));
+        },
+        Err(e) => {
+            // Handle the error case
+            let error_message = "Error getting block hash";
+            error!("[RPC] {}", error_message);
+            return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+                ErrorCode::ServerError(Error::ResponseError.into()).code(),
+                error_message.to_string(),
+                Some(format!("{:?}", e)),
+            ))));
+        }
+    };
+    
+    let maybe_block = client.block(block_hash).map_err(|e| {
         const ERROR_MESSAGE: &str = "Error getting block data";
         error!("[RPC] {}", ERROR_MESSAGE);
         JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
@@ -104,7 +130,6 @@ where
             Some(format!("{:?}", e)),
         )))
     })?;
-
     if maybe_block.is_none() {
         let error_message = format!("Data for block #{:?} is not found", block_number);
         error!("[RPC] {}", error_message);

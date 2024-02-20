@@ -1,4 +1,4 @@
-use node_primitives::{AccountId, Balance, Block as BlockT, Index};
+use node_primitives::{AccountId, Balance, Block as BlockT, Nonce};
 use polkadot_service::BlakeTwo256;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
@@ -20,7 +20,7 @@ pub trait AvnRuntimeApiCollection:
     sp_transaction_pool::runtime_api::TaggedTransactionQueue<BlockT>
     + sp_api::ApiExt<BlockT>
     + sp_block_builder::BlockBuilder<BlockT>
-    + substrate_frame_rpc_system::AccountNonceApi<BlockT, AccountId, Index>
+    + substrate_frame_rpc_system::AccountNonceApi<BlockT, AccountId, Nonce>
     + pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<BlockT, Balance>
     + sp_api::Metadata<BlockT>
     + sp_offchain::OffchainWorkerApi<BlockT>
@@ -37,7 +37,7 @@ where
     Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<BlockT>
         + sp_api::ApiExt<BlockT>
         + sp_block_builder::BlockBuilder<BlockT>
-        + substrate_frame_rpc_system::AccountNonceApi<BlockT, AccountId, Index>
+        + substrate_frame_rpc_system::AccountNonceApi<BlockT, AccountId, Nonce>
         + pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<BlockT, Balance>
         + sp_api::Metadata<BlockT>
         + sp_offchain::OffchainWorkerApi<BlockT>
