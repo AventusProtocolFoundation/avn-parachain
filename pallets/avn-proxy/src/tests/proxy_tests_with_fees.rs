@@ -240,6 +240,8 @@ mod charging_fees {
     }
 
     mod fails_when {
+        use sp_runtime::TokenError;
+
         use super::*;
 
         #[test]
@@ -420,7 +422,7 @@ mod charging_fees {
                         inner_call,
                         payment_authorisation
                     ),
-                    BalanceError::<TestRuntime, _>::InsufficientBalance
+                    TokenError::FundsUnavailable
                 );
 
                 // No mint events
