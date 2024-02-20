@@ -7,10 +7,11 @@ use hex_literal::hex;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
 use sp_core::{sr25519, ConstU32, Pair, H160, H256};
-use sp_keystore::{testing::KeyStore, KeystoreExt};
+use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, IdentityLookup, Verify},
+    BuildStorage
 };
 pub use std::sync::Arc;
 
@@ -25,12 +26,9 @@ pub type AccountId = <Signature as Verify>::Signer;
 
 use crate::{self as avn_proxy};
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime 
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         NftManager: pallet_nft_manager::{Pallet, Call, Storage, Event<T>},
         AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
@@ -53,7 +51,6 @@ pub type SystemCall = frame_system::Call<TestRuntime>;
 pub type BalancesCall = pallet_balances::Call<TestRuntime>;
 pub type NftManagerCall = pallet_nft_manager::Call<TestRuntime>;
 pub type Hashing = <TestRuntime as system::Config>::Hashing;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 impl sp_runtime::BoundToRuntimeAppPublic for TestRuntime {
@@ -71,13 +68,12 @@ impl system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -105,6 +101,10 @@ impl pallet_balances::Config for TestRuntime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type RuntimeHoldReason = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 impl pallet_nft_manager::Config for TestRuntime {
@@ -176,15 +176,14 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage = system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+        let storage = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
         Self { storage }
     }
 
     pub fn as_externality(self) -> sp_io::TestExternalities {
-        let keystore = KeyStore::new();
 
         let mut ext = sp_io::TestExternalities::from(self.storage);
-        ext.register_extension(KeystoreExt(Arc::new(keystore)));
+        ext.register_extension(KeystoreExt(Arc::new(MemoryKeystore::new())));
         // Events do not get emitted on block 0, so we increment the block here
         ext.execute_with(|| System::set_block_number(1));
         ext
@@ -269,7 +268,7 @@ impl ProxyContext {
 
     pub fn create_invalid_inner_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         let invalid_receiver = TestAccount::new([8u8; 32]);
-        return Box::new(RuntimeCall::Balances(BalancesCall::transfer {
+        return Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
             dest: invalid_receiver.account_id(),
             value: Default::default(),
         }))
