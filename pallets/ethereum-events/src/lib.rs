@@ -34,7 +34,7 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, Challenge, ChallengeReason, CheckResult,
-        EthEventCheckResult, EventData, LiftedData, NftCancelListingData,
+        EthEventCheckResult, EthEventId, EventData, LiftedData, NftCancelListingData,
         NftEndBatchListingData, NftMintData, NftTransferToData, ProcessedEventHandler, ValidEvents,
         Validator,
     },
