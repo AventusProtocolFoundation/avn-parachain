@@ -559,7 +559,10 @@ pub struct MockData {
 
 impl MockData {
     pub fn setup_valid() -> Self {
-        let event_id = (ValidEvents::AddedValidator.signature(),H256::random());
+        let event_id = EthEventId {
+            signature: ValidEvents::AddedValidator.signature(),
+            transaction_hash: H256::random(),
+        };
         let data = Some(LogDataHelper::get_validator_data(REGISTERING_VALIDATOR_TIER1_ID));
         let topics = MockData::get_validator_token_topics();
         let validator_data = AddedValidatorData::parse_bytes(data.clone(), topics.clone()).unwrap();
