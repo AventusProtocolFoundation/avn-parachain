@@ -78,7 +78,7 @@ pub struct ActiveRequestData<T: Config> {
     pub request: Request,
     pub confirmation: ActiveConfirmation,
     pub tx_data: Option<ActiveEthTransaction<T>>,
-    pub last_updated: T::BlockNumber,
+    pub last_updated: BlockNumberFor<T>,
 }
 
 impl<T: Config> ActiveRequestData<T> {
