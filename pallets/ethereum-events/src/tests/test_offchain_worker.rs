@@ -28,7 +28,7 @@ pub struct MockData {
     pub event_id: EthEventId,
     pub event_data: EventData,
     pub eth_event_check_result:
-        EthEventCheckResult<<mock::TestRuntime as frame_system::Config>::BlockNumber, AccountId>,
+        EthEventCheckResult<BlockNumberFor<mock::TestRuntime>, AccountId>,
     pub validator: Validator<UintAuthorityId, AccountId>,
     pub signature: <AuthorityId as RuntimeAppPublic>::Signature,
     pub checked_by: AccountId,

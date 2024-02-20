@@ -29,7 +29,7 @@ mod process_event {
         pub checked_by: AccountId,
         pub min_challenge_votes: u32,
         pub check_result: EthEventCheckResult<
-            <mock::TestRuntime as frame_system::Config>::BlockNumber,
+            BlockNumberFor<mock::TestRuntime>,
             AccountId,
         >,
         pub validator: Validator<UintAuthorityId, AccountId>,
