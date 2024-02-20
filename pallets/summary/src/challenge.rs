@@ -2,7 +2,7 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::log;
-use frame_system::offchain::SubmitTransaction;
+use frame_system::{pallet_prelude::BlockNumberFor, offchain::SubmitTransaction};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::event_types::Validator;
 use sp_runtime::{
@@ -15,7 +15,7 @@ use sp_runtime::{
 use sp_std::{fmt::Debug, prelude::*};
 
 use super::{Config, OcwLock};
-use crate::{Call, Pallet as Summary, Store, AVN};
+use crate::{Call, CurrentSlot, CurrentSlotsValidator, Pallet as Summary, AVN};
 
 pub const CHALLENGE_CONTEXT: &'static [u8] = b"root_challenge";
 pub const UNKNOWN_CHALLENGE_REASON: u8 = 10;
@@ -50,18 +50,18 @@ impl<AccountId: Member> SummaryChallenge<AccountId> {
     /// Validates the challenge and returns true if it's correct.
     pub fn is_valid<T: Config>(
         &self,
-        current_slot_number: T::BlockNumber,
-        current_block_number: T::BlockNumber,
+        current_slot_number: BlockNumberFor<T>,
+        current_block_number: BlockNumberFor<T>,
         challengee: &T::AccountId,
     ) -> bool {
         match self.challenge_reason {
             SummaryChallengeReason::SlotNotAdvanced(slot_number_to_challenge) => {
-                let current_slot_validator = <Summary<T> as Store>::CurrentSlotsValidator::get();
+                let current_slot_validator = CurrentSlotsValidator::<T>::get();
                 if current_slot_validator.is_none() {
                     return false
                 }
 
-                return T::BlockNumber::from(slot_number_to_challenge) == current_slot_number &&
+                return BlockNumberFor::<T>::from(slot_number_to_challenge) == current_slot_number &&
                     Summary::<T>::grace_period_elapsed(current_block_number) &&
                     *challengee == current_slot_validator.expect("checked for none")
             },
@@ -98,17 +98,17 @@ pub fn add_challenge_validate_unsigned<T: Config>(
 }
 
 pub fn challenge_slot_if_required<T: Config>(
-    offchain_worker_block_number: T::BlockNumber,
+    offchain_worker_block_number: BlockNumberFor<T>,
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
 ) {
-    let slot_number: T::BlockNumber = <Summary<T> as Store>::CurrentSlot::get();
+    let slot_number: BlockNumberFor<T> = CurrentSlot::<T>::get();
     let slot_as_u32 = AVN::<T>::convert_block_number_to_u32(slot_number);
     if let Err(_) = slot_as_u32 {
         log::error!("💔 Error converting block number: {:?} into u32", slot_number);
         return
     }
 
-    let current_slot_validator = <Summary<T> as Store>::CurrentSlotsValidator::get();
+    let current_slot_validator = CurrentSlotsValidator::<T>::get();
     if current_slot_validator.is_none() {
         log::error!("💔 Current slot validator is not found for slot: {:?}", slot_number);
         return
@@ -128,7 +128,7 @@ pub fn challenge_slot_if_required<T: Config>(
 fn can_challenge<T: Config>(
     challenge: &SummaryChallenge<T::AccountId>,
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
-    ocw_block_number: T::BlockNumber,
+    ocw_block_number: BlockNumberFor<T>,
 ) -> bool {
     if OcwLock::is_locked::<frame_system::Pallet<T>>(&challenge_lock_name::<T>(challenge)) {
         return false

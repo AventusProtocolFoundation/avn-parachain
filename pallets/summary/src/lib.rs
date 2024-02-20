@@ -3,7 +3,7 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
+use alloc::string::ToString;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::{
@@ -107,11 +107,11 @@ pub mod pallet {
 
         /// A period (in block number) to detect when a validator failed to advance the current slot
         /// number
-        type AdvanceSlotGracePeriod: Get<Self::BlockNumber>;
+        type AdvanceSlotGracePeriod: Get<BlockNumberFor<Self>>;
 
         /// Minimum age of block (in block number) to include in a tree.
         /// This will give grandpa a chance to finalise the blocks
-        type MinBlockAge: Get<Self::BlockNumber>;
+        type MinBlockAge: Get<BlockNumberFor<Self>>;
 
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
 
@@ -140,21 +140,21 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// Schedule period and voting period are updated
         SchedulePeriodAndVotingPeriodUpdated {
-            schedule_period: T::BlockNumber,
-            voting_period: T::BlockNumber,
+            schedule_period: BlockNumberFor<T>,
+            voting_period: BlockNumberFor<T>,
         },
         /// Root hash of summary between from block number and to block number is calculated by a
         /// validator
         SummaryCalculated {
-            from: T::BlockNumber,
-            to: T::BlockNumber,
+            from: BlockNumberFor<T>,
+            to: BlockNumberFor<T>,
             root_hash: H256,
             submitter: T::AccountId,
         },
         /// Vote by a voter for a root id is added
-        VoteAdded { voter: T::AccountId, root_id: RootId<T::BlockNumber>, agree_vote: bool },
+        VoteAdded { voter: T::AccountId, root_id: RootId<BlockNumberFor<T>>, agree_vote: bool },
         /// Voting for the root id is finished, true means the root is approved
-        VotingEnded { root_id: RootId<T::BlockNumber>, vote_approved: bool },
+        VotingEnded { root_id: RootId<BlockNumberFor<T>>, vote_approved: bool },
         /// A summary offence by a list of offenders is reported
         SummaryOffenceReported {
             offence_type: SummaryOffenceType,
@@ -163,9 +163,9 @@ pub mod pallet {
         /// A new slot between a range of blocks for a validator is advanced by an account
         SlotAdvanced {
             advanced_by: T::AccountId,
-            new_slot: T::BlockNumber,
+            new_slot: BlockNumberFor<T>,
             slot_validator: T::AccountId,
-            slot_end: T::BlockNumber,
+            slot_end: BlockNumberFor<T>,
         },
         /// A summary created by a challengee is challenged by a challenger for a reason
         ChallengeAdded {
@@ -177,17 +177,17 @@ pub mod pallet {
         SummaryNotPublishedOffence {
             challengee: T::AccountId,
             /* slot number where no summary was published */
-            void_slot: T::BlockNumber,
+            void_slot: BlockNumberFor<T>,
             /* slot where a block was last published */
-            last_published: T::BlockNumber,
+            last_published: BlockNumberFor<T>,
             /* block number for end of the void slot */
-            end_vote: T::BlockNumber,
+            end_vote: BlockNumberFor<T>,
         },
         /// A summary root validated
         SummaryRootValidated {
             root_hash: H256,
             ingress_counter: IngressCounter,
-            block_range: RootRange<T::BlockNumber>,
+            block_range: RootRange<BlockNumberFor<T>>,
         },
     }
 
@@ -239,19 +239,19 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_next_block_to_process)]
-    pub type NextBlockToProcess<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type NextBlockToProcess<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
     pub type TxIdToRoot<T: Config> =
-        StorageMap<_, Blake2_128Concat, EthereumTransactionId, RootId<T::BlockNumber>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, EthereumTransactionId, RootId<BlockNumberFor<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn block_number_for_next_slot)]
-    pub type NextSlotAtBlock<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type NextSlotAtBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn current_slot)]
-    pub type CurrentSlot<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type CurrentSlot<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     // TODO: [STATE MIGRATION] - this storage item was changed from returning a default value to
     // returning an option
@@ -261,7 +261,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn last_summary_slot)]
-    pub type SlotOfLastPublishedSummary<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type SlotOfLastPublishedSummary<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     // TODO: [STATE MIGRATION] - this storage item was changed to make RootData.added_by an
     // Option<AccountID> instead of AccountId
@@ -269,7 +269,7 @@ pub mod pallet {
     pub type Roots<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        RootRange<T::BlockNumber>,
+        RootRange<BlockNumberFor<T>>,
         Blake2_128Concat,
         IngressCounter,
         RootData<T::AccountId>,
@@ -281,15 +281,15 @@ pub mod pallet {
     pub type VotesRepository<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        RootId<T::BlockNumber>,
-        VotingSessionData<T::AccountId, T::BlockNumber>,
+        RootId<BlockNumberFor<T>>,
+        VotingSessionData<T::AccountId, BlockNumberFor<T>>,
         ValueQuery,
     >;
 
     #[pallet::storage]
     #[pallet::getter(fn get_pending_roots)]
     pub type PendingApproval<T: Config> =
-        StorageMap<_, Blake2_128Concat, RootRange<T::BlockNumber>, IngressCounter, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, RootRange<BlockNumberFor<T>>, IngressCounter, ValueQuery>;
 
     /// The total ingresses of roots
     #[pallet::storage]
@@ -299,32 +299,32 @@ pub mod pallet {
     /// A period (in block number) where summaries are calculated
     #[pallet::storage]
     #[pallet::getter(fn schedule_period)]
-    pub type SchedulePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type SchedulePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// A period (in block number) where validators are allowed to vote on the validity of a root
     /// hash
     #[pallet::storage]
     #[pallet::getter(fn voting_period)]
-    pub type VotingPeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type VotingPeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub schedule_period: T::BlockNumber,
-        pub voting_period: T::BlockNumber,
+        pub schedule_period: BlockNumberFor<T>,
+        pub voting_period: BlockNumberFor<T>,
     }
 
-    #[cfg(feature = "std")]
+    // #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
-                schedule_period: T::BlockNumber::from(DEFAULT_SCHEDULE_PERIOD),
-                voting_period: T::BlockNumber::from(DEFAULT_VOTING_PERIOD),
+                schedule_period: BlockNumberFor::<T>::from(DEFAULT_SCHEDULE_PERIOD),
+                voting_period: BlockNumberFor::<T>::from(DEFAULT_VOTING_PERIOD),
             }
         }
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             let mut schedule_period_in_blocks = self.schedule_period;
             if schedule_period_in_blocks == 0u32.into() {
@@ -369,8 +369,8 @@ pub mod pallet {
         #[pallet::call_index(0)]
         pub fn set_periods(
             origin: OriginFor<T>,
-            schedule_period_in_blocks: T::BlockNumber,
-            voting_period_in_blocks: T::BlockNumber,
+            schedule_period_in_blocks: BlockNumberFor<T>,
+            voting_period_in_blocks: BlockNumberFor<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
             Self::validate_schedule_period(schedule_period_in_blocks)?;
@@ -399,7 +399,7 @@ pub mod pallet {
         #[pallet::call_index(1)]
         pub fn record_summary_calculation(
             origin: OriginFor<T>,
-            new_block_number: T::BlockNumber,
+            new_block_number: BlockNumberFor<T>,
             root_hash: H256,
             ingress_counter: IngressCounter,
             validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
@@ -464,7 +464,7 @@ pub mod pallet {
         #[pallet::call_index(2)]
         pub fn approve_root(
             origin: OriginFor<T>,
-            root_id: RootId<T::BlockNumber>,
+            root_id: RootId<BlockNumberFor<T>>,
             validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
@@ -490,7 +490,7 @@ pub mod pallet {
         #[pallet::call_index(3)]
         pub fn reject_root(
             origin: OriginFor<T>,
-            root_id: RootId<T::BlockNumber>,
+            root_id: RootId<BlockNumberFor<T>>,
             validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
@@ -513,7 +513,7 @@ pub mod pallet {
         #[pallet::call_index(4)]
         pub fn end_voting_period(
             origin: OriginFor<T>,
-            root_id: RootId<T::BlockNumber>,
+            root_id: RootId<BlockNumberFor<T>>,
             validator: Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResult {
@@ -595,7 +595,7 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn offchain_worker(block_number: T::BlockNumber) {
+        fn offchain_worker(block_number: BlockNumberFor<T>) {
             log::info!("🚧 🚧 Running offchain worker for block: {:?}", block_number);
             let setup_result = AVN::<T>::pre_run_setup(block_number, PALLET_ID.to_vec());
             if let Err(e) = setup_result {
@@ -663,7 +663,7 @@ pub mod pallet {
         }
     }
     impl<T: Config> Pallet<T> {
-        fn validate_schedule_period(schedule_period_in_blocks: T::BlockNumber) -> DispatchResult {
+        fn validate_schedule_period(schedule_period_in_blocks: BlockNumberFor<T>) -> DispatchResult {
             ensure!(
                 schedule_period_in_blocks >= MIN_SCHEDULE_PERIOD.into(),
                 Error::<T>::SchedulePeriodIsTooShort
@@ -673,8 +673,8 @@ pub mod pallet {
         }
 
         fn validate_voting_period(
-            voting_period_in_blocks: T::BlockNumber,
-            schedule_period_in_blocks: T::BlockNumber,
+            voting_period_in_blocks: BlockNumberFor<T>,
+            schedule_period_in_blocks: BlockNumberFor<T>,
         ) -> DispatchResult {
             ensure!(
                 voting_period_in_blocks >= MIN_VOTING_PERIOD.into(),
@@ -691,8 +691,8 @@ pub mod pallet {
             Ok(())
         }
 
-        pub fn grace_period_elapsed(block_number: T::BlockNumber) -> bool {
-            let diff = safe_sub_block_numbers::<T::BlockNumber>(
+        pub fn grace_period_elapsed(block_number: BlockNumberFor<T>) -> bool {
+            let diff = safe_sub_block_numbers::<BlockNumberFor<T>>(
                 block_number,
                 Self::block_number_for_next_slot(),
             )
@@ -741,12 +741,12 @@ pub mod pallet {
             Self::register_offence_if_no_summary_created_in_slot(&validator);
 
             let new_slot_number =
-                safe_add_block_numbers::<T::BlockNumber>(Self::current_slot(), 1u32.into())
+                safe_add_block_numbers::<BlockNumberFor<T>>(Self::current_slot(), 1u32.into())
                     .map_err(|_| Error::<T>::Overflow)?;
 
             let new_validator_account_id = AVN::<T>::calculate_primary_validator(new_slot_number)?;
 
-            let next_slot_start_block = safe_add_block_numbers::<T::BlockNumber>(
+            let next_slot_start_block = safe_add_block_numbers::<BlockNumberFor<T>>(
                 Self::block_number_for_next_slot(),
                 Self::schedule_period(),
             )
@@ -767,16 +767,16 @@ pub mod pallet {
         }
 
         pub fn get_root_voting_session(
-            root_id: &RootId<T::BlockNumber>,
-        ) -> Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>> {
+            root_id: &RootId<BlockNumberFor<T>>,
+        ) -> Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>> {
             return Box::new(RootVotingSession::<T>::new(root_id))
-                as Box<dyn VotingSessionManager<T::AccountId, T::BlockNumber>>
+                as Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>
         }
 
         // This can be called by other validators to verify the root hash
         pub fn compute_root_hash(
-            from_block: T::BlockNumber,
-            to_block: T::BlockNumber,
+            from_block: BlockNumberFor<T>,
+            to_block: BlockNumberFor<T>,
         ) -> Result<H256, DispatchError> {
             let from_block_number: u32 = TryInto::<u32>::try_into(from_block)
                 .map_err(|_| Error::<T>::ErrorConvertingBlockNumber)?;
@@ -801,20 +801,20 @@ pub mod pallet {
             return Ok(root_hash)
         }
 
-        pub fn create_root_lock_name(block_number: T::BlockNumber) -> Vec<u8> {
+        pub fn create_root_lock_name(block_number: BlockNumberFor<T>) -> Vec<u8> {
             let mut name = b"create_summary::".to_vec();
             name.extend_from_slice(&mut block_number.encode());
             name
         }
 
-        pub fn get_advance_slot_lock_name(block_number: T::BlockNumber) -> Vec<u8> {
+        pub fn get_advance_slot_lock_name(block_number: BlockNumberFor<T>) -> Vec<u8> {
             let mut name = b"advance_slot::".to_vec();
             name.extend_from_slice(&mut block_number.encode());
             name
         }
 
         pub fn advance_slot_if_required(
-            block_number: T::BlockNumber,
+            block_number: BlockNumberFor<T>,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) {
             let current_slot_validator = Self::slot_validator();
@@ -850,7 +850,7 @@ pub mod pallet {
         }
         // called from OCW - no storage changes allowed here
         pub fn process_summary_if_required(
-            block_number: T::BlockNumber,
+            block_number: BlockNumberFor<T>,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) {
             let target_block = Self::get_target_block();
@@ -920,8 +920,8 @@ pub mod pallet {
 
         // called from OCW - no storage changes allowed here
         fn can_process_summary(
-            current_block_number: T::BlockNumber,
-            last_block_in_range: T::BlockNumber,
+            current_block_number: BlockNumberFor<T>,
+            last_block_in_range: BlockNumberFor<T>,
             this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) -> bool {
             if OcwLock::is_locked::<frame_system::Pallet<T>>(&Self::create_root_lock_name(
@@ -960,7 +960,7 @@ pub mod pallet {
 
         // called from OCW - no storage changes allowed here
         pub fn process_summary(
-            last_block_in_range: T::BlockNumber,
+            last_block_in_range: BlockNumberFor<T>,
             validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) -> DispatchResult {
             let root_hash =
@@ -972,7 +972,7 @@ pub mod pallet {
 
         // called from OCW - no storage changes allowed here
         fn record_summary(
-            last_processed_block_number: T::BlockNumber,
+            last_processed_block_number: BlockNumberFor<T>,
             root_hash: H256,
             validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
         ) -> DispatchResult {
@@ -1030,8 +1030,8 @@ pub mod pallet {
             Ok(())
         }
 
-        pub fn get_target_block() -> Result<T::BlockNumber, Error<T>> {
-            let end_block_number = safe_add_block_numbers::<T::BlockNumber>(
+        pub fn get_target_block() -> Result<BlockNumberFor<T>, Error<T>> {
+            let end_block_number = safe_add_block_numbers::<BlockNumberFor<T>>(
                 Self::get_next_block_to_process(),
                 Self::schedule_period(),
             )
@@ -1041,7 +1041,7 @@ pub mod pallet {
                 return Ok(end_block_number)
             }
 
-            Ok(safe_sub_block_numbers::<T::BlockNumber>(end_block_number, 1u32.into())
+            Ok(safe_sub_block_numbers::<BlockNumberFor<T>>(end_block_number, 1u32.into())
                 .map_err(|_| Error::<T>::Overflow)?)
         }
 
@@ -1066,7 +1066,7 @@ pub mod pallet {
 
         pub fn end_voting(
             reporter: T::AccountId,
-            root_id: &RootId<T::BlockNumber>,
+            root_id: &RootId<BlockNumberFor<T>>,
         ) -> DispatchResult {
             let voting_session = Self::get_root_voting_session(&root_id);
 
@@ -1109,7 +1109,7 @@ pub mod pallet {
                 );
 
                 let next_block_to_process =
-                    safe_add_block_numbers::<T::BlockNumber>(root_id.range.to_block, 1u32.into())
+                    safe_add_block_numbers::<BlockNumberFor<T>>(root_id.range.to_block, 1u32.into())
                         .map_err(|_| Error::<T>::Overflow)?;
 
                 <NextBlockToProcess<T>>::put(next_block_to_process);
@@ -1166,7 +1166,7 @@ pub mod pallet {
             Ok(())
         }
 
-        fn can_end_vote(vote: &VotingSessionData<T::AccountId, T::BlockNumber>) -> bool {
+        fn can_end_vote(vote: &VotingSessionData<T::AccountId, BlockNumberFor<T>>) -> bool {
             return vote.has_outcome() ||
                 <system::Pallet<T>>::block_number() >= vote.end_of_voting_period
         }
@@ -1246,7 +1246,7 @@ pub mod pallet {
             return H256::from_slice(&[0; 32])
         }
 
-        fn summary_is_neither_pending_nor_approved(root_range: &RootRange<T::BlockNumber>) -> bool {
+        fn summary_is_neither_pending_nor_approved(root_range: &RootRange<BlockNumberFor<T>>) -> bool {
             let has_been_approved =
                 <Roots<T>>::iter_prefix_values(root_range).any(|root| root.is_validated);
             let is_pending = <PendingApproval<T>>::contains_key(root_range);
@@ -1255,7 +1255,7 @@ pub mod pallet {
         }
 
         pub fn try_get_root_data(
-            root_id: &RootId<T::BlockNumber>,
+            root_id: &RootId<BlockNumberFor<T>>,
         ) -> Result<RootData<T::AccountId>, Error<T>> {
             if <Roots<T>>::contains_key(root_id.range, root_id.ingress_counter) {
                 return Ok(<Roots<T>>::get(root_id.range, root_id.ingress_counter))
