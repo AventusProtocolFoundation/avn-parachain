@@ -26,12 +26,12 @@ use frame_system::{ensure_root, pallet_prelude::{BlockNumberFor, OriginFor}};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
-    event_types::Validator,
+    event_types::{EthEventId, Validator},
     ocw_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
-use sp_core::{ecdsa, H160, H256};
+use sp_core::{ecdsa, H160};
 use sp_runtime::{
     offchain::{
         http,
@@ -646,11 +646,11 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
 }
 
 pub trait ProcessedEventsChecker {
-    fn check_event(event_id: &(H256,H256)) -> bool;
+    fn check_event(event_id: &EthEventId) -> bool;
 }
 
 impl ProcessedEventsChecker for () {
-    fn check_event(_event_id: &(H256,H256)) -> bool {
+    fn check_event(_event_id: &EthEventId) -> bool {
         return false
     }
 }
