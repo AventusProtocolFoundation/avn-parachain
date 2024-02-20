@@ -32,7 +32,7 @@ fn pay_gas_and_call_remark(sender: &AccountId, tip: u128) {
         ChargeTransactionPayment::from(tip),
         sender,
         &RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
-        &info_from_weight(Weight::from_ref_time(1)),
+        &info_from_weight(Weight::from_parts(1 as u64, 0)),
         TX_LEN,
     );
 
@@ -45,7 +45,7 @@ fn pay_gas_and_call_remark(sender: &AccountId, tip: u128) {
 
     assert_ok!(ChargeTransactionPayment::<TestRuntime>::post_dispatch(
         Some(pre.expect("Checked for error")),
-        &DispatchInfo { weight: Weight::from_ref_time(1), ..Default::default() },
+        &DispatchInfo { weight: Weight::from_parts(1 as u64, 0), ..Default::default() },
         &PostDispatchInfo { actual_weight: None, pays_fee: Default::default() },
         TX_LEN,
         &Ok(())
