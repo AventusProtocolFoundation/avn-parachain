@@ -688,7 +688,6 @@ pub mod pallet {
         pub min_total_nominator_stake: BalanceOf<T>,
     }
 
-    // #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
