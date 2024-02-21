@@ -2,13 +2,13 @@
 
 // std
 use futures::lock::Mutex;
+use sc_network_sync::SyncingService;
 use sp_api::ConstructRuntimeApi;
 use std::{sync::Arc, time::Duration};
 
 use cumulus_client_cli::CollatorOptions;
 use runtime_common::opaque::Block;
 
-use node_primitives::Hash;
 use sc_client_api::Backend;
 
 // Cumulus Imports
@@ -16,31 +16,29 @@ use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, Slo
 use cumulus_client_consensus_common::{
     ParachainBlockImport as TParachainBlockImport, ParachainConsensus,
 };
-use cumulus_client_network::BlockAnnounceValidator;
 use cumulus_client_service::{
-    build_relay_chain_interface, prepare_node_config, start_collator, start_full_node,
-    StartCollatorParams, StartFullNodeParams,
+    build_relay_chain_interface, prepare_node_config, start_collator,
+    start_full_node, StartCollatorParams, StartFullNodeParams,
 };
 use cumulus_primitives_core::ParaId;
-use cumulus_relay_chain_interface::{RelayChainError, RelayChainInterface};
+use cumulus_relay_chain_interface::{RelayChainInterface};
 
 // Substrate Imports
 use sc_consensus::ImportQueue;
 use sc_executor::NativeElseWasmExecutor;
-use sc_network::NetworkService;
-use sc_network_common::service::NetworkBlock;
+use sc_network::{NetworkBlock};
 use sc_service::{
     config::KeystoreConfig, Configuration, PartialComponents, TFullBackend, TFullClient,
     TaskManager,
 };
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
-use sp_avn_common::{DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY};
-use sp_core::{offchain::OffchainStorage, Encode};
-use sp_keystore::SyncCryptoStorePtr;
+
+use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
 use crate::{avn_config::*, common::AvnRuntimeApiCollection};
 use avn_service::{self, web3_utils::Web3Data};
+use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
 type ParachainClient<RuntimeApi, ExecutorDispatch> =
     TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
@@ -173,6 +171,7 @@ where
 
     let params = new_partial(&parachain_config)?;
     let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
+    let net_config = sc_network::config::FullNetworkConfiguration::new(&parachain_config.network);
 
     let client = params.client.clone();
     let backend = params.backend.clone();
@@ -187,13 +186,7 @@ where
         hwbench.clone(),
     )
     .await
-    .map_err(|e| match e {
-        RelayChainError::ServiceError(polkadot_service::Error::Sub(x)) => x,
-        s => s.to_string().into(),
-    })?;
-
-    let block_announce_validator =
-        BlockAnnounceValidator::new(relay_chain_interface.clone(), para_id);
+    .map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
     let force_authoring = parachain_config.force_authoring;
     let validator = parachain_config.role.is_authority();
@@ -204,36 +197,39 @@ where
     let avn_port = avn_cli_config.avn_port.clone();
     let eth_node_url: String = avn_cli_config.ethereum_node_url.clone().unwrap_or_default();
 
-    let (network, system_rpc_tx, tx_handler_controller, start_network) =
-        sc_service::build_network(sc_service::BuildNetworkParams {
-            config: &parachain_config,
+    let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
+        cumulus_client_service::build_network(cumulus_client_service::BuildNetworkParams {
+            parachain_config: &parachain_config,
+            net_config,
             client: client.clone(),
             transaction_pool: transaction_pool.clone(),
+            para_id,
             spawn_handle: task_manager.spawn_handle(),
+            relay_chain_interface: relay_chain_interface.clone(),
             import_queue: params.import_queue,
-            block_announce_validator_builder: Some(Box::new(|_| {
-                Box::new(block_announce_validator)
-            })),
-            warp_sync: None,
-        })?;
+        })
+        .await?;
 
     if parachain_config.offchain_worker.enabled {
-        let port_number = avn_port
-            .clone()
-            .unwrap_or_else(|| DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER.to_string());
-        if let Some(mut local_db) = backend.offchain_storage() {
-            local_db.set(
-                sp_core::offchain::STORAGE_PREFIX,
-                EXTERNAL_SERVICE_PORT_NUMBER_KEY,
-                &port_number.encode(),
-            );
-        }
+        use futures::FutureExt;
 
-        sc_service::build_offchain_workers(
-            &parachain_config,
-            task_manager.spawn_handle(),
-            client.clone(),
-            network.clone(),
+        task_manager.spawn_handle().spawn(
+            "offchain-workers-runner",
+            "offchain-work",
+            sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
+                runtime_api_provider: client.clone(),
+                keystore: Some(params.keystore_container.keystore()),
+                offchain_db: backend.offchain_storage(),
+                transaction_pool: Some(OffchainTransactionPoolFactory::new(
+                    transaction_pool.clone(),
+                )),
+                network_provider: network.clone(),
+                is_validator: parachain_config.role.is_authority(),
+                enable_http_requests: false,
+                custom_extensions: move |_| vec![],
+            })
+            .run(client.clone(), task_manager.spawn_handle())
+            .boxed(),
         );
     }
 
@@ -261,9 +257,10 @@ where
         transaction_pool: transaction_pool.clone(),
         task_manager: &mut task_manager,
         config: parachain_config,
-        keystore: params.keystore_container.sync_keystore(),
+        keystore: params.keystore_container.keystore(),
         backend,
         network: network.clone(),
+        sync_service: sync_service.clone(),
         system_rpc_tx,
         tx_handler_controller,
         telemetry: telemetry.as_mut(),
@@ -283,11 +280,15 @@ where
     }
 
     let announce_block = {
-        let network = network.clone();
-        Arc::new(move |hash, data| network.announce_block(hash, data))
+        let sync_service = sync_service.clone();
+        Arc::new(move |hash, data| sync_service.announce_block(hash, data))
     };
 
     let relay_chain_slot_duration = Duration::from_secs(6);
+
+    let overseer_handle = relay_chain_interface
+        .overseer_handle()
+        .map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
     if validator {
         let keystore_path = match parachain_config_keystore {
@@ -296,9 +297,7 @@ where
         }?;
 
         let avn_config = avn_service::Config::<Block, _> {
-            keystore: params.keystore_container.local_keystore().ok_or_else(|| {
-                sc_service::Error::Application(Box::from(format!("Failed to get local keystore")))
-            })?,
+            keystore: params.keystore_container.local_keystore(),
             keystore_path,
             avn_port,
             eth_node_url,
@@ -320,8 +319,8 @@ where
             &task_manager,
             relay_chain_interface.clone(),
             transaction_pool,
-            network,
-            params.keystore_container.sync_keystore(),
+            sync_service.clone(),
+            params.keystore_container.keystore(),
             force_authoring,
             para_id,
         )?;
@@ -339,6 +338,8 @@ where
             import_queue: import_queue_service,
             collator_key: collator_key.expect("Command line arguments do not allow this. qed"),
             relay_chain_slot_duration,
+            recovery_handle: Box::new(overseer_handle),
+            sync_service,
         };
 
         start_collator(params).await?;
@@ -351,6 +352,8 @@ where
             relay_chain_interface,
             relay_chain_slot_duration,
             import_queue: import_queue_service,
+            recovery_handle: Box::new(overseer_handle),
+            sync_service,
         };
 
         start_full_node(params)?;
@@ -422,8 +425,8 @@ fn build_consensus<RuntimeApi, ExecutorDispatch>(
     transaction_pool: Arc<
         sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi, ExecutorDispatch>>,
     >,
-    sync_oracle: Arc<NetworkService<Block, Hash>>,
-    keystore: SyncCryptoStorePtr,
+    sync_oracle: Arc<SyncingService<Block>>,
+    keystore: KeystorePtr,
     force_authoring: bool,
     para_id: ParaId,
 ) -> Result<Box<dyn ParachainConsensus<Block>>, sc_service::Error>

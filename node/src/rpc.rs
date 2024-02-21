@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use node_primitives::{AccountId, Balance, Index as Nonce};
+use node_primitives::{AccountId, Balance, Nonce};
 use runtime_common::opaque::Block;
 
 use sc_client_api::{client::BlockBackend, AuxStore, UsageProvider};
