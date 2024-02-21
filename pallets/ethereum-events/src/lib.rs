@@ -239,7 +239,7 @@ pub mod pallet {
         },
         /// EventChallengePeriodUpdated(EventChallengePeriodInBlocks)
         EventChallengePeriodUpdated {
-            block: T::BlockNumber,
+            block: BlockNumberFor<T>,
         },
         CallDispatched {
             relayer: T::AccountId,
@@ -353,7 +353,7 @@ pub mod pallet {
         pub quorum_factor: u32,
         pub event_challenge_period: BlockNumberFor<T>,
         pub lift_tx_hashes: Vec<H256>,
-        pub processed_events: Vec<((H256, H256), bool)>,
+        pub processed_events: Vec<(H256, H256, bool)>,
         pub nft_t1_contracts: Vec<(H160, ())>,
     }
 
@@ -363,7 +363,7 @@ pub mod pallet {
                 quorum_factor: 4 as u32,
                 event_challenge_period: BlockNumberFor::<T>::from(300 as u32),
                 lift_tx_hashes: Vec::<H256>::new(),
-                processed_events: Vec::<((H256, H256), bool)>::new(),
+                processed_events: Vec::<(H256, H256, bool)>::new(),
                 nft_t1_contracts: Vec::<(H160, ())>::new(),
             }
         }
@@ -379,8 +379,11 @@ pub mod pallet {
 
             EventChallengePeriod::<T>::put(self.event_challenge_period);
 
-            for (key, value) in self.processed_events.iter() {
-                ProcessedEvents::<T>::insert(key, value);
+            for (key, key2, value) in self.processed_events.iter() {
+                ProcessedEvents::<T>::insert(EthEventId {
+                    signature: key.clone(),
+                    transaction_hash: key2.clone()
+                }, value);
             }
 
             for (key, value) in self.nft_t1_contracts.iter() {
