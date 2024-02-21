@@ -648,19 +648,17 @@ pub const INITIAL_LIFTS: [[u8; 32]; 4] = [[10u8; 32], [11u8; 32], [12u8; 32], [1
 
 pub const INITIAL_PROCESSED_EVENTS: [[u8; 32]; 3] = [[15u8; 32], [16u8; 32], [17u8; 32]];
 
-pub fn create_initial_processed_events() -> Vec<(EthEventId, bool)> {
+pub fn create_initial_processed_events() -> Vec<(H256, H256, bool)> {
     let initial_processed_events = INITIAL_PROCESSED_EVENTS
         .iter()
         .map(|x| {
             (
-                EthEventId {
-                    signature: ValidEvents::AddedValidator.signature(),
-                    transaction_hash: H256::from(x),
-                },
+               ValidEvents::AddedValidator.signature(),
+                H256::from(x),                
                 true,
             )
         })
-        .collect::<Vec<(EthEventId, bool)>>();
+        .collect::<Vec<(H256, H256, bool)>>();
     assert_eq!(INITIAL_PROCESSED_EVENTS.len(), initial_processed_events.len());
     return initial_processed_events
 }

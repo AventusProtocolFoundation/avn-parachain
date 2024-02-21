@@ -1577,11 +1577,11 @@ mod tests {
     use sp_io::TestExternalities;
 
     pub fn new_test_ext() -> TestExternalities {
-        use sp_keystore::{testing::KeyStore, KeystoreExt, SyncCryptoStorePtr};
+        use sp_keystore::{testing::MemoryKeystore as KeyStore, KeystoreExt, KeystorePtr};
         use sp_std::sync::Arc;
 
         let mut ext = crate::mock::ExtBuilder::default().build();
-        ext.register_extension(KeystoreExt(Arc::new(KeyStore::new()) as SyncCryptoStorePtr));
+        ext.register_extension(KeystoreExt(Arc::new(KeyStore::new()) as KeystorePtr));
         ext
     }
 }

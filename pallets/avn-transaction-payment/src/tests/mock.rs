@@ -1,4 +1,4 @@
-use crate::{self as pallet_avn_transaction_payment, system::limits, AvnCurrencyAdapter};
+use crate::{self as pallet_avn_transaction_payment, system::limits, AvnCurrencyAdapter, Store};
 use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::DispatchClass,

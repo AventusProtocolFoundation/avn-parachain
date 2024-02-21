@@ -3,6 +3,7 @@ use crate::{mock::*, Call, *};
 use codec::Decode;
 use sp_avn_common::event_types::EthEvent;
 use sp_runtime::testing::UintAuthorityId;
+use frame_system::pallet_prelude::BlockNumberFor;
 
 fn mock_event() -> EthEvent {
     EthEvent {
@@ -12,7 +13,7 @@ fn mock_event() -> EthEvent {
 }
 
 fn mock_event_result(
-) -> EthEventCheckResult<<TestRuntime as frame_system::Config>::BlockNumber, AccountId> {
+) -> EthEventCheckResult<BlockNumberFor<TestRuntime>, AccountId> {
     let event = mock_event();
     return EthEventCheckResult::new(
         10,

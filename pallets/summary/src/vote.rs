@@ -20,7 +20,7 @@ use sp_runtime::scale_info::TypeInfo;
 use sp_std::fmt::Debug;
 
 use super::{Call, Config, VotesRepository, PendingApproval};
-use crate::{OcwLock, Pallet as Summary, RootId, AVN};
+use crate::{OcwLock, Pallet as Summary, RootId, AVN, Store};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"root_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"root_end_voting_period";

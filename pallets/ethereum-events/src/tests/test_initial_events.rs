@@ -80,7 +80,7 @@ mod initial_processed_events {
         pub fn create() -> Self {
             let initial_processed_events = create_initial_processed_events()
                 .iter()
-                .map(|(x, _)| x.clone())
+                .map(|(x, y, _)| EthEventId{signature: x.clone(), transaction_hash:y.clone()})
                 .collect::<Vec<EthEventId>>();
             return Context { initial_processed_events }
         }
