@@ -9,7 +9,7 @@ use log::{debug, error};
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use serde::{Deserialize, Serialize};
 use sp_runtime::{
-    generic::{SignedBlock},
+    generic::SignedBlock,
     traits::{Block as BlockT, SaturatedConversion},
 };
 pub use std::sync::Arc;
@@ -107,7 +107,7 @@ where
                 ErrorCode::ServerError(Error::ResponseError.into()).code(),
                 error_message.to_string(),
                 None::<()>,
-            ))));
+            ))))
         },
         Err(e) => {
             // Handle the error case
@@ -117,10 +117,10 @@ where
                 ErrorCode::ServerError(Error::ResponseError.into()).code(),
                 error_message.to_string(),
                 Some(format!("{:?}", e)),
-            ))));
-        }
+            ))))
+        },
     };
-    
+
     let maybe_block = client.block(block_hash).map_err(|e| {
         const ERROR_MESSAGE: &str = "Error getting block data";
         error!("[RPC] {}", ERROR_MESSAGE);

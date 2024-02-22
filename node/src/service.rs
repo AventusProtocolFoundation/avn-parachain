@@ -17,16 +17,16 @@ use cumulus_client_consensus_common::{
     ParachainBlockImport as TParachainBlockImport, ParachainConsensus,
 };
 use cumulus_client_service::{
-    build_relay_chain_interface, prepare_node_config, start_collator,
-    start_full_node, StartCollatorParams, StartFullNodeParams,
+    build_relay_chain_interface, prepare_node_config, start_collator, start_full_node,
+    StartCollatorParams, StartFullNodeParams,
 };
 use cumulus_primitives_core::ParaId;
-use cumulus_relay_chain_interface::{RelayChainInterface};
+use cumulus_relay_chain_interface::RelayChainInterface;
 
 // Substrate Imports
 use sc_consensus::ImportQueue;
 use sc_executor::NativeElseWasmExecutor;
-use sc_network::{NetworkBlock};
+use sc_network::NetworkBlock;
 use sc_service::{
     config::KeystoreConfig, Configuration, PartialComponents, TFullBackend, TFullClient,
     TaskManager,

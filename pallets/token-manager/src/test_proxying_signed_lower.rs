@@ -92,7 +92,7 @@ fn pay_gas_and_call_lower_directly(
         ChargeTransactionPayment::from(0),
         sender,
         call,
-        &info_from_weight(Weight::from_parts(1 as u64,0)),
+        &info_from_weight(Weight::from_parts(1 as u64, 0)),
         TX_LEN,
     )
     .map_err(|e| <&'static str>::from(e))?;

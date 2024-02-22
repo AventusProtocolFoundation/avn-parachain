@@ -6,7 +6,7 @@ use sc_cli::{
     NetworkParams, Result, SharedParams, SubstrateCli,
 };
 use sc_service::config::{BasePath, PrometheusConfig};
-use sp_runtime::traits::{AccountIdConversion};
+use sp_runtime::traits::AccountIdConversion;
 use std::net::SocketAddr;
 
 use crate::{

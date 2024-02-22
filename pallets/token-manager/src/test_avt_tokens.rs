@@ -321,7 +321,7 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
 
         // move a few blocks to trigger the execution
         fast_forward_to_block(get_expected_execution_block());
-        
+
         assert_eq!(Balances::free_balance(from_account_id), from_account_balance_before - amount);
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Withdraw {

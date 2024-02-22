@@ -21,7 +21,8 @@ use frame_system as system;
 use sp_core::{sr25519, ConstU32, Pair, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup, Verify},BuildStorage
+    traits::{BlakeTwo256, IdentityLookup, Verify},
+    BuildStorage,
 };
 use std::cell::RefCell;
 

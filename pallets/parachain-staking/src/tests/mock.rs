@@ -25,8 +25,8 @@ use frame_support::{
     dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
     parameter_types,
     traits::{
-        ConstU8, Currency, Everything, FindAuthor, Imbalance, LockIdentifier,
-        OnFinalize, OnInitialize, OnUnbalanced, ValidatorRegistration,
+        ConstU8, Currency, Everything, FindAuthor, Imbalance, LockIdentifier, OnFinalize,
+        OnInitialize, OnUnbalanced, ValidatorRegistration,
     },
     weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
@@ -40,11 +40,10 @@ use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
 use sp_avn_common::InnerCallValidator;
 use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_io;
-use sp_runtime::BuildStorage;
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
-    DispatchError, Perbill, SaturatedConversion,
+    BuildStorage, DispatchError, Perbill, SaturatedConversion,
 };
 
 pub type AccountId = <Signature as Verify>::Signer;
@@ -57,7 +56,7 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
-    pub enum Test 
+    pub enum Test
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -791,14 +790,14 @@ pub(crate) fn pay_gas_for_transaction(sender: &AccountId, tip: u128) {
         .pre_dispatch(
             sender,
             &RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
-            &DispatchInfo { weight: Weight::from_parts(1,0), ..Default::default() },
+            &DispatchInfo { weight: Weight::from_parts(1, 0), ..Default::default() },
             TX_LEN,
         )
         .unwrap();
 
     assert_ok!(ChargeTransactionPayment::<Test>::post_dispatch(
         Some(pre),
-        &DispatchInfo { weight: Weight::from_parts(1,0), ..Default::default() },
+        &DispatchInfo { weight: Weight::from_parts(1, 0), ..Default::default() },
         &PostDispatchInfo { actual_weight: None, pays_fee: Default::default() },
         TX_LEN,
         &Ok(())

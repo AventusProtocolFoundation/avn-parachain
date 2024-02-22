@@ -110,10 +110,7 @@ pub mod pallet {
     #[cfg(not(feature = "std"))]
     extern crate alloc;
     #[cfg(not(feature = "std"))]
-    use alloc::{
-        format,
-        string::String,
-    };
+    use alloc::{format, string::String};
 
     use crate::set::BoundedOrderedSet;
     pub use crate::{
@@ -454,7 +451,12 @@ pub mod pallet {
         /// Set total selected candidates to this value.
         TotalSelectedSet { old: u32, new: u32 },
         /// Set blocks per era
-        BlocksPerEraSet { current_era: EraIndex, first_block: BlockNumberFor<T>, old: u32, new: u32 },
+        BlocksPerEraSet {
+            current_era: EraIndex,
+            first_block: BlockNumberFor<T>,
+            old: u32,
+            new: u32,
+        },
         /// Not enough fund to cover the staking reward payment.
         NotEnoughFundsForEraPayment { reward_pot_balance: BalanceOf<T> },
         /// A collator has been paid for producing blocks
@@ -2488,7 +2490,6 @@ pub mod pallet {
                 DispatchClass::Mandatory,
             );
         }
-
     }
     impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
         fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {

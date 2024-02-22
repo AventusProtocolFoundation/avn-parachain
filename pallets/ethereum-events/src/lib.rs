@@ -15,7 +15,10 @@ use frame_support::{
     ensure, log,
     traits::{Get, IsSubType},
 };
-use frame_system::{pallet_prelude::BlockNumberFor, offchain::{SendTransactionTypes, SubmitTransaction}};
+use frame_system::{
+    offchain::{SendTransactionTypes, SubmitTransaction},
+    pallet_prelude::BlockNumberFor,
+};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
     offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
@@ -304,7 +307,11 @@ pub mod pallet {
     pub type EventsPendingChallenge<T: Config> = StorageValue<
         _,
         BoundedVec<
-            (EthEventCheckResult<BlockNumberFor<T>, T::AccountId>, IngressCounter, BlockNumberFor<T>),
+            (
+                EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
+                IngressCounter,
+                BlockNumberFor<T>,
+            ),
             MaxEventsPendingChallenges,
         >,
         ValueQuery,
@@ -316,7 +323,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn processed_events)]
     pub type ProcessedEvents<T: Config> =
-    StorageMap<_, Blake2_128Concat, EthEventId, bool, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, EthEventId, bool, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn challenges)]
@@ -380,10 +387,10 @@ pub mod pallet {
             EventChallengePeriod::<T>::put(self.event_challenge_period);
 
             for (key, key2, value) in self.processed_events.iter() {
-                ProcessedEvents::<T>::insert(EthEventId {
-                    signature: key.clone(),
-                    transaction_hash: key2.clone()
-                }, value);
+                ProcessedEvents::<T>::insert(
+                    EthEventId { signature: key.clone(), transaction_hash: key2.clone() },
+                    value,
+                );
             }
 
             for (key, value) in self.nft_t1_contracts.iter() {
@@ -1095,8 +1102,11 @@ impl<T: Config> Pallet<T> {
     fn get_next_event_to_validate(
         validator_account_id: &T::AccountId,
         finalised_block_number: BlockNumberFor<T>,
-    ) -> Option<(EthEventCheckResult<BlockNumberFor<T>, T::AccountId>, IngressCounter, BlockNumberFor<T>)>
-    {
+    ) -> Option<(
+        EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
+        IngressCounter,
+        BlockNumberFor<T>,
+    )> {
         let storage = StorageValueRef::persistent(VALIDATED_EVENT_LOCAL_STORAGE);
         let validated_events = storage.get::<Vec<EthEventId>>();
 
@@ -1146,8 +1156,11 @@ impl<T: Config> Pallet<T> {
     fn get_next_event_to_process(
         block_number: BlockNumberFor<T>,
         finalised_block_number: BlockNumberFor<T>,
-    ) -> Option<(EthEventCheckResult<BlockNumberFor<T>, T::AccountId>, IngressCounter, BlockNumberFor<T>)>
-    {
+    ) -> Option<(
+        EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
+        IngressCounter,
+        BlockNumberFor<T>,
+    )> {
         return Self::events_pending_challenge()
             .into_iter()
             .filter(|(checked, _counter, submitted_at_block)| {

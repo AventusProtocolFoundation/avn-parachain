@@ -16,7 +16,7 @@ use sp_core::{
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    Perbill,BuildStorage
+    BuildStorage, Perbill,
 };
 use sp_staking::offence::OffenceError;
 use std::{cell::RefCell, convert::From, sync::Arc};
@@ -364,7 +364,8 @@ impl ExtBuilder {
         assert!(self.offchain_state.is_some());
         ext.execute_with(|| {
             Timestamp::set_timestamp(1);
-            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into());});
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into());
+        });
         (ext, self.pool_state.unwrap(), self.offchain_state.unwrap())
     }
 }

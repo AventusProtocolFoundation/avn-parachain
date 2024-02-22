@@ -21,7 +21,6 @@ use crate::{
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
 
-
 const USE_RECEIVER_WITH_EXISTING_AMOUNT: bool = true;
 const USE_RECEIVER_WITH_0_AMOUNT: bool = false;
 

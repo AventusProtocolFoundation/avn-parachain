@@ -21,7 +21,7 @@
 use super::*;
 use codec::{Decode, Encode};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
-use frame_system::{EventRecord, RawOrigin, pallet_prelude::BlockNumberFor};
+use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
 use hex_literal::hex;
 use sp_core::sr25519;
 use sp_runtime::RuntimeAppPublic;

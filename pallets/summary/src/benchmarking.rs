@@ -9,7 +9,7 @@ use super::*;
 
 use crate::offence::create_offenders_identification;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_system::{EventRecord, Pallet as System, RawOrigin, pallet_prelude::BlockNumberFor};
+use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
 use sp_runtime::WeakBoundedVec;
@@ -30,7 +30,8 @@ fn setup_publish_root_voting<T: Config>(
 ) {
     let sender: Validator<T::AuthorityId, T::AccountId> =
         validators[validators.len() - (1 as usize)].clone();
-    let root_id: RootId<BlockNumberFor<T>> = RootId::new(RootRange::new(0u32.into(), 60u32.into()), 1);
+    let root_id: RootId<BlockNumberFor<T>> =
+        RootId::new(RootRange::new(0u32.into(), 60u32.into()), 1);
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
     let quorum = setup_voting_session::<T>(&root_id);
 

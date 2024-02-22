@@ -2,14 +2,12 @@
 
 #![cfg(test)]
 
-use frame_support::{
-    assert_ok, parameter_types, weights::Weight, BasicExternalities,
-};
+use frame_support::{assert_ok, parameter_types, weights::Weight, BasicExternalities};
 use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    Perbill, WeakBoundedVec,BuildStorage
+    BuildStorage, Perbill, WeakBoundedVec,
 };
 use std::cell::RefCell;
 
@@ -47,7 +45,7 @@ pub type AuthorityId = <TestRuntime as avn::Config>::AuthorityId;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime 
+    pub enum TestRuntime
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
@@ -651,13 +649,7 @@ pub const INITIAL_PROCESSED_EVENTS: [[u8; 32]; 3] = [[15u8; 32], [16u8; 32], [17
 pub fn create_initial_processed_events() -> Vec<(H256, H256, bool)> {
     let initial_processed_events = INITIAL_PROCESSED_EVENTS
         .iter()
-        .map(|x| {
-            (
-               ValidEvents::AddedValidator.signature(),
-                H256::from(x),                
-                true,
-            )
-        })
+        .map(|x| (ValidEvents::AddedValidator.signature(), H256::from(x), true))
         .collect::<Vec<(H256, H256, bool)>>();
     assert_eq!(INITIAL_PROCESSED_EVENTS.len(), initial_processed_events.len());
     return initial_processed_events

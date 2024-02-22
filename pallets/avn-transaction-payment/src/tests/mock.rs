@@ -10,8 +10,7 @@ use pallet_balances;
 use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup, Verify},
-    Perbill, SaturatedConversion,
-    BuildStorage
+    BuildStorage, Perbill, SaturatedConversion,
 };
 pub use std::sync::Arc;
 
@@ -27,7 +26,7 @@ pub const BASE_FEE: u64 = 12;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
-    pub enum TestRuntime 
+    pub enum TestRuntime
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},

@@ -16,7 +16,7 @@ use pallet_timestamp as timestamp;
 use parachain_staking::BlockNumberFor;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
-    event_types::{AddedValidatorData, EthEventId, EthEvent, EventData, ValidEvents},
+    event_types::{AddedValidatorData, EthEvent, EthEventId, EventData, ValidEvents},
 };
 use sp_core::{
     ecdsa::Public,
@@ -30,7 +30,8 @@ use sp_core::{
 };
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},BuildStorage
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    BuildStorage,
 };
 
 use codec::alloc::sync::Arc;
@@ -342,10 +343,12 @@ thread_local! {
 
 impl ProcessedEventsChecker for TestRuntime {
     fn check_event(event_id: &EthEventId) -> bool {
-        return PROCESSED_EVENTS.with(|l| l.borrow_mut().iter().any(|event| &EthEventId{
-            signature: event.0.clone(), 
-            transaction_hash: event.1.clone()
-        } == event_id))
+        return PROCESSED_EVENTS.with(|l| {
+            l.borrow_mut().iter().any(|event| {
+                &EthEventId { signature: event.0.clone(), transaction_hash: event.1.clone() } ==
+                    event_id
+            })
+        })
     }
 }
 

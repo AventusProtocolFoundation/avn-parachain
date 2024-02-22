@@ -32,7 +32,7 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
     construct_runtime,
-    dispatch::{DispatchClass},
+    dispatch::DispatchClass,
     parameter_types,
     traits::{
         AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance,
@@ -152,12 +152,8 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
-    ),
+    (pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,),
 >;
-
-
 
 impl_opaque_keys! {
     pub struct SessionKeys {

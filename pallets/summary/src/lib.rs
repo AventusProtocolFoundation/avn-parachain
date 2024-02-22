@@ -242,8 +242,13 @@ pub mod pallet {
     pub type NextBlockToProcess<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
-    pub type TxIdToRoot<T: Config> =
-        StorageMap<_, Blake2_128Concat, EthereumTransactionId, RootId<BlockNumberFor<T>>, ValueQuery>;
+    pub type TxIdToRoot<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EthereumTransactionId,
+        RootId<BlockNumberFor<T>>,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
     #[pallet::getter(fn block_number_for_next_slot)]
@@ -663,7 +668,9 @@ pub mod pallet {
         }
     }
     impl<T: Config> Pallet<T> {
-        fn validate_schedule_period(schedule_period_in_blocks: BlockNumberFor<T>) -> DispatchResult {
+        fn validate_schedule_period(
+            schedule_period_in_blocks: BlockNumberFor<T>,
+        ) -> DispatchResult {
             ensure!(
                 schedule_period_in_blocks >= MIN_SCHEDULE_PERIOD.into(),
                 Error::<T>::SchedulePeriodIsTooShort
@@ -1108,9 +1115,11 @@ pub mod pallet {
                     SummaryOffenceType::RejectedValidRoot,
                 );
 
-                let next_block_to_process =
-                    safe_add_block_numbers::<BlockNumberFor<T>>(root_id.range.to_block, 1u32.into())
-                        .map_err(|_| Error::<T>::Overflow)?;
+                let next_block_to_process = safe_add_block_numbers::<BlockNumberFor<T>>(
+                    root_id.range.to_block,
+                    1u32.into(),
+                )
+                .map_err(|_| Error::<T>::Overflow)?;
 
                 <NextBlockToProcess<T>>::put(next_block_to_process);
                 <Roots<T>>::mutate(root_id.range, root_id.ingress_counter, |root| {
@@ -1246,7 +1255,9 @@ pub mod pallet {
             return H256::from_slice(&[0; 32])
         }
 
-        fn summary_is_neither_pending_nor_approved(root_range: &RootRange<BlockNumberFor<T>>) -> bool {
+        fn summary_is_neither_pending_nor_approved(
+            root_range: &RootRange<BlockNumberFor<T>>,
+        ) -> bool {
             let has_been_approved =
                 <Roots<T>>::iter_prefix_values(root_range).any(|root| root.is_validated);
             let is_pending = <PendingApproval<T>>::contains_key(root_range);

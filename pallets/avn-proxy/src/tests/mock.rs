@@ -11,7 +11,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, UintAuthorityId},
     traits::{BlakeTwo256, IdentityLookup, Verify},
-    BuildStorage
+    BuildStorage,
 };
 pub use std::sync::Arc;
 
@@ -26,7 +26,7 @@ pub type AccountId = <Signature as Verify>::Signer;
 
 use crate::{self as avn_proxy};
 frame_support::construct_runtime!(
-    pub enum TestRuntime 
+    pub enum TestRuntime
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
@@ -181,7 +181,6 @@ impl ExtBuilder {
     }
 
     pub fn as_externality(self) -> sp_io::TestExternalities {
-
         let mut ext = sp_io::TestExternalities::from(self.storage);
         ext.register_extension(KeystoreExt(Arc::new(MemoryKeystore::new())));
         // Events do not get emitted on block 0, so we increment the block here

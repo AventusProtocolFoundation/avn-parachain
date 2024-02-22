@@ -7,10 +7,10 @@ use frame_support::{
     pallet_prelude::Weight,
     traits::{EstimateNextSessionRotation, Get},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_session::{self as session, ShouldEndSession};
 use sp_runtime::{traits::Saturating, Permill};
 use sp_std::prelude::*;
-use frame_system::pallet_prelude::BlockNumberFor;
 
 /// Provides the new set of collator_account_ids to the session module when a session is being
 /// rotated (ended).
@@ -93,7 +93,9 @@ impl<T: Config> EstimateNextSessionRotation<BlockNumberFor<T>> for ParachainStak
         )
     }
 
-    fn estimate_next_session_rotation(_now: BlockNumberFor<T>) -> (Option<BlockNumberFor<T>>, Weight) {
+    fn estimate_next_session_rotation(
+        _now: BlockNumberFor<T>,
+    ) -> (Option<BlockNumberFor<T>>, Weight) {
         let era = <Era<T>>::get();
 
         (

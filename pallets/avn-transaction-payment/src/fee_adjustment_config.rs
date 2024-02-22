@@ -1,8 +1,8 @@
 use crate::{BalanceOf, Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{scale_info::TypeInfo, traits::Zero, Perbill, Saturating};
 use sp_std::{fmt::Debug, marker::PhantomData};
-use frame_system::pallet_prelude::BlockNumberFor;
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]

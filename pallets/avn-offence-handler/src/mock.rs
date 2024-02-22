@@ -3,8 +3,7 @@
 use crate::{self as avn_offence_handler, *};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    parameter_types,
-    BasicExternalities,
+    parameter_types, BasicExternalities,
 };
 use frame_system as system;
 use pallet_session as session;
@@ -12,7 +11,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::UintAuthorityId,
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    BuildStorage
+    BuildStorage,
 };
 
 use std::cell::RefCell;

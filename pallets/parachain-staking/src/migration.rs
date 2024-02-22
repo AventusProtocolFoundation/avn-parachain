@@ -55,10 +55,7 @@ mod storage_with_voting {
         Pallet<T>,
         Blake2_128Concat,
         GrowthId,
-        VotingSessionData<
-            <T as frame_system::Config>::AccountId,
-            BlockNumberFor<T>,
-        >,
+        VotingSessionData<<T as frame_system::Config>::AccountId, BlockNumberFor<T>>,
         ValueQuery,
     >;
 

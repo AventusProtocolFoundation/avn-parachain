@@ -13,14 +13,14 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     log,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, offchain::SubmitTransaction};
+use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
 use pallet_avn::{self as avn, vote::*, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::scale_info::TypeInfo;
 use sp_std::fmt::Debug;
 
-use super::{Call, Config, VotesRepository, PendingApproval};
-use crate::{OcwLock, Pallet as Summary, RootId, AVN, Store};
+use super::{Call, Config, PendingApproval, VotesRepository};
+use crate::{OcwLock, Pallet as Summary, RootId, Store, AVN};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"root_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"root_end_voting_period";
@@ -244,7 +244,10 @@ pub fn end_voting_if_required<T: Config>(
     }
 }
 
-fn root_can_be_voted_on<T: Config>(root_id: &RootId<BlockNumberFor<T>>, voter: &T::AccountId) -> bool {
+fn root_can_be_voted_on<T: Config>(
+    root_id: &RootId<BlockNumberFor<T>>,
+    voter: &T::AccountId,
+) -> bool {
     // There is an edge case here. If this is being run very close to `end_of_voting_period`, by the
     // time the vote gets mined. It may be outside the voting window and get rejected.
     let root_voting_session = Summary::<T>::get_root_voting_session(root_id);

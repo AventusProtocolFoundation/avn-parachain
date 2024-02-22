@@ -2,7 +2,7 @@
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::log;
-use frame_system::{pallet_prelude::BlockNumberFor, offchain::SubmitTransaction};
+use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::event_types::Validator;
 use sp_runtime::{

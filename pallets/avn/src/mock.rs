@@ -14,8 +14,7 @@ use sp_core::{
 use sp_runtime::{
     testing::UintAuthorityId,
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    Perbill,
-    BuildStorage
+    BuildStorage, Perbill,
 };
 use std::cell::RefCell;
 
@@ -118,8 +117,10 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage =
-            frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap().into();
+        let storage = frame_system::GenesisConfig::<TestRuntime>::default()
+            .build_storage()
+            .unwrap()
+            .into();
         Self { storage }
     }
 

@@ -24,14 +24,14 @@ use sp_core::{
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    BuildStorage
+    BuildStorage,
 };
 use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
 };
-use system::pallet_prelude::BlockNumberFor;
 use std::{cell::RefCell, convert::From, sync::Arc};
+use system::pallet_prelude::BlockNumberFor;
 
 pub const APPROVE_ROOT: bool = true;
 pub const REJECT_ROOT: bool = false;
@@ -500,7 +500,8 @@ impl ExtBuilder {
         // Events do not get emitted on block 0, so we increment the block here
         ext.execute_with(|| {
             Timestamp::set_timestamp(1);
-            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into())});
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into())
+        });
         ext
     }
 

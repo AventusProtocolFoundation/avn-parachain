@@ -22,7 +22,10 @@ use alloc::{
 };
 
 use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
-use frame_system::{ensure_root, pallet_prelude::{BlockNumberFor, OriginFor}};
+use frame_system::{
+    ensure_root,
+    pallet_prelude::{BlockNumberFor, OriginFor},
+};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,

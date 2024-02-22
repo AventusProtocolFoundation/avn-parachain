@@ -106,8 +106,10 @@ pub mod pallet {
             payment_info: Option<Box<PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>>>,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
-            let mut final_weight =
-                call.get_dispatch_info().weight.saturating_add(Weight::from_parts(50_000 as u64, 0));
+            let mut final_weight = call
+                .get_dispatch_info()
+                .weight
+                .saturating_add(Weight::from_parts(50_000 as u64, 0));
 
             let proof = <T as Config>::ProxyConfig::get_proof(&call)
                 .ok_or(Error::<T>::TransactionNotSupported)?;

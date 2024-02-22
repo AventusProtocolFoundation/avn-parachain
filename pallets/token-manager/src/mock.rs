@@ -36,7 +36,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
-    Perbill, SaturatedConversion,BuildStorage
+    BuildStorage, Perbill, SaturatedConversion,
 };
 
 use hex_literal::hex;
@@ -63,7 +63,7 @@ const TOPIC_RECEIVER_INDEX: usize = 2;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime 
+    pub enum TestRuntime
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
@@ -154,7 +154,8 @@ where
 pub const BASE_FEE: u64 = 12;
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-const MAX_BLOCK_WEIGHT: Weight = Weight::from_parts(2_000_000_000_000 as u64, 0).set_proof_size(u64::MAX);
+const MAX_BLOCK_WEIGHT: Weight =
+    Weight::from_parts(2_000_000_000_000 as u64, 0).set_proof_size(u64::MAX);
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -220,8 +221,8 @@ impl pallet_balances::Config for TestRuntime {
     type WeightInfo = ();
     type RuntimeHoldReason = RuntimeHoldReason;
     type FreezeIdentifier = ();
-	type MaxHolds = ConstU32<0>;
-	type MaxFreezes = ConstU32<0>;
+    type MaxHolds = ConstU32<0>;
+    type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
