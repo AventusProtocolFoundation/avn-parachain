@@ -389,7 +389,6 @@ pub mod pallet {
             for (signature, transaction_hash, value) in self.processed_events.clone().into_iter() {
                 ProcessedEvents::<T>::insert(EthEventId { signature, transaction_hash }, value);
             }
-            }
 
             for (key, value) in self.nft_t1_contracts.iter() {
                 NftT1Contracts::<T>::insert(key, value);
