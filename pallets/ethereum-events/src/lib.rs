@@ -386,11 +386,9 @@ pub mod pallet {
 
             EventChallengePeriod::<T>::put(self.event_challenge_period);
 
-            for (key, key2, value) in self.processed_events.iter() {
-                ProcessedEvents::<T>::insert(
-                    EthEventId { signature: key.clone(), transaction_hash: key2.clone() },
-                    value,
-                );
+            for (signature, transaction_hash, value) in self.processed_events.clone().into_iter() {
+                ProcessedEvents::<T>::insert(EthEventId { signature, transaction_hash }, value);
+            }
             }
 
             for (key, value) in self.nft_t1_contracts.iter() {
