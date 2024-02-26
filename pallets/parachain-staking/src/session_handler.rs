@@ -7,6 +7,7 @@ use frame_support::{
     pallet_prelude::Weight,
     traits::{EstimateNextSessionRotation, Get},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_session::{self as session, ShouldEndSession};
 use sp_runtime::{traits::Saturating, Permill};
 use sp_std::prelude::*;
@@ -43,8 +44,8 @@ impl<T: Config> session::SessionManager<T::AccountId> for ParachainStaking<T> {
     }
 }
 
-impl<T: Config> ShouldEndSession<T::BlockNumber> for ParachainStaking<T> {
-    fn should_end_session(now: T::BlockNumber) -> bool {
+impl<T: Config> ShouldEndSession<BlockNumberFor<T>> for ParachainStaking<T> {
+    fn should_end_session(now: BlockNumberFor<T>) -> bool {
         frame_system::Pallet::<T>::register_extra_weight_unchecked(
             T::DbWeight::get().reads(2),
             DispatchClass::Mandatory,
@@ -76,12 +77,12 @@ impl<T: Config> ShouldEndSession<T::BlockNumber> for ParachainStaking<T> {
     }
 }
 
-impl<T: Config> EstimateNextSessionRotation<T::BlockNumber> for ParachainStaking<T> {
-    fn average_session_length() -> T::BlockNumber {
+impl<T: Config> EstimateNextSessionRotation<BlockNumberFor<T>> for ParachainStaking<T> {
+    fn average_session_length() -> BlockNumberFor<T> {
         <Era<T>>::get().length.into()
     }
 
-    fn estimate_current_session_progress(now: T::BlockNumber) -> (Option<Permill>, Weight) {
+    fn estimate_current_session_progress(now: BlockNumberFor<T>) -> (Option<Permill>, Weight) {
         let era = <Era<T>>::get();
         let passed_blocks = now.saturating_sub(era.first);
 
@@ -92,7 +93,9 @@ impl<T: Config> EstimateNextSessionRotation<T::BlockNumber> for ParachainStaking
         )
     }
 
-    fn estimate_next_session_rotation(_now: T::BlockNumber) -> (Option<T::BlockNumber>, Weight) {
+    fn estimate_next_session_rotation(
+        _now: BlockNumberFor<T>,
+    ) -> (Option<BlockNumberFor<T>>, Weight) {
         let era = <Era<T>>::get();
 
         (

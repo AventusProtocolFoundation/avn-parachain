@@ -38,6 +38,8 @@ pub struct OldGrowthInfo<AccountId, Balance> {
 
 /// The original data layout of the storage with voting logic included
 mod storage_with_voting {
+    use frame_system::pallet_prelude::BlockNumberFor;
+
     use super::*;
 
     #[derive(
@@ -53,10 +55,7 @@ mod storage_with_voting {
         Pallet<T>,
         Blake2_128Concat,
         GrowthId,
-        VotingSessionData<
-            <T as frame_system::Config>::AccountId,
-            <T as frame_system::Config>::BlockNumber,
-        >,
+        VotingSessionData<<T as frame_system::Config>::AccountId, BlockNumberFor<T>>,
         ValueQuery,
     >;
 
@@ -65,11 +64,11 @@ mod storage_with_voting {
 
     #[storage_alias]
     pub type VotingPeriod<T: Config> =
-        StorageValue<Pallet<T>, <T as frame_system::Config>::BlockNumber, ValueQuery>;
+        StorageValue<Pallet<T>, frame_system::pallet_prelude::BlockNumberFor<T>, ValueQuery>;
 }
 
 pub fn enable_eth_bridge_wire_up<T: Config>() -> Weight {
-    let mut consumed_weight: Weight = Weight::from_ref_time(0);
+    let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
@@ -89,7 +88,7 @@ pub fn enable_eth_bridge_wire_up<T: Config>() -> Weight {
     // Remove unused `added_by` field
     Growth::<T>::translate::<OldGrowthInfo<T::AccountId, BalanceOf<T>>, _>(
         |_period, growth_info| {
-            add_weight(1, 1, Weight::from_ref_time(0));
+            add_weight(1, 1, Weight::from_parts(0 as u64, 0));
 
             let mut new_growth_info = GrowthInfo::new(growth_info.number_of_accumulations);
             new_growth_info.total_stake_accumulated = growth_info.total_stake_accumulated;
@@ -104,13 +103,13 @@ pub fn enable_eth_bridge_wire_up<T: Config>() -> Weight {
     );
 
     //Write: [STORAGE_VERSION]
-    add_weight(0, 1, Weight::from_ref_time(0));
+    add_weight(0, 1, Weight::from_parts(0 as u64, 0));
     STORAGE_VERSION.put::<Pallet<T>>();
 
     log::info!("✅ Eth bridge wire up migration completed successfully");
 
     // add a bit extra as safety margin for computation
-    return consumed_weight + Weight::from_ref_time(25_000_000_000)
+    return consumed_weight + Weight::from_parts(25_000_000_000 as u64, 0)
 }
 
 /// Migration to enable staking pallet

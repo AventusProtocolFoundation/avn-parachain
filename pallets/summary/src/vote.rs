@@ -13,13 +13,13 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     log,
 };
-use frame_system::offchain::SubmitTransaction;
+use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
 use pallet_avn::{self as avn, vote::*, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::scale_info::TypeInfo;
 use sp_std::fmt::Debug;
 
-use super::{Call, Config};
+use super::{Call, Config, PendingApproval, VotesRepository};
 use crate::{OcwLock, Pallet as Summary, RootId, Store, AVN};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"root_casting_vote";
@@ -28,16 +28,16 @@ const MAX_VOTING_SESSIONS_RETURNED: usize = 5;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, Debug, MaxEncodedLen, TypeInfo)]
 pub struct RootVotingSession<T: Config> {
-    pub root_id: RootId<T::BlockNumber>,
+    pub root_id: RootId<BlockNumberFor<T>>,
 }
 
 impl<T: Config> RootVotingSession<T> {
-    pub fn new(root_id: &RootId<T::BlockNumber>) -> Self {
+    pub fn new(root_id: &RootId<BlockNumberFor<T>>) -> Self {
         return RootVotingSession::<T> { root_id: root_id.clone() }
     }
 }
 
-impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotingSession<T> {
+impl<T: Config> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVotingSession<T> {
     fn cast_vote_context(&self) -> &'static [u8] {
         return CAST_VOTE_CONTEXT
     }
@@ -46,7 +46,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotin
         return END_VOTING_PERIOD_CONTEXT
     }
 
-    fn state(&self) -> Result<VotingSessionData<T::AccountId, T::BlockNumber>, DispatchError> {
+    fn state(&self) -> Result<VotingSessionData<T::AccountId, BlockNumberFor<T>>, DispatchError> {
         if <Summary<T> as Store>::VotesRepository::contains_key(self.root_id) {
             return Ok(Summary::<T>::get_vote(self.root_id))
         }
@@ -116,7 +116,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, T::BlockNumber> for RootVotin
 
 /***************** Functions that run in an offchain worker context  **************** */
 
-pub fn create_vote_lock_name<T: Config>(root_id: &RootId<T::BlockNumber>) -> Vec<u8> {
+pub fn create_vote_lock_name<T: Config>(root_id: &RootId<BlockNumberFor<T>>) -> Vec<u8> {
     let mut name = b"vote_summary::hash::".to_vec();
     name.extend_from_slice(&mut root_id.range.from_block.encode());
     name.extend_from_slice(&mut root_id.range.to_block.encode());
@@ -124,7 +124,7 @@ pub fn create_vote_lock_name<T: Config>(root_id: &RootId<T::BlockNumber>) -> Vec
     name
 }
 
-fn is_vote_in_transaction_pool<T: Config>(root_id: &RootId<T::BlockNumber>) -> bool {
+fn is_vote_in_transaction_pool<T: Config>(root_id: &RootId<BlockNumberFor<T>>) -> bool {
     let persistent_data = create_vote_lock_name::<T>(root_id);
     return OcwLock::is_locked::<frame_system::Pallet<T>>(&persistent_data)
 }
@@ -132,7 +132,7 @@ fn is_vote_in_transaction_pool<T: Config>(root_id: &RootId<T::BlockNumber>) -> b
 pub fn cast_votes_if_required<T: Config>(
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    let root_ids: Vec<RootId<T::BlockNumber>> = <Summary<T> as Store>::PendingApproval::iter()
+    let root_ids: Vec<RootId<BlockNumberFor<T>>> = <Summary<T> as Store>::PendingApproval::iter()
         .filter(|(root_range, ingress_counter)| {
             let root_id = RootId::new(*root_range, *ingress_counter);
             root_can_be_voted_on::<T>(&root_id, &this_validator.account_id)
@@ -192,10 +192,10 @@ pub fn cast_votes_if_required<T: Config>(
 }
 
 pub fn end_voting_if_required<T: Config>(
-    block_number: T::BlockNumber,
+    block_number: BlockNumberFor<T>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    let root_ids: Vec<RootId<T::BlockNumber>> = <Summary<T> as Store>::PendingApproval::iter()
+    let root_ids: Vec<RootId<BlockNumberFor<T>>> = <Summary<T> as Store>::PendingApproval::iter()
         .filter(|(root_range, ingress_counter)| {
             let root_id = RootId::new(*root_range, *ingress_counter);
             block_number > Summary::<T>::get_vote(root_id).end_of_voting_period
@@ -244,7 +244,10 @@ pub fn end_voting_if_required<T: Config>(
     }
 }
 
-fn root_can_be_voted_on<T: Config>(root_id: &RootId<T::BlockNumber>, voter: &T::AccountId) -> bool {
+fn root_can_be_voted_on<T: Config>(
+    root_id: &RootId<BlockNumberFor<T>>,
+    voter: &T::AccountId,
+) -> bool {
     // There is an edge case here. If this is being run very close to `end_of_voting_period`, by the
     // time the vote gets mined. It may be outside the voting window and get rejected.
     let root_voting_session = Summary::<T>::get_root_voting_session(root_id);
@@ -256,7 +259,7 @@ fn root_can_be_voted_on<T: Config>(root_id: &RootId<T::BlockNumber>, voter: &T::
 }
 
 fn send_approve_vote<T: Config>(
-    root_id: &RootId<T::BlockNumber>,
+    root_id: &RootId<BlockNumberFor<T>>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
     let approve_vote_extrinsic_signature =
@@ -284,7 +287,7 @@ fn send_approve_vote<T: Config>(
 }
 
 fn sign_for_approve_vote_extrinsic<T: Config>(
-    root_id: &RootId<T::BlockNumber>,
+    root_id: &RootId<BlockNumberFor<T>>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<<T::AuthorityId as RuntimeAppPublic>::Signature, ()> {
     let voting_session_data = Summary::<T>::get_root_voting_session(&root_id).state();
@@ -308,7 +311,7 @@ fn sign_for_approve_vote_extrinsic<T: Config>(
 }
 
 fn send_reject_vote<T: Config>(
-    root_id: &RootId<T::BlockNumber>,
+    root_id: &RootId<BlockNumberFor<T>>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
     let voting_session_data = Summary::<T>::get_root_voting_session(&root_id).state();

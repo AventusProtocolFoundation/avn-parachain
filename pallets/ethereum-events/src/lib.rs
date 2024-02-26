@@ -15,7 +15,10 @@ use frame_support::{
     ensure, log,
     traits::{Get, IsSubType},
 };
-use frame_system::offchain::{SendTransactionTypes, SubmitTransaction};
+use frame_system::{
+    offchain::{SendTransactionTypes, SubmitTransaction},
+    pallet_prelude::BlockNumberFor,
+};
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
     offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
@@ -186,7 +189,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub (super) trait Store)]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -240,7 +242,7 @@ pub mod pallet {
         },
         /// EventChallengePeriodUpdated(EventChallengePeriodInBlocks)
         EventChallengePeriodUpdated {
-            block: T::BlockNumber,
+            block: BlockNumberFor<T>,
         },
         CallDispatched {
             relayer: T::AccountId,
@@ -294,7 +296,7 @@ pub mod pallet {
     #[pallet::getter(fn unchecked_events)]
     pub type UncheckedEvents<T: Config> = StorageValue<
         _,
-        BoundedVec<(EthEventId, IngressCounter, T::BlockNumber), MaxUncheckedEvents>,
+        BoundedVec<(EthEventId, IngressCounter, BlockNumberFor<T>), MaxUncheckedEvents>,
         ValueQuery,
     >;
 
@@ -305,7 +307,11 @@ pub mod pallet {
     pub type EventsPendingChallenge<T: Config> = StorageValue<
         _,
         BoundedVec<
-            (EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber),
+            (
+                EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
+                IngressCounter,
+                BlockNumberFor<T>,
+            ),
             MaxEventsPendingChallenges,
         >,
         ValueQuery,
@@ -335,7 +341,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn event_challenge_period)]
-    pub type EventChallengePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+    pub type EventChallengePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn nft_t1_contracts)]
@@ -352,27 +358,26 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub quorum_factor: u32,
-        pub event_challenge_period: T::BlockNumber,
+        pub event_challenge_period: BlockNumberFor<T>,
         pub lift_tx_hashes: Vec<H256>,
-        pub processed_events: Vec<(EthEventId, bool)>,
+        pub processed_events: Vec<(H256, H256, bool)>,
         pub nft_t1_contracts: Vec<(H160, ())>,
     }
 
-    #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
                 quorum_factor: 4 as u32,
-                event_challenge_period: T::BlockNumber::from(300 as u32),
+                event_challenge_period: BlockNumberFor::<T>::from(300 as u32),
                 lift_tx_hashes: Vec::<H256>::new(),
-                processed_events: Vec::<(EthEventId, bool)>::new(),
+                processed_events: Vec::<(H256, H256, bool)>::new(),
                 nft_t1_contracts: Vec::<(H160, ())>::new(),
             }
         }
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             assert_ne!(self.quorum_factor, 0, "Quorum factor cannot be 0");
             QuorumFactor::<T>::put(self.quorum_factor);
@@ -381,8 +386,8 @@ pub mod pallet {
 
             EventChallengePeriod::<T>::put(self.event_challenge_period);
 
-            for (key, value) in self.processed_events.iter() {
-                ProcessedEvents::<T>::insert(key, value);
+            for (signature, transaction_hash, value) in self.processed_events.clone().into_iter() {
+                ProcessedEvents::<T>::insert(EthEventId { signature, transaction_hash }, value);
             }
 
             for (key, value) in self.nft_t1_contracts.iter() {
@@ -400,13 +405,13 @@ pub mod pallet {
                             transaction_hash: tx_hash,
                         },
                         ingress_counter,
-                        <T as frame_system::Config>::BlockNumber::zero(),
+                        BlockNumberFor::<T>::zero(),
                     )
                 })
-                .collect::<Vec<(EthEventId, IngressCounter, T::BlockNumber)>>();
+                .collect::<Vec<(EthEventId, IngressCounter, BlockNumberFor<T>)>>();
 
             let bounded_unchecked_events = BoundedVec::<
-                (EthEventId, IngressCounter, T::BlockNumber),
+                (EthEventId, IngressCounter, BlockNumberFor<T>),
                 MaxUncheckedEvents,
             >::try_from(unchecked_lift_events);
 
@@ -450,7 +455,7 @@ pub mod pallet {
         #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkevent_result(MAX_VALIDATOR_ACCOUNTS, MAX_NUMBER_OF_UNCHECKED_EVENTS))]
         pub fn submit_checkevent_result(
             origin: OriginFor<T>,
-            result: EthEventCheckResult<T::BlockNumber, T::AccountId>,
+            result: EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
             ingress_counter: u64,
             // Signature and structural validation is already done in validate unsigned so no need
             // to do it here. This is not used, but we must have this field so it can be
@@ -751,7 +756,7 @@ pub mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_event_challenge_period())]
         pub fn set_event_challenge_period(
             origin: OriginFor<T>,
-            event_challenge_period_in_blocks: T::BlockNumber,
+            event_challenge_period_in_blocks: BlockNumberFor<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(
@@ -769,7 +774,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         /// Offchain Worker entry point.
-        fn offchain_worker(block_number: T::BlockNumber) {
+        fn offchain_worker(block_number: BlockNumberFor<T>) {
             let setup_result = AVN::<T>::pre_run_setup(block_number, PALLET_ID.to_vec());
             if let Err(e) = setup_result {
                 match e {
@@ -941,9 +946,9 @@ pub mod pallet {
 // implement offchain worker sub-functions
 impl<T: Config> Pallet<T> {
     fn try_check_event(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
         validator: &Validator<T::AuthorityId, T::AccountId>,
-        finalised_block_number: T::BlockNumber,
+        finalised_block_number: BlockNumberFor<T>,
     ) {
         let event_to_check = Self::get_events_to_check_if_required(finalised_block_number);
 
@@ -964,9 +969,9 @@ impl<T: Config> Pallet<T> {
     }
 
     fn try_process_event(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
         validator: &Validator<T::AuthorityId, T::AccountId>,
-        finalised_block_number: T::BlockNumber,
+        finalised_block_number: BlockNumberFor<T>,
     ) {
         if let Some((event_to_process, ingress_counter, _)) =
             Self::get_next_event_to_process(block_number, finalised_block_number)
@@ -982,9 +987,9 @@ impl<T: Config> Pallet<T> {
     }
 
     fn try_validate_event(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
         validator: &Validator<T::AuthorityId, T::AccountId>,
-        finalised_block_number: T::BlockNumber,
+        finalised_block_number: BlockNumberFor<T>,
     ) {
         if let Some((event_to_validate, ingress_counter, _)) =
             Self::get_next_event_to_validate(&validator.account_id, finalised_block_number)
@@ -1004,7 +1009,7 @@ impl<T: Config> Pallet<T> {
 // TODO [TYPE: review][PRI: medium][CRITICAL]: Check error handling. Is this still relevant?
 impl<T: Config> Pallet<T> {
     fn is_challenge_successful(
-        validated: &EthEventCheckResult<T::BlockNumber, T::AccountId>,
+        validated: &EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
     ) -> bool {
         let required_challenge_votes =
             (AVN::<T>::active_validators().len() as u32) / Self::quorum_factor();
@@ -1079,8 +1084,8 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_events_to_check_if_required(
-        finalised_block_number: T::BlockNumber,
-    ) -> Option<(EthEventId, IngressCounter, T::BlockNumber)> {
+        finalised_block_number: BlockNumberFor<T>,
+    ) -> Option<(EthEventId, IngressCounter, BlockNumberFor<T>)> {
         if Self::unchecked_events().is_empty() {
             return None
         }
@@ -1093,9 +1098,12 @@ impl<T: Config> Pallet<T> {
 
     fn get_next_event_to_validate(
         validator_account_id: &T::AccountId,
-        finalised_block_number: T::BlockNumber,
-    ) -> Option<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>
-    {
+        finalised_block_number: BlockNumberFor<T>,
+    ) -> Option<(
+        EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
+        IngressCounter,
+        BlockNumberFor<T>,
+    )> {
         let storage = StorageValueRef::persistent(VALIDATED_EVENT_LOCAL_STORAGE);
         let validated_events = storage.get::<Vec<EthEventId>>();
 
@@ -1124,7 +1132,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn can_validate_this_event(
-        checked: &EthEventCheckResult<T::BlockNumber, T::AccountId>,
+        checked: &EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
         validator_account_id: &T::AccountId,
         validated_events: &Vec<EthEventId>,
         node_has_never_validated_events: bool,
@@ -1143,10 +1151,13 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_next_event_to_process(
-        block_number: T::BlockNumber,
-        finalised_block_number: T::BlockNumber,
-    ) -> Option<(EthEventCheckResult<T::BlockNumber, T::AccountId>, IngressCounter, T::BlockNumber)>
-    {
+        block_number: BlockNumberFor<T>,
+        finalised_block_number: BlockNumberFor<T>,
+    ) -> Option<(
+        EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
+        IngressCounter,
+        BlockNumberFor<T>,
+    )> {
         return Self::events_pending_challenge()
             .into_iter()
             .filter(|(checked, _counter, submitted_at_block)| {
@@ -1157,7 +1168,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn send_event(
-        checked: EthEventCheckResult<T::BlockNumber, T::AccountId>,
+        checked: EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
         ingress_counter: IngressCounter,
         validator: &Validator<T::AuthorityId, T::AccountId>,
     ) -> Result<(), Error<T>> {
@@ -1181,7 +1192,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn check_event_and_submit_result(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
         event_id: &EthEventId,
         ingress_counter: IngressCounter,
         validator: &Validator<T::AuthorityId, T::AccountId>,
@@ -1220,8 +1231,8 @@ impl<T: Config> Pallet<T> {
     }
 
     fn validate_event(
-        block_number: T::BlockNumber,
-        checked: EthEventCheckResult<T::BlockNumber, T::AccountId>,
+        block_number: BlockNumberFor<T>,
+        checked: EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
         ingress_counter: IngressCounter,
         validator: &Validator<T::AuthorityId, T::AccountId>,
     ) -> Result<(), Error<T>> {
@@ -1263,8 +1274,8 @@ impl<T: Config> Pallet<T> {
     }
 
     fn get_challenge_if_required(
-        checked: EthEventCheckResult<T::BlockNumber, T::AccountId>,
-        validated: EthEventCheckResult<T::BlockNumber, T::AccountId>,
+        checked: EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
+        validated: EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
         validator_account_id: T::AccountId,
     ) -> Option<Challenge<T::AccountId>> {
         if checked.event.event_id != validated.event.event_id {
@@ -1325,10 +1336,10 @@ impl<T: Config> Pallet<T> {
     }
 
     fn check_event(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
         event_id: &EthEventId,
         validator: &Validator<T::AuthorityId, T::AccountId>,
-    ) -> EthEventCheckResult<T::BlockNumber, T::AccountId> {
+    ) -> EthEventCheckResult<BlockNumberFor<T>, T::AccountId> {
         // Make an external HTTP request to fetch the event.
         // Note this call will block until response is received.
         let body = Self::fetch_event(event_id);
@@ -1340,12 +1351,12 @@ impl<T: Config> Pallet<T> {
     // This function must not panic!!.
     // The outcome of the check must be reported back, even if the check fails
     fn compute_result(
-        block_number: T::BlockNumber,
+        block_number: BlockNumberFor<T>,
         response_body: Result<Vec<u8>, DispatchError>,
         event_id: &EthEventId,
         validator_account_id: &T::AccountId,
-    ) -> EthEventCheckResult<T::BlockNumber, T::AccountId> {
-        let ready_after_block: T::BlockNumber = 0u32.into();
+    ) -> EthEventCheckResult<BlockNumberFor<T>, T::AccountId> {
+        let ready_after_block: BlockNumberFor<T> = 0u32.into();
         let invalid_result = EthEventCheckResult::new(
             ready_after_block,
             CheckResult::Invalid,

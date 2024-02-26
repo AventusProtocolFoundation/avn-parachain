@@ -72,7 +72,7 @@ fn pay_gas_and_proxy_call(
         ChargeTransactionPayment::from(0), // we do not pay any tip
         relayer,
         outer_call,
-        &info_from_weight(Weight::from_ref_time(1)),
+        &info_from_weight(Weight::from_parts(1 as u64, 0)),
         TX_LEN,
     )
     .map_err(|e| <&'static str>::from(e))?;
@@ -92,7 +92,7 @@ fn pay_gas_and_call_lower_directly(
         ChargeTransactionPayment::from(0),
         sender,
         call,
-        &info_from_weight(Weight::from_ref_time(1)),
+        &info_from_weight(Weight::from_parts(1 as u64, 0)),
         TX_LEN,
     )
     .map_err(|e| <&'static str>::from(e))?;
@@ -433,7 +433,7 @@ mod proxy_signed_lower {
             ext.execute_with(|| {
                 let (_, sender, relayer, _, t1_recipient) = Context::default();
 
-                let other_sender_keys = sr25519::Pair::from_entropy(&[2u8; 32], None).0;
+                let other_sender_keys = sr25519::Pair::from_seed_slice(&[2u8; 32]).unwrap();
 
                 default_setup();
                 let mismatching_proof = create_proof_for_signed_lower(

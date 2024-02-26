@@ -29,7 +29,7 @@ use sc_cli::{
 use sc_keystore::LocalKeystore;
 use sc_service::config::{BasePath, KeystoreConfig};
 use sp_core::crypto::{KeyTypeId, SecretString};
-use sp_keystore::{SyncCryptoStore, SyncCryptoStorePtr};
+use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
 use web3::types::H160;
 
@@ -97,8 +97,9 @@ impl InsertAvNKeyCmd {
         let chain_spec = cli.load_spec(&chain_id)?;
         let config_dir = base_path.config_dir(chain_spec.id());
 
-        let (keystore, public) = match self.keystore_params.keystore_config(&config_dir)? {
-            (_, KeystoreConfig::Path { path, password }) => {
+        let keystore_config = self.keystore_params.keystore_config(&config_dir)?;
+        let (keystore, public) = match keystore_config {
+            KeystoreConfig::Path { path, password } => {
                 let public: Vec<u8> = match self.scheme {
                     AvNCryptoScheme::EcdsaSeed =>
                         get_public_key_string_bytes_from_private_key(suri.as_str())?,
@@ -107,7 +108,7 @@ impl InsertAvNKeyCmd {
                         to_vec(&suri, password.clone())
                     )?,
                 };
-                let keystore: SyncCryptoStorePtr = Arc::new(LocalKeystore::open(path, password)?);
+                let keystore: KeystorePtr = Arc::new(LocalKeystore::open(path, password)?);
                 (keystore, public)
             },
             _ => unreachable!("keystore_config always returns path and password; qed"),
@@ -116,8 +117,8 @@ impl InsertAvNKeyCmd {
         let key_type =
             KeyTypeId::try_from(self.key_type.as_str()).map_err(|_| Error::KeyTypeInvalid)?;
 
-        SyncCryptoStore::insert_unknown(&*keystore, key_type, &suri, &public[..])
-            .map_err(|_| Error::KeyStoreOperation)?;
+        Keystore::insert(&*keystore, key_type, &suri, &public[..])
+            .map_err(|_| Error::KeystoreOperation)?;
 
         Ok(())
     }
@@ -177,10 +178,6 @@ mod tests {
 
         fn author() -> String {
             "test".into()
-        }
-
-        fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static sp_version::RuntimeVersion {
-            unimplemented!("Not required in tests")
         }
 
         fn load_spec(&self, _: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {

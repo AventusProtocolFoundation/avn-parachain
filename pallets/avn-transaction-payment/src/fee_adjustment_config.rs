@@ -1,5 +1,6 @@
 use crate::{BalanceOf, Config, Error};
 use codec::{Decode, Encode, MaxEncodedLen};
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::{scale_info::TypeInfo, traits::Zero, Perbill, Saturating};
 use sp_std::{fmt::Debug, marker::PhantomData};
 
@@ -141,13 +142,13 @@ impl<T: Config> FeeAdjustmentConfig<T> {
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub struct Duration<T: Config> {
-    pub duration: T::BlockNumber,
+    pub duration: BlockNumberFor<T>,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
 #[scale_info(skip_type_params(T))]
 pub struct NumberOfTransactions<T: Config> {
-    pub number_of_transactions: T::Index,
+    pub number_of_transactions: T::Nonce,
 }
 
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Debug, Eq, TypeInfo, Copy)]
@@ -212,7 +213,7 @@ impl<T: Config> PercentageFeeConfig<T> {
 #[scale_info(skip_type_params(T))]
 pub struct TimeBasedConfig<T: Config> {
     pub fee_type: FeeType<T>,
-    end_block_number: T::BlockNumber,
+    end_block_number: BlockNumberFor<T>,
 }
 
 impl<T: Config> TimeBasedConfig<T> {
@@ -233,10 +234,10 @@ impl<T: Config> TimeBasedConfig<T> {
         return Ok(original_fee)
     }
 
-    pub fn new(fee_type: FeeType<T>, duration: T::BlockNumber) -> Self {
-        if duration == T::BlockNumber::zero() {
+    pub fn new(fee_type: FeeType<T>, duration: BlockNumberFor<T>) -> Self {
+        if duration == BlockNumberFor::<T>::zero() {
             // This is not a valid value so set the end block number to 0
-            return TimeBasedConfig::<T> { fee_type, end_block_number: T::BlockNumber::zero() }
+            return TimeBasedConfig::<T> { fee_type, end_block_number: BlockNumberFor::<T>::zero() }
         }
 
         let end_block_number = <frame_system::Pallet<T>>::block_number().saturating_add(duration);
@@ -249,7 +250,7 @@ impl<T: Config> TimeBasedConfig<T> {
 pub struct TransactionBasedConfig<T: Config> {
     pub fee_type: FeeType<T>,
     account: T::AccountId,
-    end_count: T::Index,
+    end_count: T::Nonce,
 }
 
 impl<T: Config> TransactionBasedConfig<T> {
@@ -270,7 +271,7 @@ impl<T: Config> TransactionBasedConfig<T> {
         return Ok(original_fee)
     }
 
-    pub fn new(fee_type: FeeType<T>, account: T::AccountId, count: T::Index) -> Self {
+    pub fn new(fee_type: FeeType<T>, account: T::AccountId, count: T::Nonce) -> Self {
         let end_count = <frame_system::Pallet<T>>::account(&account).nonce.saturating_add(count);
         return TransactionBasedConfig::<T> { fee_type, account, end_count }
     }

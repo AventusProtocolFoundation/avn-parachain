@@ -20,7 +20,6 @@ use crate::{
     *,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
-use sp_core::sr25519;
 
 const USE_RECEIVER_WITH_EXISTING_AMOUNT: bool = true;
 const USE_RECEIVER_WITH_0_AMOUNT: bool = false;
@@ -168,7 +167,7 @@ fn avn_test_signed_transfer_with_valid_input_should_succeed() {
     let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
-        let sender_keys = sr25519::Pair::from_entropy(&[1u8; 32], None).0;
+        let sender_keys = sp_core::Pair::from_seed_slice(&[1u8; 32]).unwrap();
 
         let sender_account_id = get_account_id(&sender_keys);
         let relayer_account_id = AccountId::from_raw([17; 32]); // just some arbitrary account id
@@ -250,7 +249,7 @@ fn avn_test_signed_transfer_of_0_token_should_succeed() {
     let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
-        let sender_keys = sr25519::Pair::from_entropy(&[1u8; 32], None).0;
+        let sender_keys = sp_core::Pair::from_seed_slice(&[1u8; 32]).unwrap();
 
         let sender_account_id = get_account_id(&sender_keys);
         let relayer_account_id = AccountId::from_raw([17; 32]); // just some arbitrary account id
@@ -333,7 +332,7 @@ fn avn_test_self_signed_transfer_should_succeed() {
     let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
-        let sender_keys = sr25519::Pair::from_entropy(&[1u8; 32], None).0;
+        let sender_keys = sp_core::Pair::from_seed_slice(&[1u8; 32]).unwrap();
 
         let sender_account_id = get_account_id(&sender_keys);
         let relayer_account_id = AccountId::from_raw([17; 32]); // just some arbitrary account id
@@ -407,7 +406,7 @@ fn avn_test_self_signed_transfer_of_0_token_should_succeed() {
     let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
-        let sender_keys = sr25519::Pair::from_entropy(&[1u8; 32], None).0;
+        let sender_keys = sp_core::Pair::from_seed_slice(&[1u8; 32]).unwrap();
 
         let sender_account_id = get_account_id(&sender_keys);
         let relayer_account_id = AccountId::from_raw([17; 32]); // just some arbitrary account id
@@ -482,7 +481,7 @@ fn avn_test_signed_transfer_fails_when_nonce_is_less_than_account_nonce() {
     let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
-        let sender_keys = sr25519::Pair::from_entropy(&[1u8; 32], None).0;
+        let sender_keys = sp_core::Pair::from_seed_slice(&[1u8; 32]).unwrap();
 
         let sender_account_id = get_account_id(&sender_keys);
         let relayer_account_id = AccountId::from_raw([17; 32]); // just some arbitrary account id
@@ -533,7 +532,7 @@ fn avn_test_signed_transfer_fails_when_nonce_is_more_than_account_nonce() {
     let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
-        let sender_keys = sr25519::Pair::from_entropy(&[1u8; 32], None).0;
+        let sender_keys = sp_core::Pair::from_seed_slice(&[1u8; 32]).unwrap();
 
         let sender_account_id = get_account_id(&sender_keys);
         let relayer_account_id = AccountId::from_raw([17; 32]); // just some arbitrary account id
@@ -584,7 +583,7 @@ fn avn_test_signed_transfer_fails_when_sender_has_insufficient_fund() {
     let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
-        let sender_keys = sr25519::Pair::from_entropy(&[1u8; 32], None).0;
+        let sender_keys = sp_core::Pair::from_seed_slice(&[1u8; 32]).unwrap();
 
         let sender_account_id = get_account_id(&sender_keys);
         let relayer_account_id = AccountId::from_raw([17; 32]); // just some arbitrary account id
@@ -670,7 +669,7 @@ fn avn_test_signed_transfer_fails_when_amount_causes_balance_overflow() {
     let mut ext = ExtBuilder::build_default().as_externality();
 
     ext.execute_with(|| {
-        let sender_keys = sr25519::Pair::from_entropy(&[1u8; 32], None).0;
+        let sender_keys = sp_core::Pair::from_seed_slice(&[1u8; 32]).unwrap();
 
         let sender_account_id = get_account_id(&sender_keys);
         let relayer_account_id = AccountId::from_raw([17; 32]); // just some arbitrary account id

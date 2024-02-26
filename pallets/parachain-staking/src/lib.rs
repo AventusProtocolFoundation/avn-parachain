@@ -110,10 +110,7 @@ pub mod pallet {
     #[cfg(not(feature = "std"))]
     extern crate alloc;
     #[cfg(not(feature = "std"))]
-    use alloc::{
-        format,
-        string::{String, ToString},
-    };
+    use alloc::{format, string::String};
 
     use crate::set::BoundedOrderedSet;
     pub use crate::{
@@ -158,7 +155,6 @@ pub mod pallet {
 
     /// Pallet for parachain staking
     #[pallet::pallet]
-    #[pallet::generate_store(pub (super) trait Store)]
     #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
     pub struct Pallet<T>(PhantomData<T>);
 
@@ -323,7 +319,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// Started new era.
         NewEra {
-            starting_block: T::BlockNumber,
+            starting_block: BlockNumberFor<T>,
             era: EraIndex,
             selected_collators_number: u32,
             total_balance: BalanceOf<T>,
@@ -455,7 +451,12 @@ pub mod pallet {
         /// Set total selected candidates to this value.
         TotalSelectedSet { old: u32, new: u32 },
         /// Set blocks per era
-        BlocksPerEraSet { current_era: EraIndex, first_block: T::BlockNumber, old: u32, new: u32 },
+        BlocksPerEraSet {
+            current_era: EraIndex,
+            first_block: BlockNumberFor<T>,
+            old: u32,
+            new: u32,
+        },
         /// Not enough fund to cover the staking reward payment.
         NotEnoughFundsForEraPayment { reward_pot_balance: BalanceOf<T> },
         /// A collator has been paid for producing blocks
@@ -468,7 +469,7 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(n: T::BlockNumber) -> Weight {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             let mut weight = <T as Config>::WeightInfo::base_on_initialize();
             let mut era = <Era<T>>::get();
             if era.should_update(n) {
@@ -502,7 +503,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn era)]
     /// Current era index and next era scheduled transition
-    pub(crate) type Era<T: Config> = StorageValue<_, EraInfo<T::BlockNumber>, ValueQuery>;
+    pub(crate) type Era<T: Config> = StorageValue<_, EraInfo<BlockNumberFor<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn nominator_state)]
@@ -689,7 +690,6 @@ pub mod pallet {
         pub min_total_nominator_stake: BalanceOf<T>,
     }
 
-    #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
@@ -703,7 +703,7 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             let mut candidate_count = 0u32;
             // Initialize the candidates
@@ -772,7 +772,7 @@ pub mod pallet {
             let (v_count, _, total_staked) = <Pallet<T>>::select_top_candidates(1u32);
 
             // Start Era 1 at Block 0. Set the genesis era length too.
-            let era: EraInfo<T::BlockNumber> =
+            let era: EraInfo<BlockNumberFor<T>> =
                 EraInfo::new(1u32, 0u32.into(), T::MinBlocksPerEra::get() + 2);
             <Era<T>>::put(era);
 
@@ -783,7 +783,7 @@ pub mod pallet {
             <Growth<T>>::insert(0u32, GrowthInfo::new(1u32));
 
             <Pallet<T>>::deposit_event(Event::NewEra {
-                starting_block: T::BlockNumber::zero(),
+                starting_block: BlockNumberFor::<T>::zero(),
                 era: 1u32,
                 selected_collators_number: v_count,
                 total_balance: total_staked,
@@ -1686,9 +1686,9 @@ pub mod pallet {
 
     impl<T: Config> Pallet<T> {
         pub fn start_new_era(
-            block_number: T::BlockNumber,
-            mut era: EraInfo<T::BlockNumber>,
-        ) -> (EraInfo<T::BlockNumber>, Weight) {
+            block_number: BlockNumberFor<T>,
+            mut era: EraInfo<BlockNumberFor<T>>,
+        ) -> (EraInfo<BlockNumberFor<T>>, Weight) {
             // mutate era
             era.update(block_number);
 
@@ -1855,7 +1855,7 @@ pub mod pallet {
 
             // don't underflow uint
             if now < delay {
-                return Weight::from_ref_time(0u64).into()
+                return Weight::from_parts(0 as u64, 0).into()
             }
 
             let paid_for_era = now.saturating_sub(delay);
@@ -1870,7 +1870,7 @@ pub mod pallet {
                 }
                 result.1 // weight consumed by pay_one_collator_reward
             } else {
-                Weight::from_ref_time(0u64).into()
+                Weight::from_parts(0 as u64, 0).into()
             }
         }
 
@@ -1892,7 +1892,7 @@ pub mod pallet {
                 // 2. we called pay_one_collator_reward when we were actually done with deferred
                 //    payouts
                 log::warn!("pay_one_collator_reward called with no <Points<T>> for the era!");
-                return (None, Weight::from_ref_time(0u64).into())
+                return (None, Weight::from_parts(0 as u64, 0).into())
             }
 
             let reward_pot_account_id = Self::compute_reward_pot_account_id();
@@ -1949,7 +1949,7 @@ pub mod pallet {
             } else {
                 // Note that we don't clean up storage here; it is cleaned up in
                 // handle_delayed_payouts()
-                (None, Weight::from_ref_time(0u64).into())
+                (None, Weight::from_parts(0 as u64, 0).into())
             }
         }
 
@@ -2476,7 +2476,7 @@ pub mod pallet {
 
     /// Keep track of number of authored blocks per authority, uncles are counted as well since
     /// they're a valid proof of being online.
-    impl<T: Config> pallet_authorship::EventHandler<T::AccountId, T::BlockNumber> for Pallet<T> {
+    impl<T: Config> pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T> {
         /// Add reward points to block authors:
         /// * 20 points to the block producer for producing a block in the chain
         fn note_author(author: T::AccountId) {
@@ -2489,10 +2489,6 @@ pub mod pallet {
                 <T as Config>::WeightInfo::note_author(),
                 DispatchClass::Mandatory,
             );
-        }
-
-        fn note_uncle(_author: T::AccountId, _age: T::BlockNumber) {
-            //TODO: can we ignore this?
         }
     }
     impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {

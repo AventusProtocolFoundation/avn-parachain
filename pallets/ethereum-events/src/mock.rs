@@ -2,14 +2,12 @@
 
 #![cfg(test)]
 
-use frame_support::{
-    assert_ok, parameter_types, traits::GenesisBuild, weights::Weight, BasicExternalities,
-};
+use frame_support::{assert_ok, parameter_types, weights::Weight, BasicExternalities};
 use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
-    testing::{Header, TestXt, UintAuthorityId},
+    testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    Perbill, WeakBoundedVec,
+    BuildStorage, Perbill, WeakBoundedVec,
 };
 use std::cell::RefCell;
 
@@ -41,19 +39,15 @@ use crate::{self as pallet_ethereum_events, *};
 #[allow(dead_code)]
 pub type Signature = sr25519::Signature;
 pub type AccountId = <Signature as Verify>::Signer;
-pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
+pub type BlockNumber = BlockNumberFor<TestRuntime>;
 pub type AuthorityId = <TestRuntime as avn::Config>::AuthorityId;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event, Config<T>},
@@ -138,7 +132,7 @@ where
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
+    pub const MaximumBlockWeight: Weight = Weight::from_parts(1024 as u64, 0);
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MinEthBlockConfirmation: u64 = 2;
@@ -151,13 +145,12 @@ impl system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -233,6 +226,10 @@ impl pallet_balances::Config for TestRuntime {
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
     type WeightInfo = ();
+    type RuntimeHoldReason = ();
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type MaxFreezes = ();
 }
 
 impl pallet_session::historical::Config for TestRuntime {
@@ -353,7 +350,7 @@ impl EthereumEvents {
 
     pub fn insert_to_events_pending_challenge_compact(
         block_number: u64,
-        event_info: &EthEventCheckResult<<TestRuntime as system::Config>::BlockNumber, AuthorityId>,
+        event_info: &EthEventCheckResult<BlockNumberFor<TestRuntime>, AuthorityId>,
         checked_by: AccountId,
     ) {
         Self::insert_to_events_pending_challenge(
@@ -416,7 +413,7 @@ impl EthereumEvents {
     }
 
     pub fn is_primary(
-        block_number: <TestRuntime as system::Config>::BlockNumber,
+        block_number: BlockNumberFor<TestRuntime>,
         validator: &AccountId,
     ) -> Result<bool, avn_error<TestRuntime>> {
         return AVN::is_primary(block_number, validator)
@@ -649,19 +646,11 @@ pub const INITIAL_LIFTS: [[u8; 32]; 4] = [[10u8; 32], [11u8; 32], [12u8; 32], [1
 
 pub const INITIAL_PROCESSED_EVENTS: [[u8; 32]; 3] = [[15u8; 32], [16u8; 32], [17u8; 32]];
 
-pub fn create_initial_processed_events() -> Vec<(EthEventId, bool)> {
+pub fn create_initial_processed_events() -> Vec<(H256, H256, bool)> {
     let initial_processed_events = INITIAL_PROCESSED_EVENTS
         .iter()
-        .map(|x| {
-            (
-                EthEventId {
-                    signature: ValidEvents::AddedValidator.signature(),
-                    transaction_hash: H256::from(x),
-                },
-                true,
-            )
-        })
-        .collect::<Vec<(EthEventId, bool)>>();
+        .map(|x| (ValidEvents::AddedValidator.signature(), H256::from(x), true))
+        .collect::<Vec<(H256, H256, bool)>>();
     assert_eq!(INITIAL_PROCESSED_EVENTS.len(), initial_processed_events.len());
     return initial_processed_events
 }
@@ -786,8 +775,10 @@ impl ExtBuilder {
 
     #[allow(dead_code)]
     pub fn as_externality(self) -> sp_io::TestExternalities {
+        use env_logger::{Builder, Env};
         let mut ext = sp_io::TestExternalities::from(self.storage);
-        // Events do not get emitted on block 0, so we increment the block here
+        let env = Env::new().default_filter_or("off");
+        let _ = Builder::from_env(env).is_test(true).try_init();
         ext.execute_with(|| System::set_block_number(1));
         ext
     }
@@ -796,6 +787,7 @@ impl ExtBuilder {
     pub fn as_externality_with_state(
         self,
     ) -> (TestExternalities, Arc<RwLock<PoolState>>, Arc<RwLock<OffchainState>>) {
+        use env_logger::{Builder, Env};
         assert!(self.offchain_registered);
         let mut ext = sp_io::TestExternalities::from(self.storage);
         ext.register_extension(OffchainExt::new(self.offchain_extension.clone().unwrap()));
@@ -804,6 +796,8 @@ impl ExtBuilder {
         assert!(self.pool_state.is_some());
         assert!(self.offchain_state.is_some());
         ext.execute_with(|| System::set_block_number(1));
+        let env = Env::new().default_filter_or("off");
+        let _ = Builder::from_env(env).is_test(true).try_init();
         (ext, self.pool_state.unwrap(), self.offchain_state.unwrap())
     }
 }

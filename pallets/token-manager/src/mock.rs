@@ -32,11 +32,11 @@ use sp_avn_common::{
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
 use sp_core::{sr25519, ConstU128, ConstU64, Pair, H256};
-use sp_keystore::{testing::KeyStore, KeystoreExt};
+use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{Header, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
-    Perbill, SaturatedConversion,
+    BuildStorage, Perbill, SaturatedConversion,
 };
 
 use hex_literal::hex;
@@ -60,20 +60,16 @@ pub const NON_AVT_TOKEN_ID_2: H160 = H160(hex!("20202020202020202020202020202020
 
 const TOPIC_RECEIVER_INDEX: usize = 2;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
         TokenManager: token_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
@@ -158,16 +154,17 @@ where
 pub const BASE_FEE: u64 = 12;
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-const MAX_BLOCK_WEIGHT: Weight = Weight::from_ref_time(2_000_000_000_000).set_proof_size(u64::MAX);
+const MAX_BLOCK_WEIGHT: Weight =
+    Weight::from_parts(2_000_000_000_000 as u64, 0).set_proof_size(u64::MAX);
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     // Creating custom runtime block weights similar with substrate/frame/system/src/mock.rs
     pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(1024, NORMAL_DISPATCH_RATIO);
     pub RuntimeBlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
-        .base_block(Weight::from_ref_time(10))
+        .base_block(Weight::from_parts(10 as u64, 0))
         .for_class(DispatchClass::all(), |weights| {
-            weights.base_extrinsic = Weight::from_ref_time(BASE_FEE);
+            weights.base_extrinsic = Weight::from_parts(BASE_FEE as u64, 0);
         })
         .for_class(DispatchClass::Normal, |weights| {
             weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT);
@@ -189,13 +186,12 @@ impl system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -223,6 +219,10 @@ impl pallet_balances::Config for TestRuntime {
     type MaxReserves = ();
     type ReserveIdentifier = [u8; 8];
     type WeightInfo = ();
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type FreezeIdentifier = ();
+    type MaxHolds = ConstU32<0>;
+    type MaxFreezes = ConstU32<0>;
 }
 
 parameter_types! {
@@ -397,7 +397,7 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage = system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+        let storage = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
         Self { storage }
     }
 
@@ -449,6 +449,7 @@ impl ExtBuilder {
         let mut balances = vec![
             (account_id_with_100_avt(), AMOUNT_100_TOKEN),
             (account_id2_with_100_avt(), AMOUNT_100_TOKEN),
+            (account_id3_with_100_avt(), AMOUNT_100_TOKEN),
         ];
         balances.append(&mut genesis_collators().into_iter().map(|c| (c, 1000)).collect());
 
@@ -458,7 +459,7 @@ impl ExtBuilder {
     }
 
     pub fn as_externality(self) -> sp_io::TestExternalities {
-        let keystore = KeyStore::new();
+        let keystore = MemoryKeystore::new();
 
         let mut ext = sp_io::TestExternalities::from(self.storage);
         ext.register_extension(KeystoreExt(Arc::new(keystore)));
@@ -486,6 +487,14 @@ pub fn account_id_with_100_avt() -> <TestRuntime as system::Config>::AccountId {
 
 pub fn account_id2_with_100_avt() -> <TestRuntime as system::Config>::AccountId {
     let pair = sr25519::Pair::from_seed(&[79u8; 32]);
+    return <TestRuntime as system::Config>::AccountId::decode(
+        &mut pair.public().to_vec().as_slice(),
+    )
+    .unwrap()
+}
+
+pub fn account_id3_with_100_avt() -> <TestRuntime as system::Config>::AccountId {
+    let pair = sr25519::Pair::from_seed(&[89u8; 32]);
     return <TestRuntime as system::Config>::AccountId::decode(
         &mut pair.public().to_vec().as_slice(),
     )

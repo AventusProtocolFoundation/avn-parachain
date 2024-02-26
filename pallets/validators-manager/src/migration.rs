@@ -16,6 +16,8 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 mod storage_with_voting {
 
+    use parachain_staking::BlockNumberFor;
+
     use super::*;
 
     #[storage_alias]
@@ -23,10 +25,7 @@ mod storage_with_voting {
         Pallet<T>,
         Blake2_128Concat,
         ActionId<<T as frame_system::Config>::AccountId>,
-        VotingSessionData<
-            <T as frame_system::Config>::AccountId,
-            <T as frame_system::Config>::BlockNumber,
-        >,
+        VotingSessionData<<T as frame_system::Config>::AccountId, BlockNumberFor<T>>,
         ValueQuery,
     >;
 
@@ -70,7 +69,7 @@ impl<T: Config> OnRuntimeUpgrade for RemovePalletVoting<T> {
 }
 
 pub fn remove_storage_items<T: Config>() -> Weight {
-    let mut consumed_weight: Weight = Weight::from_ref_time(0);
+    let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
@@ -80,17 +79,17 @@ pub fn remove_storage_items<T: Config>() -> Weight {
     let mut approvals_key = vec![0u8; 32];
     approvals_key[0..32].copy_from_slice(&approvals_prefix);
     let _ = unhashed::clear_prefix(&approvals_key[0..32], None, None);
-    add_weight(0, 1, Weight::from_ref_time(0));
+    add_weight(0, 1, Weight::from_parts(0 as u64, 0));
 
     let votes_prefix = storage::storage_prefix(b"ValidatorsManager", b"VotesRepository");
     let mut votes_key = vec![0u8; 32];
     votes_key[0..32].copy_from_slice(&votes_prefix);
     let _ = unhashed::clear_prefix(&votes_key[0..32], None, None);
-    add_weight(0, 1, Weight::from_ref_time(0));
+    add_weight(0, 1, Weight::from_parts(0 as u64, 0));
 
     STORAGE_VERSION.put::<Pallet<T>>();
 
     log::info!("✅ Storage Items Drained successfully");
 
-    return consumed_weight + Weight::from_ref_time(25_000_000_000)
+    return consumed_weight + Weight::from_parts(25_000_000_000 as u64, 0)
 }

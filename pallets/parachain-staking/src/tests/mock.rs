@@ -25,8 +25,8 @@ use frame_support::{
     dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
     parameter_types,
     traits::{
-        ConstU8, Currency, Everything, FindAuthor, GenesisBuild, Imbalance, LockIdentifier,
-        OnFinalize, OnInitialize, OnUnbalanced, ValidatorRegistration,
+        ConstU8, Currency, Everything, FindAuthor, Imbalance, LockIdentifier, OnFinalize,
+        OnInitialize, OnUnbalanced, ValidatorRegistration,
     },
     weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
@@ -41,9 +41,9 @@ use sp_avn_common::InnerCallValidator;
 use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_io;
 use sp_runtime::{
-    testing::{Header, TestXt, UintAuthorityId},
+    testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
-    DispatchError, Perbill, SaturatedConversion,
+    BuildStorage, DispatchError, Perbill, SaturatedConversion,
 };
 
 pub type AccountId = <Signature as Verify>::Signer;
@@ -52,32 +52,28 @@ pub type Balance = u128;
 pub type BlockNumber = u64;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
 // Configure a mock runtime to test the pallet.
 construct_runtime!(
-    pub enum Test where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Test
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Authorship: pallet_authorship::{Pallet, Call, Storage, Inherent},
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config},
+        Authorship: pallet_authorship::{Pallet, Storage},
+        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Timestamp: pallet_timestamp,
     }
 );
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
-const MAX_BLOCK_WEIGHT: Weight = Weight::from_ref_time(1024).set_proof_size(u64::MAX);
+const MAX_BLOCK_WEIGHT: Weight = Weight::from_parts(1024, 0).set_proof_size(u64::MAX);
 pub static TX_LEN: usize = 1;
 pub const BASE_FEE: u64 = 12;
 
@@ -114,16 +110,16 @@ pub fn sign(signer: &sr25519::Pair, message_to_sign: &[u8]) -> Signature {
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = Weight::from_ref_time(1024);
+    pub const MaximumBlockWeight: Weight = Weight::from_parts(1024, 0);
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
     pub const SS58Prefix: u8 = 42;
 
     pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(1024, NORMAL_DISPATCH_RATIO);
     pub RuntimeBlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
-        .base_block(Weight::from_ref_time(10))
+        .base_block(Weight::from_parts(10, 0))
         .for_class(DispatchClass::all(), |weights| {
-            weights.base_extrinsic = Weight::from_ref_time(BASE_FEE);
+            weights.base_extrinsic = Weight::from_parts(BASE_FEE, 0);
         })
         .for_class(DispatchClass::Normal, |weights| {
             weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT);
@@ -141,14 +137,13 @@ impl frame_system::Config for Test {
     type BaseCallFilter = Everything;
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
-    type Index = u64;
-    type BlockNumber = BlockNumber;
+    type Nonce = u64;
     type RuntimeCall = RuntimeCall;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -176,6 +171,10 @@ impl pallet_balances::Config for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = ();
+    type FreezeIdentifier = ();
+    type MaxFreezes = ();
+    type MaxHolds = ();
+    type RuntimeHoldReason = ();
 }
 
 pub struct Author4;
@@ -190,8 +189,6 @@ impl FindAuthor<AccountId> for Author4 {
 
 impl pallet_authorship::Config for Test {
     type FindAuthor = Author4;
-    type UncleGenerations = ();
-    type FilterUncle = ();
     type EventHandler = ParachainStaking;
 }
 
@@ -558,9 +555,7 @@ impl ExtBuilder {
     }
 
     pub(crate) fn build(self) -> sp_io::TestExternalities {
-        let mut t = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .expect("Frame system builds valid default genesis config");
+        let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
         pallet_balances::GenesisConfig::<Test> { balances: self.balances }
             .assimilate_storage(&mut t)
@@ -795,14 +790,14 @@ pub(crate) fn pay_gas_for_transaction(sender: &AccountId, tip: u128) {
         .pre_dispatch(
             sender,
             &RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
-            &DispatchInfo { weight: Weight::from_ref_time(1), ..Default::default() },
+            &DispatchInfo { weight: Weight::from_parts(1, 0), ..Default::default() },
             TX_LEN,
         )
         .unwrap();
 
     assert_ok!(ChargeTransactionPayment::<Test>::post_dispatch(
         Some(pre),
-        &DispatchInfo { weight: Weight::from_ref_time(1), ..Default::default() },
+        &DispatchInfo { weight: Weight::from_parts(1, 0), ..Default::default() },
         &PostDispatchInfo { actual_weight: None, pays_fee: Default::default() },
         TX_LEN,
         &Ok(())

@@ -18,12 +18,11 @@
 
 use frame_support::parameter_types;
 use frame_system as system;
-use sp_avn_common::event_types::EthEventId;
 use sp_core::{sr25519, ConstU32, Pair, H256};
-use sp_keystore::{testing::KeyStore, KeystoreExt};
+use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    testing::Header,
     traits::{BlakeTwo256, IdentityLookup, Verify},
+    BuildStorage,
 };
 use std::cell::RefCell;
 
@@ -37,17 +36,13 @@ pub type Signature = sr25519::Signature;
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Hashing = <TestRuntime as system::Config>::Hashing;
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type MockNftBatchBound = ConstU32<8>;
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
         NftManager: nft_manager::{Pallet, Call, Storage, Event<T>},
     }
@@ -74,13 +69,12 @@ impl system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -109,12 +103,12 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage = system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+        let storage = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
         Self { storage }
     }
 
     pub fn as_externality(self) -> sp_io::TestExternalities {
-        let keystore = KeyStore::new();
+        let keystore = MemoryKeystore::new();
 
         let mut ext = sp_io::TestExternalities::from(self.storage);
         ext.register_extension(KeystoreExt(Arc::new(keystore)));

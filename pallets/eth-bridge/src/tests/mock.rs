@@ -1,7 +1,7 @@
 use super::*;
 use crate::{self as eth_bridge, request::add_new_send_request};
 use avn;
-use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
+use frame_support::{parameter_types, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
@@ -14,9 +14,9 @@ use sp_core::{
     ConstU32, ConstU64, H256,
 };
 use sp_runtime::{
-    testing::{Header, TestSignature, TestXt, UintAuthorityId},
+    testing::{TestSignature, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    Perbill,
+    BuildStorage, Perbill,
 };
 use sp_staking::offence::OffenceError;
 use std::{cell::RefCell, convert::From, sync::Arc};
@@ -25,7 +25,6 @@ thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
 }
 
-pub type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = u64;
@@ -66,13 +65,10 @@ pub struct Context {
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Timestamp: pallet_timestamp,
         AVN: pallet_avn::{Pallet, Storage, Event},
         EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
@@ -111,13 +107,12 @@ impl system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -297,7 +292,7 @@ pub struct ExtBuilder {
 impl ExtBuilder {
     pub fn build_default() -> Self {
         let storage =
-            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+            frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
         Self {
             storage,
             pool_state: None,
@@ -311,7 +306,10 @@ impl ExtBuilder {
     pub fn as_externality(self) -> sp_io::TestExternalities {
         let mut ext = sp_io::TestExternalities::from(self.storage);
         // Events do not get emitted on block 0, so we increment the block here
-        ext.execute_with(|| System::set_block_number(1));
+        ext.execute_with(|| {
+            Timestamp::set_timestamp(1);
+            System::set_block_number(1)
+        });
         ext
     }
 
@@ -364,7 +362,10 @@ impl ExtBuilder {
         ext.register_extension(TransactionPoolExt::new(self.txpool_extension.unwrap()));
         assert!(self.pool_state.is_some());
         assert!(self.offchain_state.is_some());
-        ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into()));
+        ext.execute_with(|| {
+            Timestamp::set_timestamp(1);
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into());
+        });
         (ext, self.pool_state.unwrap(), self.offchain_state.unwrap())
     }
 }

@@ -1,7 +1,7 @@
 // Copyright 2022 Aventus Network Services (UK) Ltd.
 
 pub use crate::{self as summary, *};
-use frame_support::{parameter_types, traits::GenesisBuild, BasicExternalities};
+use frame_support::{parameter_types, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,
@@ -22,14 +22,16 @@ use sp_core::{
     ConstU64, H256,
 };
 use sp_runtime::{
-    testing::{Header, TestSignature, TestXt, UintAuthorityId},
+    testing::{TestSignature, TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    BuildStorage,
 };
 use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
 };
 use std::{cell::RefCell, convert::From, sync::Arc};
+use system::pallet_prelude::BlockNumberFor;
 
 pub const APPROVE_ROOT: bool = true;
 pub const REJECT_ROOT: bool = false;
@@ -37,7 +39,7 @@ pub const REJECT_ROOT: bool = false;
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 pub type AccountId = <TestRuntime as system::Config>::AccountId;
-pub type BlockNumber = <TestRuntime as system::Config>::BlockNumber;
+pub type BlockNumber = BlockNumberFor<TestRuntime>;
 
 impl Summary {
     pub fn get_root_data(root_id: &RootId<BlockNumber>) -> RootData<AccountId> {
@@ -239,16 +241,12 @@ impl Summary {
     }
 }
 
-type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 frame_support::construct_runtime!(
-    pub enum TestRuntime where
-        Block = Block,
-        NodeBlock = Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum TestRuntime
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
         Summary: summary::{Pallet, Call, Storage, Event<T>, Config<T>},
@@ -316,13 +314,12 @@ impl system::Config for TestRuntime {
     type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type RuntimeCall = RuntimeCall;
-    type Index = u64;
-    type BlockNumber = u64;
+    type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
+    type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
@@ -487,7 +484,7 @@ pub struct ExtBuilder {
 impl ExtBuilder {
     pub fn build_default() -> Self {
         let storage =
-            frame_system::GenesisConfig::default().build_storage::<TestRuntime>().unwrap();
+            frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
         Self {
             storage,
             pool_state: None,
@@ -501,7 +498,10 @@ impl ExtBuilder {
     pub fn as_externality(self) -> sp_io::TestExternalities {
         let mut ext = sp_io::TestExternalities::from(self.storage);
         // Events do not get emitted on block 0, so we increment the block here
-        ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into()));
+        ext.execute_with(|| {
+            Timestamp::set_timestamp(1);
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into())
+        });
         ext
     }
 
@@ -554,7 +554,10 @@ impl ExtBuilder {
         ext.register_extension(TransactionPoolExt::new(self.txpool_extension.unwrap()));
         assert!(self.pool_state.is_some());
         assert!(self.offchain_state.is_some());
-        ext.execute_with(|| frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into()));
+        ext.execute_with(|| {
+            Timestamp::set_timestamp(1);
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into())
+        });
         (ext, self.pool_state.unwrap(), self.offchain_state.unwrap())
     }
 }

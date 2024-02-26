@@ -9,7 +9,7 @@ use super::*;
 
 use crate::offence::create_offenders_identification;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_system::{EventRecord, Pallet as System, RawOrigin};
+use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
 use sp_runtime::WeakBoundedVec;
@@ -24,29 +24,30 @@ fn setup_publish_root_voting<T: Config>(
     validators: Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>>,
 ) -> (
     Validator<T::AuthorityId, T::AccountId>,
-    RootId<T::BlockNumber>,
+    RootId<BlockNumberFor<T>>,
     <T::AuthorityId as RuntimeAppPublic>::Signature,
     u32,
 ) {
     let sender: Validator<T::AuthorityId, T::AccountId> =
         validators[validators.len() - (1 as usize)].clone();
-    let root_id: RootId<T::BlockNumber> = RootId::new(RootRange::new(0u32.into(), 60u32.into()), 1);
+    let root_id: RootId<BlockNumberFor<T>> =
+        RootId::new(RootRange::new(0u32.into(), 60u32.into()), 1);
     let signature: <T::AuthorityId as RuntimeAppPublic>::Signature = generate_signature::<T>();
     let quorum = setup_voting_session::<T>(&root_id);
 
     (sender, root_id, signature, quorum)
 }
 
-fn setup_voting_session<T: Config>(root_id: &RootId<T::BlockNumber>) -> u32 {
+fn setup_voting_session<T: Config>(root_id: &RootId<BlockNumberFor<T>>) -> u32 {
     PendingApproval::<T>::insert(root_id.range.clone(), root_id.ingress_counter);
 
     let quorum = AVN::<T>::quorum();
     let voting_period_end =
         safe_add_block_numbers(<system::Pallet<T>>::block_number(), VotingPeriod::<T>::get());
-    let current_block_number: T::BlockNumber = 0u32.into();
+    let current_block_number: BlockNumberFor<T> = 0u32.into();
     VotesRepository::<T>::insert(
         root_id,
-        VotingSessionData::<T::AccountId, T::BlockNumber>::new(
+        VotingSessionData::<T::AccountId, BlockNumberFor<T>>::new(
             root_id.session_id(),
             quorum,
             voting_period_end.expect("already checked"),
@@ -60,7 +61,7 @@ fn setup_voting_session<T: Config>(root_id: &RootId<T::BlockNumber>) -> u32 {
 fn setup_approval_votes<T: Config>(
     validators: &Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>>,
     number_of_votes: u32,
-    root_id: &RootId<T::BlockNumber>,
+    root_id: &RootId<BlockNumberFor<T>>,
 ) {
     setup_votes::<T>(validators, number_of_votes, root_id, true);
 }
@@ -68,7 +69,7 @@ fn setup_approval_votes<T: Config>(
 fn setup_reject_votes<T: Config>(
     validators: &Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>>,
     number_of_votes: u32,
-    root_id: &RootId<T::BlockNumber>,
+    root_id: &RootId<BlockNumberFor<T>>,
 ) {
     setup_votes::<T>(validators, number_of_votes, root_id, false);
 }
@@ -76,7 +77,7 @@ fn setup_reject_votes<T: Config>(
 fn setup_votes<T: Config>(
     validators: &Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>>,
     number_of_votes: u32,
-    root_id: &RootId<T::BlockNumber>,
+    root_id: &RootId<BlockNumberFor<T>>,
     is_approval: bool,
 ) {
     for i in 0..validators.len() {
@@ -97,7 +98,7 @@ fn setup_votes<T: Config>(
     }
 }
 
-fn advance_block<T: Config>(number: T::BlockNumber) {
+fn advance_block<T: Config>(number: BlockNumberFor<T>) {
     let now = System::<T>::block_number();
     System::<T>::set_block_number(now + number);
 }
@@ -149,12 +150,12 @@ fn setup_roots<T: Config>(
 }
 
 fn setup_record_summary_calculation<T: Config>() -> (
-    T::BlockNumber,
+    BlockNumberFor<T>,
     H256,
     IngressCounter,
     <<T as avn::Config>::AuthorityId as RuntimeAppPublic>::Signature,
 ) {
-    let new_block_number: T::BlockNumber = SchedulePeriod::<T>::get();
+    let new_block_number: BlockNumberFor<T> = SchedulePeriod::<T>::get();
     let root_hash = H256::from(ROOT_HASH_BYTES);
     let ingress_counter: IngressCounter = 100u64.into();
     <TotalIngresses<T>>::put(ingress_counter - 1);
@@ -214,8 +215,8 @@ fn set_recovered_account_for_tests<T: Config>(
 
 benchmarks! {
     set_periods {
-        let new_schedule_period: T::BlockNumber = 200u32.into();
-        let new_voting_period: T::BlockNumber = 150u32.into();
+        let new_schedule_period: BlockNumberFor<T> = 200u32.into();
+        let new_voting_period: BlockNumberFor<T> = 150u32.into();
     }: _(RawOrigin::Root, new_schedule_period, new_voting_period)
     verify {
         assert_eq!(SchedulePeriod::<T>::get(), new_schedule_period);
@@ -265,7 +266,7 @@ benchmarks! {
         reject_voters.reverse();
         setup_reject_votes::<T>(&reject_voters, o, &root_id);
 
-        CurrentSlot::<T>::put::<T::BlockNumber>(3u32.into());
+        CurrentSlot::<T>::put::<BlockNumberFor<T>>(3u32.into());
 
         //In test mode, we want to set the recovered account (when verifying ECDSA signature) as a validator
         #[cfg(test)]
@@ -321,7 +322,7 @@ benchmarks! {
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter - 1);
 
-        CurrentSlot::<T>::put::<T::BlockNumber>(3u32.into());
+        CurrentSlot::<T>::put::<BlockNumberFor<T>>(3u32.into());
     }: approve_root(RawOrigin::None, root_id, sender.clone(), signature)
     verify {
         let vote = VotesRepository::<T>::get(&root_id);
@@ -421,7 +422,7 @@ benchmarks! {
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
 
-        let current_slot_number: T::BlockNumber = 3u32.into();
+        let current_slot_number: BlockNumberFor<T> = 3u32.into();
         CurrentSlot::<T>::put(current_slot_number);
 
         // Setup votes more than quorum to trigger end voting period
@@ -459,7 +460,7 @@ benchmarks! {
         let (sender, root_id,  signature, quorum) = setup_publish_root_voting::<T>(validators.clone());
         setup_roots::<T>(1, sender.account_id.clone(), root_id.ingress_counter);
 
-        let current_slot_number: T::BlockNumber = 3u32.into();
+        let current_slot_number: BlockNumberFor<T> = 3u32.into();
         CurrentSlot::<T>::put(current_slot_number);
 
         // Setup votes more than quorum to trigger end voting period
@@ -501,10 +502,10 @@ benchmarks! {
         CurrentSlotsValidator::<T>::put(sender.account_id.clone());
 
         // Create an offence: last published summary slot number < current slot number
-        let old_slot_number: T::BlockNumber = 2u32.into();
+        let old_slot_number: BlockNumberFor<T> = 2u32.into();
         CurrentSlot::<T>::put(old_slot_number);
 
-        let last_summary_slot: T::BlockNumber = 1u32.into();
+        let last_summary_slot: BlockNumberFor<T> = 1u32.into();
         SlotOfLastPublishedSummary::<T>::put(last_summary_slot);
 
         let old_new_slot_start = NextSlotAtBlock::<T>::get();
@@ -568,8 +569,8 @@ benchmarks! {
         let (sender, _,  signature, _) = setup_publish_root_voting::<T>(validators.clone());
 
         let current_block_number = SchedulePeriod::<T>::get() + T::MinBlockAge::get();
-        let next_slot_at_block: T::BlockNumber = current_block_number - T::AdvanceSlotGracePeriod::get() - 1u32.into();
-        let current_slot_number: T::BlockNumber = 3u32.into();
+        let next_slot_at_block: BlockNumberFor<T> = current_block_number - T::AdvanceSlotGracePeriod::get() - 1u32.into();
+        let current_slot_number: BlockNumberFor<T> = 3u32.into();
         let slot_number_to_challenge_as_u32: u32 = AVN::<T>::convert_block_number_to_u32(current_slot_number).expect("valid u32 value");
 
         advance_block::<T>(current_block_number);

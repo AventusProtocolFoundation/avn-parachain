@@ -17,7 +17,7 @@ use scale_info::TypeInfo;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
-use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160};
+use sp_core::{ConstU128, OpaqueMetadata, H160};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto},
@@ -32,12 +32,11 @@ use sp_version::RuntimeVersion;
 
 use frame_support::{
     construct_runtime,
-    dispatch::{DispatchClass, GetStorageVersion},
-    pallet_prelude::StorageVersion,
+    dispatch::DispatchClass,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Currency, Imbalance, OnUnbalanced,
-        PrivilegeCmp,
+        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance,
+        OnUnbalanced, PrivilegeCmp,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
@@ -110,11 +109,11 @@ where
 }
 
 pub use node_primitives::{AccountId, Signature};
-use node_primitives::{Balance, BlockNumber, Hash, Index};
+use node_primitives::{Balance, BlockNumber, Hash, Nonce};
 
 use runtime_common::{
     constants::{currency::*, time::*},
-    opaque, weights, Address, Header, OperationalFeeMultiplier, TransactionByteFee, WeightToFee,
+    weights, Address, Header, OperationalFeeMultiplier, TransactionByteFee, WeightToFee,
 };
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 
@@ -153,106 +152,8 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
-        SeedBridgeTransactionAndDropEthTransactions,
-    ),
+    (pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,),
 >;
-
-const ETHEREUM_TRANSACTIONS_PREFIX: &[u8] = b"EthereumTransactions";
-const STORAGE_ITEM_NAMES: &[&'static str] = &[
-    "Repository",
-    "DispatchedAvnTxIds",
-    "ReservedTransactions",
-    "PublishRootContract",
-    "Nonce",
-    "StorageVersion",
-];
-pub struct SeedBridgeTransactionAndDropEthTransactions;
-
-impl frame_support::traits::OnRuntimeUpgrade for SeedBridgeTransactionAndDropEthTransactions {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        let migration_version = StorageVersion::new(1);
-        let current = pallet_eth_bridge::Pallet::<Runtime>::current_storage_version();
-        let onchain = pallet_eth_bridge::Pallet::<Runtime>::on_chain_storage_version();
-
-        if onchain < 1 {
-            log::info!(
-                "🚧 Running migration. Current storage version: {:?}, on-chain version: {:?}",
-                current,
-                onchain
-            );
-
-            let mut total_weight = Weight::zero();
-
-            match try_seed_next_tx_id() {
-                Ok(weight) => total_weight += weight,
-                Err(_) => log::info!("💔 Failed to seed transaction Id"),
-            }
-
-            total_weight += clear_ethereum_transactions_storage();
-
-            migration_version.put::<pallet_eth_bridge::Pallet<Runtime>>();
-
-            log::info!("🚧 Migration successfull");
-
-            return total_weight
-        }
-        Weight::zero()
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
-        let pre_upgrade_transaction_id: u64 = get_nonce_seed().unwrap();
-        Ok((pre_upgrade_transaction_id + 1u64).encode())
-    }
-
-    #[cfg(feature = "try-runtime")]
-    fn post_upgrade(new_transaction_id_bytes: Vec<u8>) -> Result<(), &'static str> {
-        let next_tx_id: u32 = pallet_eth_bridge::Pallet::<Runtime>::get_next_tx_id();
-        assert_eq!((next_tx_id as u64).encode(), new_transaction_id_bytes);
-        Ok(())
-    }
-}
-
-fn try_seed_next_tx_id() -> Result<Weight, ()> {
-    let nonce_seed = get_nonce_seed()?;
-    let tx_id: u32 = nonce_seed.try_into().map_err(|_| ())?;
-    <pallet_eth_bridge::Pallet<Runtime> as pallet_eth_bridge::Store>::NextTxId::put(tx_id + 1);
-    log::info!("✅ Transaction Id seeded to {}", tx_id + 1);
-
-    Ok(<Runtime as frame_system::Config>::DbWeight::get().reads_writes(1, 1))
-}
-
-fn get_nonce_seed() -> Result<u64, ()> {
-    let nonce_prefix =
-        frame_support::storage::storage_prefix(ETHEREUM_TRANSACTIONS_PREFIX, b"Nonce");
-    frame_support::storage::unhashed::get::<u64>(&nonce_prefix).ok_or(())
-}
-
-fn clear_ethereum_transactions_storage() -> Weight {
-    STORAGE_ITEM_NAMES.iter().fold(Weight::zero(), |acc, &item_name| {
-        let storage_prefix = frame_support::storage::storage_prefix(
-            ETHEREUM_TRANSACTIONS_PREFIX,
-            item_name.as_bytes(),
-        );
-        let mut storage_key = [0u8; 32];
-        storage_key[0..32].copy_from_slice(&storage_prefix);
-
-        match item_name {
-            "PublishRootContract" | "Nonce" | "StorageVersion" => {
-                frame_support::storage::unhashed::kill(&storage_key);
-                log::info!("🚧 Successfully migrated {}", item_name);
-                acc + <Runtime as frame_system::Config>::DbWeight::get().writes(1)
-            },
-            _ => {
-                frame_support::storage::unhashed::clear_prefix(&storage_key, None, None);
-                log::info!("🚧 Successfully migrated {}", item_name);
-                acc + <Runtime as frame_system::Config>::DbWeight::get().writes(1)
-            },
-        }
-    })
-}
 
 impl_opaque_keys! {
     pub struct SessionKeys {
@@ -268,7 +169,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 59,
+    spec_version: 60,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -298,7 +199,7 @@ const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 0.5 of a second of compute with a 12 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
     WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
-    cumulus_primitives_core::relay_chain::v2::MAX_POV_SIZE as u64,
+    cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
 /// The version information used to identify this runtime when compiled natively.
@@ -385,15 +286,13 @@ impl frame_system::Config for Runtime {
     /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = AccountIdLookup<AccountId, ()>;
     /// The index type for storing how many extrinsics an account has signed.
-    type Index = Index;
-    /// The index type for blocks.
-    type BlockNumber = BlockNumber;
+    type Nonce = Nonce;
     /// The type for hashing blocks and tries.
     type Hash = Hash;
     /// The hashing algorithm used.
     type Hashing = BlakeTwo256;
     /// The header type.
-    type Header = generic::Header<BlockNumber, BlakeTwo256>;
+    type Block = Block;
     /// The ubiquitous event type.
     type RuntimeEvent = RuntimeEvent;
     // type Call = Call;
@@ -438,8 +337,6 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-    type UncleGenerations = ConstU32<0>;
-    type FilterUncle = ();
     type EventHandler = (ParachainStaking,);
 }
 
@@ -459,6 +356,10 @@ impl pallet_balances::Config for Runtime {
     type WeightInfo = pallet_balances::weights::SubstrateWeight<Runtime>;
     type MaxReserves = ConstU32<50>;
     type ReserveIdentifier = [u8; 8];
+    type RuntimeHoldReason = RuntimeHoldReason;
+    type FreezeIdentifier = ();
+    type MaxHolds = ConstU32<0>;
+    type MaxFreezes = ConstU32<0>;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -501,6 +402,7 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
     type ControllerOrigin = EnsureRoot<AccountId>;
     type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
     type WeightInfo = ();
+    type PriceForSiblingDelivery = ();
 }
 
 impl cumulus_pallet_dmp_queue::Config for Runtime {
@@ -532,6 +434,7 @@ impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
     type MaxAuthorities = ConstU32<100_000>;
+    type AllowMultipleBlocksPerSlot = ConstBool<false>;
 }
 
 parameter_types! {
@@ -612,12 +515,12 @@ impl pallet_im_online::Config for Runtime {
     type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
     type MaxKeys = MaxKeys;
     type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
-    type MaxPeerDataEncodingSize = MaxPeerDataEncodingSize;
 }
 
 impl pallet_sudo::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
+    type WeightInfo = ();
 }
 
 impl pallet_utility::Config for Runtime {
@@ -771,6 +674,7 @@ impl pallet_assets::Config for Runtime {
     type StringLimit = StringLimit;
     type Freezer = ();
     type Extra = ();
+    type CallbackHandle = ();
     type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
     #[cfg(feature = "runtime-benchmarks")]
     type BenchmarkHelper = ();
@@ -824,38 +728,33 @@ impl pallet_preimage::Config for Runtime {
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
-    pub enum Runtime where
-        Block = Block,
-        NodeBlock = opaque::Block,
-        UncheckedExtrinsic = UncheckedExtrinsic,
+    pub enum Runtime
     {
         // System support stuff.
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>} = 0,
-        ParachainSystem: cumulus_pallet_parachain_system::{
-            Pallet, Call, Config, Storage, Inherent, Event<T>, ValidateUnsigned,
-        } = 1,
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent} = 2,
-        ParachainInfo: parachain_info::{Pallet, Storage, Config} = 3,
+        System: frame_system = 0,
+        ParachainSystem: cumulus_pallet_parachain_system = 1,
+        Timestamp: pallet_timestamp = 2,
+        ParachainInfo: parachain_info = 3,
 
         // Monetary stuff.
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
 
         // Collator support. The order of these 4 are important and shall not change.
-        Authorship: pallet_authorship::{Pallet, Call, Storage} = 20,
-        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 22,
-        Aura: pallet_aura::{Pallet, Storage, Config<T>} = 23,
-        AuraExt: cumulus_pallet_aura_ext::{Pallet, Storage, Config} = 24,
-        ParachainStaking: pallet_parachain_staking::{Pallet, Call, Storage, Event<T>, Config<T>} = 96,
+        Authorship: pallet_authorship = 20,
+        Session: pallet_session = 22,
+        Aura: pallet_aura = 23,
+        AuraExt: cumulus_pallet_aura_ext = 24,
+        ParachainStaking: pallet_parachain_staking = 96,
 
         // Since the ValidatorsManager integrates with the ParachainStaking pallet, we want to initialise after it.
         ValidatorsManager: pallet_validators_manager = 18,
 
         // XCM helpers.
-        XcmpQueue: cumulus_pallet_xcmp_queue::{Pallet, Call, Storage, Event<T>} = 30,
-        PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin, Config} = 31,
-        CumulusXcm: cumulus_pallet_xcm::{Pallet, Event<T>, Origin} = 32,
-        DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>} = 33,
+        XcmpQueue: cumulus_pallet_xcmp_queue = 30,
+        PolkadotXcm: pallet_xcm = 31,
+        CumulusXcm: cumulus_pallet_xcm = 32,
+        DmpQueue: cumulus_pallet_dmp_queue = 33,
 
         // Substrate pallets
         Assets: pallet_assets = 60,
@@ -942,6 +841,14 @@ impl_runtime_apis! {
         fn metadata() -> OpaqueMetadata {
             OpaqueMetadata::new(Runtime::metadata().into())
         }
+
+        fn metadata_at_version(version: u32) -> Option<OpaqueMetadata> {
+            Runtime::metadata_at_version(version)
+        }
+
+        fn metadata_versions() -> sp_std::vec::Vec<u32> {
+            Runtime::metadata_versions()
+        }
     }
 
     impl sp_block_builder::BlockBuilder<Block> for Runtime {
@@ -981,24 +888,6 @@ impl_runtime_apis! {
         }
     }
 
-    impl sp_session::SessionKeys<Block> for Runtime {
-        fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-            SessionKeys::generate(seed)
-        }
-
-        fn decode_session_keys(
-            encoded: Vec<u8>,
-        ) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
-            SessionKeys::decode_into_raw_public_keys(&encoded)
-        }
-    }
-
-    impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-        fn account_nonce(account: AccountId) -> Index {
-            System::account_nonce(account)
-        }
-    }
-
     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
         fn query_info(
             uxt: <Block as BlockT>::Extrinsic,
@@ -1012,9 +901,22 @@ impl_runtime_apis! {
         ) -> pallet_transaction_payment::FeeDetails<Balance> {
             TransactionPayment::query_fee_details(uxt, len)
         }
+
+        fn query_weight_to_fee(weight: Weight) -> Balance {
+            TransactionPayment::weight_to_fee(weight)
+        }
+        fn query_length_to_fee(length: u32) -> Balance {
+            TransactionPayment::length_to_fee(length)
+        }
     }
 
-    impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
+    impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+        fn account_nonce(account: AccountId) -> Nonce {
+            System::account_nonce(account)
+        }
+    }
+
+     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentCallApi<Block, Balance, RuntimeCall>
         for Runtime
     {
         fn query_call_info(
@@ -1028,6 +930,13 @@ impl_runtime_apis! {
             len: u32,
         ) -> pallet_transaction_payment::FeeDetails<Balance> {
             TransactionPayment::query_call_fee_details(call, len)
+        }
+
+        fn query_weight_to_fee(weight: Weight) -> Balance {
+            TransactionPayment::weight_to_fee(weight)
+        }
+        fn query_length_to_fee(length: u32) -> Balance {
+            TransactionPayment::length_to_fee(length)
         }
     }
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {

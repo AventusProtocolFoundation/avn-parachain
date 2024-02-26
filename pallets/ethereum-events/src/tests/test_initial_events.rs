@@ -4,7 +4,7 @@
 
 use crate::{mock::*, *};
 
-pub type BlockNumber = <TestRuntime as frame_system::Config>::BlockNumber;
+pub type BlockNumber = BlockNumberFor<TestRuntime>;
 
 mod initial_lifts {
     use super::*;
@@ -80,7 +80,7 @@ mod initial_processed_events {
         pub fn create() -> Self {
             let initial_processed_events = create_initial_processed_events()
                 .iter()
-                .map(|(x, _)| x.clone())
+                .map(|(x, y, _)| EthEventId { signature: x.clone(), transaction_hash: y.clone() })
                 .collect::<Vec<EthEventId>>();
             return Context { initial_processed_events }
         }

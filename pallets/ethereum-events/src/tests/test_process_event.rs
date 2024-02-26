@@ -28,10 +28,7 @@ mod process_event {
         pub event_data: EventData,
         pub checked_by: AccountId,
         pub min_challenge_votes: u32,
-        pub check_result: EthEventCheckResult<
-            <mock::TestRuntime as frame_system::Config>::BlockNumber,
-            AccountId,
-        >,
+        pub check_result: EthEventCheckResult<BlockNumberFor<mock::TestRuntime>, AccountId>,
         pub validator: Validator<UintAuthorityId, AccountId>,
         pub signature: <AuthorityId as RuntimeAppPublic>::Signature,
         pub first_validator_id: AccountId,
