@@ -68,7 +68,6 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
-// pub use pallet_ethereum_events::Event as EthEvent;
 use sp_avn_common::{InnerCallValidator, Proof};
 
 use pallet_parachain_staking;
