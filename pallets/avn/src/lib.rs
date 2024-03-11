@@ -163,15 +163,20 @@ pub mod pallet {
     #[pallet::getter(fn get_bridge_contract_address)]
     pub type AvnBridgeContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn get_primary_validator)]
+    pub type PrimaryValidator<T: Config> = StorageValue<_, u8, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub bridge_contract_address: H160,
+        pub primary_validator: u8,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), bridge_contract_address: H160::zero() }
+            Self { _phantom: Default::default(), bridge_contract_address: H160::zero(), primary_validator: 0 }
         }
     }
 
@@ -179,6 +184,7 @@ pub mod pallet {
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             AvnBridgeContractAddress::<T>::put(self.bridge_contract_address);
+            PrimaryValidator::<T>::put(self.primary_validator);
         }
     }
 
@@ -263,11 +269,10 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let block_number: usize = TryInto::<usize>::try_into(block_number)
-            .map_err(|_| Error::<T>::ErrorConvertingBlockNumber)?;
+        let index = PrimaryValidator::<T>::get();
+        PrimaryValidator::<T>::put((index + 1) % validators.len() as u8);
 
-        let index = block_number % validators.len();
-        return Ok(validators[index].account_id.clone())
+        return Ok(validators[index as usize].account_id.clone())
     }
 
     pub fn get_validator_for_current_node() -> Option<Validator<T::AuthorityId, T::AccountId>> {
