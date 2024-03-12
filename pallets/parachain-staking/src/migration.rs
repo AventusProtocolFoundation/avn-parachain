@@ -16,6 +16,7 @@ use frame_support::{
     traits::{Get, OnRuntimeUpgrade},
     weights::Weight,
 };
+use sp_std::prelude::*;
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -160,12 +161,12 @@ impl<T: Config> OnRuntimeUpgrade for EnableStaking<T> {
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<(), &'static str> {
-        Ok(())
+    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+        Ok(vec![])
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade() -> Result<(), &'static str> {
+    fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
         Ok(())
     }
 }
