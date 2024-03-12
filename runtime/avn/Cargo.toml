@@ -234,9 +234,4 @@ try-runtime = [
 	"pallet-offences/try-runtime",
 	"pallet-im-online/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-preimage/try-runtime",
-	"pallet-scheduler/try-runtime",
-	"pallet-conviction-voting/try-runtime",
-	"pallet-referenda/try-runtime",
-	"pallet-whitelist/try-runtime",
 ]
