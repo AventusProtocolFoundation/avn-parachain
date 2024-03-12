@@ -219,6 +219,7 @@ try-runtime = [
 	"parachain-info/try-runtime",
 	"runtime-common/try-runtime",
 	"pallet-avn-offence-handler/try-runtime",
+	"pallet-avn-finality-tracker/try-runtime",
 	"pallet-validators-manager/try-runtime",
 	"pallet-ethereum-events/try-runtime",
 	"pallet-avn/try-runtime",
