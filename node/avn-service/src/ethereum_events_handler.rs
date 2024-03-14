@@ -1,6 +1,10 @@
-use sp_avn_common::event_types::{
-    AddedValidatorData, AvtGrowthLiftedData, Error, EthEvent, EthEventId, EventData, LiftedData,
-    NftCancelListingData, NftEndBatchListingData, NftMintData, NftTransferToData, ValidEvents,
+use sp_avn_common::{
+    event_discovery::DiscoveredEvent,
+    event_types::{
+        AddedValidatorData, AvtGrowthLiftedData, Error, EthEvent, EthEventId, EventData,
+        LiftedData, NftCancelListingData, NftEndBatchListingData, NftMintData, NftTransferToData,
+        ValidEvents,
+    },
 };
 use web3::{
     types::{FilterBuilder, Log, H160, H256, U64},
@@ -12,7 +16,7 @@ pub enum AppError {
     ErrorGettingEventLogs,
     MissingTransactionHash,
     MissingBlockNumber,
-    ParsingError(Error)
+    ParsingError(Error),
 }
 
 pub async fn identify_events(
@@ -99,40 +103,26 @@ fn parse_event_data(
     topics: Vec<Vec<u8>>,
 ) -> Result<EventData, AppError> {
     match event_type {
-        ValidEvents::AddedValidator => {
-            AddedValidatorData::parse_bytes(Some(data), topics)
-                .map_err(|err| AppError::ParsingError(err.into()))
-                .map(EventData::LogAddedValidator)
-        }
-        ValidEvents::Lifted => {
-            LiftedData::parse_bytes(Some(data), topics)
-                .map_err(|err| AppError::ParsingError(err.into()))
-                .map(EventData::LogLifted)
-        }
-        ValidEvents::NftMint => {
-            NftMintData::parse_bytes(Some(data), topics)
-                .map_err(|err| AppError::ParsingError(err.into()))
-                .map(EventData::LogNftMinted)
-        }
-        ValidEvents::NftTransferTo => {
-            NftTransferToData::parse_bytes(Some(data), topics)
-                .map_err(|err| AppError::ParsingError(err))
-                .map(EventData::LogNftTransferTo)
-        }
-        ValidEvents::NftCancelListing => {
-            NftCancelListingData::parse_bytes(Some(data), topics)
-                .map_err(|err| AppError::ParsingError(err.into()))
-                .map(EventData::LogNftCancelListing)
-        }
-        ValidEvents::NftEndBatchListing => {
-            NftEndBatchListingData::parse_bytes(Some(data), topics)
-                .map_err(|err| AppError::ParsingError(err.into()))
-                .map(EventData::LogNftEndBatchListing)
-        }
-        ValidEvents::AvtGrowthLifted => {
-            AvtGrowthLiftedData::parse_bytes(Some(data), topics)
-                .map_err(|err| AppError::ParsingError(err.into()))
-                .map(EventData::LogAvtGrowthLifted)
-        }
+        ValidEvents::AddedValidator => AddedValidatorData::parse_bytes(Some(data), topics)
+            .map_err(|err| AppError::ParsingError(err.into()))
+            .map(EventData::LogAddedValidator),
+        ValidEvents::Lifted => LiftedData::parse_bytes(Some(data), topics)
+            .map_err(|err| AppError::ParsingError(err.into()))
+            .map(EventData::LogLifted),
+        ValidEvents::NftMint => NftMintData::parse_bytes(Some(data), topics)
+            .map_err(|err| AppError::ParsingError(err.into()))
+            .map(EventData::LogNftMinted),
+        ValidEvents::NftTransferTo => NftTransferToData::parse_bytes(Some(data), topics)
+            .map_err(|err| AppError::ParsingError(err))
+            .map(EventData::LogNftTransferTo),
+        ValidEvents::NftCancelListing => NftCancelListingData::parse_bytes(Some(data), topics)
+            .map_err(|err| AppError::ParsingError(err.into()))
+            .map(EventData::LogNftCancelListing),
+        ValidEvents::NftEndBatchListing => NftEndBatchListingData::parse_bytes(Some(data), topics)
+            .map_err(|err| AppError::ParsingError(err.into()))
+            .map(EventData::LogNftEndBatchListing),
+        ValidEvents::AvtGrowthLifted => AvtGrowthLiftedData::parse_bytes(Some(data), topics)
+            .map_err(|err| AppError::ParsingError(err.into()))
+            .map(EventData::LogAvtGrowthLifted),
     }
 }
