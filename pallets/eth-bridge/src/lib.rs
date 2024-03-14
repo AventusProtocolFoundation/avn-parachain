@@ -58,7 +58,9 @@ use alloc::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
-use frame_support::{dispatch::DispatchResultWithPostInfo, log, traits::IsSubType, BoundedVec};
+use frame_support::{
+    dispatch::DispatchResultWithPostInfo, log, traits::IsSubType, BoundedBTreeSet, BoundedVec,
+};
 use frame_system::{
     ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
@@ -73,7 +75,7 @@ use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::event_types::Validator;
+use sp_avn_common::{event_discovery::*, event_types::Validator};
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
@@ -132,7 +134,11 @@ pub mod pallet {
     use crate::offence::CorroborationOffenceType;
 
     use super::*;
-    use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
+    use frame_support::{
+        pallet_prelude::{ValueQuery, *},
+        traits::UnixTime,
+        Blake2_128Concat,
+    };
 
     #[pallet::config]
     pub trait Config:
@@ -222,6 +228,21 @@ pub mod pallet {
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn active_ethereum_range)]
+    pub type ActiveEthereumRange<T: Config> = StorageValue<_, EthBlockRange, OptionQuery>;
+
+    #[pallet::storage]
+    pub type DiscoveredEventsShard<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        EthBlockRange,
+        Blake2_128Concat,
+        DiscoveredEthEventsFraction,
+        BoundedBTreeSet<T::AccountId, VotesLimit>,
+        ValueQuery,
+    >;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
@@ -282,6 +303,9 @@ pub mod pallet {
         CallerIdLengthExceeded,
         NoActiveRequest,
         CannotCorroborateOwnTransaction,
+        EventVotesFull,
+        EventVoteExists,
+        EventScanningDisabled,
     }
 
     #[pallet::call]
@@ -485,6 +509,37 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::ActiveRequestRemoved { request_id });
             Ok(().into())
         }
+
+        #[pallet::call_index(6)]
+        #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
+        pub fn submit_discovered_events(
+            origin: OriginFor<T>,
+            author: Author<T>,
+            range: EthBlockRange,
+            events_fraction: DiscoveredEthEventsFraction,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+        ) -> DispatchResultWithPostInfo {
+            ensure_none(origin)?;
+
+            // Validate that the range is the current one.
+            let active_range =
+                Self::active_ethereum_range().ok_or(Error::<T>::EventScanningDisabled)?;
+            ensure!(range == active_range, Error::<T>::EventScanningDisabled);
+
+            // Check if already vote has been casted
+            let votes = DiscoveredEventsShard::<T>::get(&range, &events_fraction);
+            ensure!(votes.contains(&author.account_id) == false, Error::<T>::EventVoteExists);
+            ensure!(votes.len() as u32 >= AVN::<T>::quorum(), Error::<T>::EventVotesFull);
+
+            DiscoveredEventsShard::<T>::try_mutate(&range, &events_fraction, |votes| {
+                votes.try_insert(author.account_id)
+            })
+            .map_err(|_| Error::<T>::EventVotesFull)?;
+
+            // TODO process if ready
+
+            Ok(().into())
+        }
     }
 
     #[pallet::hooks]
@@ -607,6 +662,7 @@ pub mod pallet {
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
+        // TODO extend for submit_discovered_events
         // Confirm that the call comes from an author before it can enter the pool:
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
