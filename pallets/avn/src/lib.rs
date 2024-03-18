@@ -291,13 +291,11 @@ impl<T: Config> Pallet<T> {
 
         return match op_type {
             OperationType::Ethereum => {
-                // ethereum
                 counters.0 = (counters.0 + 1) % validators_len;
                 PrimaryValidator::<T>::put(&counters);
                 Ok(validators[counters.0 as usize].account_id.clone())
             },
             OperationType::Avn => {
-                // avn
                 counters.1 = (counters.1 + 1) % validators_len;
                 PrimaryValidator::<T>::put(&counters);
                 Ok(validators[counters.1 as usize].account_id.clone())
