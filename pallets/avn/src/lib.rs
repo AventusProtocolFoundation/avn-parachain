@@ -286,21 +286,20 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let mut counters = PrimaryValidator::<T>::get();
+        let counters = PrimaryValidator::<T>::get();
         let validators_len = Self::validators().len() as u8;
 
-        return match op_type {
+        let index = match op_type {
             OperationType::Ethereum => {
-                counters.0 = (counters.0 + 1) % validators_len;
-                PrimaryValidator::<T>::put(&counters);
-                Ok(validators[counters.0 as usize].account_id.clone())
+                PrimaryValidator::<T>::put(((counters.0 + 1) % validators_len, counters.1));
+                counters.0
             },
             OperationType::Avn => {
-                counters.1 = (counters.1 + 1) % validators_len;
-                PrimaryValidator::<T>::put(&counters);
-                Ok(validators[counters.1 as usize].account_id.clone())
+                PrimaryValidator::<T>::put((counters.0, (counters.1 + 1) % validators_len));
+                counters.1
             },
         };
+        Ok(validators[index as usize].account_id.clone())
     }
 
     pub fn get_validator_for_current_node() -> Option<Validator<T::AuthorityId, T::AccountId>> {
