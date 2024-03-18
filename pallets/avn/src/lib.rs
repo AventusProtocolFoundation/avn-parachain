@@ -182,7 +182,11 @@ pub mod pallet {
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), bridge_contract_address: H160::zero(), primary_validator: (0, 0) }
+            Self {
+                _phantom: Default::default(),
+                bridge_contract_address: H160::zero(),
+                primary_validator: (0, 0),
+            }
         }
     }
 
@@ -267,14 +271,14 @@ impl<T: Config> Pallet<T> {
         let primary_validator = validators[match op_type {
             OperationType::Ethereum => counters.0,
             OperationType::Avn => counters.1,
-        } as usize].account_id.clone();
+        } as usize]
+            .account_id
+            .clone();
 
         return Ok(&primary_validator == current_validator)
     }
 
-    pub fn calculate_primary_validator(
-        op_type: OperationType
-    ) -> Result<T::AccountId, Error<T>> {
+    pub fn calculate_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
 
         // If there are no validators there's no point continuing
@@ -286,16 +290,18 @@ impl<T: Config> Pallet<T> {
         let validators_len = Self::validators().len() as u8;
 
         return match op_type {
-            OperationType::Ethereum => { // ethereum
+            OperationType::Ethereum => {
+                // ethereum
                 counters.0 = (counters.0 + 1) % validators_len;
                 PrimaryValidator::<T>::put(&counters);
                 Ok(validators[counters.0 as usize].account_id.clone())
-            }
-            OperationType::Avn => { // avn
+            },
+            OperationType::Avn => {
+                // avn
                 counters.1 = (counters.1 + 1) % validators_len;
                 PrimaryValidator::<T>::put(&counters);
                 Ok(validators[counters.1 as usize].account_id.clone())
-            }
+            },
         };
     }
 

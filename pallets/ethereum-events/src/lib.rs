@@ -8,6 +8,7 @@
 // irrelevant)
 #[cfg(not(feature = "std"))]
 extern crate alloc;
+use crate::avn::OperationType;
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 use frame_support::{
@@ -19,7 +20,6 @@ use frame_system::{
     offchain::{SendTransactionTypes, SubmitTransaction},
     pallet_prelude::BlockNumberFor,
 };
-use crate::avn::OperationType;
 use sp_core::{ConstU32, H160, H256};
 use sp_runtime::{
     offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
@@ -792,7 +792,8 @@ pub mod pallet {
             let (this_validator, finalised_block) = setup_result.expect("We have a validator");
 
             // Only primary validators can check and process events
-            let is_primary = AVN::<T>::is_primary(OperationType::Ethereum, &this_validator.account_id);
+            let is_primary =
+                AVN::<T>::is_primary(OperationType::Ethereum, &this_validator.account_id);
             if is_primary.is_err() {
                 log::error!("Error checking if validator can check result");
                 return

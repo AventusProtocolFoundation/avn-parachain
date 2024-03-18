@@ -181,11 +181,8 @@ mod challenge_slot_if_required {
 
                 // We add 2 to make sure context.slot_validator is the primary for this block number
                 let block_after_grace_period = context.block_after_grace_period + 2;
-                assert!(AVN::is_primary(
-                    OperationType::Avn,
-                    &context.slot_validator.account_id
-                )
-                .unwrap());
+                assert!(AVN::is_primary(OperationType::Avn, &context.slot_validator.account_id)
+                    .unwrap());
 
                 System::set_block_number(block_after_grace_period);
                 let challenge = get_challenge(
