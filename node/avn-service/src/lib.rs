@@ -25,6 +25,7 @@ pub mod keystore_utils;
 pub mod merkle_tree_utils;
 pub mod summary_utils;
 pub mod web3_utils;
+pub mod identify_eth_events;
 
 use crate::{
     extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*, web3_utils::*,
