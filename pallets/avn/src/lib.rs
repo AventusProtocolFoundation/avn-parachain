@@ -272,6 +272,10 @@ impl<T: Config> Pallet<T> {
         let index = PrimaryValidator::<T>::get();
         PrimaryValidator::<T>::put((index + 1) % validators.len() as u8);
 
+        <crate::Pallet<T>>::deposit_event(Event::<T>::incrementValidatorStorage {
+            index: (index + 1) % validators.len() as u8
+        });
+
         return Ok(validators[index as usize].account_id.clone())
     }
 

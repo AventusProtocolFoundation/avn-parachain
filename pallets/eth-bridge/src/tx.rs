@@ -82,16 +82,17 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
     let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
     let extended_params = req.extend_params(expiry)?;
     let msg_hash = generate_msg_hash::<T>(&extended_params)?;
+    let sender_before = assign_sender()?;
 
     ActiveRequest::<T>::put(ActiveRequestData {
         request: Request::Send(req.clone()),
         confirmation: ActiveConfirmation { msg_hash, confirmations: BoundedVec::default() },
         tx_data: Some(ActiveEthTransaction {
-            function_name: req.function_name,
-            eth_tx_params: extended_params,
+            function_name: req.function_name.clone(),
+            eth_tx_params: extended_params.clone(),
             expiry,
             eth_tx_hash: H256::zero(),
-            sender: assign_sender()?,
+            sender: sender_before,
             success_corroborations: BoundedVec::default(),
             failure_corroborations: BoundedVec::default(),
             valid_tx_hash_corroborations: BoundedVec::default(),
@@ -99,6 +100,11 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
             tx_succeeded: false,
         }),
         last_updated: <frame_system::Pallet<T>>::block_number(),
+    });
+
+    <crate::Pallet<T>>::deposit_event(Event::<T>::TestEvent {
+        function_name: req.function_name.clone(),
+        params: extended_params.clone(),
     });
 
     return Ok(())

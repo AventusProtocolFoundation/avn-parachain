@@ -195,6 +195,14 @@ pub mod pallet {
                 BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
             caller_id: BoundedVec<u8, CallerIdLimit>,
         },
+        TestEvent {
+            function_name: BoundedVec<u8, FunctionLimit>,
+            params:
+                BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+        },
+        incrementValidatorStorage {
+            index: u8,
+        }
     }
 
     #[pallet::pallet]
