@@ -169,10 +169,6 @@ pub mod pallet {
     #[pallet::getter(fn get_bridge_contract_address)]
     pub type AvnBridgeContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
-    // #[pallet::storage]
-    // #[pallet::getter(fn get_primary_validator)]
-    // pub type PrimaryValidator<T: Config> = StorageValue<_, u8, ValueQuery>;
-
     #[pallet::storage]
     #[pallet::getter(fn get_primary_validator)]
     pub type PrimaryValidator<T: Config> = StorageValue<_, (u8, u8), ValueQuery>;
