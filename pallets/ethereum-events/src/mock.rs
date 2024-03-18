@@ -413,10 +413,10 @@ impl EthereumEvents {
     }
 
     pub fn is_primary(
-        block_number: BlockNumberFor<TestRuntime>,
+        op_type: OperationType,
         validator: &AccountId,
     ) -> Result<bool, avn_error<TestRuntime>> {
-        return AVN::is_primary(block_number, validator)
+        return AVN::is_primary(op_type, validator)
     }
 
     pub fn get_validator_for_current_node() -> Option<Validator<AuthorityId, AccountId>> {
@@ -699,6 +699,7 @@ impl ExtBuilder {
         let _ = pallet_avn::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
             bridge_contract_address: H160::from(BRIDGE_CONTRACT),
+            primary_validator: (0,0)
         }
         .assimilate_storage(&mut self.storage);
 
@@ -723,6 +724,7 @@ impl ExtBuilder {
         let _ = pallet_avn::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
             bridge_contract_address: H160::from(BRIDGE_CONTRACT),
+            primary_validator: (0,0)
         }
         .assimilate_storage(&mut self.storage);
 

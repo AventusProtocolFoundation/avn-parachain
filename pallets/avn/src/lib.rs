@@ -149,6 +149,12 @@ pub mod pallet {
         ErrorDecodingU32,
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
+    pub enum OperationType {
+        Ethereum,
+        Avn,
+    }
+
     #[pallet::storage]
     #[pallet::getter(fn validators)]
     /// The current set of validators (address and key) that may issue a transaction from the
@@ -163,20 +169,24 @@ pub mod pallet {
     #[pallet::getter(fn get_bridge_contract_address)]
     pub type AvnBridgeContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
+    // #[pallet::storage]
+    // #[pallet::getter(fn get_primary_validator)]
+    // pub type PrimaryValidator<T: Config> = StorageValue<_, u8, ValueQuery>;
+
     #[pallet::storage]
     #[pallet::getter(fn get_primary_validator)]
-    pub type PrimaryValidator<T: Config> = StorageValue<_, u8, ValueQuery>;
+    pub type PrimaryValidator<T: Config> = StorageValue<_, (u8, u8), ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub bridge_contract_address: H160,
-        pub primary_validator: u8,
+        pub primary_validator: (u8, u8),
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), bridge_contract_address: H160::zero(), primary_validator: 0 }
+            Self { _phantom: Default::default(), bridge_contract_address: H160::zero(), primary_validator: (0, 0) }
         }
     }
 
@@ -252,15 +262,22 @@ impl<T: Config> Pallet<T> {
 
     // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
     pub fn is_primary(
-        block_number: BlockNumberFor<T>,
+        op_type: OperationType,
         current_validator: &T::AccountId,
     ) -> Result<bool, Error<T>> {
-        let primary_validator = Self::calculate_primary_validator(block_number)?;
+        let validators = Self::validators();
+
+        let counters = PrimaryValidator::<T>::get();
+        let primary_validator = validators[match op_type {
+            OperationType::Ethereum => counters.0,
+            OperationType::Avn => counters.1,
+        } as usize].account_id.clone();
+
         return Ok(&primary_validator == current_validator)
     }
 
     pub fn calculate_primary_validator(
-        block_number: BlockNumberFor<T>,
+        op_type: OperationType
     ) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
 
@@ -269,10 +286,21 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let index = PrimaryValidator::<T>::get();
-        PrimaryValidator::<T>::put((index + 1) % validators.len() as u8);
+        let mut counters = PrimaryValidator::<T>::get();
+        let validators_len = Self::validators().len() as u8;
 
-        return Ok(validators[index as usize].account_id.clone())
+        return match op_type {
+            OperationType::Ethereum => { // ethereum
+                counters.0 = (counters.0 + 1) % validators_len;
+                PrimaryValidator::<T>::put(&counters);
+                Ok(validators[counters.0 as usize].account_id.clone())
+            }
+            OperationType::Avn => { // avn
+                counters.1 = (counters.1 + 1) % validators_len;
+                PrimaryValidator::<T>::put(&counters);
+                Ok(validators[counters.1 as usize].account_id.clone())
+            }
+        };
     }
 
     pub fn get_validator_for_current_node() -> Option<Validator<T::AuthorityId, T::AccountId>> {

@@ -128,6 +128,7 @@ impl ExtBuilder {
         let _ = pallet_avn::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
             bridge_contract_address: H160::from(CUSTOM_BRIDGE_CONTRACT),
+            primary_validator: (0,0)
         }
         .assimilate_storage(&mut self.storage);
         self

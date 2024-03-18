@@ -158,7 +158,7 @@ fn test_is_primary_blocknumber_1() {
     ext.execute_with(|| {
         let block_number = 1;
         let expected_primary = validator_id_2();
-        let result = EthereumEvents::is_primary(block_number, &expected_primary);
+        let result = EthereumEvents::is_primary(OperationType::Ethereum, &expected_primary);
         assert!(result.is_ok(), "Getting primary validator failed");
         assert_eq!(result.unwrap(), true);
     });
@@ -201,7 +201,7 @@ fn test_is_primary_blocknumber_2() {
     ext.execute_with(|| {
         let block_number = 2;
         let expected_primary = validator_id_3();
-        let result = EthereumEvents::is_primary(block_number, &expected_primary);
+        let result = EthereumEvents::is_primary(OperationType::Ethereum, &expected_primary);
         assert!(result.is_ok(), "Getting primary validator failed");
         assert_eq!(result.unwrap(), true);
     });
@@ -213,7 +213,7 @@ fn test_is_primary_blocknumber_3() {
     ext.execute_with(|| {
         let block_number = 3;
         let expected_primary = account_id_1();
-        let result = EthereumEvents::is_primary(block_number, &expected_primary);
+        let result = EthereumEvents::is_primary(OperationType::Ethereum, &expected_primary);
         assert!(result.is_ok(), "Getting primary validator failed");
         assert_eq!(result.unwrap(), true);
     });
@@ -336,7 +336,7 @@ fn test_is_primary_blocknumber_100() {
     ext.execute_with(|| {
         let block_number = 100;
         let expected_primary = validator_id_2();
-        let result = EthereumEvents::is_primary(block_number, &expected_primary);
+        let result = EthereumEvents::is_primary(OperationType::Ethereum, &expected_primary);
         assert!(result.is_ok(), "Getting primary validator failed");
         assert_eq!(result.unwrap(), true);
     });
@@ -347,7 +347,7 @@ fn is_primary_fails_with_no_validators() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
         let block_number = 1;
-        let result = EthereumEvents::is_primary(block_number, &account_id_1());
+        let result = EthereumEvents::is_primary(OperationType::Ethereum, &account_id_1());
         assert!(result.is_err(), "Getting primary validator should have failed");
     });
 }
