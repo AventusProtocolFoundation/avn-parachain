@@ -126,6 +126,7 @@ const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
+const SUBMIT_DISCOVERED_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -654,7 +655,6 @@ pub mod pallet {
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
-        // TODO extend for submit_discovered_events
         // Confirm that the call comes from an author before it can enter the pool:
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
@@ -708,6 +708,24 @@ pub mod pallet {
                             .build()
                     } else {
                         InvalidTransaction::Custom(3u8).into()
+                    },
+                Call::submit_discovered_events { author, range, events_fraction, signature } =>
+                    if AVN::<T>::signature_is_valid(
+                        &(
+                            SUBMIT_DISCOVERED_EVENTS_HASH_CONTEXT,
+                            &author.account_id,
+                            range,
+                            events_fraction,
+                        ),
+                        &author,
+                        signature,
+                    ) {
+                        ValidTransaction::with_tag_prefix("EthBridgeAddEventRange")
+                            .and_provides((call, range))
+                            .priority(TransactionPriority::max_value() / 2)
+                            .build()
+                    } else {
+                        InvalidTransaction::Custom(4u8).into()
                     },
 
                 _ => InvalidTransaction::Call.into(),
