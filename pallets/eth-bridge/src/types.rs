@@ -125,3 +125,21 @@ pub struct ActiveEthTransaction<T: Config> {
     pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
     pub tx_succeeded: bool,
 }
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum EventProcessingStatus {
+    UnderValidation,
+    Accepted(FractionsCount),
+}
+
+impl Default for EventProcessingStatus {
+    fn default() -> Self {
+        EventProcessingStatus::UnderValidation
+    }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+pub struct ActiveEthRange {
+    pub range: EthBlockRange,
+    pub status: EventProcessingStatus,
+}

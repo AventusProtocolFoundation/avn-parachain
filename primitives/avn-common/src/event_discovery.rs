@@ -4,6 +4,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use event_types::EthEvent;
 use sp_core::{bounded::BoundedBTreeSet, ConstU32};
 use sp_io::hashing::blake2_256;
+use sp_runtime::traits::Saturating;
 
 pub type VotesLimit = ConstU32<100>;
 pub type EventsBatchLimit = ConstU32<32>;
@@ -12,6 +13,19 @@ pub type EventsBatchLimit = ConstU32<32>;
 pub struct EthBlockRange {
     pub start_block: u32,
     pub length: u32,
+}
+
+impl EthBlockRange {
+    pub fn next_range(&self) -> EthBlockRange {
+        EthBlockRange {
+            start_block: self.start_block.saturating_add(self.length),
+            length: self.length,
+        }
+    }
+    pub fn range(&self) -> (u32, u32) {
+        let end_block = self.start_block.saturating_add(self.length).saturating_less_one();
+        (self.start_block, end_block)
+    }
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
@@ -54,33 +68,43 @@ impl Ord for DiscoveredEvent {
     }
 }
 
+pub type FractionsCount = u16;
 type EthEventsPartition = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct DiscoveredEthEventsFraction {
-    data: EthEventsPartition,
-    fraction: u16,
-    fraction_count: u16,
     id: H256,
+    fraction: FractionsCount,
+    fraction_count: FractionsCount,
+    data: EthEventsPartition,
 }
 
 impl DiscoveredEthEventsFraction {
-    pub fn events(&self) -> &EthEventsPartition {
-        &self.data
-    }
-
-    pub fn fraction(&self) -> u16 {
-        self.fraction
-    }
-
-    pub fn fraction_count(&self) -> u16 {
-        self.fraction
-    }
-
     pub fn id(&self) -> &H256 {
         &self.id
     }
 
-    fn new(data: EthEventsPartition, fraction: u16, fraction_count: u16, id: &H256) -> Self {
+    pub fn fraction(&self) -> FractionsCount {
+        self.fraction
+    }
+
+    pub fn fraction_count(&self) -> FractionsCount {
+        self.fraction
+    }
+
+    pub fn events(&self) -> &EthEventsPartition {
+        &self.data
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.fraction < self.fraction_count
+    }
+
+    fn new(
+        data: EthEventsPartition,
+        fraction: FractionsCount,
+        fraction_count: FractionsCount,
+        id: &H256,
+    ) -> Self {
         DiscoveredEthEventsFraction { data, fraction, fraction_count, id: id.clone() }
     }
 }
@@ -99,7 +123,7 @@ pub mod events_helpers {
         let mut fractions = Vec::<DiscoveredEthEventsFraction>::new();
 
         let mut iter = sorted.chunks(chunk_size).enumerate();
-        let fraction_count = sorted.chunks(chunk_size).count() as u16;
+        let fraction_count = sorted.chunks(chunk_size).count() as FractionsCount;
         let hash: H256 = blake2_256(&(&events, fraction_count).encode()).into();
 
         let _ = iter.try_for_each(|(fraction, chunk)| -> Result<(), ()> {
@@ -107,7 +131,7 @@ pub mod events_helpers {
             let data = EthEventsPartition::try_from(inner_data)?;
             fractions.push(DiscoveredEthEventsFraction::new(
                 data,
-                fraction as u16,
+                fraction as FractionsCount,
                 fraction_count,
                 &hash,
             ));
