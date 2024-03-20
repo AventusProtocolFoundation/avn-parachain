@@ -7,10 +7,12 @@ use web3::{
     Web3,
 };
 
-#[derive(Default, Clone, PartialEq, Debug, Eq)]
-pub struct DiscoveredEvent {
-    pub event: EthEvent,
-    pub block: u64,
+#[derive(Debug)]
+pub enum AppError {
+    ErrorGettingEventLogs,
+    MissingTransactionHash,
+    MissingBlockNumber,
+    ParsingError(Error)
 }
 
 pub async fn identify_events(
@@ -19,7 +21,7 @@ pub async fn identify_events(
     end_block: u64,
     contract_addresses: Vec<H160>,
     event_signatures: Vec<H256>,
-) -> Result<Vec<DiscoveredEvent>, Error> {
+) -> Result<Vec<DiscoveredEvent>, AppError> {
     let filter = FilterBuilder::default()
         .address(contract_addresses)
         .topics(Some(event_signatures), None, None, None)
@@ -30,7 +32,7 @@ pub async fn identify_events(
     let logs_result = web3.eth().logs(filter).await;
     let logs = match logs_result {
         Ok(logs) => logs,
-        Err(_) => return Err(Error::ErrorGettingEventLogs),
+        Err(_) => return Err(AppError::ErrorGettingEventLogs),
     };
 
     let mut events = Vec::new();
@@ -45,13 +47,13 @@ pub async fn identify_events(
     Ok(events)
 }
 
-fn parse_log(log: Log) -> Result<DiscoveredEvent, Error> {
+fn parse_log(log: Log) -> Result<DiscoveredEvent, AppError> {
     let web3_signature = log.topics[0];
     let signature = sp_core::H256::from(web3_signature.0);
 
     let transaction_hash = match log.transaction_hash {
         Some(transaction_hash) => transaction_hash,
-        None => return Err(Error::MissingTransactionHash),
+        None => return Err(AppError::MissingTransactionHash),
     };
 
     let event_id =
@@ -65,10 +67,10 @@ fn parse_log(log: Log) -> Result<DiscoveredEvent, Error> {
                 Err(err) => return Err(err),
             }
         },
-        None => return Err(Error::ErrorGettingEventLogs),
+        None => return Err(AppError::ErrorGettingEventLogs),
     };
 
-    let block_number = log.block_number.ok_or(Error::MissingBlockNumber)?;
+    let block_number = log.block_number.ok_or(AppError::MissingBlockNumber)?;
 
     Ok(DiscoveredEvent { event: EthEvent { event_id, event_data }, block: block_number.as_u64() })
 }
@@ -95,35 +97,42 @@ fn parse_event_data(
     event_type: ValidEvents,
     data: Vec<u8>,
     topics: Vec<Vec<u8>>,
-) -> Result<EventData, Error> {
+) -> Result<EventData, AppError> {
     match event_type {
         ValidEvents::AddedValidator => {
-            let data = AddedValidatorData::parse_bytes(Some(data), topics)?;
-            Ok(EventData::LogAddedValidator(data))
-        },
+            AddedValidatorData::parse_bytes(Some(data), topics)
+                .map_err(|err| AppError::ParsingError(err.into()))
+                .map(EventData::LogAddedValidator)
+        }
         ValidEvents::Lifted => {
-            let data = LiftedData::parse_bytes(Some(data), topics)?;
-            Ok(EventData::LogLifted(data))
-        },
+            LiftedData::parse_bytes(Some(data), topics)
+                .map_err(|err| AppError::ParsingError(err.into()))
+                .map(EventData::LogLifted)
+        }
         ValidEvents::NftMint => {
-            let data = NftMintData::parse_bytes(Some(data), topics)?;
-            Ok(EventData::LogNftMinted(data))
-        },
+            NftMintData::parse_bytes(Some(data), topics)
+                .map_err(|err| AppError::ParsingError(err.into()))
+                .map(EventData::LogNftMinted)
+        }
         ValidEvents::NftTransferTo => {
-            let data = NftTransferToData::parse_bytes(Some(data), topics)?;
-            Ok(EventData::LogNftTransferTo(data))
-        },
+            NftTransferToData::parse_bytes(Some(data), topics)
+                .map_err(|err| AppError::ParsingError(err))
+                .map(EventData::LogNftTransferTo)
+        }
         ValidEvents::NftCancelListing => {
-            let data = NftCancelListingData::parse_bytes(Some(data), topics)?;
-            Ok(EventData::LogNftCancelListing(data))
-        },
+            NftCancelListingData::parse_bytes(Some(data), topics)
+                .map_err(|err| AppError::ParsingError(err.into()))
+                .map(EventData::LogNftCancelListing)
+        }
         ValidEvents::NftEndBatchListing => {
-            let data = NftEndBatchListingData::parse_bytes(Some(data), topics)?;
-            Ok(EventData::LogNftEndBatchListing(data))
-        },
+            NftEndBatchListingData::parse_bytes(Some(data), topics)
+                .map_err(|err| AppError::ParsingError(err.into()))
+                .map(EventData::LogNftEndBatchListing)
+        }
         ValidEvents::AvtGrowthLifted => {
-            let data = AvtGrowthLiftedData::parse_bytes(Some(data), topics)?;
-            Ok(EventData::LogAvtGrowthLifted(data))
-        },
+            AvtGrowthLiftedData::parse_bytes(Some(data), topics)
+                .map_err(|err| AppError::ParsingError(err.into()))
+                .map(EventData::LogAvtGrowthLifted)
+        }
     }
 }
