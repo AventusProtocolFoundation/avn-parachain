@@ -1,91 +1,218 @@
 use crate::{mock::*, OperationType};
 use sp_runtime::testing::UintAuthorityId;
 
-#[test]
-fn next_validator_is_incremented_correctly_for_ethereum_operations() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let eth_index_before: u8 = AVN::get_primary_validator().0;
-        AVN::calculate_primary_validator(OperationType::Ethereum);
-        let eth_index_after: u8 = AVN::get_primary_validator().0;
-        assert_eq!(eth_index_after, eth_index_before + 1);
-    });
+fn get_index_based_on_operation_type(operationType: &OperationType) -> u8 {
+    match operationType {
+        OperationType::Ethereum => AVN::get_primary_validator().ethereum,
+        OperationType::Avn => AVN::get_primary_validator().avn,
+    }
 }
 
-#[test]
-fn the_first_validator_is_picked_again_after_the_last_validator_for_ethereum_operations() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let validators = AVN::validators();
-        let eth_index_before: u8 = AVN::get_primary_validator().0;
+fn setup_last_validator_as_primary(operationType: &OperationType) {
+    let validators = AVN::validators();
+    let eth_index_before: u8 = get_index_based_on_operation_type(operationType);
 
-        for _ in &validators {
+    let num_validators_indexed = validators.len() - 1;
+    for _ in &validators[..num_validators_indexed] {
+        AVN::calculate_primary_validator(operationType.clone()).unwrap();
+    }
+
+    let eth_index_after: u8 = get_index_based_on_operation_type(operationType);
+    assert_eq!(eth_index_before + num_validators_indexed as u8, eth_index_after);
+}
+
+#[cfg(test)]
+mod when_calculate_primary_validator_is_called_for_operation_ethereum {
+    use super::*;
+    #[test]
+    fn the_next_validator_for_ethereum_increments_by_one_if_the_current_one_is_not_the_last() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let eth_index_before: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+
+            AVN::calculate_primary_validator(OperationType::Ethereum);
+
+            let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            assert_eq!(eth_index_after, eth_index_before + 1);
+        });
+    }
+
+    #[test]
+    fn the_validator_for_ethereum_wraps_around_if_the_current_one_is_the_last() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let eth_index_before: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            assert_eq!(eth_index_before, 0);
+
+            setup_last_validator_as_primary(&OperationType::Ethereum);
+
             AVN::calculate_primary_validator(OperationType::Ethereum).unwrap();
-        }
+            let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            assert_eq!(eth_index_before, eth_index_after);
+        });
+    }
 
-        let eth_index_after: u8 = AVN::get_primary_validator().0;
-        assert_eq!(eth_index_before, eth_index_after);
-    });
+    #[test]
+    fn the_validator_for_avn_stays_the_same() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let validators = AVN::validators();
+            let eth_index_before: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            let avn_index_before: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+
+            AVN::calculate_primary_validator(OperationType::Ethereum).unwrap();
+
+            let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+            assert_eq!(eth_index_before + 1, eth_index_after);
+            assert_eq!(avn_index_before, avn_index_after);
+        });
+    }
 }
 
-#[test]
-fn is_primary_function_correctly_returns_the_current_primary_validator_for_ethereum_operations() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let expected_primary = 0;
-        let result = AVN::is_primary(OperationType::Ethereum, &expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
+#[cfg(test)]
+mod when_calculate_primary_validator_is_called_for_operation_avn {
+    use super::*;
+    #[test]
+    fn the_next_validator_for_avn_increments_by_one_if_the_current_one_is_not_the_last() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let avn_index_before: u8 = get_index_based_on_operation_type(&OperationType::Avn);
 
-        AVN::calculate_primary_validator(OperationType::Ethereum);
+            AVN::calculate_primary_validator(OperationType::Avn);
 
-        let next_expected_primary = expected_primary + 1;
-        let result = AVN::is_primary(OperationType::Ethereum, &next_expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
-    });
-}
+            let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+            assert_eq!(avn_index_after, avn_index_before + 1);
+        });
+    }
 
-#[test]
-fn next_validator_is_incremented_correctly_for_avn_operations() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let avn_index_before: u8 = AVN::get_primary_validator().1;
-        AVN::calculate_primary_validator(OperationType::Avn);
-        let avn_index_after: u8 = AVN::get_primary_validator().1;
-        assert_eq!(avn_index_after, avn_index_before + 1);
-    });
-}
+    #[test]
+    fn the_validator_for_avn_wraps_around_if_the_current_one_is_the_last() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let avn_index_before: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+            assert_eq!(avn_index_before, 0);
 
-#[test]
-fn the_first_validator_is_picked_again_after_the_last_validator_for_avn_operations() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let validators = AVN::validators();
-        let eth_index_before: u8 = AVN::get_primary_validator().1;
+            setup_last_validator_as_primary(&OperationType::Avn);
 
-        for _ in &validators {
             AVN::calculate_primary_validator(OperationType::Avn).unwrap();
-        }
+            let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+            assert_eq!(avn_index_before, avn_index_after);
+        });
+    }
 
-        let eth_index_after: u8 = AVN::get_primary_validator().1;
-        assert_eq!(eth_index_before, eth_index_after);
-    });
+    #[test]
+    fn the_validator_for_ethereum_stays_the_same() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let validators = AVN::validators();
+            let eth_index_before: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            let avn_index_before: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+
+            AVN::calculate_primary_validator(OperationType::Avn).unwrap();
+
+            let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+            assert_eq!(eth_index_before, eth_index_after);
+            assert_eq!(avn_index_before + 1, avn_index_after);
+        });
+    }
 }
 
-#[test]
-fn is_primary_function_correctly_returns_the_current_primary_validator_for_avn_operations() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let expected_primary = 0;
-        let result = AVN::is_primary(OperationType::Avn, &expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
+#[cfg(test)]
+mod calling_is_primary_validator_for_ethereum {
+    use super::*;
+    #[test]
+    fn does_not_change_the_next_primary_validator_for_ethereum() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let expected_primary = 1;
+            let eth_index_before: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            assert_eq!(eth_index_before, 0);
 
-        AVN::calculate_primary_validator(OperationType::Avn);
+            let result = AVN::is_primary(OperationType::Ethereum, &expected_primary).unwrap();
+            assert!(result == true, "Wrong primary validator");
 
-        let next_expected_primary = expected_primary + 1;
-        let result = AVN::is_primary(OperationType::Avn, &next_expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
-    });
+            let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
+            assert_eq!(eth_index_before, eth_index_after);
+        });
+    }
+
+    #[test]
+    fn returns_true_if_the_argument_is_the_same_as_the_next_ethereum_validator() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let mut expected_primary = 1;
+            let mut result = AVN::is_primary(OperationType::Ethereum, &expected_primary).unwrap();
+            println!("First Result: {:?}", result.clone());
+            assert!(result == true, "Wrong primary validator");
+
+            AVN::calculate_primary_validator(OperationType::Ethereum);
+
+            expected_primary = 2;
+            result = AVN::is_primary(OperationType::Ethereum, &expected_primary).unwrap();
+            println!("Second Result: {:?}", result.clone());
+            assert!(result == true, "Wrong primary validator");
+        });
+    }
+
+    #[test]
+    fn returns_false_if_it_is_not() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let non_primary_validator = 4;
+            let result = AVN::is_primary(OperationType::Ethereum, &non_primary_validator).unwrap();
+            assert!(result != true, "Primary validator is unexpectedly correct");
+        });
+    }
 }
+
+#[cfg(test)]
+mod calling_is_primary_validator_for_avn {
+    use super::*;
+    #[test]
+    fn does_not_change_the_next_primary_validator_for_avn() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let expected_primary = 1;
+            let avn_index_before: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+            assert_eq!(avn_index_before, 0);
+
+            let result = AVN::is_primary(OperationType::Avn, &expected_primary).unwrap();
+            assert!(result == true, "Wrong primary validator");
+
+            let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
+            assert_eq!(avn_index_before, avn_index_after);
+        });
+    }
+
+    #[test]
+    fn returns_true_if_the_argument_is_the_same_as_the_next_avn_validator() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let mut expected_primary = 1;
+            let mut result = AVN::is_primary(OperationType::Avn, &expected_primary).unwrap();
+            assert!(result == true, "Wrong primary validator");
+
+            AVN::calculate_primary_validator(OperationType::Avn);
+
+            let mut expected_primary = 2;
+            let mut result = AVN::is_primary(OperationType::Avn, &expected_primary).unwrap();
+            assert!(result == true, "Wrong primary validator");
+        });
+    }
+
+    #[test]
+    fn returns_false_if_it_is_not() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let mut expected_primary = 4;
+            let mut result = AVN::is_primary(OperationType::Avn, &expected_primary).unwrap();
+            assert!(result != true, "Primary validator is unexpectedly correct");
+        });
+    }
+}
+
 /*********************** */
 
 #[test]

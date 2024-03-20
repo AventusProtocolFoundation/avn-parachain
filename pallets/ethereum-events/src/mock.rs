@@ -28,7 +28,7 @@ use sp_staking::{
 };
 
 use avn::AvnBridgeContractAddress;
-use pallet_avn::{self as avn, Error as avn_error};
+use pallet_avn::{self as avn, Error as avn_error, PrimaryValidatorData};
 use sp_avn_common::{
     bounds::MaximumValidatorsBound, event_types::EthEvent, EthQueryRequest, EthQueryResponseType,
 };

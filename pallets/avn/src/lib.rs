@@ -21,11 +21,19 @@ use alloc::{
     string::{String, ToString},
 };
 
-use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
+use codec::{Decode, Encode};
+use core::convert::TryInto;
+use frame_support::{
+    dispatch::DispatchResult,
+    log::*,
+    pallet_prelude::{MaxEncodedLen, TypeInfo},
+    traits::OneSessionHandler,
+};
 use frame_system::{
     ensure_root,
     pallet_prelude::{BlockNumberFor, OriginFor},
 };
+pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
@@ -46,10 +54,6 @@ use sp_runtime::{
     DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
-
-use codec::{Decode, Encode};
-use core::convert::TryInto;
-pub use pallet::*;
 
 #[path = "tests/testing.rs"]
 pub mod testing;
@@ -83,6 +87,12 @@ pub const MAX_VALIDATOR_ACCOUNTS: u32 = 10;
 
 pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
+
+#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, Copy)]
+pub struct PrimaryValidatorData {
+    pub ethereum: u8,
+    pub avn: u8,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -171,7 +181,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_primary_validator)]
-    pub type PrimaryValidator<T: Config> = StorageValue<_, (u8, u8), ValueQuery>;
+    pub type PrimaryValidator<T: Config> = StorageValue<_, PrimaryValidatorData, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -194,7 +204,10 @@ pub mod pallet {
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             AvnBridgeContractAddress::<T>::put(self.bridge_contract_address);
-            PrimaryValidator::<T>::put(self.primary_validator);
+            PrimaryValidator::<T>::put(PrimaryValidatorData {
+                ethereum: self.primary_validator.0,
+                avn: self.primary_validator.1,
+            });
         }
     }
 
@@ -268,14 +281,14 @@ impl<T: Config> Pallet<T> {
         let validators = Self::validators();
 
         let counters = PrimaryValidator::<T>::get();
-        let primary_validator = validators[match op_type {
-            OperationType::Ethereum => counters.0,
-            OperationType::Avn => counters.1,
+        let primary_validator = &validators[match op_type {
+            OperationType::Ethereum => counters.ethereum,
+            OperationType::Avn => counters.avn,
         } as usize]
             .account_id
             .clone();
 
-        return Ok(&primary_validator == current_validator)
+        return Ok(*primary_validator == *current_validator)
     }
 
     pub fn calculate_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {
@@ -291,12 +304,18 @@ impl<T: Config> Pallet<T> {
 
         let index = match op_type {
             OperationType::Ethereum => {
-                PrimaryValidator::<T>::put(((counters.0 + 1) % validators_len, counters.1));
-                counters.0
+                PrimaryValidator::<T>::put(PrimaryValidatorData {
+                    ethereum: (counters.ethereum + 1) % validators_len,
+                    avn: counters.avn,
+                });
+                counters.ethereum
             },
             OperationType::Avn => {
-                PrimaryValidator::<T>::put((counters.0, (counters.1 + 1) % validators_len));
-                counters.1
+                PrimaryValidator::<T>::put(PrimaryValidatorData {
+                    ethereum: counters.ethereum,
+                    avn: (counters.avn + 1) % validators_len,
+                });
+                counters.avn
             },
         };
         Ok(validators[index as usize].account_id.clone())
