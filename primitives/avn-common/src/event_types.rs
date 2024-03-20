@@ -20,6 +20,8 @@ pub enum Error {
     MissingLogData,
     MissingTransactionHash,
 
+    ErrorGettingEventLogs,
+
     AddedValidatorEventMissingData,
     AddedValidatorEventBadDataLength,
     AddedValidatorEventWrongTopicCount,
