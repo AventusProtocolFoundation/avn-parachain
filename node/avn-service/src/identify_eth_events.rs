@@ -1,5 +1,5 @@
 use sp_avn_common::event_types::{Error, EthEvent, EthEventId, EventData, LiftedData};
-use web3::types::{FilterBuilder, Log, H160, H256, U64};
+use web3::{types::{FilterBuilder, Log, H160, H256, U64}, Web3};
 
 #[derive(Default, Clone, PartialEq, Debug, Eq)]
 pub struct DiscoveredEvent {
@@ -8,13 +8,12 @@ pub struct DiscoveredEvent {
 }
 
 pub async fn identify_events(
-    eth_node_url: &str,
+    web3: &Web3<web3::transports::Http>,
     start_block: u64,
     end_block: u64,
     contract_addresses: Vec<H160>,
     event_signatures: Vec<H256>,
 ) -> Result<Vec<DiscoveredEvent>, Error> {
-    let web3 = web3::Web3::new(web3::transports::Http::new(eth_node_url).unwrap());
 
     let filter = FilterBuilder::default()
         .address(contract_addresses)
@@ -23,13 +22,19 @@ pub async fn identify_events(
         .to_block(web3::types::BlockNumber::Number(U64::from(end_block)))
         .build();
 
-    let logs = web3.eth().logs(filter).await.unwrap();
+        let logs_result = web3.eth().logs(filter).await;
+        let logs = match logs_result {
+            Ok(logs) => logs,
+            Err(err) => return Err(Error::NftTransferToEventWrongTopicCount)
+        };
 
     let mut events = Vec::new();
 
     for log in logs {
-        let discovered_event = parse_log(log)?;
-        events.push(discovered_event);
+        match parse_log(log) {
+            Ok(discovered_event) => events.push(discovered_event),
+            Err(err) => return Err(err),
+        }
     }
 
     Ok(events)
@@ -37,7 +42,10 @@ pub async fn identify_events(
 
 fn parse_log(log: Log) -> Result<DiscoveredEvent, Error> {
     let signature = log.topics[0];
-    let transaction_hash = log.transaction_hash.unwrap();
+    let transaction_hash = match log.transaction_hash {
+        Some(transaction_hash) => transaction_hash,
+        None => return Err(Error::MissingTransactionHash),
+    };
     
     let event_id = EthEventId {
         signature: sp_core::H256::from(signature.0),
@@ -54,8 +62,13 @@ fn parse_log(log: Log) -> Result<DiscoveredEvent, Error> {
         },
     };
 
+    let block_number = match log.block_number {
+        Some(block_number) =>block_number,
+        None => return Err(Error::MissingBlockNumber)
+    };
+
     Ok(DiscoveredEvent {
         event: EthEvent { event_id, event_data },
-        block: log.block_number.unwrap().as_u64(),
+        block: block_number.as_u64(),
     })
 }

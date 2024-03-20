@@ -16,6 +16,10 @@ const BYTE_LENGTH: usize = 1; // the length of 1 byte
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
+    MissingBlockNumber,
+    MissingLogData,
+    MissingTransactionHash,
+
     AddedValidatorEventMissingData,
     AddedValidatorEventBadDataLength,
     AddedValidatorEventWrongTopicCount,
