@@ -68,6 +68,7 @@ impl Ord for DiscoveredEvent {
     }
 }
 
+pub type FractionsCount = u16;
 type EthEventsPartition = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct DiscoveredEthEventsFraction {
@@ -122,7 +123,7 @@ pub mod events_helpers {
         let mut fractions = Vec::<DiscoveredEthEventsFraction>::new();
 
         let mut iter = sorted.chunks(chunk_size).enumerate();
-        let fraction_count = sorted.chunks(chunk_size).count() as u16;
+        let fraction_count = sorted.chunks(chunk_size).count() as FractionsCount;
         let hash: H256 = blake2_256(&(&events, fraction_count).encode()).into();
 
         let _ = iter.try_for_each(|(fraction, chunk)| -> Result<(), ()> {
@@ -130,7 +131,7 @@ pub mod events_helpers {
             let data = EthEventsPartition::try_from(inner_data)?;
             fractions.push(DiscoveredEthEventsFraction::new(
                 data,
-                fraction as u16,
+                fraction as FractionsCount,
                 fraction_count,
                 &hash,
             ));
