@@ -24,6 +24,7 @@ mod test_get_contract_address_for {
             ValidEvents::NftCancelListing => H160::from(NFT_CONTRACT),
             ValidEvents::NftEndBatchListing => H160::from(NFT_CONTRACT),
             ValidEvents::AvtGrowthLifted => H160::from(BRIDGE_CONTRACT),
+            ValidEvents::AvtLowerClaimed => H160::from(BRIDGE_CONTRACT),
         }
     }
 

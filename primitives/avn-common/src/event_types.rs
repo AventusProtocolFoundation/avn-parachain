@@ -2,7 +2,7 @@ use crate::bounds::NftExternalRefBound;
 use codec::{Decode, Encode, MaxEncodedLen};
 use hex_literal::hex;
 use sp_core::{bounded::BoundedVec, H160, H256, H512, U256};
-use sp_runtime::{scale_info::TypeInfo, traits::Member, DispatchResult};
+use sp_runtime::{scale_info::TypeInfo, traits::{Member, Zero}, DispatchResult};
 use sp_std::{convert::TryInto, vec::Vec};
 
 // ================================= Events Types ====================================
@@ -54,6 +54,10 @@ pub enum Error {
     AvtGrowthLiftedEventBadTopicLength,
     AvtGrowthLiftedEventDataOverflow,
     AvtGrowthLiftedEventPeriodConversion,
+
+    AvtLowerClaimedEventShouldOnlyContainTopics,
+    AvtLowerClaimedEventWrongTopicCount,
+    AvtLowerClaimedEventLiftIdConversion,
 }
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo)]
@@ -65,6 +69,7 @@ pub enum ValidEvents {
     NftCancelListing,
     NftEndBatchListing,
     AvtGrowthLifted,
+    AvtLowerClaimed,
 }
 
 impl ValidEvents {
@@ -102,6 +107,10 @@ impl ValidEvents {
             // hex string of Keccak-256 for LogGrowth(uint256,uint32)
             ValidEvents::AvtGrowthLifted =>
                 H256(hex!("3ad58a8dc1110baa37ad88a68db14181b4ef0c69192dfa7699a9588960eca7fd")),
+
+            // hex string of Keccak-256 for LogLowerClaimed(uint32)
+            ValidEvents::AvtLowerClaimed =>
+                H256(hex!("9853e4c075911a10a89a0f7a46bac6f8a246c4e9152480d16d86aa6a2391a4f1")),
         }
     }
 
@@ -120,6 +129,8 @@ impl ValidEvents {
             return Some(ValidEvents::NftEndBatchListing)
         } else if signature == &ValidEvents::AvtGrowthLifted.signature() {
             return Some(ValidEvents::AvtGrowthLifted)
+        } else if signature == &ValidEvents::AvtLowerClaimed.signature() {
+            return Some(ValidEvents::AvtLowerClaimed)
         } else {
             return None
         }
@@ -555,6 +566,39 @@ impl AvtGrowthLiftedData {
     }
 }
 
+// T1 Event definition:
+// event LogLowerClaimed(uint32 lowerId);
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct AvtLowerClaimedData {
+    pub lower_id: u32,
+}
+
+impl AvtLowerClaimedData {
+    const LOWER_ID: usize = 1;
+
+    pub fn is_valid(&self) -> bool {
+        return !self.lower_id.is_zero()
+    }
+
+    pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
+        if data.is_some() {
+            return Err(Error::AvtLowerClaimedEventShouldOnlyContainTopics)
+        }
+
+        if topics.len() != 1 {
+            return Err(Error::AvtLowerClaimedEventWrongTopicCount)
+        }
+
+        let lower_id = u32::from_be_bytes(
+            topics[Self::LOWER_ID][TWENTY_EIGHT_BYTES..WORD_LENGTH]
+                .try_into()
+                .map_err(|_| Error::AvtLowerClaimedEventLiftIdConversion)?,
+        );
+
+        return Ok(AvtLowerClaimedData { lower_id })
+    }
+}
+
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub enum EventData {
     LogAddedValidator(AddedValidatorData),
@@ -565,6 +609,7 @@ pub enum EventData {
     LogNftCancelListing(NftCancelListingData),
     LogNftEndBatchListing(NftEndBatchListingData),
     LogAvtGrowthLifted(AvtGrowthLiftedData),
+    LogLowerClaimed(AvtLowerClaimedData),
 }
 
 impl EventData {
@@ -578,6 +623,7 @@ impl EventData {
             EventData::LogNftCancelListing(d) => d.is_valid(),
             EventData::LogNftEndBatchListing(d) => d.is_valid(),
             EventData::LogAvtGrowthLifted(d) => d.is_valid(),
+            EventData::LogLowerClaimed(d) => d.is_valid(),
             EventData::EmptyEvent => true,
             _ => false,
         }
