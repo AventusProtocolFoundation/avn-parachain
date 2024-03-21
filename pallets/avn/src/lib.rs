@@ -180,7 +180,7 @@ pub mod pallet {
     pub type AvnBridgeContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn get_primary_validator)]
+    #[pallet::getter(fn get_primary_collator)]
     pub type PrimaryValidator<T: Config> = StorageValue<_, PrimaryValidatorData, ValueQuery>;
 
     #[pallet::genesis_config]
@@ -280,6 +280,11 @@ impl<T: Config> Pallet<T> {
     ) -> Result<bool, Error<T>> {
         let validators = Self::validators();
 
+        // If there are no validators there's no point continuing
+        if validators.len() == 0 {
+            return Err(Error::<T>::NoValidatorsFound)
+        }
+
         let counters = PrimaryValidator::<T>::get();
         let primary_validator = &validators[match op_type {
             OperationType::Ethereum => counters.ethereum,
@@ -288,7 +293,7 @@ impl<T: Config> Pallet<T> {
             .account_id
             .clone();
 
-        return Ok(*primary_validator == *current_validator)
+        return Ok(primary_validator == current_validator)
     }
 
     pub fn calculate_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {

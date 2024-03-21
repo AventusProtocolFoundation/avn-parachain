@@ -1,10 +1,18 @@
-use crate::{mock::*, OperationType};
+use crate::{
+    mock::{TestRuntime, *},
+    Error, OperationType,
+};
+use frame_support::{
+    assert_err,
+    assert_noop,
+    // dispatch::{DispatchError, DispatchResult},
+};
 use sp_runtime::testing::UintAuthorityId;
 
 fn get_index_based_on_operation_type(operationType: &OperationType) -> u8 {
     match operationType {
-        OperationType::Ethereum => AVN::get_primary_validator().ethereum,
-        OperationType::Avn => AVN::get_primary_validator().avn,
+        OperationType::Ethereum => AVN::get_primary_collator().ethereum,
+        OperationType::Avn => AVN::get_primary_collator().avn,
     }
 }
 
@@ -165,6 +173,16 @@ mod calling_is_primary_validator_for_ethereum {
             assert!(result != true, "Primary validator is unexpectedly correct");
         });
     }
+
+    #[test]
+    fn fails_with_no_validators() {
+        let mut ext = ExtBuilder::build_default().as_externality();
+        ext.execute_with(|| {
+            let mut expected_primary = 1;
+            let result = AVN::is_primary(OperationType::Ethereum, &expected_primary);
+            assert!(result.is_err());
+        });
+    }
 }
 
 #[cfg(test)]
@@ -209,6 +227,16 @@ mod calling_is_primary_validator_for_avn {
             let mut expected_primary = 4;
             let mut result = AVN::is_primary(OperationType::Avn, &expected_primary).unwrap();
             assert!(result != true, "Primary validator is unexpectedly correct");
+        });
+    }
+
+    #[test]
+    fn fails_with_no_validators() {
+        let mut ext = ExtBuilder::build_default().as_externality();
+        ext.execute_with(|| {
+            let mut expected_primary = 1;
+            let result = AVN::is_primary(OperationType::Avn, &expected_primary);
+            assert!(result.is_err());
         });
     }
 }
