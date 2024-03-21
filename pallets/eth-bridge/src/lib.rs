@@ -126,7 +126,7 @@ const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
-const SUBMIT_DISCOVERED_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
+const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -505,7 +505,7 @@ pub mod pallet {
 
         #[pallet::call_index(6)]
         #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
-        pub fn submit_discovered_events(
+        pub fn submit_ethereum_events(
             origin: OriginFor<T>,
             author: Author<T>,
             range: EthBlockRange,
@@ -709,10 +709,10 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(3u8).into()
                     },
-                Call::submit_discovered_events { author, range, events_fraction, signature } =>
+                Call::submit_ethereum_events { author, range, events_fraction, signature } =>
                     if AVN::<T>::signature_is_valid(
                         &(
-                            SUBMIT_DISCOVERED_EVENTS_HASH_CONTEXT,
+                            SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                             &author.account_id,
                             range,
                             events_fraction,
