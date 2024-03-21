@@ -9,9 +9,11 @@ use sp_avn_common::{
     DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
 };
 use sp_core::{ecdsa::Signature, hashing::keccak_256};
+
+use std::str::FromStr;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
-use web3::{transports::Http, types::TransactionReceipt, Web3};
+use web3::{transports::Http, types::{TransactionReceipt, H160}, Web3};
 
 pub use std::{path::PathBuf, sync::Arc};
 
@@ -28,7 +30,7 @@ pub mod summary_utils;
 pub mod web3_utils;
 
 use crate::{
-    extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*, web3_utils::*,
+    ethereum_events_handler::identify_events, extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*, web3_utils::*
 };
 
 pub use crate::web3_utils::{public_key_address, secret_key_address};
@@ -508,4 +510,52 @@ where
         .await
         .map_err(|e| log::error!("avn-service error: {}", e))
         .unwrap_or(());
+}
+
+#[tokio::main]
+async fn query_eth_events(){
+
+}
+
+
+pub async fn start_eth_event_handler<Block: BlockT, ClientT>(config: Config<Block, ClientT>)
+where
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+{
+    if config.initialise_web3().await.is_err() {
+        return
+    }
+
+    log::info!("⛓️  ETH EVENT HANDLER INITIALIZED");
+    // get identify_events args
+    let start_block = 5409981;
+    let end_block = 5510281;
+
+    let contract_address_hex = "0dd31348e68b6400bf8bde84a1aaf733d9fcbf9b";
+
+    let contract_addresses = vec![H160::from_str(contract_address_hex).unwrap()];
+
+    let mut event_signatures:Vec<web3::types::H256> = Vec::new();
+    let lower_event_signature = "418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae";
+    event_signatures
+        .push(web3::types::H256::from_str(lower_event_signature).unwrap());
+
+    if let Some(mut web3_data_mutex) = config.web3_data_mutex.try_lock(){
+        if web3_data_mutex.web3.is_none() {
+            log::error!("Web3 connection not setup")
+        }else{
+            // execute identify events
+            let web3_ref = web3_data_mutex.web3.as_ref().unwrap();
+            let events = identify_events(&web3_ref, start_block, end_block, contract_addresses, event_signatures).await;
+            log::info!("{events:?}");
+
+            // construct unsigned extrinsic
+
+            // send unsigned extrinsic to chain
+
+        }
+
+    } else {
+        log::error!("Failed to acquire web3 data mutex.")
+    }
 }
