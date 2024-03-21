@@ -44,7 +44,10 @@ use pallet_avn::{
     LowerParams, OnGrowthLiftedHandler, ProcessedEventsChecker, PACKED_LOWER_PARAM_SIZE,
 };
 use sp_avn_common::{
-    event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
+    event_types::{
+        AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
+        ProcessedEventHandler,
+    },
     verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
 use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
@@ -85,6 +88,7 @@ mod test_deferred_lower;
 mod test_growth;
 #[cfg(test)]
 mod test_lower_proof_generation;
+
 #[cfg(test)]
 mod test_non_avt_tokens;
 #[cfg(test)]
@@ -219,6 +223,9 @@ pub mod pallet {
         LowerReadyToClaim {
             lower_id: LowerId,
         },
+        AvtLowerClaimed {
+            lower_id: LowerId,
+        },
         FailedToGenerateLowerProof {
             lower_id: LowerId,
         },
@@ -238,6 +245,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         NoTier1EventForLogLifted,
+        NoTier1EventForLogLowerClaimed,
         AmountOverflow,
         DepositFailed,
         LowerFailed,
@@ -611,16 +619,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn lift(event: &EthEvent) -> DispatchResult {
-        return match &event.event_data {
-            EventData::LogLifted(d) => return Self::process_lift(event, d),
-            EventData::LogAvtGrowthLifted(d) => return Self::process_avt_growth_lift(event, d),
-
-            // Event handled or it is not for us, in which case ignore it.
-            _ => Ok(()),
-        }
-    }
-
     fn settle_lower(
         token_id: T::TokenId,
         from: &T::AccountId,
@@ -915,6 +913,21 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    fn process_lower_claim(event: &EthEvent, data: &AvtLowerClaimedData) -> DispatchResult {
+        let event_id = &event.event_id;
+        let event_validity = T::ProcessedEventsChecker::check_event(event_id);
+        ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerClaimed);
+
+        if !data.is_valid() {
+            Err(Error::<T>::InvalidLowerId)?
+        }
+        LowersReadyToClaim::<T>::remove(data.lower_id);
+
+        Self::deposit_event(Event::<T>::AvtLowerClaimed { lower_id: data.lower_id });
+
+        Ok(())
+    }
+
     /// The account ID of the AvN treasury.
     /// This actually does computation. If you need to keep using it, then make sure you cache
     /// the value and only call this once.
@@ -958,7 +971,7 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::<T>::InvalidLowerCall)?,
         )?;
 
-        <LowerNonce<T>>::mutate(|nonce| *nonce += 1);
+        <LowerNonce<T>>::mutate(|mut nonce| *nonce += 1);
 
         Self::deposit_event(Event::<T>::LowerRequested {
             token_id,
@@ -976,7 +989,14 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> ProcessedEventHandler for Pallet<T> {
     fn on_event_processed(event: &EthEvent) -> DispatchResult {
-        return Self::lift(event)
+        return match &event.event_data {
+            EventData::LogLifted(d) => return Self::process_lift(event, d),
+            EventData::LogAvtGrowthLifted(d) => return Self::process_avt_growth_lift(event, d),
+            EventData::LogLowerClaimed(d) => return Self::process_lower_claim(event, d),
+
+            // Event handled or it is not for us, in which case ignore it.
+            _ => Ok(()),
+        }
     }
 }
 

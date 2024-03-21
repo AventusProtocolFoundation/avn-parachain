@@ -43,7 +43,7 @@ fn avn_test_lift_ignored_when_event_type_does_not_match() {
             0
         );
 
-        assert_ok!(TokenManager::lift(&mock_data.empty_data_lift_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_data.empty_data_lift_event));
 
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), 0);
         assert_eq!(
@@ -86,7 +86,10 @@ fn avn_test_lift_zero_amount_should_fail() {
             mock_data.receiver_account_id,
         ));
 
-        assert_noop!(TokenManager::lift(&mock_event), Error::<TestRuntime>::AmountIsZero);
+        assert_noop!(
+            TokenManager::on_event_processed(&mock_event),
+            Error::<TestRuntime>::AmountIsZero
+        );
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), avt_token_balance_before);
         assert_eq!(
             <TokenManager as Store>::Balances::get((
@@ -128,7 +131,7 @@ fn avn_test_lift_should_fail_when_event_is_not_in_processed_events() {
         ));
 
         assert_noop!(
-            TokenManager::lift(&mock_event),
+            TokenManager::on_event_processed(&mock_event),
             Error::<TestRuntime>::NoTier1EventForLogLifted
         );
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), avt_token_balance_before);

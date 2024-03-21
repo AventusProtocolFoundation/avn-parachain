@@ -42,7 +42,7 @@ fn avn_test_lift_to_zero_balance_account_should_succeed() {
         assert_eq!(TokenManager::balance((AVT_TOKEN_CONTRACT, mock_data.receiver_account_id)), 0);
 
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), 0);
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), AMOUNT_123_TOKEN);
 
         // check that TokenManager.balance for AVT contract is still 0
@@ -75,7 +75,7 @@ fn avn_test_lift_to_non_zero_balance_account_should_succeed() {
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), AMOUNT_100_TOKEN);
         let new_balance = Balances::free_balance(mock_data.receiver_account_id) + AMOUNT_123_TOKEN;
 
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), new_balance);
 
         // check that TokenManager.balance for AVT contract is still 0
@@ -104,7 +104,7 @@ fn avn_test_lift_max_balance_to_zero_balance_account_should_succeed() {
         insert_to_mock_processed_events(&mock_event.event_id);
 
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), 0);
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), u128_max_amount);
 
         assert!(System::events().iter().any(|a| a.event ==
@@ -130,7 +130,10 @@ fn avn_test_lift_max_balance_to_non_zero_balance_account_should_return_deposit_f
         insert_to_mock_processed_events(&mock_event.event_id);
         let balance_before = Balances::free_balance(mock_data.receiver_account_id);
 
-        assert_noop!(TokenManager::lift(&mock_event), Error::<TestRuntime>::DepositFailed);
+        assert_noop!(
+            TokenManager::on_event_processed(&mock_event),
+            Error::<TestRuntime>::DepositFailed
+        );
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), balance_before);
 
         assert!(!System::events().iter().any(|a| a.event ==
