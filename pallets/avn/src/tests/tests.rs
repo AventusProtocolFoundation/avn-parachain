@@ -152,14 +152,12 @@ mod calling_is_primary_validator_for_ethereum {
         ext.execute_with(|| {
             let mut expected_primary = 1;
             let mut result = AVN::is_primary(OperationType::Ethereum, &expected_primary).unwrap();
-            println!("First Result: {:?}", result.clone());
             assert!(result == true, "Wrong primary validator");
 
             AVN::calculate_primary_validator(OperationType::Ethereum);
 
             expected_primary = 2;
             result = AVN::is_primary(OperationType::Ethereum, &expected_primary).unwrap();
-            println!("Second Result: {:?}", result.clone());
             assert!(result == true, "Wrong primary validator");
         });
     }
