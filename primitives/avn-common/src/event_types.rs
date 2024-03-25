@@ -56,7 +56,7 @@ pub enum Error {
     AvtGrowthLiftedEventPeriodConversion,
 }
 
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialOrd, Ord, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum ValidEvents {
     AddedValidator,
     Lifted,

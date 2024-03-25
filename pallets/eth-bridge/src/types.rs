@@ -1,4 +1,7 @@
 use crate::*;
+use sp_avn_common::event_types::ValidEvents;
+type EventsTypesLimit = ConstU32<20>;
+type EthBridgeEventsFilter = BoundedBTreeSet<ValidEvents, EventsTypesLimit>;
 
 // The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
@@ -126,20 +129,15 @@ pub struct ActiveEthTransaction<T: Config> {
     pub tx_succeeded: bool,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub enum EventProcessingStatus {
-    UnderValidation,
-    Accepted(FractionsCount),
-}
-
-impl Default for EventProcessingStatus {
-    fn default() -> Self {
-        EventProcessingStatus::UnderValidation
-    }
-}
-
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
 pub struct ActiveEthRange {
     pub range: EthBlockRange,
-    pub status: EventProcessingStatus,
+    pub partition: u16,
+    pub event_types_filter: EthBridgeEventsFilter,
+}
+
+impl ActiveEthRange {
+    pub fn is_initial_range(&self) -> bool {
+        *self == Default::default()
+    }
 }

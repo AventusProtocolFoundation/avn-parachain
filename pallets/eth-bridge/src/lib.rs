@@ -138,7 +138,7 @@ pub mod pallet {
         traits::UnixTime,
         Blake2_128Concat,
     };
-    use sp_avn_common::event_types::{EthEvent, EthEventId};
+    use sp_avn_common::event_types::{EthEvent, EthEventId, ValidEvents};
 
     #[pallet::config]
     pub trait Config:
@@ -238,12 +238,10 @@ pub mod pallet {
     pub type ActiveEthereumRange<T: Config> = StorageValue<_, ActiveEthRange, OptionQuery>;
 
     #[pallet::storage]
-    pub type DiscoveredEventsFractions<T: Config> = StorageDoubleMap<
+    pub type EthereumEvents<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        EthBlockRange,
-        Blake2_128Concat,
-        DiscoveredEthEventsFraction,
+        EthereumEventsPartition,
         BoundedBTreeSet<T::AccountId, VotesLimit>,
         ValueQuery,
     >;
@@ -310,7 +308,6 @@ pub mod pallet {
         EventVotesFull,
         InvalidEventVote,
         EventVoteExists,
-        EventScanningDisabled,
         NonActiveEthereumRange,
         VotingEnded,
     }
@@ -517,36 +514,39 @@ pub mod pallet {
         pub fn submit_ethereum_events(
             origin: OriginFor<T>,
             author: Author<T>,
-            range: EthBlockRange,
-            events_fraction: DiscoveredEthEventsFraction,
+            events_partition: EthereumEventsPartition,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            ensure!(events_fraction.is_valid(), Error::<T>::InvalidEventVote);
-            // Validate that the range is the current one.
-            let active_range =
-                Self::active_ethereum_range().ok_or(Error::<T>::EventScanningDisabled)?;
-            ensure!(range == active_range.range, Error::<T>::NonActiveEthereumRange);
-            ensure!(
-                active_range.status == EventProcessingStatus::UnderValidation,
-                Error::<T>::VotingEnded
-            );
+            let active_range = match Self::active_ethereum_range() {
+                Some(active_range) => {
+                    ensure!(
+                        *events_partition.range() == active_range.range &&
+                            events_partition.partition() == active_range.partition,
+                        Error::<T>::NonActiveEthereumRange
+                    );
+                    active_range
+                },
+                None => Default::default(),
+            };
 
-            // Check if already vote has been casted
-            let votes = DiscoveredEventsFractions::<T>::get(&range, &events_fraction);
+            if active_range.is_initial_range() == false {
+                ensure!(
+                    has_author_casted_event_vote::<T>(&author.account_id) == false,
+                    Error::<T>::EventVoteExists
+                );
+            }
 
-            ensure!(votes.contains(&author.account_id) == false, Error::<T>::EventVoteExists);
-            let quorum = AVN::<T>::quorum() as usize;
-            ensure!(votes.len() <= quorum, Error::<T>::EventVotesFull);
+            let mut votes = EthereumEvents::<T>::get(&events_partition);
+            votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
-            DiscoveredEventsFractions::<T>::try_mutate(&range, &events_fraction, |votes| {
-                votes.try_insert(author.account_id)
-            })
-            .map_err(|_| Error::<T>::EventVotesFull)?;
-
-            // Process results ensure all partitions are accepted
-            complete_voting_round_if_ready::<T>(range, quorum, events_fraction.id());
+            if votes.len() < AVN::<T>::quorum() as usize {
+                EthereumEvents::<T>::insert(&events_partition, votes);
+            } else {
+                process_ethereum_events_partition::<T>(&active_range, &events_partition);
+                advance_partition::<T>(&active_range, &events_partition);
+            }
 
             Ok(().into())
         }
@@ -560,46 +560,6 @@ pub mod pallet {
                     log::error!("❌ Error processing currently active request: {:?}", e);
                 }
             }
-        }
-
-        fn on_idle(_block: BlockNumberFor<T>, mut remaining_weight: Weight) -> Weight {
-            if remaining_weight.checked_reduce(T::DbWeight::get().reads(1)).is_none() {
-                return remaining_weight
-            }
-            remaining_weight.saturating_reduce(T::DbWeight::get().reads(1));
-            let active_range = match Self::active_ethereum_range() {
-                Some(range) => range,
-                None => return remaining_weight,
-            };
-
-            // Ensure enough capacity is there for doing the processing.
-            let partitions_count = match active_range.status {
-                EventProcessingStatus::Accepted(partitions_count) => partitions_count,
-                _ => return remaining_weight,
-            };
-
-            // TODO replace zero with benchmark value
-            let process_weight =
-                T::DbWeight::get().reads(partitions_count as u64).saturating_add(Weight::zero());
-            if remaining_weight.checked_reduce(process_weight).is_none() {
-                return remaining_weight
-            }
-
-            // Read all, then sort, then start processing one by one.
-            let mut partitions =
-                DiscoveredEventsFractions::<T>::iter_key_prefix(&active_range.range)
-                    .collect::<Vec<DiscoveredEthEventsFraction>>();
-            partitions.sort_by(|a, b| a.fraction().cmp(&b.fraction()));
-            remaining_weight.saturating_reduce(process_weight);
-
-            let next_partition = match partitions.first() {
-                Some(partition) => partition,
-                None => return remaining_weight,
-            };
-
-            process_ethereum_events_fraction::<T>(&active_range.range, next_partition);
-
-            remaining_weight
         }
     }
 
@@ -708,82 +668,65 @@ pub mod pallet {
 
         Ok(())
     }
-
-    fn complete_voting_round_if_ready<T: Config>(
-        range: EthBlockRange,
-        quorum: usize,
-        vote_id: &H256,
-    ) {
-        let (voted_partitions, other_voted_partitions): (
-            Vec<(DiscoveredEthEventsFraction, BoundedBTreeSet<T::AccountId, VotesLimit>)>,
-            _,
-        ) = DiscoveredEventsFractions::<T>::iter_prefix(&range)
-            .partition(|(partition, votes)| votes.len() >= quorum && partition.id().eq(vote_id));
-        let mut partitions: Vec<&DiscoveredEthEventsFraction> =
-            voted_partitions.iter().map(|(partition, _votes)| partition).collect();
-
-        if partitions.is_empty() {
-            return
-        }
-
-        partitions.sort_by(|a, b| a.fraction().cmp(&b.fraction()));
-
-        // the partitions count is part of the signature, we can use any part to retrieve it.
-        let (fractions_count, first_partition) = match partitions.first() {
-            Some(partition) => (partition.fraction_count(), partition),
-            None => return,
-        };
-
-        if partitions.len() != fractions_count as usize {
-            return
-        }
-
-        // Sanity check, all parts are present
-        for (i, partition) in partitions.iter().enumerate() {
-            if i != partition.fraction() as usize {
-                log::error!("❌ Sanity check failed while attempting to process of Ethereum events range: {:?}. Abort.", range);
-                return
+    fn has_author_casted_event_vote<T: Config>(author: &T::AccountId) -> bool {
+        for (_partition, votes) in EthereumEvents::<T>::iter() {
+            if votes.contains(&author) {
+                return true
             }
         }
-
-        // Cleanup other votes & mark as ready to be processed
-        for (partition, _votes) in other_voted_partitions.iter() {
-            // TODO raise offence for bad votes.
-            DiscoveredEventsFractions::<T>::remove(&range, partition);
-        }
-
-        ActiveEthereumRange::<T>::put(ActiveEthRange {
-            range: range.clone(),
-            status: EventProcessingStatus::Accepted(fractions_count),
-        });
-        let _weight = process_ethereum_events_fraction::<T>(&range, first_partition);
+        false
     }
 
-    fn process_ethereum_events_fraction<T: Config>(
-        range: &EthBlockRange,
-        partition: &DiscoveredEthEventsFraction,
-    ) -> Weight {
-        let mut processing_weight = Weight::zero();
+    fn advance_partition<T: Config>(
+        active_range: &ActiveEthRange,
+        approved_partition: &EthereumEventsPartition,
+    ) {
+        let next_active_range = if approved_partition.is_last() {
+            ActiveEthRange {
+                range: active_range.range.next_range(),
+                partition: 0,
+                // TODO retrieve values from runtime.
+                event_types_filter: Default::default(),
+            }
+        } else {
+            ActiveEthRange {
+                partition: active_range.partition.saturating_add(1),
+                ..active_range.clone()
+            }
+        };
+        ActiveEthereumRange::<T>::put(next_active_range);
+    }
+
+    fn process_ethereum_events_partition<T: Config>(
+        active_range: &ActiveEthRange,
+        partition: &EthereumEventsPartition,
+    ) {
         // Remove entry from storage. Ignore votes.
-        let _ = DiscoveredEventsFractions::<T>::take(range, partition);
+        let _ = EthereumEvents::<T>::take(partition);
         for discovered_event in partition.events().iter() {
-            processing_weight
-                .saturating_accrue(process_ethereum_event::<T>(&discovered_event.event));
+            match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
+                Some(valid_event) =>
+                    if active_range.event_types_filter.contains(&valid_event) {
+                        process_ethereum_event::<T>(&discovered_event.event);
+                    } else {
+                        log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
+                    },
+                None => log::warn!(
+                    "Unknown signature in range: {:?}",
+                    &discovered_event.event.event_id.signature
+                ),
+            };
         }
-        if DiscoveredEventsFractions::<T>::iter().next().is_none() {
-            // Go to next range
-            ActiveEthereumRange::<T>::put(ActiveEthRange {
-                range: range.next_range(),
-                status: EventProcessingStatus::UnderValidation,
-            });
-            processing_weight.saturating_accrue(T::DbWeight::get().writes(1));
+
+        // Cleanup
+        for (partition, votes) in EthereumEvents::<T>::drain() {
+            // TODO raise offences
+            log::info!("Collators with invalid votes on ethereum events (range: {:?}, partition: {}): {:?}", partition.range(), partition.partition(), votes);
         }
-        processing_weight.saturating_accrue(T::DbWeight::get().reads(1));
-        processing_weight
     }
 
-    fn process_ethereum_event<T: Config>(event: &EthEvent) -> Weight {
-        // use frame_support::dispatch::WithPostDispatchInfo;
+    fn process_ethereum_event<T: Config>(event: &EthEvent) {
+        // TODO before processing ensure that the event has not already been processed
         match T::BridgeInterfaceNotification::on_event_processed(&event) {
             Ok(_) => {
                 <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
@@ -799,8 +742,6 @@ pub mod pallet {
                 });
             },
         };
-        // TODO use benchmarked value
-        Weight::zero()
     }
 
     #[pallet::validate_unsigned]
@@ -860,19 +801,22 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(3u8).into()
                     },
-                Call::submit_ethereum_events { author, range, events_fraction, signature } =>
+                Call::submit_ethereum_events { author, events_partition, signature } =>
                     if AVN::<T>::signature_is_valid(
                         &(
                             SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                             &author.account_id,
-                            range,
-                            events_fraction,
+                            events_partition,
                         ),
                         &author,
                         signature,
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeAddEventRange")
-                            .and_provides((call, range))
+                            .and_provides((
+                                call,
+                                events_partition.range(),
+                                events_partition.partition(),
+                            ))
                             .priority(TransactionPriority::max_value() / 2)
                             .build()
                     } else {
