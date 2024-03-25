@@ -126,6 +126,7 @@ pub struct ActiveEthTransaction<T: Config> {
     pub tx_succeeded: bool,
 }
 
+pub type FractionsCount = u16;
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum EventProcessingStatus {
     UnderValidation,

@@ -730,7 +730,7 @@ pub mod pallet {
 
         // the partitions count is part of the signature, we can use any part to retrieve it.
         let (fractions_count, first_partition) = match partitions.first() {
-            Some(partition) => (partition.fraction_count(), partition),
+            Some(partition) => (partition.fractions_count(), partition),
             None => return,
         };
 

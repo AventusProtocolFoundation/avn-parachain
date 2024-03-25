@@ -68,13 +68,12 @@ impl Ord for DiscoveredEvent {
     }
 }
 
-pub type FractionsCount = u16;
 type EthEventsPartition = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct DiscoveredEthEventsFraction {
     id: H256,
-    fraction: FractionsCount,
-    fraction_count: FractionsCount,
+    fraction: u16,
+    fractions_count: u16,
     data: EthEventsPartition,
 }
 
@@ -83,12 +82,12 @@ impl DiscoveredEthEventsFraction {
         &self.id
     }
 
-    pub fn fraction(&self) -> FractionsCount {
+    pub fn fraction(&self) -> u16 {
         self.fraction
     }
 
-    pub fn fraction_count(&self) -> FractionsCount {
-        self.fraction
+    pub fn fractions_count(&self) -> u16 {
+        self.fractions_count
     }
 
     pub fn events(&self) -> &EthEventsPartition {
@@ -96,16 +95,16 @@ impl DiscoveredEthEventsFraction {
     }
 
     pub fn is_valid(&self) -> bool {
-        self.fraction < self.fraction_count
+        self.fraction < self.fractions_count
     }
 
-    fn new(
-        data: EthEventsPartition,
-        fraction: FractionsCount,
-        fraction_count: FractionsCount,
-        id: &H256,
-    ) -> Self {
-        DiscoveredEthEventsFraction { data, fraction, fraction_count, id: id.clone() }
+    fn new(data: EthEventsPartition, fraction: u16, fraction_count: u16, id: &H256) -> Self {
+        DiscoveredEthEventsFraction {
+            data,
+            fraction,
+            fractions_count: fraction_count,
+            id: id.clone(),
+        }
     }
 }
 
@@ -123,7 +122,7 @@ pub mod events_helpers {
         let mut fractions = Vec::<DiscoveredEthEventsFraction>::new();
 
         let mut iter = sorted.chunks(chunk_size).enumerate();
-        let fraction_count = sorted.chunks(chunk_size).count() as FractionsCount;
+        let fraction_count = sorted.chunks(chunk_size).count() as u16;
         let hash: H256 = blake2_256(&(&events, fraction_count).encode()).into();
 
         let _ = iter.try_for_each(|(fraction, chunk)| -> Result<(), ()> {
@@ -131,7 +130,7 @@ pub mod events_helpers {
             let data = EthEventsPartition::try_from(inner_data)?;
             fractions.push(DiscoveredEthEventsFraction::new(
                 data,
-                fraction as FractionsCount,
+                fraction as u16,
                 fraction_count,
                 &hash,
             ));
