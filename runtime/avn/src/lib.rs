@@ -13,6 +13,7 @@ pub mod xcm_config;
 use core::cmp::Ordering;
 
 use codec::{Decode, Encode};
+use pallet_eth_bridge::{types::ActiveEthRange, ActiveEthereumRange, CollatorVotes};
 use scale_info::TypeInfo;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
@@ -940,6 +941,18 @@ impl_runtime_apis! {
             TransactionPayment::length_to_fee(length)
         }
     }
+
+    // TODO: ivan BEGIN
+    impl pallet_eth_bridge::EthEventHandlerApi<Block> for Runtime {
+        fn query_active_block_range()-> Option<ActiveEthRange>{
+            EthBridge::active_ethereum_range()
+        }
+        fn query_has_collator_casted_votes(account_id: u64) -> Option<CollatorVotes>{
+            EthBridge::has_collator_casted_votes(account_id)
+        }
+    }
+    // TODO: ivan END
+
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
         fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
             ParachainSystem::collect_collation_info(header)

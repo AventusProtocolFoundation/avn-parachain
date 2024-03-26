@@ -84,7 +84,7 @@ mod call;
 mod eth;
 mod request;
 mod tx;
-mod types;
+pub mod types;
 mod util;
 use crate::types::*;
 
@@ -127,6 +127,12 @@ const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
+
+#[derive(Encode, Decode, TypeInfo)]
+pub struct CollatorVotes {
+    id: H256,
+    fractions: Vec<u16>,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -759,6 +765,31 @@ pub mod pallet {
         let _weight = process_ethereum_events_fraction::<T>(&range, first_partition);
     }
 
+    pub fn has_collator_casted_votes<T: Config>(account_id: u64) -> Option<CollatorVotes> {
+        let active_range = ActiveEthereumRange::<T>::get();
+        let mut collator_votes = Vec::new();
+        let mut fraction_id = H256::default();
+
+        if let Some(active_range) = active_range {
+            for (fraction, votes) in
+                DiscoveredEventsFractions::<T>::iter_prefix(&active_range.range)
+            {
+                let account_id_bytes = account_id.to_le_bytes();
+                T::AccountId::decode(&mut &account_id_bytes[..])
+                .map(|account_id_typed| {
+                    if votes.contains(&account_id_typed) {
+                        collator_votes.push(fraction.fraction());
+                        fraction_id = *fraction.id();
+                    }
+                });
+            }
+
+            Some(CollatorVotes { id: fraction_id, fractions: collator_votes })
+        } else {
+            None
+        }
+    }
+
     fn process_ethereum_events_fraction<T: Config>(
         range: &EthBlockRange,
         partition: &DiscoveredEthEventsFraction,
@@ -920,5 +951,14 @@ pub mod pallet {
 
             Ok(())
         }
+    }
+}
+
+#[cfg_attr(not(feature = "std"), no_std)]
+
+sp_api::decl_runtime_apis! {
+    pub trait EthEventHandlerApi {
+        fn query_active_block_range()-> Option<ActiveEthRange>;
+        fn query_has_collator_casted_votes(account_id: u64) -> Option<CollatorVotes>;
     }
 }

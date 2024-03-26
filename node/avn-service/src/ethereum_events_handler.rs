@@ -21,8 +21,8 @@ pub enum AppError {
 
 pub async fn identify_events(
     web3: &Web3<web3::transports::Http>,
-    start_block: u64,
-    end_block: u64,
+    start_block: u32,
+    end_block: u32,
     contract_addresses: Vec<H160>,
     event_signatures: Vec<H256>,
 ) -> Result<Vec<DiscoveredEvent>, AppError> {

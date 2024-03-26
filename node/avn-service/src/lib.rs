@@ -5,8 +5,7 @@ use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_avn_common::{
-    EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
-    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
+    event_discovery::events_helpers::discovered_eth_events_partition_factory, EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER
 };
 use sp_core::{ecdsa::Signature, hashing::keccak_256};
 
@@ -512,24 +511,25 @@ where
         .unwrap_or(());
 }
 
-#[tokio::main]
-async fn query_eth_events(){
-
-}
-
-
 pub async fn start_eth_event_handler<Block: BlockT, ClientT>(config: Config<Block, ClientT>)
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static + std::fmt::Debug,
 {
     if config.initialise_web3().await.is_err() {
         return
     }
 
     log::info!("⛓️  ETH EVENT HANDLER INITIALIZED");
+
+    let client = config.client;
+
+    log::info!("{:?}",client);
+
+
     // get identify_events args
     let start_block = 5409981;
     let end_block = 5510281;
+    // let (start_block, end_block) = EthBlockRange::range();
 
     let contract_address_hex = "0dd31348e68b6400bf8bde84a1aaf733d9fcbf9b";
 
@@ -547,8 +547,8 @@ where
             // execute identify events
             let web3_ref = web3_data_mutex.web3.as_ref().unwrap();
             let events = identify_events(&web3_ref, start_block, end_block, contract_addresses, event_signatures).await;
-            log::info!("{events:?}");
 
+            let event_fractions = discovered_eth_events_partition_factory(events.unwrap());
             // construct unsigned extrinsic
 
             // send unsigned extrinsic to chain
