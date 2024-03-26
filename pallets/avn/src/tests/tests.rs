@@ -5,7 +5,6 @@ use crate::{
 use frame_support::{
     assert_err,
     assert_noop,
-    // dispatch::{DispatchError, DispatchResult},
 };
 use sp_runtime::testing::UintAuthorityId;
 
