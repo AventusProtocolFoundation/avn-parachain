@@ -783,7 +783,7 @@ pub mod pallet {
     }
 
     fn process_ethereum_event<T: Config>(event: &EthEvent) -> Weight {
-        // use frame_support::dispatch::WithPostDispatchInfo;
+        // TODO before processing ensure that the event has not already been processed
         match T::BridgeInterfaceNotification::on_event_processed(&event) {
             Ok(_) => {
                 <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
