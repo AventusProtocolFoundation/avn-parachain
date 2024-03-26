@@ -4,6 +4,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use event_types::EthEvent;
 use sp_core::{bounded::BoundedBTreeSet, ConstU32};
 use sp_io::hashing::blake2_256;
+use sp_runtime::traits::Saturating;
 
 pub type VotesLimit = ConstU32<100>;
 pub type EventsBatchLimit = ConstU32<32>;
@@ -12,6 +13,19 @@ pub type EventsBatchLimit = ConstU32<32>;
 pub struct EthBlockRange {
     pub start_block: u32,
     pub length: u32,
+}
+
+impl EthBlockRange {
+    pub fn next_range(&self) -> EthBlockRange {
+        EthBlockRange {
+            start_block: self.start_block.saturating_add(self.length),
+            length: self.length,
+        }
+    }
+    pub fn range(&self) -> (u32, u32) {
+        let end_block = self.start_block.saturating_add(self.length).saturating_less_one();
+        (self.start_block, end_block)
+    }
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
@@ -57,31 +71,40 @@ impl Ord for DiscoveredEvent {
 type EthEventsPartition = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct DiscoveredEthEventsFraction {
-    data: EthEventsPartition,
-    fraction: u16,
-    fraction_count: u16,
     id: H256,
+    fraction: u16,
+    fractions_count: u16,
+    data: EthEventsPartition,
 }
 
 impl DiscoveredEthEventsFraction {
-    pub fn events(&self) -> &EthEventsPartition {
-        &self.data
+    pub fn id(&self) -> &H256 {
+        &self.id
     }
 
     pub fn fraction(&self) -> u16 {
         self.fraction
     }
 
-    pub fn fraction_count(&self) -> u16 {
-        self.fraction
+    pub fn fractions_count(&self) -> u16 {
+        self.fractions_count
     }
 
-    pub fn id(&self) -> &H256 {
-        &self.id
+    pub fn events(&self) -> &EthEventsPartition {
+        &self.data
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.fraction < self.fractions_count
     }
 
     fn new(data: EthEventsPartition, fraction: u16, fraction_count: u16, id: &H256) -> Self {
-        DiscoveredEthEventsFraction { data, fraction, fraction_count, id: id.clone() }
+        DiscoveredEthEventsFraction {
+            data,
+            fraction,
+            fractions_count: fraction_count,
+            id: id.clone(),
+        }
     }
 }
 
