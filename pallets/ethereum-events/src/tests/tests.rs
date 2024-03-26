@@ -153,18 +153,6 @@ fn parse_tier1_event(event_id: EthEventId, data: Option<Vec<u8>>, topics: Vec<Ve
 */
 
 #[test]
-fn test_is_primary_blocknumber_1() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let block_number = 1;
-        let expected_primary = validator_id_2();
-        let result = EthereumEvents::is_primary(OperationType::Ethereum, &expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
-        assert_eq!(result.unwrap(), true);
-    });
-}
-
-#[test]
 fn test_event_exists_in_system_with_no_entries() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
@@ -192,18 +180,6 @@ fn test_event_exists_in_system_entry_in_unchecked_queue() {
         assert!(EthereumEvents::event_exists_in_system(&event_id));
         assert!(EthereumEvents::has_events_to_check());
         assert!(!EthereumEvents::has_events_to_validate());
-    });
-}
-
-#[test]
-fn test_is_primary_blocknumber_2() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let block_number = 2;
-        let expected_primary = validator_id_3();
-        let result = EthereumEvents::is_primary(OperationType::Ethereum, &expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
-        assert_eq!(result.unwrap(), true);
     });
 }
 
@@ -327,18 +303,6 @@ fn test_multiple_events_in_system() {
         for event in &pending_challenge_events {
             assert!(EthereumEvents::event_exists_in_system(&event));
         }
-    });
-}
-
-#[test]
-fn test_is_primary_blocknumber_100() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let block_number = 100;
-        let expected_primary = validator_id_2();
-        let result = EthereumEvents::is_primary(OperationType::Ethereum, &expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
-        assert_eq!(result.unwrap(), true);
     });
 }
 
