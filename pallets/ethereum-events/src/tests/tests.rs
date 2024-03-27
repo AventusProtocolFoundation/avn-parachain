@@ -629,8 +629,8 @@ mod signature_in {
             UintAuthorityId::set_all_keys(vec![1, 2, 3]);
 
             let val_length = EthereumEvents::validators().len();
-            let index_of_primary_validator = block_number % val_length;
-            let validator = &EthereumEvents::validators()[index_of_primary_validator];
+            let index_of_primary_validator = AVN::<TestRuntime>::get_primary_collator().ethereum;
+            let validator = &EthereumEvents::validators()[index_of_primary_validator as usize];
 
             EthereumEvents::insert_to_unchecked_events(&event_id, ingress_counter);
             assert_eq!(EthereumEvents::unchecked_events().len(), 1);
