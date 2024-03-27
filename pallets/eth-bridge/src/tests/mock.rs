@@ -53,6 +53,7 @@ pub struct Context {
     pub author: Author<TestRuntime>,
     pub confirming_author: Author<TestRuntime>,
     pub second_confirming_author: Author<TestRuntime>,
+    pub third_confirming_author: Author<TestRuntime>,
     pub request_function_name: Vec<u8>,
     pub request_params: Vec<(Vec<u8>, Vec<u8>)>,
     pub lower_params: LowerParams,
@@ -177,7 +178,7 @@ pub fn request_failed(id: &u32) -> bool {
 }
 
 pub fn setup_context() -> Context {
-    let primary_validator_id = AVN::calculate_primary_validator(OperationType::Ethereum).unwrap();
+    let primary_validator_id = AVN::advance_primary_validator(OperationType::Ethereum).unwrap();
     let author = Author::<TestRuntime> {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,
@@ -188,6 +189,7 @@ pub fn setup_context() -> Context {
     }
     let confirming_author = create_confirming_author(confirming_validator_id);
     let second_confirming_author = create_confirming_author(confirming_validator_id + 1);
+    let third_confirming_author = create_confirming_author(confirming_validator_id + 2);
     let test_signature = generate_signature(author.clone(), b"test context");
     let tx_succeeded = false;
     let eth_tx_hash = H256::from_slice(&[0u8; 32]);
@@ -205,6 +207,7 @@ pub fn setup_context() -> Context {
         author: author.clone(),
         confirming_author: confirming_author.clone(),
         second_confirming_author: second_confirming_author.clone(),
+        third_confirming_author: third_confirming_author.clone(),
         confirmation_signature,
         request_function_name: b"publishRoot".to_vec(),
         request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
