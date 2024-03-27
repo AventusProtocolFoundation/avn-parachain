@@ -21,7 +21,7 @@ fn setup_last_validator_as_primary(operationType: &OperationType) {
 
     let num_validators_indexed = validators.len() - 1;
     for _ in &validators[..num_validators_indexed] {
-        AVN::calculate_primary_validator(operationType.clone()).unwrap();
+        AVN::advance_primary_validator(operationType.clone()).unwrap();
     }
 
     let eth_index_after: u8 = get_index_based_on_operation_type(operationType);
@@ -29,7 +29,7 @@ fn setup_last_validator_as_primary(operationType: &OperationType) {
 }
 
 #[cfg(test)]
-mod when_calculate_primary_validator_is_called_for_operation_ethereum {
+mod when_advance_primary_validator_is_called_for_operation_ethereum {
     use super::*;
     #[test]
     fn the_next_validator_for_ethereum_increments_by_one_if_the_current_one_is_not_the_last() {
@@ -37,7 +37,7 @@ mod when_calculate_primary_validator_is_called_for_operation_ethereum {
         ext.execute_with(|| {
             let eth_index_before: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
 
-            AVN::calculate_primary_validator(OperationType::Ethereum);
+            AVN::advance_primary_validator(OperationType::Ethereum);
 
             let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
             assert_eq!(eth_index_after, eth_index_before + 1);
@@ -53,7 +53,7 @@ mod when_calculate_primary_validator_is_called_for_operation_ethereum {
 
             setup_last_validator_as_primary(&OperationType::Ethereum);
 
-            AVN::calculate_primary_validator(OperationType::Ethereum).unwrap();
+            AVN::advance_primary_validator(OperationType::Ethereum).unwrap();
             let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
             assert_eq!(eth_index_before, eth_index_after);
         });
@@ -67,7 +67,7 @@ mod when_calculate_primary_validator_is_called_for_operation_ethereum {
             let eth_index_before: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
             let avn_index_before: u8 = get_index_based_on_operation_type(&OperationType::Avn);
 
-            AVN::calculate_primary_validator(OperationType::Ethereum).unwrap();
+            AVN::advance_primary_validator(OperationType::Ethereum).unwrap();
 
             let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
             let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
@@ -78,7 +78,7 @@ mod when_calculate_primary_validator_is_called_for_operation_ethereum {
 }
 
 #[cfg(test)]
-mod when_calculate_primary_validator_is_called_for_operation_avn {
+mod when_advance_primary_validator_is_called_for_operation_avn {
     use super::*;
     #[test]
     fn the_next_validator_for_avn_increments_by_one_if_the_current_one_is_not_the_last() {
@@ -86,7 +86,7 @@ mod when_calculate_primary_validator_is_called_for_operation_avn {
         ext.execute_with(|| {
             let avn_index_before: u8 = get_index_based_on_operation_type(&OperationType::Avn);
 
-            AVN::calculate_primary_validator(OperationType::Avn);
+            AVN::advance_primary_validator(OperationType::Avn);
 
             let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
             assert_eq!(avn_index_after, avn_index_before + 1);
@@ -102,7 +102,7 @@ mod when_calculate_primary_validator_is_called_for_operation_avn {
 
             setup_last_validator_as_primary(&OperationType::Avn);
 
-            AVN::calculate_primary_validator(OperationType::Avn).unwrap();
+            AVN::advance_primary_validator(OperationType::Avn).unwrap();
             let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
             assert_eq!(avn_index_before, avn_index_after);
         });
@@ -116,7 +116,7 @@ mod when_calculate_primary_validator_is_called_for_operation_avn {
             let eth_index_before: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
             let avn_index_before: u8 = get_index_based_on_operation_type(&OperationType::Avn);
 
-            AVN::calculate_primary_validator(OperationType::Avn).unwrap();
+            AVN::advance_primary_validator(OperationType::Avn).unwrap();
 
             let eth_index_after: u8 = get_index_based_on_operation_type(&OperationType::Ethereum);
             let avn_index_after: u8 = get_index_based_on_operation_type(&OperationType::Avn);
@@ -153,7 +153,7 @@ mod calling_is_primary_validator_for_ethereum {
             let mut result = AVN::is_primary(OperationType::Ethereum, &expected_primary).unwrap();
             assert!(result == true, "Wrong primary validator");
 
-            AVN::calculate_primary_validator(OperationType::Ethereum);
+            AVN::advance_primary_validator(OperationType::Ethereum);
 
             expected_primary = 2;
             result = AVN::is_primary(OperationType::Ethereum, &expected_primary).unwrap();
@@ -209,7 +209,7 @@ mod calling_is_primary_validator_for_avn {
             let mut result = AVN::is_primary(OperationType::Avn, &expected_primary).unwrap();
             assert!(result == true, "Wrong primary validator");
 
-            AVN::calculate_primary_validator(OperationType::Avn);
+            AVN::advance_primary_validator(OperationType::Avn);
 
             let mut expected_primary = 2;
             let mut result = AVN::is_primary(OperationType::Avn, &expected_primary).unwrap();

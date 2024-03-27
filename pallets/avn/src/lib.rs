@@ -157,6 +157,7 @@ pub mod pallet {
         RequestFailed,
         ErrorGettingFinalisedBlock,
         ErrorDecodingU32,
+        InvalidValidatorIndex
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
@@ -286,6 +287,16 @@ impl<T: Config> Pallet<T> {
         }
 
         let counters = PrimaryValidator::<T>::get();
+
+        let index = match op_type {
+            OperationType::Ethereum => counters.ethereum as usize,
+            OperationType::Avn => counters.avn as usize,
+        };
+
+        if index >= validators.len() {
+            return Err(Error::<T>::InvalidValidatorIndex);
+        }
+
         let primary_validator = &validators[match op_type {
             OperationType::Ethereum => counters.ethereum,
             OperationType::Avn => counters.avn,
@@ -296,7 +307,7 @@ impl<T: Config> Pallet<T> {
         return Ok(primary_validator == current_validator)
     }
 
-    pub fn calculate_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {
+    pub fn advance_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
 
         // If there are no validators there's no point continuing
@@ -304,21 +315,23 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let counters = PrimaryValidator::<T>::get();
+        let mut counters = PrimaryValidator::<T>::get();
         let validators_len = Self::validators().len() as u8;
 
         let index = match op_type {
             OperationType::Ethereum => {
+                counters.ethereum = (counters.ethereum + 1) % validators_len;
                 PrimaryValidator::<T>::put(PrimaryValidatorData {
-                    ethereum: (counters.ethereum + 1) % validators_len,
+                    ethereum: counters.ethereum,
                     avn: counters.avn,
                 });
                 counters.ethereum
             },
             OperationType::Avn => {
+                counters.avn = (counters.avn + 1) % validators_len;
                 PrimaryValidator::<T>::put(PrimaryValidatorData {
                     ethereum: counters.ethereum,
-                    avn: (counters.avn + 1) % validators_len,
+                    avn: counters.avn,
                 });
                 counters.avn
             },
