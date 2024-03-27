@@ -752,7 +752,7 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::Overflow)?;
 
             let new_validator_account_id =
-                AVN::<T>::calculate_primary_validator(OperationType::Avn)?;
+                AVN::<T>::advance_primary_validator(OperationType::Avn)?;
 
             let next_slot_start_block = safe_add_block_numbers::<BlockNumberFor<T>>(
                 Self::block_number_for_next_slot(),
