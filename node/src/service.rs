@@ -306,7 +306,7 @@ where
             _block: Default::default(),
         };
 
-        let eth_event_handler_config = avn_service::Config::<Block, _> {
+        let eth_event_handler_config = avn_service::EthEventHandlerConfig::<Block, _> {
             keystore: params.keystore_container.local_keystore(),
             keystore_path: keystore_path.clone(),
             avn_port: avn_port.clone(),

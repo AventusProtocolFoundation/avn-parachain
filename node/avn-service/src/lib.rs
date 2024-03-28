@@ -2,21 +2,29 @@ use codec::{Decode, Encode};
 use futures::lock::Mutex;
 use hex::FromHex;
 use jsonrpc_core::ErrorCode;
-use sc_client_api::{client::BlockBackend, UsageProvider};
+use sc_client_api::{client::BlockBackend, AuxStore, UsageProvider};
 use sc_keystore::LocalKeystore;
+use sc_service::TFullClient;
 use sp_avn_common::{
-    event_discovery::events_helpers::discovered_eth_events_partition_factory, EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER
+    event_discovery::events_helpers::discovered_eth_events_partition_factory, EthQueryRequest,
+    EthQueryResponse, EthQueryResponseType, EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
 };
+use sp_block_builder::BlockBuilder;
+use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::{ecdsa::Signature, hashing::keccak_256};
 
-use std::str::FromStr;
 use sp_runtime::traits::Block as BlockT;
-use std::{marker::PhantomData, time::Instant};
-use web3::{transports::Http, types::{TransactionReceipt, H160}, Web3};
+use std::{marker::PhantomData, str::FromStr, time::Instant};
+use web3::{
+    transports::Http,
+    types::{TransactionReceipt, H160},
+    Web3,
+};
 
 pub use std::{path::PathBuf, sync::Arc};
 
 use ethereum_types::H256;
+use pallet_eth_bridge::EthEventHandlerApi;
 use secp256k1::{Secp256k1, SecretKey};
 use tide::{http::StatusCode, Error as TideError};
 pub use web3Secp256k1::SecretKey as web3SecretKey;
@@ -29,7 +37,8 @@ pub mod summary_utils;
 pub mod web3_utils;
 
 use crate::{
-    ethereum_events_handler::identify_events, extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*, web3_utils::*
+    ethereum_events_handler::identify_events, extrinsic_utils::get_latest_finalised_block,
+    keystore_utils::*, summary_utils::*, web3_utils::*,
 };
 
 pub use crate::web3_utils::{public_key_address, secret_key_address};
@@ -64,6 +73,8 @@ impl From<Error> for i32 {
         }
     }
 }
+
+use sp_api::ProvideRuntimeApi;
 
 #[derive(Clone)]
 pub struct Config<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> {
@@ -103,6 +114,91 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
             Ok(())
         } else {
             return Err(server_error("Failed to acquire web3 data mutex.".to_string()))
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct EthEventHandlerConfig<Block: BlockT, ClientT>
+where
+    Block: BlockT,
+    ClientT: BlockBackend<Block>
+        + UsageProvider<Block>
+        + HeaderBackend<Block>
+        + AuxStore
+        + HeaderMetadata<Block, Error = BlockChainError>
+        + Send
+        + Sync
+    //     + 'static
+        + sp_api::ProvideRuntimeApi<Block>,
+    ClientT::Api: pallet_eth_bridge::EthEventHandlerApi<Block>,
+    ClientT::Api: BlockBuilder<Block>,
+{
+    pub keystore: Arc<LocalKeystore>,
+    pub keystore_path: PathBuf,
+    pub avn_port: Option<String>,
+    pub eth_node_url: String,
+    pub web3_data_mutex: Arc<Mutex<Web3Data>>,
+    pub client: Arc<ClientT>,
+    pub _block: PhantomData<Block>,
+}
+
+impl<
+        'a,
+    Block: BlockT,
+    ClientT: BlockBackend<Block>
+        + UsageProvider<Block>
+        + HeaderBackend<Block>
+        + AuxStore
+        + HeaderMetadata<Block, Error = BlockChainError>
+        + Send
+        + Sync
+        + sp_api::ProvideRuntimeApi<Block>
+    > EthEventHandlerConfig<Block, ClientT>
+where
+    ClientT::Api: pallet_eth_bridge::EthEventHandlerApi<Block>,
+    ClientT::Api: BlockBuilder<Block>,
+{
+    pub async fn initialise_web3(&self) -> Result<(), TideError>
+    where
+    Block: BlockT,
+    ClientT: BlockBackend<Block>
+        + UsageProvider<Block>
+        // + HeaderBackend<Block>
+        // + AuxStore
+        // + HeaderMetadata<Block, Error = BlockChainError>
+        // + Send
+        // + Sync
+        // + 'static
+        // + sp_api::ProvideRuntimeApi<Block>,
+    // ClientT::Api: pallet_eth_bridge::EthEventHandlerApi<Block>,
+    // ClientT::Api: BlockBuilder<Block>,
+    {
+        if let Some(mut web3_data_mutex) = self.web3_data_mutex.try_lock() {
+            if web3_data_mutex.web3.is_some() {
+                log::info!(
+                    "⛓️  avn-service: web3 connection has already been initialised, skipping"
+                );
+                return Ok(())
+            }
+
+            let web3_init_time = Instant::now();
+            log::info!("⛓️  avn-service: web3 initialisation start");
+
+            let web3 = setup_web3_connection(&self.eth_node_url);
+            if web3.is_none() {
+                log::error!(
+                    "💔 Error creating a web3 connection. URL is not valid {:?}",
+                    &self.eth_node_url
+                );
+                return Err(server_error("Error creating a web3 connection".to_string()))
+            }
+
+            log::info!("⏲️  web3 init task completed in: {:?}", web3_init_time.elapsed());
+            web3_data_mutex.web3 = web3;
+            Ok(())
+        } else {
+            Err(server_error("Failed to acquire web3 data mutex.".to_string()))
         }
     }
 }
@@ -511,9 +607,21 @@ where
         .unwrap_or(());
 }
 
-pub async fn start_eth_event_handler<Block: BlockT, ClientT>(config: Config<Block, ClientT>)
+// TODO: add the full client trait to the ClientT
+pub async fn start_eth_event_handler<Block, ClientT>(config: EthEventHandlerConfig<Block, ClientT>)
 where
-    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static + std::fmt::Debug,
+    Block: BlockT,
+    ClientT: BlockBackend<Block>
+        + UsageProvider<Block>
+        + HeaderBackend<Block>
+        + AuxStore
+        + HeaderMetadata<Block, Error = BlockChainError>
+        + Send
+        + Sync
+    //     + 'static
+        + sp_api::ProvideRuntimeApi<Block>,
+    ClientT::Api: pallet_eth_bridge::EthEventHandlerApi<Block>,
+    ClientT::Api: BlockBuilder<Block>,
 {
     if config.initialise_web3().await.is_err() {
         return
@@ -523,39 +631,43 @@ where
 
     let client = config.client;
 
-    log::info!("{:?}",client);
-
-
+    let api = client.runtime_api();
+    let best_hash = client.info().best_hash;
+    let res = api.query_active_block_range(best_hash);
+    // let res2 = api.query_has_collator_casted_votes(best_hash, account_id).unwrap()?;
     // get identify_events args
-    let start_block = 5409981;
-    let end_block = 5510281;
-    // let (start_block, end_block) = EthBlockRange::range();
+    // let start_block = 5409981;
+    // let end_block = 5510281;
 
     let contract_address_hex = "0dd31348e68b6400bf8bde84a1aaf733d9fcbf9b";
 
     let contract_addresses = vec![H160::from_str(contract_address_hex).unwrap()];
 
-    let mut event_signatures:Vec<web3::types::H256> = Vec::new();
+    let mut event_signatures: Vec<web3::types::H256> = Vec::new();
     let lower_event_signature = "418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae";
-    event_signatures
-        .push(web3::types::H256::from_str(lower_event_signature).unwrap());
+    event_signatures.push(web3::types::H256::from_str(lower_event_signature).unwrap());
 
-    if let Some(mut web3_data_mutex) = config.web3_data_mutex.try_lock(){
-        if web3_data_mutex.web3.is_none() {
-            log::error!("Web3 connection not setup")
-        }else{
-            // execute identify events
-            let web3_ref = web3_data_mutex.web3.as_ref().unwrap();
-            let events = identify_events(&web3_ref, start_block, end_block, contract_addresses, event_signatures).await;
+    // if let Some(mut web3_data_mutex) = config.web3_data_mutex.try_lock() {
+    //     if web3_data_mutex.web3.is_none() {
+    //         log::error!("Web3 connection not setup")
+    //     } else {
+    //         // execute identify events
+    //         let web3_ref = web3_data_mutex.web3.as_ref().unwrap();
+    //         let events = identify_events(
+    //             &web3_ref,
+    //             start_block,
+    //             end_block,
+    //             contract_addresses,
+    //             event_signatures,
+    //         )
+    //         .await;
 
-            let event_fractions = discovered_eth_events_partition_factory(events.unwrap());
-            // construct unsigned extrinsic
+    //         let event_fractions = discovered_eth_events_partition_factory(events.unwrap());
+    //         // construct unsigned extrinsic
 
-            // send unsigned extrinsic to chain
-
-        }
-
-    } else {
-        log::error!("Failed to acquire web3 data mutex.")
-    }
+    //         // send unsigned extrinsic to chain
+    //     }
+    // } else {
+    //     log::error!("Failed to acquire web3 data mutex.")
+    // }
 }

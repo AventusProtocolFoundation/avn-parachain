@@ -942,7 +942,6 @@ impl_runtime_apis! {
         }
     }
 
-    // TODO: ivan BEGIN
     impl pallet_eth_bridge::EthEventHandlerApi<Block> for Runtime {
         fn query_active_block_range()-> Option<ActiveEthRange>{
             EthBridge::active_ethereum_range()
@@ -951,7 +950,6 @@ impl_runtime_apis! {
             EthBridge::has_collator_casted_votes(account_id)
         }
     }
-    // TODO: ivan END
 
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
         fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {

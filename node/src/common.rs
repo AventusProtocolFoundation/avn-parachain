@@ -27,6 +27,7 @@ pub trait AvnRuntimeApiCollection:
     + sp_session::SessionKeys<BlockT>
     + cumulus_primitives_core::CollectCollationInfo<BlockT>
     + sp_consensus_aura::AuraApi<BlockT, AuraId>
+    + pallet_eth_bridge::EthEventHandlerApi<BlockT>
 where
     <Self as sp_api::ApiExt<BlockT>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
@@ -43,7 +44,8 @@ where
         + sp_offchain::OffchainWorkerApi<BlockT>
         + sp_session::SessionKeys<BlockT>
         + cumulus_primitives_core::CollectCollationInfo<BlockT>
-        + sp_consensus_aura::AuraApi<BlockT, AuraId>,
+        + sp_consensus_aura::AuraApi<BlockT, AuraId>
+        + pallet_eth_bridge::EthEventHandlerApi<BlockT>,
     <Self as sp_api::ApiExt<BlockT>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
 {
 }
