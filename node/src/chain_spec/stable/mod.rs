@@ -57,7 +57,6 @@ pub(crate) fn testnet_genesis(
         avn: pallet_avn::GenesisConfig {
             _phantom: Default::default(),
             bridge_contract_address: avn_eth_contract.clone(),
-            primary_validator: (0, 0),
         },
         system: avn_runtime::SystemConfig {
             code: avn_runtime::WASM_BINARY

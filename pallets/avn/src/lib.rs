@@ -88,7 +88,7 @@ pub const MAX_VALIDATOR_ACCOUNTS: u32 = 10;
 pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, Copy)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, Copy)]
 pub struct PrimaryValidatorData {
     pub ethereum: u8,
     pub avn: u8,
@@ -188,16 +188,17 @@ pub mod pallet {
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub bridge_contract_address: H160,
-        pub primary_validator: (u8, u8),
+    }
+
+    impl Default for PrimaryValidatorData {
+        fn default() -> Self {
+            PrimaryValidatorData { ethereum: 0, avn: 0 }
+        }
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self {
-                _phantom: Default::default(),
-                bridge_contract_address: H160::zero(),
-                primary_validator: (0, 0),
-            }
+            Self { _phantom: Default::default(), bridge_contract_address: H160::zero() }
         }
     }
 
@@ -205,10 +206,6 @@ pub mod pallet {
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
             AvnBridgeContractAddress::<T>::put(self.bridge_contract_address);
-            PrimaryValidator::<T>::put(PrimaryValidatorData {
-                ethereum: self.primary_validator.0,
-                avn: self.primary_validator.1,
-            });
         }
     }
 
