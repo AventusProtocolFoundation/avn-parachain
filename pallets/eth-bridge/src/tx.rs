@@ -93,7 +93,7 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
             eth_tx_params: extended_params.clone(),
             expiry,
             eth_tx_hash: H256::zero(),
-            sender: new_sender.clone(),
+            sender: assign_sender()?,
             success_corroborations: BoundedVec::default(),
             failure_corroborations: BoundedVec::default(),
             valid_tx_hash_corroborations: BoundedVec::default(),
@@ -101,12 +101,6 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
             tx_succeeded: false,
         }),
         last_updated: <frame_system::Pallet<T>>::block_number(),
-    });
-
-    <crate::Pallet<T>>::deposit_event(Event::<T>::SetUpActiveRequest {
-        function_name: req.function_name.clone(),
-        params: extended_params.clone(),
-        validator: new_sender.clone(),
     });
 
     return Ok(())
