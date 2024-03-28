@@ -157,7 +157,7 @@ pub mod pallet {
         RequestFailed,
         ErrorGettingFinalisedBlock,
         ErrorDecodingU32,
-        InvalidValidatorIndex
+        InvalidValidatorIndex,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]

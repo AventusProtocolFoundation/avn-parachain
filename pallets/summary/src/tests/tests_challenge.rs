@@ -155,7 +155,7 @@ mod challenge_slot_if_required {
                 let challenge = get_challenge(
                     context.challenge_reason.clone(),
                     context.other_validator.account_id,
-                    context.slot_validator.account_id
+                    context.slot_validator.account_id,
                 );
 
                 call_challenge_slot_if_required(
@@ -191,7 +191,7 @@ mod challenge_slot_if_required {
                 let challenge = get_challenge(
                     context.challenge_reason,
                     context.other_validator.account_id,
-                    context.slot_validator.account_id
+                    context.slot_validator.account_id,
                 );
 
                 call_challenge_slot_if_required(block_after_grace_period, &context.other_validator);

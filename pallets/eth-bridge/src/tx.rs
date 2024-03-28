@@ -150,7 +150,6 @@ fn generate_msg_hash<T: pallet::Config>(
 
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
     match AVN::<T>::advance_primary_validator(OperationType::Ethereum) {
-
         Ok(primary_validator) => {
             let sender = primary_validator;
             Ok(sender)

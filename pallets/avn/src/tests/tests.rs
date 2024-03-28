@@ -2,10 +2,7 @@ use crate::{
     mock::{TestRuntime, *},
     Error, OperationType,
 };
-use frame_support::{
-    assert_err,
-    assert_noop,
-};
+use frame_support::{assert_err, assert_noop};
 use sp_runtime::testing::UintAuthorityId;
 
 fn get_index_based_on_operation_type(operationType: &OperationType) -> u8 {

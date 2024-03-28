@@ -751,8 +751,7 @@ pub mod pallet {
                 safe_add_block_numbers::<BlockNumberFor<T>>(Self::current_slot(), 1u32.into())
                     .map_err(|_| Error::<T>::Overflow)?;
 
-            let new_validator_account_id =
-                AVN::<T>::advance_primary_validator(OperationType::Avn)?;
+            let new_validator_account_id = AVN::<T>::advance_primary_validator(OperationType::Avn)?;
 
             let next_slot_start_block = safe_add_block_numbers::<BlockNumberFor<T>>(
                 Self::block_number_for_next_slot(),
