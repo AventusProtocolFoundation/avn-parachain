@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
 
         // If there are no validators there's no point continuing
         if validators.len() == 0 {
-            return Err(Error::<T>::NoValidatorsFound)
+            return Err(Error::<T>::NoValidatorsFound);
         }
 
         let mut counters = PrimaryValidator::<T>::get();
