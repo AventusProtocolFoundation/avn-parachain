@@ -336,7 +336,7 @@ mod add_confirmation {
             );
 
             assert_eq!(
-                active_tx.data.sender, context.third_confirming_author.account_id,
+                active_tx.data.sender, context.fourth_confirming_author.account_id,
                 "Sender should be the author's account_id"
             );
         });
@@ -441,7 +441,7 @@ mod add_eth_tx_hash {
                 RawOrigin::None.into(),
                 tx_id,
                 context.eth_tx_hash,
-                context.third_confirming_author,
+                context.fourth_confirming_author,
                 context.test_signature.clone(),
             );
 
@@ -655,7 +655,7 @@ fn publish_and_send_transaction() {
             RuntimeOrigin::none(),
             tx_id,
             context.confirmation_signature.clone(),
-            context.third_confirming_author.clone(),
+            context.fourth_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -664,7 +664,7 @@ fn publish_and_send_transaction() {
             RuntimeOrigin::none(),
             tx_id,
             context.eth_tx_hash.clone(),
-            context.third_confirming_author.clone(),
+            context.fourth_confirming_author.clone(),
             context.test_signature.clone(),
         );
 
@@ -690,7 +690,7 @@ fn publish_and_corroborate_transaction() {
             RuntimeOrigin::none(),
             tx_id,
             context.confirmation_signature.clone(),
-            context.third_confirming_author.clone(),
+            context.fourth_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -698,7 +698,7 @@ fn publish_and_corroborate_transaction() {
             RuntimeOrigin::none(),
             tx_id,
             context.eth_tx_hash.clone(),
-            context.third_confirming_author.clone(),
+            context.fourth_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -726,7 +726,7 @@ fn unsent_transactions_are_replayed() {
             RuntimeOrigin::none(),
             tx_id,
             context.confirmation_signature.clone(),
-            context.third_confirming_author.clone(),
+            context.fourth_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -734,7 +734,7 @@ fn unsent_transactions_are_replayed() {
             RuntimeOrigin::none(),
             tx_id,
             context.eth_tx_hash.clone(),
-            context.third_confirming_author.clone(),
+            context.fourth_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
