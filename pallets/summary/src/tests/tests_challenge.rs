@@ -184,7 +184,7 @@ mod challenge_slot_if_required {
                 // We add 2 to make sure context.slot_validator is the primary for this block number
                 let block_after_grace_period = context.block_after_grace_period + 2;
 
-                assert!(AVN::is_primary(OperationType::Avn, &context.other_validator.account_id)
+                assert!(AVN::<TestRuntime>::is_primary(OperationType::Avn, &context.other_validator.account_id)
                     .unwrap());
 
                 System::set_block_number(block_after_grace_period);
@@ -352,7 +352,7 @@ mod challenge_slot_if_required {
 
         fn get_primary_for_block(block_number: BlockNumber) -> MockValidator {
             let primary_validator_account_id =
-                AVN::advance_primary_validator(OperationType::Avn).unwrap();
+                AVN::<TestRuntime>::advance_primary_validator(OperationType::Avn).unwrap();
             return get_validator(primary_validator_account_id)
         }
 
