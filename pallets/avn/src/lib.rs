@@ -294,7 +294,7 @@ impl<T: Config> Pallet<T> {
         };
 
         if index >= validators.len() {
-            return Err(Error::<T>::InvalidValidatorIndex);
+            return Err(Error::<T>::InvalidValidatorIndex)
         };
 
         let primary_validator = &validators[match op_type {
@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
 
         // If there are no validators there's no point continuing
         if validators.len() == 0 {
-            return Err(Error::<T>::NoValidatorsFound);
+            return Err(Error::<T>::NoValidatorsFound)
         }
 
         let mut counters = PrimaryValidator::<T>::get();
