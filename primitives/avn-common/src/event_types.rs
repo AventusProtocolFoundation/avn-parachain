@@ -55,9 +55,10 @@ pub enum Error {
     AvtGrowthLiftedEventDataOverflow,
     AvtGrowthLiftedEventPeriodConversion,
 
-    AvtLowerClaimedEventShouldOnlyContainTopics,
+    AvtLowerClaimedEventMissingData,
     AvtLowerClaimedEventWrongTopicCount,
-    AvtLowerClaimedEventLiftIdConversion,
+    AvtLowerClaimedEventBadTopicLength,
+    AvtLowerClaimedEventIdConversion,
 }
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, TypeInfo)]
@@ -582,17 +583,21 @@ impl AvtLowerClaimedData {
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
         if data.is_some() {
-            return Err(Error::AvtLowerClaimedEventShouldOnlyContainTopics)
+            return Err(Error::AvtLowerClaimedEventMissingData)
         }
 
-        if topics.len() != 1 {
+        if topics.len() != 2 {
             return Err(Error::AvtLowerClaimedEventWrongTopicCount)
         }
 
-        let lower_id = u32::from_be_bytes(
+        if topics[Self::LOWER_ID].len() != WORD_LENGTH {
+            return Err(Error::AvtLowerClaimedEventBadTopicLength)
+        }
+
+        let lower_id: u32 = u32::from_be_bytes(
             topics[Self::LOWER_ID][TWENTY_EIGHT_BYTES..WORD_LENGTH]
                 .try_into()
-                .map_err(|_| Error::AvtLowerClaimedEventLiftIdConversion)?,
+                .map_err(|_| Error::AvtLowerClaimedEventIdConversion)?,
         );
 
         return Ok(AvtLowerClaimedData { lower_id })
@@ -796,3 +801,7 @@ mod nft_event_tests;
 #[cfg(test)]
 #[path = "tests/test_avt_growth_event_parsing.rs"]
 mod test_avt_growth_event_parsing;
+
+#[cfg(test)]
+#[path = "tests/test_lower_claim.rs"]
+mod test_lower_claim;

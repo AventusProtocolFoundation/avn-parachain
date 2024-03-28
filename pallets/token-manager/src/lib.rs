@@ -44,7 +44,7 @@ use pallet_avn::{
     LowerParams, OnGrowthLiftedHandler, ProcessedEventsChecker, PACKED_LOWER_PARAM_SIZE,
 };
 use sp_avn_common::{
-    event_types::{AvtGrowthLiftedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
+    event_types::{AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData, ProcessedEventHandler},
     verify_signature, CallDecoder, InnerCallValidator, Proof,
 };
 use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
@@ -85,6 +85,7 @@ mod test_deferred_lower;
 mod test_growth;
 #[cfg(test)]
 mod test_lower_proof_generation;
+
 #[cfg(test)]
 mod test_non_avt_tokens;
 #[cfg(test)]
@@ -219,6 +220,9 @@ pub mod pallet {
         LowerReadyToClaim {
             lower_id: LowerId,
         },
+        AvtLowerClaimed {
+            lower_id: LowerId,
+        },
         FailedToGenerateLowerProof {
             lower_id: LowerId,
         },
@@ -238,6 +242,7 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         NoTier1EventForLogLifted,
+        NoTier1EventForLogLowerClaimed,
         AmountOverflow,
         DepositFailed,
         LowerFailed,
@@ -911,6 +916,22 @@ impl<T: Config> Pallet<T> {
         });
 
         T::OnGrowthLiftedHandler::on_growth_lifted(remaining_amount.into(), data.period)?;
+
+        Ok(())
+    }
+
+    fn process_claim_lower(event: &EthEvent, data: &AvtLowerClaimedData) -> DispatchResult {
+        let event_id = &event.event_id;
+        let event_validity = T::ProcessedEventsChecker::check_event(event_id);
+        ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerClaimed);
+
+        if !data.is_valid() {
+            Err(Error::<T>::InvalidLowerId)?
+        }
+
+        Self::deposit_event(Event::<T>::AvtLowerClaimed {
+            lower_id: data.lower_id,
+        });
 
         Ok(())
     }

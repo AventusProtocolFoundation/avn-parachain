@@ -39,7 +39,7 @@ use sp_avn_common::{
         AddedValidatorData, AvtGrowthLiftedData, Challenge, ChallengeReason, CheckResult,
         EthEventCheckResult, EthEventId, EventData, LiftedData, NftCancelListingData,
         NftEndBatchListingData, NftMintData, NftTransferToData, ProcessedEventHandler, ValidEvents,
-        Validator,
+        Validator, AvtLowerClaimedData
     },
     verify_signature, EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
     IngressCounter, InnerCallValidator, Proof,
@@ -1078,6 +1078,12 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::EventParsingFailed
             })?;
             return Ok(EventData::LogAvtGrowthLifted(event_data))
+        } else if event_id.signature == ValidEvents::AvtLowerClaimed.signature() {
+            let event_data = <AvtLowerClaimedData>::parse_bytes(data, topics).map_err(|e| {
+                log::warn!("Error parsing T1 LogLowerClaimed Event: {:#?}", e);
+                Error::<T>::EventParsingFailed
+            })?;
+            return Ok(EventData::LogLowerClaimed(event_data))
         } else {
             return Err(Error::<T>::UnrecognizedEventSignature)
         }
