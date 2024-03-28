@@ -1,5 +1,6 @@
 use super::*;
 use crate::{offence::create_and_report_corroboration_offence, util::unbound_params, Config};
+use avn::OperationType;
 use frame_support::BoundedVec;
 
 pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
@@ -82,13 +83,14 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
     let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
     let extended_params = req.extend_params(expiry)?;
     let msg_hash = generate_msg_hash::<T>(&extended_params)?;
+    let new_sender = assign_sender()?;
 
     ActiveRequest::<T>::put(ActiveRequestData {
         request: Request::Send(req.clone()),
         confirmation: ActiveConfirmation { msg_hash, confirmations: BoundedVec::default() },
         tx_data: Some(ActiveEthTransaction {
-            function_name: req.function_name,
-            eth_tx_params: extended_params,
+            function_name: req.function_name.clone(),
+            eth_tx_params: extended_params.clone(),
             expiry,
             eth_tx_hash: H256::zero(),
             sender: assign_sender()?,
@@ -141,9 +143,7 @@ fn generate_msg_hash<T: pallet::Config>(
 }
 
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
-    let current_block_number = <frame_system::Pallet<T>>::block_number();
-
-    match AVN::<T>::calculate_primary_validator(current_block_number) {
+    match AVN::<T>::advance_primary_validator(OperationType::Ethereum) {
         Ok(primary_validator) => {
             let sender = primary_validator;
             Ok(sender)
