@@ -295,7 +295,7 @@ impl<T: Config> Pallet<T> {
 
         if index >= validators.len() {
             return Err(Error::<T>::InvalidValidatorIndex);
-        }
+        };
 
         let primary_validator = &validators[match op_type {
             OperationType::Ethereum => counters.ethereum,
