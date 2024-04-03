@@ -89,8 +89,8 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
         request: Request::Send(req.clone()),
         confirmation: ActiveConfirmation { msg_hash, confirmations: BoundedVec::default() },
         tx_data: Some(ActiveEthTransaction {
-            function_name: req.function_name.clone(),
-            eth_tx_params: extended_params.clone(),
+            function_name: req.function_name,
+            eth_tx_params: extended_params,
             expiry,
             eth_tx_hash: H256::zero(),
             sender: assign_sender()?,

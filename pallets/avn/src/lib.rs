@@ -294,10 +294,7 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::InvalidValidatorIndex)
         };
 
-        let primary_validator = &validators[match op_type {
-            OperationType::Ethereum => counters.ethereum,
-            OperationType::Avn => counters.avn,
-        } as usize]
+        let primary_validator = &validators[index]
             .account_id
             .clone();
 
