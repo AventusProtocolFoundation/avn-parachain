@@ -89,7 +89,7 @@ pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, Copy)]
-pub struct PrimaryValidatorData {
+pub struct PrimaryCollatorData {
     pub ethereum: u8,
     pub avn: u8,
 }
@@ -182,7 +182,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_primary_collator)]
-    pub type PrimaryValidator<T: Config> = StorageValue<_, PrimaryValidatorData, ValueQuery>;
+    pub type PrimaryCollator<T: Config> = StorageValue<_, PrimaryCollatorData, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -190,9 +190,9 @@ pub mod pallet {
         pub bridge_contract_address: H160,
     }
 
-    impl Default for PrimaryValidatorData {
+    impl Default for PrimaryCollatorData {
         fn default() -> Self {
-            PrimaryValidatorData { ethereum: 0, avn: 0 }
+            PrimaryCollatorData { ethereum: 0, avn: 0 }
         }
     }
 
@@ -283,7 +283,7 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let counters = PrimaryValidator::<T>::get();
+        let counters = PrimaryCollator::<T>::get();
 
         let index = match op_type {
             OperationType::Ethereum => counters.ethereum as usize,
@@ -307,13 +307,13 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let mut counters = PrimaryValidator::<T>::get();
+        let mut counters = PrimaryCollator::<T>::get();
         let validators_len = Self::validators().len() as u8;
 
         let index = match op_type {
             OperationType::Ethereum => {
                 counters.ethereum = (counters.ethereum + 1) % validators_len;
-                PrimaryValidator::<T>::put(PrimaryValidatorData {
+                PrimaryCollator::<T>::put(PrimaryCollatorData {
                     ethereum: counters.ethereum,
                     avn: counters.avn,
                 });
@@ -321,7 +321,7 @@ impl<T: Config> Pallet<T> {
             },
             OperationType::Avn => {
                 counters.avn = (counters.avn + 1) % validators_len;
-                PrimaryValidator::<T>::put(PrimaryValidatorData {
+                PrimaryCollator::<T>::put(PrimaryCollatorData {
                     ethereum: counters.ethereum,
                     avn: counters.avn,
                 });
