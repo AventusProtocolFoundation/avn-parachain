@@ -294,9 +294,7 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::InvalidValidatorIndex)
         };
 
-        let primary_validator = &validators[index]
-            .account_id
-            .clone();
+        let primary_validator = &validators[index].account_id.clone();
 
         return Ok(primary_validator == current_validator)
     }
