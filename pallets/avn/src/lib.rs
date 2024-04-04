@@ -157,7 +157,6 @@ pub mod pallet {
         RequestFailed,
         ErrorGettingFinalisedBlock,
         ErrorDecodingU32,
-        InvalidValidatorIndex,
     }
 
     #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
@@ -283,15 +282,21 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let counters = PrimaryCollator::<T>::get();
+        let mut counters = PrimaryCollator::<T>::get();
 
-        let index = match op_type {
+        let mut index = match op_type {
             OperationType::Ethereum => counters.ethereum as usize,
             OperationType::Avn => counters.avn as usize,
         };
 
         if index >= validators.len() {
-            return Err(Error::<T>::InvalidValidatorIndex)
+            // Reset the counter to zero
+            match op_type {
+                OperationType::Ethereum => counters.ethereum = 0,
+                OperationType::Avn => counters.avn = 0,
+            }
+            PrimaryCollator::<T>::put(counters);
+            index = 0;
         };
 
         let primary_validator = &validators[index].account_id.clone();
@@ -312,7 +317,7 @@ impl<T: Config> Pallet<T> {
 
         let index = match op_type {
             OperationType::Ethereum => {
-                counters.ethereum = (counters.ethereum + 1) % validators_len;
+                counters.ethereum = counters.ethereum.saturating_add(1) % validators_len;
                 PrimaryCollator::<T>::put(PrimaryCollatorData {
                     ethereum: counters.ethereum,
                     avn: counters.avn,
@@ -320,7 +325,7 @@ impl<T: Config> Pallet<T> {
                 counters.ethereum
             },
             OperationType::Avn => {
-                counters.avn = (counters.avn + 1) % validators_len;
+                counters.avn = counters.avn.saturating_add(1) % validators_len;
                 PrimaryCollator::<T>::put(PrimaryCollatorData {
                     ethereum: counters.ethereum,
                     avn: counters.avn,
