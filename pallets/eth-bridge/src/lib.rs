@@ -88,6 +88,8 @@ mod types;
 mod util;
 use crate::types::*;
 
+pub use call::{create_ethereum_events_proof_data, submit_ethereum_events};
+
 mod benchmarking;
 #[cfg(test)]
 #[path = "tests/lower_proof_tests.rs"]
