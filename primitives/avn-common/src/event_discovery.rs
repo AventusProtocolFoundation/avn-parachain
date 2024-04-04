@@ -67,13 +67,13 @@ impl Ord for DiscoveredEvent {
     }
 }
 
-type EthEventsPartition = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
+type EthereumEventsSet = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct EthereumEventsPartition {
     range: EthBlockRange,
     partition: u16,
     is_last: bool,
-    data: EthEventsPartition,
+    data: EthereumEventsSet,
 }
 
 impl EthereumEventsPartition {
@@ -81,7 +81,7 @@ impl EthereumEventsPartition {
         self.partition
     }
 
-    pub fn events(&self) -> &EthEventsPartition {
+    pub fn events(&self) -> &EthereumEventsSet {
         &self.data
     }
 
@@ -98,7 +98,7 @@ impl EthereumEventsPartition {
         blake2_256(&(&self).encode()).into()
     }
 
-    fn new(range: EthBlockRange, partition: u16, is_last: bool, data: EthEventsPartition,) -> Self {
+    fn new(range: EthBlockRange, partition: u16, is_last: bool, data: EthereumEventsSet) -> Self {
         EthereumEventsPartition { range, partition, is_last, data }
     }
 }
@@ -108,28 +108,37 @@ pub mod events_helpers {
     pub extern crate alloc;
     use alloc::collections::BTreeSet;
 
-    pub fn discovered_eth_events_partition_factory(range: EthBlockRange,
+    pub fn discovered_eth_events_partition_factory(
+        range: EthBlockRange,
         events: Vec<DiscoveredEvent>,
     ) -> Vec<EthereumEventsPartition> {
-        let mut sorted = events.clone();
-        sorted.sort();
+        let sorted_events = {
+            let mut mut_events = events.clone();
+            mut_events.sort();
+            mut_events
+        };
+
         let chunk_size: usize = <EventsBatchLimit as sp_core::Get<u32>>::get() as usize;
         let mut partitions = Vec::<EthereumEventsPartition>::new();
 
-        let mut iter = sorted.chunks(chunk_size).enumerate();
-        let partitions_count = sorted.chunks(chunk_size).count();
+        let event_chunks: Vec<_> = sorted_events.chunks(chunk_size).collect();
+        let partitions_count = event_chunks.len();
 
-        let _ = iter.try_for_each(|(partition, chunk)| -> Result<(), ()> {
-            let inner_data: BTreeSet<DiscoveredEvent> = chunk.iter().cloned().collect();
-            let data = EthEventsPartition::try_from(inner_data)?;
-            partitions.push(EthereumEventsPartition::new(
-                range.clone(),
-                partition as u16,
-                partitions_count == partition.saturating_add(1),
-                data,
-            ));
-            Ok(())
-        });
+        let _ =
+            event_chunks
+                .iter()
+                .enumerate()
+                .try_for_each(|(partition, chunk)| -> Result<(), ()> {
+                    let inner_data: BTreeSet<DiscoveredEvent> = chunk.iter().cloned().collect();
+                    let data = EthereumEventsSet::try_from(inner_data)?;
+                    partitions.push(EthereumEventsPartition::new(
+                        range.clone(),
+                        partition as u16,
+                        partitions_count == partition.saturating_add(1),
+                        data,
+                    ));
+                    Ok(())
+                });
         partitions
     }
 }

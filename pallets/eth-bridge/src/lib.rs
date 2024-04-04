@@ -535,7 +535,7 @@ pub mod pallet {
 
             if active_range.is_initial_range() == false {
                 ensure!(
-                    has_author_casted_event_vote::<T>(&author.account_id) == false,
+                    author_has_cast_event_vote::<T>(&author.account_id) == false,
                     Error::<T>::EventVoteExists
                 );
             }
@@ -670,7 +670,7 @@ pub mod pallet {
 
         Ok(())
     }
-    fn has_author_casted_event_vote<T: Config>(author: &T::AccountId) -> bool {
+    fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
         for (_partition, votes) in EthereumEvents::<T>::iter() {
             if votes.contains(&author) {
                 return true
@@ -714,7 +714,7 @@ pub mod pallet {
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
                     },
                 None => log::warn!(
-                    "Unknown signature in range: {:?}",
+                    "Unknown Ethereum event signature in range {:?}",
                     &discovered_event.event.event_id.signature
                 ),
             };
