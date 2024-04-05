@@ -581,10 +581,6 @@ pub struct AvtLowerClaimedData {
 impl AvtLowerClaimedData {
     const TOPIC_LOWER_ID: usize = 1;
 
-    pub fn is_valid(&self) -> bool {
-        return !self.lower_id.is_zero()
-    }
-
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
         if data.is_some() {
             return Err(Error::AvtLowerClaimedEventMissingData)
@@ -632,7 +628,6 @@ impl EventData {
             EventData::LogNftCancelListing(d) => d.is_valid(),
             EventData::LogNftEndBatchListing(d) => d.is_valid(),
             EventData::LogAvtGrowthLifted(d) => d.is_valid(),
-            EventData::LogLowerClaimed(d) => d.is_valid(),
             EventData::EmptyEvent => true,
             _ => false,
         }

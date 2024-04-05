@@ -529,6 +529,7 @@ pub struct MockData {
     pub avt_token_lift_event: EthEvent,
     pub non_avt_token_lift_event: EthEvent,
     pub empty_data_lift_event: EthEvent,
+    pub lower_claimed_event: EthEvent,
     pub receiver_account_id: <TestRuntime as system::Config>::AccountId,
     pub token_balance_123_tokens: <TestRuntime as Config>::TokenBalance,
 }
@@ -570,6 +571,13 @@ impl MockData {
                     transaction_hash: H256::random(),
                 },
                 event_data: EventData::EmptyEvent,
+            },
+            lower_claimed_event: EthEvent {
+                event_id: EthEventId {
+                    signature: ValidEvents::AvtLowerClaimed.signature(),
+                    transaction_hash: H256::random(),
+                },
+                event_data: EventData::LogLowerClaimed(AvtLowerClaimedData { lower_id: 0 }),
             },
             receiver_account_id,
             token_balance_123_tokens: Self::get_token_balance(AMOUNT_123_TOKEN),

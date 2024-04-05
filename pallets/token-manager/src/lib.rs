@@ -88,7 +88,6 @@ mod test_deferred_lower;
 mod test_growth;
 #[cfg(test)]
 mod test_lower_proof_generation;
-
 #[cfg(test)]
 mod test_non_avt_tokens;
 #[cfg(test)]
@@ -918,10 +917,15 @@ impl<T: Config> Pallet<T> {
         let event_validity = T::ProcessedEventsChecker::check_event(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerClaimed);
 
-        if !data.is_valid() {
-            Err(Error::<T>::InvalidLowerId)?
-        }
+        ensure!(
+            LowersReadyToClaim::<T>::contains_key(data.lower_id) == true,
+            Error::<T>::InvalidLowerId
+        );
         LowersReadyToClaim::<T>::remove(data.lower_id);
+        ensure!(
+            LowersReadyToClaim::<T>::contains_key(data.lower_id) == false,
+            Error::<T>::InvalidLowerId
+        );
 
         Self::deposit_event(Event::<T>::AvtLowerClaimed { lower_id: data.lower_id });
 
@@ -971,7 +975,7 @@ impl<T: Config> Pallet<T> {
                 .map_err(|_| Error::<T>::InvalidLowerCall)?,
         )?;
 
-        <LowerNonce<T>>::mutate(|mut nonce| *nonce += 1);
+        <LowerNonce<T>>::mutate(|nonce| *nonce += 1);
 
         Self::deposit_event(Event::<T>::LowerRequested {
             token_id,
