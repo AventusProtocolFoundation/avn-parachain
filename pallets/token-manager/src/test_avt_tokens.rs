@@ -26,6 +26,61 @@ use pallet_balances::Error as BalancesError;
 const USE_RECEIVER_WITH_EXISTING_AMOUNT: bool = true;
 const USE_RECEIVER_WITH_0_AMOUNT: bool = false;
 
+fn schedule_lower(
+    from: AccountId,
+    amount: u128,
+    t1_recipient: H160,
+    expected_lower_id: u32,
+    burn_acc: AccountId,
+) {
+    assert_ok!(TokenManager::schedule_direct_lower(
+        RuntimeOrigin::signed(from),
+        from,
+        AVT_TOKEN_CONTRACT,
+        amount,
+        t1_recipient
+    ));
+
+    // execute lower
+    fast_forward_to_block(get_expected_execution_block());
+
+    // Event emitted
+    assert!(System::events().iter().any(|a| a.event ==
+        RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AvtLowered {
+            sender: from,
+            recipient: burn_acc,
+            amount,
+            t1_recipient,
+            lower_id: expected_lower_id
+        })));
+}
+
+fn perform_lower_setup(lower_id: u32) {
+    let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
+    let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+    let amount = pre_lower_balance;
+
+    let expected_lower_id = lower_id;
+    schedule_lower(from, amount, t1_recipient, expected_lower_id, burn_acc);
+    assert!(<LowersPendingProof<TestRuntime>>::get(expected_lower_id).is_some());
+
+    let test_proof_data: Vec<u8> = "lowerProofReady".to_string().into();
+    // Simulate the response from eth-bridge
+    assert_ok!(TokenManager::process_lower_proof_result(
+        expected_lower_id,
+        PALLET_ID.to_vec(),
+        Ok(test_proof_data.clone())
+    ));
+
+    // Generated proof should be stored in LowerReadyToClaim
+    assert_eq!(
+        <LowersReadyToClaim<TestRuntime>>::get(expected_lower_id)
+            .unwrap()
+            .encoded_lower_data,
+        test_proof_data
+    );
+}
+
 #[test]
 fn avn_test_lift_to_zero_balance_account_should_succeed() {
     let mut ext = ExtBuilder::build_default()
@@ -42,7 +97,7 @@ fn avn_test_lift_to_zero_balance_account_should_succeed() {
         assert_eq!(TokenManager::balance((AVT_TOKEN_CONTRACT, mock_data.receiver_account_id)), 0);
 
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), 0);
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), AMOUNT_123_TOKEN);
 
         // check that TokenManager.balance for AVT contract is still 0
@@ -75,7 +130,7 @@ fn avn_test_lift_to_non_zero_balance_account_should_succeed() {
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), AMOUNT_100_TOKEN);
         let new_balance = Balances::free_balance(mock_data.receiver_account_id) + AMOUNT_123_TOKEN;
 
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), new_balance);
 
         // check that TokenManager.balance for AVT contract is still 0
@@ -104,7 +159,7 @@ fn avn_test_lift_max_balance_to_zero_balance_account_should_succeed() {
         insert_to_mock_processed_events(&mock_event.event_id);
 
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), 0);
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), u128_max_amount);
 
         assert!(System::events().iter().any(|a| a.event ==
@@ -130,7 +185,10 @@ fn avn_test_lift_max_balance_to_non_zero_balance_account_should_return_deposit_f
         insert_to_mock_processed_events(&mock_event.event_id);
         let balance_before = Balances::free_balance(mock_data.receiver_account_id);
 
-        assert_noop!(TokenManager::lift(&mock_event), Error::<TestRuntime>::DepositFailed);
+        assert_noop!(
+            TokenManager::on_event_processed(&mock_event),
+            Error::<TestRuntime>::DepositFailed
+        );
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), balance_before);
 
         assert!(!System::events().iter().any(|a| a.event ==
@@ -336,5 +394,49 @@ fn avn_test_avt_token_total_lowered_amount_greater_than_balance_max_value_ok() {
                 t1_recipient,
                 lower_id: 1
             })));
+    });
+}
+
+#[test]
+fn avt_lower_claimed_succesfully() {
+    let mut ext = ExtBuilder::build_default()
+        .with_genesis_config()
+        .with_balances()
+        .as_externality();
+
+    ext.execute_with(|| {
+        let mock_data = MockData::setup(AMOUNT_123_TOKEN, USE_RECEIVER_WITH_0_AMOUNT);
+        let mock_event = &mock_data.lower_claimed_event;
+        insert_to_mock_processed_events(&mock_event.event_id);
+
+        let lower_id = 0;
+
+        perform_lower_setup(lower_id);
+
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
+
+        assert!(System::events().iter().any(|a| a.event ==
+            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AvtLowerClaimed {
+                lower_id
+            })));
+    });
+}
+
+#[test]
+fn avt_lower_claimed_fails_due_with_invalid_lower_id() {
+    let mut ext = ExtBuilder::build_default()
+        .with_genesis_config()
+        .with_balances()
+        .as_externality();
+
+    ext.execute_with(|| {
+        let mock_data = MockData::setup(AMOUNT_123_TOKEN, USE_RECEIVER_WITH_0_AMOUNT);
+        let mock_event = &mock_data.lower_claimed_event;
+        insert_to_mock_processed_events(&mock_event.event_id);
+
+        assert_noop!(
+            TokenManager::on_event_processed(&mock_event),
+            Error::<TestRuntime>::InvalidLowerId
+        );
     });
 }

@@ -40,7 +40,7 @@ fn avn_test_lift_to_zero_balance_account_should_succeed() {
             )),
             0
         );
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(
             <TokenManager as Store>::Balances::get((
                 NON_AVT_TOKEN_ID,
@@ -74,7 +74,7 @@ fn avn_test_lift_to_non_zero_balance_account_should_succeed() {
         ));
         assert_eq!(token_balance_before, AMOUNT_100_TOKEN);
         let expected_token_balance = token_balance_before + AMOUNT_123_TOKEN;
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         let new_token_balance = <TokenManager as Store>::Balances::get((
             NON_AVT_TOKEN_ID,
             mock_data.receiver_account_id,
@@ -108,7 +108,7 @@ fn avn_test_lift_max_balance_to_zero_balance_account_should_succeed() {
             )),
             0
         );
-        assert_ok!(TokenManager::lift(&mock_event));
+        assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(
             <TokenManager as Store>::Balances::get((
                 NON_AVT_TOKEN_ID,
@@ -142,7 +142,10 @@ fn avn_test_lift_max_balance_to_non_zero_balance_account_should_fail_with_overfl
             mock_data.receiver_account_id,
         ));
 
-        assert_noop!(TokenManager::lift(&mock_event), Error::<TestRuntime>::AmountOverflow);
+        assert_noop!(
+            TokenManager::on_event_processed(&mock_event),
+            Error::<TestRuntime>::AmountOverflow
+        );
         assert_eq!(
             <TokenManager as Store>::Balances::get((
                 NON_AVT_TOKEN_ID,
