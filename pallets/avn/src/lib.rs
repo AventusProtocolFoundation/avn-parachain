@@ -270,9 +270,7 @@ impl<T: Config> Pallet<T> {
         return lock_expiry_in_blocks
     }
 
-    pub fn get_primary_validator(
-        op_type: OperationType,
-    ) -> Result<T::AccountId, Error<T>> {
+    pub fn get_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
 
         // If there are no validators there's no point continuing
