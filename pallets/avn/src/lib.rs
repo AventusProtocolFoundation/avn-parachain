@@ -270,11 +270,9 @@ impl<T: Config> Pallet<T> {
         return lock_expiry_in_blocks
     }
 
-    // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
-    pub fn is_primary(
+    pub fn get_primary_validator(
         op_type: OperationType,
-        current_validator: &T::AccountId,
-    ) -> Result<bool, Error<T>> {
+    ) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
 
         // If there are no validators there's no point continuing
@@ -299,9 +297,20 @@ impl<T: Config> Pallet<T> {
             index = 0;
         };
 
-        let primary_validator = &validators[index].account_id.clone();
+        Ok(validators[index].account_id.clone())
+    }
 
-        return Ok(primary_validator == current_validator)
+    // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
+    pub fn is_primary(
+        op_type: OperationType,
+        current_validator: &T::AccountId,
+    ) -> Result<bool, Error<T>> {
+        let primary_validator = match Self::get_primary_validator(op_type) {
+            Ok(account_id) => account_id,
+            Err(error) => return Err(error),
+        };
+
+        return Ok(&primary_validator == current_validator)
     }
 
     pub fn advance_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {
