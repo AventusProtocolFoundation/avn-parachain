@@ -21,11 +21,19 @@ use alloc::{
     string::{String, ToString},
 };
 
-use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
+use codec::{Decode, Encode};
+use core::convert::TryInto;
+use frame_support::{
+    dispatch::DispatchResult,
+    log::*,
+    pallet_prelude::{MaxEncodedLen, TypeInfo},
+    traits::OneSessionHandler,
+};
 use frame_system::{
     ensure_root,
     pallet_prelude::{BlockNumberFor, OriginFor},
 };
+pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
@@ -46,10 +54,6 @@ use sp_runtime::{
     DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
-
-use codec::{Decode, Encode};
-use core::convert::TryInto;
-pub use pallet::*;
 
 #[path = "tests/testing.rs"]
 pub mod testing;
@@ -83,6 +87,12 @@ pub const MAX_VALIDATOR_ACCOUNTS: u32 = 10;
 
 pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen, Copy)]
+pub struct PrimaryCollatorData {
+    pub ethereum: u8,
+    pub avn: u8,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -149,6 +159,12 @@ pub mod pallet {
         ErrorDecodingU32,
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
+    pub enum OperationType {
+        Ethereum,
+        Avn,
+    }
+
     #[pallet::storage]
     #[pallet::getter(fn validators)]
     /// The current set of validators (address and key) that may issue a transaction from the
@@ -163,10 +179,20 @@ pub mod pallet {
     #[pallet::getter(fn get_bridge_contract_address)]
     pub type AvnBridgeContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn get_primary_collator)]
+    pub type PrimaryCollator<T: Config> = StorageValue<_, PrimaryCollatorData, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub bridge_contract_address: H160,
+    }
+
+    impl Default for PrimaryCollatorData {
+        fn default() -> Self {
+            PrimaryCollatorData { ethereum: 0, avn: 0 }
+        }
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -244,18 +270,7 @@ impl<T: Config> Pallet<T> {
         return lock_expiry_in_blocks
     }
 
-    // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
-    pub fn is_primary(
-        block_number: BlockNumberFor<T>,
-        current_validator: &T::AccountId,
-    ) -> Result<bool, Error<T>> {
-        let primary_validator = Self::calculate_primary_validator(block_number)?;
-        return Ok(&primary_validator == current_validator)
-    }
-
-    pub fn calculate_primary_validator(
-        block_number: BlockNumberFor<T>,
-    ) -> Result<T::AccountId, Error<T>> {
+    pub fn get_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
 
         // If there are no validators there's no point continuing
@@ -263,11 +278,69 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let block_number: usize = TryInto::<usize>::try_into(block_number)
-            .map_err(|_| Error::<T>::ErrorConvertingBlockNumber)?;
+        let mut counters = PrimaryCollator::<T>::get();
 
-        let index = block_number % validators.len();
-        return Ok(validators[index].account_id.clone())
+        let mut index = match op_type {
+            OperationType::Ethereum => counters.ethereum as usize,
+            OperationType::Avn => counters.avn as usize,
+        };
+
+        if index >= validators.len() {
+            // Reset the counter to zero
+            match op_type {
+                OperationType::Ethereum => counters.ethereum = 0,
+                OperationType::Avn => counters.avn = 0,
+            }
+            PrimaryCollator::<T>::put(counters);
+            index = 0;
+        };
+
+        Ok(validators[index].account_id.clone())
+    }
+
+    // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
+    pub fn is_primary(
+        op_type: OperationType,
+        current_validator: &T::AccountId,
+    ) -> Result<bool, Error<T>> {
+        let primary_validator = match Self::get_primary_validator(op_type) {
+            Ok(account_id) => account_id,
+            Err(error) => return Err(error),
+        };
+
+        return Ok(&primary_validator == current_validator)
+    }
+
+    pub fn advance_primary_validator(op_type: OperationType) -> Result<T::AccountId, Error<T>> {
+        let validators = Self::validators();
+
+        // If there are no validators there's no point continuing
+        if validators.len() == 0 {
+            return Err(Error::<T>::NoValidatorsFound)
+        }
+
+        let mut counters = PrimaryCollator::<T>::get();
+        let validators_len = Self::validators().len() as u8;
+
+        let index = match op_type {
+            OperationType::Ethereum => {
+                counters.ethereum = counters.ethereum.saturating_add(1) % validators_len;
+                PrimaryCollator::<T>::put(PrimaryCollatorData {
+                    ethereum: counters.ethereum,
+                    avn: counters.avn,
+                });
+                counters.ethereum
+            },
+            OperationType::Avn => {
+                counters.avn = counters.avn.saturating_add(1) % validators_len;
+                PrimaryCollator::<T>::put(PrimaryCollatorData {
+                    ethereum: counters.ethereum,
+                    avn: counters.avn,
+                });
+                counters.avn
+            },
+        };
+        Ok(validators[index as usize].account_id.clone())
     }
 
     pub fn get_validator_for_current_node() -> Option<Validator<T::AuthorityId, T::AccountId>> {

@@ -28,7 +28,7 @@ use sp_staking::{
 };
 
 use avn::AvnBridgeContractAddress;
-use pallet_avn::{self as avn, Error as avn_error};
+use pallet_avn::{self as avn, Error as avn_error, PrimaryCollatorData};
 use sp_avn_common::{
     bounds::MaximumValidatorsBound, event_types::EthEvent, EthQueryRequest, EthQueryResponseType,
 };
@@ -413,10 +413,10 @@ impl EthereumEvents {
     }
 
     pub fn is_primary(
-        block_number: BlockNumberFor<TestRuntime>,
+        op_type: OperationType,
         validator: &AccountId,
     ) -> Result<bool, avn_error<TestRuntime>> {
-        return AVN::is_primary(block_number, validator)
+        return AVN::is_primary(op_type, validator)
     }
 
     pub fn get_validator_for_current_node() -> Option<Validator<AuthorityId, AccountId>> {
