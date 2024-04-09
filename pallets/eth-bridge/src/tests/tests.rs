@@ -754,3 +754,42 @@ fn unsent_transactions_are_replayed() {
             })));
     });
 }
+
+#[test]
+fn self_corroborate_fails() {
+    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+    ext.execute_with(|| {
+        let context = setup_context();
+
+        let function_name = b"publishRoot".to_vec();
+        let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
+
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
+
+        EthBridge::add_confirmation(
+            RuntimeOrigin::none(),
+            tx_id,
+            context.confirmation_signature.clone(),
+            context.author.clone(),
+            context.test_signature.clone(),
+        )
+        .unwrap();
+        EthBridge::add_eth_tx_hash(
+            RuntimeOrigin::none(),
+            tx_id,
+            context.eth_tx_hash.clone(),
+            context.author.clone(),
+            context.test_signature.clone(),
+        )
+        .unwrap();
+
+        assert_noop!(EthBridge::add_corroboration(
+            RuntimeOrigin::none(),
+            tx_id,
+            true,
+            true,
+            context.author,
+            context.test_signature,
+        ), Error::<TestRuntime>::CannotCorroborateOwnTransaction);
+    });
+}

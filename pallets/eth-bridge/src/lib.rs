@@ -282,6 +282,7 @@ pub mod pallet {
         LowerParamsError,
         CallerIdLengthExceeded,
         NoActiveRequest,
+        CannotCorroborateOwnTransaction,
     }
 
     #[pallet::call]
@@ -413,7 +414,10 @@ pub mod pallet {
                 if tx.tx_data.is_some() {
                     let data = tx.tx_data.as_mut().expect("has data");
 
-                    if !util::requires_corroboration(&data, &author) {
+                    let author_is_sender = author.account_id == data.sender;
+                    ensure!(author.account_id != data.sender, Error::<T>::CannotCorroborateOwnTransaction);
+
+                    if author_is_sender || !util::requires_corroboration(&data, &author) {
                         return Ok(().into())
                     }
 
