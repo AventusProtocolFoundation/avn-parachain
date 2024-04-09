@@ -88,6 +88,8 @@ mod types;
 mod util;
 use crate::types::*;
 
+pub use call::{create_ethereum_events_proof_data, submit_ethereum_events};
+
 mod benchmarking;
 #[cfg(test)]
 #[path = "tests/lower_proof_tests.rs"]
@@ -138,6 +140,7 @@ pub mod pallet {
         traits::UnixTime,
         Blake2_128Concat,
     };
+    use sp_avn_common::event_types::{EthEvent, EthEventId, ValidEvents};
 
     #[pallet::config]
     pub trait Config:
@@ -202,6 +205,11 @@ pub mod pallet {
                 BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
             caller_id: BoundedVec<u8, CallerIdLimit>,
         },
+        /// EventProcessed(bool, EthEventId)
+        EventProcessed {
+            accepted: bool,
+            eth_event_id: EthEventId,
+        },
     }
 
     #[pallet::pallet]
@@ -229,15 +237,13 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn active_ethereum_range)]
-    pub type ActiveEthereumRange<T: Config> = StorageValue<_, EthBlockRange, OptionQuery>;
+    pub type ActiveEthereumRange<T: Config> = StorageValue<_, ActiveEthRange, OptionQuery>;
 
     #[pallet::storage]
-    pub type DiscoveredEventsShard<T: Config> = StorageDoubleMap<
+    pub type EthereumEvents<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        EthBlockRange,
-        Blake2_128Concat,
-        DiscoveredEthEventsFraction,
+        EthereumEventsPartition,
         BoundedBTreeSet<T::AccountId, VotesLimit>,
         ValueQuery,
     >;
@@ -302,8 +308,10 @@ pub mod pallet {
         CallerIdLengthExceeded,
         NoActiveRequest,
         EventVotesFull,
+        InvalidEventVote,
         EventVoteExists,
-        EventScanningDisabled,
+        NonActiveEthereumRange,
+        VotingEnded,
     }
 
     #[pallet::call]
@@ -508,28 +516,39 @@ pub mod pallet {
         pub fn submit_ethereum_events(
             origin: OriginFor<T>,
             author: Author<T>,
-            range: EthBlockRange,
-            events_fraction: DiscoveredEthEventsFraction,
+            events_partition: EthereumEventsPartition,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            // Validate that the range is the current one.
-            let active_range =
-                Self::active_ethereum_range().ok_or(Error::<T>::EventScanningDisabled)?;
-            ensure!(range == active_range, Error::<T>::EventScanningDisabled);
+            let active_range = match Self::active_ethereum_range() {
+                Some(active_range) => {
+                    ensure!(
+                        *events_partition.range() == active_range.range &&
+                            events_partition.partition() == active_range.partition,
+                        Error::<T>::NonActiveEthereumRange
+                    );
+                    active_range
+                },
+                None => Default::default(),
+            };
 
-            // Check if already vote has been casted
-            let votes = DiscoveredEventsShard::<T>::get(&range, &events_fraction);
-            ensure!(votes.contains(&author.account_id) == false, Error::<T>::EventVoteExists);
-            ensure!(votes.len() as u32 >= AVN::<T>::quorum(), Error::<T>::EventVotesFull);
+            if active_range.is_initial_range() == false {
+                ensure!(
+                    author_has_cast_event_vote::<T>(&author.account_id) == false,
+                    Error::<T>::EventVoteExists
+                );
+            }
 
-            DiscoveredEventsShard::<T>::try_mutate(&range, &events_fraction, |votes| {
-                votes.try_insert(author.account_id)
-            })
-            .map_err(|_| Error::<T>::EventVotesFull)?;
+            let mut votes = EthereumEvents::<T>::get(&events_partition);
+            votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
-            // TODO process if ready
+            if votes.len() < AVN::<T>::quorum() as usize {
+                EthereumEvents::<T>::insert(&events_partition, votes);
+            } else {
+                process_ethereum_events_partition::<T>(&active_range, &events_partition);
+                advance_partition::<T>(&active_range, &events_partition);
+            }
 
             Ok(().into())
         }
@@ -651,6 +670,81 @@ pub mod pallet {
 
         Ok(())
     }
+    fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
+        for (_partition, votes) in EthereumEvents::<T>::iter() {
+            if votes.contains(&author) {
+                return true
+            }
+        }
+        false
+    }
+
+    fn advance_partition<T: Config>(
+        active_range: &ActiveEthRange,
+        approved_partition: &EthereumEventsPartition,
+    ) {
+        let next_active_range = if approved_partition.is_last() {
+            ActiveEthRange {
+                range: active_range.range.next_range(),
+                partition: 0,
+                // TODO retrieve values from runtime.
+                event_types_filter: Default::default(),
+            }
+        } else {
+            ActiveEthRange {
+                partition: active_range.partition.saturating_add(1),
+                ..active_range.clone()
+            }
+        };
+        ActiveEthereumRange::<T>::put(next_active_range);
+    }
+
+    fn process_ethereum_events_partition<T: Config>(
+        active_range: &ActiveEthRange,
+        partition: &EthereumEventsPartition,
+    ) {
+        // Remove entry from storage. Ignore votes.
+        let _ = EthereumEvents::<T>::take(partition);
+        for discovered_event in partition.events().iter() {
+            match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
+                Some(valid_event) =>
+                    if active_range.event_types_filter.contains(&valid_event) {
+                        process_ethereum_event::<T>(&discovered_event.event);
+                    } else {
+                        log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
+                    },
+                None => log::warn!(
+                    "Unknown Ethereum event signature in range {:?}",
+                    &discovered_event.event.event_id.signature
+                ),
+            };
+        }
+
+        // Cleanup
+        for (partition, votes) in EthereumEvents::<T>::drain() {
+            // TODO raise offences
+            log::info!("Collators with invalid votes on ethereum events (range: {:?}, partition: {}): {:?}", partition.range(), partition.partition(), votes);
+        }
+    }
+
+    fn process_ethereum_event<T: Config>(event: &EthEvent) {
+        // TODO before processing ensure that the event has not already been processed
+        match T::BridgeInterfaceNotification::on_event_processed(&event) {
+            Ok(_) => {
+                <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
+                    accepted: true,
+                    eth_event_id: event.event_id.clone(),
+                });
+            },
+            Err(err) => {
+                log::error!("💔 Processing ethereum event failed: {:?}", err);
+                <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
+                    accepted: false,
+                    eth_event_id: event.event_id.clone(),
+                });
+            },
+        };
+    }
 
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
@@ -709,19 +803,22 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(3u8).into()
                     },
-                Call::submit_ethereum_events { author, range, events_fraction, signature } =>
+                Call::submit_ethereum_events { author, events_partition, signature } =>
                     if AVN::<T>::signature_is_valid(
                         &(
                             SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                             &author.account_id,
-                            range,
-                            events_fraction,
+                            events_partition,
                         ),
                         &author,
                         signature,
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeAddEventRange")
-                            .and_provides((call, range))
+                            .and_provides((
+                                call,
+                                events_partition.range(),
+                                events_partition.partition(),
+                            ))
                             .priority(TransactionPriority::max_value() / 2)
                             .build()
                     } else {

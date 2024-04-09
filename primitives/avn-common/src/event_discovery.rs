@@ -3,7 +3,7 @@ use crate::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use event_types::EthEvent;
 use sp_core::{bounded::BoundedBTreeSet, ConstU32};
-use sp_io::hashing::blake2_256;
+use sp_runtime::traits::Saturating;
 
 pub type VotesLimit = ConstU32<100>;
 pub type EventsBatchLimit = ConstU32<32>;
@@ -12,6 +12,19 @@ pub type EventsBatchLimit = ConstU32<32>;
 pub struct EthBlockRange {
     pub start_block: u32,
     pub length: u32,
+}
+
+impl EthBlockRange {
+    pub fn next_range(&self) -> EthBlockRange {
+        EthBlockRange {
+            start_block: self.start_block.saturating_add(self.length),
+            length: self.length,
+        }
+    }
+    pub fn range(&self) -> (u32, u32) {
+        let end_block = self.start_block.saturating_add(self.length).saturating_less_one();
+        (self.start_block, end_block)
+    }
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
@@ -54,34 +67,39 @@ impl Ord for DiscoveredEvent {
     }
 }
 
-type EthEventsPartition = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
+type EthereumEventsSet = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
-pub struct DiscoveredEthEventsFraction {
-    data: EthEventsPartition,
-    fraction: u16,
-    fraction_count: u16,
-    id: H256,
+pub struct EthereumEventsPartition {
+    range: EthBlockRange,
+    partition: u16,
+    is_last: bool,
+    data: EthereumEventsSet,
 }
 
-impl DiscoveredEthEventsFraction {
-    pub fn events(&self) -> &EthEventsPartition {
+impl EthereumEventsPartition {
+    pub fn partition(&self) -> u16 {
+        self.partition
+    }
+
+    pub fn events(&self) -> &EthereumEventsSet {
         &self.data
     }
 
-    pub fn fraction(&self) -> u16 {
-        self.fraction
+    pub fn range(&self) -> &EthBlockRange {
+        &self.range
     }
 
-    pub fn fraction_count(&self) -> u16 {
-        self.fraction
+    pub fn is_last(&self) -> bool {
+        self.is_last
     }
 
-    pub fn id(&self) -> &H256 {
-        &self.id
+    pub fn id(&self) -> H256 {
+        use sp_io::hashing::blake2_256;
+        blake2_256(&(&self).encode()).into()
     }
 
-    fn new(data: EthEventsPartition, fraction: u16, fraction_count: u16, id: &H256) -> Self {
-        DiscoveredEthEventsFraction { data, fraction, fraction_count, id: id.clone() }
+    fn new(range: EthBlockRange, partition: u16, is_last: bool, data: EthereumEventsSet) -> Self {
+        EthereumEventsPartition { range, partition, is_last, data }
     }
 }
 
@@ -91,28 +109,36 @@ pub mod events_helpers {
     use alloc::collections::BTreeSet;
 
     pub fn discovered_eth_events_partition_factory(
+        range: EthBlockRange,
         events: Vec<DiscoveredEvent>,
-    ) -> Vec<DiscoveredEthEventsFraction> {
-        let mut sorted = events.clone();
-        sorted.sort();
+    ) -> Vec<EthereumEventsPartition> {
+        let sorted_events = {
+            let mut mut_events = events.clone();
+            mut_events.sort();
+            mut_events
+        };
+
         let chunk_size: usize = <EventsBatchLimit as sp_core::Get<u32>>::get() as usize;
-        let mut fractions = Vec::<DiscoveredEthEventsFraction>::new();
+        let mut partitions = Vec::<EthereumEventsPartition>::new();
 
-        let mut iter = sorted.chunks(chunk_size).enumerate();
-        let fraction_count = sorted.chunks(chunk_size).count() as u16;
-        let hash: H256 = blake2_256(&(&events, fraction_count).encode()).into();
+        let event_chunks: Vec<_> = sorted_events.chunks(chunk_size).collect();
+        let partitions_count = event_chunks.len();
 
-        let _ = iter.try_for_each(|(fraction, chunk)| -> Result<(), ()> {
-            let inner_data: BTreeSet<DiscoveredEvent> = chunk.iter().cloned().collect();
-            let data = EthEventsPartition::try_from(inner_data)?;
-            fractions.push(DiscoveredEthEventsFraction::new(
-                data,
-                fraction as u16,
-                fraction_count,
-                &hash,
-            ));
-            Ok(())
-        });
-        fractions
+        let _ =
+            event_chunks
+                .iter()
+                .enumerate()
+                .try_for_each(|(partition, chunk)| -> Result<(), ()> {
+                    let inner_data: BTreeSet<DiscoveredEvent> = chunk.iter().cloned().collect();
+                    let data = EthereumEventsSet::try_from(inner_data)?;
+                    partitions.push(EthereumEventsPartition::new(
+                        range.clone(),
+                        partition as u16,
+                        partitions_count == partition.saturating_add(1),
+                        data,
+                    ));
+                    Ok(())
+                });
+        partitions
     }
 }
