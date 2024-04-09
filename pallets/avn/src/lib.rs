@@ -37,7 +37,7 @@ pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
-    event_types::{EthEventId, Validator},
+    event_types::{EthEvent, EthEventId, Validator},
     ocw_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
@@ -749,6 +749,9 @@ pub trait BridgeInterfaceNotification {
     fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
         Ok(())
     }
+    fn on_event_processed(_event: &EthEvent) -> DispatchResult {
+        Ok(())
+    }
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -764,6 +767,11 @@ impl BridgeInterfaceNotification for Tuple {
         _encoded_lower: Result<Vec<u8>, ()>,
     ) -> DispatchResult {
         for_tuples!( #( Tuple::process_lower_proof_result(_lower_id, _caller_id.clone(), _encoded_lower.clone())?; )* );
+        Ok(())
+    }
+
+    fn on_event_processed(_event: &EthEvent) -> DispatchResult {
+        for_tuples!( #( Tuple::on_event_processed(_event)?; )* );
         Ok(())
     }
 }
