@@ -34,6 +34,15 @@ pub fn add_corroboration<T: Config>(
     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 }
 
+pub fn submit_ethereum_events<T: Config>(
+    author: Author<T>,
+    events_partition: EthereumEventsPartition,
+    signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+) -> Result<(), ()> {
+    let call = Call::<T>::submit_ethereum_events { author, events_partition, signature };
+    SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+}
+
 fn add_confirmation_proof<T: Config>(
     tx_id: EthereumId,
     confirmation: &ecdsa::Signature,
@@ -57,4 +66,11 @@ fn add_corroboration_proof<T: Config>(
     account_id: &T::AccountId,
 ) -> Vec<u8> {
     (ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, tx_hash_is_valid, &account_id).encode()
+}
+
+pub fn create_ethereum_events_proof_data<T: Config>(
+    account_id: &T::AccountId,
+    events_partition: &EthereumEventsPartition,
+) -> Vec<u8> {
+    (SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, &account_id, events_partition).encode()
 }
