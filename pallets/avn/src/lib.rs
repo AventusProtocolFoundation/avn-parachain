@@ -351,13 +351,13 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // verify that the incoming (unverified) pubkey is actually a validator
         if !Self::is_validator(&validator.account_id) {
-            debug!("Account: {:?} is not a authority.", &validator.account_id);
+            warn!("Account: {:?} is not a authority.", &validator.account_id);
             return false
         }
         let recovered_public_key =
             recover_public_key_from_ecdsa_signature(signature.clone(), &data);
         if recovered_public_key.is_err() {
-            debug!("Recovery of public key failed. Signature: {:?} data: {:?}", &signature, data);
+            warn!("Recovery of public key failed. Signature: {:?} data: {:?}", &signature, data);
             return false
         }
 
@@ -365,14 +365,14 @@ impl<T: Config> Pallet<T> {
             &recovered_public_key.as_ref().expect("Checked for error"),
         ) {
             Some(maybe_validator) => {
-                debug!(
+                info!(
                     "Recovered public key belongs to authority {:?} and expected one is {:?}",
                     &maybe_validator, &validator.account_id
                 );
                 maybe_validator == validator.account_id
             },
             _ => {
-                debug!("Recovered public key {:?} did not match any authority ethereum key in Validators Manager", &recovered_public_key);
+                warn!("Recovered public key {:?} did not match any authority ethereum key in Validators Manager", &recovered_public_key);
                 false
             },
         }
