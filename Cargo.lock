@@ -740,6 +740,8 @@ dependencies = [
  "log",
  "node-primitives",
  "pallet-avn",
+ "pallet-eth-bridge",
+ "pallet-eth-bridge-runtime-api",
  "pallet-im-online",
  "pallet-transaction-payment-rpc",
  "parity-scale-codec 3.6.4",
@@ -826,6 +828,7 @@ dependencies = [
  "pallet-balances",
  "pallet-conviction-voting",
  "pallet-eth-bridge",
+ "pallet-eth-bridge-runtime-api",
  "pallet-ethereum-events",
  "pallet-im-online",
  "pallet-nft-manager",
@@ -975,17 +978,24 @@ dependencies = [
  "jsonrpc-core",
  "jsonrpsee",
  "log",
+ "node-primitives",
+ "pallet-eth-bridge",
+ "pallet-eth-bridge-runtime-api",
  "parity-scale-codec 3.6.4",
  "sc-client-api",
  "sc-client-db",
  "sc-keystore",
  "sc-service",
+ "sc-transaction-pool",
+ "sc-transaction-pool-api",
  "secp256k1 0.21.3",
  "secp256k1 0.24.3",
  "serde",
  "serde_json",
  "sp-api",
  "sp-avn-common",
+ "sp-block-builder",
+ "sp-blockchain",
  "sp-core",
  "sp-keystore",
  "sp-runtime",
@@ -7175,6 +7185,7 @@ dependencies = [
  "parking_lot 0.12.1",
  "rand 0.8.5",
  "scale-info",
+ "sp-api",
  "sp-application-crypto",
  "sp-avn-common",
  "sp-core",
@@ -7182,6 +7193,20 @@ dependencies = [
  "sp-runtime",
  "sp-staking",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-eth-bridge-runtime-api"
+version = "5.2.2"
+dependencies = [
+ "frame-support",
+ "pallet-avn",
+ "pallet-eth-bridge",
+ "parity-scale-codec 3.6.4",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-avn-common",
+ "sp-core",
 ]
 
 [[package]]

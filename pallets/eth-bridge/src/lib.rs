@@ -75,8 +75,11 @@ use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{event_discovery::*, event_types::Validator};
-use sp_core::{ecdsa, ConstU32, H256};
+use sp_avn_common::{
+    event_discovery::*,
+    event_types::{ValidEvents, Validator},
+};
+use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
 use sp_std::prelude::*;
@@ -85,7 +88,7 @@ mod call;
 mod eth;
 mod request;
 mod tx;
-mod types;
+pub mod types;
 mod util;
 use crate::types::*;
 
@@ -315,6 +318,7 @@ pub mod pallet {
         EventVoteExists,
         NonActiveEthereumRange,
         VotingEnded,
+        ValidatorNotFound
     }
 
     #[pallet::call]
@@ -678,7 +682,7 @@ pub mod pallet {
 
         Ok(())
     }
-    fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
+    pub fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
         for (_partition, votes) in EthereumEvents::<T>::iter() {
             if votes.contains(&author) {
                 return true
@@ -874,5 +878,56 @@ pub mod pallet {
 
             Ok(())
         }
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    pub fn create_eth_events_proof(account_id:T::AccountId, events_partition:EthereumEventsPartition) -> Vec<u8>{
+        create_ethereum_events_proof_data::<T>(&account_id, &events_partition)
+    }
+    pub fn signatures() -> Vec<H256> {
+        let signatures: Vec<H256> = match Self::active_ethereum_range() {
+            Some(active_range) => {
+                let _events =
+                    active_range.event_types_filter.into_iter().collect::<Vec<ValidEvents>>();
+
+                let decoded_hex =
+                hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae").
+                expect("test"); 
+
+                let mut array = [0; 32];
+                array.copy_from_slice(&decoded_hex);
+                let decoded_event_sig = H256::from(array);
+                
+                vec![decoded_event_sig]
+            },
+            None => {
+                // TODO use values from pallet constant
+                // vec![]
+                let decoded_hex =
+                hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae").
+                expect("test"); 
+
+                let mut array = [0; 32];
+                array.copy_from_slice(&decoded_hex);
+                let decoded_event_sig = H256::from(array);
+                
+                vec![decoded_event_sig]
+            },
+        };
+        signatures
+    }
+    pub fn submit_vote(
+        account_id: T::AccountId,
+        events_partition: EthereumEventsPartition,
+        signature: <T::AuthorityId as RuntimeAppPublic>::Signature
+    ) -> Result<(), ()>{
+        let validator: Author<T> = AVN::<T>::validators().into_iter().filter(|v| v.account_id == account_id).nth(0).unwrap();
+
+        submit_ethereum_events::<T>(validator, events_partition, signature)
+    }
+
+    pub fn get_bridge_contract() -> H160 {
+        AVN::<T>::get_bridge_contract_address()
     }
 }
