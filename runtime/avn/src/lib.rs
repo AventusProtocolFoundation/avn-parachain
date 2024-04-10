@@ -68,7 +68,7 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
-use sp_avn_common::{InnerCallValidator, Proof};
+use sp_avn_common::{event_discovery::{EthBlockRange, EthereumEventsPartition}, InnerCallValidator, Proof};
 
 use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -937,6 +937,39 @@ impl_runtime_apis! {
             TransactionPayment::length_to_fee(length)
         }
     }
+
+    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
+        fn query_active_block_range()-> (EthBlockRange, u16){
+            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
+                (active_eth_range.range, active_eth_range.partition)
+            }else {
+                (EthBlockRange::default(), 0)
+            }
+        }
+        fn query_has_author_casted_event_vote(account_id: AccountId) -> bool{
+           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id)
+        }
+
+        fn query_signatures() -> Vec<sp_core::H256> {
+            EthBridge::signatures()
+        }
+
+        fn query_bridge_contract() -> H160 {
+            EthBridge::get_bridge_contract()
+        }
+
+        fn create_proof(account_id:AccountId, events_partition:EthereumEventsPartition)->Vec<u8>{
+            EthBridge::create_eth_events_proof(account_id, events_partition)
+        }
+
+        fn submit_vote(author: AccountId,
+            events_partition: EthereumEventsPartition,
+            signature: sp_core::sr25519::Signature,
+        ) -> Result<(),()>{
+            EthBridge::submit_vote(author, events_partition, signature.into())
+        }
+    }
+
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
         fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
             ParachainSystem::collect_collation_info(header)
