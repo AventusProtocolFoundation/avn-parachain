@@ -111,7 +111,7 @@ fn bound_params(
 
 fn setup_active_tx<T: Config>(
     tx_id: EthereumId,
-    num_confirmations: u8,
+    num_confirmations: u32,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
 ) {
     let expiry = 1438269973u64;
@@ -142,7 +142,7 @@ fn setup_active_tx<T: Config>(
             confirmations: {
                 let mut confirmations = BoundedVec::default();
                 for i in 0..num_confirmations {
-                    let confirmation = generate_dummy_ecdsa_signature(i);
+                    let confirmation = generate_dummy_ecdsa_signature(i.try_into().unwrap());
                     confirmations.try_push(confirmation).unwrap();
                 }
                 confirmations
@@ -188,7 +188,8 @@ benchmarks! {
     }
 
     add_confirmation {
-        let authors = setup_authors::<T>(10);
+        let v in 2 .. MAX_CONFIRMATIONS;
+        let authors = setup_authors::<T>((v * 4) + 1);
 
         let author: crate::Author<T> = authors[0].clone();
         let sender: crate::Author<T> = authors[1].clone();
@@ -197,7 +198,7 @@ benchmarks! {
         let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
 
         let tx_id = 1u32;
-        setup_active_tx::<T>(tx_id, 1, sender.clone());
+        setup_active_tx::<T>(tx_id, v-1, sender.clone());
         let active_tx = ActiveRequest::<T>::get().expect("is active");
 
         let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("53ea27badd00d7b5e4d7e7eb2542ea3abfcd2d8014d2153719f3f00d4058c4027eac360877d5d191cbfdfe8cd72dfe82abc9192fc6c8dce21f3c6f23c43e053f1c")).unwrap().into();

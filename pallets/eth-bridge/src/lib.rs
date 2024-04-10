@@ -108,7 +108,7 @@ pub type AVN<T> = avn::Pallet<T>;
 pub type Author<T> =
     Validator<<T as avn::Config>::AuthorityId, <T as frame_system::Config>::AccountId>;
 
-pub type ConfirmationsLimit = ConstU32<100>; // Max confirmations or corroborations (must be > 1/3 of authors)
+pub type ConfirmationsLimit = ConstU32<MAX_CONFIRMATIONS>; // Max confirmations or corroborations (must be > 1/3 of authors)
 pub type FunctionLimit = ConstU32<32>; // Max chars allowed in T1 function name
 pub type CallerIdLimit = ConstU32<50>; // Max chars in caller id value
                                        // TODO: make these config constants
@@ -120,6 +120,7 @@ pub const TX_HASH_INVALID: bool = false;
 pub type EthereumId = u32;
 pub type LowerId = u32;
 
+pub const MAX_CONFIRMATIONS: u32 = 100u32;
 const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
