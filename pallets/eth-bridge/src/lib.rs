@@ -321,6 +321,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
+            log::info!("---- confirmation received");
             if tx::is_active_request::<T>(request_id) {
                 let mut req = ActiveRequest::<T>::get().expect("is active");
 
