@@ -950,7 +950,7 @@ impl_runtime_apis! {
             }
         }
         fn query_has_author_casted_event_vote(account_id: AccountId) -> bool{
-            EthBridge::has_collator_casted_event_vote(account_id)
+           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id)
         }
 
         fn query_signatures() -> Vec<sp_core::H256> {

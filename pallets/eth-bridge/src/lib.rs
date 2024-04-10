@@ -674,7 +674,7 @@ pub mod pallet {
 
         Ok(())
     }
-    fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
+    pub fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
         for (_partition, votes) in EthereumEvents::<T>::iter() {
             if votes.contains(&author) {
                 return true
@@ -874,9 +874,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn has_collator_casted_event_vote(author_id: T::AccountId) -> bool{
-        has_author_casted_event_vote::<T>(&author_id)
-    }
     pub fn create_eth_events_proof(account_id:T::AccountId, events_partition:EthereumEventsPartition) -> Vec<u8>{
         create_ethereum_events_proof_data::<T>(&account_id, &events_partition)
     }
