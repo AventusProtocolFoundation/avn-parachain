@@ -125,7 +125,7 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
 
 pub fn recover_public_key_from_ecdsa_signature(
     signature: ecdsa::Signature,
-    message: String,
+    message: &String,
 ) -> Result<ecdsa::Public, ECDSAVerificationError> {
     match secp256k1_ecdsa_recover_compressed(
         &signature.into(),
@@ -138,7 +138,7 @@ pub fn recover_public_key_from_ecdsa_signature(
     }
 }
 
-pub fn hash_with_ethereum_prefix(hex_message: String) -> Result<[u8; 32], ECDSAVerificationError> {
+pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSAVerificationError> {
     let message_bytes = hex::decode(hex_message.trim_start_matches("0x"))
         .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
