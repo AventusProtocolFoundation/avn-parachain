@@ -29,7 +29,7 @@ sp-application-crypto = { default-features = false, git = "https://github.com/pa
 default = ["std"]
 std = [
 	"codec/std",
-    "frame-support/std",
+	"frame-support/std",
 	"pallet-eth-bridge/std",
 	"sp-api/std",
 ]
