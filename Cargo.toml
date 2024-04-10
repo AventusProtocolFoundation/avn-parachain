@@ -26,6 +26,7 @@ members = [
     "node/avn-service",
     "node/avn-lower-rpc",
     "pallets/*",
+  	"pallets/*/runtime-api",
     "primitives/*",
     "runtime/*",
 ]
