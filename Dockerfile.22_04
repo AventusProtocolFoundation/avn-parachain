@@ -24,6 +24,7 @@ RUN apt-get update && \
 	ca-certificates \
 	curl \
 	jq && \
+	update-ca-certificates && \
 	# apt cleanup
 	apt-get autoremove -y && \
 	apt-get clean && \
