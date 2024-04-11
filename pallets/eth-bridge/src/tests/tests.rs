@@ -783,13 +783,16 @@ fn self_corroborate_fails() {
         )
         .unwrap();
 
-        assert_noop!(EthBridge::add_corroboration(
-            RuntimeOrigin::none(),
-            tx_id,
-            true,
-            true,
-            context.author,
-            context.test_signature,
-        ), Error::<TestRuntime>::CannotCorroborateOwnTransaction);
+        assert_noop!(
+            EthBridge::add_corroboration(
+                RuntimeOrigin::none(),
+                tx_id,
+                true,
+                true,
+                context.author,
+                context.test_signature,
+            ),
+            Error::<TestRuntime>::CannotCorroborateOwnTransaction
+        );
     });
 }

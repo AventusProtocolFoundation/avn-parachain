@@ -416,7 +416,10 @@ pub mod pallet {
                     let data = tx.tx_data.as_mut().expect("has data");
 
                     let author_is_sender = author.account_id == data.sender;
-                    ensure!(author.account_id != data.sender, Error::<T>::CannotCorroborateOwnTransaction);
+                    ensure!(
+                        author.account_id != data.sender,
+                        Error::<T>::CannotCorroborateOwnTransaction
+                    );
 
                     if author_is_sender || !util::requires_corroboration(&data, &author) {
                         return Ok(().into())

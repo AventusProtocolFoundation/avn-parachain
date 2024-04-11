@@ -273,7 +273,7 @@ where
     log::info!("⛓️  avn-service: send Request");
     let post_body = req.body_bytes().await?;
     if post_body.len() > MAX_BODY_SIZE {
-        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())));
+        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())))
     }
     let send_request = &EthTransaction::decode(&mut &post_body[..])
         .map_err(|e| server_error(format!("Error decoding eth transaction data: {:?}", e)))?;
@@ -333,7 +333,7 @@ where
     log::info!("⛓️  avn-service: view Request");
     let post_body = req.body_bytes().await?;
     if post_body.len() > MAX_BODY_SIZE {
-        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())));
+        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())))
     }
 
     let view_request = &EthTransaction::decode(&mut &post_body[..])
@@ -370,7 +370,7 @@ where
     log::info!("⛓️  avn-service: query Request.");
     let post_body = req.body_bytes().await?;
     if post_body.len() > MAX_BODY_SIZE {
-        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())));
+        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())))
     }
 
     let request = &EthTransaction::decode(&mut &post_body[..])
