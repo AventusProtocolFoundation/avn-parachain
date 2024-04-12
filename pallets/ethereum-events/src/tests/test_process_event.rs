@@ -1277,7 +1277,7 @@ mod process_event {
     }
 
     fn there_are_no_pending_events() -> bool {
-        return EthereumEvents::events_pending_challenge().len() == 0
+        return EthereumEvents::events_pending_challenge().is_empty()
     }
 
     fn event_is_in_processed_list(context: &Context) -> bool {
