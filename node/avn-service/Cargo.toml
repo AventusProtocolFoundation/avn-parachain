@@ -63,5 +63,4 @@ sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", bra
 
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 node-primitives = { version = "2.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
-once_cell = "1.19.0"
 
