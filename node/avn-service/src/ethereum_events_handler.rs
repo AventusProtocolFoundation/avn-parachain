@@ -135,11 +135,13 @@ pub enum AppError {
     ErrorParsingEventLogs,
     ErrorGettingEventLogs,
     ErrorGettingBridgeContract,
+    Web3RetryLimitReached,
     SignatureGenerationFailed,
     MissingTransactionHash,
     MissingBlockNumber,
     MissingEventSignature,
     ParsingError(Error),
+    GenericError(String)
 }
 
 pub async fn identify_events(
@@ -174,8 +176,8 @@ pub async fn identify_events(
 }
 
 fn parse_log(log: Log, events_registry: &EventRegistry) -> Result<DiscoveredEvent, AppError> {
-    if log.topics.is_empty(){
-        return Err(AppError::MissingEventSignature);
+    if log.topics.is_empty() {
+        return Err(AppError::MissingEventSignature)
     }
 
     let web3_signature = log.topics[0];
@@ -270,10 +272,12 @@ where
 }
 
 pub const SLEEP_TIME: u64 = 60;
-pub const RETRY_LIMIT: usize = 3; 
+pub const RETRY_LIMIT: usize = 3;
 pub const RETRY_DELAY: u64 = 5;
 
-pub async fn start_eth_event_handler<Block, ClientT>(config: EthEventHandlerConfig<Block, ClientT>)
+async fn initialize_web3_with_retries<Block, ClientT>(
+    config: &EthEventHandlerConfig<Block, ClientT>,
+) -> Result<(), AppError>
 where
     Block: BlockT,
     ClientT: BlockBackend<Block>
@@ -290,18 +294,37 @@ where
         match config.initialise_web3().await {
             Ok(_) => {
                 log::info!("Successfully initialized web3 connection.");
-                break; 
+                return Ok(())
             },
             Err(e) => {
                 attempts += 1;
                 log::error!("Failed to initialize web3 (attempt {}): {:?}", attempts, e);
                 if attempts >= RETRY_LIMIT {
                     log::error!("Reached maximum retry limit for initializing web3.");
-                    return; 
+                    return Err(AppError::Web3RetryLimitReached)
                 }
                 sleep(Duration::from_secs(RETRY_DELAY)).await;
-            }
+            },
         }
+    }
+
+    Err(AppError::GenericError("Failed to initialize web3 after multiple attempts.".to_string()))
+}
+
+pub async fn start_eth_event_handler<Block, ClientT>(config: EthEventHandlerConfig<Block, ClientT>)
+where
+    Block: BlockT,
+    ClientT: BlockBackend<Block>
+        + UsageProvider<Block>
+        + HeaderBackend<Block>
+        + sp_api::ProvideRuntimeApi<Block>,
+    ClientT::Api: pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId>
+        + ApiExt<Block>
+        + BlockBuilder<Block>,
+{
+    if let Err(e) = initialize_web3_with_retries(&config).await {
+        log::error!("Web3 initialization ultimately failed: {:?}", e);
+        return
     }
 
     let events_registry = EventRegistry::new();
