@@ -117,6 +117,8 @@ fn setup_active_tx<T: Config>(
     tx_id: EthereumId,
     num_confirmations: u32,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
+    success_corroborations: BoundedVec<T::AccountId, ConstU32<MAX_CONFIRMATIONS>>,
+    failure_corroborations:BoundedVec<T::AccountId, ConstU32<MAX_CONFIRMATIONS>>
 ) {
     let expiry = 1438269973u64;
     let function_name =
@@ -158,14 +160,49 @@ fn setup_active_tx<T: Config>(
             sender: sender.account_id,
             expiry,
             eth_tx_hash: H256::zero(),
-            success_corroborations: BoundedVec::default(),
-            failure_corroborations: BoundedVec::default(),
+            success_corroborations,
+            failure_corroborations,
             valid_tx_hash_corroborations: BoundedVec::default(),
             invalid_tx_hash_corroborations: BoundedVec::default(),
             tx_succeeded: false,
         }),
         last_updated: 0u32.into(),
     });
+}
+
+fn setup_new_active_tx<T: Config>(
+    tx_id: EthereumId,
+    num_confirmations: u32,
+    sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
+) {
+    setup_active_tx::<T>(tx_id, num_confirmations, sender,BoundedVec::default(), BoundedVec::default());
+}
+fn setup_active_tx_with_failure_corroborations<T: Config>(
+    tx_id: EthereumId,
+    num_confirmations: u32,
+    sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
+    num_failure_corroborations: u32,
+    authors: Vec<crate::Author<T>>
+) {
+    let mut local_authors: Vec<Author<T>> = authors.to_vec();
+    local_authors.remove(1);
+
+    let num_successful_corroborations = authors.len() -  authors.len() * 2 / 3 - (num_failure_corroborations as usize) - 1 ; // because we are adding the last
+
+    let success_authors: Vec<T::AccountId> = local_authors
+        .iter()
+        .take(num_successful_corroborations)
+        .map(|author| author.account_id.clone())
+        .collect();
+
+    let failure_authors: Vec<T::AccountId> = local_authors
+        .iter()
+        .skip(num_successful_corroborations) 
+        .take(num_failure_corroborations as usize)
+        .map(|author| author.account_id.clone())
+        .collect();
+
+    setup_active_tx::<T>(tx_id, num_confirmations, sender,BoundedVec::try_from(success_authors).unwrap_or_default(), BoundedVec::try_from(failure_authors).unwrap_or_default(),);
 }
 
 #[cfg(test)]
@@ -227,7 +264,7 @@ benchmarks! {
         let sender = add_collator_to_avn::<T>(&sender.account_id, authors.len() as u32 + 1u32)?;
 
         let tx_id = 2u32;
-        setup_active_tx::<T>(tx_id, 1, sender.clone());
+        setup_new_active_tx::<T>(tx_id, 1, sender.clone());
         let eth_tx_hash = H256::repeat_byte(1);
         let proof = (crate::ADD_ETH_TX_HASH_CONTEXT, tx_id, eth_tx_hash.clone(), sender.account_id.clone()).encode();
         let signature = sender.key.sign(&proof).expect("Error signing proof");
@@ -246,7 +283,7 @@ benchmarks! {
         let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
 
         let tx_id = 3u32;
-        setup_active_tx::<T>(tx_id, 1, sender.clone());
+        setup_new_active_tx::<T>(tx_id, 1, sender.clone());
         let tx_succeeded = true;
         let tx_hash_valid = true;
         let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
@@ -257,10 +294,32 @@ benchmarks! {
         ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
     }
 
+    add_corroboration_complete_transaction_with_failure_corroborations {
+        let authors = setup_authors::<T>(10);
+        let o in 1 .. MAX_OFFENDERS;
+
+        let author: crate::Author<T> = authors[0].clone();
+        let sender: crate::Author<T> = authors[1].clone();
+        #[cfg(not(test))]
+        let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
+
+        let tx_id = 3u32;
+        setup_active_tx_with_failure_corroborations::<T>(tx_id, 1, sender.clone(), o, authors.clone());
+        let tx_succeeded = true;
+        let tx_hash_valid = true;
+        let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
+        let signature = author.key.sign(&proof).expect("Error signing proof");
+    }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
+    verify {
+        let settled_transaction = SettledTransactions::<T>::get(tx_id);
+        // let active_tx = ActiveRequest::<T>::get().expect("is active");
+        // ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
+    }
+
     remove_active_request {
         let authors = setup_authors::<T>(2);
         let tx_id = 1u32;
-        setup_active_tx::<T>(tx_id, 1, authors[1].clone());
+        setup_new_active_tx::<T>(tx_id, 1, authors[1].clone());
         // Make sure there is an active request
         let _ = ActiveRequest::<T>::get().expect("is active");
     }: _(RawOrigin::Root)

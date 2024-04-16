@@ -57,6 +57,7 @@ pub trait WeightInfo {
 	fn add_confirmation(v: u32, ) -> Weight;
 	fn add_eth_tx_hash() -> Weight;
 	fn add_corroboration() -> Weight;
+	fn add_corroboration_complete_transaction_with_failure_corroborations() -> Weight;
 	fn remove_active_request() -> Weight;
 }
 
@@ -93,6 +94,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_corroboration() -> Weight {
+		Weight::from_ref_time(31_471_000)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	// Storage: EthBridge ActiveRequest (r:1 w:1)
+	// Storage: Avn Validators (r:1 w:0)
+	fn add_corroboration_complete_transaction_with_failure_corroborations() -> Weight {
 		Weight::from_ref_time(31_471_000)
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
@@ -138,6 +146,13 @@ impl WeightInfo for () {
 	// Storage: EthBridge ActiveRequest (r:1 w:1)
 	// Storage: Avn Validators (r:1 w:0)
 	fn add_corroboration() -> Weight {
+		Weight::from_ref_time(31_471_000)
+			.saturating_add(RocksDbWeight::get().reads(2))
+			.saturating_add(RocksDbWeight::get().writes(1))
+	}
+	// Storage: EthBridge ActiveRequest (r:1 w:1)
+	// Storage: Avn Validators (r:1 w:0)
+	fn add_corroboration_complete_transaction_with_failure_corroborations() -> Weight {
 		Weight::from_ref_time(31_471_000)
 			.saturating_add(RocksDbWeight::get().reads(2))
 			.saturating_add(RocksDbWeight::get().writes(1))

@@ -126,6 +126,8 @@ const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 
+pub const MAX_OFFENDERS: u32 = 2;
+
 #[frame_support::pallet]
 pub mod pallet {
     use crate::offence::CorroborationOffenceType;
@@ -398,7 +400,10 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_corroboration())]
+        // #[pallet::weight(<T as Config>::WeightInfo::add_corroboration())]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_corroboration().max(
+            <T as Config>::WeightInfo::add_corroboration_complete_transaction_with_failure_corroborations()
+        ))]
         pub fn add_corroboration(
             origin: OriginFor<T>,
             tx_id: EthereumId,
