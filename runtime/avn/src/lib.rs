@@ -939,6 +939,11 @@ impl_runtime_apis! {
     }
 
     impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
+        fn query_current_author() -> Option<AccountId>{
+            Avn::get_validator_for_current_node()
+                .map(|validator| validator.account_id)
+        }
+
         fn query_active_block_range()-> (EthBlockRange, u16){
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
                 (active_eth_range.range, active_eth_range.partition)
@@ -955,7 +960,7 @@ impl_runtime_apis! {
         }
 
         fn query_bridge_contract() -> H160 {
-            EthBridge::get_bridge_contract()
+            Avn::get_bridge_contract_address()
         }
 
         fn create_proof(account_id:AccountId, events_partition:EthereumEventsPartition)->Vec<u8>{

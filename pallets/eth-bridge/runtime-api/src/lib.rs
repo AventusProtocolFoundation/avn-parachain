@@ -11,6 +11,7 @@ sp_api::decl_runtime_apis! {
             where
         AccountId: Codec,
     {
+        fn query_current_author() -> Option<AccountId>;
         fn query_active_block_range()-> (EthBlockRange, u16);
         fn query_has_author_casted_event_vote(account_id: AccountId) -> bool;
         fn query_signatures() -> Vec<H256>;
