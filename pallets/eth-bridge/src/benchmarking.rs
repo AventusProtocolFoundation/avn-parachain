@@ -118,7 +118,7 @@ fn setup_active_tx<T: Config>(
     num_confirmations: u32,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
     success_corroborations: BoundedVec<T::AccountId, ConstU32<MAX_CONFIRMATIONS>>,
-    failure_corroborations:BoundedVec<T::AccountId, ConstU32<MAX_CONFIRMATIONS>>
+    failure_corroborations: BoundedVec<T::AccountId, ConstU32<MAX_CONFIRMATIONS>>,
 ) {
     let expiry = 1438269973u64;
     let function_name =
@@ -175,7 +175,13 @@ fn setup_new_active_tx<T: Config>(
     num_confirmations: u32,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    setup_active_tx::<T>(tx_id, num_confirmations, sender,BoundedVec::default(), BoundedVec::default());
+    setup_active_tx::<T>(
+        tx_id,
+        num_confirmations,
+        sender,
+        BoundedVec::default(),
+        BoundedVec::default(),
+    );
 }
 fn setup_active_tx_with_failure_corroborations<T: Config>(
     tx_id: EthereumId,
@@ -183,15 +189,15 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
     num_failure_corroborations: u32,
     authors: Vec<crate::Author<T>>,
-    author:&Author<T>
+    author: &Author<T>,
 ) {
     let mut local_authors: Vec<Author<T>> = authors.to_vec();
     local_authors.remove(1);
     local_authors.retain(|author_from_vec| author_from_vec.account_id != author.account_id);
 
-    let quorum = authors.len() -  authors.len() * 2 / 3;
+    let quorum = authors.len() - authors.len() * 2 / 3;
 
-    let num_successful_corroborations = quorum - (num_failure_corroborations as usize) - 1 ; // because we are adding the last
+    let num_successful_corroborations = quorum - (num_failure_corroborations as usize) - 1; // because we are adding the last
 
     let success_authors: Vec<T::AccountId> = local_authors
         .iter()
@@ -201,12 +207,18 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
 
     let failure_authors: Vec<T::AccountId> = local_authors
         .iter()
-        .skip(num_successful_corroborations) 
+        .skip(num_successful_corroborations)
         .take(num_failure_corroborations as usize)
         .map(|author| author.account_id.clone())
         .collect();
 
-    setup_active_tx::<T>(tx_id, num_confirmations, sender,BoundedVec::try_from(success_authors).unwrap_or_default(), BoundedVec::try_from(failure_authors).unwrap_or_default(),);
+    setup_active_tx::<T>(
+        tx_id,
+        num_confirmations,
+        sender,
+        BoundedVec::try_from(success_authors).unwrap_or_default(),
+        BoundedVec::try_from(failure_authors).unwrap_or_default(),
+    );
 }
 
 #[cfg(test)]
