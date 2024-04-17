@@ -154,18 +154,6 @@ fn parse_tier1_event(event_id: EthEventId, data: Option<Vec<u8>>, topics: Vec<Ve
 */
 
 #[test]
-fn test_is_primary_blocknumber_1() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let block_number = 1;
-        let expected_primary = validator_id_2();
-        let result = EthereumEvents::is_primary(block_number, &expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
-        assert_eq!(result.unwrap(), true);
-    });
-}
-
-#[test]
 fn test_event_exists_in_system_with_no_entries() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
@@ -197,24 +185,12 @@ fn test_event_exists_in_system_entry_in_unchecked_queue() {
 }
 
 #[test]
-fn test_is_primary_blocknumber_2() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let block_number = 2;
-        let expected_primary = validator_id_3();
-        let result = EthereumEvents::is_primary(block_number, &expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
-        assert_eq!(result.unwrap(), true);
-    });
-}
-
-#[test]
 fn test_is_primary_blocknumber_3() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
         let block_number = 3;
         let expected_primary = account_id_1();
-        let result = EthereumEvents::is_primary(block_number, &expected_primary);
+        let result = EthereumEvents::is_primary(OperationType::Ethereum, &expected_primary);
         assert!(result.is_ok(), "Getting primary validator failed");
         assert_eq!(result.unwrap(), true);
     });
@@ -332,23 +308,11 @@ fn test_multiple_events_in_system() {
 }
 
 #[test]
-fn test_is_primary_blocknumber_100() {
-    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-    ext.execute_with(|| {
-        let block_number = 100;
-        let expected_primary = validator_id_2();
-        let result = EthereumEvents::is_primary(block_number, &expected_primary);
-        assert!(result.is_ok(), "Getting primary validator failed");
-        assert_eq!(result.unwrap(), true);
-    });
-}
-
-#[test]
 fn is_primary_fails_with_no_validators() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
         let block_number = 1;
-        let result = EthereumEvents::is_primary(block_number, &account_id_1());
+        let result = EthereumEvents::is_primary(OperationType::Ethereum, &account_id_1());
         assert!(result.is_err(), "Getting primary validator should have failed");
     });
 }
@@ -666,8 +630,8 @@ mod signature_in {
             UintAuthorityId::set_all_keys(vec![1, 2, 3]);
 
             let val_length = EthereumEvents::validators().len();
-            let index_of_primary_validator = block_number % val_length;
-            let validator = &EthereumEvents::validators()[index_of_primary_validator];
+            let index_of_primary_validator = AVN::<TestRuntime>::get_primary_collator().ethereum;
+            let validator = &EthereumEvents::validators()[index_of_primary_validator as usize];
 
             EthereumEvents::insert_to_unchecked_events(&event_id, ingress_counter);
             assert_eq!(EthereumEvents::unchecked_events().len(), 1);
