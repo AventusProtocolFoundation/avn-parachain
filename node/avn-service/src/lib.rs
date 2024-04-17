@@ -151,7 +151,16 @@ pub fn hash_with_ethereum_prefix(data_to_sign: &Vec<u8>) -> [u8; 32] {
     // T1 Solidity code expects "packed" encoding of the signed message & prefix so we concatenate
     let mut prefixed_message = b"\x19Ethereum Signed Message:\n32".to_vec();
     prefixed_message.append(&mut data_to_sign.clone());
-    keccak_256(&prefixed_message)
+
+    let sig = keccak_256(&prefixed_message);
+
+    log::info!(
+        "--- Creating keccak_256 hash. data: {:?},\n hash: {:?}",
+        hex::encode(&data_to_sign),
+        hex::encode(&prefixed_message),
+    );
+
+    sig
 }
 
 // TODO: Create common version of this, eg in primitives/avn-common, to share with version in
