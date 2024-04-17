@@ -152,15 +152,16 @@ pub fn hash_with_ethereum_prefix(data_to_sign: &Vec<u8>) -> [u8; 32] {
     let mut prefixed_message = b"\x19Ethereum Signed Message:\n32".to_vec();
     prefixed_message.append(&mut data_to_sign.clone());
 
-    let sig = keccak_256(&prefixed_message);
+    let hash = keccak_256(&prefixed_message);
 
     log::info!(
-        "--- Creating keccak_256 hash. data: {:?},\n hash: {:?}",
+        "--- Creating keccak_256 hash. data: {:?},\n prefixed_data: {:?},\n hash: {:?}",
         hex::encode(&data_to_sign),
         hex::encode(&prefixed_message),
+        hex::encode(&hash),
     );
 
-    sig
+    hash
 }
 
 // TODO: Create common version of this, eg in primitives/avn-common, to share with version in

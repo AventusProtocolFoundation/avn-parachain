@@ -145,14 +145,14 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
     prefixed_message.append(&mut message_bytes.to_vec());
 
-    let signature = keccak_256(&prefixed_message);
+    let hash = keccak_256(&prefixed_message);
     log::info!(
-        "--- Request to sign data: {:?},\n hashed data to sign: {:?}, \n signature: {:?}",
+        "--- Request to sign data: {:?},\n prefixed data to sign: {:?}, \n hash: {:?}",
         hex::encode(&hex_message),
         hex::encode(&prefixed_message),
-        hex::encode(&signature),
+        hex::encode(&hash),
     );
-    Ok(signature)
+    Ok(hash)
 }
 
 pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member>(
