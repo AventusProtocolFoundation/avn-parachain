@@ -402,7 +402,7 @@ pub mod pallet {
         #[pallet::call_index(4)]
         // #[pallet::weight(<T as Config>::WeightInfo::add_corroboration())]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_corroboration().max(
-            <T as Config>::WeightInfo::add_corroboration_complete_transaction_with_failure_corroborations()
+            <T as Config>::WeightInfo::add_corroboration_settle_transaction_with_failure_corroborations()
         ))]
         pub fn add_corroboration(
             origin: OriginFor<T>,

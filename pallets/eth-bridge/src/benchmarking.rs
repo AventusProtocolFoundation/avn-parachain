@@ -3,7 +3,7 @@
 
 //! eth-bridge pallet benchmarking.
 
-#![cfg(feature = "runtime-benchmarks")]
+// #![cfg(feature = "runtime-benchmarks")]
 
 use crate::{Pallet, avn::MAX_VALIDATOR_ACCOUNTS, *};
 
@@ -182,12 +182,16 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     num_confirmations: u32,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
     num_failure_corroborations: u32,
-    authors: Vec<crate::Author<T>>
+    authors: Vec<crate::Author<T>>,
+    author:&Author<T>
 ) {
     let mut local_authors: Vec<Author<T>> = authors.to_vec();
     local_authors.remove(1);
+    local_authors.retain(|author_from_vec| author_from_vec.account_id != author.account_id);
 
-    let num_successful_corroborations = authors.len() -  authors.len() * 2 / 3 - (num_failure_corroborations as usize) - 1 ; // because we are adding the last
+    let quorum = authors.len() -  authors.len() * 2 / 3;
+
+    let num_successful_corroborations = quorum - (num_failure_corroborations as usize) - 1 ; // because we are adding the last
 
     let success_authors: Vec<T::AccountId> = local_authors
         .iter()
@@ -294,7 +298,7 @@ benchmarks! {
         ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
     }
 
-    add_corroboration_complete_transaction_with_failure_corroborations {
+    add_corroboration_settle_transaction_with_failure_corroborations {
         let authors = setup_authors::<T>(10);
         let o in 1 .. MAX_OFFENDERS;
 
@@ -304,16 +308,15 @@ benchmarks! {
         let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
 
         let tx_id = 3u32;
-        setup_active_tx_with_failure_corroborations::<T>(tx_id, 1, sender.clone(), o, authors.clone());
+        setup_active_tx_with_failure_corroborations::<T>(tx_id, 1, sender.clone(), o, authors.clone(), &author);
         let tx_succeeded = true;
         let tx_hash_valid = true;
         let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
-        let settled_transaction = SettledTransactions::<T>::get(tx_id);
-        // let active_tx = ActiveRequest::<T>::get().expect("is active");
-        // ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
+        println!("HELP !!! {}",SettledTransactions::<T>::get(tx_id).is_some());
+        ensure!(SettledTransactions::<T>::get(tx_id).is_some(), "Transaction should be settled");
     }
 
     remove_active_request {
