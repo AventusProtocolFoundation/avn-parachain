@@ -6,6 +6,8 @@ use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker, OperationType};
 use pallet_session as session;
 use parking_lot::RwLock;
+use sp_avn_common::event_types::EthEvent;
+use sp_runtime::DispatchResult;
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
@@ -23,6 +25,7 @@ use std::{cell::RefCell, convert::From, sync::Arc};
 
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<AccountId>, Offence)>> = RefCell::new(vec![]);
+    pub static ETHOFFENCES: RefCell<Vec<(Vec<AccountId>, EthOffence)>> = RefCell::new(vec![]);
 }
 
 pub type Block = frame_system::mocking::MockBlock<TestRuntime>;
@@ -30,12 +33,29 @@ pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = u64;
 pub type BlockNumber = u64;
 
+pub const DEFAULT_INGRESS_COUNTER: IngressCounter = 100;
+pub const EVENT_CHALLENGE_PERIOD: BlockNumber = 2;
+
 type IdentificationTuple = (AccountId, AccountId);
 type Offence = crate::CorroborationOffence<IdentificationTuple>;
+type EthOffence = crate::InvalidEthereumLogOffence<IdentificationTuple>;
+
 pub struct OffenceHandler;
 impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
     fn report_offence(reporters: Vec<AccountId>, offence: Offence) -> Result<(), OffenceError> {
         OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
+        Ok(())
+    }
+
+    fn is_known_offence(_offenders: &[IdentificationTuple], _time_slot: &SessionIndex) -> bool {
+        false
+    }
+}
+
+pub struct EthOffenceHandler;
+impl ReportOffence<AccountId, IdentificationTuple, EthOffence> for EthOffenceHandler {
+    fn report_offence(reporters: Vec<AccountId>, offence: EthOffence) -> Result<(), OffenceError> {
+        ETHOFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
         Ok(())
     }
 
@@ -100,6 +120,8 @@ impl Config for TestRuntime {
     type AccountToBytesConvert = U64To32BytesConverter;
     type BridgeInterfaceNotification = TestRuntime;
     type ReportCorroborationOffence = OffenceHandler;
+    type ReportInvalidEthereumLog = EthOffenceHandler;
+    type ProcessedEventHandler = Self;
 }
 
 impl system::Config for TestRuntime {
@@ -244,6 +266,7 @@ thread_local! {
     static MOCK_RECOVERED_ACCOUNT_ID: RefCell<AccountId> = RefCell::new(1);
     pub static LOWERSREADYTOCLAIM: RefCell<Vec<u32>> = RefCell::new(vec![]);
     pub static FAILEDREQUESTS: RefCell<Vec<u32>> = RefCell::new(vec![]);
+    pub static PROCESS_EVENT_SUCCESS: RefCell<bool> = RefCell::new(true);
 }
 
 pub type SessionIndex = u32;
@@ -401,5 +424,14 @@ impl BridgeInterfaceNotification for TestRuntime {
         }
 
         Ok(())
+    }
+}
+
+impl ProcessedEventHandler for TestRuntime {
+    fn on_event_processed(_event: &EthEvent) -> DispatchResult {
+        match PROCESS_EVENT_SUCCESS.with(|pk| *pk.borrow()) {
+            true => return Ok(()),
+            _ => Err(Error::<TestRuntime>::InvalidEventToProcess)?,
+        }
     }
 }

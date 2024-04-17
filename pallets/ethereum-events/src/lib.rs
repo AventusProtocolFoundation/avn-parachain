@@ -947,6 +947,20 @@ pub mod pallet {
 
 // implement offchain worker sub-functions
 impl<T: Config> Pallet<T> {
+    pub fn update_processed_events(event_id: EthEventId, value: bool) {
+        ProcessedEvents::<T>::insert(event_id, value);
+    }
+
+    pub fn mutate_remove_events_pending_challenge(event_index: usize) {
+        <EventsPendingChallenge<T>>::mutate(|pending_events| {
+            pending_events.remove(event_index)
+        });
+    }
+
+    pub fn get_events_pending_challenge() -> BoundedVec<(EthEventCheckResult<BlockNumberFor<T>, T::AccountId>, IngressCounter, BlockNumberFor<T>), MaxEventsPendingChallenges>{
+        Self::events_pending_challenge()
+    }
+
     fn try_check_event(
         block_number: BlockNumberFor<T>,
         validator: &Validator<T::AuthorityId, T::AccountId>,

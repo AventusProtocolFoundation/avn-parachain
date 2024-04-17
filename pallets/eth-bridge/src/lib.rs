@@ -65,7 +65,7 @@ use frame_system::{
     pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use pallet_avn::{
-    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
+    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams, MAX_VALIDATOR_ACCOUNTS
 };
 
 use pallet_session::historical::IdentificationTuple;
@@ -76,7 +76,24 @@ use sp_avn_common::event_types::Validator;
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
-use sp_std::prelude::*;
+use sp_std::{cmp, prelude::*};
+
+use pallet_ethereum_events;
+
+pub type EthEvents<T> = pallet_ethereum_events::Pallet<T>;
+
+use pallet_ethereum_events::EventsPendingChallenge;
+
+use sp_avn_common::event_types::EthEventId;
+use sp_avn_common::IngressCounter;
+use sp_avn_common::event_types::CheckResult;
+use sp_avn_common::event_types::{EthEventCheckResult, ProcessedEventHandler};
+
+use pallet_ethereum_events::QuorumFactor;
+
+use crate::offence::{
+    create_and_report_invalid_log_offence, EthereumLogOffenceType, InvalidEthereumLogOffence,
+};
 
 mod call;
 mod eth;
@@ -96,6 +113,9 @@ mod mock;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
+
+#[path = "tests/test_process_event.rs"]
+mod test_process_event;
 
 pub use pallet::*;
 pub mod default_weights;
@@ -125,12 +145,15 @@ const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 
+const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 500;
+
 #[frame_support::pallet]
 pub mod pallet {
     use crate::offence::CorroborationOffenceType;
 
     use super::*;
     use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
+    use pallet_ethereum_events::Config as conf;
 
     #[pallet::config]
     pub trait Config:
@@ -160,6 +183,12 @@ pub mod pallet {
             IdentificationTuple<Self>,
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
+        type ReportInvalidEthereumLog: ReportOffence<
+            Self::AccountId,
+            IdentificationTuple<Self>,
+            InvalidEthereumLogOffence<IdentificationTuple<Self>>,
+        >;
+        type ProcessedEventHandler: ProcessedEventHandler;
     }
 
     #[pallet::event]
@@ -194,6 +223,32 @@ pub mod pallet {
             params:
                 BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
             caller_id: BoundedVec<u8, CallerIdLimit>,
+        },
+        /// EventProcessed(EthEventId, Processor, Outcome)
+        EventProcessed {
+            eth_event_id: EthEventId,
+            processor: T::AccountId,
+            outcome: bool,
+        },
+        /// EventAccepted(EthEventId)
+        EventAccepted {
+            eth_event_id: EthEventId,
+        },
+        /// EventRejected(EthEventId, CheckResult, HasSuccessfullChallenge)
+        EventRejected {
+            eth_event_id: EthEventId,
+            check_result: CheckResult,
+            successful_challenge: bool,
+        },
+        /// ChallengeSucceeded(T1 event, CheckResult)
+        ChallengeSucceeded {
+            eth_event_id: EthEventId,
+            check_result: CheckResult,
+        },
+        /// OffenceReported(OffenceType, Offenders)
+        OffenceReported {
+            offence_type: EthereumLogOffenceType,
+            offenders: Vec<IdentificationTuple<T>>,
         },
     }
 
@@ -279,6 +334,9 @@ pub mod pallet {
         LowerParamsError,
         CallerIdLengthExceeded,
         NoActiveRequest,
+        InvalidKey,
+        InvalidEventToProcess,
+        PendingChallengeEventNotFound,
     }
 
     #[pallet::call]
@@ -476,6 +534,121 @@ pub mod pallet {
             request::process_next_request::<T>();
             Self::deposit_event(Event::<T>::ActiveRequestRemoved { request_id });
             Ok(().into())
+        }
+
+        #[pallet::call_index(6)]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::process_event_with_successful_challenge(
+            MAX_VALIDATOR_ACCOUNTS,
+            MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
+        )
+            .max(<T as Config>::WeightInfo::process_event_without_successful_challenge(
+                MAX_VALIDATOR_ACCOUNTS,
+                MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
+            )))]
+        pub fn process_event(
+            origin: OriginFor<T>,
+            event_id: EthEventId,
+            _ingress_counter: IngressCounter, /* this is not used in this function, but is added
+                                               * here so that `_signature` can use this value to
+                                               * become different from previous calls. */
+            validator: Validator<T::AuthorityId, T::AccountId>,
+            // Signature and structural validation is already done in validate unsigned so no need
+            // to do it here
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+        ) -> DispatchResultWithPostInfo {
+            ensure_none(origin)?;
+            // TODO [TYPE: test][PRI: medium][CRITICAL][JIRA: 348]: Test if rotating keys will break
+            // this.
+            ensure!(Self::is_validator(&validator.account_id), Error::<T>::InvalidKey);
+
+            let event_index = Self::get_pending_event_index(&event_id)?;
+            // Not using the passed in `checked` to be sure the details have not been changed
+            let (validated, _ingress_counter, _) = &EthEvents::<T>::events_pending_challenge()[event_index];
+
+            ensure!(
+                <frame_system::Pallet<T>>::block_number() >
+                    validated.ready_for_processing_after_block,
+                Error::<T>::InvalidEventToProcess
+            );
+
+            let successful_challenge = Self::is_challenge_successful(validated);
+
+            // Once an event is added to the `ProcessedEvents` set, it cannot be processed again.
+            // If there is a successfull challenge on an `Invalid` event, it means the event should
+            // have been valid so DO NOT add it to the processed set to allow the event to be
+            // processed again in the future. TODO [TYPE: security][PRI:
+            // medium][CRITICAL][JIRA: 152]: Deal with transaction replay attacks
+
+            let event_was_declared_invalid = validated.result == CheckResult::Invalid;
+            let event_can_be_resubmitted = event_was_declared_invalid && successful_challenge;
+            if !event_can_be_resubmitted {
+                EthEvents::update_processed_events(event_id.clone(), true);
+            }
+            EthEvents::mutate_remove_events_pending_challenge(event_index);
+            // TODO: Remove this event's challenges from the Challenges map too.
+            Self::deposit_event(Event::<T>::EventProcessed {
+                eth_event_id: event_id.clone(),
+                processor: validator.account_id.clone(),
+                outcome: !successful_challenge,
+            });
+            if successful_challenge {
+                Self::deposit_event(Event::<T>::ChallengeSucceeded {
+                    eth_event_id: event_id.clone(),
+                    check_result: validated.result.clone(),
+                });
+
+                // Now report the offence of the validator who submitted the check
+                create_and_report_invalid_log_offence::<T>(
+                    &validator.account_id,
+                    &vec![validated.checked_by.clone()],
+                    EthereumLogOffenceType::IncorrectValidationResultSubmitted,
+                );
+            } else {
+                // SYS-536 report the offence for the people who challenged
+                create_and_report_invalid_log_offence::<T>(
+                    &validator.account_id,
+                    &EthEvents::challenges(event_id.clone()),
+                    EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
+                );
+            }
+
+            if validated.result == CheckResult::Ok && !successful_challenge {
+                // Let everyone know we have processed an event.
+                let processing_outcome =
+                    T::ProcessedEventHandler::on_event_processed(&validated.event);
+
+                if let Ok(_) = processing_outcome {
+                    Self::deposit_event(Event::<T>::EventAccepted { eth_event_id: event_id });
+                } else {
+                    log::error!("💔 Processing ethereum event failed: {:?}", processing_outcome);
+                    Self::deposit_event(Event::<T>::EventRejected {
+                        eth_event_id: event_id,
+                        check_result: validated.result.clone(),
+                        successful_challenge,
+                    });
+                }
+            } else {
+                Self::deposit_event(Event::<T>::EventRejected {
+                    eth_event_id: event_id,
+                    check_result: validated.result.clone(),
+                    successful_challenge,
+                });
+            }
+
+            let final_weight = if successful_challenge {
+                <T as Config>::WeightInfo::process_event_with_successful_challenge(
+                    MAX_VALIDATOR_ACCOUNTS,
+                    MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
+                )
+            } else {
+                <T as Config>::WeightInfo::process_event_without_successful_challenge(
+                    MAX_VALIDATOR_ACCOUNTS,
+                    MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES,
+                )
+            };
+
+            // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
+            Ok(Some(final_weight).into())
         }
     }
 
@@ -694,6 +867,35 @@ pub mod pallet {
             });
 
             Ok(())
+        }
+    }
+
+
+    impl<T: Config> Pallet<T> {
+        fn is_challenge_successful(
+            validated: &EthEventCheckResult<BlockNumberFor<T>, T::AccountId>,
+        ) -> bool {
+            let required_challenge_votes =
+                (AVN::<T>::active_validators().len() as u32) / EthEvents::<T>::quorum_factor();
+            let total_num_of_challenges =
+                EthEvents::<T>::challenges(validated.event.event_id.clone()).len() as u32;
+
+            return total_num_of_challenges >
+                cmp::max(validated.min_challenge_votes, required_challenge_votes)
+        }
+
+        fn is_validator(account_id: &T::AccountId) -> bool {
+            return AVN::<T>::active_validators().into_iter().any(|v| v.account_id == *account_id)
+        }
+
+        fn get_pending_event_index(event_id: &EthEventId) -> Result<usize, Error<T>> {
+            // `rposition: there should be at most one occurrence of this event,
+            // but in case there is more, we pick the most recent one
+            let event_index = EthEvents::get_events_pending_challenge()
+                .iter()
+                .rposition(|(pending, _counter, _)| *event_id == pending.event.event_id);
+            ensure!(event_index.is_some(), Error::<T>::PendingChallengeEventNotFound);
+            return Ok(event_index.expect("Checked for error"))
         }
     }
 }
