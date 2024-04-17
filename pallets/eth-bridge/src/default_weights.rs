@@ -43,6 +43,8 @@ pub trait WeightInfo {
 	fn add_eth_tx_hash() -> Weight;
 	fn add_corroboration() -> Weight;
 	fn remove_active_request() -> Weight;
+	fn process_event_with_successful_challenge(v: u32, e: u32, ) -> Weight;
+	fn process_event_without_successful_challenge(v: u32, e: u32, ) -> Weight;
 }
 
 /// Weights for pallet_eth_bridge using the Substrate node and recommended hardware.
@@ -120,6 +122,85 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:1)
+	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(624002), added: 624497, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::QuorumFactor` (r:1 w:0)
+	/// Proof: `EthereumEvents::QuorumFactor` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::Challenges` (r:1 w:0)
+	/// Proof: `EthereumEvents::Challenges` (`max_values`: None, `max_size`: Some(16082), added: 18557, mode: `MaxEncodedLen`)
+	/// Storage: `Session::CurrentIndex` (r:1 w:0)
+	/// Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Session::Validators` (r:1 w:0)
+	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::Reports` (r:1 w:1)
+	/// Proof: `Offences::Reports` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::ConcurrentReportsIndex` (r:1 w:1)
+	/// Proof: `Offences::ConcurrentReportsIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `AvnOffenceHandler::ReportedOffenders` (r:1 w:1)
+	/// Proof: `AvnOffenceHandler::ReportedOffenders` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	/// Storage: `AvnOffenceHandler::SlashingEnabled` (r:1 w:0)
+	/// Proof: `AvnOffenceHandler::SlashingEnabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:0 w:1)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `e` is `[1, 499]`.
+	fn process_event_with_successful_challenge(v: u32, e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1028 + e * (122 ±0) + v * (74 ±0)`
+		//  Estimated: `625487 + e * (122 ±0) + v * (75 ±0)`
+		// Minimum execution time: 152_414_000 picoseconds.
+		Weight::from_parts(155_363_491, 625487)
+			// Standard Error: 134_602
+			.saturating_add(Weight::from_parts(787_445, 0).saturating_mul(v.into()))
+			// Standard Error: 2_582
+			.saturating_add(Weight::from_parts(1_330_929, 0).saturating_mul(e.into()))
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(5_u64))
+			.saturating_add(Weight::from_parts(0, 122).saturating_mul(e.into()))
+			.saturating_add(Weight::from_parts(0, 75).saturating_mul(v.into()))
+	}
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:1)
+	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(624002), added: 624497, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::QuorumFactor` (r:1 w:0)
+	/// Proof: `EthereumEvents::QuorumFactor` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::Challenges` (r:1 w:0)
+	/// Proof: `EthereumEvents::Challenges` (`max_values`: None, `max_size`: Some(16082), added: 18557, mode: `MaxEncodedLen`)
+	/// Storage: `Session::CurrentIndex` (r:1 w:0)
+	/// Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Session::Validators` (r:1 w:0)
+	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::Reports` (r:1 w:1)
+	/// Proof: `Offences::Reports` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::ConcurrentReportsIndex` (r:1 w:1)
+	/// Proof: `Offences::ConcurrentReportsIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `AvnOffenceHandler::ReportedOffenders` (r:1 w:1)
+	/// Proof: `AvnOffenceHandler::ReportedOffenders` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	/// Storage: `AvnOffenceHandler::SlashingEnabled` (r:1 w:0)
+	/// Proof: `AvnOffenceHandler::SlashingEnabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:0 w:1)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `e` is `[1, 499]`.
+	fn process_event_without_successful_challenge(v: u32, e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1039 + e * (122 ±0) + v * (64 ±0)`
+		//  Estimated: `625487 + e * (122 ±0) + v * (64 ±0)`
+		// Minimum execution time: 145_734_000 picoseconds.
+		Weight::from_parts(138_546_130, 625487)
+			// Standard Error: 131_424
+			.saturating_add(Weight::from_parts(1_975_202, 0).saturating_mul(v.into()))
+			// Standard Error: 2_521
+			.saturating_add(Weight::from_parts(1_330_740, 0).saturating_mul(e.into()))
+			.saturating_add(T::DbWeight::get().reads(10_u64))
+			.saturating_add(T::DbWeight::get().writes(5_u64))
+			.saturating_add(Weight::from_parts(0, 122).saturating_mul(e.into()))
+			.saturating_add(Weight::from_parts(0, 64).saturating_mul(v.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -195,5 +276,83 @@ impl WeightInfo for () {
 		Weight::from_parts(22_349_000, 80487)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+		/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:1)
+	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(624002), added: 624497, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::QuorumFactor` (r:1 w:0)
+	/// Proof: `EthereumEvents::QuorumFactor` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::Challenges` (r:1 w:0)
+	/// Proof: `EthereumEvents::Challenges` (`max_values`: None, `max_size`: Some(16082), added: 18557, mode: `MaxEncodedLen`)
+	/// Storage: `Session::CurrentIndex` (r:1 w:0)
+	/// Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Session::Validators` (r:1 w:0)
+	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::Reports` (r:1 w:1)
+	/// Proof: `Offences::Reports` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::ConcurrentReportsIndex` (r:1 w:1)
+	/// Proof: `Offences::ConcurrentReportsIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `AvnOffenceHandler::ReportedOffenders` (r:1 w:1)
+	/// Proof: `AvnOffenceHandler::ReportedOffenders` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	/// Storage: `AvnOffenceHandler::SlashingEnabled` (r:1 w:0)
+	/// Proof: `AvnOffenceHandler::SlashingEnabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:0 w:1)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `e` is `[1, 499]`.
+	fn process_event_with_successful_challenge(v: u32, e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1028 + e * (122 ±0) + v * (74 ±0)`
+		//  Estimated: `625487 + e * (122 ±0) + v * (75 ±0)`
+		// Minimum execution time: 152_414_000 picoseconds.
+		Weight::from_parts(155_363_491, 625487)
+			// Standard Error: 134_602
+			.saturating_add(Weight::from_parts(787_445, 0).saturating_mul(v.into()))
+			// Standard Error: 2_582
+			.saturating_add(Weight::from_parts(1_330_929, 0).saturating_mul(e.into()))
+			.saturating_add(RocksDbWeight::get().reads(10_u64))
+			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			.saturating_add(Weight::from_parts(0, 122).saturating_mul(e.into()))
+			.saturating_add(Weight::from_parts(0, 75).saturating_mul(v.into()))
+	}
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:1)
+	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(624002), added: 624497, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::QuorumFactor` (r:1 w:0)
+	/// Proof: `EthereumEvents::QuorumFactor` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::Challenges` (r:1 w:0)
+	/// Proof: `EthereumEvents::Challenges` (`max_values`: None, `max_size`: Some(16082), added: 18557, mode: `MaxEncodedLen`)
+	/// Storage: `Session::CurrentIndex` (r:1 w:0)
+	/// Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Session::Validators` (r:1 w:0)
+	/// Proof: `Session::Validators` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::Reports` (r:1 w:1)
+	/// Proof: `Offences::Reports` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::ConcurrentReportsIndex` (r:1 w:1)
+	/// Proof: `Offences::ConcurrentReportsIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `AvnOffenceHandler::ReportedOffenders` (r:1 w:1)
+	/// Proof: `AvnOffenceHandler::ReportedOffenders` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	/// Storage: `AvnOffenceHandler::SlashingEnabled` (r:1 w:0)
+	/// Proof: `AvnOffenceHandler::SlashingEnabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:0 w:1)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// The range of component `v` is `[1, 10]`.
+	/// The range of component `e` is `[1, 499]`.
+	fn process_event_without_successful_challenge(v: u32, e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1039 + e * (122 ±0) + v * (64 ±0)`
+		//  Estimated: `625487 + e * (122 ±0) + v * (64 ±0)`
+		// Minimum execution time: 145_734_000 picoseconds.
+		Weight::from_parts(138_546_130, 625487)
+			// Standard Error: 131_424
+			.saturating_add(Weight::from_parts(1_975_202, 0).saturating_mul(v.into()))
+			// Standard Error: 2_521
+			.saturating_add(Weight::from_parts(1_330_740, 0).saturating_mul(e.into()))
+			.saturating_add(RocksDbWeight::get().reads(10_u64))
+			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			.saturating_add(Weight::from_parts(0, 122).saturating_mul(e.into()))
+			.saturating_add(Weight::from_parts(0, 64).saturating_mul(v.into()))
 	}
 }

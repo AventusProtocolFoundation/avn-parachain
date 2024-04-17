@@ -28,6 +28,7 @@ frame-system = { default-features = false, git = "https://github.com/paritytech/
 pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 pallet-session = {default-features = false, features = ["historical"], git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
 pallet-avn = { default-features = false, path = "../avn" }
+pallet-ethereum-events = {default-features = false, path = "../ethereum-events"}
 
 # Optional imports for benchmarking
 frame-benchmarking = {  default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", optional = true }
@@ -54,6 +55,7 @@ std = [
 	"pallet-avn/std",
 	"pallet-session/std",
 	"pallet-timestamp/std",
+	"pallet-ethereum-events/std"
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

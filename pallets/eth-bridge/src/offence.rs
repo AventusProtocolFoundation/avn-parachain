@@ -8,7 +8,54 @@ use sp_staking::{
 };
 use sp_std::{prelude::*, vec};
 
+use sp_std::prelude::*;
+
 use crate::Event;
+
+#[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
+pub enum EthereumLogOffenceType {
+    IncorrectValidationResultSubmitted,
+    ChallengeAttemptedOnValidResult,
+}
+
+#[derive(PartialEq, Clone, Debug, Encode, Decode)]
+pub struct InvalidEthereumLogOffence<Offender> {
+    /// The current session index in which we report the validators that submitted an invalid
+    /// ethereum log.
+    pub session_index: SessionIndex,
+    /// The size of the validator set in current session/era.
+    pub validator_set_count: u32,
+    /// Authorities that validated the invalid log.
+    pub offenders: Vec<Offender>,
+    /// The different types of the offence
+    pub offence_type: EthereumLogOffenceType,
+}
+
+impl<Offender: Clone> Offence<Offender> for InvalidEthereumLogOffence<Offender> {
+    const ID: Kind = *b"ethevent:bad-log";
+    type TimeSlot = SessionIndex;
+
+    fn offenders(&self) -> Vec<Offender> {
+        self.offenders.clone()
+    }
+
+    fn session_index(&self) -> SessionIndex {
+        self.session_index
+    }
+
+    fn validator_set_count(&self) -> u32 {
+        self.validator_set_count
+    }
+
+    fn time_slot(&self) -> Self::TimeSlot {
+        self.session_index
+    }
+
+    fn slash_fraction(&self, _offenders_count: u32) -> Perbill {
+        // We don't implement fraction slashes at the moment.
+        Perbill::from_percent(100)
+    }
+}
 
 #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, TypeInfo)]
 pub enum CorroborationOffenceType {
@@ -60,33 +107,36 @@ pub fn create_offenders_identification<T: crate::Config>(
     return offenders
 }
 
-pub fn create_and_report_corroboration_offence<T: crate::Config>(
+pub fn create_and_report_invalid_log_offence<T: crate::Config>(
     reporter: &T::AccountId,
     offenders_accounts: &Vec<T::AccountId>,
-    offence_type: CorroborationOffenceType,
+    offence_type: EthereumLogOffenceType,
 ) {
     let offenders = create_offenders_identification::<T>(offenders_accounts);
 
     if offenders.len() > 0 {
-        let invalid_event_offence = CorroborationOffence {
+        let invalid_event_offence = InvalidEthereumLogOffence {
             session_index: <pallet_session::Pallet<T>>::current_index(),
-            validator_set_count: crate::AVN::<T>::validators().len() as u32,
+            validator_set_count: <pallet_session::Pallet<T>>::validators().len() as u32,
             offenders: offenders.clone(),
             offence_type: offence_type.clone(),
         };
 
-        if !T::ReportCorroborationOffence::is_known_offence(
+        if !T::ReportInvalidEthereumLog::is_known_offence(
             &invalid_event_offence.offenders(),
             &invalid_event_offence.time_slot(),
         ) {
             let reporters = vec![reporter.clone()];
             if let Err(e) =
-                T::ReportCorroborationOffence::report_offence(reporters, invalid_event_offence)
+                T::ReportInvalidEthereumLog::report_offence(reporters, invalid_event_offence)
             {
-                log::info!(target: "pallet-eth-bridge", "ℹ️ Error while reporting offence: {:?}. Stored in deferred",e);
+                log::info!(
+                    target: "pallet-ethereum-events",
+                    "ℹ️ Error while reporting offence: {:?}. Stored in deferred",
+                    e
+                );
             }
-
-            <crate::Pallet<T>>::deposit_event(Event::<T>::CorroborationOffenceReported {
+            <crate::Pallet<T>>::deposit_event(Event::<T>::OffenceReported {
                 offence_type,
                 offenders,
             });
