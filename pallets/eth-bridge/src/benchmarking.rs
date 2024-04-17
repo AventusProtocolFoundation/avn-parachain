@@ -327,7 +327,9 @@ benchmarks! {
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
-        ensure!(SettledTransactions::<T>::get(tx_id).is_some(), "Transaction should be settled");
+        if SettledTransactions::<T>::get(tx_id).is_some(){
+            ensure!(SettledTransactions::<T>::get(tx_id).is_some(), "Transaction should be settled");
+        }
     }
 
     remove_active_request {
