@@ -193,7 +193,6 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     author: &Author<T>,
 ) {
     let mut local_authors: Vec<Author<T>> = authors.to_vec();
-    local_authors.remove(1);
     local_authors.retain(|author_from_vec| author_from_vec.account_id != sender.account_id);
     local_authors.retain(|author_from_vec| author_from_vec.account_id != author.account_id);
 
