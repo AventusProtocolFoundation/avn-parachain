@@ -188,19 +188,20 @@ fn setup_new_active_tx<T: Config>(
 fn setup_active_tx_with_failure_corroborations<T: Config>(
     tx_id: EthereumId,
     num_confirmations: u32,
-    sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
-    authors: Vec<crate::Author<T>>,
+    sender: Author<T>,
+    authors: Vec<Author<T>>,
     author: &Author<T>,
 ) {
     let mut local_authors: Vec<Author<T>> = authors.to_vec();
     local_authors.remove(1);
     local_authors.retain(|author_from_vec| author_from_vec.account_id != sender.account_id);
+    local_authors.retain(|author_from_vec| author_from_vec.account_id != author.account_id);
 
     let quorum = authors.len() - authors.len() * 2 / 3;
 
-    let ( num_failure_corroborations, num_successful_corroborations ) = get_num_corroborations::<T>(&local_authors, quorum);
+    let ( num_failure_corroborations, num_successful_corroborations ) = get_num_corroborations::<T>(quorum);
 
-    println!("{},{},{}", quorum, num_failure_corroborations, num_successful_corroborations);
+    println!("{:?},{:?},{:?}", local_authors, author, sender);
 
     let success_authors: Vec<T::AccountId> = local_authors
         .iter()
@@ -224,7 +225,7 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     );
 }
 
-fn get_num_corroborations<T: Config>(authors: &Vec<crate::Author<T>>, quorum: usize) -> (usize, usize) {
+fn get_num_corroborations<T: Config>(quorum: usize) -> (usize, usize) {
     let num_failure_corroborations = quorum * 1/3;
 
     let num_successful_corroborations = quorum - num_failure_corroborations - 1; // because we are adding the last
@@ -315,9 +316,10 @@ benchmarks! {
         let tx_hash_valid = true;
         let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: _(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
+    }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
         let active_tx = ActiveRequest::<T>::get().expect("is active");
+        println!("HELP 123 {:?}, {:?}",active_tx.tx_data.clone().unwrap().success_corroborations, &author.account_id);
         ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
     }
 
@@ -337,7 +339,7 @@ benchmarks! {
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
-        ensure!(SettledTransactions::<T>::get(tx_id).is_some(), "Transaction should be settled");
+        ensure!(SettledTransactions::<T>::get(tx_id).is_some(), "Transaction is not settled");
     }
 
     remove_active_request {
