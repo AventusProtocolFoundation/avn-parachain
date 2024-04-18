@@ -5,7 +5,6 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use core::num;
 
 use crate::{Pallet, avn::MAX_VALIDATOR_ACCOUNTS, *};
 
@@ -14,8 +13,9 @@ use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
-use sp_core::{H160, H256};
+use sp_core::H256;
 use sp_runtime::WeakBoundedVec;
+use crate::avn::MAX_VALIDATOR_ACCOUNTS;
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
     let current_authors = avn::Validators::<T>::get();
@@ -197,9 +197,7 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     local_authors.retain(|author_from_vec| author_from_vec.account_id != sender.account_id);
     local_authors.retain(|author_from_vec| author_from_vec.account_id != author.account_id);
 
-    let quorum = avn::Pallet::<T>::quorum() as usize;
-
-    let ( num_failure_corroborations, num_successful_corroborations ) = get_num_corroborations::<T>(quorum);
+    let ( num_failure_corroborations, num_successful_corroborations ) = get_num_corroborations::<T>(authors.len());
 
     let success_authors: Vec<T::AccountId> = local_authors
         .iter()
@@ -223,10 +221,12 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     );
 }
 
-fn get_num_corroborations<T: Config>(quorum: usize) -> (usize, usize) {
-    let num_failure_corroborations = quorum * 1/3;
+fn get_num_corroborations<T: Config>(authors_count:usize) -> (usize, usize) {
+    let quorum = avn::Pallet::<T>::quorum() as usize;
 
-    let num_successful_corroborations = quorum - num_failure_corroborations - 1; // because we are adding the last
+    let num_failure_corroborations = quorum - 1;
+
+    let num_successful_corroborations = authors_count - num_failure_corroborations - 1; // because we are adding the last
 
     (num_failure_corroborations, num_successful_corroborations)
 }
@@ -321,7 +321,9 @@ benchmarks! {
     }
 
     add_corroboration_with_challenge {
-        let authors = setup_authors::<T>(10);
+        let v in 4..MAX_VALIDATOR_ACCOUNTS;
+
+        let authors = setup_authors::<T>(v);
 
         let author: crate::Author<T> = authors[0].clone();
         let sender: crate::Author<T> = authors[1].clone();
