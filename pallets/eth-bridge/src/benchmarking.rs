@@ -185,6 +185,7 @@ fn setup_new_active_tx<T: Config>(
         BoundedVec::default(),
     );
 }
+
 fn setup_active_tx_with_failure_corroborations<T: Config>(
     tx_id: EthereumId,
     num_confirmations: u32,
@@ -196,11 +197,9 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     local_authors.retain(|author_from_vec| author_from_vec.account_id != sender.account_id);
     local_authors.retain(|author_from_vec| author_from_vec.account_id != author.account_id);
 
-    let quorum = authors.len() - authors.len() * 2 / 3;
+    let quorum = avn::Pallet::<T>::quorum() as usize;
 
     let ( num_failure_corroborations, num_successful_corroborations ) = get_num_corroborations::<T>(quorum);
-
-    println!("{:?},{:?},{:?}", local_authors, author, sender);
 
     let success_authors: Vec<T::AccountId> = local_authors
         .iter()
@@ -318,11 +317,10 @@ benchmarks! {
     }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
         let active_tx = ActiveRequest::<T>::get().expect("is active");
-        println!("HELP 123 {:?}, {:?}",active_tx.tx_data.clone().unwrap().success_corroborations, &author.account_id);
         ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
     }
 
-    add_corroboration_settle_transaction_with_failure_corroborations {
+    add_corroboration_with_challenge {
         let authors = setup_authors::<T>(10);
 
         let author: crate::Author<T> = authors[0].clone();
