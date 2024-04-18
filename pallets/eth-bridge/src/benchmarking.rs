@@ -3,7 +3,7 @@
 
 //! eth-bridge pallet benchmarking.
 
-// #![cfg(feature = "runtime-benchmarks")]
+#![cfg(feature = "runtime-benchmarks")]
 
 use core::num;
 
