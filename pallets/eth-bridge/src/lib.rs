@@ -126,8 +126,6 @@ const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 
-pub const MAX_OFFENDERS: u32 = 2;
-
 #[frame_support::pallet]
 pub mod pallet {
     use crate::offence::CorroborationOffenceType;

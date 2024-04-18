@@ -3,7 +3,9 @@
 
 //! eth-bridge pallet benchmarking.
 
-#![cfg(feature = "runtime-benchmarks")]
+// #![cfg(feature = "runtime-benchmarks")]
+
+use core::num;
 
 use crate::{Pallet, avn::MAX_VALIDATOR_ACCOUNTS, *};
 
@@ -187,17 +189,18 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     tx_id: EthereumId,
     num_confirmations: u32,
     sender: Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>,
-    num_failure_corroborations: u32,
     authors: Vec<crate::Author<T>>,
     author: &Author<T>,
 ) {
     let mut local_authors: Vec<Author<T>> = authors.to_vec();
     local_authors.remove(1);
-    local_authors.retain(|author_from_vec| author_from_vec.account_id != author.account_id);
+    local_authors.retain(|author_from_vec| author_from_vec.account_id != sender.account_id);
 
     let quorum = authors.len() - authors.len() * 2 / 3;
 
-    let num_successful_corroborations = quorum - (num_failure_corroborations as usize) - 1; // because we are adding the last
+    let ( num_failure_corroborations, num_successful_corroborations ) = get_num_corroborations::<T>(&local_authors, quorum);
+
+    println!("{},{},{}", quorum, num_failure_corroborations, num_successful_corroborations);
 
     let success_authors: Vec<T::AccountId> = local_authors
         .iter()
@@ -219,6 +222,14 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
         BoundedVec::try_from(success_authors).unwrap_or_default(),
         BoundedVec::try_from(failure_authors).unwrap_or_default(),
     );
+}
+
+fn get_num_corroborations<T: Config>(authors: &Vec<crate::Author<T>>, quorum: usize) -> (usize, usize) {
+    let num_failure_corroborations = quorum * 1/3;
+
+    let num_successful_corroborations = quorum - num_failure_corroborations - 1; // because we are adding the last
+
+    (num_failure_corroborations, num_successful_corroborations)
 }
 
 #[cfg(test)]
@@ -312,7 +323,6 @@ benchmarks! {
 
     add_corroboration_settle_transaction_with_failure_corroborations {
         let authors = setup_authors::<T>(10);
-        let o in 1 .. MAX_OFFENDERS;
 
         let author: crate::Author<T> = authors[0].clone();
         let sender: crate::Author<T> = authors[1].clone();
@@ -320,16 +330,14 @@ benchmarks! {
         let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
 
         let tx_id = 3u32;
-        setup_active_tx_with_failure_corroborations::<T>(tx_id, 1, sender.clone(), o, authors.clone(), &author);
+        setup_active_tx_with_failure_corroborations::<T>(tx_id, 1, sender.clone(), authors.clone(), &author);
         let tx_succeeded = true;
         let tx_hash_valid = true;
         let proof = (crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
-        if SettledTransactions::<T>::get(tx_id).is_some(){
-            ensure!(SettledTransactions::<T>::get(tx_id).is_some(), "Transaction should be settled");
-        }
+        ensure!(SettledTransactions::<T>::get(tx_id).is_some(), "Transaction should be settled");
     }
 
     remove_active_request {
