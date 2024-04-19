@@ -691,7 +691,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "avn-lower-rpc"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "avn-service",
  "futures",
@@ -713,7 +713,7 @@ dependencies = [
 
 [[package]]
 name = "avn-node-parachain"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "avn-lower-rpc",
  "avn-parachain-runtime",
@@ -793,7 +793,7 @@ dependencies = [
 
 [[package]]
 name = "avn-parachain-runtime"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "avn-runtime-common",
  "cumulus-pallet-aura-ext",
@@ -872,7 +872,7 @@ dependencies = [
 
 [[package]]
 name = "avn-parachain-test-runtime"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "avn-runtime-common",
  "cumulus-pallet-aura-ext",
@@ -951,7 +951,7 @@ dependencies = [
 
 [[package]]
 name = "avn-runtime-common"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "frame-support",
  "hex-literal 0.4.1",
@@ -965,7 +965,7 @@ dependencies = [
 
 [[package]]
 name = "avn-service"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "anyhow",
  "ethereum-types 0.11.0",
@@ -6823,7 +6823,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6849,7 +6849,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn-offence-handler"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6870,7 +6870,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn-proxy"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -6893,7 +6893,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-avn-transaction-payment"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7160,7 +7160,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-eth-bridge"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "ethabi 13.0.0",
  "frame-benchmarking",
@@ -7186,7 +7186,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-ethereum-events"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "env_logger 0.10.0",
  "frame-benchmarking",
@@ -7381,7 +7381,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-nft-manager"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -7508,7 +7508,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-parachain-staking"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -7785,7 +7785,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-summary"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -7852,7 +7852,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-token-manager"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "enumflags2",
  "frame-benchmarking",
@@ -7960,7 +7960,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-validators-manager"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -12556,7 +12556,7 @@ dependencies = [
 
 [[package]]
 name = "sp-avn-common"
-version = "5.2.3"
+version = "5.2.4"
 dependencies = [
  "byte-slice-cast",
  "derive_more",
