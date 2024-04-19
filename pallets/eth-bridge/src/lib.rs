@@ -66,6 +66,7 @@ use frame_system::{
 };
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
+    MAX_VALIDATOR_ACCOUNTS,
 };
 
 use pallet_session::historical::IdentificationTuple;
@@ -399,7 +400,7 @@ pub mod pallet {
 
         #[pallet::call_index(4)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_corroboration().max(
-            <T as Config>::WeightInfo::add_corroboration_with_challenge()
+            <T as Config>::WeightInfo::add_corroboration_with_challenge(MAX_VALIDATOR_ACCOUNTS)
         ))]
         pub fn add_corroboration(
             origin: OriginFor<T>,
