@@ -398,7 +398,6 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        // #[pallet::weight(<T as Config>::WeightInfo::add_corroboration())]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_corroboration().max(
             <T as Config>::WeightInfo::add_corroboration_with_challenge()
         ))]
