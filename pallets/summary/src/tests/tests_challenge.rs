@@ -16,6 +16,7 @@ struct LocalContext {
     pub block_number_for_next_slot: BlockNumber,
     pub slot_validator: MockValidator,
     pub other_validator: MockValidator,
+    pub fourth_validator: MockValidator,
     pub slot_number: BlockNumber,
     pub block_after_grace_period: BlockNumber,
     pub challenge_reason: SummaryChallengeReason,
@@ -39,7 +40,10 @@ fn setup_success_preconditions() -> LocalContext {
     let block_after_grace_period = block_number_for_next_slot + grace_period + 1;
 
     let slot_validator = get_validator(SIXTH_VALIDATOR_INDEX);
+    let primary_validator_account_id =
+        AVN::calculate_primary_avn_validator(block_after_grace_period).unwrap();
     let other_validator = get_validator(FIRST_VALIDATOR_INDEX);
+    let fourth_validator = get_validator(FOURTH_VALIDATOR_INDEX);
     assert!(slot_validator != other_validator);
 
     System::set_block_number(current_block);
@@ -54,6 +58,7 @@ fn setup_success_preconditions() -> LocalContext {
         slot_number,
         slot_validator,
         other_validator,
+        fourth_validator,
         block_number_for_next_slot,
         block_after_grace_period,
         challenge_reason,
@@ -121,6 +126,8 @@ fn expected_transaction_was_called(
     }
 
     let call = take_transaction_from_pool(pool_state);
+    let new_call = expected_add_challenge_transaction(challenge, validator);
+
     return call == expected_add_challenge_transaction(challenge, validator)
 }
 
@@ -152,19 +159,20 @@ mod challenge_slot_if_required {
                 assert!(pool_state.read().transactions.is_empty());
 
                 System::set_block_number(context.block_after_grace_period);
+                // let challenge = get_valid_challenge(&context);
                 let challenge = get_challenge(
                     context.challenge_reason.clone(),
-                    context.other_validator.account_id,
+                    context.fourth_validator.account_id,
                     context.slot_validator.account_id,
                 );
 
                 call_challenge_slot_if_required(
                     context.block_after_grace_period,
-                    &context.other_validator,
+                    &context.fourth_validator,
                 );
                 assert!(expected_transaction_was_called(
                     &challenge,
-                    &context.other_validator,
+                    &context.fourth_validator,
                     &pool_state
                 ));
             });
@@ -184,23 +192,23 @@ mod challenge_slot_if_required {
                 // We add 2 to make sure context.slot_validator is the primary for this block number
                 let block_after_grace_period = context.block_after_grace_period + 2;
 
-                assert!(AVN::<TestRuntime>::is_primary(
-                    OperationType::Avn,
-                    &context.other_validator.account_id
+                assert!(AVN::is_primary_avn_validator(
+                    block_after_grace_period,
+                    &context.slot_validator.account_id
                 )
                 .unwrap());
 
                 System::set_block_number(block_after_grace_period);
                 let challenge = get_challenge(
                     context.challenge_reason,
-                    context.other_validator.account_id,
+                    context.slot_validator.account_id,
                     context.slot_validator.account_id,
                 );
 
-                call_challenge_slot_if_required(block_after_grace_period, &context.other_validator);
+                call_challenge_slot_if_required(block_after_grace_period, &context.slot_validator);
                 assert!(expected_transaction_was_called(
                     &challenge,
-                    &context.other_validator,
+                    &context.slot_validator,
                     &pool_state
                 ));
             });
@@ -355,7 +363,7 @@ mod challenge_slot_if_required {
 
         fn get_primary_for_block(block_number: BlockNumber) -> MockValidator {
             let primary_validator_account_id =
-                AVN::<TestRuntime>::advance_primary_validator(OperationType::Avn).unwrap();
+                AVN::calculate_primary_avn_validator(block_number).unwrap();
             return get_validator(primary_validator_account_id)
         }
 
@@ -520,7 +528,7 @@ mod signature_in {
 
                 call_challenge_slot_if_required(
                     context.block_after_grace_period,
-                    &context.other_validator,
+                    &context.fourth_validator,
                 );
 
                 let tx = pool_state.write().transactions.pop().unwrap();
@@ -550,7 +558,7 @@ mod signature_in {
 
                 call_challenge_slot_if_required(
                     context.block_after_grace_period,
-                    &context.other_validator,
+                    &context.fourth_validator,
                 );
 
                 let tx = pool_state.write().transactions.pop().unwrap();
@@ -593,7 +601,7 @@ mod signature_in {
 
                     call_challenge_slot_if_required(
                         context.block_after_grace_period,
-                        &context.other_validator,
+                        &context.fourth_validator,
                     );
 
                     let tx = pool_state.write().transactions.pop().unwrap();
@@ -635,7 +643,7 @@ mod signature_in {
 
                     call_challenge_slot_if_required(
                         context.block_after_grace_period,
-                        &context.other_validator,
+                        &context.fourth_validator,
                     );
 
                     let tx = pool_state.write().transactions.pop().unwrap();
