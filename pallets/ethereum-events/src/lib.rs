@@ -72,6 +72,7 @@ const MINIMUM_EVENT_CHALLENGE_PERIOD: u32 = 60;
 
 pub const SIGNED_ADD_ETHEREUM_LOG_CONTEXT: &'static [u8] =
     b"authorization for add ethereum log operation";
+
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
