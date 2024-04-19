@@ -41,7 +41,7 @@ fn setup_success_preconditions() -> LocalContext {
 
     let slot_validator = get_validator(SIXTH_VALIDATOR_INDEX);
     let primary_validator_account_id =
-        AVN::calculate_primary_avn_validator(block_after_grace_period).unwrap();
+        AVN::<TestRuntime>::calculate_primary_avn_validator(block_after_grace_period).unwrap();
     let other_validator = get_validator(FIRST_VALIDATOR_INDEX);
     let fourth_validator = get_validator(FOURTH_VALIDATOR_INDEX);
     assert!(slot_validator != other_validator);
@@ -192,7 +192,7 @@ mod challenge_slot_if_required {
                 // We add 2 to make sure context.slot_validator is the primary for this block number
                 let block_after_grace_period = context.block_after_grace_period + 2;
 
-                assert!(AVN::is_primary_avn_validator(
+                assert!(AVN::<TestRuntime>::is_primary_avn_validator(
                     block_after_grace_period,
                     &context.slot_validator.account_id
                 )
@@ -363,7 +363,7 @@ mod challenge_slot_if_required {
 
         fn get_primary_for_block(block_number: BlockNumber) -> MockValidator {
             let primary_validator_account_id =
-                AVN::calculate_primary_avn_validator(block_number).unwrap();
+                AVN::<TestRuntime>::calculate_primary_avn_validator(block_number).unwrap();
             return get_validator(primary_validator_account_id)
         }
 
