@@ -153,12 +153,6 @@ pub mod pallet {
         ErrorDecodingU32,
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, TypeInfo)]
-    pub enum OperationType {
-        Ethereum,
-        Avn,
-    }
-
     #[pallet::storage]
     #[pallet::getter(fn validators)]
     /// The current set of validators (address and key) that may issue a transaction from the

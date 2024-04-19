@@ -1,6 +1,6 @@
 use crate::{
     mock::{TestRuntime, *},
-    Error, OperationType,
+    Error,
 };
 use frame_support::{assert_err, assert_noop};
 use sp_runtime::testing::UintAuthorityId;

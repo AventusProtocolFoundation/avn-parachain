@@ -16,7 +16,6 @@ use sp_std::{fmt::Debug, prelude::*};
 
 use super::{Config, OcwLock};
 use crate::{Call, CurrentSlot, CurrentSlotsValidator, Pallet as Summary, AVN};
-use pallet_avn::OperationType;
 
 pub const CHALLENGE_CONTEXT: &'static [u8] = b"root_challenge";
 pub const UNKNOWN_CHALLENGE_REASON: u8 = 10;

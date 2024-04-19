@@ -8,7 +8,6 @@
 // irrelevant)
 #[cfg(not(feature = "std"))]
 extern crate alloc;
-use crate::avn::OperationType;
 #[cfg(not(feature = "std"))]
 use alloc::string::{String, ToString};
 use frame_support::{

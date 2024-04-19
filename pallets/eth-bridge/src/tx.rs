@@ -1,6 +1,5 @@
 use super::*;
 use crate::{offence::create_and_report_corroboration_offence, util::unbound_params, Config};
-use avn::OperationType;
 use frame_support::BoundedVec;
 
 pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
