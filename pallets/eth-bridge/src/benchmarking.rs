@@ -15,7 +15,6 @@ use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
 use sp_core::H256;
 use sp_runtime::WeakBoundedVec;
-use crate::avn::MAX_VALIDATOR_ACCOUNTS;
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
     let current_authors = avn::Validators::<T>::get();
@@ -266,7 +265,7 @@ benchmarks! {
 
         let quorum = avn::Pallet::<T>::quorum();
         let tx_id = 1u32;
-        setup_active_tx::<T>(tx_id, quorum.saturating_sub(2), sender.clone());
+        setup_new_active_tx::<T>(tx_id, quorum.saturating_sub(2), sender.clone());
         let active_tx = ActiveRequest::<T>::get().expect("is active");
 
         let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("53ea27badd00d7b5e4d7e7eb2542ea3abfcd2d8014d2153719f3f00d4058c4027eac360877d5d191cbfdfe8cd72dfe82abc9192fc6c8dce21f3c6f23c43e053f1c")).unwrap().into();
