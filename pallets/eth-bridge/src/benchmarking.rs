@@ -5,7 +5,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{Pallet, *};
+use crate::{Pallet, avn::MAX_VALIDATOR_ACCOUNTS, *};
 
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{ensure, BoundedVec};
@@ -16,10 +16,14 @@ use sp_core::{H160, H256};
 use sp_runtime::WeakBoundedVec;
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
-    let mut new_authors: Vec<crate::Author<T>> = Vec::new();
     let current_authors = avn::Validators::<T>::get();
 
-    for i in 0..number_of_validator_account_ids {
+    if number_of_validator_account_ids <= current_authors.len() as u32 {
+        return current_authors.to_vec();
+    }
+    let number_of_new_authors: u32 = number_of_validator_account_ids - current_authors.len() as u32;
+    let mut new_authors: Vec<crate::Author<T>> = Vec::new();
+    for i in 0..number_of_new_authors {
         let account = account("dummy_validator", i, i);
         let key =
             <T as avn::Config>::AuthorityId::generate_pair(Some("//Ferdie".as_bytes().to_vec()));
@@ -188,8 +192,8 @@ benchmarks! {
     }
 
     add_confirmation {
-        let v in 2 .. MAX_CONFIRMATIONS;
-        let authors = setup_authors::<T>((v * 4) + 1);
+        let v in 1 .. MAX_CONFIRMATIONS;
+        let authors = setup_authors::<T>(v + 4);
 
         let author: crate::Author<T> = authors[0].clone();
         let sender: crate::Author<T> = authors[1].clone();
@@ -197,8 +201,9 @@ benchmarks! {
         #[cfg(not(test))]
         let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
 
+        let quorum = avn::Pallet::<T>::quorum();
         let tx_id = 1u32;
-        setup_active_tx::<T>(tx_id, v-1, sender.clone());
+        setup_active_tx::<T>(tx_id, quorum.saturating_sub(2), sender.clone());
         let active_tx = ActiveRequest::<T>::get().expect("is active");
 
         let new_confirmation: ecdsa::Signature = ecdsa::Signature::from_slice(&hex!("53ea27badd00d7b5e4d7e7eb2542ea3abfcd2d8014d2153719f3f00d4058c4027eac360877d5d191cbfdfe8cd72dfe82abc9192fc6c8dce21f3c6f23c43e053f1c")).unwrap().into();
@@ -216,7 +221,7 @@ benchmarks! {
     }
 
     add_eth_tx_hash {
-        let authors = setup_authors::<T>(10);
+        let authors = setup_authors::<T>(MAX_VALIDATOR_ACCOUNTS);
         let sender: crate::Author<T> = authors[0].clone();
         #[cfg(not(test))]
         let sender = add_collator_to_avn::<T>(&sender.account_id, authors.len() as u32 + 1u32)?;
@@ -233,7 +238,7 @@ benchmarks! {
     }
 
     add_corroboration {
-        let authors = setup_authors::<T>(10);
+        let authors = setup_authors::<T>(MAX_VALIDATOR_ACCOUNTS);
 
         let author: crate::Author<T> = authors[0].clone();
         let sender: crate::Author<T> = authors[1].clone();
