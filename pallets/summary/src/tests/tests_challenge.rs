@@ -192,7 +192,7 @@ mod challenge_slot_if_required {
                 // We add 2 to make sure context.slot_validator is the primary for this block number
                 let block_after_grace_period = context.block_after_grace_period + 2;
 
-                assert!(AVN::<TestRuntime>::is_primary_avn_validator(
+                assert!(AVN::<TestRuntime>::is_primary_validator_on_block(
                     block_after_grace_period,
                     &context.slot_validator.account_id
                 )

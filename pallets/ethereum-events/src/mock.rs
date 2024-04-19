@@ -412,8 +412,10 @@ impl EthereumEvents {
         return AVN::active_validators()
     }
 
-    pub fn is_primary_eth_validator(validator: &AccountId) -> Result<bool, avn_error<TestRuntime>> {
-        return AVN::is_primary_eth_validator(validator)
+    pub fn is_primary_validator_for_sending(
+        validator: &AccountId,
+    ) -> Result<bool, avn_error<TestRuntime>> {
+        return AVN::is_primary_validator_for_sending(validator)
     }
 
     pub fn get_validator_for_current_node() -> Option<Validator<AuthorityId, AccountId>> {

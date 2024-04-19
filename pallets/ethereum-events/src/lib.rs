@@ -792,15 +792,15 @@ pub mod pallet {
             let (this_validator, finalised_block) = setup_result.expect("We have a validator");
 
             // Only primary validators can check and process events
-            let is_primary_eth_validator =
-                AVN::<T>::is_primary_eth_validator(&this_validator.account_id);
-            if is_primary_eth_validator.is_err() {
+            let is_primary_validator_for_sending =
+                AVN::<T>::is_primary_validator_on_block(block_number, &this_validator.account_id);
+            if is_primary_validator_for_sending.is_err() {
                 log::error!("Error checking if validator can check result");
                 return
             }
 
             // =============================== Main Logic ===========================
-            if is_primary_eth_validator.expect("Already checked for error.") {
+            if is_primary_validator_for_sending.expect("Already checked for error.") {
                 Self::try_check_event(block_number, &this_validator, finalised_block);
                 Self::try_process_event(block_number, &this_validator, finalised_block);
             } else {
@@ -836,7 +836,7 @@ pub mod pallet {
                     return InvalidTransaction::Custom(ERROR_CODE_INVALID_EVENT_DATA).into()
                 }
 
-                if AVN::<T>::is_primary_eth_validator(&result.checked_by)
+                if AVN::<T>::is_primary_validator_for_sending(&result.checked_by)
                     .map_err(|_| InvalidTransaction::Custom(ERROR_CODE_IS_PRIMARY_HAS_ERROR))? ==
                     false
                 {

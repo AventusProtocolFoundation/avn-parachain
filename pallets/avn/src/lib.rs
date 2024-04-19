@@ -175,7 +175,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_primary_collator)]
-    pub type PrimaryCollator<T: Config> = StorageValue<_, u8, ValueQuery>;
+    pub type primaryCollatorIndexForEth<T: Config> = StorageValue<_, u8, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -265,19 +265,21 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let mut index = PrimaryCollator::<T>::get() as usize;
+        let mut index = primaryCollatorIndexForEth::<T>::get() as usize;
 
         if index >= validators.len() {
             // Reset the counter to zero
             index = 0;
-            PrimaryCollator::<T>::put(index as u8);
+            primaryCollatorIndexForEth::<T>::put(index as u8);
         };
 
         Ok(validators[index].account_id.clone())
     }
 
     // TODO [TYPE: refactoring][PRI: LOW]: choose a better function name
-    pub fn is_primary_eth_validator(current_validator: &T::AccountId) -> Result<bool, Error<T>> {
+    pub fn is_primary_validator_for_sending(
+        current_validator: &T::AccountId,
+    ) -> Result<bool, Error<T>> {
         let primary_validator = match Self::get_primary_eth_validator() {
             Ok(account_id) => account_id,
             Err(error) => return Err(error),
@@ -286,7 +288,7 @@ impl<T: Config> Pallet<T> {
         return Ok(&primary_validator == current_validator)
     }
 
-    pub fn is_primary_avn_validator(
+    pub fn is_primary_validator_on_block(
         block_number: BlockNumberFor<T>,
         current_validator: &T::AccountId,
     ) -> Result<bool, Error<T>> {
@@ -302,11 +304,11 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let ethereum_counter = PrimaryCollator::<T>::get();
+        let ethereum_counter = primaryCollatorIndexForEth::<T>::get();
         let validators_len = Self::validators().len() as u8;
 
         let index = (ethereum_counter.saturating_add(1)) % validators_len;
-        PrimaryCollator::<T>::put(index);
+        primaryCollatorIndexForEth::<T>::put(index);
 
         Ok(validators[index as usize].account_id.clone())
     }

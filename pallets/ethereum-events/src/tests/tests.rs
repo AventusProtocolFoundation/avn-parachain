@@ -190,7 +190,7 @@ fn test_is_primary_blocknumber_3() {
     ext.execute_with(|| {
         let block_number = 3;
         let expected_primary = account_id_1();
-        let result = EthereumEvents::is_primary_eth_validator(&expected_primary);
+        let result = EthereumEvents::is_primary_validator_for_sending(&expected_primary);
         assert!(result.is_ok(), "Getting primary validator failed");
         assert_eq!(result.unwrap(), true);
     });
@@ -312,7 +312,7 @@ fn is_primary_fails_with_no_validators() {
     let mut ext = ExtBuilder::build_default().as_externality();
     ext.execute_with(|| {
         let block_number = 1;
-        let result = EthereumEvents::is_primary_eth_validator(&account_id_1());
+        let result = EthereumEvents::is_primary_validator_for_sending(&account_id_1());
         assert!(result.is_err(), "Getting primary validator should have failed");
     });
 }

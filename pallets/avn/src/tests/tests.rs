@@ -61,7 +61,7 @@ mod calling_is_primary_validator_for_ethereum {
             let eth_index_before: u8 = AVN::get_primary_collator();
             assert_eq!(eth_index_before, 0);
 
-            let result = AVN::is_primary_eth_validator(&expected_primary).unwrap();
+            let result = AVN::is_primary_validator_for_sending(&expected_primary).unwrap();
             assert!(result == true, "Wrong primary validator");
 
             let eth_index_after: u8 = AVN::get_primary_collator();
@@ -74,13 +74,13 @@ mod calling_is_primary_validator_for_ethereum {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let mut expected_primary = 1;
-            let mut result = AVN::is_primary_eth_validator(&expected_primary).unwrap();
+            let mut result = AVN::is_primary_validator_for_sending(&expected_primary).unwrap();
             assert!(result == true, "Wrong primary validator");
 
             AVN::advance_primary_eth_validator();
 
             expected_primary = 2;
-            result = AVN::is_primary_eth_validator(&expected_primary).unwrap();
+            result = AVN::is_primary_validator_for_sending(&expected_primary).unwrap();
             assert!(result == true, "Wrong primary validator");
         });
     }
@@ -90,7 +90,7 @@ mod calling_is_primary_validator_for_ethereum {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let non_primary_validator = 4;
-            let result = AVN::is_primary_eth_validator(&non_primary_validator).unwrap();
+            let result = AVN::is_primary_validator_for_sending(&non_primary_validator).unwrap();
             assert!(result != true, "Primary validator is unexpectedly correct");
         });
     }
@@ -100,7 +100,7 @@ mod calling_is_primary_validator_for_ethereum {
         let mut ext = ExtBuilder::build_default().as_externality();
         ext.execute_with(|| {
             let mut expected_primary = 1;
-            let result = AVN::is_primary_eth_validator(&expected_primary);
+            let result = AVN::is_primary_validator_for_sending(&expected_primary);
             assert!(result.is_err());
         });
     }
@@ -115,7 +115,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let block_number = 1;
             let expected_primary = 2;
-            let result = AVN::is_primary_avn_validator(block_number, &expected_primary);
+            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
             assert!(result.is_ok(), "Getting primary validator failed");
             assert_eq!(result.unwrap(), true);
         });
@@ -127,7 +127,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let block_number = 2;
             let expected_primary = 3;
-            let result = AVN::is_primary_avn_validator(block_number, &expected_primary);
+            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
             assert!(result.is_ok(), "Getting primary validator failed");
             assert_eq!(result.unwrap(), true);
         });
@@ -139,7 +139,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let block_number = 3;
             let expected_primary = 1;
-            let result = AVN::is_primary_avn_validator(block_number, &expected_primary);
+            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
             assert!(result.is_ok(), "Getting primary validator failed");
             assert_eq!(result.unwrap(), true);
         });
@@ -151,7 +151,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let block_number = 100;
             let expected_primary = 2;
-            let result = AVN::is_primary_avn_validator(block_number, &expected_primary);
+            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
             assert!(result.is_ok(), "Getting primary validator failed");
             assert_eq!(result.unwrap(), true);
         });
@@ -163,7 +163,8 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let mut wrong_validator = 4;
             let block_number = System::block_number();
-            let mut result = AVN::is_primary_avn_validator(block_number, &wrong_validator).unwrap();
+            let mut result =
+                AVN::is_primary_validator_on_block(block_number, &wrong_validator).unwrap();
             assert!(result != true, "Primary validator is unexpectedly correct");
         });
     }
@@ -174,7 +175,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let mut expected_primary = 1;
             let block_number = System::block_number();
-            let result = AVN::is_primary_avn_validator(block_number, &expected_primary);
+            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
             assert!(result.is_err());
         });
     }
