@@ -11,7 +11,7 @@ fn setup_last_validator_as_primary() {
 
     let num_validators_indexed = validators.len() - 1;
     for _ in &validators[..num_validators_indexed] {
-        AVN::advance_primary_eth_validator().unwrap();
+        AVN::advance_primary_validator_for_sending().unwrap();
     }
 
     let eth_index_after: u8 = AVN::get_primary_collator();
@@ -19,7 +19,7 @@ fn setup_last_validator_as_primary() {
 }
 
 #[cfg(test)]
-mod when_advance_primary_eth_validator_is_called {
+mod when_advance_primary_validator_for_sending_is_called {
     use super::*;
     #[test]
     fn the_next_validator_for_ethereum_increments_by_one_if_the_current_one_is_not_the_last() {
@@ -27,7 +27,7 @@ mod when_advance_primary_eth_validator_is_called {
         ext.execute_with(|| {
             let eth_index_before: u8 = AVN::get_primary_collator();
 
-            AVN::advance_primary_eth_validator();
+            AVN::advance_primary_validator_for_sending();
 
             let eth_index_after: u8 = AVN::get_primary_collator();
             assert_eq!(eth_index_after, eth_index_before + 1);
@@ -43,7 +43,7 @@ mod when_advance_primary_eth_validator_is_called {
 
             setup_last_validator_as_primary();
 
-            AVN::advance_primary_eth_validator().unwrap();
+            AVN::advance_primary_validator_for_sending().unwrap();
             let eth_index_after: u8 = AVN::get_primary_collator();
             assert_eq!(eth_index_before, eth_index_after);
         });
@@ -77,7 +77,7 @@ mod calling_is_primary_validator_for_ethereum {
             let mut result = AVN::is_primary_validator_for_sending(&expected_primary).unwrap();
             assert!(result == true, "Wrong primary validator");
 
-            AVN::advance_primary_eth_validator();
+            AVN::advance_primary_validator_for_sending();
 
             expected_primary = 2;
             result = AVN::is_primary_validator_for_sending(&expected_primary).unwrap();

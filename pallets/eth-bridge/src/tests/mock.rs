@@ -179,7 +179,7 @@ pub fn request_failed(id: &u32) -> bool {
 }
 
 pub fn setup_context() -> Context {
-    let primary_validator_id = AVN::advance_primary_eth_validator().unwrap();
+    let primary_validator_id = AVN::advance_primary_validator_for_sending().unwrap();
     let author = Author::<TestRuntime> {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,

@@ -175,7 +175,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_primary_collator)]
-    pub type primaryCollatorIndexForEth<T: Config> = StorageValue<_, u8, ValueQuery>;
+    pub type primaryCollatorIndexForSending<T: Config> = StorageValue<_, u8, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -258,19 +258,19 @@ impl<T: Config> Pallet<T> {
         return lock_expiry_in_blocks
     }
 
-    pub fn get_primary_eth_validator() -> Result<T::AccountId, Error<T>> {
+    pub fn get_primary_validator_for_sending() -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
         // If there are no validators there's no point continuing
         if validators.len() == 0 {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let mut index = primaryCollatorIndexForEth::<T>::get() as usize;
+        let mut index = primaryCollatorIndexForSending::<T>::get() as usize;
 
         if index >= validators.len() {
             // Reset the counter to zero
             index = 0;
-            primaryCollatorIndexForEth::<T>::put(index as u8);
+            primaryCollatorIndexForSending::<T>::put(index as u8);
         };
 
         Ok(validators[index].account_id.clone())
@@ -280,7 +280,7 @@ impl<T: Config> Pallet<T> {
     pub fn is_primary_validator_for_sending(
         current_validator: &T::AccountId,
     ) -> Result<bool, Error<T>> {
-        let primary_validator = match Self::get_primary_eth_validator() {
+        let primary_validator = match Self::get_primary_validator_for_sending() {
             Ok(account_id) => account_id,
             Err(error) => return Err(error),
         };
@@ -292,11 +292,11 @@ impl<T: Config> Pallet<T> {
         block_number: BlockNumberFor<T>,
         current_validator: &T::AccountId,
     ) -> Result<bool, Error<T>> {
-        let primary_validator = Self::calculate_primary_avn_validator(block_number)?;
+        let primary_validator = Self::calculate_primary_validator_on_block(block_number)?;
         return Ok(&primary_validator == current_validator)
     }
 
-    pub fn advance_primary_eth_validator() -> Result<T::AccountId, Error<T>> {
+    pub fn advance_primary_validator_for_sending() -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
 
         // If there are no validators there's no point continuing
@@ -304,16 +304,16 @@ impl<T: Config> Pallet<T> {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let ethereum_counter = primaryCollatorIndexForEth::<T>::get();
+        let ethereum_counter = primaryCollatorIndexForSending::<T>::get();
         let validators_len = Self::validators().len() as u8;
 
         let index = (ethereum_counter.saturating_add(1)) % validators_len;
-        primaryCollatorIndexForEth::<T>::put(index);
+        primaryCollatorIndexForSending::<T>::put(index);
 
         Ok(validators[index as usize].account_id.clone())
     }
 
-    pub fn calculate_primary_avn_validator(
+    pub fn calculate_primary_validator_on_block(
         block_number: BlockNumberFor<T>,
     ) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();

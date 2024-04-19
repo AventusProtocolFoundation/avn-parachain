@@ -896,8 +896,9 @@ mod end_voting_period {
                 Summary::set_current_slot(10);
                 Summary::set_previous_summary_slot(5);
 
-                let primary_validator_id = AVN::<TestRuntime>::advance_primary_eth_validator()
-                    .expect("Should be able to calculate primary validator.");
+                let primary_validator_id =
+                    AVN::<TestRuntime>::advance_primary_validator_for_sending()
+                        .expect("Should be able to calculate primary validator.");
                 let primary_validator = get_validator(primary_validator_id);
 
                 assert_ok!(Summary::end_voting_period(
