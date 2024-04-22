@@ -83,7 +83,6 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
     let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
     let extended_params = req.extend_params(expiry)?;
     let msg_hash = generate_msg_hash::<T>(&extended_params)?;
-    let new_sender = assign_sender()?;
 
     ActiveRequest::<T>::put(ActiveRequestData {
         request: Request::Send(req.clone()),
