@@ -189,7 +189,7 @@ pub fn setup_context() -> Context {
         confirming_validator_id += 1
     }
     let confirming_author = create_confirming_author(confirming_validator_id);
-    let second_confirming_author = create_confirming_author(confirming_validator_id + 1);
+    let second_confirming_author = create_confirming_author(confirming_validator_id + 2);
     let third_confirming_author = create_confirming_author(confirming_validator_id + 2);
     let fourth_confirming_author = create_confirming_author(confirming_validator_id + 3);
     let test_signature = generate_signature(author.clone(), b"test context");

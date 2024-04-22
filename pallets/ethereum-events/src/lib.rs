@@ -1393,7 +1393,7 @@ impl<T: Config> Pallet<T> {
             parse_response_to_json(response_body.expect("Checked for error."))
                 .unwrap_or((vec![], 0));
 
-        if response_data_object.len() == 0 {
+        if response_data_object.is_empty() {
             log::error!("❌ Response data json is empty");
             return invalid_result
         };
