@@ -311,7 +311,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_confirmation())]
+        #[pallet::weight(<T as Config>::WeightInfo::add_confirmation(MAX_CONFIRMATIONS))]
         pub fn add_confirmation(
             origin: OriginFor<T>,
             request_id: u32,
@@ -396,7 +396,9 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_corroboration())]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_corroboration().max(
+            <T as Config>::WeightInfo::add_corroboration_with_challenge(MAX_VALIDATOR_ACCOUNTS)
+        ))]
         pub fn add_corroboration(
             origin: OriginFor<T>,
             tx_id: EthereumId,

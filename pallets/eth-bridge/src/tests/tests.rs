@@ -766,8 +766,12 @@ fn self_corroborate_fails() {
 
         let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
 
-        let primary_author_account_id = AVN::<TestRuntime>::get_primary_validator_for_sending().unwrap();
-        let primary_author = Author::<TestRuntime> { key: UintAuthorityId(primary_author_account_id), account_id: primary_author_account_id };
+        let primary_author_account_id =
+            AVN::<TestRuntime>::get_primary_validator_for_sending().unwrap();
+        let primary_author = Author::<TestRuntime> {
+            key: UintAuthorityId(primary_author_account_id),
+            account_id: primary_author_account_id,
+        };
 
         EthBridge::add_confirmation(
             RuntimeOrigin::none(),
