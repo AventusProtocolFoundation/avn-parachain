@@ -4,7 +4,7 @@
 //! eth-bridge pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
-use crate::{Pallet, avn::MAX_VALIDATOR_ACCOUNTS, *};
+use crate::{avn::MAX_VALIDATOR_ACCOUNTS, Pallet, *};
 
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::{ensure, BoundedVec};
@@ -18,7 +18,7 @@ fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::
     let current_authors = avn::Validators::<T>::get();
 
     if number_of_validator_account_ids <= current_authors.len() as u32 {
-        return current_authors.to_vec();
+        return current_authors.to_vec()
     }
     let number_of_new_authors: u32 = number_of_validator_account_ids - current_authors.len() as u32;
     let mut new_authors: Vec<crate::Author<T>> = Vec::new();
@@ -194,7 +194,8 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     local_authors.retain(|author_from_vec| author_from_vec.account_id != sender.account_id);
     local_authors.retain(|author_from_vec| author_from_vec.account_id != author.account_id);
 
-    let ( num_failure_corroborations, num_successful_corroborations ) = get_num_corroborations::<T>(authors.len());
+    let (num_failure_corroborations, num_successful_corroborations) =
+        get_num_corroborations::<T>(authors.len());
 
     let success_authors: Vec<T::AccountId> = local_authors
         .iter()
@@ -218,7 +219,7 @@ fn setup_active_tx_with_failure_corroborations<T: Config>(
     );
 }
 
-fn get_num_corroborations<T: Config>(authors_count:usize) -> (usize, usize) {
+fn get_num_corroborations<T: Config>(authors_count: usize) -> (usize, usize) {
     let quorum = avn::Pallet::<T>::quorum() as usize;
     let num_failure_corroborations = quorum - 1;
     let num_successful_corroborations = authors_count - num_failure_corroborations - 1; // because we are adding the last
