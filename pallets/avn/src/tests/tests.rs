@@ -115,7 +115,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let block_number = 1;
             let expected_primary = 2;
-            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
+            let result = AVN::is_primary_for_block(block_number, &expected_primary);
             assert!(result.is_ok(), "Getting primary validator failed");
             assert_eq!(result.unwrap(), true);
         });
@@ -127,7 +127,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let block_number = 2;
             let expected_primary = 3;
-            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
+            let result = AVN::is_primary_for_block(block_number, &expected_primary);
             assert!(result.is_ok(), "Getting primary validator failed");
             assert_eq!(result.unwrap(), true);
         });
@@ -139,7 +139,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let block_number = 3;
             let expected_primary = 1;
-            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
+            let result = AVN::is_primary_for_block(block_number, &expected_primary);
             assert!(result.is_ok(), "Getting primary validator failed");
             assert_eq!(result.unwrap(), true);
         });
@@ -151,7 +151,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let block_number = 100;
             let expected_primary = 2;
-            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
+            let result = AVN::is_primary_for_block(block_number, &expected_primary);
             assert!(result.is_ok(), "Getting primary validator failed");
             assert_eq!(result.unwrap(), true);
         });
@@ -163,8 +163,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let mut wrong_validator = 4;
             let block_number = System::block_number();
-            let mut result =
-                AVN::is_primary_validator_on_block(block_number, &wrong_validator).unwrap();
+            let mut result = AVN::is_primary_for_block(block_number, &wrong_validator).unwrap();
             assert!(result != true, "Primary validator is unexpectedly correct");
         });
     }
@@ -175,7 +174,7 @@ mod calling_is_primary_validator_for_avn {
         ext.execute_with(|| {
             let mut expected_primary = 1;
             let block_number = System::block_number();
-            let result = AVN::is_primary_validator_on_block(block_number, &expected_primary);
+            let result = AVN::is_primary_for_block(block_number, &expected_primary);
             assert!(result.is_err());
         });
     }

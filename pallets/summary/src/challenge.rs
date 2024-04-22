@@ -135,7 +135,7 @@ fn can_challenge<T: Config>(
     }
 
     let is_chosen_validator =
-        AVN::<T>::is_primary_validator_on_block(ocw_block_number, &this_validator.account_id)
+        AVN::<T>::is_primary_for_block(ocw_block_number, &this_validator.account_id)
             .unwrap_or_else(|_| false);
 
     let grace_period_elapsed = Summary::<T>::grace_period_elapsed(ocw_block_number);

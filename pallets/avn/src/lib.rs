@@ -282,11 +282,11 @@ impl<T: Config> Pallet<T> {
         return Ok(&primary_validator == current_validator)
     }
 
-    pub fn is_primary_validator_on_block(
+    pub fn is_primary_for_block(
         block_number: BlockNumberFor<T>,
         current_validator: &T::AccountId,
     ) -> Result<bool, Error<T>> {
-        let primary_validator = Self::calculate_primary_validator_on_block(block_number)?;
+        let primary_validator = Self::calculate_primary_validator_for_block(block_number)?;
         return Ok(&primary_validator == current_validator)
     }
 
@@ -307,7 +307,7 @@ impl<T: Config> Pallet<T> {
         Ok(validators[index as usize].account_id.clone())
     }
 
-    pub fn calculate_primary_validator_on_block(
+    pub fn calculate_primary_validator_for_block(
         block_number: BlockNumberFor<T>,
     ) -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
