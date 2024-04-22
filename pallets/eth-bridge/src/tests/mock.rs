@@ -3,7 +3,7 @@ use crate::{self as eth_bridge, request::add_new_send_request};
 use avn;
 use frame_support::{parameter_types, BasicExternalities};
 use frame_system as system;
-use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker, OperationType};
+use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_core::{
@@ -179,7 +179,7 @@ pub fn request_failed(id: &u32) -> bool {
 }
 
 pub fn setup_context() -> Context {
-    let primary_validator_id = AVN::advance_primary_validator(OperationType::Ethereum).unwrap();
+    let primary_validator_id = AVN::advance_primary_validator_for_sending().unwrap();
     let author = Author::<TestRuntime> {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,

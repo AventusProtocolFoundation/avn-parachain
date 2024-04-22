@@ -1,6 +1,5 @@
 use super::*;
 use crate::{offence::create_and_report_corroboration_offence, util::unbound_params, Config};
-use avn::OperationType;
 use frame_support::BoundedVec;
 
 pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
@@ -142,7 +141,7 @@ fn generate_msg_hash<T: pallet::Config>(
 }
 
 fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
-    match AVN::<T>::advance_primary_validator(OperationType::Ethereum) {
+    match AVN::<T>::advance_primary_validator_for_sending() {
         Ok(primary_validator) => {
             let sender = primary_validator;
             Ok(sender)
