@@ -766,11 +766,14 @@ fn self_corroborate_fails() {
 
         let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
 
+        let primary_author_account_id = AVN::<TestRuntime>::get_primary_validator_for_sending().unwrap();
+        let primary_author = Author::<TestRuntime> { key: UintAuthorityId(primary_author_account_id), account_id: primary_author_account_id };
+
         EthBridge::add_confirmation(
             RuntimeOrigin::none(),
             tx_id,
             context.confirmation_signature.clone(),
-            context.author.clone(),
+            context.confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -778,7 +781,7 @@ fn self_corroborate_fails() {
             RuntimeOrigin::none(),
             tx_id,
             context.eth_tx_hash.clone(),
-            context.author.clone(),
+            primary_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -789,7 +792,7 @@ fn self_corroborate_fails() {
                 tx_id,
                 true,
                 true,
-                context.author,
+                primary_author,
                 context.test_signature,
             ),
             Error::<TestRuntime>::CannotCorroborateOwnTransaction
