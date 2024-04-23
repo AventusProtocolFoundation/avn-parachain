@@ -169,7 +169,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_primary_collator)]
-    pub type primaryCollatorIndexForSending<T: Config> = StorageValue<_, u8, ValueQuery>;
+    pub type PrimaryCollatorIndexForSending<T: Config> = StorageValue<_, u8, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -255,16 +255,16 @@ impl<T: Config> Pallet<T> {
     pub fn get_primary_validator_for_sending() -> Result<T::AccountId, Error<T>> {
         let validators = Self::validators();
         // If there are no validators there's no point continuing
-        if validators.len() == 0 {
+        if validators.is_empty() {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let mut index = primaryCollatorIndexForSending::<T>::get() as usize;
+        let mut index = PrimaryCollatorIndexForSending::<T>::get() as usize;
 
         if index >= validators.len() {
             // Reset the counter to zero
             index = 0;
-            primaryCollatorIndexForSending::<T>::put(index as u8);
+            PrimaryCollatorIndexForSending::<T>::put(index as u8);
         };
 
         Ok(validators[index].account_id.clone())
@@ -294,15 +294,15 @@ impl<T: Config> Pallet<T> {
         let validators = Self::validators();
 
         // If there are no validators there's no point continuing
-        if validators.len() == 0 {
+        if validators.is_empty() {
             return Err(Error::<T>::NoValidatorsFound)
         }
 
-        let ethereum_counter = primaryCollatorIndexForSending::<T>::get();
+        let ethereum_counter = PrimaryCollatorIndexForSending::<T>::get();
         let validators_len = Self::validators().len() as u8;
 
         let index = (ethereum_counter.saturating_add(1)) % validators_len;
-        primaryCollatorIndexForSending::<T>::put(index);
+        PrimaryCollatorIndexForSending::<T>::put(index);
 
         Ok(validators[index as usize].account_id.clone())
     }

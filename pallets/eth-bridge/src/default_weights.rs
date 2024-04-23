@@ -39,9 +39,10 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn set_eth_tx_lifetime_secs() -> Weight;
 	fn set_eth_tx_id() -> Weight;
-	fn add_confirmation() -> Weight;
+	fn add_confirmation(v: u32, ) -> Weight;
 	fn add_eth_tx_hash() -> Weight;
 	fn add_corroboration() -> Weight;
+	fn add_corroboration_with_challenge(v: u32, ) -> Weight;
 	fn remove_active_request() -> Weight;
 }
 
@@ -74,12 +75,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorsManager::EthereumPublicKeys` (r:1 w:0)
 	/// Proof: `ValidatorsManager::EthereumPublicKeys` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	fn add_confirmation() -> Weight {
+	/// The range of component `v` is `[1, 100]`.
+	fn add_confirmation(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1530`
+		//  Measured:  `953 + v * (85 ±0)`
 		//  Estimated: `22429`
-		// Minimum execution time: 85_534_000 picoseconds.
-		Weight::from_parts(86_081_000, 22429)
+		// Minimum execution time: 64_268_000 picoseconds.
+		Weight::from_parts(74_008_156, 22429)
+			// Standard Error: 11_092
+			.saturating_add(Weight::from_parts(220_527, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
@@ -106,6 +110,38 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(28_593_000, 22429)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `Session::CurrentIndex` (r:1 w:0)
+	/// Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::Reports` (r:2 w:2)
+	/// Proof: `Offences::Reports` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::ConcurrentReportsIndex` (r:1 w:1)
+	/// Proof: `Offences::ConcurrentReportsIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `AvnOffenceHandler::ReportedOffenders` (r:2 w:2)
+	/// Proof: `AvnOffenceHandler::ReportedOffenders` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	/// Storage: `AvnOffenceHandler::SlashingEnabled` (r:1 w:0)
+	/// Proof: `AvnOffenceHandler::SlashingEnabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::RequestQueue` (r:1 w:0)
+	/// Proof: `EthBridge::RequestQueue` (`max_values`: Some(1), `max_size`: Some(79002), added: 79497, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::SettledTransactions` (r:0 w:1)
+	/// Proof: `EthBridge::SettledTransactions` (`max_values`: None, `max_size`: Some(819), added: 3294, mode: `MaxEncodedLen`)
+	/// The range of component `v` is `[4, 10]`.
+	fn add_corroboration_with_challenge(v: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0 + v * (240 ±0)`
+		//  Estimated: `80487 + v * (139 ±7)`
+		// Minimum execution time: 24_805_000 picoseconds.
+		Weight::from_parts(26_599_000, 80487)
+			// Standard Error: 112_627
+			.saturating_add(Weight::from_parts(6_176_020, 0).saturating_mul(v.into()))
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(v.into())))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(Weight::from_parts(0, 139).saturating_mul(v.into()))
 	}
 	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
 	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
@@ -150,12 +186,15 @@ impl WeightInfo for () {
 	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorsManager::EthereumPublicKeys` (r:1 w:0)
 	/// Proof: `ValidatorsManager::EthereumPublicKeys` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	fn add_confirmation() -> Weight {
+	/// The range of component `v` is `[1, 100]`.
+	fn add_confirmation(v: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1530`
+		//  Measured:  `953 + v * (85 ±0)`
 		//  Estimated: `22429`
-		// Minimum execution time: 85_534_000 picoseconds.
-		Weight::from_parts(86_081_000, 22429)
+		// Minimum execution time: 64_268_000 picoseconds.
+		Weight::from_parts(74_008_156, 22429)
+			// Standard Error: 11_092
+			.saturating_add(Weight::from_parts(220_527, 0).saturating_mul(v.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
@@ -182,6 +221,38 @@ impl WeightInfo for () {
 		Weight::from_parts(28_593_000, 22429)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `Session::CurrentIndex` (r:1 w:0)
+	/// Proof: `Session::CurrentIndex` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::Reports` (r:2 w:2)
+	/// Proof: `Offences::Reports` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Offences::ConcurrentReportsIndex` (r:1 w:1)
+	/// Proof: `Offences::ConcurrentReportsIndex` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `AvnOffenceHandler::ReportedOffenders` (r:2 w:2)
+	/// Proof: `AvnOffenceHandler::ReportedOffenders` (`max_values`: None, `max_size`: Some(49), added: 2524, mode: `MaxEncodedLen`)
+	/// Storage: `AvnOffenceHandler::SlashingEnabled` (r:1 w:0)
+	/// Proof: `AvnOffenceHandler::SlashingEnabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::RequestQueue` (r:1 w:0)
+	/// Proof: `EthBridge::RequestQueue` (`max_values`: Some(1), `max_size`: Some(79002), added: 79497, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::SettledTransactions` (r:0 w:1)
+	/// Proof: `EthBridge::SettledTransactions` (`max_values`: None, `max_size`: Some(819), added: 3294, mode: `MaxEncodedLen`)
+	/// The range of component `v` is `[4, 10]`.
+	fn add_corroboration_with_challenge(v: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0 + v * (240 ±0)`
+		//  Estimated: `80487 + v * (139 ±7)`
+		// Minimum execution time: 24_805_000 picoseconds.
+		Weight::from_parts(26_599_000, 80487)
+			// Standard Error: 112_627
+			.saturating_add(Weight::from_parts(6_176_020, 0).saturating_mul(v.into()))
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(v.into())))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(Weight::from_parts(0, 139).saturating_mul(v.into()))
 	}
 	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
 	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)

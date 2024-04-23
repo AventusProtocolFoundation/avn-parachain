@@ -16,7 +16,7 @@ pub fn get_eth_address_bytes_from_keystore(keystore_path: &PathBuf) -> Result<Ve
         ))
     })?;
 
-    if addresses.len() == 0 {
+    if addresses.is_empty() {
         Err(server_error(format!("No keys found in the keystore for {:?}", ETHEREUM_SIGNING_KEY)))?
     }
 
