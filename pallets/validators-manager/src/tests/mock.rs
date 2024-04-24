@@ -250,6 +250,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type AccountToBytesConvert = AVN;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
+    type ProcessedEventsChecker = ();
 }
 
 impl BridgeInterfaceNotification for TestRuntime {
@@ -349,6 +350,10 @@ impl ProcessedEventsChecker for TestRuntime {
                     event_id
             })
         })
+    }
+    
+    fn add_event(event_id: &EthEventId, processed: bool) -> DispatchResult {
+        Ok(())
     }
 }
 

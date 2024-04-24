@@ -722,11 +722,17 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
 
 pub trait ProcessedEventsChecker {
     fn check_event(event_id: &EthEventId) -> bool;
+
+    fn add_event(event_id: &EthEventId, processed: bool) -> DispatchResult;
 }
 
 impl ProcessedEventsChecker for () {
     fn check_event(_event_id: &EthEventId) -> bool {
         return false
+    }
+
+    fn add_event(_event_id: &EthEventId, _processed: bool) -> DispatchResult {
+        Ok(())
     }
 }
 

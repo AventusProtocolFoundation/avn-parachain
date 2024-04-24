@@ -754,3 +754,33 @@ fn unsent_transactions_are_replayed() {
             })));
     });
 }
+
+
+mod process_events {
+    use super::*;
+
+    #[test]
+    fn succesful_event_processing() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = setup_context();
+            EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author, c);
+        });
+    }
+
+    #[test]
+    fn error_event_processing() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            
+        });
+    }
+
+    #[test]
+    fn event_already_processed() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            
+        });
+    }
+}

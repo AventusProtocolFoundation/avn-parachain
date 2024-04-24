@@ -1590,6 +1590,11 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
     fn check_event(event_id: &EthEventId) -> bool {
         return <ProcessedEvents<T>>::contains_key(event_id)
     }
+
+    fn add_event(event_id: &EthEventId, processed: bool) -> DispatchResult {
+        <ProcessedEvents<T>>::insert(event_id.clone(), processed);
+        Ok(())
+    }
 }
 
 impl<T: Config> InnerCallValidator for Pallet<T> {

@@ -6,6 +6,7 @@ use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker, OperationType};
 use pallet_session as session;
 use parking_lot::RwLock;
+use sp_avn_common::event_types::EthEventId;
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
@@ -14,9 +15,7 @@ use sp_core::{
     ConstU32, ConstU64, H256,
 };
 use sp_runtime::{
-    testing::{TestSignature, TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    BuildStorage, Perbill,
+    testing::{TestSignature, TestXt, UintAuthorityId}, traits::{BlakeTwo256, ConvertInto, IdentityLookup}, BuildStorage, DispatchResult, Perbill
 };
 use sp_staking::offence::OffenceError;
 use std::{cell::RefCell, convert::From, sync::Arc};
@@ -100,6 +99,7 @@ impl Config for TestRuntime {
     type AccountToBytesConvert = U64To32BytesConverter;
     type BridgeInterfaceNotification = TestRuntime;
     type ReportCorroborationOffence = OffenceHandler;
+    type ProcessedEventsChecker = Self;
 }
 
 impl system::Config for TestRuntime {
@@ -170,6 +170,10 @@ pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
     Author::<TestRuntime> { key: UintAuthorityId(author_id), account_id: author_id }
 }
 
+pub fn create_mock_event_partition() -> EthereumEventsPartition {
+    EthereumEventsPartition::new(EthBlockRange {start_block: 1, length: 2}, 3, true, _)
+}
+
 pub fn lower_is_ready_to_be_claimed(lower_id: &u32) -> bool {
     LOWERSREADYTOCLAIM.with(|lowers| lowers.borrow_mut().iter().any(|l| l == lower_id))
 }
@@ -198,6 +202,7 @@ pub fn setup_context() -> Context {
     let already_set_eth_tx_hash = H256::from_slice(&[1u8; 32]);
     let confirmation_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
     let finalised_block_vec = Some(hex::encode(10u32.encode()).into());
+    let mock_event_partition = create_mock_event_partition();
 
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(primary_validator_id)]);
 
@@ -400,6 +405,25 @@ impl BridgeInterfaceNotification for TestRuntime {
             FAILEDREQUESTS.with(|l| l.borrow_mut().push(lower_id));
         }
 
+        Ok(())
+    }
+}
+
+thread_local! {
+    static PROCESSED_EVENTS: RefCell<Vec<(EthEventId, bool)>> = RefCell::new(vec![]);
+}
+
+pub fn insert_to_mock_processed_events(event_id: &EthEventId, processed: bool) {
+    PROCESSED_EVENTS.with(|l| l.borrow_mut().push((event_id.clone(), processed)));
+}
+
+impl ProcessedEventsChecker for TestRuntime {
+    fn check_event(event_id: &EthEventId) -> bool {
+        PROCESSED_EVENTS.with(|l| l.borrow().iter().any(|(event, _processed)| event == event_id))
+    }
+
+    fn add_event(event_id: &EthEventId, processed: bool) -> DispatchResult {
+        insert_to_mock_processed_events(event_id, processed);
         Ok(())
     }
 }

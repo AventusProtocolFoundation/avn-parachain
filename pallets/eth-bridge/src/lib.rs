@@ -67,7 +67,7 @@ use frame_system::{
     pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use pallet_avn::{
-    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
+    self as avn, BridgeInterface, BridgeInterfaceNotification, ProcessedEventsChecker, Error as avn_error, LowerParams,
 };
 
 use pallet_session::historical::IdentificationTuple;
@@ -173,6 +173,7 @@ pub mod pallet {
             IdentificationTuple<Self>,
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
+        type ProcessedEventsChecker: ProcessedEventsChecker;
     }
 
     #[pallet::event]
@@ -283,6 +284,7 @@ pub mod pallet {
         ExceedsConfirmationLimit,
         ExceedsCorroborationLimit,
         ExceedsFunctionNameLimit,
+        EventAlreadyProcessed,
         FunctionEncodingError,
         FunctionNameError,
         HandlePublishingResultFailed,
@@ -731,14 +733,20 @@ pub mod pallet {
         }
     }
 
-    fn process_ethereum_event<T: Config>(event: &EthEvent) {
+    fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
         // TODO before processing ensure that the event has not already been processed
+        // Do the check that is not processed via ProcessedEventsChecker
+
+        ensure!(T::ProcessedEventsChecker::check_event(&event.event_id.clone()), Error::<T>::EventAlreadyProcessed);
+
         match T::BridgeInterfaceNotification::on_event_processed(&event) {
             Ok(_) => {
                 <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
                     accepted: true,
                     eth_event_id: event.event_id.clone(),
                 });
+                // Add record of succesful processing via ProcessedEventsChecker
+                let _ = T::ProcessedEventsChecker::add_event(&event.event_id.clone(), true);
             },
             Err(err) => {
                 log::error!("💔 Processing ethereum event failed: {:?}", err);
@@ -746,8 +754,12 @@ pub mod pallet {
                     accepted: false,
                     eth_event_id: event.event_id.clone(),
                 });
+                // Add record of unsuccesful processing via ProcessedEventsChecker
+                let _ = T::ProcessedEventsChecker::add_event(&event.event_id.clone(), false);
             },
         };
+
+        Ok(())
     }
 
     #[pallet::validate_unsigned]

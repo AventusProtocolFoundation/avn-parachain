@@ -631,6 +631,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = MinEthBlockConfirmation;
+    type ProcessedEventsChecker = EthereumEvents;
     type AccountToBytesConvert = Avn;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type ReportCorroborationOffence = Offences;

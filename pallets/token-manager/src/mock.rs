@@ -303,6 +303,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type AccountToBytesConvert = AVN;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
+    type ProcessedEventsChecker = ();
 }
 
 impl pallet_timestamp::Config for TestRuntime {
@@ -375,6 +376,10 @@ pub fn insert_to_mock_processed_events(event_id: &EthEventId) {
 impl ProcessedEventsChecker for TestRuntime {
     fn check_event(event_id: &EthEventId) -> bool {
         return PROCESSED_EVENTS.with(|l| l.borrow_mut().iter().any(|event| event == event_id))
+    }
+    
+    fn add_event(event_id: &EthEventId, processed: bool) -> DispatchResult {
+        Ok(())
     }
 }
 
