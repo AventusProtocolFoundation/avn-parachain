@@ -91,7 +91,9 @@ pub mod types;
 mod util;
 use crate::types::*;
 
-pub use call::{create_ethereum_events_proof_data, submit_ethereum_events};
+pub use call::{
+    create_ethereum_events_proof_data, submit_ethereum_events, submit_latest_ethereum_block,
+};
 
 mod benchmarking;
 #[cfg(test)]
@@ -132,6 +134,7 @@ const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
+const SUBMIT_INITIAL_RANGE_HASH_CONTEXT: &'static [u8] = b"EthBridgeInitialEthereumRangeHash";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -892,7 +895,20 @@ pub mod pallet {
                                 events_partition.range(),
                                 events_partition.partition(),
                             ))
-                            .priority(TransactionPriority::max_value() / 2)
+                            .priority(TransactionPriority::max_value())
+                            .build()
+                    } else {
+                        InvalidTransaction::Custom(4u8).into()
+                    },
+                Call::submit_latest_ethereum_block { author, latest_seen_block, signature } =>
+                    if AVN::<T>::signature_is_valid(
+                        &(SUBMIT_INITIAL_RANGE_HASH_CONTEXT, &author.account_id, latest_seen_block),
+                        &author,
+                        signature,
+                    ) {
+                        ValidTransaction::with_tag_prefix("EthBridgeAddLatestEthBlock")
+                            .and_provides((call, latest_seen_block))
+                            .priority(TransactionPriority::max_value())
                             .build()
                     } else {
                         InvalidTransaction::Custom(4u8).into()
@@ -990,9 +1006,23 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .filter(|v| v.account_id == account_id)
             .nth(0)
-            .unwrap();
+            .ok_or_else(|| ())?;
 
         submit_ethereum_events::<T>(validator, events_partition, signature)
+    }
+
+    pub fn submit_latest_ethereum_block_vote(
+        account_id: T::AccountId,
+        latest_seen_block: u32,
+        signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+    ) -> Result<(), ()> {
+        let validator: Author<T> = AVN::<T>::validators()
+            .into_iter()
+            .filter(|v| v.account_id == account_id)
+            .nth(0)
+            .ok_or_else(|| ())?;
+
+        submit_latest_ethereum_block::<T>(validator, latest_seen_block, signature)
     }
 
     pub fn get_bridge_contract() -> H160 {

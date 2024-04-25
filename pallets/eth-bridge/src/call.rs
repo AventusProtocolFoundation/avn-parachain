@@ -43,6 +43,15 @@ pub fn submit_ethereum_events<T: Config>(
     SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 }
 
+pub fn submit_latest_ethereum_block<T: Config>(
+    author: Author<T>,
+    latest_seen_block: u32,
+    signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+) -> Result<(), ()> {
+    let call = Call::<T>::submit_latest_ethereum_block { author, latest_seen_block, signature };
+    SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+}
+
 fn add_confirmation_proof<T: Config>(
     tx_id: EthereumId,
     confirmation: &ecdsa::Signature,
@@ -73,4 +82,11 @@ pub fn create_ethereum_events_proof_data<T: Config>(
     events_partition: &EthereumEventsPartition,
 ) -> Vec<u8> {
     (SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, &account_id, events_partition).encode()
+}
+
+pub fn create_submit_latest_ethereum_block_data<T: Config>(
+    account_id: &T::AccountId,
+    latest_seen_block: u32,
+) -> Vec<u8> {
+    (SUBMIT_INITIAL_RANGE_HASH_CONTEXT, &account_id, latest_seen_block).encode()
 }
