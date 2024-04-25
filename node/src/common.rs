@@ -31,7 +31,7 @@ pub trait AvnRuntimeApiCollection:
     + pallet_eth_bridge_runtime_api::EthEventHandlerApi<BlockT, AccountId>
 where
     <Self as sp_api::ApiExt<BlockT>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
-    AccountId: Codec
+    AccountId: Codec,
 {
 }
 

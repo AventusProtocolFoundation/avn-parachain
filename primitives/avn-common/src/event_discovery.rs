@@ -8,7 +8,9 @@ use sp_runtime::traits::Saturating;
 pub type VotesLimit = ConstU32<100>;
 pub type EventsBatchLimit = ConstU32<32>;
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(
+    Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Default, TypeInfo, MaxEncodedLen,
+)]
 pub struct EthBlockRange {
     pub start_block: u32,
     pub length: u32,
@@ -140,5 +142,16 @@ pub mod events_helpers {
                     Ok(())
                 });
         partitions
+    }
+
+    // TODO unit test this
+    pub fn compute_finalised_block_range_for_latest_ethereum_block(
+        ethereum_block: u32,
+    ) -> EthBlockRange {
+        let length = 20u32;
+        let calculation_block = ethereum_block - 5 * length;
+        let start_block = calculation_block - calculation_block % length;
+
+        EthBlockRange { start_block, length }
     }
 }

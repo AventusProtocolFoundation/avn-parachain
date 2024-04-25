@@ -80,7 +80,7 @@ use sp_avn_common::{
 };
 use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
-use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
+use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
 
 mod call;
@@ -315,7 +315,7 @@ pub mod pallet {
         EventVoteExists,
         NonActiveEthereumRange,
         VotingEnded,
-        ValidatorNotFound
+        ValidatorNotFound,
     }
 
     #[pallet::call]
@@ -525,24 +525,17 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            let active_range = match Self::active_ethereum_range() {
-                Some(active_range) => {
-                    ensure!(
-                        *events_partition.range() == active_range.range &&
-                            events_partition.partition() == active_range.partition,
-                        Error::<T>::NonActiveEthereumRange
-                    );
-                    active_range
-                },
-                None => Default::default(),
-            };
-
-            if active_range.is_initial_range() == false {
-                ensure!(
-                    author_has_cast_event_vote::<T>(&author.account_id) == false,
-                    Error::<T>::EventVoteExists
-                );
-            }
+            let active_range =
+                Self::active_ethereum_range().ok_or_else(|| Error::<T>::NonActiveEthereumRange)?;
+            ensure!(
+                *events_partition.range() == active_range.range &&
+                    events_partition.partition() == active_range.partition,
+                Error::<T>::NonActiveEthereumRange
+            );
+            ensure!(
+                author_has_cast_event_vote::<T>(&author.account_id) == false,
+                Error::<T>::EventVoteExists
+            );
 
             let mut votes = EthereumEvents::<T>::get(&events_partition);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
@@ -554,6 +547,69 @@ pub mod pallet {
                 advance_partition::<T>(&active_range, &events_partition);
             }
 
+            Ok(().into())
+        }
+
+        #[pallet::call_index(7)]
+        #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
+        pub fn submit_latest_ethereum_block(
+            origin: OriginFor<T>,
+            author: Author<T>,
+            latest_seen_block: u32,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+        ) -> DispatchResultWithPostInfo {
+            ensure_none(origin)?;
+            ensure!(Self::active_ethereum_range().is_some(), Error::<T>::VotingEnded);
+            ensure!(
+                author_has_cast_event_vote::<T>(&author.account_id) == false,
+                Error::<T>::EventVoteExists
+            );
+
+            let nominated_range =
+                events_helpers::compute_finalised_block_range_for_latest_ethereum_block(
+                    latest_seen_block,
+                );
+            if let Some(events_partition) =
+                events_helpers::discovered_eth_events_partition_factory(nominated_range, Vec::new())
+                    .first()
+            {
+                let mut votes = EthereumEvents::<T>::get(&events_partition);
+                votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
+
+                EthereumEvents::<T>::insert(&events_partition, votes);
+
+                let mut sorted_votes: Vec<(EthereumEventsPartition, usize)> =
+                    EthereumEvents::<T>::iter()
+                        .map(|(range, votes)| (range, votes.len()))
+                        .collect();
+                sorted_votes.sort_by(|(partition_a, _votes_a), (partition_b, _votes_b)| {
+                    partition_a.range().cmp(partition_b.range())
+                });
+
+                let votes_count = sorted_votes
+                    .iter()
+                    .map(|(_range, votes)| votes)
+                    .fold(0, |acc, x| acc as usize + x);
+                let mut remaining_votes_threshold = AVN::<T>::supermajority_quorum() as usize;
+
+                if votes_count >= remaining_votes_threshold as usize {
+                    let quorum = AVN::<T>::quorum() as usize;
+                    let mut selected_range: EthBlockRange = Default::default();
+                    for (range, votes_count) in sorted_votes.iter() {
+                        selected_range = range.range().clone();
+                        remaining_votes_threshold.saturating_reduce(*votes_count);
+                        if remaining_votes_threshold <= quorum {
+                            break
+                        }
+                    }
+                    ActiveEthereumRange::<T>::put(ActiveEthRange {
+                        range: selected_range,
+                        partition: 0,
+                        // TODO retrieve values from runtime.
+                        event_types_filter: Default::default(),
+                    });
+                }
+            }
             Ok(().into())
         }
     }
@@ -874,7 +930,10 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn create_eth_events_proof(account_id:T::AccountId, events_partition:EthereumEventsPartition) -> Vec<u8>{
+    pub fn create_eth_events_proof(
+        account_id: T::AccountId,
+        events_partition: EthereumEventsPartition,
+    ) -> Vec<u8> {
         create_ethereum_events_proof_data::<T>(&account_id, &events_partition)
     }
     pub fn signatures() -> Vec<H256> {
@@ -884,26 +943,26 @@ impl<T: Config> Pallet<T> {
                     active_range.event_types_filter.into_iter().collect::<Vec<ValidEvents>>();
 
                 let decoded_hex =
-                hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae").
-                expect("test"); 
+                    hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")
+                        .expect("test");
 
                 let mut array = [0; 32];
                 array.copy_from_slice(&decoded_hex);
                 let decoded_event_sig = H256::from(array);
-                
+
                 vec![decoded_event_sig]
             },
             None => {
                 // TODO use values from pallet constant
                 // vec![]
                 let decoded_hex =
-                hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae").
-                expect("test"); 
+                    hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")
+                        .expect("test");
 
                 let mut array = [0; 32];
                 array.copy_from_slice(&decoded_hex);
                 let decoded_event_sig = H256::from(array);
-                
+
                 vec![decoded_event_sig]
             },
         };
@@ -912,9 +971,13 @@ impl<T: Config> Pallet<T> {
     pub fn submit_vote(
         account_id: T::AccountId,
         events_partition: EthereumEventsPartition,
-        signature: <T::AuthorityId as RuntimeAppPublic>::Signature
-    ) -> Result<(), ()>{
-        let validator: Author<T> = AVN::<T>::validators().into_iter().filter(|v| v.account_id == account_id).nth(0).unwrap();
+        signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+    ) -> Result<(), ()> {
+        let validator: Author<T> = AVN::<T>::validators()
+            .into_iter()
+            .filter(|v| v.account_id == account_id)
+            .nth(0)
+            .unwrap();
 
         submit_ethereum_events::<T>(validator, events_partition, signature)
     }
