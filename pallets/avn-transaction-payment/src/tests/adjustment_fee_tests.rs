@@ -79,7 +79,7 @@ fn set_known_sender(sender: &AccountId, config: AdjustmentInput<TestRuntime>) {
 }
 
 pub(crate) fn fee_adjusted_event_emitted() -> bool {
-    !System::events()
+    let transaction_payment_event_missing = System::events()
         .into_iter()
         .map(|r| r.event)
         .filter_map(|e| {
@@ -90,7 +90,9 @@ pub(crate) fn fee_adjusted_event_emitted() -> bool {
             }
         })
         .collect::<Vec<_>>()
-        .is_empty()
+        .is_empty();
+
+    return transaction_payment_event_missing == false
 }
 
 /// Rolls desired block number of times.
