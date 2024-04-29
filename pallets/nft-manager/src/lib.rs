@@ -807,7 +807,7 @@ impl<T: Config> Pallet<T> {
     fn validate_external_ref(
         unique_external_ref: &BoundedVec<u8, NftExternalRefBound>,
     ) -> DispatchResult {
-        ensure!(unique_external_ref.len() > 0, Error::<T>::ExternalRefIsMandatory);
+        ensure!(!unique_external_ref.is_empty(), Error::<T>::ExternalRefIsMandatory);
         ensure!(
             Self::is_external_ref_used(&unique_external_ref) == false,
             Error::<T>::ExternalRefIsAlreadyInUse

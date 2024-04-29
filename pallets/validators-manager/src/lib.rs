@@ -203,7 +203,7 @@ pub mod pallet {
             ensure_root(origin)?;
             let validator_account_ids =
                 Self::validator_account_ids().ok_or(Error::<T>::NoValidators)?;
-            ensure!(validator_account_ids.len() > 0, Error::<T>::NoValidators);
+            ensure!(!validator_account_ids.is_empty(), Error::<T>::NoValidators);
 
             ensure!(
                 !validator_account_ids.contains(&collator_account_id),

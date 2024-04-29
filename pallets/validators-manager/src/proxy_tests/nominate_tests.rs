@@ -95,7 +95,7 @@ mod proxy_signed_nominate {
 
         let mut sum = 0;
         exposures.into_iter().for_each(|e| {
-            if e.others.len() as u32 > 0 {
+            if !e.others.is_empty() {
                 sum += e.others.iter().find(|o| o.who == staker).unwrap().value;
             }
         });
