@@ -57,7 +57,7 @@ where
             leaf_filter,
         )?;
 
-        if extrinsics.len() > 0 && encoded_leaf.is_some() {
+        if !extrinsics.is_empty() && encoded_leaf.is_some() {
             let leaf = encoded_leaf.expect("Leaf exists");
             let merkle_path = generate_merkle_path(&leaf, extrinsics)?;
             let response = MerklePathData { encoded_leaf: leaf, merkle_path };

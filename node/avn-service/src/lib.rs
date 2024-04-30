@@ -487,7 +487,7 @@ where
                 extrinsics_duration
             );
 
-            if extrinsics.len() > 0 {
+            if !extrinsics.is_empty() {
                 let root_hash_start_time = Instant::now();
                 let root_hash = generate_tree_root(extrinsics)?;
                 let root_hash_duration = root_hash_start_time.elapsed();
