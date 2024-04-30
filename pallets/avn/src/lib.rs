@@ -313,7 +313,7 @@ impl<T: Config> Pallet<T> {
         let validators = Self::validators();
 
         // If there are no validators there's no point continuing
-        if validators.len() == 0 {
+        if validators.is_empty() {
             return Err(Error::<T>::NoValidatorsFound)
         }
 

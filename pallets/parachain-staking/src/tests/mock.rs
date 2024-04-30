@@ -710,7 +710,7 @@ macro_rules! assert_eq_last_events {
 #[macro_export]
 macro_rules! assert_tail_eq {
 	($tail:expr, $arr:expr $(,)?) => {
-		if $tail.len() != 0 {
+		if !$tail.is_empty() {
 			// 0-length always passes
 
 			if $tail.len() > $arr.len() {
@@ -722,7 +722,7 @@ macro_rules! assert_tail_eq {
 		}
 	};
 	($tail:expr, $arr:expr, $($arg:tt)*) => {
-		if $tail.len() != 0 {
+		if !$tail.is_empty() {
 			// 0-length always passes
 
 			if $tail.len() > $arr.len() {
