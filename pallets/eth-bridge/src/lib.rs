@@ -92,7 +92,8 @@ mod util;
 use crate::types::*;
 
 pub use call::{
-    create_ethereum_events_proof_data, submit_ethereum_events, submit_latest_ethereum_block,
+    create_ethereum_events_proof_data, create_submit_latest_ethereum_block_data,
+    submit_ethereum_events, submit_latest_ethereum_block,
 };
 
 mod benchmarking;
@@ -134,7 +135,7 @@ const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
-const SUBMIT_INITIAL_RANGE_HASH_CONTEXT: &'static [u8] = b"EthBridgeInitialEthereumRangeHash";
+const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -881,8 +882,7 @@ pub mod pallet {
                     },
                 Call::submit_ethereum_events { author, events_partition, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(
-                            SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
+                        &create_ethereum_events_proof_data::<T>(
                             &author.account_id,
                             events_partition,
                         ),
@@ -902,7 +902,10 @@ pub mod pallet {
                     },
                 Call::submit_latest_ethereum_block { author, latest_seen_block, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(SUBMIT_INITIAL_RANGE_HASH_CONTEXT, &author.account_id, latest_seen_block),
+                        &create_submit_latest_ethereum_block_data::<T>(
+                            &author.account_id,
+                            *latest_seen_block,
+                        ),
                         &author,
                         signature,
                     ) {
@@ -1006,7 +1009,10 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .filter(|v| v.account_id == account_id)
             .nth(0)
-            .ok_or_else(|| ())?;
+            .ok_or_else(|| {
+                log::warn!("Events vote sender({:?}) is not a member of authors", &account_id);
+                ()
+            })?;
 
         submit_ethereum_events::<T>(validator, events_partition, signature)
     }
@@ -1020,7 +1026,13 @@ impl<T: Config> Pallet<T> {
             .into_iter()
             .filter(|v| v.account_id == account_id)
             .nth(0)
-            .ok_or_else(|| ())?;
+            .ok_or_else(|| {
+                log::warn!(
+                    "Latest ethereum block vote sender({:?}) is not a member of authors",
+                    &account_id
+                );
+                ()
+            })?;
 
         submit_latest_ethereum_block::<T>(validator, latest_seen_block, signature)
     }

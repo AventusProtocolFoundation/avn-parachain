@@ -88,5 +88,5 @@ pub fn create_submit_latest_ethereum_block_data<T: Config>(
     account_id: &T::AccountId,
     latest_seen_block: u32,
 ) -> Vec<u8> {
-    (SUBMIT_INITIAL_RANGE_HASH_CONTEXT, &account_id, latest_seen_block).encode()
+    (SUBMIT_LATEST_ETH_BLOCK_CONTEXT, &account_id, latest_seen_block).encode()
 }
