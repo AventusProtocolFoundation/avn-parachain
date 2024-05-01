@@ -515,8 +515,9 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO update weights
         #[pallet::call_index(6)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
+        #[pallet::weight(Weight::zero())]
         pub fn submit_ethereum_events(
             origin: OriginFor<T>,
             author: Author<T>,
@@ -550,8 +551,9 @@ pub mod pallet {
             Ok(().into())
         }
 
+        // TODO update weights
         #[pallet::call_index(7)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
+        #[pallet::weight(Weight::zero())]
         pub fn submit_latest_ethereum_block(
             origin: OriginFor<T>,
             author: Author<T>,
@@ -559,7 +561,7 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            ensure!(Self::active_ethereum_range().is_some(), Error::<T>::VotingEnded);
+            ensure!(Self::active_ethereum_range().is_none(), Error::<T>::VotingEnded);
             ensure!(
                 author_has_cast_event_vote::<T>(&author.account_id) == false,
                 Error::<T>::EventVoteExists
