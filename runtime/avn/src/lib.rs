@@ -975,6 +975,15 @@ impl_runtime_apis! {
         ) -> Result<(),()>{
             EthBridge::submit_vote(author, events_partition, signature.into())
         }
+
+        fn submit_latest_ethereum_block(
+            author: AccountId,
+            latest_seen_block: u32,
+            signature: sp_core::sr25519::Signature
+        ) -> Result<(), ()> {
+            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into())
+        }
+
     }
 
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
