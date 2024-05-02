@@ -100,6 +100,9 @@ pub use call::{
 
 mod benchmarking;
 #[cfg(test)]
+#[path = "tests/event_listener_tests.rs"]
+mod event_listener_tests;
+#[cfg(test)]
 #[path = "tests/lower_proof_tests.rs"]
 mod lower_proof_tests;
 #[cfg(test)]
