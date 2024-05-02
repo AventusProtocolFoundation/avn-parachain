@@ -68,7 +68,10 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
-use sp_avn_common::{event_discovery::{EthBlockRange, EthereumEventsPartition}, InnerCallValidator, Proof};
+use sp_avn_common::{
+    event_discovery::{EthBlockRange, EthereumEventsPartition},
+    InnerCallValidator, Proof,
+};
 
 use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -977,6 +980,15 @@ impl_runtime_apis! {
         ) -> Result<(),()>{
             EthBridge::submit_vote(author, events_partition, signature.into())
         }
+
+        fn submit_latest_ethereum_block(
+            author: AccountId,
+            latest_seen_block: u32,
+            signature: sp_core::sr25519::Signature
+        ) -> Result<(), ()> {
+            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into())
+        }
+
     }
 
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {

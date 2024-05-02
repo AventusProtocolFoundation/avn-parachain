@@ -141,7 +141,7 @@ pub enum AppError {
     MissingBlockNumber,
     MissingEventSignature,
     ParsingError(Error),
-    GenericError(String)
+    GenericError(String),
 }
 
 pub async fn identify_events(
