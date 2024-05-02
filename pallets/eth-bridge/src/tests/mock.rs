@@ -178,8 +178,7 @@ pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
 pub fn create_mock_event_partition(events: EthEvent) -> EthereumEventsPartition {
     let mut partition: BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit> = BoundedBTreeSet::new();
     partition.try_insert(DiscoveredEvent { event: events.clone(), block: 2 });
-    EthereumEventsPartition::new(EthBlockRange {start_block: 1, length: 20}, 3, false, partition)
-    // events_helpers::discovered_eth_events_partition_factory(EthBlockRange {start_block: 1, length: 20}, discovered_events)
+    EthereumEventsPartition::new(EthBlockRange {start_block: 1, length: 1000}, 0, false, partition)
 }
 
 pub fn lower_is_ready_to_be_claimed(lower_id: &u32) -> bool {
@@ -192,7 +191,6 @@ pub fn request_failed(id: &u32) -> bool {
 
 pub fn setup_context() -> Context {
     let primary_validator_id = AVN::advance_primary_validator(OperationType::Ethereum).unwrap();
-    println!("Primary validator ID: {}", primary_validator_id);
     let author = Author::<TestRuntime> {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,

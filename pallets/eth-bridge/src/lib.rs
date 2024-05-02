@@ -557,17 +557,12 @@ pub mod pallet {
             );
 
             let mut votes = EthereumEvents::<T>::get(&events_partition);
-            println!("Votes BEFORE insert: {}", votes.len());
 
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
-            println!("Votes after insert: {}", votes.len());
-            println!("Quorum: {}", AVN::<T>::quorum());
             if votes.len() < AVN::<T>::quorum() as usize {
-                println!("Votes less than");
                 EthereumEvents::<T>::insert(&events_partition, votes);
             } else {
-                println!("Votes more than");
                 process_ethereum_events_partition::<T>(&active_range, &events_partition);
                 advance_partition::<T>(&active_range, &events_partition);
             }
@@ -794,13 +789,12 @@ pub mod pallet {
         // Remove entry from storage. Ignore votes.
         let _ = EthereumEvents::<T>::take(partition);
         for discovered_event in partition.events().iter() {
-            println!("event: {:?}", discovered_event);
             match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
                         let _ = process_ethereum_event::<T>(&discovered_event.event);
                     } else {
-                        println!("does not contain valid event");
+                        println!("DOES NOT contain valid ethereum event, process_ethereum_event not reached\n");
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
                     },
                 None => log::warn!(
