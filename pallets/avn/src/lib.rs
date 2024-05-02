@@ -360,7 +360,6 @@ impl<T: Config> Pallet<T> {
     // Minimum number required to reach the threshold.
     pub fn quorum() -> u32 {
         let total_num_of_validators = Self::validators().len() as u32;
-        // println!("Num validators: {}", total_num_of_validators);
         Self::calculate_quorum(total_num_of_validators)
     }
 

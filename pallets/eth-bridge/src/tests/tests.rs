@@ -761,6 +761,8 @@ mod process_events {
 
     use super::*;
 
+
+    // succesfully process the specified ethereum_event
     #[test]
     fn succesful_event_processing_accepted() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
@@ -768,30 +770,33 @@ mod process_events {
             let context = setup_context();
             assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author.clone(), context.mock_event_partition.clone(), context.test_signature.clone()));
             assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author_two.clone(), context.mock_event_partition.clone(), context.test_signature_two.clone()));
-            // assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author_three, context.mock_event_partition, context.test_signature_three));
             // assert!(System::events().iter().any(|record| record.event ==
             //     mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessed {
             //         accepted: true,
-            //         eth_event_id: EthEventId {signature: H256::from(0), transaction_hash: 0},
+            //         eth_event_id: some_value,
             //     })));
         });
     }
 
+
+    // This test should fail processing the ethereum_event and emit the specified event
     #[test]
     fn succesful_event_processing_not_accepted() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup_context();
-            // avn::Validators::put(val);
-            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author, context.mock_event_partition, context.test_signature));
+            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author.clone(), context.mock_event_partition.clone(), context.test_signature.clone()));
+            assert!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author_two.clone(), context.mock_event_partition.clone(), context.test_signature_two.clone()).is_err());
             // assert!(System::events().iter().any(|record| record.event ==
                 // mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessed {
                 //     accepted: false,
-                //     eth_event_id: EthEventId {signature: H256::from(0), transaction_hash: 0},
+                //     eth_event_id: some_value
                 // })));
         });
     }
 
+
+    // This test should fail on the check T::ProcessedEventsChecker::check_event(&event.event_id.clone()), if the event is already in the system
     #[test]
     fn event_already_processed() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
