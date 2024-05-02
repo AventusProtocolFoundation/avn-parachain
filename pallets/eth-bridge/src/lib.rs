@@ -545,17 +545,25 @@ pub mod pallet {
                     Error::<T>::EventVoteExists
                 );
             }
+            println!("Hello 2");
 
             let mut votes = EthereumEvents::<T>::get(&events_partition);
+            println!("Votes BEFORE insert: {}", votes.len());
+
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
+            println!("Votes after insert: {}", votes.len());
+            println!("Quorum: {}", AVN::<T>::quorum());
             if votes.len() < AVN::<T>::quorum() as usize {
+                println!("Votes less than");
                 EthereumEvents::<T>::insert(&events_partition, votes);
             } else {
+                println!("Votes more than");
                 process_ethereum_events_partition::<T>(&active_range, &events_partition);
                 advance_partition::<T>(&active_range, &events_partition);
             }
 
+            println!("End");
             Ok(().into())
         }
     }
@@ -712,11 +720,13 @@ pub mod pallet {
         // Remove entry from storage. Ignore votes.
         let _ = EthereumEvents::<T>::take(partition);
         for discovered_event in partition.events().iter() {
+            println!("event: {:?}", discovered_event);
             match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
-                        process_ethereum_event::<T>(&discovered_event.event);
+                        let _ = process_ethereum_event::<T>(&discovered_event.event);
                     } else {
+                        println!("does not contain valid event");
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
                     },
                 None => log::warn!(
@@ -736,6 +746,7 @@ pub mod pallet {
     fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
         // TODO before processing ensure that the event has not already been processed
         // Do the check that is not processed via ProcessedEventsChecker
+        println!("Processing events");
 
         ensure!(T::ProcessedEventsChecker::check_event(&event.event_id.clone()), Error::<T>::EventAlreadyProcessed);
 
@@ -746,7 +757,7 @@ pub mod pallet {
                     eth_event_id: event.event_id.clone(),
                 });
                 // Add record of succesful processing via ProcessedEventsChecker
-                let _ = T::ProcessedEventsChecker::add_event(&event.event_id.clone(), true);
+                T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true);
             },
             Err(err) => {
                 log::error!("💔 Processing ethereum event failed: {:?}", err);
@@ -755,7 +766,7 @@ pub mod pallet {
                     eth_event_id: event.event_id.clone(),
                 });
                 // Add record of unsuccesful processing via ProcessedEventsChecker
-                let _ = T::ProcessedEventsChecker::add_event(&event.event_id.clone(), false);
+                T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), false);
             },
         };
 

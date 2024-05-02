@@ -757,22 +757,38 @@ fn unsent_transactions_are_replayed() {
 
 
 mod process_events {
+    use sp_avn_common::event_types::EthEventId;
+
     use super::*;
 
     #[test]
-    fn succesful_event_processing() {
+    fn succesful_event_processing_accepted() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup_context();
-            EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author, c);
+            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author.clone(), context.mock_event_partition.clone(), context.test_signature.clone()));
+            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author_two.clone(), context.mock_event_partition.clone(), context.test_signature_two.clone()));
+            // assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author_three, context.mock_event_partition, context.test_signature_three));
+            // assert!(System::events().iter().any(|record| record.event ==
+            //     mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessed {
+            //         accepted: true,
+            //         eth_event_id: EthEventId {signature: H256::from(0), transaction_hash: 0},
+            //     })));
         });
     }
 
     #[test]
-    fn error_event_processing() {
+    fn succesful_event_processing_not_accepted() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
-            
+            let context = setup_context();
+            // avn::Validators::put(val);
+            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author, context.mock_event_partition, context.test_signature));
+            // assert!(System::events().iter().any(|record| record.event ==
+                // mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessed {
+                //     accepted: false,
+                //     eth_event_id: EthEventId {signature: H256::from(0), transaction_hash: 0},
+                // })));
         });
     }
 
@@ -780,7 +796,8 @@ mod process_events {
     fn event_already_processed() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
-            
+            let context = setup_context();
+            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author, context.mock_event_partition, context.test_signature));
         });
     }
 }

@@ -360,6 +360,7 @@ impl<T: Config> Pallet<T> {
     // Minimum number required to reach the threshold.
     pub fn quorum() -> u32 {
         let total_num_of_validators = Self::validators().len() as u32;
+        // println!("Num validators: {}", total_num_of_validators);
         Self::calculate_quorum(total_num_of_validators)
     }
 
@@ -723,17 +724,13 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
 pub trait ProcessedEventsChecker {
     fn check_event(event_id: &EthEventId) -> bool;
 
-    fn add_event(event_id: &EthEventId, processed: bool) -> DispatchResult;
+    fn add_processed_event(event_id: &EthEventId, accepted: bool);
 }
 
 impl ProcessedEventsChecker for () {
-    fn check_event(_event_id: &EthEventId) -> bool {
-        return false
-    }
+    fn check_event(_event_id: &EthEventId) -> bool { false }
 
-    fn add_event(_event_id: &EthEventId, _processed: bool) -> DispatchResult {
-        Ok(())
-    }
+    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }
 
 pub trait OnGrowthLiftedHandler<Balance> {

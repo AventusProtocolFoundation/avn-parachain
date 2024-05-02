@@ -6,13 +6,13 @@ use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker, OperationType};
 use pallet_session as session;
 use parking_lot::RwLock;
-use sp_avn_common::event_types::EthEventId;
+use sp_avn_common::event_types::{EthEvent, EthEventId, LiftedData};
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    ConstU32, ConstU64, H256,
+    ConstU32, ConstU64, H256, U256,
 };
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId}, traits::{BlakeTwo256, ConvertInto, IdentityLookup}, BuildStorage, DispatchResult, Perbill
@@ -46,10 +46,15 @@ impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
 pub struct Context {
     pub eth_tx_hash: H256,
     pub already_set_eth_tx_hash: H256,
+    pub mock_event_partition: EthereumEventsPartition,
     pub test_signature: TestSignature,
+    pub test_signature_two: TestSignature,
+    pub test_signature_three: TestSignature,
     pub confirmation_signature: ecdsa::Signature,
     pub tx_succeeded: bool,
     pub author: Author<TestRuntime>,
+    pub author_two: Author<TestRuntime>,
+    pub author_three: Author<TestRuntime>,
     pub confirming_author: Author<TestRuntime>,
     pub second_confirming_author: Author<TestRuntime>,
     pub third_confirming_author: Author<TestRuntime>,
@@ -170,8 +175,11 @@ pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
     Author::<TestRuntime> { key: UintAuthorityId(author_id), account_id: author_id }
 }
 
-pub fn create_mock_event_partition() -> EthereumEventsPartition {
-    EthereumEventsPartition::new(EthBlockRange {start_block: 1, length: 2}, 3, true, _)
+pub fn create_mock_event_partition(events: EthEvent) -> EthereumEventsPartition {
+    let mut partition: BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit> = BoundedBTreeSet::new();
+    partition.try_insert(DiscoveredEvent { event: events.clone(), block: 2 });
+    EthereumEventsPartition::new(EthBlockRange {start_block: 1, length: 20}, 3, false, partition)
+    // events_helpers::discovered_eth_events_partition_factory(EthBlockRange {start_block: 1, length: 20}, discovered_events)
 }
 
 pub fn lower_is_ready_to_be_claimed(lower_id: &u32) -> bool {
@@ -184,9 +192,18 @@ pub fn request_failed(id: &u32) -> bool {
 
 pub fn setup_context() -> Context {
     let primary_validator_id = AVN::advance_primary_validator(OperationType::Ethereum).unwrap();
+    println!("Primary validator ID: {}", primary_validator_id);
     let author = Author::<TestRuntime> {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,
+    };
+    let author_two = Author::<TestRuntime> {
+        key: UintAuthorityId(22),
+        account_id: 22,
+    };
+    let author_three = Author::<TestRuntime> {
+        key: UintAuthorityId(23),
+        account_id: 23,
     };
     let mut confirming_validator_id: u64 = 1;
     if primary_validator_id == confirming_validator_id {
@@ -197,21 +214,28 @@ pub fn setup_context() -> Context {
     let third_confirming_author = create_confirming_author(confirming_validator_id + 2);
     let fourth_confirming_author = create_confirming_author(confirming_validator_id + 3);
     let test_signature = generate_signature(author.clone(), b"test context");
+    let test_signature_two = generate_signature(author.clone(), b"test context");
+    let test_signature_three = generate_signature(author.clone(), b"test context");
     let tx_succeeded = false;
     let eth_tx_hash = H256::from_slice(&[0u8; 32]);
     let already_set_eth_tx_hash = H256::from_slice(&[1u8; 32]);
     let confirmation_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
     let finalised_block_vec = Some(hex::encode(10u32.encode()).into());
-    let mock_event_partition = create_mock_event_partition();
+    let mock_event_partition = create_mock_event_partition(EthEvent { event_id: EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: eth_tx_hash }, event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData { token_contract: H160::zero(), sender_address: H160::zero(), receiver_address: H256::zero(), amount: 1, nonce: U256::zero() }) });
 
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(primary_validator_id)]);
 
     Context {
         eth_tx_hash,
+        mock_event_partition,
         already_set_eth_tx_hash,
         test_signature,
+        test_signature_two,
+        test_signature_three,
         tx_succeeded,
         author: author.clone(),
+        author_two: author_two.clone(),
+        author_three: author_three.clone(),
         confirming_author: confirming_author.clone(),
         second_confirming_author: second_confirming_author.clone(),
         third_confirming_author: third_confirming_author.clone(),
@@ -422,8 +446,7 @@ impl ProcessedEventsChecker for TestRuntime {
         PROCESSED_EVENTS.with(|l| l.borrow().iter().any(|(event, _processed)| event == event_id))
     }
 
-    fn add_event(event_id: &EthEventId, processed: bool) -> DispatchResult {
-        insert_to_mock_processed_events(event_id, processed);
-        Ok(())
+    fn add_processed_event(event_id: &EthEventId, accepted: bool) {
+        insert_to_mock_processed_events(event_id, accepted);
     }
 }
