@@ -251,6 +251,15 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[pallet::storage]
+    pub type SubmittedBlockNumbers<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EthBlockRange,
+        BoundedBTreeSet<T::AccountId, VotesLimit>,
+        ValueQuery,
+    >;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
@@ -563,7 +572,7 @@ pub mod pallet {
             ensure_none(origin)?;
             ensure!(Self::active_ethereum_range().is_none(), Error::<T>::VotingEnded);
             ensure!(
-                author_has_cast_event_vote::<T>(&author.account_id) == false,
+                author_has_submitted_latest_block::<T>(&author.account_id) == false,
                 Error::<T>::EventVoteExists
             );
 
@@ -571,46 +580,38 @@ pub mod pallet {
                 events_helpers::compute_finalised_block_range_for_latest_ethereum_block(
                     latest_seen_block,
                 );
-            if let Some(events_partition) =
-                events_helpers::discovered_eth_events_partition_factory(nominated_range, Vec::new())
-                    .first()
-            {
-                let mut votes = EthereumEvents::<T>::get(&events_partition);
-                votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
+            let mut votes = SubmittedBlockNumbers::<T>::get(&nominated_range);
+            votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
-                EthereumEvents::<T>::insert(&events_partition, votes);
+            SubmittedBlockNumbers::<T>::insert(&nominated_range, votes);
 
-                let mut sorted_votes: Vec<(EthereumEventsPartition, usize)> =
-                    EthereumEvents::<T>::iter()
-                        .map(|(range, votes)| (range, votes.len()))
-                        .collect();
-                sorted_votes.sort_by(|(partition_a, _votes_a), (partition_b, _votes_b)| {
-                    partition_a.range().cmp(partition_b.range())
-                });
+            let mut sorted_votes: Vec<(EthBlockRange, usize)> = SubmittedBlockNumbers::<T>::iter()
+                .map(|(range, votes)| (range, votes.len()))
+                .collect();
+            sorted_votes.sort_by(|(range_a, _votes_a), (range_b, _votes_b)| range_a.cmp(range_b));
 
-                let votes_count = sorted_votes
-                    .iter()
-                    .map(|(_range, votes)| votes)
-                    .fold(0, |acc, x| acc as usize + x);
-                let mut remaining_votes_threshold = AVN::<T>::supermajority_quorum() as usize;
+            let total_votes_count = sorted_votes
+                .iter()
+                .map(|(_range, votes)| votes)
+                .fold(0, |acc, x| acc as usize + x);
+            let mut remaining_votes_threshold = AVN::<T>::supermajority_quorum() as usize;
 
-                if votes_count >= remaining_votes_threshold as usize {
-                    let quorum = AVN::<T>::quorum() as usize;
-                    let mut selected_range: EthBlockRange = Default::default();
-                    for (range, votes_count) in sorted_votes.iter() {
-                        selected_range = range.range().clone();
-                        remaining_votes_threshold.saturating_reduce(*votes_count);
-                        if remaining_votes_threshold <= quorum {
-                            break
-                        }
+            if total_votes_count >= remaining_votes_threshold as usize {
+                let quorum = AVN::<T>::quorum() as usize;
+                let mut selected_range: EthBlockRange = Default::default();
+                for (range, votes_count) in sorted_votes.iter() {
+                    selected_range = range.clone();
+                    remaining_votes_threshold.saturating_reduce(*votes_count);
+                    if remaining_votes_threshold < quorum {
+                        break
                     }
-                    ActiveEthereumRange::<T>::put(ActiveEthRange {
-                        range: selected_range,
-                        partition: 0,
-                        // TODO retrieve values from runtime.
-                        event_types_filter: Default::default(),
-                    });
                 }
+                ActiveEthereumRange::<T>::put(ActiveEthRange {
+                    range: selected_range,
+                    partition: 0,
+                    // TODO retrieve values from runtime.
+                    event_types_filter: Default::default(),
+                });
             }
             Ok(().into())
         }
@@ -732,8 +733,18 @@ pub mod pallet {
 
         Ok(())
     }
+
     pub fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
         for (_partition, votes) in EthereumEvents::<T>::iter() {
+            if votes.contains(&author) {
+                return true
+            }
+        }
+        false
+    }
+
+    pub fn author_has_submitted_latest_block<T: Config>(author: &T::AccountId) -> bool {
+        for (_partition, votes) in SubmittedBlockNumbers::<T>::iter() {
             if votes.contains(&author) {
                 return true
             }

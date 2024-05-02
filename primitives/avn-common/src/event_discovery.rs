@@ -149,7 +149,7 @@ pub mod events_helpers {
         ethereum_block: u32,
     ) -> EthBlockRange {
         let length = 20u32;
-        let calculation_block = ethereum_block - 5 * length;
+        let calculation_block = ethereum_block.saturating_sub(5 * length);
         let start_block = calculation_block - calculation_block % length;
 
         EthBlockRange { start_block, length }
