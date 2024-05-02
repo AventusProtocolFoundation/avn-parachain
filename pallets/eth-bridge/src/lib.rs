@@ -75,6 +75,7 @@ use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
+    bounds::MaximumValidatorsBound,
     event_discovery::*,
     event_types::{ValidEvents, Validator},
 };
@@ -259,7 +260,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub type SubmittedBlockNumbers<T: Config> = StorageMap<
+    pub type SubmittedBlockRanges<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         EthBlockRange,
@@ -587,12 +588,12 @@ pub mod pallet {
                 events_helpers::compute_finalised_block_range_for_latest_ethereum_block(
                     latest_seen_block,
                 );
-            let mut votes = SubmittedBlockNumbers::<T>::get(&nominated_range);
+            let mut votes = SubmittedBlockRanges::<T>::get(&nominated_range);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
-            SubmittedBlockNumbers::<T>::insert(&nominated_range, votes);
+            SubmittedBlockRanges::<T>::insert(&nominated_range, votes);
 
-            let mut sorted_votes: Vec<(EthBlockRange, usize)> = SubmittedBlockNumbers::<T>::iter()
+            let mut sorted_votes: Vec<(EthBlockRange, usize)> = SubmittedBlockRanges::<T>::iter()
                 .map(|(range, votes)| (range, votes.len()))
                 .collect();
             sorted_votes.sort_by(|(range_a, _votes_a), (range_b, _votes_b)| range_a.cmp(range_b));
@@ -619,6 +620,10 @@ pub mod pallet {
                     // TODO retrieve values from runtime.
                     event_types_filter: Default::default(),
                 });
+                let _ = SubmittedBlockRanges::<T>::clear(
+                    <MaximumValidatorsBound as sp_core::TypedGet>::get(),
+                    None,
+                );
             }
             Ok(().into())
         }
@@ -751,7 +756,7 @@ pub mod pallet {
     }
 
     pub fn author_has_submitted_latest_block<T: Config>(author: &T::AccountId) -> bool {
-        for (_partition, votes) in SubmittedBlockNumbers::<T>::iter() {
+        for (_partition, votes) in SubmittedBlockRanges::<T>::iter() {
             if votes.contains(&author) {
                 return true
             }
