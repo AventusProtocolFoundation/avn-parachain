@@ -502,8 +502,8 @@ mod add_corroboration {
                 .as_active_tx()
                 .unwrap();
 
-            assert_eq!(active_tx.data.valid_tx_hash_corroborations.len(), 0);
-            assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);
+            assert_eq!(true, active_tx.data.valid_tx_hash_corroborations.is_empty());
+            assert_eq!(false, active_tx.data.invalid_tx_hash_corroborations.is_empty());
         });
     }
 
@@ -514,7 +514,7 @@ mod add_corroboration {
             let context = setup_context();
             let active_tx = setup_corroboration_test(&context, true, false);
 
-            assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);
+            assert_eq!(false, active_tx.data.invalid_tx_hash_corroborations.is_empty());
         });
     }
 
@@ -525,7 +525,7 @@ mod add_corroboration {
             let context = setup_context();
             let active_tx = setup_corroboration_test(&context, true, true);
 
-            assert!(active_tx.data.valid_tx_hash_corroborations.len() > 0);
+            assert_eq!(false, active_tx.data.valid_tx_hash_corroborations.is_empty());
         });
     }
 
