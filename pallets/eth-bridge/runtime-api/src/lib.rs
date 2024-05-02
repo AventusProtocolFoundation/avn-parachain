@@ -22,5 +22,11 @@ sp_api::decl_runtime_apis! {
             events_partition: EthereumEventsPartition,
             signature: sp_core::sr25519::Signature
         ) -> Result<(), ()>;
+        fn submit_latest_ethereum_block(
+            author: AccountId,
+            latest_seen_block: u32,
+            signature: sp_core::sr25519::Signature
+        ) -> Result<(), ()>;
+
     }
 }
