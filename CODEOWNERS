@@ -1,7 +1,7 @@
 # Order is important; the last matching pattern takes the most precedence
 
 # global owners
-*       @nahuseyoum @alexpArtos @fluorostani @thadouk
+*       @nahuseyoum @fluorostani @thadouk
 
 # CI OWNERS
 /.github/ @vukomir @RuiSMagalhaes
