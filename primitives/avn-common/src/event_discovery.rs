@@ -141,6 +141,14 @@ pub mod events_helpers {
                     ));
                     Ok(())
                 });
+        if partitions.is_empty() {
+            partitions.push(EthereumEventsPartition::new(
+                range.clone(),
+                0,
+                true,
+                Default::default(),
+            ))
+        }
         partitions
     }
 
