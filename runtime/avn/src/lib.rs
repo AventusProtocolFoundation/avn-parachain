@@ -68,7 +68,10 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
-use sp_avn_common::{event_discovery::{EthBlockRange, EthereumEventsPartition}, InnerCallValidator, Proof};
+use sp_avn_common::{
+    event_discovery::{EthBlockRange, EthereumEventsPartition},
+    InnerCallValidator, Proof,
+};
 
 use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
