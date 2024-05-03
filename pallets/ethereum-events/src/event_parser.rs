@@ -129,7 +129,7 @@ fn get_data(event: &JsonValue) -> Result<Option<Vec<u8>>, SimpleError> {
 
     let bytes = hex_to_bytes(data)?;
 
-    if bytes.len() > 0 {
+    if !bytes.is_empty() {
         return Ok(Some(bytes))
     }
 

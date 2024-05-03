@@ -345,7 +345,7 @@ mod add_confirmation {
             );
 
             assert_eq!(
-                active_tx.data.sender, context.fourth_confirming_author.account_id,
+                active_tx.data.sender, context.third_confirming_author.account_id,
                 "Sender should be the author's account_id"
             );
         });
@@ -450,7 +450,7 @@ mod add_eth_tx_hash {
                 RawOrigin::None.into(),
                 tx_id,
                 context.eth_tx_hash,
-                context.fourth_confirming_author,
+                context.third_confirming_author,
                 context.test_signature.clone(),
             );
 
@@ -511,8 +511,8 @@ mod add_corroboration {
                 .as_active_tx()
                 .unwrap();
 
-            assert_eq!(active_tx.data.valid_tx_hash_corroborations.len(), 0);
-            assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);
+            assert_eq!(true, active_tx.data.valid_tx_hash_corroborations.is_empty());
+            assert_eq!(false, active_tx.data.invalid_tx_hash_corroborations.is_empty());
         });
     }
 
@@ -523,7 +523,7 @@ mod add_corroboration {
             let context = setup_context();
             let active_tx = setup_corroboration_test(&context, true, false);
 
-            assert!(active_tx.data.invalid_tx_hash_corroborations.len() > 0);
+            assert_eq!(false, active_tx.data.invalid_tx_hash_corroborations.is_empty());
         });
     }
 
@@ -534,7 +534,7 @@ mod add_corroboration {
             let context = setup_context();
             let active_tx = setup_corroboration_test(&context, true, true);
 
-            assert!(active_tx.data.valid_tx_hash_corroborations.len() > 0);
+            assert_eq!(false, active_tx.data.valid_tx_hash_corroborations.is_empty());
         });
     }
 
@@ -664,7 +664,7 @@ fn publish_and_send_transaction() {
             RuntimeOrigin::none(),
             tx_id,
             context.confirmation_signature.clone(),
-            context.fourth_confirming_author.clone(),
+            context.third_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -673,7 +673,7 @@ fn publish_and_send_transaction() {
             RuntimeOrigin::none(),
             tx_id,
             context.eth_tx_hash.clone(),
-            context.fourth_confirming_author.clone(),
+            context.third_confirming_author.clone(),
             context.test_signature.clone(),
         );
 
@@ -699,7 +699,7 @@ fn publish_and_corroborate_transaction() {
             RuntimeOrigin::none(),
             tx_id,
             context.confirmation_signature.clone(),
-            context.fourth_confirming_author.clone(),
+            context.third_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -707,7 +707,7 @@ fn publish_and_corroborate_transaction() {
             RuntimeOrigin::none(),
             tx_id,
             context.eth_tx_hash.clone(),
-            context.fourth_confirming_author.clone(),
+            context.third_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -735,7 +735,7 @@ fn unsent_transactions_are_replayed() {
             RuntimeOrigin::none(),
             tx_id,
             context.confirmation_signature.clone(),
-            context.fourth_confirming_author.clone(),
+            context.third_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -743,7 +743,7 @@ fn unsent_transactions_are_replayed() {
             RuntimeOrigin::none(),
             tx_id,
             context.eth_tx_hash.clone(),
-            context.fourth_confirming_author.clone(),
+            context.third_confirming_author.clone(),
             context.test_signature.clone(),
         )
         .unwrap();
@@ -764,6 +764,54 @@ fn unsent_transactions_are_replayed() {
     });
 }
 
+#[test]
+fn self_corroborate_fails() {
+    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+    ext.execute_with(|| {
+        let context = setup_context();
+
+        let function_name = b"publishRoot".to_vec();
+        let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
+
+        let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
+
+        let primary_author_account_id =
+            AVN::<TestRuntime>::get_primary_validator_for_sending().unwrap();
+        let primary_author = Author::<TestRuntime> {
+            key: UintAuthorityId(primary_author_account_id),
+            account_id: primary_author_account_id,
+        };
+
+        EthBridge::add_confirmation(
+            RuntimeOrigin::none(),
+            tx_id,
+            context.confirmation_signature.clone(),
+            context.confirming_author.clone(),
+            context.test_signature.clone(),
+        )
+        .unwrap();
+        EthBridge::add_eth_tx_hash(
+            RuntimeOrigin::none(),
+            tx_id,
+            context.eth_tx_hash.clone(),
+            primary_author.clone(),
+            context.test_signature.clone(),
+        )
+        .unwrap();
+
+        assert_noop!(
+            EthBridge::add_corroboration(
+                RuntimeOrigin::none(),
+                tx_id,
+                true,
+                true,
+                primary_author,
+                context.test_signature,
+            ),
+            Error::<TestRuntime>::CannotCorroborateOwnTransaction
+        );
+    });
+}
 
 mod process_events {
     use sp_avn_common::event_types::EthEventId;

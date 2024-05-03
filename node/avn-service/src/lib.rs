@@ -34,6 +34,8 @@ use crate::{
 pub use crate::web3_utils::{public_key_address, secret_key_address};
 use jsonrpc_core::Error as RPCError;
 
+const MAX_BODY_SIZE: usize = 100_000; // 100 KB
+
 /// Error types for merkle tree and extrinsic utils.
 #[derive(Debug)]
 pub enum Error {
@@ -271,6 +273,9 @@ where
 {
     log::info!("⛓️  avn-service: send Request");
     let post_body = req.body_bytes().await?;
+    if post_body.len() > MAX_BODY_SIZE {
+        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())))
+    }
     let send_request = &EthTransaction::decode(&mut &post_body[..])
         .map_err(|e| server_error(format!("Error decoding eth transaction data: {:?}", e)))?;
 
@@ -328,6 +333,10 @@ where
 {
     log::info!("⛓️  avn-service: view Request");
     let post_body = req.body_bytes().await?;
+    if post_body.len() > MAX_BODY_SIZE {
+        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())))
+    }
+
     let view_request = &EthTransaction::decode(&mut &post_body[..])
         .map_err(|e| server_error(format!("Error decoding eth transaction data: {:?}", e)))?;
 
@@ -361,6 +370,9 @@ where
 {
     log::info!("⛓️  avn-service: query Request.");
     let post_body = req.body_bytes().await?;
+    if post_body.len() > MAX_BODY_SIZE {
+        return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())))
+    }
 
     let request = &EthTransaction::decode(&mut &post_body[..])
         .map_err(|e| server_error(format!("Error decoding eth transaction data: {:?}", e)))?;
@@ -476,7 +488,7 @@ where
                 extrinsics_duration
             );
 
-            if extrinsics.len() > 0 {
+            if !extrinsics.is_empty() {
                 let root_hash_start_time = Instant::now();
                 let root_hash = generate_tree_root(extrinsics)?;
                 let root_hash_duration = root_hash_start_time.elapsed();

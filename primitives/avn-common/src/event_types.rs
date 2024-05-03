@@ -305,7 +305,7 @@ impl NftMintData {
     pub fn is_valid(&self) -> bool {
         return !self.batch_id.is_zero() &&
             !self.t2_owner_public_key.is_zero() &&
-            self.unique_external_ref.len() > 0
+            !self.unique_external_ref.is_empty()
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
