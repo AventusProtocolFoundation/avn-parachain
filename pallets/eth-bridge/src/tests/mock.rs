@@ -105,6 +105,7 @@ impl Config for TestRuntime {
     type BridgeInterfaceNotification = TestRuntime;
     type ReportCorroborationOffence = OffenceHandler;
     type ProcessedEventsChecker = Self;
+    type EthereumEventsFilter = ();
 }
 
 impl system::Config for TestRuntime {
