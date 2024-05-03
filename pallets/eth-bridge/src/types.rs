@@ -1,7 +1,5 @@
 use crate::*;
-use sp_avn_common::event_types::ValidEvents;
-type EventsTypesLimit = ConstU32<20>;
-type EthBridgeEventsFilter = BoundedBTreeSet<ValidEvents, EventsTypesLimit>;
+use sp_avn_common::event_discovery::EthBridgeEventsFilter;
 
 // The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
