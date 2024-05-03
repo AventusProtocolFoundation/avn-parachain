@@ -635,6 +635,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
+    type EthereumEventsFilter = ();
 }
 
 // Other pallets

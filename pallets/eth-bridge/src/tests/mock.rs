@@ -100,6 +100,7 @@ impl Config for TestRuntime {
     type AccountToBytesConvert = U64To32BytesConverter;
     type BridgeInterfaceNotification = TestRuntime;
     type ReportCorroborationOffence = OffenceHandler;
+    type EthereumEventsFilter = ();
 }
 
 impl system::Config for TestRuntime {
