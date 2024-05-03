@@ -16,7 +16,6 @@ use sp_std::{fmt::Debug, prelude::*};
 
 use super::{Config, OcwLock};
 use crate::{Call, CurrentSlot, CurrentSlotsValidator, Pallet as Summary, AVN};
-use pallet_avn::OperationType;
 
 pub const CHALLENGE_CONTEXT: &'static [u8] = b"root_challenge";
 pub const UNKNOWN_CHALLENGE_REASON: u8 = 10;
@@ -135,8 +134,9 @@ fn can_challenge<T: Config>(
         return false
     }
 
-    let is_chosen_validator = AVN::<T>::is_primary(OperationType::Avn, &this_validator.account_id)
-        .unwrap_or_else(|_| false);
+    let is_chosen_validator =
+        AVN::<T>::is_primary_for_block(ocw_block_number, &this_validator.account_id)
+            .unwrap_or_else(|_| false);
 
     let grace_period_elapsed = Summary::<T>::grace_period_elapsed(ocw_block_number);
 

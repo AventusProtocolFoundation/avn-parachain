@@ -82,7 +82,7 @@ pub fn create_and_report_summary_offence<T: crate::Config>(
 ) {
     let offenders = create_offenders_identification::<T>(offenders_accounts);
 
-    if offenders.len() > 0 {
+    if !offenders.is_empty() {
         let invalid_event_offence = SummaryOffence {
             session_index: <pallet_session::Pallet<T>>::current_index(),
             validator_set_count: crate::AVN::<T>::validators().len() as u32,

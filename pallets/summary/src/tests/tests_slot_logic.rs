@@ -287,7 +287,7 @@ mod advance_slot {
                 let new_validator = Summary::slot_validator().unwrap();
 
                 assert!(old_validator != new_validator);
-                assert_eq!(new_validator, get_validator(SECOND_VALIDATOR_INDEX).account_id);
+                assert_eq!(new_validator, get_validator(FIRST_VALIDATOR_INDEX).account_id);
             });
         }
 
@@ -499,6 +499,13 @@ mod advance_slot {
                 let signature = create_signature(Summary::current_slot(), &validator);
                 assert_ok!(call_advance_slot(&validator, signature));
                 let new_validator = Summary::slot_validator().unwrap();
+                assert_eq!(new_validator, get_validator(FIRST_VALIDATOR_INDEX).account_id);
+
+                let validator = get_validator(Summary::slot_validator().unwrap());
+                let signature = create_signature(Summary::current_slot(), &validator);
+                System::set_block_number(Summary::block_number_for_next_slot());
+                assert_ok!(call_advance_slot(&validator, signature));
+                let new_validator = Summary::slot_validator().unwrap();
                 assert_eq!(new_validator, get_validator(SECOND_VALIDATOR_INDEX).account_id);
 
                 let validator = get_validator(Summary::slot_validator().unwrap());
@@ -507,13 +514,6 @@ mod advance_slot {
                 assert_ok!(call_advance_slot(&validator, signature));
                 let new_validator = Summary::slot_validator().unwrap();
                 assert_eq!(new_validator, get_validator(THIRD_VALIDATOR_INDEX).account_id);
-
-                let validator = get_validator(Summary::slot_validator().unwrap());
-                let signature = create_signature(Summary::current_slot(), &validator);
-                System::set_block_number(Summary::block_number_for_next_slot());
-                assert_ok!(call_advance_slot(&validator, signature));
-                let new_validator = Summary::slot_validator().unwrap();
-                assert_eq!(new_validator, get_validator(FOURTH_VALIDATOR_INDEX).account_id);
             });
         }
     }
