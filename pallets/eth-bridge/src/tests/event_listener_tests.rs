@@ -323,7 +323,7 @@ mod initial_range_consensus {
 
     fn get_votes_for_range(range: &EthBlockRange) -> usize {
         let mut votes_count = 0usize;
-        SubmittedBlockNumbers::<TestRuntime>::iter().for_each(|(voted_range, _votes)| {
+        SubmittedBlockRanges::<TestRuntime>::iter().for_each(|(voted_range, _votes)| {
             if voted_range == range.clone() {
                 votes_count.saturating_inc();
             }
@@ -366,6 +366,10 @@ mod initial_range_consensus {
                 active_range.range,
                 events_helpers::compute_finalised_block_range_for_latest_ethereum_block(300)
             );
+            // Ensure that cleanup has occured
+            for context in contexts.iter() {
+                assert_eq!(get_votes_for_range(&context.range()), 0, "Should be no votes.");
+            }
         });
     }
 

@@ -75,6 +75,7 @@ use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
+    bounds::MaximumValidatorsBound,
     event_discovery::*,
     event_types::{ValidEvents, Validator},
 };
@@ -180,6 +181,7 @@ pub mod pallet {
             IdentificationTuple<Self>,
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
+        type EthereumEventsFilter: EthereumEventsFilterTrait;
     }
 
     #[pallet::event]
@@ -259,7 +261,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub type SubmittedBlockNumbers<T: Config> = StorageMap<
+    pub type SubmittedBlockRanges<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
         EthBlockRange,
@@ -587,12 +589,12 @@ pub mod pallet {
                 events_helpers::compute_finalised_block_range_for_latest_ethereum_block(
                     latest_seen_block,
                 );
-            let mut votes = SubmittedBlockNumbers::<T>::get(&nominated_range);
+            let mut votes = SubmittedBlockRanges::<T>::get(&nominated_range);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
-            SubmittedBlockNumbers::<T>::insert(&nominated_range, votes);
+            SubmittedBlockRanges::<T>::insert(&nominated_range, votes);
 
-            let mut sorted_votes: Vec<(EthBlockRange, usize)> = SubmittedBlockNumbers::<T>::iter()
+            let mut sorted_votes: Vec<(EthBlockRange, usize)> = SubmittedBlockRanges::<T>::iter()
                 .map(|(range, votes)| (range, votes.len()))
                 .collect();
             sorted_votes.sort_by(|(range_a, _votes_a), (range_b, _votes_b)| range_a.cmp(range_b));
@@ -616,9 +618,12 @@ pub mod pallet {
                 ActiveEthereumRange::<T>::put(ActiveEthRange {
                     range: selected_range,
                     partition: 0,
-                    // TODO retrieve values from runtime.
-                    event_types_filter: Default::default(),
+                    event_types_filter: T::EthereumEventsFilter::get_filter(),
                 });
+                let _ = SubmittedBlockRanges::<T>::clear(
+                    <MaximumValidatorsBound as sp_core::TypedGet>::get(),
+                    None,
+                );
             }
             Ok(().into())
         }
@@ -751,7 +756,7 @@ pub mod pallet {
     }
 
     pub fn author_has_submitted_latest_block<T: Config>(author: &T::AccountId) -> bool {
-        for (_partition, votes) in SubmittedBlockNumbers::<T>::iter() {
+        for (_partition, votes) in SubmittedBlockRanges::<T>::iter() {
             if votes.contains(&author) {
                 return true
             }
@@ -767,8 +772,7 @@ pub mod pallet {
             ActiveEthRange {
                 range: active_range.range.next_range(),
                 partition: 0,
-                // TODO retrieve values from runtime.
-                event_types_filter: Default::default(),
+                event_types_filter: T::EthereumEventsFilter::get_filter(),
             }
         } else {
             ActiveEthRange {
@@ -972,36 +976,14 @@ impl<T: Config> Pallet<T> {
         create_ethereum_events_proof_data::<T>(&account_id, &events_partition)
     }
     pub fn signatures() -> Vec<H256> {
-        let signatures: Vec<H256> = match Self::active_ethereum_range() {
-            Some(active_range) => {
-                let _events =
-                    active_range.event_types_filter.into_iter().collect::<Vec<ValidEvents>>();
-
-                let decoded_hex =
-                    hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")
-                        .expect("test");
-
-                let mut array = [0; 32];
-                array.copy_from_slice(&decoded_hex);
-                let decoded_event_sig = H256::from(array);
-
-                vec![decoded_event_sig]
-            },
-            None => {
-                // TODO use values from pallet constant
-                // vec![]
-                let decoded_hex =
-                    hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")
-                        .expect("test");
-
-                let mut array = [0; 32];
-                array.copy_from_slice(&decoded_hex);
-                let decoded_event_sig = H256::from(array);
-
-                vec![decoded_event_sig]
-            },
-        };
-        signatures
+        match Self::active_ethereum_range() {
+            Some(active_range) => active_range
+                .event_types_filter
+                .into_iter()
+                .map(|valid_event| valid_event.signature())
+                .collect::<Vec<H256>>(),
+            None => Default::default(),
+        }
     }
     pub fn submit_vote(
         account_id: T::AccountId,
