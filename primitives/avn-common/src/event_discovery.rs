@@ -102,7 +102,7 @@ impl EthereumEventsPartition {
         blake2_256(&(&self).encode()).into()
     }
 
-    fn new(range: EthBlockRange, partition: u16, is_last: bool, data: EthereumEventsSet) -> Self {
+    pub fn new(range: EthBlockRange, partition: u16, is_last: bool, data: EthereumEventsSet) -> Self {
         EthereumEventsPartition { range, partition, is_last, data }
     }
 }

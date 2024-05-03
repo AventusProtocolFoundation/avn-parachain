@@ -67,7 +67,7 @@ use frame_system::{
     pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use pallet_avn::{
-    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
+    self as avn, BridgeInterface, BridgeInterfaceNotification, ProcessedEventsChecker, Error as avn_error, LowerParams,
     MAX_VALIDATOR_ACCOUNTS,
 };
 
@@ -183,6 +183,7 @@ pub mod pallet {
             IdentificationTuple<Self>,
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
+        type ProcessedEventsChecker: ProcessedEventsChecker;
         type EthereumEventsFilter: EthereumEventsFilterTrait;
     }
 
@@ -303,6 +304,7 @@ pub mod pallet {
         ExceedsConfirmationLimit,
         ExceedsCorroborationLimit,
         ExceedsFunctionNameLimit,
+        EventAlreadyProcessed,
         FunctionEncodingError,
         FunctionNameError,
         HandlePublishingResultFailed,
@@ -565,6 +567,7 @@ pub mod pallet {
             );
 
             let mut votes = EthereumEvents::<T>::get(&events_partition);
+
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
             if votes.len() < AVN::<T>::quorum() as usize {
@@ -801,8 +804,9 @@ pub mod pallet {
             match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
-                        process_ethereum_event::<T>(&discovered_event.event);
+                        let _ = process_ethereum_event::<T>(&discovered_event.event);
                     } else {
+                        println!("DOES NOT contain valid ethereum event, process_ethereum_event not reached\n");
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
                     },
                 None => log::warn!(
@@ -819,14 +823,21 @@ pub mod pallet {
         }
     }
 
-    fn process_ethereum_event<T: Config>(event: &EthEvent) {
+    fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
         // TODO before processing ensure that the event has not already been processed
+        // Do the check that is not processed via ProcessedEventsChecker
+        println!("Processing events");
+
+        ensure!(T::ProcessedEventsChecker::check_event(&event.event_id.clone()), Error::<T>::EventAlreadyProcessed);
+
         match T::BridgeInterfaceNotification::on_event_processed(&event) {
             Ok(_) => {
                 <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
                     accepted: true,
                     eth_event_id: event.event_id.clone(),
                 });
+                // Add record of succesful processing via ProcessedEventsChecker
+                T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true);
             },
             Err(err) => {
                 log::error!("💔 Processing ethereum event failed: {:?}", err);
@@ -834,8 +845,12 @@ pub mod pallet {
                     accepted: false,
                     eth_event_id: event.event_id.clone(),
                 });
+                // Add record of unsuccesful processing via ProcessedEventsChecker
+                T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), false);
             },
         };
+
+        Ok(())
     }
 
     #[pallet::validate_unsigned]

@@ -250,6 +250,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type AccountToBytesConvert = AVN;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
+    type ProcessedEventsChecker = ();
 }
 
 impl BridgeInterfaceNotification for TestRuntime {
@@ -350,6 +351,8 @@ impl ProcessedEventsChecker for TestRuntime {
             })
         })
     }
+    
+    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }
 
 // TODO: Do we need to test the ECDSA sig verification logic here? If so, replace this with a call

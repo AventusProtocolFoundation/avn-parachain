@@ -130,6 +130,7 @@ impl ProcessedEventsChecker for TestRuntime {
     fn check_event(event_id: &EthEventId) -> bool {
         return PROCESSED_EVENTS.with(|l| l.borrow_mut().iter().any(|event| event == event_id))
     }
+    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }
 
 pub struct TestAccount {
