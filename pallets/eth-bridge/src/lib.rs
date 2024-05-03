@@ -181,6 +181,7 @@ pub mod pallet {
             IdentificationTuple<Self>,
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
+        type EthereumEventsFilter: EthereumEventsFilterTrait;
     }
 
     #[pallet::event]
@@ -617,8 +618,7 @@ pub mod pallet {
                 ActiveEthereumRange::<T>::put(ActiveEthRange {
                     range: selected_range,
                     partition: 0,
-                    // TODO retrieve values from runtime.
-                    event_types_filter: Default::default(),
+                    event_types_filter: T::EthereumEventsFilter::get_filter(),
                 });
                 let _ = SubmittedBlockRanges::<T>::clear(
                     <MaximumValidatorsBound as sp_core::TypedGet>::get(),
@@ -772,8 +772,7 @@ pub mod pallet {
             ActiveEthRange {
                 range: active_range.range.next_range(),
                 partition: 0,
-                // TODO retrieve values from runtime.
-                event_types_filter: Default::default(),
+                event_types_filter: T::EthereumEventsFilter::get_filter(),
             }
         } else {
             ActiveEthRange {
@@ -977,36 +976,14 @@ impl<T: Config> Pallet<T> {
         create_ethereum_events_proof_data::<T>(&account_id, &events_partition)
     }
     pub fn signatures() -> Vec<H256> {
-        let signatures: Vec<H256> = match Self::active_ethereum_range() {
-            Some(active_range) => {
-                let _events =
-                    active_range.event_types_filter.into_iter().collect::<Vec<ValidEvents>>();
-
-                let decoded_hex =
-                    hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")
-                        .expect("test");
-
-                let mut array = [0; 32];
-                array.copy_from_slice(&decoded_hex);
-                let decoded_event_sig = H256::from(array);
-
-                vec![decoded_event_sig]
-            },
-            None => {
-                // TODO use values from pallet constant
-                // vec![]
-                let decoded_hex =
-                    hex::decode("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")
-                        .expect("test");
-
-                let mut array = [0; 32];
-                array.copy_from_slice(&decoded_hex);
-                let decoded_event_sig = H256::from(array);
-
-                vec![decoded_event_sig]
-            },
-        };
-        signatures
+        match Self::active_ethereum_range() {
+            Some(active_range) => active_range
+                .event_types_filter
+                .into_iter()
+                .map(|valid_event| valid_event.signature())
+                .collect::<Vec<H256>>(),
+            None => Default::default(),
+        }
     }
     pub fn submit_vote(
         account_id: T::AccountId,

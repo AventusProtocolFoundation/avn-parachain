@@ -5,6 +5,8 @@ use event_types::EthEvent;
 use sp_core::{bounded::BoundedBTreeSet, ConstU32};
 use sp_runtime::traits::Saturating;
 
+use self::event_types::ValidEvents;
+
 pub type VotesLimit = ConstU32<100>;
 pub type EventsBatchLimit = ConstU32<32>;
 
@@ -102,6 +104,19 @@ impl EthereumEventsPartition {
 
     fn new(range: EthBlockRange, partition: u16, is_last: bool, data: EthereumEventsSet) -> Self {
         EthereumEventsPartition { range, partition, is_last, data }
+    }
+}
+
+pub type EventsTypesLimit = ConstU32<20>;
+pub type EthBridgeEventsFilter = BoundedBTreeSet<ValidEvents, EventsTypesLimit>;
+
+pub trait EthereumEventsFilterTrait {
+    fn get_filter() -> EthBridgeEventsFilter;
+}
+
+impl EthereumEventsFilterTrait for () {
+    fn get_filter() -> EthBridgeEventsFilter {
+        Default::default()
     }
 }
 
