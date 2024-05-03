@@ -24,6 +24,8 @@ use sp_runtime::{
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
+pub extern crate alloc;
+use alloc::collections::BTreeSet;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -67,7 +69,11 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use pallet_avn::sr25519::AuthorityId as AvnId;
 
 use pallet_avn_proxy::ProvableProxy;
-use sp_avn_common::{InnerCallValidator, Proof};
+use sp_avn_common::{
+    event_discovery::{EthBridgeEventsFilter, EthereumEventsFilterTrait},
+    event_types::ValidEvents,
+    InnerCallValidator, Proof,
+};
 
 use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -105,6 +111,22 @@ where
             }
             <ToStakingPot<R> as OnUnbalanced<_>>::on_unbalanced(fees);
         }
+    }
+}
+
+pub struct EthBridgeTestRuntimeEventsFilter;
+impl EthereumEventsFilterTrait for EthBridgeTestRuntimeEventsFilter {
+    fn get_filter() -> EthBridgeEventsFilter {
+        let allowed_events: BTreeSet<ValidEvents> = vec![
+            ValidEvents::AddedValidator,
+            ValidEvents::Lifted,
+            ValidEvents::AvtGrowthLifted,
+            ValidEvents::AvtLowerClaimed,
+        ]
+        .into_iter()
+        .collect();
+
+        EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
     }
 }
 
@@ -646,6 +668,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
+    type EthereumEventsFilter = EthBridgeTestRuntimeEventsFilter;
 }
 
 // Other pallets
