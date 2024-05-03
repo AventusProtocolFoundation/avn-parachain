@@ -815,32 +815,28 @@ pub mod pallet {
         }
     }
 
+    // TODO: re-add the `Accepted and Rejected events
     fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
         // TODO before processing ensure that the event has not already been processed
         // Do the check that is not processed via ProcessedEventsChecker
         println!("Processing events");
 
         ensure!(T::ProcessedEventsChecker::check_event(&event.event_id.clone()), Error::<T>::EventAlreadyProcessed);
+        let mut event_accepted = false;
 
         match T::BridgeInterfaceNotification::on_event_processed(&event) {
-            Ok(_) => {
-                <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
-                    accepted: true,
-                    eth_event_id: event.event_id.clone(),
-                });
-                // Add record of succesful processing via ProcessedEventsChecker
-                T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true);
-            },
+            Ok(_) => { event_accepted = true },
             Err(err) => {
                 log::error!("💔 Processing ethereum event failed: {:?}", err);
-                <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
-                    accepted: false,
-                    eth_event_id: event.event_id.clone(),
-                });
-                // Add record of unsuccesful processing via ProcessedEventsChecker
-                T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), false);
             },
         };
+
+        <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
+            accepted: event_accepted,
+            eth_event_id: event.event_id.clone(),
+        });
+        // Add record of succesful processing via ProcessedEventsChecker
+        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), event_accepted);
 
         Ok(())
     }
