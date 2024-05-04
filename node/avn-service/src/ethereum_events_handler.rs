@@ -1,4 +1,4 @@
-use crate::BlockT;
+use crate::{web3_utils, BlockT};
 use futures::lock::Mutex;
 use node_primitives::AccountId;
 use pallet_eth_bridge_runtime_api::EthEventHandlerApi;
@@ -7,7 +7,8 @@ use sc_keystore::LocalKeystore;
 use sp_api::ApiExt;
 use sp_avn_common::{
     event_discovery::{
-        events_helpers::discovered_eth_events_partition_factory, DiscoveredEvent, EthBlockRange,
+        create_proof_data, events_helpers::discovered_eth_events_partition_factory,
+        DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
     },
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, Error, EthEvent, EthEventId, EventData,
@@ -29,6 +30,8 @@ use web3::{
     types::{FilterBuilder, Log, H160, H256 as Web3H256, U64},
     Web3,
 };
+
+use pallet_eth_bridge::{SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, SUBMIT_LATEST_ETH_BLOCK_CONTEXT};
 
 use crate::{server_error, setup_web3_connection, Web3Data};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
@@ -368,17 +371,15 @@ where
     };
 
     loop {
-        match process_events(&config, &current_public_key, &events_registry).await {
+        match query_runtime_and_process(&config, &current_public_key, &events_registry).await {
             Ok(_) => (),
-            Err(e) => {
-                log::error!("{}", e);
-                sleep(Duration::from_secs(SLEEP_TIME)).await;
-            },
+            Err(e) => log::error!("{}", e),
         }
+        sleep(Duration::from_secs(SLEEP_TIME)).await;
     }
 }
 
-async fn process_events<Block, ClientT>(
+async fn query_runtime_and_process<Block, ClientT>(
     config: &EthEventHandlerConfig<Block, ClientT>,
     current_public_key: &sp_core::sr25519::Public,
     events_registry: &EventRegistry,
@@ -393,12 +394,107 @@ where
         + ApiExt<Block>
         + BlockBuilder<Block>,
 {
-    let (range, partition_id) = config
+    let result = &config
         .client
         .runtime_api()
         .query_active_block_range(config.client.info().best_hash)
-        .map_err(|err| format!("Failed to query active block range: {:?}", err))?;
+        .map_err(|err| format!("Failed to query bridge contract: {:?}", err))?;
 
+    match result {
+        // A range is active, attempt processing
+        Some((range, partition_id)) => {
+            process_events(
+                &config,
+                range.clone(),
+                *partition_id,
+                &current_public_key,
+                &events_registry,
+            )
+            .await?;
+        },
+        // There is no active range, attempt initial range voting.
+        None => {
+            submit_latest_ethereum_block(&config, &current_public_key).await?;
+        },
+    };
+    Ok(())
+}
+
+async fn submit_latest_ethereum_block<Block, ClientT>(
+    config: &EthEventHandlerConfig<Block, ClientT>,
+    current_public_key: &sp_core::sr25519::Public,
+) -> Result<(), String>
+where
+    Block: BlockT,
+    ClientT: BlockBackend<Block>
+        + UsageProvider<Block>
+        + HeaderBackend<Block>
+        + sp_api::ProvideRuntimeApi<Block>,
+    ClientT::Api: pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId>
+        + ApiExt<Block>
+        + BlockBuilder<Block>,
+{
+    let has_casted_vote = config
+        .client
+        .runtime_api()
+        .query_has_author_casted_vote(config.client.info().best_hash, current_public_key.0.into())
+        .map_err(|err| format!("Failed to check if author has casted latest  vote: {:?}", err))?;
+
+    if !has_casted_vote {
+        let web3_data_mutex = config.web3_data_mutex.lock().await;
+        let web3_ref = match web3_data_mutex.web3.as_ref() {
+            Some(web3) => web3,
+            None => return Err("Web3 connection not set up".into()),
+        };
+
+        let latest_seen_ethereum_block = web3_utils::get_current_block_number(web3_ref)
+            .await
+            .map_err(|err| format!("Failed to retrieve latest ethereum block: {:?}", err))?
+            as u32;
+
+        let proof = create_proof_data::<AccountId, u32>(
+            &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
+            &(*current_public_key).into(),
+            latest_seen_ethereum_block,
+        );
+
+        let signature = config
+            .keystore
+            .sr25519_sign(AVN_KEY_ID, current_public_key, &proof.into_boxed_slice().as_ref())
+            .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
+            .ok_or_else(|| "Signature generation failed".to_string())?;
+
+        let result = config
+            .client
+            .runtime_api()
+            .submit_latest_ethereum_block(
+                config.client.info().best_hash,
+                current_public_key.clone().into(),
+                latest_seen_ethereum_block,
+                signature,
+            )
+            .map_err(|err| format!("Failed to submit latest ethereum block vote: {:?}", err))?;
+        log::info!("Vote submitted successfully: {:?}", result);
+    }
+    Ok(())
+}
+async fn process_events<Block, ClientT>(
+    config: &EthEventHandlerConfig<Block, ClientT>,
+    range: EthBlockRange,
+    partition_id: u16,
+    current_public_key: &sp_core::sr25519::Public,
+    events_registry: &EventRegistry,
+) -> Result<(), String>
+where
+    Block: BlockT,
+    ClientT: BlockBackend<Block>
+        + UsageProvider<Block>
+        + HeaderBackend<Block>
+        + sp_api::ProvideRuntimeApi<Block>,
+    ClientT::Api: pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId>
+        + ApiExt<Block>
+        + BlockBuilder<Block>,
+{
     let contract_address = config
         .client
         .runtime_api()
@@ -423,10 +519,7 @@ where
     let has_casted_vote = config
         .client
         .runtime_api()
-        .query_has_author_casted_event_vote(
-            config.client.info().best_hash,
-            current_public_key.0.into(),
-        )
+        .query_has_author_casted_vote(config.client.info().best_hash, current_public_key.0.into())
         .map_err(|err| format!("Failed to check if author has casted event vote: {:?}", err))?;
 
     if !has_casted_vote {
@@ -491,15 +584,11 @@ where
         .find(|p| p.partition() == partition_id)
         .ok_or_else(|| format!("Partition with ID {} not found", partition_id))?;
 
-    let proof = config
-        .client
-        .runtime_api()
-        .create_proof(
-            config.client.info().best_hash,
-            current_public_key.clone().into(),
-            partition.clone(),
-        )
-        .map_err(|err| format!("Failed to create proof: {:?}", err))?;
+    let proof = create_proof_data::<AccountId, &EthereumEventsPartition>(
+        &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
+        &(*current_public_key).into(),
+        &partition.clone(),
+    );
 
     let signature = config
         .keystore

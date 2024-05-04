@@ -7,8 +7,6 @@ use sp_core::{H160, U256};
 
 use sp_runtime::testing::{TestSignature, UintAuthorityId};
 
-use crate::call::create_submit_latest_ethereum_block_data;
-
 use self::mock::RuntimeOrigin;
 
 fn event_data_set() -> Vec<DiscoveredEvent> {
@@ -121,7 +119,8 @@ impl DiscoveredEthContext {
     fn generate_signature(&self, index: usize) -> TestSignature {
         self.author
             .key
-            .sign(&create_ethereum_events_proof_data::<TestRuntime>(
+            .sign(&create_proof_data(
+                &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                 &self.author.account_id,
                 self.partitions().get(index).expect("Index should exist"),
             ))
@@ -301,7 +300,8 @@ impl LatestEthBlockContext {
     fn generate_signature(&self) -> TestSignature {
         self.author
             .key
-            .sign(&create_submit_latest_ethereum_block_data::<TestRuntime>(
+            .sign(&create_proof_data(
+                &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
                 &self.author.account_id,
                 self.discovered_block,
             ))
