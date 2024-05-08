@@ -966,9 +966,11 @@ impl_runtime_apis! {
     }
 
     impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
-        fn query_current_author() -> Option<AccountId>{
-            Avn::get_validator_for_current_node()
-                .map(|validator| validator.account_id)
+        fn query_authors() -> Vec<AccountId> {
+            let validators_data = Avn::validators();
+            validators_data.iter()
+            .map(|validator| validator.account_id.clone())
+            .collect()
         }
 
         fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
