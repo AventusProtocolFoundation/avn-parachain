@@ -360,6 +360,8 @@ where
     let author_public_key =
         config.client.runtime_api().query_authors(config.client.info().best_hash);
 
+    log::info!("HELP !!! AUTHOR: {:?}, PUBLIC: {:?}", author_public_key,public_keys);
+    
     let current_public_key = match find_author_account_id(author_public_key, public_keys) {
         Some(key) => key,
         None => {
