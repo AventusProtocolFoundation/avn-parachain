@@ -321,7 +321,6 @@ fn find_author_account_id<T>(
     if let Ok(account_ids) = author_public_keys {
         let signer_keys: Vec<Public> = account_ids.iter().map(|a|Public::from_raw(*a)).collect();
         for key in keystore_public_keys {
-            log::info!("HELP !!! AUTHOR: {:?}, PUBLIC: {:?}", signer_keys,key);
             if signer_keys.contains(&key) {
                 return Some(key)
             }
