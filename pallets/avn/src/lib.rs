@@ -703,13 +703,13 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
 }
 
 pub trait ProcessedEventsChecker {
-    fn check_event(event_id: &EthEventId) -> bool;
+    fn processed_event_exists(event_id: &EthEventId) -> bool;
 
     fn add_processed_event(event_id: &EthEventId, accepted: bool);
 }
 
 impl ProcessedEventsChecker for () {
-    fn check_event(_event_id: &EthEventId) -> bool { false }
+    fn processed_event_exists(_event_id: &EthEventId) -> bool { false }
 
     fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }

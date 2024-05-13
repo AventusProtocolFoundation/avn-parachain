@@ -374,10 +374,10 @@ pub fn insert_to_mock_processed_events(event_id: &EthEventId) {
 }
 
 impl ProcessedEventsChecker for TestRuntime {
-    fn check_event(event_id: &EthEventId) -> bool {
+    fn processed_event_exists(event_id: &EthEventId) -> bool {
         return PROCESSED_EVENTS.with(|l| l.borrow_mut().iter().any(|event| event == event_id))
     }
-    
+
     fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }
 

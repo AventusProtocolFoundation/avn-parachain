@@ -15,7 +15,7 @@ use sp_core::{
     ConstU32, ConstU64, H256, U256,
 };
 use sp_runtime::{
-    testing::{TestSignature, TestXt, UintAuthorityId}, traits::{BlakeTwo256, ConvertInto, IdentityLookup}, BuildStorage, DispatchResult, Perbill
+    testing::{TestSignature, TestXt, UintAuthorityId}, traits::{BlakeTwo256, ConvertInto, IdentityLookup}, BuildStorage, DispatchResult, DispatchError, Perbill
 };
 use sp_staking::offence::OffenceError;
 use std::{cell::RefCell, convert::From, sync::Arc};
@@ -47,6 +47,7 @@ pub struct Context {
     pub eth_tx_hash: H256,
     pub already_set_eth_tx_hash: H256,
     pub mock_event_partition: EthereumEventsPartition,
+    pub bad_mock_event_partition: EthereumEventsPartition,
     pub test_signature: TestSignature,
     pub test_signature_two: TestSignature,
     pub test_signature_three: TestSignature,
@@ -66,6 +67,8 @@ pub struct Context {
     pub lower_id: u32,
     pub block_number: BlockNumber,
     pub expected_lower_msg_hash: String,
+    pub eth_event_id: EthEventId,
+    pub bad_eth_event_id: EthEventId,
 }
 
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
@@ -178,7 +181,7 @@ pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
 
 pub fn create_mock_event_partition(events: EthEvent) -> EthereumEventsPartition {
     let mut partition: BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit> = BoundedBTreeSet::new();
-    partition.try_insert(DiscoveredEvent { event: events.clone(), block: 2 });
+    partition.try_insert(DiscoveredEvent { event: events.clone(), block: 2 }).unwrap();
     EthereumEventsPartition::new(EthBlockRange {start_block: 1, length: 1000}, 0, false, partition)
 }
 
@@ -220,7 +223,22 @@ pub fn setup_context() -> Context {
     let already_set_eth_tx_hash = H256::from_slice(&[1u8; 32]);
     let confirmation_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
     let finalised_block_vec = Some(hex::encode(10u32.encode()).into());
-    let mock_event_partition = create_mock_event_partition(EthEvent { event_id: EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: eth_tx_hash }, event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData { token_contract: H160::zero(), sender_address: H160::zero(), receiver_address: H256::zero(), amount: 1, nonce: U256::zero() }) });
+    let eth_event_id = EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: eth_tx_hash };
+    let bad_eth_event_id = EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: H256::from_slice(&[6u8; 32])};
+    let bad_eth_event = EthEvent {
+        event_id: bad_eth_event_id.clone(),
+        event_data: sp_avn_common::event_types::EventData::LogLifted(
+            LiftedData { token_contract: H160::zero(), sender_address: H160::zero(), receiver_address: H256::zero(), amount: 1, nonce: U256::zero() }
+        )
+    };
+    let mock_event_partition = create_mock_event_partition(
+        EthEvent {
+            event_id: eth_event_id.clone(),
+            event_data: sp_avn_common::event_types::EventData::LogLifted(
+            LiftedData { token_contract: H160::zero(), sender_address: H160::zero(), receiver_address: H256::zero(), amount: 1, nonce: U256::zero() }
+            )
+        });
+    let bad_mock_event_partition = create_mock_event_partition(bad_eth_event);
 
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(primary_validator_id)]);
 
@@ -249,6 +267,9 @@ pub fn setup_context() -> Context {
         // if request_params changes, this should also change
         expected_lower_msg_hash: "5892dee772ffe3d97e9525b62805bbcd91bac29026536cfa09269623128280ca"
             .to_string(),
+        eth_event_id,
+        bad_mock_event_partition,
+        bad_eth_event_id,
     }
 }
 
@@ -430,6 +451,14 @@ impl BridgeInterfaceNotification for TestRuntime {
 
         Ok(())
     }
+
+    fn on_incoming_event_processed(event: &EthEvent) -> DispatchResult {
+        if event.event_id.transaction_hash == H256::from_slice(&[6u8; 32]) {
+            return Err(DispatchError::Other("Test - Bad event"))
+        }
+
+        Ok(())
+    }
 }
 
 thread_local! {
@@ -441,7 +470,7 @@ pub fn insert_to_mock_processed_events(event_id: &EthEventId, processed: bool) {
 }
 
 impl ProcessedEventsChecker for TestRuntime {
-    fn check_event(event_id: &EthEventId) -> bool {
+    fn processed_event_exists(event_id: &EthEventId) -> bool {
         PROCESSED_EVENTS.with(|l| l.borrow().iter().any(|(event, _processed)| event == event_id))
     }
 

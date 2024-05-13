@@ -1586,7 +1586,7 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> ProcessedEventsChecker for Pallet<T> {
-    fn check_event(event_id: &EthEventId) -> bool {
+    fn processed_event_exists(event_id: &EthEventId) -> bool {
         return <ProcessedEvents<T>>::contains_key(event_id) || Self::get_pending_event_index(event_id).is_ok()
     }
 

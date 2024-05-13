@@ -29,15 +29,6 @@ fn corroborate_good_transactions(
     )
 }
 
-// Added this function as in event_listener_tests to initialize the active event range
-fn init_active_range() {
-    ActiveEthereumRange::<TestRuntime>::put(ActiveEthRange {
-        range: EthBlockRange { start_block: 1, length: 1000 },
-        partition: 0,
-        event_types_filter: Default::default(),
-    });
-}
-
 fn corroborate_bad_transactions(
     tx_id: EthereumId,
     author: &Validator<UintAuthorityId, AccountId>,
@@ -813,58 +804,3 @@ fn self_corroborate_fails() {
     });
 }
 
-mod process_events {
-    use sp_avn_common::event_types::EthEventId;
-
-    use super::*;
-
-
-    // succesfully process the specified ethereum_event
-    #[test]
-    fn succesful_event_processing_accepted() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-        ext.execute_with(|| {
-            let context = setup_context();
-            init_active_range();
-
-            // Two calls needed as upon the first there are not enough votes to pass the condition in lin.rs line 563, to reach the call of process_ethereum_events_partition()
-            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author.clone(), context.mock_event_partition.clone(), context.test_signature.clone()));
-            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author_two.clone(), context.mock_event_partition.clone(), context.test_signature_two.clone()));
-            // assert!(System::events().iter().any(|record| record.event ==
-            //     mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessed {
-            //         accepted: true,
-            //         eth_event_id: some_value,
-            //     })));
-        });
-    }
-
-
-    // This test should fail processing the ethereum_event and emit the specified event
-    #[test]
-    fn succesful_event_processing_not_accepted() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-        ext.execute_with(|| {
-            let context = setup_context();
-            init_active_range();
-            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author.clone(), context.mock_event_partition.clone(), context.test_signature.clone()));
-            assert!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author_two.clone(), context.mock_event_partition.clone(), context.test_signature_two.clone()).is_err());
-            // assert!(System::events().iter().any(|record| record.event ==
-                // mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessed {
-                //     accepted: false,
-                //     eth_event_id: some_value
-                // })));
-        });
-    }
-
-
-    // This test should fail on the check T::ProcessedEventsChecker::check_event(&event.event_id.clone()), if the event is already in the system
-    #[test]
-    fn event_already_processed() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-        ext.execute_with(|| {
-            let context = setup_context();
-            init_active_range();
-            assert_ok!(EthBridge::submit_ethereum_events(RuntimeOrigin::none(), context.author, context.mock_event_partition, context.test_signature));
-        });
-    }
-}

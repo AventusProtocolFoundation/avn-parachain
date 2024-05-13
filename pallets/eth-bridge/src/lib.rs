@@ -111,6 +111,9 @@ mod mock;
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "tests/incoming_events_tests.rs"]
+mod incoming_events_tests;
 
 pub use pallet::*;
 pub mod default_weights;
@@ -806,13 +809,10 @@ pub mod pallet {
                     if active_range.event_types_filter.contains(&valid_event) {
                         let _ = process_ethereum_event::<T>(&discovered_event.event);
                     } else {
-                        println!("DOES NOT contain valid ethereum event, process_ethereum_event not reached\n");
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
                     },
-                None => log::warn!(
-                    "Unknown Ethereum event signature in range {:?}",
-                    &discovered_event.event.event_id.signature
-                ),
+                None => log::warn!("Unknown Ethereum event signature in range {:?}", &discovered_event.event.event_id.signature)
+
             };
         }
 
@@ -827,12 +827,11 @@ pub mod pallet {
     fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
         // TODO before processing ensure that the event has not already been processed
         // Do the check that is not processed via ProcessedEventsChecker
-        println!("Processing events");
 
-        ensure!(T::ProcessedEventsChecker::check_event(&event.event_id.clone()), Error::<T>::EventAlreadyProcessed);
+        ensure!(false == T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()), Error::<T>::EventAlreadyProcessed);
         let mut event_accepted = false;
 
-        match T::BridgeInterfaceNotification::on_event_processed(&event) {
+        match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
             Ok(_) => { event_accepted = true },
             Err(err) => {
                 log::error!("💔 Processing ethereum event failed: {:?}", err);

@@ -343,7 +343,7 @@ thread_local! {
 }
 
 impl ProcessedEventsChecker for TestRuntime {
-    fn check_event(event_id: &EthEventId) -> bool {
+    fn processed_event_exists(event_id: &EthEventId) -> bool {
         return PROCESSED_EVENTS.with(|l| {
             l.borrow_mut().iter().any(|event| {
                 &EthEventId { signature: event.0.clone(), transaction_hash: event.1.clone() } ==
@@ -351,7 +351,7 @@ impl ProcessedEventsChecker for TestRuntime {
             })
         })
     }
-    
+
     fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }
 
@@ -463,11 +463,7 @@ impl ExtBuilder {
             }
             validators_account_ids.push(TestAccount::new(seed).account_id());
         }
-        println!(
-            "keys {:?} {:?}",
-            validators_account_ids.len(),
-            initial_maximum_validators_public_keys().len()
-        );
+
         self.setup_validators(&validators_account_ids, initial_maximum_validators_public_keys)
     }
 
