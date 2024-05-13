@@ -315,13 +315,14 @@ where
 }
 
 fn find_author_account_id<T>(
-    authors: Result<Vec<AccountId32>, T>,
+    author_public_keys: Result<Vec<[u8; 32]>,T>,
     keystore_public_keys: Vec<Public>,
 ) -> Option<Public> {
-    if let Ok(account_ids) = authors {
+    if let Ok(account_ids) = author_public_keys {
+        let signer_keys: Vec<Public> = account_ids.iter().map(|a|Public::from_raw(*a)).collect();
         for key in keystore_public_keys {
-            let keystore_account_id = AccountId32::from(key.0);
-            if account_ids.contains(&keystore_account_id) {
+            log::info!("HELP !!! AUTHOR: {:?}, PUBLIC: {:?}", signer_keys,key);
+            if signer_keys.contains(&key) {
                 return Some(key)
             }
         }
@@ -358,10 +359,15 @@ where
     );
 
     let author_public_key =
-        config.client.runtime_api().query_authors(config.client.info().best_hash);
+        config.client.runtime_api().query_authors(config.client.info().best_hash)
+        .map_err(|e|{
+            log::error!("Error querying authors: {:?}", e);
+        })
+        .and_then(|opt_keys| match opt_keys {
+            Some(keys)=>Ok(keys),
+            None => todo!(),
+        });
 
-    log::info!("HELP !!! AUTHOR: {:?}, PUBLIC: {:?}", author_public_key,public_keys);
-    
     let current_public_key = match find_author_account_id(author_public_key, public_keys) {
         Some(key) => key,
         None => {
