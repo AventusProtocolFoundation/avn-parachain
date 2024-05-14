@@ -357,7 +357,7 @@ where
             .offchain_transaction_pool(config.client.info().best_hash),
     );
 
-    let author_public_key =
+    let author_public_keys =
         config.client.runtime_api().query_authors(config.client.info().best_hash)
         .map_err(|e|{
             log::error!("Error querying authors: {:?}", e);
@@ -367,7 +367,7 @@ where
             None => todo!(),
         });
 
-    let current_public_key = match find_author_account_id(author_public_key, public_keys) {
+    let current_node_public_key = match find_author_account_id(author_public_keys, public_keys) {
         Some(key) => key,
         None => {
             log::error!("Author not found");
@@ -376,7 +376,7 @@ where
     };
 
     loop {
-        match query_runtime_and_process(&config, &current_public_key, &events_registry).await {
+        match query_runtime_and_process(&config, &current_node_public_key, &events_registry).await {
             Ok(_) => (),
             Err(e) => log::error!("{}", e),
         }
@@ -386,7 +386,7 @@ where
 
 async fn query_runtime_and_process<Block, ClientT>(
     config: &EthEventHandlerConfig<Block, ClientT>,
-    current_public_key: &sp_core::sr25519::Public,
+    current_node_public_key: &sp_core::sr25519::Public,
     events_registry: &EventRegistry,
 ) -> Result<(), String>
 where
@@ -412,14 +412,14 @@ where
                 &config,
                 range.clone(),
                 *partition_id,
-                &current_public_key,
+                &current_node_public_key,
                 &events_registry,
             )
             .await?;
         },
         // There is no active range, attempt initial range voting.
         None => {
-            submit_latest_ethereum_block(&config, &current_public_key).await?;
+            submit_latest_ethereum_block(&config, &current_node_public_key).await?;
         },
     };
     Ok(())

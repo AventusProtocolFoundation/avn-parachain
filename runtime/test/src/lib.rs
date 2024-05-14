@@ -16,7 +16,6 @@ use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 use sp_core::sr25519::Public;
 
-// use sp_application_crypto::RuntimePublic;
 use sp_runtime::RuntimeAppPublic;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
@@ -972,7 +971,7 @@ impl_runtime_apis! {
     }
 
     impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
-        fn query_authors() -> Option<Vec<[u8; 32]>>{
+        fn query_author_signing_keys() -> Option<Vec<[u8; 32]>>{
             let validators = Avn::validators().to_vec();
             let res = validators.iter().map(|validator| {
                 let mut key: [u8; 32] = Default::default();
