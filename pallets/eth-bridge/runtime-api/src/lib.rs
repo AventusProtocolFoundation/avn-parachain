@@ -12,11 +12,10 @@ sp_api::decl_runtime_apis! {
         AccountId: Codec,
     {
         fn query_current_author() -> Option<AccountId>;
-        fn query_active_block_range()-> (EthBlockRange, u16);
-        fn query_has_author_casted_event_vote(account_id: AccountId) -> bool;
+        fn query_active_block_range()-> Option<(EthBlockRange, u16)>;
+        fn query_has_author_casted_vote(account_id: AccountId) -> bool;
         fn query_signatures() -> Vec<H256>;
         fn query_bridge_contract() -> H160;
-        fn create_proof(account_id:AccountId, events_partition:EthereumEventsPartition)-> Vec<u8>;
         fn submit_vote(
             author: AccountId,
             events_partition: EthereumEventsPartition,

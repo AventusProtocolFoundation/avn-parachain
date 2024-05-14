@@ -10,8 +10,8 @@ use crate::chain_spec::{
 };
 use avn_test_runtime::{
     self as avn_test_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig,
-    EthereumTransactionsConfig, ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig,
-    TokenManagerConfig, ValidatorsManagerConfig,
+    ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig, TokenManagerConfig,
+    ValidatorsManagerConfig,
 };
 use node_primitives::AccountId;
 
@@ -52,17 +52,25 @@ pub(crate) fn avn_test_runtime_genesis(
     event_challenge_period: BlockNumber,
     schedule_period: BlockNumber,
     voting_period: BlockNumber,
-) -> avn_test_runtime::GenesisConfig {
-    avn_test_runtime::GenesisConfig {
+) -> avn_test_runtime::RuntimeGenesisConfig {
+    avn_test_runtime::RuntimeGenesisConfig {
+        avn: pallet_avn::GenesisConfig {
+            _phantom: Default::default(),
+            bridge_contract_address: avn_eth_contract.clone(),
+        },
         system: avn_test_runtime::SystemConfig {
             code: avn_test_runtime::WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
+            ..Default::default()
         },
         balances: avn_test_runtime::BalancesConfig {
             balances: endowed_accounts.iter().cloned().map(|(k, a)| (k, a)).collect(),
         },
-        parachain_info: avn_test_runtime::ParachainInfoConfig { parachain_id: id },
+        parachain_info: avn_test_runtime::ParachainInfoConfig {
+            parachain_id: id,
+            ..Default::default()
+        },
         session: avn_test_runtime::SessionConfig {
             keys: candidates
                 .iter()
@@ -85,8 +93,6 @@ pub(crate) fn avn_test_runtime_genesis(
             next_tx_id: 1 as u32,
         },
         ethereum_events: EthereumEventsConfig {
-            validator_manager_contract_address: avn_eth_contract.clone(),
-            lifting_contract_address: avn_eth_contract.clone(),
             nft_t1_contracts: nft_eth_contracts,
             processed_events: vec![],
             lift_tx_hashes,
@@ -100,10 +106,11 @@ pub(crate) fn avn_test_runtime_genesis(
                 .zip(eth_public_keys.iter().map(|pk| pk.clone()))
                 .collect::<Vec<_>>(),
         },
-        authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+        authority_discovery: AuthorityDiscoveryConfig { keys: vec![], ..Default::default() },
         aura: Default::default(),
         aura_ext: Default::default(),
         im_online: ImOnlineConfig { keys: vec![] },
+        nft_manager: Default::default(),
         parachain_system: Default::default(),
         parachain_staking: ParachainStakingConfig {
             candidates: candidates
@@ -118,6 +125,7 @@ pub(crate) fn avn_test_runtime_genesis(
         },
         polkadot_xcm: avn_test_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(SAFE_XCM_VERSION),
+            ..Default::default()
         },
         sudo: SudoConfig { key: Some(sudo_account) },
         summary: SummaryConfig { schedule_period, voting_period },

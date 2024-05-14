@@ -95,6 +95,7 @@ pallet-nft-manager = { path = "../../pallets/nft-manager", default-features = fa
 pallet-avn-proxy = { path = "../../pallets/avn-proxy", default-features = false }
 pallet-avn-transaction-payment = { path = "../../pallets/avn-transaction-payment", default-features = false }
 pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = false }
+pallet-eth-bridge-runtime-api = { path = "../../pallets/eth-bridge/runtime-api", default-features = false }
 pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
 
 # Common Runtime

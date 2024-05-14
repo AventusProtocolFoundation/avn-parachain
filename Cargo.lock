@@ -908,6 +908,7 @@ dependencies = [
  "pallet-balances",
  "pallet-conviction-voting",
  "pallet-eth-bridge",
+ "pallet-eth-bridge-runtime-api",
  "pallet-ethereum-events",
  "pallet-im-online",
  "pallet-nft-manager",

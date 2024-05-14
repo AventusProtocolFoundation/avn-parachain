@@ -173,7 +173,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 65,
+    spec_version: 70,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -948,15 +948,16 @@ impl_runtime_apis! {
                 .map(|validator| validator.account_id)
         }
 
-        fn query_active_block_range()-> (EthBlockRange, u16){
+        fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
-                (active_eth_range.range, active_eth_range.partition)
-            }else {
-                (EthBlockRange::default(), 0)
+                Some((active_eth_range.range, active_eth_range.partition))
+            } else {
+                None
             }
         }
-        fn query_has_author_casted_event_vote(account_id: AccountId) -> bool{
-           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id)
+        fn query_has_author_casted_vote(account_id: AccountId) -> bool{
+           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id) ||
+           pallet_eth_bridge::author_has_submitted_latest_block::<Runtime>(&account_id)
         }
 
         fn query_signatures() -> Vec<sp_core::H256> {
@@ -965,10 +966,6 @@ impl_runtime_apis! {
 
         fn query_bridge_contract() -> H160 {
             Avn::get_bridge_contract_address()
-        }
-
-        fn create_proof(account_id:AccountId, events_partition:EthereumEventsPartition)->Vec<u8>{
-            EthBridge::create_eth_events_proof(account_id, events_partition)
         }
 
         fn submit_vote(author: AccountId,
