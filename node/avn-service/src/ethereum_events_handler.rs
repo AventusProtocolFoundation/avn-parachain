@@ -7,7 +7,7 @@ use sc_keystore::LocalKeystore;
 use sp_api::ApiExt;
 use sp_avn_common::{
     event_discovery::{
-        create_proof_data, events_helpers::discovered_eth_events_partition_factory,
+        encode_eth_event_submission_data, events_helpers::discovered_eth_events_partition_factory,
         DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
     },
     event_types::{
@@ -452,7 +452,7 @@ where
             .map_err(|err| format!("Failed to retrieve latest ethereum block: {:?}", err))?
             as u32;
 
-        let proof = create_proof_data::<AccountId, u32>(
+        let proof = encode_eth_event_submission_data::<AccountId, u32>(
             &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
             &(*current_public_key).into(),
             latest_seen_ethereum_block,
@@ -584,7 +584,7 @@ where
         .find(|p| p.partition() == partition_id)
         .ok_or_else(|| format!("Partition with ID {} not found", partition_id))?;
 
-    let proof = create_proof_data::<AccountId, &EthereumEventsPartition>(
+    let proof = encode_eth_event_submission_data::<AccountId, &EthereumEventsPartition>(
         &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
         &(*current_public_key).into(),
         &partition.clone(),

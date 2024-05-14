@@ -120,7 +120,7 @@ impl EthereumEventsFilterTrait for () {
     }
 }
 
-pub fn create_proof_data<AccountId: Encode, Data: Encode>(
+pub fn encode_eth_event_submission_data<AccountId: Encode, Data: Encode>(
     context: &[u8],
     account_id: &AccountId,
     data: Data,

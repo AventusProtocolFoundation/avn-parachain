@@ -894,7 +894,7 @@ pub mod pallet {
                     },
                 Call::submit_ethereum_events { author, events_partition, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &create_proof_data(
+                        &encode_eth_event_submission_data(
                             &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                             &author.account_id,
                             events_partition,
@@ -915,7 +915,7 @@ pub mod pallet {
                     },
                 Call::submit_latest_ethereum_block { author, latest_seen_block, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &create_proof_data(
+                        &encode_eth_event_submission_data(
                             &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
                             &author.account_id,
                             *latest_seen_block,

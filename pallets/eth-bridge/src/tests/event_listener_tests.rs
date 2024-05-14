@@ -119,7 +119,7 @@ impl DiscoveredEthContext {
     fn generate_signature(&self, index: usize) -> TestSignature {
         self.author
             .key
-            .sign(&create_proof_data(
+            .sign(&encode_eth_event_submission_data(
                 &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                 &self.author.account_id,
                 self.partitions().get(index).expect("Index should exist"),
@@ -300,7 +300,7 @@ impl LatestEthBlockContext {
     fn generate_signature(&self) -> TestSignature {
         self.author
             .key
-            .sign(&create_proof_data(
+            .sign(&encode_eth_event_submission_data(
                 &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
                 &self.author.account_id,
                 self.discovered_block,
