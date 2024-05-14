@@ -15,6 +15,8 @@ use core::cmp::Ordering;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+use sp_runtime::RuntimeAppPublic;
+
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160};
@@ -22,8 +24,10 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto},
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult,
+    ApplyExtrinsicResult, WeakBoundedVec,
 };
+
+use pallet_eth_bridge::Author;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -50,9 +54,15 @@ use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
+use sp_core::sr25519::Public;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+
+use sp_avn_common::{
+    bounds::MaximumValidatorsBound,
+    event_types::Validator,
+};
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
@@ -943,9 +953,14 @@ impl_runtime_apis! {
     }
 
     impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
-        fn query_current_author() -> Option<AccountId>{
-            Avn::get_validator_for_current_node()
-                .map(|validator| validator.account_id)
+        fn query_author_signing_keys() ->Option<Vec<[u8; 32]>> {
+            let validators = Avn::validators().to_vec();
+            let res = validators.iter().map(|validator| {
+                let mut key: [u8; 32] = Default::default();
+                key.copy_from_slice(&validator.key.to_raw_vec()[0..32]);
+                return Some(key)
+            }).collect();
+            return res
         }
 
         fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
