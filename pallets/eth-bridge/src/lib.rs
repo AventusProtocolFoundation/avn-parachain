@@ -93,10 +93,7 @@ pub mod types;
 mod util;
 use crate::types::*;
 
-pub use call::{
-    create_ethereum_events_proof_data, create_submit_latest_ethereum_block_data,
-    submit_ethereum_events, submit_latest_ethereum_block,
-};
+pub use call::{submit_ethereum_events, submit_latest_ethereum_block};
 
 mod benchmarking;
 #[cfg(test)]
@@ -140,8 +137,8 @@ const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
-const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
-const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
+pub const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
+pub const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -897,7 +894,8 @@ pub mod pallet {
                     },
                 Call::submit_ethereum_events { author, events_partition, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &create_ethereum_events_proof_data::<T>(
+                        &encode_eth_event_submission_data(
+                            &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                             &author.account_id,
                             events_partition,
                         ),
@@ -917,7 +915,8 @@ pub mod pallet {
                     },
                 Call::submit_latest_ethereum_block { author, latest_seen_block, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &create_submit_latest_ethereum_block_data::<T>(
+                        &encode_eth_event_submission_data(
+                            &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
                             &author.account_id,
                             *latest_seen_block,
                         ),
@@ -977,12 +976,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn create_eth_events_proof(
-        account_id: T::AccountId,
-        events_partition: EthereumEventsPartition,
-    ) -> Vec<u8> {
-        create_ethereum_events_proof_data::<T>(&account_id, &events_partition)
-    }
     pub fn signatures() -> Vec<H256> {
         match Self::active_ethereum_range() {
             Some(active_range) => active_range

@@ -76,17 +76,3 @@ fn add_corroboration_proof<T: Config>(
 ) -> Vec<u8> {
     (ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, tx_hash_is_valid, &account_id).encode()
 }
-
-pub fn create_ethereum_events_proof_data<T: Config>(
-    account_id: &T::AccountId,
-    events_partition: &EthereumEventsPartition,
-) -> Vec<u8> {
-    (SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, &account_id, events_partition).encode()
-}
-
-pub fn create_submit_latest_ethereum_block_data<T: Config>(
-    account_id: &T::AccountId,
-    latest_seen_block: u32,
-) -> Vec<u8> {
-    (SUBMIT_LATEST_ETH_BLOCK_CONTEXT, &account_id, latest_seen_block).encode()
-}
