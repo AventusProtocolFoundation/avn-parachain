@@ -120,6 +120,14 @@ impl EthereumEventsFilterTrait for () {
     }
 }
 
+pub fn encode_eth_event_submission_data<AccountId: Encode, Data: Encode>(
+    context: &[u8],
+    account_id: &AccountId,
+    data: Data,
+) -> Vec<u8> {
+    (context, &account_id, data).encode()
+}
+
 pub mod events_helpers {
     use super::*;
     pub extern crate alloc;

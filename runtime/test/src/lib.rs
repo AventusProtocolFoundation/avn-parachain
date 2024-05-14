@@ -70,7 +70,9 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 use pallet_avn_proxy::ProvableProxy;
 use sp_avn_common::{
-    event_discovery::{EthBridgeEventsFilter, EthereumEventsFilterTrait},
+    event_discovery::{
+        EthBlockRange, EthBridgeEventsFilter, EthereumEventsFilterTrait, EthereumEventsPartition,
+    },
     event_types::ValidEvents,
     InnerCallValidator, Proof,
 };
@@ -191,7 +193,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 65,
+    spec_version: 70,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -962,6 +964,50 @@ impl_runtime_apis! {
             TransactionPayment::length_to_fee(length)
         }
     }
+
+    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
+        fn query_current_author() -> Option<AccountId>{
+            Avn::get_validator_for_current_node()
+                .map(|validator| validator.account_id)
+        }
+
+        fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
+            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
+                Some((active_eth_range.range, active_eth_range.partition))
+            } else {
+                None
+            }
+        }
+        fn query_has_author_casted_vote(account_id: AccountId) -> bool{
+           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id) ||
+           pallet_eth_bridge::author_has_submitted_latest_block::<Runtime>(&account_id)
+        }
+
+        fn query_signatures() -> Vec<sp_core::H256> {
+            EthBridge::signatures()
+        }
+
+        fn query_bridge_contract() -> H160 {
+            Avn::get_bridge_contract_address()
+        }
+
+        fn submit_vote(author: AccountId,
+            events_partition: EthereumEventsPartition,
+            signature: sp_core::sr25519::Signature,
+        ) -> Result<(),()>{
+            EthBridge::submit_vote(author, events_partition, signature.into())
+        }
+
+        fn submit_latest_ethereum_block(
+            author: AccountId,
+            latest_seen_block: u32,
+            signature: sp_core::sr25519::Signature
+        ) -> Result<(), ()> {
+            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into())
+        }
+
+    }
+
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
         fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
             ParachainSystem::collect_collation_info(header)
