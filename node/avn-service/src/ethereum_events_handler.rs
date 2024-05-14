@@ -358,13 +358,13 @@ where
     );
 
     let author_public_keys =
-        config.client.runtime_api().query_authors(config.client.info().best_hash)
+        config.client.runtime_api().query_author_signing_keys(config.client.info().best_hash)
         .map_err(|e|{
             log::error!("Error querying authors: {:?}", e);
         })
         .and_then(|opt_keys| match opt_keys {
             Some(keys)=>Ok(keys),
-            None => todo!(),
+            None => Err(()),
         });
 
     let current_node_public_key = match find_author_account_id(author_public_keys, public_keys) {
