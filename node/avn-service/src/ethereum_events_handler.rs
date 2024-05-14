@@ -19,7 +19,7 @@ use sp_avn_common::{
 };
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
-use sp_core::H256 as SpH256;
+use sp_core::{sr25519::Public, H256 as SpH256};
 use sp_keystore::Keystore;
 use sp_runtime::AccountId32;
 use std::{collections::HashMap, marker::PhantomData, time::Instant};
@@ -314,6 +314,21 @@ where
     Err(AppError::GenericError("Failed to initialize web3 after multiple attempts.".to_string()))
 }
 
+fn find_author_account_id<T>(
+    author_public_keys: Result<Vec<[u8; 32]>,T>,
+    keystore_public_keys: Vec<Public>,
+) -> Option<Public> {
+    if let Ok(account_ids) = author_public_keys {
+        let signer_keys: Vec<Public> = account_ids.iter().map(|a|Public::from_raw(*a)).collect();
+        for key in keystore_public_keys {
+            if signer_keys.contains(&key) {
+                return Some(key)
+            }
+        }
+    }
+    None
+}
+
 pub async fn start_eth_event_handler<Block, ClientT>(config: EthEventHandlerConfig<Block, ClientT>)
 where
     Block: BlockT,
@@ -342,36 +357,26 @@ where
             .offchain_transaction_pool(config.client.info().best_hash),
     );
 
-    let author_public_key = match config
-        .client
-        .runtime_api()
-        .query_current_author(config.client.info().best_hash)
-        .map_err(|e| format!("Failed to query current author: {:?}", e))
-    {
-        Ok(Some(key)) => key,
-        Ok(None) => {
-            log::error!("No current author available");
-            return // Exit if no author key is available
-        },
-        Err(e) => {
-            log::error!("{}", e);
-            return // Exit on error
-        },
-    };
+    let author_public_keys =
+        config.client.runtime_api().query_author_signing_keys(config.client.info().best_hash)
+        .map_err(|e|{
+            log::error!("Error querying authors: {:?}", e);
+        })
+        .and_then(|opt_keys| match opt_keys {
+            Some(keys)=>Ok(keys),
+            None => Err(()),
+        });
 
-    let current_public_key = match public_keys
-        .into_iter()
-        .find(|public_key| AccountId32::from(public_key.0) == author_public_key)
-    {
+    let current_node_public_key = match find_author_account_id(author_public_keys, public_keys) {
         Some(key) => key,
         None => {
-            log::error!("Author not found!");
+            log::error!("Author not found");
             return
         },
     };
 
     loop {
-        match query_runtime_and_process(&config, &current_public_key, &events_registry).await {
+        match query_runtime_and_process(&config, &current_node_public_key, &events_registry).await {
             Ok(_) => (),
             Err(e) => log::error!("{}", e),
         }
@@ -381,7 +386,7 @@ where
 
 async fn query_runtime_and_process<Block, ClientT>(
     config: &EthEventHandlerConfig<Block, ClientT>,
-    current_public_key: &sp_core::sr25519::Public,
+    current_node_public_key: &sp_core::sr25519::Public,
     events_registry: &EventRegistry,
 ) -> Result<(), String>
 where
@@ -407,14 +412,14 @@ where
                 &config,
                 range.clone(),
                 *partition_id,
-                &current_public_key,
+                &current_node_public_key,
                 &events_registry,
             )
             .await?;
         },
         // There is no active range, attempt initial range voting.
         None => {
-            submit_latest_ethereum_block(&config, &current_public_key).await?;
+            submit_latest_ethereum_block(&config, &current_node_public_key).await?;
         },
     };
     Ok(())
