@@ -803,4 +803,3 @@ fn self_corroborate_fails() {
         );
     });
 }
-

@@ -15,7 +15,9 @@ use sp_core::{
     ConstU32, ConstU64, H256, U256,
 };
 use sp_runtime::{
-    testing::{TestSignature, TestXt, UintAuthorityId}, traits::{BlakeTwo256, ConvertInto, IdentityLookup}, BuildStorage, DispatchResult, DispatchError, Perbill
+    testing::{TestSignature, TestXt, UintAuthorityId},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    BuildStorage, DispatchError, DispatchResult, Perbill,
 };
 use sp_staking::offence::OffenceError;
 use std::{cell::RefCell, convert::From, sync::Arc};
@@ -48,6 +50,7 @@ pub struct Context {
     pub already_set_eth_tx_hash: H256,
     pub mock_event_partition: EthereumEventsPartition,
     pub bad_mock_event_partition: EthereumEventsPartition,
+    pub second_mock_event_partition: EthereumEventsPartition,
     pub test_signature: TestSignature,
     pub test_signature_two: TestSignature,
     pub test_signature_three: TestSignature,
@@ -181,8 +184,28 @@ pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
 
 pub fn create_mock_event_partition(events: EthEvent) -> EthereumEventsPartition {
     let mut partition: BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit> = BoundedBTreeSet::new();
-    partition.try_insert(DiscoveredEvent { event: events.clone(), block: 2 }).unwrap();
-    EthereumEventsPartition::new(EthBlockRange {start_block: 1, length: 1000}, 0, false, partition)
+    partition
+        .try_insert(DiscoveredEvent { event: events.clone(), block: 2 })
+        .unwrap();
+    EthereumEventsPartition::new(
+        EthBlockRange { start_block: 1, length: 1000 },
+        0,
+        false,
+        partition,
+    )
+}
+
+pub fn create_second_mock_event_partition(events: EthEvent) -> EthereumEventsPartition {
+    let mut partition: BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit> = BoundedBTreeSet::new();
+    partition
+        .try_insert(DiscoveredEvent { event: events.clone(), block: 2 })
+        .unwrap();
+    EthereumEventsPartition::new(
+        EthBlockRange { start_block: 1, length: 1000 },
+        1,
+        false,
+        partition,
+    )
 }
 
 pub fn lower_is_ready_to_be_claimed(lower_id: &u32) -> bool {
@@ -199,14 +222,8 @@ pub fn setup_context() -> Context {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,
     };
-    let author_two = Author::<TestRuntime> {
-        key: UintAuthorityId(22),
-        account_id: 22,
-    };
-    let author_three = Author::<TestRuntime> {
-        key: UintAuthorityId(23),
-        account_id: 23,
-    };
+    let author_two = Author::<TestRuntime> { key: UintAuthorityId(22), account_id: 22 };
+    let author_three = Author::<TestRuntime> { key: UintAuthorityId(23), account_id: 23 };
     let mut confirming_validator_id: u64 = 1;
     if primary_validator_id == confirming_validator_id {
         confirming_validator_id += 1
@@ -223,28 +240,51 @@ pub fn setup_context() -> Context {
     let already_set_eth_tx_hash = H256::from_slice(&[1u8; 32]);
     let confirmation_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
     let finalised_block_vec = Some(hex::encode(10u32.encode()).into());
-    let eth_event_id = EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: eth_tx_hash };
-    let bad_eth_event_id = EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: H256::from_slice(&[6u8; 32])};
+    let eth_event_id =
+        EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: eth_tx_hash };
+    let bad_eth_event_id = EthEventId {
+        signature: ValidEvents::Lifted.signature(),
+        transaction_hash: H256::from_slice(&[6u8; 32]),
+    };
     let bad_eth_event = EthEvent {
         event_id: bad_eth_event_id.clone(),
-        event_data: sp_avn_common::event_types::EventData::LogLifted(
-            LiftedData { token_contract: H160::zero(), sender_address: H160::zero(), receiver_address: H256::zero(), amount: 1, nonce: U256::zero() }
-        )
+        event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
+            token_contract: H160::zero(),
+            sender_address: H160::zero(),
+            receiver_address: H256::zero(),
+            amount: 1,
+            nonce: U256::zero(),
+        }),
     };
-    let mock_event_partition = create_mock_event_partition(
-        EthEvent {
-            event_id: eth_event_id.clone(),
-            event_data: sp_avn_common::event_types::EventData::LogLifted(
-            LiftedData { token_contract: H160::zero(), sender_address: H160::zero(), receiver_address: H256::zero(), amount: 1, nonce: U256::zero() }
-            )
-        });
+    let mock_event_partition = create_mock_event_partition(EthEvent {
+        event_id: eth_event_id.clone(),
+        event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
+            token_contract: H160::zero(),
+            sender_address: H160::zero(),
+            receiver_address: H256::zero(),
+            amount: 1,
+            nonce: U256::zero(),
+        }),
+    });
     let bad_mock_event_partition = create_mock_event_partition(bad_eth_event);
+
+    let second_mock_event_partition = create_second_mock_event_partition(EthEvent {
+        event_id: eth_event_id.clone(),
+        event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
+            token_contract: H160::zero(),
+            sender_address: H160::zero(),
+            receiver_address: H256::zero(),
+            amount: 1,
+            nonce: U256::zero(),
+        }),
+    });
 
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(primary_validator_id)]);
 
     Context {
         eth_tx_hash,
         mock_event_partition,
+        second_mock_event_partition,
         already_set_eth_tx_hash,
         test_signature,
         test_signature_two,

@@ -709,7 +709,9 @@ pub trait ProcessedEventsChecker {
 }
 
 impl ProcessedEventsChecker for () {
-    fn processed_event_exists(_event_id: &EthEventId) -> bool { false }
+    fn processed_event_exists(_event_id: &EthEventId) -> bool {
+        false
+    }
 
     fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }
