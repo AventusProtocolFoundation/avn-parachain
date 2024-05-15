@@ -18,7 +18,7 @@
 use crate::{
     self as token_manager,
     mock::{Balances, RuntimeCall as MockCall, RuntimeEvent, *},
-    Call, *,
+    Balances as TokenManagerBalances, Call, *,
 };
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok};
@@ -116,8 +116,8 @@ fn build_proof(
 }
 
 fn setup(sender: &AccountId, nonce: u64) {
-    <TokenManager as Store>::Balances::insert((NON_AVT_TOKEN_ID, sender), 2 * DEFAULT_AMOUNT);
-    <TokenManager as Store>::Nonces::insert(sender, nonce);
+    TokenManagerBalances::<TestRuntime>::insert((NON_AVT_TOKEN_ID, sender), 2 * DEFAULT_AMOUNT);
+    Nonces::<TestRuntime>::insert(sender, nonce);
 }
 
 fn default_setup() {
@@ -229,7 +229,7 @@ mod proxy_signed_lower {
 
                 setup(&sender, NON_ZERO_NONCE);
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     2 * DEFAULT_AMOUNT
                 );
 
@@ -251,7 +251,7 @@ mod proxy_signed_lower {
                 fast_forward_to_block(get_expected_execution_block());
 
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     DEFAULT_AMOUNT
                 );
             });
@@ -332,7 +332,7 @@ mod proxy_signed_lower {
             fast_forward_to_block(get_expected_execution_block());
 
             assert_eq!(
-                <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                 DEFAULT_AMOUNT
             );
 
@@ -682,7 +682,7 @@ mod signed_lower {
                 let (_, sender, _, _, t1_recipient) = Context::default();
                 setup(&sender, NON_ZERO_NONCE);
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     2 * DEFAULT_AMOUNT
                 );
 
@@ -701,7 +701,7 @@ mod signed_lower {
                 fast_forward_to_block(get_expected_execution_block());
 
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     DEFAULT_AMOUNT
                 );
             });
@@ -805,7 +805,7 @@ mod fees {
                 assert_eq!(Balances::free_balance(relayer), AMOUNT_100_TOKEN);
                 assert_eq!(Balances::free_balance(sender), 0);
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     2 * DEFAULT_AMOUNT
                 );
 
@@ -851,7 +851,7 @@ mod fees {
                 assert_eq!(Balances::free_balance(relayer), AMOUNT_100_TOKEN - fee);
                 assert_eq!(Balances::free_balance(sender), 0);
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     DEFAULT_AMOUNT
                 );
             });
@@ -880,7 +880,7 @@ mod fees {
 
                 assert_eq!(Balances::free_balance(sender), AMOUNT_100_TOKEN);
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     2 * DEFAULT_AMOUNT
                 );
                 assert_eq!(System::events().len(), 0);
@@ -910,7 +910,7 @@ mod fees {
                 assert_eq!(System::events().len(), 6);
                 assert_eq!(Balances::free_balance(sender), AMOUNT_100_TOKEN - fee);
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     DEFAULT_AMOUNT
                 );
                 assert!(System::events().iter().any(|a| a.event ==
@@ -942,7 +942,7 @@ mod fees {
 
                 assert_eq!(Balances::free_balance(relayer), 0);
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     2 * DEFAULT_AMOUNT
                 );
 
@@ -983,7 +983,7 @@ mod fees {
 
                 assert_eq!(Balances::free_balance(sender), 0);
                 assert_eq!(
-                    <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+                    TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
                     2 * DEFAULT_AMOUNT
                 );
 
@@ -1043,10 +1043,10 @@ mod wrapped_signature_verification {
                 .unwrap();
 
                 // Make user has some amount to lower
-                <TokenManager as Store>::Balances::insert((token, sender), 2 * amount);
-                <TokenManager as Store>::Nonces::insert(sender, nonce);
+                TokenManagerBalances::<TestRuntime>::insert((token, sender), 2 * amount);
+                Nonces::<TestRuntime>::insert(sender, nonce);
 
-                assert_eq!(<TokenManager as Store>::Balances::get((token, sender)), 2 * amount);
+                assert_eq!(TokenManagerBalances::<TestRuntime>::get((token, sender)), 2 * amount);
 
                 let context = SIGNED_LOWER_CONTEXT;
                 let data_to_sign = (context, relayer, sender, token, amount, t1_recipient, nonce);
@@ -1075,7 +1075,7 @@ mod wrapped_signature_verification {
                 // move a few blocks to trigger the execution
                 fast_forward_to_block(get_expected_execution_block());
 
-                assert_eq!(<TokenManager as Store>::Balances::get((token, sender)), amount);
+                assert_eq!(TokenManagerBalances::<TestRuntime>::get((token, sender)), amount);
             });
         }
     }

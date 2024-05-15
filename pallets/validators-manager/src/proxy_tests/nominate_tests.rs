@@ -29,7 +29,7 @@ mod proxy_signed_nominate {
                 origin: Origin::signed(staker.relayer),
                 staker,
                 targets: genesis_config_initial_validators().to_vec(),
-                amount: <ValidatorManager as Store>::MinUserBond::get(),
+                amount: MinUserBond::<TestRuntime>::get(),
             }
         }
     }
@@ -146,7 +146,7 @@ mod proxy_signed_nominate {
             assert_eq_error_rate!(new_exposure.own, VALIDATOR_STAKE, 1000);
             assert_eq_error_rate!(
                 sum_staker_exposure(era_index, *stash_account_id),
-                <ValidatorManager as Store>::MinUserBond::get(),
+                MinUserBond::<TestRuntime>::get(),
                 2000
             );
         });
@@ -205,7 +205,7 @@ mod proxy_signed_nominate {
                 let nominate_call = context.create_call_for_nominate(nonce);
 
                 // Increased the minimum user bond, so the previously bonded amount is not valid to nominate anymore
-                <<ValidatorManager as Store>::MinUserBond>::put(
+                <MinUserBond::<TestRuntime>>::put(
                     ValidatorManager::min_user_bond() + 1,
                 );
 

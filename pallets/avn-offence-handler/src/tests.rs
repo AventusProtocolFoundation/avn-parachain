@@ -205,7 +205,7 @@ mod on_offence {
                 );
                 assert_eq!(
                     true,
-                    <AvnOffenceHandler as Store>::ReportedOffenders::contains_key(
+                    ReportedOffenders::<TestRuntime>::contains_key(
                         &VALIDATOR_ID_CAN_CAUSE_SLASH_ERROR
                     )
                 );
@@ -245,7 +245,7 @@ mod on_offence {
                 );
                 assert_eq!(
                     true,
-                    <AvnOffenceHandler as Store>::ReportedOffenders::contains_key(
+                    ReportedOffenders::<TestRuntime>::contains_key(
                         &VALIDATOR_ID_CAN_CAUSE_SLASH_ERROR
                     )
                 );

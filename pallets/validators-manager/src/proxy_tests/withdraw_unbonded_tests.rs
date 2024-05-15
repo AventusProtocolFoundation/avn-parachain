@@ -30,8 +30,8 @@ mod proxy_signed_withdraw_unbonded {
             WithdrawUnbondedContext {
                 origin: Origin::signed(staker.relayer),
                 staker,
-                bond_value: <ValidatorManager as Store>::MinUserBond::get() * 2,
-                unbonded_value: <ValidatorManager as Store>::MinUserBond::get(),
+                bond_value: MinUserBond::<TestRuntime>::get() * 2,
+                unbonded_value: MinUserBond::<TestRuntime>::get(),
                 num_slashing_spans: 1,
             }
         }

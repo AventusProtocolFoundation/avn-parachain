@@ -23,12 +23,7 @@ use alloc::{
 
 use codec::{Decode, Encode};
 use core::convert::TryInto;
-use frame_support::{
-    dispatch::DispatchResult,
-    log::*,
-    pallet_prelude::{MaxEncodedLen, TypeInfo},
-    traits::OneSessionHandler,
-};
+use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
 use frame_system::{
     ensure_root,
     pallet_prelude::{BlockNumberFor, OriginFor},

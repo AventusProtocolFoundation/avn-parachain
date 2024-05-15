@@ -1,7 +1,7 @@
 #![cfg(test)]
 use crate::{
     mock::{RuntimeEvent, *},
-    *,
+    Balances as TokenManagerBalances, *,
 };
 use frame_support::assert_ok;
 
@@ -41,7 +41,7 @@ fn lower_proof_generation_works() {
 
     ext.execute_with(|| {
         let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = pre_lower_balance;
 
         let expected_lower_id = 0;
@@ -81,7 +81,7 @@ fn failed_lower_proofs_are_handled() {
 
     ext.execute_with(|| {
         let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = pre_lower_balance;
 
         let expected_lower_id = 0;
@@ -117,7 +117,7 @@ fn unknown_caller_id_is_ignored() {
 
     ext.execute_with(|| {
         let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = pre_lower_balance;
 
         let expected_lower_id = 0;
@@ -145,7 +145,7 @@ fn unknown_lower_id_is_ignored() {
 
     ext.execute_with(|| {
         let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = pre_lower_balance;
 
         let expected_lower_id = 0;
@@ -173,7 +173,7 @@ fn successfull_proof_can_be_regenerated() {
 
     ext.execute_with(|| {
         let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = pre_lower_balance;
 
         let expected_lower_id = 0;
@@ -217,7 +217,7 @@ fn failed_proof_can_be_regenerated() {
 
     ext.execute_with(|| {
         let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = pre_lower_balance;
 
         let expected_lower_id = 0;

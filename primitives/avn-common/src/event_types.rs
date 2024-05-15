@@ -2,11 +2,7 @@ use crate::bounds::NftExternalRefBound;
 use codec::{Decode, Encode, MaxEncodedLen};
 use hex_literal::hex;
 use sp_core::{bounded::BoundedVec, H160, H256, H512, U256};
-use sp_runtime::{
-    scale_info::TypeInfo,
-    traits::{Member, Zero},
-    DispatchResult,
-};
+use sp_runtime::{scale_info::TypeInfo, traits::Member, DispatchResult};
 use sp_std::{convert::TryInto, vec::Vec};
 
 // ================================= Events Types ====================================

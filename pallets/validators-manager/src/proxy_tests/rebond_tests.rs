@@ -29,9 +29,9 @@ mod proxy_signed_rebond {
             RebondContext {
                 origin: Origin::signed(staker.relayer),
                 staker,
-                bond_value: <ValidatorManager as Store>::MinUserBond::get() * 2,
-                unbond_value: <ValidatorManager as Store>::MinUserBond::get(),
-                rebond_value: <ValidatorManager as Store>::MinUserBond::get(),
+                bond_value: MinUserBond::<TestRuntime>::get() * 2,
+                unbond_value: MinUserBond::<TestRuntime>::get(),
+                rebond_value: MinUserBond::<TestRuntime>::get(),
             }
         }
     }

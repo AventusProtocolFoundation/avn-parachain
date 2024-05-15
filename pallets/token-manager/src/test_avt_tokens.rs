@@ -17,7 +17,7 @@
 #![cfg(test)]
 use crate::{
     mock::{Balances, RuntimeEvent, *},
-    *,
+    Balances as TokenManagerBalances, *,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
 use hex_literal::hex;
@@ -57,7 +57,7 @@ fn schedule_lower(
 
 fn perform_lower_setup(lower_id: u32) {
     let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
-    let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+    let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
     let amount = pre_lower_balance;
 
     let expected_lower_id = lower_id;

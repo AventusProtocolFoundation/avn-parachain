@@ -906,7 +906,7 @@ pub mod record_summary_calculation {
 
                 assert!(record_summary_calculation_is_ok(&context));
 
-                assert!(<Summary as Store>::PendingApproval::contains_key(context.root_id.range));
+                assert!(PendingApproval::<TestRuntime>::contains_key(context.root_id.range));
             });
         }
 
@@ -1365,7 +1365,7 @@ mod if_process_summary_is_called_a_second_time {
         vote_and_end_summary(context, true);
 
         assert!(Summary::get_root_data(&context.root_id).is_validated);
-        assert!(!<Summary as Store>::PendingApproval::contains_key(&context.root_id.range));
+        assert!(!PendingApproval::<TestRuntime>::contains_key(&context.root_id.range));
         assert_eq!(
             Summary::get_next_block_to_process(),
             context.next_block_to_process + Summary::schedule_period()
@@ -1384,7 +1384,7 @@ mod if_process_summary_is_called_a_second_time {
         vote_and_end_summary(context, false);
 
         assert!(!Summary::get_root_data(&context.root_id).is_validated);
-        assert!(!<Summary as Store>::PendingApproval::contains_key(&context.root_id.range));
+        assert!(!PendingApproval::<TestRuntime>::contains_key(&context.root_id.range));
         assert_eq!(Summary::get_next_block_to_process(), context.next_block_to_process);
         assert_eq!(Summary::last_summary_slot(), previous_summary_slot_before_voting);
 
