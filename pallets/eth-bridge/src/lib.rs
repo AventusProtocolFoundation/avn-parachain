@@ -223,8 +223,11 @@ pub mod pallet {
                 BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
             caller_id: BoundedVec<u8, CallerIdLimit>,
         },
-        /// EventProcessed(bool, EthEventId)
-        EventProcessed {
+        EventProcessingAccepted {
+            accepted: bool,
+            eth_event_id: EthEventId,
+        },
+        EventProcessingRejected {
             accepted: bool,
             eth_event_id: EthEventId,
         },
@@ -829,7 +832,6 @@ pub mod pallet {
         }
     }
 
-    // TODO: re-add the `Accepted and Rejected events
     fn process_ethereum_event<T: Config>(event: &EthEvent) {
         if T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()) {
             log::error!("💔 Event already processed, duplicate event");
@@ -841,16 +843,22 @@ pub mod pallet {
             let mut event_accepted = false;
 
             match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
-                Ok(_) => event_accepted = true,
+                Ok(_) => {
+                    event_accepted = true;
+                    <Pallet<T>>::deposit_event(Event::<T>::EventProcessingAccepted {
+                        accepted: event_accepted,
+                        eth_event_id: event.event_id.clone(),
+                    });
+                }
                 Err(err) => {
                     log::error!("💔 Processing ethereum event failed: {:?}", err);
+                    <Pallet<T>>::deposit_event(Event::<T>::EventProcessingRejected {
+                        accepted: event_accepted,
+                        eth_event_id: event.event_id.clone(),
+                    });
                 },
             };
 
-            <Pallet<T>>::deposit_event(Event::<T>::EventProcessed {
-                accepted: event_accepted,
-                eth_event_id: event.event_id.clone(),
-            });
             // Add record of succesful processing via ProcessedEventsChecker
             T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), event_accepted);
         }

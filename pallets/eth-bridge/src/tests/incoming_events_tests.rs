@@ -64,7 +64,7 @@ mod process_events {
             ));
 
             assert!(System::events().iter().any(|record| record.event ==
-                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessed {
+                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessingAccepted {
                     accepted: true,
                     eth_event_id: context.eth_event_id.clone(),
                 })));
@@ -92,7 +92,7 @@ mod process_events {
             ));
 
             assert!(System::events().iter().any(|record| record.event ==
-                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessed {
+                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessingRejected {
                     accepted: false,
                     eth_event_id: context.bad_eth_event_id.clone(),
                 })));
