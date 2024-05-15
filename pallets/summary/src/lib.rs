@@ -47,7 +47,6 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
 use sp_staking::offence::ReportOffence;
 
-pub mod migration;
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
 
@@ -258,8 +257,6 @@ pub mod pallet {
     #[pallet::getter(fn current_slot)]
     pub type CurrentSlot<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-    // TODO: [STATE MIGRATION] - this storage item was changed from returning a default value to
-    // returning an option
     #[pallet::storage]
     #[pallet::getter(fn slot_validator)]
     pub type CurrentSlotsValidator<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
@@ -268,8 +265,6 @@ pub mod pallet {
     #[pallet::getter(fn last_summary_slot)]
     pub type SlotOfLastPublishedSummary<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-    // TODO: [STATE MIGRATION] - this storage item was changed to make RootData.added_by an
-    // Option<AccountID> instead of AccountId
     #[pallet::storage]
     pub type Roots<T: Config> = StorageDoubleMap<
         _,

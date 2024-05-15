@@ -153,11 +153,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
-        pallet_validators_manager::migration::RemovePalletVoting<Runtime>,
-        pallet_summary::migration::MigrateSummaryRootData<Runtime>,
-    ),
+    (),
 >;
 
 impl_opaque_keys! {

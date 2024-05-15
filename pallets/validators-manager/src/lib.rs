@@ -14,7 +14,10 @@ use alloc::string::String;
 
 pub type EthereumTransactionId = u32;
 
-use frame_support::{dispatch::DispatchResult, ensure, log, traits::Get, transactional};
+use frame_support::{
+    dispatch::DispatchResult, ensure, log, pallet_prelude::StorageVersion, traits::Get,
+    transactional,
+};
 use frame_system::{offchain::SendTransactionTypes, RawOrigin};
 use pallet_session::{self as session, Config as SessionConfig};
 use sp_runtime::{
@@ -53,7 +56,7 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::generate_store(pub (super) trait Store)]
-    #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(PhantomData<T>);
 
     #[pallet::config]
@@ -174,7 +177,7 @@ pub mod pallet {
             }
 
             // Set storage version
-            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
+            STORAGE_VERSION.put::<Pallet<T>>();
             log::debug!(
                 "Validators manager storage chain/current storage version: {:?} / {:?}",
                 Pallet::<T>::on_chain_storage_version(),
@@ -365,7 +368,7 @@ mod benchmarking;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
-pub mod migration;
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 // TODO [TYPE: review][PRI: medium]: if needed, make this the default value to a configurable
 // option. See MinimumValidatorCount in Staking pallet as a reference

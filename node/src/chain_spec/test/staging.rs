@@ -46,9 +46,9 @@ pub fn avn_garde_staging_config() -> ChainSpec {
                 // SUDO account
                 get_account_id_from_seed::<sr25519::Public>("avn-sudo"),
                 // AVT contract
-                H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730")),
+                H160(hex!("a8303c24215F13f69736e445A5C5E2b9d85418DE")),
                 // AVN contract
-                H160(hex!("d6C9731A8DCAf6d09076218584c0ab9A2F44485C")),
+                H160(hex!("41FEed205211095Bdb81655A469A7a2D733Be2B9")),
                 vec![],
                 avn_garde_ethereum_public_keys(),
                 vec![],

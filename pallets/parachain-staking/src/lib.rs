@@ -50,7 +50,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod calls;
-pub mod migration;
 mod nomination_requests;
 pub mod proxy_methods;
 pub mod session_handler;
@@ -104,7 +103,6 @@ pub use types::*;
 pub type AVN<T> = pallet_avn::Pallet<T>;
 pub const PALLET_ID: &'static [u8; 17] = b"parachain_staking";
 pub const MAX_OFFENDERS: u32 = 2;
-
 #[pallet]
 pub mod pallet {
     #[cfg(not(feature = "std"))]
@@ -152,10 +150,11 @@ pub mod pallet {
         Perbill,
     };
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
+    pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
     /// Pallet for parachain staking
     #[pallet::pallet]
-    #[pallet::storage_version(crate::migration::STORAGE_VERSION)]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(PhantomData<T>);
 
     pub type EraIndex = u32;
@@ -790,7 +789,7 @@ pub mod pallet {
             });
 
             // Set storage version
-            crate::migration::STORAGE_VERSION.put::<Pallet<T>>();
+            STORAGE_VERSION.put::<Pallet<T>>();
             log::debug!(
                 "Staking storage chain/current storage version: {:?} / {:?}",
                 Pallet::<T>::on_chain_storage_version(),
