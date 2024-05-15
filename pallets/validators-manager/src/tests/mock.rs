@@ -128,7 +128,7 @@ use pallet_session as session;
 
 impl ValidatorManager {
     pub fn insert_validators_action_data(action_id: &ActionId<AccountId>) {
-        <<ValidatorManager as Store>::ValidatorActions>::insert(
+        <ValidatorActions<TestRuntime>>::insert(
             action_id.action_account_id,
             action_id.ingress_counter,
             ValidatorsActionData::new(
@@ -357,10 +357,10 @@ impl ProcessedEventsChecker for TestRuntime {
 // signatures
 impl EthereumPublicKeyChecker<AccountId> for TestRuntime {
     fn get_validator_for_eth_public_key(eth_public_key: &ecdsa::Public) -> Option<AccountId> {
-        if !<ValidatorManager as Store>::EthereumPublicKeys::contains_key(eth_public_key) {
+        if !EthereumPublicKeys::<TestRuntime>::contains_key(eth_public_key) {
             return None
         }
-        return Some(<ValidatorManager as Store>::EthereumPublicKeys::get(eth_public_key).unwrap())
+        return Some(EthereumPublicKeys::<TestRuntime>::get(eth_public_key).unwrap())
     }
 }
 

@@ -30,7 +30,7 @@ mod proxy_signed_set_payee {
                 origin: Origin::signed(staker.relayer),
                 staker,
                 new_payee,
-                value: <ValidatorManager as Store>::MinUserBond::get(),
+                value: MinUserBond::<TestRuntime>::get(),
             }
         }
     }

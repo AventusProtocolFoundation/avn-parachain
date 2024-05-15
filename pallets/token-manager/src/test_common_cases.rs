@@ -17,7 +17,7 @@
 #![cfg(test)]
 use crate::{
     mock::{Balances, RuntimeEvent, *},
-    *,
+    Balances as TokenManagerBalances, *,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -36,7 +36,7 @@ fn avn_test_lift_ignored_when_event_type_does_not_match() {
 
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), 0);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),
@@ -47,7 +47,7 @@ fn avn_test_lift_ignored_when_event_type_does_not_match() {
 
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), 0);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),
@@ -81,7 +81,7 @@ fn avn_test_lift_zero_amount_should_fail() {
         insert_to_mock_processed_events(&mock_event.event_id);
 
         let avt_token_balance_before = Balances::free_balance(mock_data.receiver_account_id);
-        let non_avt_token_balance_before = <TokenManager as Store>::Balances::get((
+        let non_avt_token_balance_before = TokenManagerBalances::<TestRuntime>::get((
             NON_AVT_TOKEN_ID,
             mock_data.receiver_account_id,
         ));
@@ -92,7 +92,7 @@ fn avn_test_lift_zero_amount_should_fail() {
         );
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), avt_token_balance_before);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),
@@ -125,7 +125,7 @@ fn avn_test_lift_should_fail_when_event_is_not_in_processed_events() {
         let mock_event = &mock_data.avt_token_lift_event;
 
         let avt_token_balance_before = Balances::free_balance(mock_data.receiver_account_id);
-        let non_avt_token_balance_before = <TokenManager as Store>::Balances::get((
+        let non_avt_token_balance_before = TokenManagerBalances::<TestRuntime>::get((
             NON_AVT_TOKEN_ID,
             mock_data.receiver_account_id,
         ));
@@ -136,7 +136,7 @@ fn avn_test_lift_should_fail_when_event_is_not_in_processed_events() {
         );
         assert_eq!(Balances::free_balance(mock_data.receiver_account_id), avt_token_balance_before);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),

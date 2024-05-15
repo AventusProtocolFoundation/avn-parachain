@@ -22,7 +22,6 @@ use crate::{
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
-use pallet_balances::Error as BalancesError;
 use sp_avn_common::event_types::{EthEventId, ValidEvents};
 use sp_runtime::{DispatchError, Perbill};
 

@@ -18,10 +18,10 @@
 use crate::{
     self as token_manager,
     mock::{Balances, RuntimeEvent, *},
-    *,
+    Balances as TokenManagerBalances, *,
 };
 use codec::Encode;
-use frame_support::{assert_err, assert_noop, assert_ok, traits::fungible::Unbalanced};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_parachain_staking::Weight;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use sp_core::{sr25519, Pair};
@@ -109,8 +109,8 @@ fn build_proof(
 }
 
 fn setup(sender: &AccountId, nonce: u64) {
-    <TokenManager as Store>::Balances::insert((NON_AVT_TOKEN_ID, sender), 2 * DEFAULT_AMOUNT);
-    <TokenManager as Store>::Nonces::insert(sender, nonce);
+    TokenManagerBalances::<TestRuntime>::insert((NON_AVT_TOKEN_ID, sender), 2 * DEFAULT_AMOUNT);
+    Nonces::<TestRuntime>::insert(sender, nonce);
 }
 
 fn default_setup() {
@@ -216,11 +216,11 @@ fn avn_test_proxy_signed_transfer_succeeds() {
         assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call));
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             DEFAULT_AMOUNT
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient)),
             DEFAULT_AMOUNT
         );
 
@@ -292,7 +292,7 @@ fn avt_proxy_signed_transfer_succeeds() {
         assert_eq!(recipient_init_avt_balance + DEFAULT_AMOUNT, Balances::free_balance(recipient));
 
         // Check that the token manager nonce increases
-        assert_eq!(NON_ZERO_NONCE + 1, <TokenManager as Store>::Nonces::get(sender));
+        assert_eq!(NON_ZERO_NONCE + 1, Nonces::<TestRuntime>::get(sender));
 
         // Check for events
         assert!(System::events().iter().any(|a| a.event ==
@@ -334,11 +334,11 @@ fn avn_test_direct_signed_transfer_succeeds() {
         ));
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             DEFAULT_AMOUNT
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient)),
             DEFAULT_AMOUNT
         );
         assert!(System::events().iter().any(|a| a.event ==
@@ -393,7 +393,7 @@ fn avt_direct_signed_transfer_succeeds() {
         assert_eq!(recipient_init_avt_balance + DEFAULT_AMOUNT, Balances::free_balance(recipient));
 
         // Check that the token manager nonce increases
-        assert_eq!(NON_ZERO_NONCE + 1, <TokenManager as Store>::Nonces::get(sender));
+        assert_eq!(NON_ZERO_NONCE + 1, Nonces::<TestRuntime>::get(sender));
 
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Transfer {
@@ -430,11 +430,11 @@ fn avn_test_proxy_signed_transfer_succeeds_with_nonce_zero() {
         assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call));
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             DEFAULT_AMOUNT
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient)),
             DEFAULT_AMOUNT
         );
 
@@ -904,10 +904,10 @@ fn avn_test_proxy_gas_costs_paid_correctly() {
         assert_eq!(Balances::free_balance(sender), 0);
         assert_eq!(Balances::free_balance(recipient), 0);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             2 * DEFAULT_AMOUNT
         );
-        assert_eq!(<TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)), 0);
+        assert_eq!(TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient)), 0);
 
         // Prepare the calls
         let inner_call = Box::new(mock::RuntimeCall::TokenManager(
@@ -947,11 +947,11 @@ fn avn_test_proxy_gas_costs_paid_correctly() {
         assert_eq!(Balances::free_balance(sender), 0);
         assert_eq!(Balances::free_balance(recipient), 0);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             DEFAULT_AMOUNT
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient)),
             DEFAULT_AMOUNT
         );
     });
@@ -980,10 +980,10 @@ fn avn_test_regular_call_gas_costs_paid_correctly() {
 
         assert_eq!(Balances::free_balance(sender), AMOUNT_100_TOKEN);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             2 * DEFAULT_AMOUNT
         );
-        assert_eq!(<TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)), 0);
+        assert_eq!(TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient)), 0);
         assert_eq!(System::events().len(), 0);
 
         let call = &mock::RuntimeCall::TokenManager(token_manager::Call::signed_transfer {
@@ -1006,11 +1006,11 @@ fn avn_test_regular_call_gas_costs_paid_correctly() {
         assert_eq!(System::events().len(), 2);
         assert_eq!(Balances::free_balance(sender), AMOUNT_100_TOKEN - fee);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             DEFAULT_AMOUNT
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient)),
             DEFAULT_AMOUNT
         );
         assert!(System::events().iter().any(|a| a.event ==
@@ -1038,7 +1038,7 @@ fn avn_test_proxy_insufficient_avt() {
 
         assert_eq!(Balances::free_balance(relayer), 0);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             2 * DEFAULT_AMOUNT
         );
 
@@ -1080,10 +1080,10 @@ fn avn_test_regular_insufficient_avt() {
 
         assert_eq!(Balances::free_balance(sender), 0);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender)),
             2 * DEFAULT_AMOUNT
         );
-        assert_eq!(<TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient)), 0);
+        assert_eq!(TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient)), 0);
 
         let call = &mock::RuntimeCall::TokenManager(token_manager::Call::signed_transfer {
             proof: proof.clone(),

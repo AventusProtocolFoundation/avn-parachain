@@ -29,7 +29,7 @@ mod proxy_signed_unbond {
             UnbondContext {
                 origin: Origin::signed(staker.relayer),
                 staker,
-                value: <ValidatorManager as Store>::MinUserBond::get(),
+                value: MinUserBond::<TestRuntime>::get(),
             }
         }
     }

@@ -94,7 +94,7 @@ mod register_validator {
     // TODO move MockData here and rename to Context
 
     fn run_preconditions(context: &MockData) {
-        assert_eq!(0, <ValidatorManager as Store>::ValidatorActions::iter().count());
+        assert_eq!(0, ValidatorActions::<TestRuntime>::iter().count());
         let validator_account_ids =
             ValidatorManager::validator_account_ids().expect("Should contain validators");
         assert_eq!(false, validator_account_ids.contains(&context.new_validator_id));
@@ -106,13 +106,11 @@ mod register_validator {
     }
 
     fn find_validator_activation_action(data: &MockData, status: ValidatorsActionStatus) -> bool {
-        return <ValidatorManager as Store>::ValidatorActions::iter().any(
-            |(account_id, _ingress, action_data)| {
-                action_data.status == status &&
-                    action_data.action_type == ValidatorsActionType::Activation &&
-                    account_id == data.new_validator_id
-            },
-        )
+        return ValidatorActions::<TestRuntime>::iter().any(|(account_id, _ingress, action_data)| {
+            action_data.status == status &&
+                action_data.action_type == ValidatorsActionType::Activation &&
+                account_id == data.new_validator_id
+        })
     }
 
     mod succeeds {
@@ -562,7 +560,7 @@ mod add_validator {
                 let context = &AddValidatorContext::default();
 
                 set_session_keys(&context.collator);
-                <<ValidatorManager as Store>::EthereumPublicKeys>::insert(
+                <EthereumPublicKeys<TestRuntime>>::insert(
                     context.collator_eth_public_key.clone(),
                     context.collator,
                 );
@@ -581,9 +579,7 @@ mod add_validator {
                 let context = &AddValidatorContext::default();
 
                 set_session_keys(&context.collator);
-                assert_ok!(<<ValidatorManager as Store>::ValidatorAccountIds>::try_append(
-                    &context.collator
-                ));
+                assert_ok!(<ValidatorAccountIds::<TestRuntime>>::try_append(&context.collator));
 
                 assert_noop!(
                     register_validator(&context.collator, &context.collator_eth_public_key),

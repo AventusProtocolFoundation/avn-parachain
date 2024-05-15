@@ -9,7 +9,7 @@ use pallet_nft_manager::nft_data::Royalty;
 use sp_core::{sr25519, ConstU32, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    testing::{Header, UintAuthorityId},
+    testing::UintAuthorityId,
     traits::{BlakeTwo256, IdentityLookup, Verify},
     BuildStorage,
 };

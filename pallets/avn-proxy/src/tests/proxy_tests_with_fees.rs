@@ -3,7 +3,6 @@
 #![cfg(test)]
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok};
-use pallet_balances::Error as BalanceError;
 use sp_runtime::traits::Hash;
 
 pub const GATEWAY_FEE: u128 = ONE_AVT;
