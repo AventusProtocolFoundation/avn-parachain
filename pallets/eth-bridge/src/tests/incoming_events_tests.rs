@@ -64,8 +64,7 @@ mod process_events {
             ));
 
             assert!(System::events().iter().any(|record| record.event ==
-                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessingAccepted {
-                    accepted: true,
+                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventAccepted {
                     eth_event_id: context.eth_event_id.clone(),
                 })));
         });
@@ -92,8 +91,7 @@ mod process_events {
             ));
 
             assert!(System::events().iter().any(|record| record.event ==
-                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventProcessingRejected {
-                    accepted: false,
+                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventRejected {
                     eth_event_id: context.bad_eth_event_id.clone(),
                 })));
         });
@@ -126,18 +124,15 @@ mod process_events {
                 context.second_mock_event_partition.clone(),
                 context.test_signature.clone()
             ));
-            assert_ok!(EthBridge::submit_ethereum_events(
-                RuntimeOrigin::none(),
-                context.author_two.clone(),
-                context.second_mock_event_partition.clone(),
-                context.test_signature_two.clone()
-            ));
-            assert!(System::events().iter().any(|record| record.event ==
-                mock::RuntimeEvent::EthBridge(
-                    Event::<TestRuntime>::DuplicateEventSubmission {
-                        eth_event_id: context.eth_event_id.clone(),
-                    }
-                )));
+            assert_noop!(
+                EthBridge::submit_ethereum_events(
+                    RuntimeOrigin::none(),
+                    context.author_two.clone(),
+                    context.second_mock_event_partition.clone(),
+                    context.test_signature_two.clone()
+                ),
+                Error::<TestRuntime>::EventAlreadyProcessed
+            );
         });
     }
 }
