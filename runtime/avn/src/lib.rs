@@ -52,17 +52,14 @@ pub use frame_system::{
 use governance::pallet_custom_origins;
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::sr25519::Public;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
-use sp_core::sr25519::Public;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
-use sp_avn_common::{
-    bounds::MaximumValidatorsBound,
-    event_types::Validator,
-};
+use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::Validator};
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
@@ -989,16 +986,16 @@ impl_runtime_apis! {
         fn submit_vote(author: AccountId,
             events_partition: EthereumEventsPartition,
             signature: sp_core::sr25519::Signature,
-        ) -> Result<(),()>{
-            EthBridge::submit_vote(author, events_partition, signature.into())
+        ) -> Option<()>{
+            EthBridge::submit_vote(author, events_partition, signature.into()).ok()
         }
 
         fn submit_latest_ethereum_block(
             author: AccountId,
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
-        ) -> Result<(), ()> {
-            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into())
+        ) -> Option<()>{
+            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
     }
