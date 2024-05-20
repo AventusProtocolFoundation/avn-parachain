@@ -1004,16 +1004,16 @@ impl_runtime_apis! {
         fn submit_vote(author: AccountId,
             events_partition: EthereumEventsPartition,
             signature: sp_core::sr25519::Signature,
-        ) -> Result<(),()>{
-            EthBridge::submit_vote(author, events_partition, signature.into())
+        ) -> Option<()>{
+            EthBridge::submit_vote(author, events_partition, signature.into()).ok()
         }
 
         fn submit_latest_ethereum_block(
             author: AccountId,
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
-        ) -> Result<(), ()> {
-            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into())
+        ) -> Option<()>{
+            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
     }
