@@ -393,6 +393,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // verify that the incoming (unverified) pubkey is actually a validator
         if !Self::is_validator(&validator.account_id) {
+            warn!("Signature validation failed, account {:?}, is not validator", validator);
             return false
         }
 
@@ -400,6 +401,13 @@ impl<T: Config> Pallet<T> {
         let signature_valid =
             data.using_encoded(|encoded_data| validator.key.verify(&encoded_data, &signature));
 
+        debug!(
+            "🪲 Validating signature: [ data {:?} - account {:?} - signature {:?} ] Result: {}",
+            data.encode(),
+            validator.encode(),
+            signature,
+            signature_valid
+        );
         return signature_valid
     }
 

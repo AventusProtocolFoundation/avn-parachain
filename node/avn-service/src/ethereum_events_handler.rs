@@ -315,11 +315,11 @@ where
 }
 
 fn find_author_account_id<T>(
-    author_public_keys: Result<Vec<[u8; 32]>,T>,
+    author_public_keys: Result<Vec<[u8; 32]>, T>,
     keystore_public_keys: Vec<Public>,
 ) -> Option<Public> {
     if let Ok(account_ids) = author_public_keys {
-        let signer_keys: Vec<Public> = account_ids.iter().map(|a|Public::from_raw(*a)).collect();
+        let signer_keys: Vec<Public> = account_ids.iter().map(|a| Public::from_raw(*a)).collect();
         for key in keystore_public_keys {
             if signer_keys.contains(&key) {
                 return Some(key)
@@ -351,19 +351,15 @@ where
 
     let public_keys = config.keystore.sr25519_public_keys(AVN_KEY_ID);
 
-    config.client.runtime_api().register_extension(
-        config
-            .offchain_transaction_pool_factory
-            .offchain_transaction_pool(config.client.info().best_hash),
-    );
-
-    let author_public_keys =
-        config.client.runtime_api().query_author_signing_keys(config.client.info().best_hash)
-        .map_err(|e|{
+    let author_public_keys = config
+        .client
+        .runtime_api()
+        .query_author_signing_keys(config.client.info().best_hash)
+        .map_err(|e| {
             log::error!("Error querying authors: {:?}", e);
         })
         .and_then(|opt_keys| match opt_keys {
-            Some(keys)=>Ok(keys),
+            Some(keys) => Ok(keys),
             None => Err(()),
         });
 
@@ -469,9 +465,14 @@ where
             .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
             .ok_or_else(|| "Signature generation failed".to_string())?;
 
-        let result = config
-            .client
-            .runtime_api()
+        let mut runtime_api = config.client.runtime_api();
+        runtime_api.register_extension(
+            config
+                .offchain_transaction_pool_factory
+                .offchain_transaction_pool(config.client.info().best_hash),
+        );
+
+        runtime_api
             .submit_latest_ethereum_block(
                 config.client.info().best_hash,
                 current_public_key.clone().into(),
@@ -479,7 +480,7 @@ where
                 signature,
             )
             .map_err(|err| format!("Failed to submit latest ethereum block vote: {:?}", err))?;
-        log::info!("Vote submitted successfully: {:?}", result);
+        log::info!("Latest ethereum block submitted to pool successfully.");
     }
     Ok(())
 }
@@ -601,9 +602,14 @@ where
         .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
         .ok_or_else(|| "Signature generation failed".to_string())?;
 
-    let result = config
-        .client
-        .runtime_api()
+    let mut runtime_api = config.client.runtime_api();
+    runtime_api.register_extension(
+        config
+            .offchain_transaction_pool_factory
+            .offchain_transaction_pool(config.client.info().best_hash),
+    );
+
+    runtime_api
         .submit_vote(
             config.client.info().best_hash,
             current_public_key.clone().into(),
@@ -612,6 +618,10 @@ where
         )
         .map_err(|err| format!("Failed to submit vote: {:?}", err))?;
 
-    log::info!("Vote submitted successfully: {:?}", result);
+    log::info!(
+        "Vote for partition [{:?}, {}] submitted to pool successfully",
+        partition.range(),
+        partition.id()
+    );
     Ok(())
 }
