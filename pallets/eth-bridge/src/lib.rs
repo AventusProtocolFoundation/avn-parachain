@@ -894,7 +894,7 @@ pub mod pallet {
                     },
                 Call::submit_ethereum_events { author, events_partition, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &encode_eth_event_submission_data(
+                        &(
                             &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                             &author.account_id,
                             events_partition,
@@ -915,11 +915,7 @@ pub mod pallet {
                     },
                 Call::submit_latest_ethereum_block { author, latest_seen_block, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &encode_eth_event_submission_data(
-                            &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
-                            &author.account_id,
-                            *latest_seen_block,
-                        ),
+                        &(&SUBMIT_LATEST_ETH_BLOCK_CONTEXT, &author.account_id, *latest_seen_block),
                         &author,
                         signature,
                     ) {
@@ -928,9 +924,8 @@ pub mod pallet {
                             .priority(TransactionPriority::max_value())
                             .build()
                     } else {
-                        InvalidTransaction::Custom(4u8).into()
+                        InvalidTransaction::Custom(5u8).into()
                     },
-
                 _ => InvalidTransaction::Call.into(),
             }
         }

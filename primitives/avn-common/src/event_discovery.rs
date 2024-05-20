@@ -125,6 +125,12 @@ pub fn encode_eth_event_submission_data<AccountId: Encode, Data: Encode>(
     account_id: &AccountId,
     data: Data,
 ) -> Vec<u8> {
+    log::debug!(
+        "🪲 Encoding submission data: [ context {:?} - account {:?} - data {:?} ]",
+        context,
+        account_id.encode(),
+        &data.encode()
+    );
     (context, &account_id, data).encode()
 }
 
