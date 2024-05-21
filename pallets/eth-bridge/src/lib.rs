@@ -813,7 +813,15 @@ pub mod pallet {
             match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
-                        process_ethereum_event::<T>(&discovered_event.event);
+                        match process_ethereum_event::<T>(&discovered_event.event) {
+                            Ok(_) => {},
+                            Err(_) => {
+                                log::error!("💔 Duplicate Event Submission");
+                                <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
+                                    eth_event_id: discovered_event.event.event_id.clone(),
+                                });
+                            },
+                        }
                     } else {
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
                     },
@@ -833,33 +841,33 @@ pub mod pallet {
         }
     }
 
-    fn process_ethereum_event<T: Config>(event: &EthEvent) { 
-        if false == T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()) {
-            let mut event_accepted = false;
+    fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
+        ensure!(
+            false == T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()),
+            Error::<T>::EventAlreadyProcessed
+        );
 
-            match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
-                Ok(_) => {
-                    event_accepted = true;
-                    <Pallet<T>>::deposit_event(Event::<T>::EventAccepted {
-                        eth_event_id: event.event_id.clone(),
-                    });
-                },
-                Err(err) => {
-                    log::error!("💔 Processing ethereum event failed: {:?}", err);
-                    <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
-                        eth_event_id: event.event_id.clone(),
-                    });
-                },
-            };
+        let mut event_accepted = false;
 
-            // Add record of succesful processing via ProcessedEventsChecker
-            T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), event_accepted);
-        } else {
-            log::error!("💔 Duplicate Event Submission");
-            <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
-                eth_event_id: event.event_id.clone(),
-            });
-        }
+        match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
+            Ok(_) => {
+                event_accepted = true;
+                <Pallet<T>>::deposit_event(Event::<T>::EventAccepted {
+                    eth_event_id: event.event_id.clone(),
+                });
+            },
+            Err(err) => {
+                log::error!("💔 Processing ethereum event failed: {:?}", err);
+                <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                    eth_event_id: event.event_id.clone(),
+                });
+            },
+        };
+
+        // Add record of succesful processing via ProcessedEventsChecker
+        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), event_accepted);
+
+        Ok(())
     }
 
     #[pallet::validate_unsigned]
