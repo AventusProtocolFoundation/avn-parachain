@@ -133,15 +133,13 @@ const SUBMIT_CHECKEVENT_RESULT_CONTEXT: &'static [u8] = b"submit_checkevent_resu
 const CHALLENGE_EVENT_CONTEXT: &'static [u8] = b"challenge_event";
 const PROCESS_EVENT_CONTEXT: &'static [u8] = b"process_event";
 
-const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 10;
-const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 10;
-const MAX_CHALLENGES: u32 = 10;
+const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 500;
+const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 50;
+const MAX_CHALLENGES: u32 = 50;
 
-// Note: these values are different from the constants above as a temporary measure until we
-// retire processing incoming events here.
-pub type MaxUncheckedEvents = ConstU32<10_000u32>;
-pub type MaxEventsPendingChallenges = ConstU32<500u32>;
-pub type MaxChallenges = ConstU32<500u32>;
+pub type MaxUncheckedEvents = ConstU32<MAX_NUMBER_OF_UNCHECKED_EVENTS>;
+pub type MaxEventsPendingChallenges = ConstU32<MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES>;
+pub type MaxChallenges = ConstU32<MAX_CHALLENGES>;
 
 #[frame_support::pallet]
 pub mod pallet {
