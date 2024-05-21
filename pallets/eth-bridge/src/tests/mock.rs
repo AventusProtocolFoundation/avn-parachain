@@ -6,7 +6,7 @@ use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
-use sp_avn_common::event_types::{EthEvent, EthEventId, LiftedData};
+use sp_avn_common::event_types::{EthEvent, EthEventId, LiftedData, ValidEvents};
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},

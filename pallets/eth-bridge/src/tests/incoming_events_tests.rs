@@ -8,7 +8,7 @@ use frame_support::{
 use sp_runtime::{testing::UintAuthorityId, DispatchError};
 pub extern crate alloc;
 use alloc::collections::BTreeSet;
-use sp_avn_common::event_discovery::EthBridgeEventsFilter;
+use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
 
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 const REWARDS: &[u8] = b"15043665996000000000";
