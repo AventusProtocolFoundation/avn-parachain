@@ -124,15 +124,16 @@ mod process_events {
                 context.second_mock_event_partition.clone(),
                 context.test_signature.clone()
             ));
-            assert_noop!(
-                EthBridge::submit_ethereum_events(
-                    RuntimeOrigin::none(),
-                    context.author_two.clone(),
-                    context.second_mock_event_partition.clone(),
-                    context.test_signature_two.clone()
-                ),
-                Error::<TestRuntime>::EventAlreadyProcessed
-            );
+            assert_ok!(EthBridge::submit_ethereum_events(
+                RuntimeOrigin::none(),
+                context.author_two.clone(),
+                context.second_mock_event_partition.clone(),
+                context.test_signature_two.clone()
+            ));
+            assert!(System::events().iter().any(|record| record.event ==
+                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::DuplicateEventSubmission {
+                    eth_event_id: context.eth_event_id.clone(),
+                })));
         });
     }
 }

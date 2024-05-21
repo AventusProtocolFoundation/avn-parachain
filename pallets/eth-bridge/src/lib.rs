@@ -78,7 +78,7 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
     event_discovery::*,
-    event_types::{ValidEvents, Validator},
+    event_types::{Validator},
 };
 use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
@@ -582,7 +582,7 @@ pub mod pallet {
             if votes.len() < AVN::<T>::quorum() as usize {
                 EthereumEvents::<T>::insert(&events_partition, votes);
             } else {
-                process_ethereum_events_partition::<T>(&active_range, &events_partition)?;
+                process_ethereum_events_partition::<T>(&active_range, &events_partition);
                 advance_partition::<T>(&active_range, &events_partition);
             }
 
@@ -806,14 +806,14 @@ pub mod pallet {
     fn process_ethereum_events_partition<T: Config>(
         active_range: &ActiveEthRange,
         partition: &EthereumEventsPartition,
-    ) -> Result<(), DispatchError> {
+    ) {
         // Remove entry from storage. Ignore votes.
         let _ = EthereumEvents::<T>::take(partition);
         for discovered_event in partition.events().iter() {
             match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
-                        process_ethereum_event::<T>(&discovered_event.event)?;
+                        process_ethereum_event::<T>(&discovered_event.event);
                     } else {
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
                     },
@@ -831,37 +831,35 @@ pub mod pallet {
             // TODO raise offences
             log::info!("Collators with invalid votes on ethereum events (range: {:?}, partition: {}): {:?}", partition.range(), partition.partition(), votes);
         }
-
-        Ok(())
     }
 
-    fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
-        ensure!(
-            false == T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()),
-            Error::<T>::EventAlreadyProcessed
-        );
+    fn process_ethereum_event<T: Config>(event: &EthEvent) { 
+        if false == T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()) {
+            let mut event_accepted = false;
 
-        let mut event_accepted = false;
+            match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
+                Ok(_) => {
+                    event_accepted = true;
+                    <Pallet<T>>::deposit_event(Event::<T>::EventAccepted {
+                        eth_event_id: event.event_id.clone(),
+                    });
+                },
+                Err(err) => {
+                    log::error!("💔 Processing ethereum event failed: {:?}", err);
+                    <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                        eth_event_id: event.event_id.clone(),
+                    });
+                },
+            };
 
-        match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
-            Ok(_) => {
-                event_accepted = true;
-                <Pallet<T>>::deposit_event(Event::<T>::EventAccepted {
-                    eth_event_id: event.event_id.clone(),
-                });
-            },
-            Err(err) => {
-                log::error!("💔 Processing ethereum event failed: {:?}", err);
-                <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
-                    eth_event_id: event.event_id.clone(),
-                });
-            },
-        };
-
-        // Add record of succesful processing via ProcessedEventsChecker
-        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), event_accepted);
-
-        Ok(())
+            // Add record of succesful processing via ProcessedEventsChecker
+            T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), event_accepted);
+        } else {
+            log::error!("💔 Duplicate Event Submission");
+            <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
+                eth_event_id: event.event_id.clone(),
+            });
+        }
     }
 
     #[pallet::validate_unsigned]
