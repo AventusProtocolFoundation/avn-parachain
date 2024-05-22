@@ -925,7 +925,7 @@ impl<T: Config> Pallet<T> {
 
         ensure!(data.op_id == nft.nonce, Error::<T>::NftNonceMismatch);
         ensure!(
-            T::ProcessedEventsChecker::check_event(event_id),
+            T::ProcessedEventsChecker::processed_event_exists(event_id),
             Error::<T>::NoTier1EventForNftOperation
         );
 
@@ -977,7 +977,7 @@ impl<T: Config> Pallet<T> {
         ensure!(market == NftSaleType::Ethereum, Error::<T>::NftNotListedForEthereumSale);
         ensure!(data.op_id == nft.nonce, Error::<T>::NftNonceMismatch);
         ensure!(
-            T::ProcessedEventsChecker::check_event(event_id),
+            T::ProcessedEventsChecker::processed_event_exists(event_id),
             Error::<T>::NoTier1EventForNftOperation
         );
 

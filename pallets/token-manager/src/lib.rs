@@ -854,7 +854,7 @@ impl<T: Config> Pallet<T> {
         let recipient_account_id = T::AccountId::decode(&mut data.receiver_address.as_bytes())
             .expect("32 bytes will always decode into an AccountId");
 
-        let event_validity = T::ProcessedEventsChecker::check_event(event_id);
+        let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLifted);
 
         if data.amount == 0 {
@@ -883,7 +883,7 @@ impl<T: Config> Pallet<T> {
 
     fn process_avt_growth_lift(event: &EthEvent, data: &AvtGrowthLiftedData) -> DispatchResult {
         let event_id = &event.event_id;
-        let event_validity = T::ProcessedEventsChecker::check_event(event_id);
+        let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogAvtGrowthLifted);
 
         if data.amount == 0 {
@@ -914,7 +914,7 @@ impl<T: Config> Pallet<T> {
 
     fn process_lower_claim(event: &EthEvent, data: &AvtLowerClaimedData) -> DispatchResult {
         let event_id = &event.event_id;
-        let event_validity = T::ProcessedEventsChecker::check_event(event_id);
+        let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerClaimed);
 
         ensure!(
