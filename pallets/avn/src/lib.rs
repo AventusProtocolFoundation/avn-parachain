@@ -706,13 +706,16 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
 }
 
 pub trait ProcessedEventsChecker {
-    fn check_event(event_id: &EthEventId) -> bool;
+    fn processed_event_exists(event_id: &EthEventId) -> bool;
+    fn add_processed_event(event_id: &EthEventId, accepted: bool);
 }
 
 impl ProcessedEventsChecker for () {
-    fn check_event(_event_id: &EthEventId) -> bool {
-        return false
+    fn processed_event_exists(_event_id: &EthEventId) -> bool {
+        false
     }
+
+    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }
 
 pub trait OnGrowthLiftedHandler<Balance> {
@@ -752,7 +755,7 @@ pub trait BridgeInterfaceNotification {
     fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
         Ok(())
     }
-    fn on_event_processed(_event: &EthEvent) -> DispatchResult {
+    fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
         Ok(())
     }
 }
@@ -773,8 +776,8 @@ impl BridgeInterfaceNotification for Tuple {
         Ok(())
     }
 
-    fn on_event_processed(_event: &EthEvent) -> DispatchResult {
-        for_tuples!( #( Tuple::on_event_processed(_event)?; )* );
+    fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
+        for_tuples!( #( Tuple::on_incoming_event_processed(_event)?; )* );
         Ok(())
     }
 }

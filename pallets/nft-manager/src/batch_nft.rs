@@ -140,7 +140,7 @@ pub fn process_mint_batch_nft_event<T: Config>(
     data: &NftMintData,
 ) -> DispatchResult {
     ensure!(
-        T::ProcessedEventsChecker::check_event(event_id),
+        T::ProcessedEventsChecker::processed_event_exists(event_id),
         Error::<T>::NoTier1EventForNftOperation
     );
     ensure!(
@@ -210,7 +210,7 @@ pub fn process_end_batch_listing_event<T: Config>(
     data: &NftEndBatchListingData,
 ) -> DispatchResult {
     ensure!(
-        T::ProcessedEventsChecker::check_event(event_id),
+        T::ProcessedEventsChecker::processed_event_exists(event_id),
         Error::<T>::NoTier1EventForNftOperation
     );
 
