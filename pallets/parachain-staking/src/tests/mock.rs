@@ -364,6 +364,7 @@ impl pallet_eth_bridge::Config for Test {
     type AccountToBytesConvert = AVN;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
+    type ProcessedEventsChecker = ();
 }
 
 impl pallet_timestamp::Config for Test {
