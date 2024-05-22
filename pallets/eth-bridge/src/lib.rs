@@ -813,14 +813,11 @@ pub mod pallet {
             match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
-                        match process_ethereum_event::<T>(&discovered_event.event) {
-                            Ok(_) => {},
-                            Err(_) => {
+                        if process_ethereum_event::<T>(&discovered_event.event).is_err() {
                                 log::error!("💔 Duplicate Event Submission");
                                 <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
                                     eth_event_id: discovered_event.event.event_id.clone(),
                                 });
-                            },
                         }
                     } else {
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
