@@ -75,11 +75,7 @@ use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{
-    bounds::MaximumValidatorsBound,
-    event_discovery::*,
-    event_types::{Validator},
-};
+use sp_avn_common::{bounds::MaximumValidatorsBound, event_discovery::*, event_types::Validator};
 use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
@@ -811,10 +807,10 @@ pub mod pallet {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
                         if process_ethereum_event::<T>(&discovered_event.event).is_err() {
-                                log::error!("💔 Duplicate Event Submission");
-                                <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
-                                    eth_event_id: discovered_event.event.event_id.clone(),
-                                });
+                            log::error!("💔 Duplicate Event Submission");
+                            <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
+                                eth_event_id: discovered_event.event.event_id.clone(),
+                            });
                         }
                     } else {
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
