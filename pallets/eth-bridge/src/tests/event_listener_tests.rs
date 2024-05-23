@@ -285,7 +285,8 @@ impl Default for LatestEthBlockContext {
             account_id: primary_validator_id,
         };
         let eth_start_block = events_helpers::compute_finalised_block_number(
-            discovered_block, EthBlockRangeSize::<TestRuntime>::get()
+            discovered_block,
+            EthBlockRangeSize::<TestRuntime>::get(),
         );
 
         Self { author, discovered_block, eth_start_block }
@@ -314,7 +315,10 @@ impl LatestEthBlockContext {
     }
 
     fn range(&self) -> EthBlockRange {
-        EthBlockRange { start_block: self.eth_start_block, length: EthBlockRangeSize::<TestRuntime>::get() }
+        EthBlockRange {
+            start_block: self.eth_start_block,
+            length: EthBlockRangeSize::<TestRuntime>::get(),
+        }
     }
 }
 
@@ -336,25 +340,35 @@ mod initial_range_consensus {
 
     #[test]
     fn adds_latest_block_successfully() {
-        let mut ext = ExtBuilder::build_default().with_genesis_config().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_genesis_config()
+            .with_validators()
+            .as_externality();
         ext.execute_with(|| {
             let context: Context = Default::default();
 
             assert_ok!(context.submit_latest_block());
 
-            assert_eq!(get_votes_for_initial_range(&context.eth_start_block), 1, "Should be a single vote.");
+            assert_eq!(
+                get_votes_for_initial_range(&context.eth_start_block),
+                1,
+                "Should be a single vote."
+            );
         });
     }
 
     #[test]
     fn finalises_initial_range() {
-        let mut ext = ExtBuilder::build_default().with_genesis_config().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_genesis_config()
+            .with_validators()
+            .as_externality();
         ext.execute_with(|| {
             let contexts = (1..5 as u64)
                 .map(|id| Context {
                     author: Author::<TestRuntime> { key: UintAuthorityId(id), account_id: id },
                     discovered_block: id as u32 * 100,
-                    eth_start_block: 1
+                    eth_start_block: 1,
                 })
                 .take(AVN::<TestRuntime>::supermajority_quorum() as usize)
                 .collect::<Vec<Context>>();
@@ -369,13 +383,20 @@ mod initial_range_consensus {
             assert_eq!(
                 active_range.range,
                 EthBlockRange {
-                    start_block: events_helpers::compute_finalised_block_number(300, EthBlockRangeSize::<TestRuntime>::get()),
+                    start_block: events_helpers::compute_finalised_block_number(
+                        300,
+                        EthBlockRangeSize::<TestRuntime>::get()
+                    ),
                     length: EthBlockRangeSize::<TestRuntime>::get()
                 }
             );
             // Ensure that cleanup has occured
             for context in contexts.iter() {
-                assert_eq!(get_votes_for_initial_range(&context.eth_start_block), 0, "Should be no votes.");
+                assert_eq!(
+                    get_votes_for_initial_range(&context.eth_start_block),
+                    0,
+                    "Should be no votes."
+                );
             }
         });
     }
@@ -385,7 +406,10 @@ mod initial_range_consensus {
 
         #[test]
         fn a_range_is_active() {
-            let mut ext = ExtBuilder::build_default().with_genesis_config().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_genesis_config()
+                .with_validators()
+                .as_externality();
             ext.execute_with(|| {
                 init_active_range();
                 let context: Context = Default::default();
@@ -396,7 +420,10 @@ mod initial_range_consensus {
 
         #[test]
         fn author_has_voted_the_partition() {
-            let mut ext = ExtBuilder::build_default().with_genesis_config().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_genesis_config()
+                .with_validators()
+                .as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
 
@@ -409,7 +436,10 @@ mod initial_range_consensus {
 
         #[test]
         fn author_has_voted_another_block() {
-            let mut ext = ExtBuilder::build_default().with_genesis_config().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_genesis_config()
+                .with_validators()
+                .as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
                 let other_context = Context {

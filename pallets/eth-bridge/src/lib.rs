@@ -264,13 +264,8 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub type SubmittedEthBlocks<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        u32,
-        BoundedBTreeSet<T::AccountId, VotesLimit>,
-        ValueQuery,
-    >;
+    pub type SubmittedEthBlocks<T: Config> =
+        StorageMap<_, Blake2_128Concat, u32, BoundedBTreeSet<T::AccountId, VotesLimit>, ValueQuery>;
 
     // The number of blocks that make up a range
     #[pallet::storage]
@@ -281,12 +276,17 @@ pub mod pallet {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub eth_tx_lifetime_secs: u64,
         pub next_tx_id: EthereumId,
-        pub eth_block_range_size: u32
+        pub eth_block_range_size: u32,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), eth_tx_lifetime_secs: 60 * 30, next_tx_id: 0, eth_block_range_size: 20 }
+            Self {
+                _phantom: Default::default(),
+                eth_tx_lifetime_secs: 60 * 30,
+                next_tx_id: 0,
+                eth_block_range_size: 20,
+            }
         }
     }
 
@@ -607,7 +607,10 @@ pub mod pallet {
             );
 
             let eth_block_range_size = EthBlockRangeSize::<T>::get();
-            let latest_finalised_block = events_helpers::compute_finalised_block_number(latest_seen_block, eth_block_range_size);
+            let latest_finalised_block = events_helpers::compute_finalised_block_number(
+                latest_seen_block,
+                eth_block_range_size,
+            );
             let mut votes = SubmittedEthBlocks::<T>::get(&latest_finalised_block);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
@@ -633,7 +636,10 @@ pub mod pallet {
                 for (eth_block_num, votes_count) in submitted_blocks.iter() {
                     remaining_votes_threshold.saturating_reduce(*votes_count);
                     if remaining_votes_threshold < quorum {
-                        selected_range = EthBlockRange { start_block: *eth_block_num, length: eth_block_range_size };
+                        selected_range = EthBlockRange {
+                            start_block: *eth_block_num,
+                            length: eth_block_range_size,
+                        };
                         break
                     }
                 }
@@ -818,10 +824,10 @@ pub mod pallet {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
                         if process_ethereum_event::<T>(&discovered_event.event).is_err() {
-                                log::error!("💔 Duplicate Event Submission");
-                                <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
-                                    eth_event_id: discovered_event.event.event_id.clone(),
-                                });
+                            log::error!("💔 Duplicate Event Submission");
+                            <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
+                                eth_event_id: discovered_event.event.event_id.clone(),
+                            });
                         }
                     } else {
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);

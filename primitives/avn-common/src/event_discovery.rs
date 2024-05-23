@@ -187,10 +187,7 @@ pub mod events_helpers {
     }
 
     // TODO unit test this
-    pub fn compute_finalised_block_number(
-        ethereum_block: u32,
-        range_length: u32
-    ) -> u32 {
+    pub fn compute_finalised_block_number(ethereum_block: u32, range_length: u32) -> u32 {
         let calculation_block = ethereum_block.saturating_sub(5 * range_length);
         calculation_block - calculation_block % range_length
     }
