@@ -5,7 +5,7 @@ use frame_support::{parameter_types, BasicExternalities};
 use frame_system as system;
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,
-    LowerParams, PACKED_LOWER_PARAM_SIZE,
+    LowerParams,
 };
 use pallet_eth_bridge::offence::CorroborationOffence;
 use pallet_session as session;
@@ -43,7 +43,7 @@ pub type BlockNumber = BlockNumberFor<TestRuntime>;
 
 impl Summary {
     pub fn get_root_data(root_id: &RootId<BlockNumber>) -> RootData<AccountId> {
-        return <<Summary as Store>::Roots>::get(root_id.range, root_id.ingress_counter)
+        return Roots::<TestRuntime>::get(root_id.range, root_id.ingress_counter)
     }
 
     pub fn insert_root_hash(
@@ -52,7 +52,7 @@ impl Summary {
         account_id: AccountId,
         tx_id: EthereumTransactionId,
     ) {
-        <<Summary as Store>::Roots>::insert(
+        Roots::<TestRuntime>::insert(
             root_id.range,
             root_id.ingress_counter,
             RootData::new(root_hash, account_id, Some(tx_id)),
@@ -63,34 +63,34 @@ impl Summary {
         schedule_period: BlockNumber,
         voting_period: BlockNumber,
     ) {
-        <<Summary as Store>::SchedulePeriod>::put(schedule_period);
-        <<Summary as Store>::VotingPeriod>::put(voting_period);
+        SchedulePeriod::<TestRuntime>::put(schedule_period);
+        VotingPeriod::<TestRuntime>::put(voting_period);
     }
 
     pub fn set_root_as_validated(root_id: &RootId<BlockNumber>) {
-        <<Summary as Store>::Roots>::mutate(root_id.range, root_id.ingress_counter, |root| {
+        Roots::<TestRuntime>::mutate(root_id.range, root_id.ingress_counter, |root| {
             root.is_validated = true
         });
     }
 
     pub fn set_next_block_to_process(next_block_number_to_process: BlockNumber) {
-        <<Summary as Store>::NextBlockToProcess>::put(next_block_number_to_process);
+        NextBlockToProcess::<TestRuntime>::put(next_block_number_to_process);
     }
 
     pub fn set_next_slot_block_number(slot_block_number: BlockNumber) {
-        <<Summary as Store>::NextSlotAtBlock>::put(slot_block_number);
+        NextSlotAtBlock::<TestRuntime>::put(slot_block_number);
     }
 
     pub fn set_current_slot(slot: BlockNumber) {
-        <<Summary as Store>::CurrentSlot>::put(slot);
+        CurrentSlot::<TestRuntime>::put(slot);
     }
 
     pub fn set_current_slot_validator(validator_account: AccountId) {
-        <<Summary as Store>::CurrentSlotsValidator>::put(validator_account);
+        CurrentSlotsValidator::<TestRuntime>::put(validator_account);
     }
 
     pub fn set_previous_summary_slot(slot: BlockNumber) {
-        <<Summary as Store>::SlotOfLastPublishedSummary>::put(slot);
+        SlotOfLastPublishedSummary::<TestRuntime>::put(slot);
     }
 
     pub fn get_block_number() -> BlockNumber {
@@ -98,17 +98,17 @@ impl Summary {
     }
 
     pub fn insert_pending_approval(root_id: &RootId<BlockNumber>) {
-        <<Summary as Store>::PendingApproval>::insert(root_id.range, root_id.ingress_counter);
+        PendingApproval::<TestRuntime>::insert(root_id.range, root_id.ingress_counter);
     }
 
     pub fn remove_pending_approval(root_range: &RootRange<BlockNumber>) {
-        <<Summary as Store>::PendingApproval>::remove(root_range);
+        PendingApproval::<TestRuntime>::remove(root_range);
     }
 
     pub fn get_vote_for_root(
         root_id: &RootId<BlockNumber>,
     ) -> VotingSessionData<AccountId, BlockNumber> {
-        <Summary as Store>::VotesRepository::get(root_id)
+        VotesRepository::<TestRuntime>::get(root_id)
     }
 
     pub fn register_root_for_voting(
@@ -116,24 +116,24 @@ impl Summary {
         quorum: u32,
         voting_period_end: u64,
     ) {
-        <<Summary as Store>::VotesRepository>::insert(
+        VotesRepository::<TestRuntime>::insert(
             root_id,
             VotingSessionData::new(root_id.session_id(), quorum, voting_period_end, 0),
         );
     }
 
     pub fn deregister_root_for_voting(root_id: &RootId<BlockNumber>) {
-        <<Summary as Store>::VotesRepository>::remove(root_id);
+        VotesRepository::<TestRuntime>::remove(root_id);
     }
 
     pub fn record_approve_vote(root_id: &RootId<BlockNumber>, voter: AccountId) {
-        <<Summary as Store>::VotesRepository>::mutate(root_id, |vote| {
+        VotesRepository::<TestRuntime>::mutate(root_id, |vote| {
             vote.ayes.try_push(voter).expect("Failed to record aye vote");
         });
     }
 
     pub fn record_reject_vote(root_id: &RootId<BlockNumber>, voter: AccountId) {
-        <<Summary as Store>::VotesRepository>::mutate(root_id, |vote| {
+        VotesRepository::<TestRuntime>::mutate(root_id, |vote| {
             vote.nays.try_push(voter).expect("Failed to record nay vote");
         });
     }

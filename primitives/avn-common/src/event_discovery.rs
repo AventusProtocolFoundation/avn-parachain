@@ -191,7 +191,6 @@ pub mod events_helpers {
         ethereum_block: u32,
         range_length: u32
     ) -> u32 {
-        println!("ethereum_block: {}, range_length: {}", ethereum_block, range_length);
         let calculation_block = ethereum_block.saturating_sub(5 * range_length);
         calculation_block - calculation_block % range_length
     }

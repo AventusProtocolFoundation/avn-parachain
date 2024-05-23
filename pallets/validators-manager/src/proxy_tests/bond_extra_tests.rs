@@ -29,7 +29,7 @@ mod proxy_signed_bond_extra {
             BondExtraContext {
                 origin: Origin::signed(staker.relayer),
                 staker,
-                value: <ValidatorManager as Store>::MinUserBond::get(),
+                value: MinUserBond::<TestRuntime>::get(),
             }
         }
     }
@@ -41,12 +41,12 @@ mod proxy_signed_bond_extra {
 
             Balances::make_free_balance_be(
                 &self.staker.stash.account_id(),
-                <ValidatorManager as Store>::MinUserBond::get() * 2,
+                MinUserBond::<TestRuntime>::get() * 2,
             );
             assert_ok!(ValidatorManager::bond(
                 Origin::signed(stash),
                 controller,
-                <ValidatorManager as Store>::MinUserBond::get(),
+                MinUserBond::<TestRuntime>::get(),
                 RewardDestination::Stash
             ));
         }

@@ -31,7 +31,7 @@ mod proxy_signed_set_controller {
                 origin: Origin::signed(staker.relayer),
                 staker,
                 new_controller,
-                value: <ValidatorManager as Store>::MinUserBond::get(),
+                value: MinUserBond::<TestRuntime>::get(),
             }
         }
     }

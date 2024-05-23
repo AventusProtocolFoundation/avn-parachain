@@ -70,8 +70,8 @@ impl Context {
                 .expect("Unique external reference bound was exceeded."),
             self.nft_owner_account,
         );
-        <NftManager as Store>::Nfts::insert(self.nft_id, &nft);
-        <NftManager as Store>::NftOpenForSale::insert(&self.nft_id, NftSaleType::Fiat);
+        Nfts::<TestRuntime>::insert(self.nft_id, &nft);
+        NftOpenForSale::<TestRuntime>::insert(&self.nft_id, NftSaleType::Fiat);
     }
 
     fn create_signed_cancel_list_fiat_nft_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
@@ -234,7 +234,7 @@ mod proxy_signed_cancel_list_fiat_nft {
                 context.setup();
                 let call = context.create_signed_cancel_list_fiat_nft_call();
 
-                <NftManager as Store>::NftOpenForSale::remove(&context.nft_id);
+                NftOpenForSale::<TestRuntime>::remove(&context.nft_id);
 
                 assert_noop!(
                     NftManager::proxy(Origin::signed(context.relayer), call.clone()),
@@ -251,7 +251,7 @@ mod proxy_signed_cancel_list_fiat_nft {
                 context.setup();
                 let call = context.create_signed_cancel_list_fiat_nft_call();
 
-                <NftManager as Store>::NftOpenForSale::mutate(context.nft_id, |nft_sale_type| {
+                NftOpenForSale::<TestRuntime>::mutate(context.nft_id, |nft_sale_type| {
                     *nft_sale_type = NftSaleType::Ethereum;
                 });
 
@@ -271,7 +271,7 @@ mod proxy_signed_cancel_list_fiat_nft {
                 let call = context.create_signed_cancel_list_fiat_nft_call();
 
                 let other_owner = TestAccount::new([5u8; 32]);
-                <NftManager as Store>::Nfts::mutate(context.nft_id, |maybe_nft| {
+                Nfts::<TestRuntime>::mutate(context.nft_id, |maybe_nft| {
                     maybe_nft.as_mut().map(|nft| nft.owner = other_owner.account_id())
                 });
 
@@ -290,7 +290,7 @@ mod proxy_signed_cancel_list_fiat_nft {
                 context.setup();
                 let call = context.create_signed_cancel_list_fiat_nft_call();
 
-                <NftManager as Store>::Nfts::mutate(context.nft_id, |maybe_nft| {
+                Nfts::<TestRuntime>::mutate(context.nft_id, |maybe_nft| {
                     maybe_nft.as_mut().map(|nft| nft.is_locked = true)
                 });
 
@@ -559,7 +559,7 @@ mod signed_cancel_list_fiat_nft {
                 context.setup();
                 let proof = context.create_signed_cancel_list_fiat_nft_proof();
 
-                <NftManager as Store>::NftOpenForSale::remove(&context.nft_id);
+                NftOpenForSale::<TestRuntime>::remove(&context.nft_id);
 
                 assert_noop!(
                     NftManager::signed_cancel_list_fiat_nft(
@@ -580,7 +580,7 @@ mod signed_cancel_list_fiat_nft {
                 context.setup();
                 let proof = context.create_signed_cancel_list_fiat_nft_proof();
 
-                <NftManager as Store>::NftOpenForSale::mutate(context.nft_id, |nft_sale_type| {
+                NftOpenForSale::<TestRuntime>::mutate(context.nft_id, |nft_sale_type| {
                     *nft_sale_type = NftSaleType::Ethereum;
                 });
 
@@ -604,7 +604,7 @@ mod signed_cancel_list_fiat_nft {
                 let proof = context.create_signed_cancel_list_fiat_nft_proof();
 
                 let other_owner = TestAccount::new([5u8; 32]);
-                <NftManager as Store>::Nfts::mutate(context.nft_id, |maybe_nft| {
+                Nfts::<TestRuntime>::mutate(context.nft_id, |maybe_nft| {
                     maybe_nft.as_mut().map(|nft| nft.owner = other_owner.account_id())
                 });
 
@@ -627,7 +627,7 @@ mod signed_cancel_list_fiat_nft {
                 context.setup();
                 let proof = context.create_signed_cancel_list_fiat_nft_proof();
 
-                <NftManager as Store>::Nfts::mutate(context.nft_id, |maybe_nft| {
+                Nfts::<TestRuntime>::mutate(context.nft_id, |maybe_nft| {
                     maybe_nft.as_mut().map(|nft| nft.is_locked = true)
                 });
 

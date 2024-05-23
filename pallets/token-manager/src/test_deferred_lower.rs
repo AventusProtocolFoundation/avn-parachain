@@ -1,7 +1,7 @@
 #![cfg(test)]
 use crate::{
     mock::{RuntimeEvent, *},
-    *,
+    Balances as TokenManagerBalances, *,
 };
 use frame_support::{assert_noop, assert_ok};
 use pallet_scheduler::Agenda;
@@ -23,7 +23,7 @@ fn simple_non_avt_token_lower_works() {
 
     ext.execute_with(|| {
         let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = pre_lower_balance;
 
         let expected_lower_id = 0;
@@ -49,7 +49,7 @@ fn simple_non_avt_token_lower_works() {
 
         // No tokens have been burned
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from)),
             pre_lower_balance
         );
 
@@ -58,7 +58,7 @@ fn simple_non_avt_token_lower_works() {
 
         // Still no tokens have been burned because of the delay
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from)),
             pre_lower_balance
         );
 
@@ -67,7 +67,7 @@ fn simple_non_avt_token_lower_works() {
 
         // Tokens have been burned
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from)),
             pre_lower_balance - amount
         );
 
@@ -141,7 +141,7 @@ fn multiple_requests_in_the_same_block_works() {
 
     ext.execute_with(|| {
         let (_, from, _, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = 1;
 
         let expected_execution_block = get_expected_execution_block();
@@ -158,7 +158,7 @@ fn multiple_requests_in_the_same_block_works() {
 
         // Token balance has reduced
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from)),
             pre_lower_balance - 3 * amount
         );
 
@@ -173,7 +173,7 @@ fn multiple_requests_in_different_blocks_works() {
 
     ext.execute_with(|| {
         let (_, from, _, t1_recipient) = MockData::setup_lower_request_data();
-        let pre_lower_balance = <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+        let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = 1;
 
         let expected_execution_block = get_expected_execution_block();
@@ -194,27 +194,27 @@ fn multiple_requests_in_different_blocks_works() {
 
         // Token balance has reduced by the first lower
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from)),
             pre_lower_balance - amount
         );
 
         let balance_after_first_lower =
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         forward_to_next_block();
 
         // The second lower has been executed
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from)),
             balance_after_first_lower - (amount + 1)
         );
 
         let balance_after_second_lower =
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         forward_to_next_block();
 
         // The third lower has been executed
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from)),
             balance_after_second_lower - (amount + 2)
         );
 
@@ -233,7 +233,7 @@ mod cancelling {
         ext.execute_with(|| {
             let (_, from, _, t1_recipient) = MockData::setup_lower_request_data();
             let pre_lower_balance =
-                <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+                TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
             let amount = pre_lower_balance;
 
             let expected_lower_id = 0;
@@ -266,7 +266,7 @@ mod cancelling {
 
             // No tokens have been burned even when the expected execution block is reached
             assert_eq!(
-                <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from)),
+                TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from)),
                 pre_lower_balance
             );
 
@@ -282,7 +282,7 @@ mod cancelling {
         ext.execute_with(|| {
             let (_, from, _, t1_recipient) = MockData::setup_lower_request_data();
             let pre_lower_balance =
-                <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from));
+                TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
             let amount = pre_lower_balance;
 
             let expected_lower_id = 0;

@@ -30,7 +30,7 @@ mod proxy_signed_bond {
             BondContext {
                 origin: Origin::signed(staker.relayer),
                 staker,
-                value: <ValidatorManager as Store>::MinUserBond::get(),
+                value: MinUserBond::<TestRuntime>::get(),
                 payee: RewardDestination::Stash,
             }
         }
@@ -40,7 +40,7 @@ mod proxy_signed_bond {
         fn setup(&self) {
             Balances::make_free_balance_be(
                 &self.staker.stash.account_id(),
-                <ValidatorManager as Store>::MinUserBond::get(),
+                MinUserBond::<TestRuntime>::get(),
             );
         }
 
@@ -182,8 +182,8 @@ mod proxy_signed_bond {
                 let mut context = &mut BondContext::default();
                 context.setup();
 
-                let min_validator_bond = <ValidatorManager as Store>::MinValidatorBond::get();
-                let min_user_bond = <ValidatorManager as Store>::MinUserBond::get();
+                let min_validator_bond = MinValidatorBond::<TestRuntime>::get();
+                let min_user_bond = MinUserBond::<TestRuntime>::get();
                 context.value = min_validator_bond.min(min_user_bond) - 1;
 
                 let nonce = ValidatorManager::proxy_nonce(context.staker.stash.account_id());

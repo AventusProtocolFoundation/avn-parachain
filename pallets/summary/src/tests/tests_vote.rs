@@ -910,7 +910,7 @@ mod end_voting_period {
                     context.record_summary_calculation_signature.clone(),
                 ));
                 assert!(Summary::get_root_data(&context.root_id).is_validated);
-                assert!(!<Summary as Store>::PendingApproval::contains_key(&context.root_id.range));
+                assert!(!PendingApproval::<TestRuntime>::contains_key(&context.root_id.range));
                 assert_eq!(
                     Summary::get_next_block_to_process(),
                     context.next_block_to_process + Summary::schedule_period()
@@ -957,7 +957,7 @@ mod end_voting_period {
                 )
                 .is_ok());
                 assert!(!Summary::get_root_data(&context.root_id).is_validated);
-                assert!(!<Summary as Store>::PendingApproval::contains_key(&context.root_id.range));
+                assert!(!PendingApproval::<TestRuntime>::contains_key(&context.root_id.range));
                 assert_eq!(Summary::get_next_block_to_process(), context.next_block_to_process);
                 assert_eq!(Summary::last_summary_slot(), previous_slot);
 

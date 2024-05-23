@@ -72,8 +72,8 @@ impl Context {
                 .expect("Test string should not exceed bound"),
             self.nft_owner_account,
         );
-        <NftManager as Store>::Nfts::insert(self.nft_id, &nft);
-        <NftManager as Store>::NftOpenForSale::remove(&self.nft_id);
+        Nfts::<TestRuntime>::insert(self.nft_id, &nft);
+        NftOpenForSale::<TestRuntime>::remove(&self.nft_id);
     }
 
     fn create_signed_list_nft_open_for_sale_call(
@@ -140,17 +140,11 @@ mod proxy_signed_list_nft_open_for_sale {
                 context.setup();
                 let call = context.create_signed_list_nft_open_for_sale_call();
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
 
                 assert_ok!(NftManager::proxy(Origin::signed(context.relayer), call));
 
-                assert_eq!(
-                    true,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(true, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
             });
         }
 
@@ -270,7 +264,7 @@ mod proxy_signed_list_nft_open_for_sale {
             ext.execute_with(|| {
                 let context = Context::default();
                 context.setup();
-                <NftManager as Store>::Nfts::remove(&context.nft_id);
+                Nfts::<TestRuntime>::remove(&context.nft_id);
                 let call = context.create_signed_list_nft_open_for_sale_call();
 
                 assert_noop!(
@@ -345,10 +339,7 @@ mod proxy_signed_list_nft_open_for_sale {
                         Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                     );
 
-                    assert_eq!(
-                        false,
-                        <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                    );
+                    assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                     assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                     assert_eq!(System::events().len(), 0);
                 }
@@ -384,10 +375,7 @@ mod proxy_signed_list_nft_open_for_sale {
                     Error::<TestRuntime>::SenderIsNotOwner
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -423,10 +411,7 @@ mod proxy_signed_list_nft_open_for_sale {
                     Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -461,10 +446,7 @@ mod proxy_signed_list_nft_open_for_sale {
                     Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -499,10 +481,7 @@ mod proxy_signed_list_nft_open_for_sale {
                     Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -538,10 +517,7 @@ mod proxy_signed_list_nft_open_for_sale {
                     Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -563,10 +539,7 @@ mod signed_lift_nft_open_for_sale {
                 context.setup();
                 let proof = context.create_signed_list_nft_open_for_sale_proof();
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
 
                 assert_ok!(NftManager::signed_list_nft_open_for_sale(
                     Origin::signed(context.nft_owner_account),
@@ -575,10 +548,7 @@ mod signed_lift_nft_open_for_sale {
                     context.market
                 ));
 
-                assert_eq!(
-                    true,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(true, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
             });
         }
 
@@ -703,7 +673,7 @@ mod signed_lift_nft_open_for_sale {
             ext.execute_with(|| {
                 let context = Context::default();
                 context.setup();
-                <NftManager as Store>::Nfts::remove(&context.nft_id);
+                Nfts::<TestRuntime>::remove(&context.nft_id);
                 let proof = context.create_signed_list_nft_open_for_sale_proof();
 
                 assert_noop!(
@@ -771,10 +741,7 @@ mod signed_lift_nft_open_for_sale {
                         Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                     );
 
-                    assert_eq!(
-                        false,
-                        <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                    );
+                    assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                     assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                     assert_eq!(System::events().len(), 0);
                 }
@@ -808,10 +775,7 @@ mod signed_lift_nft_open_for_sale {
                     Error::<TestRuntime>::SenderIsNotSigner
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -844,10 +808,7 @@ mod signed_lift_nft_open_for_sale {
                     Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -880,10 +841,7 @@ mod signed_lift_nft_open_for_sale {
                     Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -916,10 +874,7 @@ mod signed_lift_nft_open_for_sale {
                     Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
@@ -953,10 +908,7 @@ mod signed_lift_nft_open_for_sale {
                     Error::<TestRuntime>::UnauthorizedSignedLiftNftOpenForSaleTransaction
                 );
 
-                assert_eq!(
-                    false,
-                    <NftManager as Store>::NftOpenForSale::contains_key(&context.nft_id)
-                );
+                assert_eq!(false, NftOpenForSale::<TestRuntime>::contains_key(&context.nft_id));
                 assert_eq!(original_nonce, NftManager::nfts(context.nft_id).unwrap().nonce);
                 assert_eq!(System::events().len(), 0);
             });
