@@ -297,7 +297,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
-            assert!(EthBlockRangeSize::<T>::get() > 0, "`EthBlockRangeSize` should be greater than 0");
+            assert!(self.eth_block_range_size > 0, "`EthBlockRangeSize` should be greater than 0");
 
             EthTxLifetimeSecs::<T>::put(self.eth_tx_lifetime_secs);
             NextTxId::<T>::put(self.next_tx_id);
