@@ -131,9 +131,11 @@ mod process_events {
                 context.test_signature_two.clone()
             ));
             assert!(System::events().iter().any(|record| record.event ==
-                mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::DuplicateEventSubmission {
-                    eth_event_id: context.eth_event_id.clone(),
-                })));
+                mock::RuntimeEvent::EthBridge(
+                    Event::<TestRuntime>::DuplicateEventSubmission {
+                        eth_event_id: context.eth_event_id.clone(),
+                    }
+                )));
         });
     }
 }

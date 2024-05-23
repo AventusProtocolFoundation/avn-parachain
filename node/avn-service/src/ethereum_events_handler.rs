@@ -349,27 +349,29 @@ where
 
     log::info!("⛓️  ETH EVENT HANDLER INITIALIZED");
 
-    let public_keys = config.keystore.sr25519_public_keys(AVN_KEY_ID);
+    let mut current_node_public_key = Public([0u8; 32]);
+    loop {
+        let author_public_keys = config
+            .client
+            .runtime_api()
+            .query_author_signing_keys(config.client.info().best_hash)
+            .map_err(|e| {
+                log::error!("Error querying authors: {:?}", e);
+            })
+            .and_then(|opt_keys| match opt_keys {
+                Some(keys) => Ok(keys),
+                None => Err(()),
+            });
 
-    let author_public_keys = config
-        .client
-        .runtime_api()
-        .query_author_signing_keys(config.client.info().best_hash)
-        .map_err(|e| {
-            log::error!("Error querying authors: {:?}", e);
-        })
-        .and_then(|opt_keys| match opt_keys {
-            Some(keys) => Ok(keys),
-            None => Err(()),
-        });
-
-    let current_node_public_key = match find_author_account_id(author_public_keys, public_keys) {
-        Some(key) => key,
-        None => {
-            log::error!("Author not found");
-            return
-        },
-    };
+        let public_keys = config.keystore.sr25519_public_keys(AVN_KEY_ID);
+        if let Some(key) = find_author_account_id(author_public_keys, public_keys) {
+            current_node_public_key = key;
+            break
+        }
+        log::error!("Author not found. Will attempt again after a while.");
+        sleep(Duration::from_secs(10 * SLEEP_TIME)).await;
+        continue
+    }
 
     loop {
         match query_runtime_and_process(&config, &current_node_public_key, &events_registry).await {
