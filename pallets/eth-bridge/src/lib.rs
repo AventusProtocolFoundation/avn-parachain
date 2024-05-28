@@ -228,9 +228,7 @@ pub mod pallet {
         },
         EventRejected {
             eth_event_id: EthEventId,
-        },
-        DuplicateEventSubmission {
-            eth_event_id: EthEventId,
+            reason: String,
         },
     }
 
@@ -304,7 +302,6 @@ pub mod pallet {
     pub enum Error<T> {
         CorroborateCallFailed,
         DuplicateConfirmation,
-        DuplicateEventSubmission,
         EmptyFunctionName,
         ErrorAssigningSender,
         EthTxHashAlreadySet,
@@ -815,8 +812,9 @@ pub mod pallet {
                     if active_range.event_types_filter.contains(&valid_event) {
                         if process_ethereum_event::<T>(&discovered_event.event).is_err() {
                                 log::error!("💔 Duplicate Event Submission");
-                                <Pallet<T>>::deposit_event(Event::<T>::DuplicateEventSubmission {
+                                <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
                                     eth_event_id: discovered_event.event.event_id.clone(),
+                                    reason: "DuplicateEventSubmission".to_string(),
                                 });
                         }
                     } else {
@@ -857,6 +855,7 @@ pub mod pallet {
                 log::error!("💔 Processing ethereum event failed: {:?}", err);
                 <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
                     eth_event_id: event.event_id.clone(),
+                    reason: "ProcessingFailed".to_string(),
                 });
             },
         };
