@@ -39,7 +39,16 @@ const APP_WHITELISTED_CALLER: Curve =
 const SUP_WHITELISTED_CALLER: Curve =
     Curve::make_reciprocal(1, 28, percent(20), percent(5), percent(50));
 
-const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 5] = [
+const APP_SMALL_SPENDER: Curve = Curve::make_linear(17, 28, percent(50), percent(100));
+const SUP_SMALL_SPENDER: Curve =
+    Curve::make_reciprocal(12, 28, percent(1), percent(0), percent(50));
+const APP_MEDIUM_SPENDER: Curve = Curve::make_linear(23, 28, percent(50), percent(100));
+const SUP_MEDIUM_SPENDER: Curve =
+    Curve::make_reciprocal(16, 28, percent(1), percent(0), percent(50));
+const APP_BIG_SPENDER: Curve = Curve::make_linear(28, 28, percent(50), percent(100));
+const SUP_BIG_SPENDER: Curve = Curve::make_reciprocal(20, 28, percent(1), percent(0), percent(50));
+
+const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 8] = [
     (
         0,
         pallet_referenda::TrackInfo {
@@ -110,6 +119,48 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 5]
             min_support: SUP_REFERENDUM_KILLER,
         },
     ),
+    (
+        5,
+        pallet_referenda::TrackInfo {
+            name: "small_spender",
+            max_deciding: 50,
+            decision_deposit: 100 * 3 * CENTS,
+            prepare_period: 10 * MINUTES,
+            decision_period: 20 * MINUTES,
+            confirm_period: 10 * MINUTES,
+            min_enactment_period: 5 * MINUTES,
+            min_approval: APP_SMALL_SPENDER,
+            min_support: SUP_SMALL_SPENDER,
+        },
+    ),
+    (
+        6,
+        pallet_referenda::TrackInfo {
+            name: "medium_spender",
+            max_deciding: 50,
+            decision_deposit: 200 * 3 * CENTS,
+            prepare_period: 10 * MINUTES,
+            decision_period: 20 * MINUTES,
+            confirm_period: 12 * MINUTES,
+            min_enactment_period: 5 * MINUTES,
+            min_approval: APP_MEDIUM_SPENDER,
+            min_support: SUP_MEDIUM_SPENDER,
+        },
+    ),
+    (
+        7,
+        pallet_referenda::TrackInfo {
+            name: "big_spender",
+            max_deciding: 50,
+            decision_deposit: 400 * 3 * CENTS,
+            prepare_period: 10 * MINUTES,
+            decision_period: 20 * MINUTES,
+            confirm_period: 14 * MINUTES,
+            min_enactment_period: 5 * MINUTES,
+            min_approval: APP_BIG_SPENDER,
+            min_support: SUP_BIG_SPENDER,
+        },
+    ),
 ];
 
 pub struct TracksInfo;
@@ -133,6 +184,9 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
                 // Referendum admins
                 origins::Origin::ReferendumCanceller => Ok(3),
                 origins::Origin::ReferendumKiller => Ok(4),
+                origins::Origin::SmallSpender => Ok(5),
+                origins::Origin::MediumSpender => Ok(6),
+                origins::Origin::BigSpender => Ok(7),
             }
         } else {
             Err(())
