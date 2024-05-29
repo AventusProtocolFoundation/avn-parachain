@@ -228,7 +228,7 @@ pub mod pallet {
         },
         EventRejected {
             eth_event_id: EthEventId,
-            reason: String,
+            reason: DispatchError,
         },
     }
 
@@ -810,11 +810,11 @@ pub mod pallet {
             match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
-                        if process_ethereum_event::<T>(&discovered_event.event).is_err() {
-                                log::error!("💔 Duplicate Event Submission");
+                        if let Err(err) = process_ethereum_event::<T>(&discovered_event.event) {
+                                log::error!("💔 Invalid event to process: {:?}. Error: {:?}", discovered_event.event, err);
                                 <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
                                     eth_event_id: discovered_event.event.event_id.clone(),
-                                    reason: "DuplicateEventSubmission".to_string(),
+                                    reason: err,
                                 });
                         }
                     } else {
@@ -855,7 +855,7 @@ pub mod pallet {
                 log::error!("💔 Processing ethereum event failed: {:?}", err);
                 <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
                     eth_event_id: event.event_id.clone(),
-                    reason: "ProcessingFailed".to_string(),
+                    reason: err,
                 });
             },
         };

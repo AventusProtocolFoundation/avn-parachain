@@ -93,7 +93,7 @@ mod process_events {
             assert!(System::events().iter().any(|record| record.event ==
                 mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventRejected {
                     eth_event_id: context.bad_eth_event_id.clone(),
-                    reason: "ProcessingFailed".to_string(),
+                    reason: DispatchError::Other("").into(),
                 })));
         });
     }
@@ -134,7 +134,7 @@ mod process_events {
             assert!(System::events().iter().any(|record| record.event ==
                 mock::RuntimeEvent::EthBridge(Event::<TestRuntime>::EventRejected {
                     eth_event_id: context.eth_event_id.clone(),
-                    reason: "DuplicateEventSubmission".to_string(),
+                    reason: Error::<TestRuntime>::EventAlreadyProcessed.into(),
                 })));
         });
     }
