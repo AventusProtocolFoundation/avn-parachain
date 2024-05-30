@@ -259,13 +259,13 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         EthereumEventsPartition,
-        BoundedBTreeSet<T::AccountId, VotesLimit>,
+        BoundedBTreeSet<T::AccountId, MaximumValidatorsBound>,
         ValueQuery,
     >;
 
     #[pallet::storage]
     pub type SubmittedEthBlocks<T: Config> =
-        StorageMap<_, Blake2_128Concat, u32, BoundedBTreeSet<T::AccountId, VotesLimit>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, u32, BoundedBTreeSet<T::AccountId, MaximumValidatorsBound>, ValueQuery>;
 
     // The number of blocks that make up a range
     #[pallet::storage]
