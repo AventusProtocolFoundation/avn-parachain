@@ -44,6 +44,10 @@ pub trait WeightInfo {
 	fn add_corroboration() -> Weight;
 	fn add_corroboration_with_challenge(v: u32, ) -> Weight;
 	fn remove_active_request() -> Weight;
+	fn submit_ethereum_events(c: u32, e: u32, ) -> Weight;
+	fn submit_ethereum_events_and_process_batch(c: u32, e: u32, ) -> Weight;
+	fn submit_latest_ethereum_block(c: u32, ) -> Weight;
+	fn submit_latest_ethereum_block_with_quorum(c: u32, ) -> Weight;
 }
 
 /// Weights for pallet_eth_bridge using the Substrate node and recommended hardware.
@@ -156,6 +160,90 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:0)
+	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthereumEvents` (r:2 w:1)
+	/// Proof: `EthBridge::EthereumEvents` (`max_values`: None, `max_size`: Some(161695), added: 164170, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[4, 10]`.
+	/// The range of component `e` is `[1, 128]`.
+	fn submit_ethereum_events(c: u32, _e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `324 + c * (64 ±0)`
+		//  Estimated: `329330`
+		// Minimum execution time: 25_540_000 picoseconds.
+		Weight::from_parts(28_155_791, 329330)
+			// Standard Error: 24_749
+			.saturating_add(Weight::from_parts(289_808, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthereumEvents` (r:2 w:1)
+	/// Proof: `EthBridge::EthereumEvents` (`max_values`: None, `max_size`: Some(161695), added: 164170, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:1 w:1)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:0)
+	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(62401), added: 62896, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[4, 10]`.
+	/// The range of component `e` is `[1, 128]`.
+	fn submit_ethereum_events_and_process_batch(c: u32, e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `682 + c * (75 ±0)`
+		//  Estimated: `329330`
+		// Minimum execution time: 53_405_000 picoseconds.
+		Weight::from_parts(57_880_819, 329330)
+			// Standard Error: 51_500
+			.saturating_add(Weight::from_parts(651_463, 0).saturating_mul(c.into()))
+			// Standard Error: 2_664
+			.saturating_add(Weight::from_parts(6_416, 0).saturating_mul(e.into()))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:0)
+	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::SubmittedEthBlocks` (r:2 w:1)
+	/// Proof: `EthBridge::SubmittedEthBlocks` (`max_values`: None, `max_size`: Some(8214), added: 10689, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthBlockRangeSize` (r:1 w:0)
+	/// Proof: `EthBridge::EthBlockRangeSize` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[4, 10]`.
+	fn submit_latest_ethereum_block(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `293 + c * (64 ±0)`
+		//  Estimated: `22368`
+		// Minimum execution time: 28_700_000 picoseconds.
+		Weight::from_parts(31_406_625, 22368)
+			// Standard Error: 31_728
+			.saturating_add(Weight::from_parts(242_856, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::SubmittedEthBlocks` (r:2 w:1)
+	/// Proof: `EthBridge::SubmittedEthBlocks` (`max_values`: None, `max_size`: Some(8214), added: 10689, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthBlockRangeSize` (r:1 w:0)
+	/// Proof: `EthBridge::EthBlockRangeSize` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[4, 10]`.
+	fn submit_latest_ethereum_block_with_quorum(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `316 + c * (85 ±0)`
+		//  Estimated: `22368`
+		// Minimum execution time: 38_348_000 picoseconds.
+		Weight::from_parts(40_240_469, 22368)
+			// Standard Error: 47_425
+			.saturating_add(Weight::from_parts(728_028, 0).saturating_mul(c.into()))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -266,5 +354,89 @@ impl WeightInfo for () {
 		Weight::from_parts(22_349_000, 80487)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:0)
+	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthereumEvents` (r:2 w:1)
+	/// Proof: `EthBridge::EthereumEvents` (`max_values`: None, `max_size`: Some(161695), added: 164170, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[4, 10]`.
+	/// The range of component `e` is `[1, 128]`.
+	fn submit_ethereum_events(c: u32, _e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `324 + c * (64 ±0)`
+		//  Estimated: `329330`
+		// Minimum execution time: 25_540_000 picoseconds.
+		Weight::from_parts(28_155_791, 329330)
+			// Standard Error: 24_749
+			.saturating_add(Weight::from_parts(289_808, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthereumEvents` (r:2 w:1)
+	/// Proof: `EthBridge::EthereumEvents` (`max_values`: None, `max_size`: Some(161695), added: 164170, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:1 w:1)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:0)
+	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(62401), added: 62896, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[4, 10]`.
+	/// The range of component `e` is `[1, 128]`.
+	fn submit_ethereum_events_and_process_batch(c: u32, e: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `682 + c * (75 ±0)`
+		//  Estimated: `329330`
+		// Minimum execution time: 53_405_000 picoseconds.
+		Weight::from_parts(57_880_819, 329330)
+			// Standard Error: 51_500
+			.saturating_add(Weight::from_parts(651_463, 0).saturating_mul(c.into()))
+			// Standard Error: 2_664
+			.saturating_add(Weight::from_parts(6_416, 0).saturating_mul(e.into()))
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:0)
+	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::SubmittedEthBlocks` (r:2 w:1)
+	/// Proof: `EthBridge::SubmittedEthBlocks` (`max_values`: None, `max_size`: Some(8214), added: 10689, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthBlockRangeSize` (r:1 w:0)
+	/// Proof: `EthBridge::EthBlockRangeSize` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[4, 10]`.
+	fn submit_latest_ethereum_block(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `293 + c * (64 ±0)`
+		//  Estimated: `22368`
+		// Minimum execution time: 28_700_000 picoseconds.
+		Weight::from_parts(31_406_625, 22368)
+			// Standard Error: 31_728
+			.saturating_add(Weight::from_parts(242_856, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::SubmittedEthBlocks` (r:2 w:1)
+	/// Proof: `EthBridge::SubmittedEthBlocks` (`max_values`: None, `max_size`: Some(8214), added: 10689, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthBlockRangeSize` (r:1 w:0)
+	/// Proof: `EthBridge::EthBlockRangeSize` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// The range of component `c` is `[4, 10]`.
+	fn submit_latest_ethereum_block_with_quorum(c: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `316 + c * (85 ±0)`
+		//  Estimated: `22368`
+		// Minimum execution time: 38_348_000 picoseconds.
+		Weight::from_parts(40_240_469, 22368)
+			// Standard Error: 47_425
+			.saturating_add(Weight::from_parts(728_028, 0).saturating_mul(c.into()))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

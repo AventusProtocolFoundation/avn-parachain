@@ -420,8 +420,8 @@ benchmarks! {
         let e in 1..MAX_INCOMING_EVENTS_BATCHE_SIZE;
 
         let authors = setup_authors::<T>(c);
-        let range = setup_active_range::<T>(e.try_into().unwrap());
-        let events = setup_incoming_events::<T>(c, e.try_into().unwrap(), range);
+        let range = setup_active_range::<T>(c.try_into().unwrap());
+        let events = setup_incoming_events::<T>(e, c.try_into().unwrap(), range);
 
         let author: crate::Author<T> = authors[0].clone();
         #[cfg(not(test))]
@@ -438,21 +438,20 @@ benchmarks! {
         let e in 1..MAX_INCOMING_EVENTS_BATCHE_SIZE;
 
         let authors = setup_authors::<T>(c);
-        let range = setup_active_range::<T>(e.try_into().unwrap());
-        let events = setup_incoming_events::<T>(c, e.try_into().unwrap(), range);
+        let range = setup_active_range::<T>(c.try_into().unwrap());
+        let events = setup_incoming_events::<T>(e, c.try_into().unwrap(), range);
 
         let author: crate::Author<T> = authors[0].clone();
-        submit_votes_from_other_authors::<T>(AVN::<T>::quorum() - 1, &events, authors[1..].to_vec());
 
         #[cfg(not(test))]
         let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
-
         let signature = author.key.sign(&("DummyProof").encode()).expect("Error signing proof");
 
+        submit_votes_from_other_authors::<T>(AVN::<T>::quorum() - 1, &events, authors[1..].to_vec());
     }: submit_ethereum_events(RawOrigin::None, author, events.clone(), signature )
     verify {
-        ensure!(EthereumEvents::<T>::get(events).is_empty(), "Submitted events not cleared");
-        ensure!(ActiveEthereumRange::<T>::get().unwrap().partition as u32 == e + 1, "Range not advanced");
+        assert!(ActiveEthereumRange::<T>::get().unwrap().partition as u32 == c + 1, "Range not advanced");
+        assert!(EthereumEvents::<T>::get(events).is_empty(), "Submitted events not cleared");
     }
 
     submit_latest_ethereum_block {

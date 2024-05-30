@@ -555,7 +555,9 @@ pub mod pallet {
 
         // TODO update weights
         #[pallet::call_index(6)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCHE_SIZE).max(
+            <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCHE_SIZE)
+        ))]
         pub fn submit_ethereum_events(
             origin: OriginFor<T>,
             author: Author<T>,
@@ -576,23 +578,34 @@ pub mod pallet {
                 Error::<T>::EventVoteExists
             );
 
+            let mut threshold_met = false;
             let mut votes = EthereumEvents::<T>::get(&events_partition);
-
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
             if votes.len() < AVN::<T>::quorum() as usize {
                 EthereumEvents::<T>::insert(&events_partition, votes);
             } else {
+                threshold_met = true;
                 process_ethereum_events_partition::<T>(&active_range, &events_partition);
                 advance_partition::<T>(&active_range, &events_partition);
             }
 
-            Ok(().into())
+            let final_weight = if threshold_met {
+                <T as Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS,
+                    MAX_INCOMING_EVENTS_BATCHE_SIZE)
+            } else {
+                <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS,
+                    MAX_INCOMING_EVENTS_BATCHE_SIZE)
+            };
+
+            Ok(Some(final_weight).into())
         }
 
         // TODO update weights
         #[pallet::call_index(7)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS).max(
+            <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(MAX_VALIDATOR_ACCOUNTS)
+        ))]
         pub fn submit_latest_ethereum_block(
             origin: OriginFor<T>,
             author: Author<T>,
@@ -628,8 +641,10 @@ pub mod pallet {
             submitted_blocks.sort();
 
             let mut remaining_votes_threshold = AVN::<T>::supermajority_quorum() as usize;
+            let mut threshold_met = false;
 
             if total_votes_count >= remaining_votes_threshold as usize {
+                threshold_met = true;
                 let quorum = AVN::<T>::quorum() as usize;
                 let mut selected_range: EthBlockRange = Default::default();
 
@@ -655,7 +670,14 @@ pub mod pallet {
                     None,
                 );
             }
-            Ok(().into())
+
+            let final_weight = if threshold_met {
+                <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(MAX_VALIDATOR_ACCOUNTS)
+            } else {
+                <T as Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS)
+            };
+
+            Ok(Some(final_weight).into())
         }
     }
 
