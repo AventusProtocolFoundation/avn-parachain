@@ -7,7 +7,6 @@ use sp_runtime::traits::Saturating;
 
 use self::event_types::ValidEvents;
 
-
 pub const MAX_INCOMING_EVENTS_BATCHE_SIZE: u32 = 128u32;
 pub type IncomingEventsBatchLimit = ConstU32<MAX_INCOMING_EVENTS_BATCHE_SIZE>;
 

@@ -11,9 +11,9 @@ use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
+use sp_avn_common::event_types::{EthEvent, EthEventId, LiftedData, ValidEvents};
 use sp_core::{H256, U256};
 use sp_runtime::WeakBoundedVec;
-use sp_avn_common::event_types::{EthEventId, ValidEvents, EthEvent, LiftedData, };
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
     let current_authors = avn::Validators::<T>::get();
@@ -235,11 +235,19 @@ fn set_recovered_account_for_tests<T: Config>(sender_account_id: &T::AccountId) 
     mock::set_mock_recovered_account_id(vector);
 }
 
-fn setup_incoming_events<T: Config>(event_count: u32, partition_index: u16, range: EthBlockRange) -> EthereumEventsPartition {
-    let mut partition: BoundedBTreeSet<DiscoveredEvent, IncomingEventsBatchLimit> = BoundedBTreeSet::new();
+fn setup_incoming_events<T: Config>(
+    event_count: u32,
+    partition_index: u16,
+    range: EthBlockRange,
+) -> EthereumEventsPartition {
+    let mut partition: BoundedBTreeSet<DiscoveredEvent, IncomingEventsBatchLimit> =
+        BoundedBTreeSet::new();
 
     for i in 0..event_count {
-        let eth_event_id = EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: H256::repeat_byte(i.try_into().unwrap())};
+        let eth_event_id = EthEventId {
+            signature: ValidEvents::Lifted.signature(),
+            transaction_hash: H256::repeat_byte(i.try_into().unwrap()),
+        };
         let event = EthEvent {
             event_id: eth_event_id.clone(),
             event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
@@ -254,19 +262,11 @@ fn setup_incoming_events<T: Config>(event_count: u32, partition_index: u16, rang
         partition.try_insert(DiscoveredEvent { event, block: 2 }).unwrap();
     }
 
-    EthereumEventsPartition::new(
-        range,
-        partition_index,
-        false,
-        partition,
-    )
+    EthereumEventsPartition::new(range, partition_index, false, partition)
 }
 
 fn setup_active_range<T: Config>(partition_index: u16) -> EthBlockRange {
-    let range = EthBlockRange {
-        start_block: 1,
-        length: 100
-    };
+    let range = EthBlockRange { start_block: 1, length: 100 };
 
     ActiveEthereumRange::<T>::put(ActiveEthRange {
         range: range.clone(),
@@ -277,7 +277,11 @@ fn setup_active_range<T: Config>(partition_index: u16) -> EthBlockRange {
     range
 }
 
-fn submit_votes_from_other_authors<T: Config>(num_votes_to_add: u32, events_data: &EthereumEventsPartition, authors: Vec<crate::Author<T>>) {
+fn submit_votes_from_other_authors<T: Config>(
+    num_votes_to_add: u32,
+    events_data: &EthereumEventsPartition,
+    authors: Vec<crate::Author<T>>,
+) {
     let mut votes = EthereumEvents::<T>::get(events_data);
     for i in 0..num_votes_to_add {
         votes.try_insert(authors[i as usize].clone().account_id).unwrap();
@@ -286,12 +290,14 @@ fn submit_votes_from_other_authors<T: Config>(num_votes_to_add: u32, events_data
     EthereumEvents::<T>::insert(events_data, votes);
 }
 
-fn submit_latest_block_from_other_authors<T: Config>(num_votes_to_add: u32, latest_seen_block: &u32, authors: Vec<crate::Author<T>>) {
+fn submit_latest_block_from_other_authors<T: Config>(
+    num_votes_to_add: u32,
+    latest_seen_block: &u32,
+    authors: Vec<crate::Author<T>>,
+) {
     let eth_block_range_size = EthBlockRangeSize::<T>::get();
-    let latest_finalised_block = events_helpers::compute_finalised_block_number(
-        *latest_seen_block,
-        eth_block_range_size,
-    );
+    let latest_finalised_block =
+        events_helpers::compute_finalised_block_number(*latest_seen_block, eth_block_range_size);
 
     let mut votes = SubmittedEthBlocks::<T>::get(latest_finalised_block);
     for i in 0..num_votes_to_add {

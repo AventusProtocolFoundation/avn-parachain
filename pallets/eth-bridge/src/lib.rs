@@ -264,8 +264,13 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub type SubmittedEthBlocks<T: Config> =
-        StorageMap<_, Blake2_128Concat, u32, BoundedBTreeSet<T::AccountId, MaximumValidatorsBound>, ValueQuery>;
+    pub type SubmittedEthBlocks<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        u32,
+        BoundedBTreeSet<T::AccountId, MaximumValidatorsBound>,
+        ValueQuery,
+    >;
 
     // The number of blocks that make up a range
     #[pallet::storage]
@@ -591,11 +596,15 @@ pub mod pallet {
             }
 
             let final_weight = if threshold_met {
-                <T as Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS,
-                    MAX_INCOMING_EVENTS_BATCHE_SIZE)
+                <T as Config>::WeightInfo::submit_ethereum_events(
+                    MAX_VALIDATOR_ACCOUNTS,
+                    MAX_INCOMING_EVENTS_BATCHE_SIZE,
+                )
             } else {
-                <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS,
-                    MAX_INCOMING_EVENTS_BATCHE_SIZE)
+                <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(
+                    MAX_VALIDATOR_ACCOUNTS,
+                    MAX_INCOMING_EVENTS_BATCHE_SIZE,
+                )
             };
 
             Ok(Some(final_weight).into())
@@ -672,7 +681,9 @@ pub mod pallet {
             }
 
             let final_weight = if threshold_met {
-                <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(MAX_VALIDATOR_ACCOUNTS)
+                <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(
+                    MAX_VALIDATOR_ACCOUNTS,
+                )
             } else {
                 <T as Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS)
             };

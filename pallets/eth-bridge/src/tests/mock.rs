@@ -183,7 +183,8 @@ pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
 }
 
 pub fn create_mock_event_partition(events: EthEvent, part: u16) -> EthereumEventsPartition {
-    let mut partition: BoundedBTreeSet<DiscoveredEvent, IncomingEventsBatchLimit> = BoundedBTreeSet::new();
+    let mut partition: BoundedBTreeSet<DiscoveredEvent, IncomingEventsBatchLimit> =
+        BoundedBTreeSet::new();
     partition
         .try_insert(DiscoveredEvent { event: events.clone(), block: 2 })
         .unwrap();
