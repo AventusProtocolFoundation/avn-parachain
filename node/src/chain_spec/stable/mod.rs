@@ -88,7 +88,8 @@ pub(crate) fn testnet_genesis(
         eth_bridge: EthBridgeConfig {
             _phantom: Default::default(),
             eth_tx_lifetime_secs: 60 * 30 as u64, // 30 minutes
-            next_tx_id: 1 as u32,
+            next_tx_id: 1u32,
+            eth_block_range_size: 20u32,
         },
         ethereum_events: EthereumEventsConfig {
             nft_t1_contracts: nft_eth_contracts,
