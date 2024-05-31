@@ -1092,4 +1092,15 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
 
         Ok(())
     }
+
+    fn on_incoming_event_processed(event: &EthEvent) -> DispatchResult {
+        match &event.event_data {
+            EventData::LogLifted(d) => return Self::process_lift(event, d),
+            EventData::LogAvtGrowthLifted(d) => return Self::process_avt_growth_lift(event, d),
+            EventData::LogLowerClaimed(d) => return Self::process_lower_claim(event, d),
+
+            // Event handled or it is not for us, in which case ignore it.
+            _ => Ok(()),
+        }
+    }
 }
