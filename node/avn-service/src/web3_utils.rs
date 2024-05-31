@@ -188,6 +188,13 @@ pub async fn send_raw_transaction(
         .with_context(|| format!("Error while sending raw transaction to Ethereum"))?)
 }
 
+pub async fn is_eth_block_finalised(web3: &Web3<Http>, current_block_num: u64, num_blocks_to_wait: u64) -> anyhow::Result<bool, String> {
+    let latest_block = get_current_block_number(web3)
+        .await.map_err(|err| format!("Failed to get latest block number: {:?}", err))?;
+
+    Ok(latest_block >= current_block_num + num_blocks_to_wait)
+}
+
 // Based and refactored from: https://github.com/tomusdrw/rust-web3/blob/v0.18.0/src/signing.rs#L151-L172
 
 /// Gets the address of a public key.

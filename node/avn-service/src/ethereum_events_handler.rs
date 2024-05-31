@@ -1,4 +1,4 @@
-use crate::{web3_utils, BlockT};
+use crate::{web3_utils, BlockT, ETH_FINALITY};
 use futures::lock::Mutex;
 use node_primitives::AccountId;
 use pallet_eth_bridge_runtime_api::EthEventHandlerApi;
@@ -27,6 +27,7 @@ pub use std::{path::PathBuf, sync::Arc};
 use tide::Error as TideError;
 use tokio::time::{sleep, Duration};
 use web3::{
+    transports::Http,
     types::{FilterBuilder, Log, H160, H256 as Web3H256, U64},
     Web3,
 };
@@ -161,6 +162,7 @@ pub async fn identify_events(
         .from_block(web3::types::BlockNumber::Number(U64::from(start_block)))
         .to_block(web3::types::BlockNumber::Number(U64::from(end_block)))
         .build();
+
     let logs_result = web3.eth().logs(filter).await;
     let logs = match logs_result {
         Ok(logs) => logs,
@@ -175,6 +177,7 @@ pub async fn identify_events(
             Err(err) => return Err(err),
         }
     }
+
     Ok(events)
 }
 
@@ -349,7 +352,7 @@ where
 
     log::info!("⛓️  ETH EVENT HANDLER INITIALIZED");
 
-    let mut current_node_public_key = Public([0u8; 32]);
+    let mut current_node_public_key;
     loop {
         let author_public_keys = config
             .client
@@ -378,6 +381,7 @@ where
             Ok(_) => (),
             Err(e) => log::error!("{}", e),
         }
+
         sleep(Duration::from_secs(SLEEP_TIME)).await;
     }
 }
@@ -403,24 +407,38 @@ where
         .query_active_block_range(config.client.info().best_hash)
         .map_err(|err| format!("Failed to query bridge contract: {:?}", err))?;
 
+    let web3_data_mutex = config.web3_data_mutex.lock().await;
+    let web3_ref = match web3_data_mutex.web3.as_ref() {
+        Some(web3) => web3,
+        None => return Err("Web3 connection not set up".into()),
+    };
+
     match result {
         // A range is active, attempt processing
         Some((range, partition_id)) => {
-            process_events(
-                &config,
-                range.clone(),
-                *partition_id,
-                &current_node_public_key,
-                &events_registry,
-            )
-            .await?;
+            if web3_utils::is_eth_block_finalised(&web3_ref, get_range_end_block(range).into(), ETH_FINALITY).await? {
+                process_events(
+                    &web3_ref,
+                    &config,
+                    range.clone(),
+                    *partition_id,
+                    &current_node_public_key,
+                    &events_registry,
+                )
+                .await?;
+            }
         },
         // There is no active range, attempt initial range voting.
         None => {
             submit_latest_ethereum_block(&config, &current_node_public_key).await?;
         },
     };
+
     Ok(())
+}
+
+fn get_range_end_block(range: &EthBlockRange) -> u32 {
+    range.start_block + range.length
 }
 
 async fn submit_latest_ethereum_block<Block, ClientT>(
@@ -486,7 +504,9 @@ where
     }
     Ok(())
 }
+
 async fn process_events<Block, ClientT>(
+    web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
     range: EthBlockRange,
     partition_id: u16,
@@ -511,14 +531,14 @@ where
     let contract_address_web3 = web3::types::H160::from_slice(&contract_address.to_fixed_bytes());
     let contract_addresses = vec![contract_address_web3];
 
-    let start_block = range.start_block;
-    let end_block = start_block + range.length;
+    let end_block = get_range_end_block(&range);
 
     let event_signatures = config
         .client
         .runtime_api()
         .query_signatures(config.client.info().best_hash)
         .map_err(|err| format!("Failed to query event signatures: {:?}", err))?;
+
     let event_signatures_web3: Vec<Web3H256> = event_signatures
         .iter()
         .map(|h256| Web3H256::from_slice(&h256.to_fixed_bytes()))
@@ -532,10 +552,11 @@ where
 
     if !has_casted_vote {
         execute_event_processing(
+            web3,
             config,
             &event_signatures_web3,
             contract_addresses,
-            start_block,
+            range.start_block,
             end_block,
             partition_id,
             current_public_key,
@@ -549,6 +570,7 @@ where
 }
 
 async fn execute_event_processing<Block, ClientT>(
+    web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
     event_signatures_web3: &[Web3H256],
     contract_addresses: Vec<H160>,
@@ -569,14 +591,8 @@ where
         + ApiExt<Block>
         + BlockBuilder<Block>,
 {
-    let web3_data_mutex = config.web3_data_mutex.lock().await;
-    let web3_ref = match web3_data_mutex.web3.as_ref() {
-        Some(web3) => web3,
-        None => return Err("Web3 connection not set up".into()),
-    };
-
     let events = identify_events(
-        web3_ref,
+        web3,
         start_block,
         end_block,
         contract_addresses,
