@@ -416,7 +416,13 @@ where
     match result {
         // A range is active, attempt processing
         Some((range, partition_id)) => {
-            if web3_utils::is_eth_block_finalised(&web3_ref, get_range_end_block(range).into(), ETH_FINALITY).await? {
+            if web3_utils::is_eth_block_finalised(
+                &web3_ref,
+                get_range_end_block(range).into(),
+                ETH_FINALITY,
+            )
+            .await?
+            {
                 process_events(
                     &web3_ref,
                     &config,
