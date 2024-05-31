@@ -264,32 +264,40 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub type SubmittedBlockRanges<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        EthBlockRange,
-        BoundedBTreeSet<T::AccountId, VotesLimit>,
-        ValueQuery,
-    >;
+    pub type SubmittedEthBlocks<T: Config> =
+        StorageMap<_, Blake2_128Concat, u32, BoundedBTreeSet<T::AccountId, VotesLimit>, ValueQuery>;
+
+    // The number of blocks that make up a range
+    #[pallet::storage]
+    pub type EthBlockRangeSize<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub eth_tx_lifetime_secs: u64,
         pub next_tx_id: EthereumId,
+        pub eth_block_range_size: u32,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), eth_tx_lifetime_secs: 60 * 30, next_tx_id: 0 }
+            Self {
+                _phantom: Default::default(),
+                eth_tx_lifetime_secs: 60 * 30,
+                next_tx_id: 0,
+                eth_block_range_size: 20,
+            }
         }
     }
 
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            assert!(self.eth_block_range_size > 0, "`EthBlockRangeSize` should be greater than 0");
+
             EthTxLifetimeSecs::<T>::put(self.eth_tx_lifetime_secs);
             NextTxId::<T>::put(self.next_tx_id);
+            EthBlockRangeSize::<T>::put(self.eth_block_range_size);
         }
     }
 
@@ -598,42 +606,51 @@ pub mod pallet {
                 Error::<T>::EventVoteExists
             );
 
-            let nominated_range =
-                events_helpers::compute_finalised_block_range_for_latest_ethereum_block(
-                    latest_seen_block,
-                );
-            let mut votes = SubmittedBlockRanges::<T>::get(&nominated_range);
+            let eth_block_range_size = EthBlockRangeSize::<T>::get();
+            let latest_finalised_block = events_helpers::compute_finalised_block_number(
+                latest_seen_block,
+                eth_block_range_size,
+            );
+            let mut votes = SubmittedEthBlocks::<T>::get(&latest_finalised_block);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
-            SubmittedBlockRanges::<T>::insert(&nominated_range, votes);
+            SubmittedEthBlocks::<T>::insert(&latest_finalised_block, votes);
 
-            let mut sorted_votes: Vec<(EthBlockRange, usize)> = SubmittedBlockRanges::<T>::iter()
-                .map(|(range, votes)| (range, votes.len()))
-                .collect();
-            sorted_votes.sort_by(|(range_a, _votes_a), (range_b, _votes_b)| range_a.cmp(range_b));
+            let mut total_votes_count = 0;
+            let mut submitted_blocks = Vec::new();
 
-            let total_votes_count = sorted_votes
-                .iter()
-                .map(|(_range, votes)| votes)
-                .fold(0, |acc, x| acc as usize + x);
+            for (eth_block_num, votes) in SubmittedEthBlocks::<T>::iter() {
+                let vote_count = votes.len();
+                total_votes_count += vote_count;
+                submitted_blocks.push((eth_block_num, vote_count));
+            }
+
+            submitted_blocks.sort();
+
             let mut remaining_votes_threshold = AVN::<T>::supermajority_quorum() as usize;
 
             if total_votes_count >= remaining_votes_threshold as usize {
                 let quorum = AVN::<T>::quorum() as usize;
                 let mut selected_range: EthBlockRange = Default::default();
-                for (range, votes_count) in sorted_votes.iter() {
-                    selected_range = range.clone();
+
+                for (eth_block_num, votes_count) in submitted_blocks.iter() {
                     remaining_votes_threshold.saturating_reduce(*votes_count);
                     if remaining_votes_threshold < quorum {
+                        selected_range = EthBlockRange {
+                            start_block: *eth_block_num,
+                            length: eth_block_range_size,
+                        };
                         break
                     }
                 }
+
                 ActiveEthereumRange::<T>::put(ActiveEthRange {
                     range: selected_range,
                     partition: 0,
                     event_types_filter: T::EthereumEventsFilter::get_filter(),
                 });
-                let _ = SubmittedBlockRanges::<T>::clear(
+
+                let _ = SubmittedEthBlocks::<T>::clear(
                     <MaximumValidatorsBound as sp_core::TypedGet>::get(),
                     None,
                 );
@@ -769,7 +786,7 @@ pub mod pallet {
     }
 
     pub fn author_has_submitted_latest_block<T: Config>(author: &T::AccountId) -> bool {
-        for (_partition, votes) in SubmittedBlockRanges::<T>::iter() {
+        for (_block_num, votes) in SubmittedEthBlocks::<T>::iter() {
             if votes.contains(&author) {
                 return true
             }

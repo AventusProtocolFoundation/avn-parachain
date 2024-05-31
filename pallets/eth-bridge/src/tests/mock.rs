@@ -407,6 +407,7 @@ impl ExtBuilder {
             _phantom: Default::default(),
             eth_tx_lifetime_secs: 60 * 30,
             next_tx_id: 1,
+            eth_block_range_size: 20u32,
         }
         .assimilate_storage(&mut self.storage);
         self
