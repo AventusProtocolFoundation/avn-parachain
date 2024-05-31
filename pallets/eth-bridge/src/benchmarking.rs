@@ -11,7 +11,8 @@ use frame_support::{ensure, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
-use sp_core::H256;
+use sp_avn_common::event_types::{EthEvent, EthEventId, LiftedData, ValidEvents};
+use sp_core::{H256, U256};
 use sp_runtime::WeakBoundedVec;
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
@@ -234,6 +235,78 @@ fn set_recovered_account_for_tests<T: Config>(sender_account_id: &T::AccountId) 
     mock::set_mock_recovered_account_id(vector);
 }
 
+fn setup_incoming_events<T: Config>(
+    event_count: u32,
+    partition_index: u16,
+    range: EthBlockRange,
+) -> EthereumEventsPartition {
+    let mut partition: BoundedBTreeSet<DiscoveredEvent, IncomingEventsBatchLimit> =
+        BoundedBTreeSet::new();
+
+    for i in 0..event_count {
+        let eth_event_id = EthEventId {
+            signature: ValidEvents::Lifted.signature(),
+            transaction_hash: H256::repeat_byte(i.try_into().unwrap()),
+        };
+        let event = EthEvent {
+            event_id: eth_event_id.clone(),
+            event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
+                token_contract: H160::zero(),
+                sender_address: H160::zero(),
+                receiver_address: H256::zero(),
+                amount: i.into(),
+                nonce: U256::zero(),
+            }),
+        };
+
+        partition.try_insert(DiscoveredEvent { event, block: 2 }).unwrap();
+    }
+
+    EthereumEventsPartition::new(range, partition_index, false, partition)
+}
+
+fn setup_active_range<T: Config>(partition_index: u16) -> EthBlockRange {
+    let range = EthBlockRange { start_block: 1, length: 100 };
+
+    ActiveEthereumRange::<T>::put(ActiveEthRange {
+        range: range.clone(),
+        partition: partition_index,
+        event_types_filter: T::EthereumEventsFilter::get_filter(),
+    });
+
+    range
+}
+
+fn submit_votes_from_other_authors<T: Config>(
+    num_votes_to_add: u32,
+    events_data: &EthereumEventsPartition,
+    authors: Vec<crate::Author<T>>,
+) {
+    let mut votes = EthereumEvents::<T>::get(events_data);
+    for i in 0..num_votes_to_add {
+        votes.try_insert(authors[i as usize].clone().account_id).unwrap();
+    }
+
+    EthereumEvents::<T>::insert(events_data, votes);
+}
+
+fn submit_latest_block_from_other_authors<T: Config>(
+    num_votes_to_add: u32,
+    latest_seen_block: &u32,
+    authors: Vec<crate::Author<T>>,
+) {
+    let eth_block_range_size = EthBlockRangeSize::<T>::get();
+    let latest_finalised_block =
+        events_helpers::compute_finalised_block_number(*latest_seen_block, eth_block_range_size);
+
+    let mut votes = SubmittedEthBlocks::<T>::get(latest_finalised_block);
+    for i in 0..num_votes_to_add {
+        votes.try_insert(authors[i as usize].clone().account_id).unwrap();
+    }
+
+    SubmittedEthBlocks::<T>::insert(latest_finalised_block, votes);
+}
+
 benchmarks! {
     set_eth_tx_lifetime_secs {
         let eth_tx_lifetime_secs = 300u64;
@@ -347,10 +420,108 @@ benchmarks! {
     verify {
         ensure!(ActiveRequest::<T>::get().is_none(), "Active request not removed");
     }
+
+    submit_ethereum_events {
+        let c in 4..MAX_VALIDATOR_ACCOUNTS;
+        let e in 1..MAX_INCOMING_EVENTS_BATCHE_SIZE;
+
+        let authors = setup_authors::<T>(c);
+        let range = setup_active_range::<T>(c.try_into().unwrap());
+        let events = setup_incoming_events::<T>(e, c.try_into().unwrap(), range);
+
+        let author: crate::Author<T> = authors[0].clone();
+        #[cfg(not(test))]
+        let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
+
+        let signature = author.key.sign(&("DummyProof").encode()).expect("Error signing proof");
+    }: _(RawOrigin::None, author.clone(), events, signature )
+    verify {
+        ensure!(author_has_cast_event_vote::<T>(&author.account_id) == true, "No votes found for author");
+    }
+
+    submit_ethereum_events_and_process_batch {
+        let c in 4..MAX_VALIDATOR_ACCOUNTS;
+        let e in 1..MAX_INCOMING_EVENTS_BATCHE_SIZE;
+
+        let authors = setup_authors::<T>(c);
+        let range = setup_active_range::<T>(c.try_into().unwrap());
+        let events = setup_incoming_events::<T>(e, c.try_into().unwrap(), range);
+
+        let author: crate::Author<T> = authors[0].clone();
+
+        #[cfg(not(test))]
+        let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
+        let signature = author.key.sign(&("DummyProof").encode()).expect("Error signing proof");
+
+        submit_votes_from_other_authors::<T>(AVN::<T>::quorum() - 1, &events, authors[1..].to_vec());
+    }: submit_ethereum_events(RawOrigin::None, author, events.clone(), signature )
+    verify {
+        assert!(ActiveEthereumRange::<T>::get().unwrap().partition as u32 == c + 1, "Range not advanced");
+        assert!(EthereumEvents::<T>::get(events).is_empty(), "Submitted events not cleared");
+    }
+
+    submit_latest_ethereum_block {
+        let c in 4..MAX_VALIDATOR_ACCOUNTS;
+
+        let authors = setup_authors::<T>(c);
+        let author: crate::Author<T> = authors[0].clone();
+        let latest_seen_block = 1000u32;
+
+        #[cfg(not(test))]
+        let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
+
+        let signature = author.key.sign(&("DummyProof").encode()).expect("Error signing proof");
+    }: _(RawOrigin::None, author.clone(), latest_seen_block, signature )
+    verify {
+        let eth_block_range_size = EthBlockRangeSize::<T>::get();
+        let latest_finalised_block = events_helpers::compute_finalised_block_number(
+            latest_seen_block,
+            eth_block_range_size,
+        );
+
+        ensure!(author_has_submitted_latest_block::<T>(&author.account_id) == true, "No votes found for author");
+        ensure!(ActiveEthereumRange::<T>::get().is_none(), "Active range should be empty");
+        ensure!(!SubmittedEthBlocks::<T>::get(latest_finalised_block).is_empty(), "Submitted block data should not be empty");
+    }
+
+    submit_latest_ethereum_block_with_quorum {
+        let c in 4..MAX_VALIDATOR_ACCOUNTS;
+
+        let authors = setup_authors::<T>(c);
+        let author: crate::Author<T> = authors[0].clone();
+        let latest_seen_block = 1000u32;
+
+        #[cfg(not(test))]
+        let author = add_collator_to_avn::<T>(&author.account_id, authors.len() as u32 + 1u32)?;
+        let signature = author.key.sign(&("DummyProof").encode()).expect("Error signing proof");
+
+        submit_latest_block_from_other_authors::<T>(AVN::<T>::supermajority_quorum() - 1, &latest_seen_block, authors[1..].to_vec());
+    }: submit_latest_ethereum_block(RawOrigin::None, author.clone(), latest_seen_block, signature )
+    verify {
+        let eth_block_range_size = EthBlockRangeSize::<T>::get();
+        let latest_finalised_block = events_helpers::compute_finalised_block_number(
+            latest_seen_block,
+            eth_block_range_size,
+        );
+
+        let expected_active_range = ActiveEthRange {
+            range: EthBlockRange {
+                start_block: latest_finalised_block,
+                length: eth_block_range_size,
+            },
+            partition: 0,
+            event_types_filter: T::EthereumEventsFilter::get_filter(),
+        };
+
+        ensure!(ActiveEthereumRange::<T>::get().is_some(), "Active range not set");
+        ensure!(ActiveEthereumRange::<T>::get() == Some(expected_active_range), "Active range not set correctly");
+        ensure!(SubmittedEthBlocks::<T>::iter().next().is_none(), "Block data should be removed");
+    }
+
 }
 
 impl_benchmark_test_suite!(
     Pallet,
-    crate::mock::ExtBuilder::build_default().as_externality(),
+    crate::mock::ExtBuilder::build_default().with_genesis_config().as_externality(),
     crate::mock::TestRuntime,
 );

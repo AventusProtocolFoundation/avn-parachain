@@ -7,8 +7,8 @@ use sp_runtime::traits::Saturating;
 
 use self::event_types::ValidEvents;
 
-pub type VotesLimit = ConstU32<100>;
-pub type EventsBatchLimit = ConstU32<32>;
+pub const MAX_INCOMING_EVENTS_BATCHE_SIZE: u32 = 128u32;
+pub type IncomingEventsBatchLimit = ConstU32<MAX_INCOMING_EVENTS_BATCHE_SIZE>;
 
 #[derive(
     Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Default, TypeInfo, MaxEncodedLen,
@@ -71,7 +71,7 @@ impl Ord for DiscoveredEvent {
     }
 }
 
-type EthereumEventsSet = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
+type EthereumEventsSet = BoundedBTreeSet<DiscoveredEvent, IncomingEventsBatchLimit>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct EthereumEventsPartition {
     range: EthBlockRange,
@@ -154,7 +154,7 @@ pub mod events_helpers {
             mut_events
         };
 
-        let chunk_size: usize = <EventsBatchLimit as sp_core::Get<u32>>::get() as usize;
+        let chunk_size: usize = <IncomingEventsBatchLimit as sp_core::Get<u32>>::get() as usize;
         let mut partitions = Vec::<EthereumEventsPartition>::new();
 
         let event_chunks: Vec<_> = sorted_events.chunks(chunk_size).collect();
