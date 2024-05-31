@@ -34,6 +34,7 @@ use crate::{
 pub use crate::web3_utils::{public_key_address, secret_key_address};
 use jsonrpc_core::Error as RPCError;
 
+pub const ETH_FINALITY: u64 = 20u64;
 const MAX_BODY_SIZE: usize = 100_000; // 100 KB
 
 /// Error types for merkle tree and extrinsic utils.
