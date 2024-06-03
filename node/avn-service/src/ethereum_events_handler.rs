@@ -352,7 +352,7 @@ where
 
     log::info!("⛓️  ETH EVENT HANDLER INITIALIZED");
 
-    let mut current_node_public_key;
+    let current_node_public_key;
     loop {
         let author_public_keys = config
             .client
@@ -367,11 +367,15 @@ where
             });
 
         let public_keys = config.keystore.sr25519_public_keys(AVN_KEY_ID);
-        if let Some(key) = find_author_account_id(author_public_keys, public_keys) {
+        if let Some(key) = find_author_account_id(author_public_keys.clone(), public_keys.clone()) {
             current_node_public_key = key;
             break
         }
-        log::error!("Author not found. Will attempt again after a while.");
+        log::error!("Author not found. Will attempt again after a while. Chain signing keys: {:?}, keystore keys: {:?}",
+            author_public_keys,
+            public_keys,
+        );
+
         sleep(Duration::from_secs(10 * SLEEP_TIME)).await;
         continue
     }
