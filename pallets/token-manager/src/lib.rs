@@ -988,10 +988,8 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
-}
 
-impl<T: Config> ProcessedEventHandler for Pallet<T> {
-    fn on_event_processed(event: &EthEvent) -> DispatchResult {
+    fn processed_event_handler(event: &EthEvent) -> DispatchResult {
         return match &event.event_data {
             EventData::LogLifted(d) => return Self::process_lift(event, d),
             EventData::LogAvtGrowthLifted(d) => return Self::process_avt_growth_lift(event, d),
@@ -1000,6 +998,12 @@ impl<T: Config> ProcessedEventHandler for Pallet<T> {
             // Event handled or it is not for us, in which case ignore it.
             _ => Ok(()),
         }
+    }
+}
+
+impl<T: Config> ProcessedEventHandler for Pallet<T> {
+    fn on_event_processed(event: &EthEvent) -> DispatchResult {
+        Self::processed_event_handler(event)
     }
 }
 
@@ -1094,13 +1098,6 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     }
 
     fn on_incoming_event_processed(event: &EthEvent) -> DispatchResult {
-        match &event.event_data {
-            EventData::LogLifted(d) => return Self::process_lift(event, d),
-            EventData::LogAvtGrowthLifted(d) => return Self::process_avt_growth_lift(event, d),
-            EventData::LogLowerClaimed(d) => return Self::process_lower_claim(event, d),
-
-            // Event handled or it is not for us, in which case ignore it.
-            _ => Ok(()),
-        }
+        Self::processed_event_handler(event)
     }
 }
