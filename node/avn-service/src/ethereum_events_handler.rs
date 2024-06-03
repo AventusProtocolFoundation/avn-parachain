@@ -380,12 +380,15 @@ where
         continue
     }
 
+    log::info!("Current node public key set");
+
     loop {
         match query_runtime_and_process(&config, &current_node_public_key, &events_registry).await {
             Ok(_) => (),
             Err(e) => log::error!("{}", e),
         }
 
+        log::info!("Sleeping");
         sleep(Duration::from_secs(SLEEP_TIME)).await;
     }
 }
@@ -420,6 +423,8 @@ where
     match result {
         // A range is active, attempt processing
         Some((range, partition_id)) => {
+            log::info!("Getting events for range starting at: {:?}", range.start_block);
+
             if web3_utils::is_eth_block_finalised(
                 &web3_ref,
                 get_range_end_block(range).into(),
@@ -440,6 +445,7 @@ where
         },
         // There is no active range, attempt initial range voting.
         None => {
+            log::info!("Active range setup - Submitting latest block");
             submit_latest_ethereum_block(&config, &current_node_public_key).await?;
         },
     };
@@ -470,6 +476,8 @@ where
         .runtime_api()
         .query_has_author_casted_vote(config.client.info().best_hash, current_public_key.0.into())
         .map_err(|err| format!("Failed to check if author has casted latest  vote: {:?}", err))?;
+
+    log::info!("Checking if vote has been cast already. Result: {:?}", has_casted_vote);
 
     if !has_casted_vote {
         let web3_data_mutex = config.web3_data_mutex.lock().await;
@@ -510,7 +518,8 @@ where
                 signature,
             )
             .map_err(|err| format!("Failed to submit latest ethereum block vote: {:?}", err))?;
-        log::info!("Latest ethereum block submitted to pool successfully.");
+
+        log::info!("Latest ethereum block {:?} submitted to pool successfully.", latest_seen_ethereum_block);
     }
     Ok(())
 }
