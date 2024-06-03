@@ -371,7 +371,7 @@ where
             current_node_public_key = key;
             break
         }
-        log::error!("Author not found. Will attempt again after a while. Chain signing keys: {:?}, keystore keys: {:?}",
+        log::error!("Author not found. Will attempt again after a while. Chain signing keys: {:?}, keystore keys: {:?}.",
             author_public_keys,
             public_keys,
         );
