@@ -385,7 +385,7 @@ where
         continue
     }
 
-    log::info!("Current node author address set");
+    log::info!("Current node author address set: {:?}", current_node_author_address);
 
     loop {
         match query_runtime_and_process(&config, &current_node_author_address, &events_registry).await {
@@ -485,29 +485,34 @@ where
     log::info!("Checking if vote has been cast already. Result: {:?}", has_casted_vote);
 
     if !has_casted_vote {
+        log::info!("Setting up web3");
         let web3_data_mutex = config.web3_data_mutex.lock().await;
         let web3_ref = match web3_data_mutex.web3.as_ref() {
             Some(web3) => web3,
             None => return Err("Web3 connection not set up".into()),
         };
 
+        log::info!("Getting current block from Ethereum");
         let latest_seen_ethereum_block = web3_utils::get_current_block_number(web3_ref)
             .await
             .map_err(|err| format!("Failed to retrieve latest ethereum block: {:?}", err))?
             as u32;
 
+        log::info!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let proof = encode_eth_event_submission_data::<AccountId, u32>(
             &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
             &(*current_node_author_address).into(),
             latest_seen_ethereum_block,
         );
 
+        log::info!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let signature = config
             .keystore
             .sr25519_sign(AVN_KEY_ID, current_node_author_address, &proof.into_boxed_slice().as_ref())
             .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
             .ok_or_else(|| "Signature generation failed".to_string())?;
 
+        log::info!("Setting up runtime API");
         let mut runtime_api = config.client.runtime_api();
         runtime_api.register_extension(
             config
@@ -515,6 +520,7 @@ where
                 .offchain_transaction_pool(config.client.info().best_hash),
         );
 
+        log::info!("Sending transaction to runtime");
         runtime_api
             .submit_latest_ethereum_block(
                 config.client.info().best_hash,
@@ -524,8 +530,10 @@ where
             )
             .map_err(|err| format!("Failed to submit latest ethereum block vote: {:?}", err))?;
 
-        log::info!("Latest ethereum block {:?} submitted to pool successfully.", latest_seen_ethereum_block);
+        log::info!("Latest ethereum block {:?} submitted to pool successfully by {:?}.", latest_seen_ethereum_block, current_node_author_address);
     }
+
+    log::info!("Done");
     Ok(())
 }
 
