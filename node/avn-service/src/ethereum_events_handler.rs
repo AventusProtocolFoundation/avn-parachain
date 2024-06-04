@@ -45,11 +45,11 @@ pub struct EventInfo {
 #[derive(Clone, Debug)]
 pub struct CurrentNodeAuthor {
     address: Public,
-    signing_key: Public
+    signing_key: Public,
 }
 
 impl CurrentNodeAuthor {
-    pub fn new(address: Public, signing_key: Public,) -> Self {
+    pub fn new(address: Public, signing_key: Public) -> Self {
         CurrentNodeAuthor { address, signing_key }
     }
 }
@@ -337,10 +337,15 @@ fn find_current_node_author<T>(
         node_signing_keys.sort();
 
         // Return the current node's address (NOT signing key)
-        return authors.into_iter().enumerate().filter_map(move |(_, author)| {
-                node_signing_keys.binary_search(&Public::from_raw(author.1)).ok().map(|_| CurrentNodeAuthor::new(Public::from_raw(author.0), Public::from_raw(author.1)))
+        return authors
+            .into_iter()
+            .enumerate()
+            .filter_map(move |(_, author)| {
+                node_signing_keys.binary_search(&Public::from_raw(author.1)).ok().map(|_| {
+                    CurrentNodeAuthor::new(Public::from_raw(author.0), Public::from_raw(author.1))
+                })
             })
-            .nth(0);
+            .nth(0)
     }
 
     None
@@ -377,7 +382,9 @@ where
             });
 
         let node_signing_keys = config.keystore.sr25519_public_keys(AVN_KEY_ID);
-        if let Some(node_author) = find_current_node_author(authors.clone(), node_signing_keys.clone()) {
+        if let Some(node_author) =
+            find_current_node_author(authors.clone(), node_signing_keys.clone())
+        {
             current_node_author = node_author;
             break
         }
@@ -485,7 +492,10 @@ where
     let has_casted_vote = config
         .client
         .runtime_api()
-        .query_has_author_casted_vote(config.client.info().best_hash, current_node_author.address.0.into())
+        .query_has_author_casted_vote(
+            config.client.info().best_hash,
+            current_node_author.address.0.into(),
+        )
         .map_err(|err| format!("Failed to check if author has casted latest  vote: {:?}", err))?;
 
     log::debug!("Checking if vote has been cast already. Result: {:?}", has_casted_vote);
@@ -507,7 +517,11 @@ where
         log::debug!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let signature = config
             .keystore
-            .sr25519_sign(AVN_KEY_ID, &current_node_author.signing_key, &proof.into_boxed_slice().as_ref())
+            .sr25519_sign(
+                AVN_KEY_ID,
+                &current_node_author.signing_key,
+                &proof.into_boxed_slice().as_ref(),
+            )
             .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
             .ok_or_else(|| "Signature generation failed".to_string())?;
 
@@ -529,7 +543,11 @@ where
             )
             .map_err(|err| format!("Failed to submit latest ethereum block vote: {:?}", err))?;
 
-        log::debug!("Latest ethereum block {:?} submitted to pool successfully by {:?}.", latest_seen_ethereum_block, current_node_author);
+        log::debug!(
+            "Latest ethereum block {:?} submitted to pool successfully by {:?}.",
+            latest_seen_ethereum_block,
+            current_node_author
+        );
     }
 
     Ok(())
@@ -577,7 +595,10 @@ where
     let has_casted_vote = config
         .client
         .runtime_api()
-        .query_has_author_casted_vote(config.client.info().best_hash, current_node_author.address.0.into())
+        .query_has_author_casted_vote(
+            config.client.info().best_hash,
+            current_node_author.address.0.into(),
+        )
         .map_err(|err| format!("Failed to check if author has casted event vote: {:?}", err))?;
 
     if !has_casted_vote {
@@ -646,7 +667,11 @@ where
 
     let signature = config
         .keystore
-        .sr25519_sign(AVN_KEY_ID, &current_node_author.signing_key, &proof.into_boxed_slice().as_ref())
+        .sr25519_sign(
+            AVN_KEY_ID,
+            &current_node_author.signing_key,
+            &proof.into_boxed_slice().as_ref(),
+        )
         .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
         .ok_or_else(|| "Signature generation failed".to_string())?;
 
