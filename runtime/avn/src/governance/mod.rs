@@ -2,12 +2,15 @@ pub use super::*;
 
 pub mod origins;
 use frame_support::traits::EitherOf;
+use frame_system::EnsureRootWithSuccess;
+use origins::pallet_custom_origins::Spender;
 pub use origins::{
     pallet_custom_origins, ReferendumCanceller, ReferendumKiller, WhitelistedCaller,
 };
 
 pub mod tracks;
 use pallet_token_manager;
+use sp_core::ConstU128;
 pub use tracks::TracksInfo;
 
 parameter_types! {
@@ -32,6 +35,8 @@ parameter_types! {
 }
 
 impl pallet_custom_origins::Config for Runtime {}
+
+pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, ConstU128<65535>>, Spender>;
 
 pub struct ToTreasury<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for ToTreasury<R>

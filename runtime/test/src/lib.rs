@@ -35,17 +35,15 @@ use frame_support::{
     dispatch::DispatchClass,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance,
-        OnUnbalanced, PrivilegeCmp,
+        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance, OnUnbalanced, PrivilegeCmp
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
 };
 use frame_system::{
-    limits::{BlockLength, BlockWeights},
-    EnsureRoot, EnsureSigned,
+    limits::{BlockLength, BlockWeights}, EnsureRoot, EnsureSigned
 };
-use governance::pallet_custom_origins;
+use governance::{pallet_custom_origins, TreasurySpender};
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
@@ -169,7 +167,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 65,
+    spec_version: 66,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -607,6 +605,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type Signature = Signature;
     type OnGrowthLiftedHandler = ParachainStaking;
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
+    type TreasurySpender = TreasurySpender;
     type AvnTreasuryPotId = AvnTreasuryPotId;
     type WeightInfo = pallet_token_manager::default_weights::SubstrateWeight<Runtime>;
     type Scheduler = Scheduler;
@@ -778,7 +777,7 @@ construct_runtime!(
          // OpenGov pallets
          Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 97,
          Scheduler: pallet_scheduler::{Pallet, Storage, Event<T>, Call} = 98,
-         Origins: pallet_custom_origins::{Origin} = 99,
+         Origins: pallet_custom_origins = 99,
          ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 100,
          Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 101,
          Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102
