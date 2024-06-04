@@ -127,6 +127,10 @@ impl EthereumEventsFilterTrait for EthBridgeTestRuntimeEventsFilter {
             ValidEvents::Lifted,
             ValidEvents::AvtGrowthLifted,
             ValidEvents::AvtLowerClaimed,
+            ValidEvents::NftMint,
+            ValidEvents::NftTransferTo,
+            ValidEvents::NftCancelListing,
+            ValidEvents::NftEndBatchListing,
         ]
         .into_iter()
         .collect();
@@ -672,7 +676,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type ReportCorroborationOffence = Offences;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
+    type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
     type EthereumEventsFilter = EthBridgeTestRuntimeEventsFilter;
 }
 
@@ -840,8 +844,6 @@ mod benches {
         [cumulus_pallet_xcmp_queue, XcmpQueue]
     );
 }
-
-use pallet_eth_bridge::Author;
 
 impl_runtime_apis! {
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
