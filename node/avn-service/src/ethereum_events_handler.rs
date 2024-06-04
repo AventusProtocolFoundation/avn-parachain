@@ -398,7 +398,7 @@ where
             Err(e) => log::error!("{}", e),
         }
 
-        log::info!("Sleeping");
+        log::debug!("Sleeping");
         sleep(Duration::from_secs(SLEEP_TIME)).await;
     }
 }
@@ -488,30 +488,30 @@ where
         .query_has_author_casted_vote(config.client.info().best_hash, current_node_author.address.0.into())
         .map_err(|err| format!("Failed to check if author has casted latest  vote: {:?}", err))?;
 
-    log::info!("Checking if vote has been cast already. Result: {:?}", has_casted_vote);
+    log::debug!("Checking if vote has been cast already. Result: {:?}", has_casted_vote);
 
     if !has_casted_vote {
-        log::info!("Getting current block from Ethereum");
+        log::debug!("Getting current block from Ethereum");
         let latest_seen_ethereum_block = web3_utils::get_current_block_number(web3)
             .await
             .map_err(|err| format!("Failed to retrieve latest ethereum block: {:?}", err))?
             as u32;
 
-        log::info!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
+        log::debug!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let proof = encode_eth_event_submission_data::<AccountId, u32>(
             &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
             &((*current_node_author).address).into(),
             latest_seen_ethereum_block,
         );
 
-        log::info!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
+        log::debug!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let signature = config
             .keystore
             .sr25519_sign(AVN_KEY_ID, &current_node_author.signing_key, &proof.into_boxed_slice().as_ref())
             .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
             .ok_or_else(|| "Signature generation failed".to_string())?;
 
-        log::info!("Setting up runtime API");
+        log::debug!("Setting up runtime API");
         let mut runtime_api = config.client.runtime_api();
         runtime_api.register_extension(
             config
@@ -519,7 +519,7 @@ where
                 .offchain_transaction_pool(config.client.info().best_hash),
         );
 
-        log::info!("Sending transaction to runtime");
+        log::debug!("Sending transaction to runtime");
         runtime_api
             .submit_latest_ethereum_block(
                 config.client.info().best_hash,
@@ -529,10 +529,9 @@ where
             )
             .map_err(|err| format!("Failed to submit latest ethereum block vote: {:?}", err))?;
 
-        log::info!("Latest ethereum block {:?} submitted to pool successfully by {:?}.", latest_seen_ethereum_block, current_node_author);
+        log::debug!("Latest ethereum block {:?} submitted to pool successfully by {:?}.", latest_seen_ethereum_block, current_node_author);
     }
 
-    log::info!("Done");
     Ok(())
 }
 
