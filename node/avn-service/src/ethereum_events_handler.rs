@@ -451,7 +451,7 @@ where
         // There is no active range, attempt initial range voting.
         None => {
             log::info!("Active range setup - Submitting latest block");
-            submit_latest_ethereum_block(&config, &current_node_author_address).await?;
+            submit_latest_ethereum_block(&web3_ref, &config, &current_node_author_address).await?;
         },
     };
 
@@ -463,6 +463,7 @@ fn get_range_end_block(range: &EthBlockRange) -> u32 {
 }
 
 async fn submit_latest_ethereum_block<Block, ClientT>(
+    web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
     current_node_author_address: &sp_core::sr25519::Public,
 ) -> Result<(), String>
@@ -485,15 +486,8 @@ where
     log::info!("Checking if vote has been cast already. Result: {:?}", has_casted_vote);
 
     if !has_casted_vote {
-        log::info!("Setting up web3");
-        let web3_data_mutex = config.web3_data_mutex.lock().await;
-        let web3_ref = match web3_data_mutex.web3.as_ref() {
-            Some(web3) => web3,
-            None => return Err("Web3 connection not set up".into()),
-        };
-
         log::info!("Getting current block from Ethereum");
-        let latest_seen_ethereum_block = web3_utils::get_current_block_number(web3_ref)
+        let latest_seen_ethereum_block = web3_utils::get_current_block_number(web3)
             .await
             .map_err(|err| format!("Failed to retrieve latest ethereum block: {:?}", err))?
             as u32;
