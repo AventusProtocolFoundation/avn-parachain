@@ -21,6 +21,8 @@ pub use pallet_custom_origins::*;
 #[frame_support::pallet]
 pub mod pallet_custom_origins {
     use frame_support::pallet_prelude::*;
+	use crate::Balance;
+	use crate::AVT;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {}
@@ -114,9 +116,9 @@ pub mod pallet_custom_origins {
 
     decl_ensure! {
         pub type Spender: EnsureOrigin<Success = Balance> {
-            SmallSpender = 10 * GRAND,
-            MediumSpender = 100 * GRAND,
-            BigSpender = 1_000 * GRAND,
+            SmallSpender = 10 * AVT,
+            MediumSpender = 100 * AVT,
+            BigSpender = 1_000 * AVT,
         }
     }
 }

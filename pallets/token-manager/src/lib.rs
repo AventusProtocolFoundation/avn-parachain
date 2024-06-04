@@ -143,6 +143,7 @@ pub mod pallet {
         /// Percentage of growth to store in the treasury
         #[pallet::constant]
         type TreasuryGrowthPercentage: Get<Perbill>;
+        type TreasurySpender: EnsureOrigin<Self::RuntimeOrigin, Success = BalanceOf<Self>>;
         /// Handler to notify the runtime when AVT growth is lifted.
         type OnGrowthLiftedHandler: OnGrowthLiftedHandler<BalanceOf<Self>>;
         type Scheduler: ScheduleAnon<BlockNumberFor<Self>, CallOf<Self>, Self::PalletsOrigin>
@@ -263,6 +264,7 @@ pub mod pallet {
         InvalidLowerCall,
         LowerDataLimitExceeded,
         InvalidLowerId,
+        InsufficientPermission,
     }
 
     #[pallet::storage]
@@ -411,8 +413,9 @@ pub mod pallet {
             recipient: T::AccountId,
             amount: BalanceOf<T>,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            let max_amount = T::TreasurySpender::ensure_origin(origin)?;
             ensure!(amount != BalanceOf::<T>::zero(), Error::<T>::AmountIsZero);
+			ensure!(amount <= max_amount, Error::<T>::InsufficientPermission);
 
             <T as pallet::Config>::Currency::transfer(
                 &Self::compute_treasury_account_id(),

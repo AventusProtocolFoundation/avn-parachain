@@ -124,7 +124,7 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 8]
         pallet_referenda::TrackInfo {
             name: "small_spender",
             max_deciding: 50,
-            decision_deposit: 100 * 3 * CENTS,
+            decision_deposit: 100 * 3 * AVT,
             prepare_period: 10 * MINUTES,
             decision_period: 20 * MINUTES,
             confirm_period: 10 * MINUTES,
@@ -138,7 +138,7 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 8]
         pallet_referenda::TrackInfo {
             name: "medium_spender",
             max_deciding: 50,
-            decision_deposit: 200 * 3 * CENTS,
+            decision_deposit: 200 * 3 * AVT,
             prepare_period: 10 * MINUTES,
             decision_period: 20 * MINUTES,
             confirm_period: 12 * MINUTES,
@@ -152,7 +152,7 @@ const TRACKS_DATA: [(u16, pallet_referenda::TrackInfo<Balance, BlockNumber>); 8]
         pallet_referenda::TrackInfo {
             name: "big_spender",
             max_deciding: 50,
-            decision_deposit: 400 * 3 * CENTS,
+            decision_deposit: 400 * 3 * AVT,
             prepare_period: 10 * MINUTES,
             decision_period: 20 * MINUTES,
             confirm_period: 14 * MINUTES,
@@ -184,6 +184,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
                 // Referendum admins
                 origins::Origin::ReferendumCanceller => Ok(3),
                 origins::Origin::ReferendumKiller => Ok(4),
+                // Spenders
                 origins::Origin::SmallSpender => Ok(5),
                 origins::Origin::MediumSpender => Ok(6),
                 origins::Origin::BigSpender => Ok(7),
