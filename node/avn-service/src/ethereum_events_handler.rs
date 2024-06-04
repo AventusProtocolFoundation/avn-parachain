@@ -42,6 +42,18 @@ pub struct EventInfo {
     parser: fn(Vec<u8>, Vec<Vec<u8>>) -> Result<EventData, AppError>,
 }
 
+#[derive(Clone, Debug)]
+pub struct CurrentNodeAuthor {
+    address: Public,
+    signing_key: Public
+}
+
+impl CurrentNodeAuthor {
+    pub fn new(address: Public, signing_key: Public,) -> Self {
+        CurrentNodeAuthor { address, signing_key }
+    }
+}
+
 pub struct EventRegistry {
     registry: HashMap<SpH256, EventInfo>,
 }
@@ -317,25 +329,18 @@ where
     Err(AppError::GenericError("Failed to initialize web3 after multiple attempts.".to_string()))
 }
 
-fn find_author_account_id<T>(
+fn find_current_node_author<T>(
     authors: Result<Vec<([u8; 32], [u8; 32])>, T>,
     mut node_signing_keys: Vec<Public>,
-) -> Option<Public> {
+) -> Option<CurrentNodeAuthor> {
     if let Ok(authors) = authors {
         node_signing_keys.sort();
 
         // Return the current node's address (NOT signing key)
         return authors.into_iter().enumerate().filter_map(move |(_, author)| {
-                node_signing_keys.binary_search(&Public::from_raw(author.1)).ok().map(|_| Public::from_raw(author.0))
+                node_signing_keys.binary_search(&Public::from_raw(author.1)).ok().map(|_| CurrentNodeAuthor::new(Public::from_raw(author.0), Public::from_raw(author.1)))
             })
             .nth(0);
-
-        // let converted_authors_keys: Vec<(Public, Public)> = authors.iter().map(|a| (Public::from_raw(a.0), Public::from_raw(a.1))).collect();
-        // for key in converted_authors_keys {
-        //     if node_signing_keys.contains(&key.1) {
-        //         return Some(key.0)
-        //     }
-        // }
     }
 
     None
@@ -361,7 +366,7 @@ where
 
     log::info!("⛓️  ETH EVENT HANDLER INITIALIZED");
 
-    let current_node_author_address;
+    let current_node_author;
     loop {
         let authors = config
             .client
@@ -372,8 +377,8 @@ where
             });
 
         let node_signing_keys = config.keystore.sr25519_public_keys(AVN_KEY_ID);
-        if let Some(account_id) = find_author_account_id(authors.clone(), node_signing_keys.clone()) {
-            current_node_author_address = account_id;
+        if let Some(node_author) = find_current_node_author(authors.clone(), node_signing_keys.clone()) {
+            current_node_author = node_author;
             break
         }
         log::error!("Author not found. Will attempt again after a while. Chain signing keys: {:?}, keystore keys: {:?}.",
@@ -385,10 +390,10 @@ where
         continue
     }
 
-    log::info!("Current node author address set: {:?}", current_node_author_address);
+    log::info!("Current node author address set: {:?}", current_node_author);
 
     loop {
-        match query_runtime_and_process(&config, &current_node_author_address, &events_registry).await {
+        match query_runtime_and_process(&config, &current_node_author, &events_registry).await {
             Ok(_) => (),
             Err(e) => log::error!("{}", e),
         }
@@ -400,7 +405,7 @@ where
 
 async fn query_runtime_and_process<Block, ClientT>(
     config: &EthEventHandlerConfig<Block, ClientT>,
-    current_node_author_address: &sp_core::sr25519::Public,
+    current_node_author: &CurrentNodeAuthor,
     events_registry: &EventRegistry,
 ) -> Result<(), String>
 where
@@ -442,7 +447,7 @@ where
                     &config,
                     range.clone(),
                     *partition_id,
-                    &current_node_author_address,
+                    &current_node_author,
                     &events_registry,
                 )
                 .await?;
@@ -451,7 +456,7 @@ where
         // There is no active range, attempt initial range voting.
         None => {
             log::info!("Active range setup - Submitting latest block");
-            submit_latest_ethereum_block(&web3_ref, &config, &current_node_author_address).await?;
+            submit_latest_ethereum_block(&web3_ref, &config, &current_node_author).await?;
         },
     };
 
@@ -465,7 +470,7 @@ fn get_range_end_block(range: &EthBlockRange) -> u32 {
 async fn submit_latest_ethereum_block<Block, ClientT>(
     web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
-    current_node_author_address: &sp_core::sr25519::Public,
+    current_node_author: &CurrentNodeAuthor,
 ) -> Result<(), String>
 where
     Block: BlockT,
@@ -480,7 +485,7 @@ where
     let has_casted_vote = config
         .client
         .runtime_api()
-        .query_has_author_casted_vote(config.client.info().best_hash, current_node_author_address.0.into())
+        .query_has_author_casted_vote(config.client.info().best_hash, current_node_author.address.0.into())
         .map_err(|err| format!("Failed to check if author has casted latest  vote: {:?}", err))?;
 
     log::info!("Checking if vote has been cast already. Result: {:?}", has_casted_vote);
@@ -495,14 +500,14 @@ where
         log::info!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let proof = encode_eth_event_submission_data::<AccountId, u32>(
             &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
-            &(*current_node_author_address).into(),
+            &((*current_node_author).address).into(),
             latest_seen_ethereum_block,
         );
 
         log::info!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let signature = config
             .keystore
-            .sr25519_sign(AVN_KEY_ID, current_node_author_address, &proof.into_boxed_slice().as_ref())
+            .sr25519_sign(AVN_KEY_ID, &current_node_author.signing_key, &proof.into_boxed_slice().as_ref())
             .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
             .ok_or_else(|| "Signature generation failed".to_string())?;
 
@@ -518,13 +523,13 @@ where
         runtime_api
             .submit_latest_ethereum_block(
                 config.client.info().best_hash,
-                (*current_node_author_address).into(),
+                (*current_node_author).address.into(),
                 latest_seen_ethereum_block,
                 signature,
             )
             .map_err(|err| format!("Failed to submit latest ethereum block vote: {:?}", err))?;
 
-        log::info!("Latest ethereum block {:?} submitted to pool successfully by {:?}.", latest_seen_ethereum_block, current_node_author_address);
+        log::info!("Latest ethereum block {:?} submitted to pool successfully by {:?}.", latest_seen_ethereum_block, current_node_author);
     }
 
     log::info!("Done");
@@ -536,7 +541,7 @@ async fn process_events<Block, ClientT>(
     config: &EthEventHandlerConfig<Block, ClientT>,
     range: EthBlockRange,
     partition_id: u16,
-    current_node_author_address: &sp_core::sr25519::Public,
+    current_node_author: &CurrentNodeAuthor,
     events_registry: &EventRegistry,
 ) -> Result<(), String>
 where
@@ -573,7 +578,7 @@ where
     let has_casted_vote = config
         .client
         .runtime_api()
-        .query_has_author_casted_vote(config.client.info().best_hash, current_node_author_address.0.into())
+        .query_has_author_casted_vote(config.client.info().best_hash, current_node_author.address.0.into())
         .map_err(|err| format!("Failed to check if author has casted event vote: {:?}", err))?;
 
     if !has_casted_vote {
@@ -585,7 +590,7 @@ where
             range.start_block,
             end_block,
             partition_id,
-            current_node_author_address,
+            current_node_author,
             range,
             events_registry,
         )
@@ -603,7 +608,7 @@ async fn execute_event_processing<Block, ClientT>(
     start_block: u32,
     end_block: u32,
     partition_id: u16,
-    current_node_author_address: &sp_core::sr25519::Public,
+    current_node_author: &CurrentNodeAuthor,
     range: EthBlockRange,
     events_registry: &EventRegistry,
 ) -> Result<(), String>
@@ -636,13 +641,13 @@ where
 
     let proof = encode_eth_event_submission_data::<AccountId, &EthereumEventsPartition>(
         &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
-        &(*current_node_author_address).into(),
+        &((*current_node_author).address).into(),
         &partition.clone(),
     );
 
     let signature = config
         .keystore
-        .sr25519_sign(AVN_KEY_ID, current_node_author_address, &proof.into_boxed_slice().as_ref())
+        .sr25519_sign(AVN_KEY_ID, &current_node_author.signing_key, &proof.into_boxed_slice().as_ref())
         .map_err(|err| format!("Failed to sign the proof: {:?}", err))?
         .ok_or_else(|| "Signature generation failed".to_string())?;
 
@@ -656,7 +661,7 @@ where
     runtime_api
         .submit_vote(
             config.client.info().best_hash,
-            (*current_node_author_address).into(),
+            (*current_node_author).address.into(),
             partition.clone(),
             signature,
         )
