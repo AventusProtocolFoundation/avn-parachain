@@ -632,6 +632,22 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
 }
 
+use sp_avn_common::{
+    event_discovery::{EthBridgeEventsFilter, EthereumEventsFilterTrait},
+    event_types::ValidEvents,
+};
+use sp_std::collections::btree_set::BTreeSet;
+
+pub struct EthBridgeAvnRuntimeEventsFilter;
+impl EthereumEventsFilterTrait for EthBridgeAvnRuntimeEventsFilter {
+    fn get_filter() -> EthBridgeEventsFilter {
+        let allowed_events: BTreeSet<ValidEvents> =
+            vec![ValidEvents::AvtLowerClaimed].into_iter().collect();
+
+        EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
+    }
+}
+
 impl pallet_eth_bridge::Config for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
@@ -643,7 +659,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
-    type EthereumEventsFilter = ();
+    type EthereumEventsFilter = EthBridgeAvnRuntimeEventsFilter;
 }
 
 // Other pallets
