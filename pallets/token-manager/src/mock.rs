@@ -38,6 +38,8 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
     BuildStorage, Perbill, SaturatedConversion,
 };
+use frame_system::EnsureRootWithSuccess;
+
 
 use hex_literal::hex;
 use pallet_parachain_staking::{self as parachain_staking};
@@ -57,6 +59,8 @@ pub const AMOUNT_123_TOKEN: u128 = 123 * ONE_TOKEN;
 pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 pub const NON_AVT_TOKEN_ID: H160 = H160(hex!("1414141414141414141414141414141414141414"));
 pub const NON_AVT_TOKEN_ID_2: H160 = H160(hex!("2020202020202020202020202020202020202020"));
+pub const MAX_SPEND: u128 = u128::MAX;
+
 
 const TOPIC_RECEIVER_INDEX: usize = 2;
 
@@ -98,6 +102,7 @@ impl token_manager::Config for TestRuntime {
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
     type OnGrowthLiftedHandler = ParachainStaking;
     type WeightInfo = ();
+    type TreasurySpender = EnsureRootWithSuccess<AccountId, ConstU128<MAX_SPEND>>;
     type Scheduler = Scheduler;
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
