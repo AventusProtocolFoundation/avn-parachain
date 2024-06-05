@@ -36,7 +36,10 @@ parameter_types! {
 
 impl pallet_custom_origins::Config for Runtime {}
 
-pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, ConstU128<65535>>, Spender>;
+pub const MAX_SPEND: u128 = u128::MAX;
+
+pub type TreasurySpender =
+    EitherOf<EnsureRootWithSuccess<AccountId, ConstU128<MAX_SPEND>>, Spender>;
 
 pub struct ToTreasury<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for ToTreasury<R>
