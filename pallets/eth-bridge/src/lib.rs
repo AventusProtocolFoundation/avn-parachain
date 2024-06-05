@@ -84,6 +84,7 @@ use sp_std::prelude::*;
 
 mod call;
 mod eth;
+pub mod migration;
 mod request;
 mod tx;
 pub mod types;
@@ -140,7 +141,7 @@ const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 pub const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
 pub const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
 
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -307,6 +308,8 @@ pub mod pallet {
             EthTxLifetimeSecs::<T>::put(self.eth_tx_lifetime_secs);
             NextTxId::<T>::put(self.next_tx_id);
             EthBlockRangeSize::<T>::put(self.eth_block_range_size);
+
+            STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 
