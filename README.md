@@ -147,12 +147,12 @@ Example implementation:
 
 ```rsut
 #[cfg(feature = "try-runtime")]
-fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
     Ok(vec![])
 }
 
 #[cfg(feature = "try-runtime")]
-fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
+fn post_upgrade(input: Vec<u8>) -> Result<(), TryRuntimeError> {
     Ok(())
 }
 ```
