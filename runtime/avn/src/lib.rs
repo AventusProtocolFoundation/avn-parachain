@@ -163,7 +163,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (),
+    pallet_eth_bridge::migration::SetBlockRangeSize<Runtime>,
 >;
 
 impl_opaque_keys! {
