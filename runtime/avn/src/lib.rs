@@ -35,7 +35,8 @@ use frame_support::{
     dispatch::DispatchClass,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance, OnUnbalanced, PrivilegeCmp
+        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance,
+        OnUnbalanced, PrivilegeCmp,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,

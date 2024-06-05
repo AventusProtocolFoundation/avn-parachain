@@ -35,13 +35,15 @@ use frame_support::{
     dispatch::DispatchClass,
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance, OnUnbalanced, PrivilegeCmp
+        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance,
+        OnUnbalanced, PrivilegeCmp,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId, RuntimeDebug,
 };
 use frame_system::{
-    limits::{BlockLength, BlockWeights}, EnsureRoot, EnsureSigned
+    limits::{BlockLength, BlockWeights},
+    EnsureRoot, EnsureSigned,
 };
 use governance::{pallet_custom_origins, TreasurySpender};
 use proxy_config::AvnProxyConfig;
@@ -167,7 +169,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 66,
+    spec_version: 72,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
