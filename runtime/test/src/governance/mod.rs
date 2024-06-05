@@ -2,6 +2,7 @@ pub use super::*;
 
 pub mod origins;
 use frame_support::traits::EitherOf;
+use frame_system::EnsureRootWithSuccess;
 use origins::pallet_custom_origins::Spender;
 pub use origins::{
     pallet_custom_origins, ReferendumCanceller, ReferendumKiller, WhitelistedCaller,

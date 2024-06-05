@@ -20,9 +20,8 @@ pub use pallet_custom_origins::*;
 
 #[frame_support::pallet]
 pub mod pallet_custom_origins {
+    use crate::{Balance, AVT};
     use frame_support::pallet_prelude::*;
-	use crate::Balance;
-	use crate::AVT;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {}
@@ -41,12 +40,12 @@ pub mod pallet_custom_origins {
         ReferendumKiller,
         /// Origin able to dispatch a whitelisted call.
         WhitelistedCaller,
-		/// Origin able to spend the amount specified in Spender.
+        /// Origin able to spend the amount specified in Spender.
         SmallSpender,
         /// Origin able to spend the amount specified in Spender.
         MediumSpender,
         /// Origin able to spend the amount specified in Spender.
-        BigSpender
+        BigSpender,
     }
 
     macro_rules! decl_unit_ensures {
@@ -81,7 +80,7 @@ pub mod pallet_custom_origins {
 	}
     decl_unit_ensures!(GeneralAdmin, ReferendumCanceller, ReferendumKiller, WhitelistedCaller,);
 
-	macro_rules! decl_ensure {
+    macro_rules! decl_ensure {
         (
             $vis:vis type $name:ident: EnsureOrigin<Success = $success_type:ty> {
                 $( $item:ident = $success:expr, )*

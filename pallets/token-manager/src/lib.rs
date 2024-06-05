@@ -415,7 +415,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let max_amount = T::TreasurySpender::ensure_origin(origin)?;
             ensure!(amount != BalanceOf::<T>::zero(), Error::<T>::AmountIsZero);
-			ensure!(amount <= max_amount, Error::<T>::InsufficientPermission);
+            ensure!(amount <= max_amount, Error::<T>::InsufficientPermission);
 
             <T as pallet::Config>::Currency::transfer(
                 &Self::compute_treasury_account_id(),
