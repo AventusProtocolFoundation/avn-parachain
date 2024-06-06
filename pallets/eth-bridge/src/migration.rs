@@ -18,13 +18,13 @@ impl<T: Config> OnRuntimeUpgrade for SetBlockRangeSize<T> {
         let current = Pallet::<T>::current_storage_version();
         let onchain = Pallet::<T>::on_chain_storage_version();
 
-        if onchain == 1 && current == 2 {
-            log::info!(
-                "ℹ️  Eth bridge `BlockRangeSize` invoked with current storage version {:?} / onchain {:?}",
-                current,
-                onchain
-            );
+        log::info!(
+            "ℹ️  Eth bridge `BlockRangeSize` invoked with current storage version {:?} / onchain {:?}",
+            current,
+            onchain
+        );
 
+        if onchain < 2 && current == 2 {
             return set_block_range_size::<T>()
         }
 
