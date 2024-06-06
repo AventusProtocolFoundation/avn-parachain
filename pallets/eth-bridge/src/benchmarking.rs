@@ -297,7 +297,8 @@ fn submit_latest_block_from_other_authors<T: Config>(
 ) {
     let eth_block_range_size = EthBlockRangeSize::<T>::get();
     let latest_finalised_block =
-        events_helpers::compute_finalised_block_number(*latest_seen_block, eth_block_range_size);
+        events_helpers::compute_finalised_block_number(*latest_seen_block, eth_block_range_size)
+            .expect("set on genesis");
 
     let mut votes = SubmittedEthBlocks::<T>::get(latest_finalised_block);
     for i in 0..num_votes_to_add {
@@ -423,7 +424,7 @@ benchmarks! {
 
     submit_ethereum_events {
         let c in 4..MAX_VALIDATOR_ACCOUNTS;
-        let e in 1..MAX_INCOMING_EVENTS_BATCHE_SIZE;
+        let e in 1..MAX_INCOMING_EVENTS_BATCH_SIZE;
 
         let authors = setup_authors::<T>(c);
         let range = setup_active_range::<T>(c.try_into().unwrap());
@@ -441,7 +442,7 @@ benchmarks! {
 
     submit_ethereum_events_and_process_batch {
         let c in 4..MAX_VALIDATOR_ACCOUNTS;
-        let e in 1..MAX_INCOMING_EVENTS_BATCHE_SIZE;
+        let e in 1..MAX_INCOMING_EVENTS_BATCH_SIZE;
 
         let authors = setup_authors::<T>(c);
         let range = setup_active_range::<T>(c.try_into().unwrap());
@@ -477,7 +478,7 @@ benchmarks! {
         let latest_finalised_block = events_helpers::compute_finalised_block_number(
             latest_seen_block,
             eth_block_range_size,
-        );
+        ).expect("set on genesis");
 
         ensure!(author_has_submitted_latest_block::<T>(&author.account_id) == true, "No votes found for author");
         ensure!(ActiveEthereumRange::<T>::get().is_none(), "Active range should be empty");
@@ -502,7 +503,7 @@ benchmarks! {
         let latest_finalised_block = events_helpers::compute_finalised_block_number(
             latest_seen_block,
             eth_block_range_size,
-        );
+        ).expect("set on genesis");
 
         let expected_active_range = ActiveEthRange {
             range: EthBlockRange {
