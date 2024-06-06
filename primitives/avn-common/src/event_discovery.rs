@@ -7,8 +7,8 @@ use sp_runtime::traits::Saturating;
 
 use self::event_types::ValidEvents;
 
-pub const MAX_INCOMING_EVENTS_BATCHE_SIZE: u32 = 128u32;
-pub type IncomingEventsBatchLimit = ConstU32<MAX_INCOMING_EVENTS_BATCHE_SIZE>;
+pub const MAX_INCOMING_EVENTS_BATCH_SIZE: u32 = 32u32;
+pub type IncomingEventsBatchLimit = ConstU32<MAX_INCOMING_EVENTS_BATCH_SIZE>;
 
 #[derive(
     Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Default, TypeInfo, MaxEncodedLen,
@@ -187,8 +187,12 @@ pub mod events_helpers {
     }
 
     // TODO unit test this
-    pub fn compute_finalised_block_number(ethereum_block: u32, range_length: u32) -> u32 {
+    pub fn compute_finalised_block_number(
+        ethereum_block: u32,
+        range_length: u32,
+    ) -> Result<u32, ()> {
         let calculation_block = ethereum_block.saturating_sub(5 * range_length);
-        calculation_block - calculation_block % range_length
+        let rem = calculation_block.checked_rem(range_length).ok_or(())?;
+        Ok(calculation_block.saturating_sub(rem))
     }
 }
