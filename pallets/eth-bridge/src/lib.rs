@@ -59,7 +59,8 @@ use alloc::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use frame_support::{
-    dispatch::DispatchResultWithPostInfo, log, traits::IsSubType, BoundedBTreeSet, BoundedVec,
+    dispatch::DispatchResultWithPostInfo, log, pallet_prelude::StorageVersion, traits::IsSubType,
+    BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{
     ensure_none, ensure_root,
@@ -75,11 +76,7 @@ use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{
-    bounds::MaximumValidatorsBound,
-    event_discovery::*,
-    event_types::{Validator},
-};
+use sp_avn_common::{bounds::MaximumValidatorsBound, event_discovery::*, event_types::Validator};
 use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
@@ -87,16 +84,14 @@ use sp_std::prelude::*;
 
 mod call;
 mod eth;
+pub mod migration;
 mod request;
 mod tx;
 pub mod types;
 mod util;
 use crate::types::*;
 
-pub use call::{
-    create_ethereum_events_proof_data, create_submit_latest_ethereum_block_data,
-    submit_ethereum_events, submit_latest_ethereum_block,
-};
+pub use call::{submit_ethereum_events, submit_latest_ethereum_block};
 
 mod benchmarking;
 #[cfg(test)]
@@ -143,8 +138,10 @@ const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
-const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
-const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
+pub const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
+pub const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
+
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -233,6 +230,7 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
@@ -264,37 +262,52 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         EthereumEventsPartition,
-        BoundedBTreeSet<T::AccountId, VotesLimit>,
+        BoundedBTreeSet<T::AccountId, MaximumValidatorsBound>,
         ValueQuery,
     >;
 
     #[pallet::storage]
-    pub type SubmittedBlockRanges<T: Config> = StorageMap<
+    pub type SubmittedEthBlocks<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        EthBlockRange,
-        BoundedBTreeSet<T::AccountId, VotesLimit>,
+        u32,
+        BoundedBTreeSet<T::AccountId, MaximumValidatorsBound>,
         ValueQuery,
     >;
+
+    // The number of blocks that make up a range
+    #[pallet::storage]
+    pub type EthBlockRangeSize<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub eth_tx_lifetime_secs: u64,
         pub next_tx_id: EthereumId,
+        pub eth_block_range_size: u32,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), eth_tx_lifetime_secs: 60 * 30, next_tx_id: 0 }
+            Self {
+                _phantom: Default::default(),
+                eth_tx_lifetime_secs: 60 * 30,
+                next_tx_id: 0,
+                eth_block_range_size: 20,
+            }
         }
     }
 
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            assert!(self.eth_block_range_size > 0, "`EthBlockRangeSize` should be greater than 0");
+
             EthTxLifetimeSecs::<T>::put(self.eth_tx_lifetime_secs);
             NextTxId::<T>::put(self.next_tx_id);
+            EthBlockRangeSize::<T>::put(self.eth_block_range_size);
+
+            STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 
@@ -302,6 +315,7 @@ pub mod pallet {
     pub enum Error<T> {
         CorroborateCallFailed,
         DuplicateConfirmation,
+        DuplicateEventSubmission,
         EmptyFunctionName,
         ErrorAssigningSender,
         EthTxHashAlreadySet,
@@ -345,6 +359,7 @@ pub mod pallet {
         NonActiveEthereumRange,
         VotingEnded,
         ValidatorNotFound,
+        InvalidEthereumBlockRange,
     }
 
     #[pallet::call]
@@ -551,7 +566,9 @@ pub mod pallet {
 
         // TODO update weights
         #[pallet::call_index(6)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE).max(
+            <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE)
+        ))]
         pub fn submit_ethereum_events(
             origin: OriginFor<T>,
             author: Author<T>,
@@ -572,23 +589,38 @@ pub mod pallet {
                 Error::<T>::EventVoteExists
             );
 
+            let mut threshold_met = false;
             let mut votes = EthereumEvents::<T>::get(&events_partition);
-
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
             if votes.len() < AVN::<T>::quorum() as usize {
                 EthereumEvents::<T>::insert(&events_partition, votes);
             } else {
+                threshold_met = true;
                 process_ethereum_events_partition::<T>(&active_range, &events_partition);
                 advance_partition::<T>(&active_range, &events_partition);
             }
 
-            Ok(().into())
+            let final_weight = if threshold_met {
+                <T as Config>::WeightInfo::submit_ethereum_events(
+                    MAX_VALIDATOR_ACCOUNTS,
+                    MAX_INCOMING_EVENTS_BATCH_SIZE,
+                )
+            } else {
+                <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(
+                    MAX_VALIDATOR_ACCOUNTS,
+                    MAX_INCOMING_EVENTS_BATCH_SIZE,
+                )
+            };
+
+            Ok(Some(final_weight).into())
         }
 
         // TODO update weights
         #[pallet::call_index(7)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS).max(
+            <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(MAX_VALIDATOR_ACCOUNTS)
+        ))]
         pub fn submit_latest_ethereum_block(
             origin: OriginFor<T>,
             author: Author<T>,
@@ -602,47 +634,68 @@ pub mod pallet {
                 Error::<T>::EventVoteExists
             );
 
-            let nominated_range =
-                events_helpers::compute_finalised_block_range_for_latest_ethereum_block(
-                    latest_seen_block,
-                );
-            let mut votes = SubmittedBlockRanges::<T>::get(&nominated_range);
+            let eth_block_range_size = EthBlockRangeSize::<T>::get();
+            let latest_finalised_block = events_helpers::compute_finalised_block_number(
+                latest_seen_block,
+                eth_block_range_size,
+            )
+            .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
+            let mut votes = SubmittedEthBlocks::<T>::get(&latest_finalised_block);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
-            SubmittedBlockRanges::<T>::insert(&nominated_range, votes);
+            SubmittedEthBlocks::<T>::insert(&latest_finalised_block, votes);
 
-            let mut sorted_votes: Vec<(EthBlockRange, usize)> = SubmittedBlockRanges::<T>::iter()
-                .map(|(range, votes)| (range, votes.len()))
-                .collect();
-            sorted_votes.sort_by(|(range_a, _votes_a), (range_b, _votes_b)| range_a.cmp(range_b));
+            let mut total_votes_count = 0;
+            let mut submitted_blocks = Vec::new();
 
-            let total_votes_count = sorted_votes
-                .iter()
-                .map(|(_range, votes)| votes)
-                .fold(0, |acc, x| acc as usize + x);
+            for (eth_block_num, votes) in SubmittedEthBlocks::<T>::iter() {
+                let vote_count = votes.len();
+                total_votes_count += vote_count;
+                submitted_blocks.push((eth_block_num, vote_count));
+            }
+
+            submitted_blocks.sort();
+
             let mut remaining_votes_threshold = AVN::<T>::supermajority_quorum() as usize;
+            let mut threshold_met = false;
 
             if total_votes_count >= remaining_votes_threshold as usize {
+                threshold_met = true;
                 let quorum = AVN::<T>::quorum() as usize;
                 let mut selected_range: EthBlockRange = Default::default();
-                for (range, votes_count) in sorted_votes.iter() {
-                    selected_range = range.clone();
+
+                for (eth_block_num, votes_count) in submitted_blocks.iter() {
                     remaining_votes_threshold.saturating_reduce(*votes_count);
                     if remaining_votes_threshold < quorum {
+                        selected_range = EthBlockRange {
+                            start_block: *eth_block_num,
+                            length: eth_block_range_size,
+                        };
                         break
                     }
                 }
+
                 ActiveEthereumRange::<T>::put(ActiveEthRange {
                     range: selected_range,
                     partition: 0,
                     event_types_filter: T::EthereumEventsFilter::get_filter(),
                 });
-                let _ = SubmittedBlockRanges::<T>::clear(
+
+                let _ = SubmittedEthBlocks::<T>::clear(
                     <MaximumValidatorsBound as sp_core::TypedGet>::get(),
                     None,
                 );
             }
-            Ok(().into())
+
+            let final_weight = if threshold_met {
+                <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(
+                    MAX_VALIDATOR_ACCOUNTS,
+                )
+            } else {
+                <T as Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS)
+            };
+
+            Ok(Some(final_weight).into())
         }
     }
 
@@ -773,7 +826,7 @@ pub mod pallet {
     }
 
     pub fn author_has_submitted_latest_block<T: Config>(author: &T::AccountId) -> bool {
-        for (_partition, votes) in SubmittedBlockRanges::<T>::iter() {
+        for (_block_num, votes) in SubmittedEthBlocks::<T>::iter() {
             if votes.contains(&author) {
                 return true
             }
@@ -925,7 +978,8 @@ pub mod pallet {
                     },
                 Call::submit_ethereum_events { author, events_partition, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &create_ethereum_events_proof_data::<T>(
+                        &(
+                            &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                             &author.account_id,
                             events_partition,
                         ),
@@ -945,10 +999,7 @@ pub mod pallet {
                     },
                 Call::submit_latest_ethereum_block { author, latest_seen_block, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &create_submit_latest_ethereum_block_data::<T>(
-                            &author.account_id,
-                            *latest_seen_block,
-                        ),
+                        &(&SUBMIT_LATEST_ETH_BLOCK_CONTEXT, &author.account_id, *latest_seen_block),
                         &author,
                         signature,
                     ) {
@@ -957,9 +1008,8 @@ pub mod pallet {
                             .priority(TransactionPriority::max_value())
                             .build()
                     } else {
-                        InvalidTransaction::Custom(4u8).into()
+                        InvalidTransaction::Custom(5u8).into()
                     },
-
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -1005,12 +1055,6 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    pub fn create_eth_events_proof(
-        account_id: T::AccountId,
-        events_partition: EthereumEventsPartition,
-    ) -> Vec<u8> {
-        create_ethereum_events_proof_data::<T>(&account_id, &events_partition)
-    }
     pub fn signatures() -> Vec<H256> {
         match Self::active_ethereum_range() {
             Some(active_range) => active_range

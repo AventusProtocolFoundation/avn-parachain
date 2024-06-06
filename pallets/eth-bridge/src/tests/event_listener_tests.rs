@@ -7,8 +7,6 @@ use sp_core::{H160, U256};
 
 use sp_runtime::testing::{TestSignature, UintAuthorityId};
 
-use crate::call::create_submit_latest_ethereum_block_data;
-
 use self::mock::RuntimeOrigin;
 
 fn event_data_set() -> Vec<DiscoveredEvent> {
@@ -67,7 +65,7 @@ fn init_active_range() {
     });
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DiscoveredEthContext {
     pub discovered_events: Vec<DiscoveredEvent>,
     pub author: Author<TestRuntime>,
@@ -121,7 +119,8 @@ impl DiscoveredEthContext {
     fn generate_signature(&self, index: usize) -> TestSignature {
         self.author
             .key
-            .sign(&create_ethereum_events_proof_data::<TestRuntime>(
+            .sign(&encode_eth_event_submission_data(
+                &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                 &self.author.account_id,
                 self.partitions().get(index).expect("Index should exist"),
             ))
@@ -184,6 +183,7 @@ mod submit_discovered_events {
     fn finalises_vote() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
+            // given
             init_active_range();
             let contexts = (1..6 as u64)
                 .map(|id| Context {
@@ -195,11 +195,15 @@ mod submit_discovered_events {
 
             let first_partition_index = 0usize;
 
+            // when
             // Cast all votes
             for context in contexts.iter() {
                 assert_ok!(context.submit_events_partition(first_partition_index));
             }
+
+            // then
             let new_active_range = EthBridge::active_ethereum_range().expect("Should be ok");
+
             let second_partition_index = first_partition_index.saturating_add(1);
             assert_eq!(
                 contexts[0].partitions()[second_partition_index].range(),
@@ -301,7 +305,8 @@ impl LatestEthBlockContext {
     fn generate_signature(&self) -> TestSignature {
         self.author
             .key
-            .sign(&create_submit_latest_ethereum_block_data::<TestRuntime>(
+            .sign(&encode_eth_event_submission_data(
+                &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
                 &self.author.account_id,
                 self.discovered_block,
             ))
@@ -321,10 +326,10 @@ mod initial_range_consensus {
     use frame_support::{assert_noop, assert_ok};
     use sp_runtime::traits::Saturating;
 
-    fn get_votes_for_range(range: &EthBlockRange) -> usize {
+    fn get_votes_for_initial_range(eth_block_num: &u32) -> usize {
         let mut votes_count = 0usize;
-        SubmittedBlockRanges::<TestRuntime>::iter().for_each(|(voted_range, _votes)| {
-            if voted_range == range.clone() {
+        SubmittedEthBlocks::<TestRuntime>::iter().for_each(|(submitted_block_num, _votes)| {
+            if *eth_block_num == submitted_block_num {
                 votes_count.saturating_inc();
             }
         });
@@ -333,19 +338,29 @@ mod initial_range_consensus {
 
     #[test]
     fn adds_latest_block_successfully() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_genesis_config()
+            .with_validators()
+            .as_externality();
         ext.execute_with(|| {
             let context: Context = Default::default();
 
             assert_ok!(context.submit_latest_block());
 
-            assert_eq!(get_votes_for_range(&context.range()), 1, "Should be a single vote.");
+            assert_eq!(
+                get_votes_for_initial_range(&context.eth_start_block),
+                1,
+                "Should be a single vote."
+            );
         });
     }
 
     #[test]
     fn finalises_initial_range() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_genesis_config()
+            .with_validators()
+            .as_externality();
         ext.execute_with(|| {
             let contexts = (1..5 as u64)
                 .map(|id| Context {
@@ -364,11 +379,22 @@ mod initial_range_consensus {
             // Given that the submitted blocks are [100,200,300,400] the expected consensus
             assert_eq!(
                 active_range.range,
-                events_helpers::compute_finalised_block_range_for_latest_ethereum_block(300)
+                EthBlockRange {
+                    start_block: events_helpers::compute_finalised_block_number(
+                        300,
+                        EthBlockRangeSize::<TestRuntime>::get()
+                    )
+                    .expect("set on genesis"),
+                    length: EthBlockRangeSize::<TestRuntime>::get()
+                }
             );
             // Ensure that cleanup has occured
             for context in contexts.iter() {
-                assert_eq!(get_votes_for_range(&context.range()), 0, "Should be no votes.");
+                assert_eq!(
+                    get_votes_for_initial_range(&context.eth_start_block),
+                    0,
+                    "Should be no votes."
+                );
             }
         });
     }
@@ -378,7 +404,10 @@ mod initial_range_consensus {
 
         #[test]
         fn a_range_is_active() {
-            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_genesis_config()
+                .with_validators()
+                .as_externality();
             ext.execute_with(|| {
                 init_active_range();
                 let context: Context = Default::default();
@@ -389,7 +418,10 @@ mod initial_range_consensus {
 
         #[test]
         fn author_has_voted_the_partition() {
-            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_genesis_config()
+                .with_validators()
+                .as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
 
@@ -402,7 +434,10 @@ mod initial_range_consensus {
 
         #[test]
         fn author_has_voted_another_block() {
-            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_genesis_config()
+                .with_validators()
+                .as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
                 let other_context = Context {

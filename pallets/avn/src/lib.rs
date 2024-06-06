@@ -23,12 +23,7 @@ use alloc::{
 
 use codec::{Decode, Encode};
 use core::convert::TryInto;
-use frame_support::{
-    dispatch::DispatchResult,
-    log::*,
-    pallet_prelude::{MaxEncodedLen, TypeInfo},
-    traits::OneSessionHandler,
-};
+use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
 use frame_system::{
     ensure_root,
     pallet_prelude::{BlockNumberFor, OriginFor},
@@ -83,6 +78,7 @@ pub mod sr25519 {
 const AVN_SERVICE_CALL_EXPIRY: u32 = 300_000;
 
 // used in benchmarks and weights calculation only
+// TODO: centralise this with MaximumValidatorsBound
 pub const MAX_VALIDATOR_ACCOUNTS: u32 = 10;
 
 pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
@@ -393,6 +389,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // verify that the incoming (unverified) pubkey is actually a validator
         if !Self::is_validator(&validator.account_id) {
+            warn!("Signature validation failed, account {:?}, is not validator", validator);
             return false
         }
 
@@ -400,6 +397,13 @@ impl<T: Config> Pallet<T> {
         let signature_valid =
             data.using_encoded(|encoded_data| validator.key.verify(&encoded_data, &signature));
 
+        debug!(
+            "🪲 Validating signature: [ data {:?} - account {:?} - signature {:?} ] Result: {}",
+            data.encode(),
+            validator.encode(),
+            signature,
+            signature_valid
+        );
         return signature_valid
     }
 

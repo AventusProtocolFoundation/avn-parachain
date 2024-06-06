@@ -19,8 +19,8 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::scale_info::TypeInfo;
 use sp_std::fmt::Debug;
 
-use super::{Call, Config, PendingApproval, VotesRepository};
-use crate::{OcwLock, Pallet as Summary, RootId, Store, AVN};
+use super::{Call, Config};
+use crate::{OcwLock, Pallet as Summary, PendingApproval, RootId, VotesRepository, AVN};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"root_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"root_end_voting_period";
@@ -47,7 +47,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVo
     }
 
     fn state(&self) -> Result<VotingSessionData<T::AccountId, BlockNumberFor<T>>, DispatchError> {
-        if <Summary<T> as Store>::VotesRepository::contains_key(self.root_id) {
+        if VotesRepository::<T>::contains_key(self.root_id) {
             return Ok(Summary::<T>::get_vote(self.root_id))
         }
         return Err(DispatchError::Other("Root Id is not found in votes repository"))
@@ -56,10 +56,8 @@ impl<T: Config> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVo
     fn is_valid(&self) -> bool {
         let voting_session_data = self.state();
         let root_data_result = Summary::<T>::try_get_root_data(&self.root_id);
-        let root_is_pending_approval =
-            <Summary<T> as Store>::PendingApproval::contains_key(&self.root_id.range);
-        let voting_session_exists_for_root =
-            <Summary<T> as Store>::VotesRepository::contains_key(&self.root_id);
+        let root_is_pending_approval = PendingApproval::<T>::contains_key(&self.root_id.range);
+        let voting_session_exists_for_root = VotesRepository::<T>::contains_key(&self.root_id);
 
         if root_data_result.is_err() ||
             !root_is_pending_approval ||
@@ -71,8 +69,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVo
 
         let root_already_accepted =
             root_data_result.expect("already checked for error").is_validated;
-        let pending_approval_root_ingress_counter =
-            <Summary<T> as Store>::PendingApproval::get(self.root_id.range);
+        let pending_approval_root_ingress_counter = PendingApproval::<T>::get(self.root_id.range);
         let vote_is_for_correct_version_of_root_range =
             pending_approval_root_ingress_counter == self.root_id.ingress_counter;
 
@@ -88,24 +85,18 @@ impl<T: Config> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVo
     }
 
     fn record_approve_vote(&self, voter: T::AccountId) -> DispatchResult {
-        <Summary<T> as Store>::VotesRepository::try_mutate(
-            &self.root_id,
-            |vote| -> DispatchResult {
-                vote.ayes.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
-                Ok(())
-            },
-        )?;
+        VotesRepository::<T>::try_mutate(&self.root_id, |vote| -> DispatchResult {
+            vote.ayes.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+            Ok(())
+        })?;
         Ok(())
     }
 
     fn record_reject_vote(&self, voter: T::AccountId) -> DispatchResult {
-        <Summary<T> as Store>::VotesRepository::try_mutate(
-            &self.root_id,
-            |vote| -> DispatchResult {
-                vote.nays.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
-                Ok(())
-            },
-        )?;
+        VotesRepository::<T>::try_mutate(&self.root_id, |vote| -> DispatchResult {
+            vote.nays.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
+            Ok(())
+        })?;
         Ok(())
     }
 
@@ -132,7 +123,7 @@ fn is_vote_in_transaction_pool<T: Config>(root_id: &RootId<BlockNumberFor<T>>) -
 pub fn cast_votes_if_required<T: Config>(
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    let root_ids: Vec<RootId<BlockNumberFor<T>>> = <Summary<T> as Store>::PendingApproval::iter()
+    let root_ids: Vec<RootId<BlockNumberFor<T>>> = PendingApproval::<T>::iter()
         .filter(|(root_range, ingress_counter)| {
             let root_id = RootId::new(*root_range, *ingress_counter);
             root_can_be_voted_on::<T>(&root_id, &this_validator.account_id)
@@ -195,7 +186,7 @@ pub fn end_voting_if_required<T: Config>(
     block_number: BlockNumberFor<T>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    let root_ids: Vec<RootId<BlockNumberFor<T>>> = <Summary<T> as Store>::PendingApproval::iter()
+    let root_ids: Vec<RootId<BlockNumberFor<T>>> = PendingApproval::<T>::iter()
         .filter(|(root_range, ingress_counter)| {
             let root_id = RootId::new(*root_range, *ingress_counter);
             block_number > Summary::<T>::get_vote(root_id).end_of_voting_period

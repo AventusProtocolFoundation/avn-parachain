@@ -133,9 +133,9 @@ const SUBMIT_CHECKEVENT_RESULT_CONTEXT: &'static [u8] = b"submit_checkevent_resu
 const CHALLENGE_EVENT_CONTEXT: &'static [u8] = b"challenge_event";
 const PROCESS_EVENT_CONTEXT: &'static [u8] = b"process_event";
 
-const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 10_000;
-const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 500;
-const MAX_CHALLENGES: u32 = 500;
+const MAX_NUMBER_OF_UNCHECKED_EVENTS: u32 = 500;
+const MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES: u32 = 50;
+const MAX_CHALLENGES: u32 = 50;
 
 pub type MaxUncheckedEvents = ConstU32<MAX_NUMBER_OF_UNCHECKED_EVENTS>;
 pub type MaxEventsPendingChallenges = ConstU32<MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES>;

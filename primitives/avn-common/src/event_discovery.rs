@@ -7,8 +7,8 @@ use sp_runtime::traits::Saturating;
 
 use self::event_types::ValidEvents;
 
-pub type VotesLimit = ConstU32<100>;
-pub type EventsBatchLimit = ConstU32<32>;
+pub const MAX_INCOMING_EVENTS_BATCH_SIZE: u32 = 32u32;
+pub type IncomingEventsBatchLimit = ConstU32<MAX_INCOMING_EVENTS_BATCH_SIZE>;
 
 #[derive(
     Encode, Decode, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, Default, TypeInfo, MaxEncodedLen,
@@ -71,7 +71,7 @@ impl Ord for DiscoveredEvent {
     }
 }
 
-type EthereumEventsSet = BoundedBTreeSet<DiscoveredEvent, EventsBatchLimit>;
+type EthereumEventsSet = BoundedBTreeSet<DiscoveredEvent, IncomingEventsBatchLimit>;
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct EthereumEventsPartition {
     range: EthBlockRange,
@@ -125,6 +125,20 @@ impl EthereumEventsFilterTrait for () {
     }
 }
 
+pub fn encode_eth_event_submission_data<AccountId: Encode, Data: Encode>(
+    context: &[u8],
+    account_id: &AccountId,
+    data: Data,
+) -> Vec<u8> {
+    log::debug!(
+        "🪲 Encoding submission data: [ context {:?} - account {:?} - data {:?} ]",
+        context,
+        account_id.encode(),
+        &data.encode()
+    );
+    (context, &account_id, data).encode()
+}
+
 pub mod events_helpers {
     use super::*;
     pub extern crate alloc;
@@ -140,7 +154,7 @@ pub mod events_helpers {
             mut_events
         };
 
-        let chunk_size: usize = <EventsBatchLimit as sp_core::Get<u32>>::get() as usize;
+        let chunk_size: usize = <IncomingEventsBatchLimit as sp_core::Get<u32>>::get() as usize;
         let mut partitions = Vec::<EthereumEventsPartition>::new();
 
         let event_chunks: Vec<_> = sorted_events.chunks(chunk_size).collect();
@@ -173,13 +187,12 @@ pub mod events_helpers {
     }
 
     // TODO unit test this
-    pub fn compute_finalised_block_range_for_latest_ethereum_block(
+    pub fn compute_finalised_block_number(
         ethereum_block: u32,
-    ) -> EthBlockRange {
-        let length = 20u32;
-        let calculation_block = ethereum_block.saturating_sub(5 * length);
-        let start_block = calculation_block - calculation_block % length;
-
-        EthBlockRange { start_block, length }
+        range_length: u32,
+    ) -> Result<u32, ()> {
+        let calculation_block = ethereum_block.saturating_sub(5 * range_length);
+        let rem = calculation_block.checked_rem(range_length).ok_or(())?;
+        Ok(calculation_block.saturating_sub(rem))
     }
 }

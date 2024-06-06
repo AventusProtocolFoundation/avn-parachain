@@ -40,9 +40,6 @@ fn setup_success_preconditions() -> LocalContext {
     let block_after_grace_period = block_number_for_next_slot + grace_period + 1;
 
     let slot_validator = get_validator(SIXTH_VALIDATOR_INDEX);
-    let primary_validator_account_id =
-        AVN::<TestRuntime>::calculate_primary_validator_for_block(block_after_grace_period)
-            .unwrap();
     let other_validator = get_validator(FIRST_VALIDATOR_INDEX);
     let fourth_validator = get_validator(FOURTH_VALIDATOR_INDEX);
     assert!(slot_validator != other_validator);
@@ -127,7 +124,7 @@ fn expected_transaction_was_called(
     }
 
     let call = take_transaction_from_pool(pool_state);
-    let new_call = expected_add_challenge_transaction(challenge, validator);
+    let _new_call = expected_add_challenge_transaction(challenge, validator);
 
     return call == expected_add_challenge_transaction(challenge, validator)
 }

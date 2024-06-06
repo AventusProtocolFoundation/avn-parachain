@@ -17,7 +17,7 @@
 #![cfg(test)]
 use crate::{
     mock::{RuntimeEvent, *},
-    *,
+    Balances as TokenManagerBalances, *,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
 
@@ -34,7 +34,7 @@ fn avn_test_lift_to_zero_balance_account_should_succeed() {
         insert_to_mock_processed_events(&mock_event.event_id);
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),
@@ -42,7 +42,7 @@ fn avn_test_lift_to_zero_balance_account_should_succeed() {
         );
         assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),
@@ -68,14 +68,14 @@ fn avn_test_lift_to_non_zero_balance_account_should_succeed() {
         let mock_event = &mock_data.non_avt_token_lift_event;
         insert_to_mock_processed_events(&mock_event.event_id);
 
-        let token_balance_before = <TokenManager as Store>::Balances::get((
+        let token_balance_before = TokenManagerBalances::<TestRuntime>::get((
             NON_AVT_TOKEN_ID,
             mock_data.receiver_account_id,
         ));
         assert_eq!(token_balance_before, AMOUNT_100_TOKEN);
         let expected_token_balance = token_balance_before + AMOUNT_123_TOKEN;
         assert_ok!(TokenManager::on_event_processed(&mock_event));
-        let new_token_balance = <TokenManager as Store>::Balances::get((
+        let new_token_balance = TokenManagerBalances::<TestRuntime>::get((
             NON_AVT_TOKEN_ID,
             mock_data.receiver_account_id,
         ));
@@ -102,7 +102,7 @@ fn avn_test_lift_max_balance_to_zero_balance_account_should_succeed() {
         insert_to_mock_processed_events(&mock_event.event_id);
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),
@@ -110,7 +110,7 @@ fn avn_test_lift_max_balance_to_zero_balance_account_should_succeed() {
         );
         assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),
@@ -137,7 +137,7 @@ fn avn_test_lift_max_balance_to_non_zero_balance_account_should_fail_with_overfl
         let mock_data = MockData::setup(u128_max_amount, USE_RECEIVER_WITH_EXISTING_AMOUNT);
         let mock_event = &mock_data.non_avt_token_lift_event;
         insert_to_mock_processed_events(&mock_event.event_id);
-        let token_balance_before = <TokenManager as Store>::Balances::get((
+        let token_balance_before = TokenManagerBalances::<TestRuntime>::get((
             NON_AVT_TOKEN_ID,
             mock_data.receiver_account_id,
         ));
@@ -147,7 +147,7 @@ fn avn_test_lift_max_balance_to_non_zero_balance_account_should_fail_with_overfl
             Error::<TestRuntime>::AmountOverflow
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((
+            TokenManagerBalances::<TestRuntime>::get((
                 NON_AVT_TOKEN_ID,
                 mock_data.receiver_account_id
             )),
@@ -179,19 +179,19 @@ fn avn_test_signed_transfer_with_valid_input_should_succeed() {
         let amount: u128 = 1_000_000;
         let nonce: u64 = 15;
 
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID, sender_account_id),
             2 * amount,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID_2, sender_account_id),
             3 * amount,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID_2, recipient_account_id),
             4 * amount,
         );
-        <TokenManager as Store>::Nonces::insert(sender_account_id, nonce);
+        Nonces::<TestRuntime>::insert(sender_account_id, nonce);
 
         let authorization_signature = create_valid_signature_for_signed_transfer(
             &relayer_account_id,
@@ -219,21 +219,21 @@ fn avn_test_signed_transfer_with_valid_input_should_succeed() {
             amount,
         ));
 
-        assert_eq!(<TokenManager as Store>::Nonces::get(sender_account_id), nonce + 1);
+        assert_eq!(Nonces::<TestRuntime>::get(sender_account_id), nonce + 1);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender_account_id)),
             amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient_account_id)),
             amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
             3 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
             4 * amount
         );
 
@@ -262,19 +262,19 @@ fn avn_test_signed_transfer_of_0_token_should_succeed() {
         let amount: u128 = 1_000_000;
         let nonce: u64 = 15;
 
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID, sender_account_id),
             2 * amount,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID_2, sender_account_id),
             3 * amount,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID_2, recipient_account_id),
             4 * amount,
         );
-        <TokenManager as Store>::Nonces::insert(sender_account_id, nonce);
+        Nonces::<TestRuntime>::insert(sender_account_id, nonce);
 
         let authorization_signature = create_valid_signature_for_signed_transfer(
             &relayer_account_id,
@@ -302,21 +302,21 @@ fn avn_test_signed_transfer_of_0_token_should_succeed() {
             zero_amount,
         ));
 
-        assert_eq!(<TokenManager as Store>::Nonces::get(sender_account_id), nonce + 1);
+        assert_eq!(Nonces::<TestRuntime>::get(sender_account_id), nonce + 1);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender_account_id)),
             2 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient_account_id)),
             0
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
             3 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
             4 * amount
         );
 
@@ -344,15 +344,15 @@ fn avn_test_self_signed_transfer_should_succeed() {
         let amount: u128 = 1_000_000;
         let nonce: u64 = 15;
 
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID, sender_account_id),
             2 * amount,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID_2, sender_account_id),
             3 * amount,
         );
-        <TokenManager as Store>::Nonces::insert(sender_account_id, nonce);
+        Nonces::<TestRuntime>::insert(sender_account_id, nonce);
 
         let authorization_signature = create_valid_signature_for_signed_transfer(
             &relayer_account_id,
@@ -380,17 +380,17 @@ fn avn_test_self_signed_transfer_should_succeed() {
             amount,
         ));
 
-        assert_eq!(<TokenManager as Store>::Nonces::get(sender_account_id), nonce + 1);
+        assert_eq!(Nonces::<TestRuntime>::get(sender_account_id), nonce + 1);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender_account_id)),
             2 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient_account_id)),
             2 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
             3 * amount
         );
 
@@ -419,15 +419,15 @@ fn avn_test_self_signed_transfer_of_0_token_should_succeed() {
         let amount: u128 = 1_000_000;
         let nonce: u64 = 15;
 
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID, sender_account_id),
             2 * amount,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID_2, sender_account_id),
             3 * amount,
         );
-        <TokenManager as Store>::Nonces::insert(sender_account_id, nonce);
+        Nonces::<TestRuntime>::insert(sender_account_id, nonce);
 
         let authorization_signature = create_valid_signature_for_signed_transfer(
             &relayer_account_id,
@@ -455,17 +455,17 @@ fn avn_test_self_signed_transfer_of_0_token_should_succeed() {
             zero_amount,
         ));
 
-        assert_eq!(<TokenManager as Store>::Nonces::get(sender_account_id), nonce + 1);
+        assert_eq!(Nonces::<TestRuntime>::get(sender_account_id), nonce + 1);
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender_account_id)),
             2 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient_account_id)),
             2 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
             3 * amount
         );
 
@@ -493,11 +493,11 @@ fn avn_test_signed_transfer_fails_when_nonce_is_less_than_account_nonce() {
         let amount: u128 = 1_000_000;
         let nonce: u64 = 15;
 
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID, sender_account_id),
             2 * amount,
         );
-        <TokenManager as Store>::Nonces::insert(sender_account_id, nonce);
+        Nonces::<TestRuntime>::insert(sender_account_id, nonce);
 
         let authorization_signature = create_valid_signature_for_signed_transfer(
             &relayer_account_id,
@@ -544,11 +544,11 @@ fn avn_test_signed_transfer_fails_when_nonce_is_more_than_account_nonce() {
         let amount: u128 = 1_000_000;
         let nonce: u64 = 15;
 
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID, sender_account_id),
             2 * amount,
         );
-        <TokenManager as Store>::Nonces::insert(sender_account_id, nonce);
+        Nonces::<TestRuntime>::insert(sender_account_id, nonce);
 
         let authorization_signature = create_valid_signature_for_signed_transfer(
             &relayer_account_id,
@@ -595,23 +595,23 @@ fn avn_test_signed_transfer_fails_when_sender_has_insufficient_fund() {
         let amount: u128 = 1_000_000;
         let nonce: u64 = 15;
 
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID, sender_account_id),
             amount - 1,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID, recipient_account_id),
             2 * amount,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID_2, sender_account_id),
             3 * amount,
         );
-        <TokenManager as Store>::Balances::insert(
+        TokenManagerBalances::<TestRuntime>::insert(
             (NON_AVT_TOKEN_ID_2, recipient_account_id),
             4 * amount,
         );
-        <TokenManager as Store>::Nonces::insert(sender_account_id, nonce);
+        Nonces::<TestRuntime>::insert(sender_account_id, nonce);
 
         let authorization_signature = create_valid_signature_for_signed_transfer(
             &relayer_account_id,
@@ -642,23 +642,23 @@ fn avn_test_signed_transfer_fails_when_sender_has_insufficient_fund() {
         );
 
         // Check the nonce is not updated
-        assert_eq!(<TokenManager as Store>::Nonces::get(sender_account_id), nonce);
+        assert_eq!(Nonces::<TestRuntime>::get(sender_account_id), nonce);
 
         // Check account balances are not changed
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender_account_id)),
             amount - 1
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient_account_id)),
             2 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
             3 * amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
             4 * amount
         );
 
@@ -681,11 +681,11 @@ fn avn_test_signed_transfer_fails_when_amount_causes_balance_overflow() {
         let amount: u128 = u128::max_value();
         let nonce: u64 = 15;
 
-        <TokenManager as Store>::Balances::insert((NON_AVT_TOKEN_ID, sender_account_id), amount);
-        <TokenManager as Store>::Balances::insert((NON_AVT_TOKEN_ID, recipient_account_id), 1);
-        <TokenManager as Store>::Balances::insert((NON_AVT_TOKEN_ID_2, sender_account_id), 3);
-        <TokenManager as Store>::Balances::insert((NON_AVT_TOKEN_ID_2, recipient_account_id), 4);
-        <TokenManager as Store>::Nonces::insert(sender_account_id, nonce);
+        TokenManagerBalances::<TestRuntime>::insert((NON_AVT_TOKEN_ID, sender_account_id), amount);
+        TokenManagerBalances::<TestRuntime>::insert((NON_AVT_TOKEN_ID, recipient_account_id), 1);
+        TokenManagerBalances::<TestRuntime>::insert((NON_AVT_TOKEN_ID_2, sender_account_id), 3);
+        TokenManagerBalances::<TestRuntime>::insert((NON_AVT_TOKEN_ID_2, recipient_account_id), 4);
+        Nonces::<TestRuntime>::insert(sender_account_id, nonce);
 
         let authorization_signature = create_valid_signature_for_signed_transfer(
             &relayer_account_id,
@@ -716,23 +716,23 @@ fn avn_test_signed_transfer_fails_when_amount_causes_balance_overflow() {
         );
 
         // Check the nonce is not updated
-        assert_eq!(<TokenManager as Store>::Nonces::get(sender_account_id), nonce);
+        assert_eq!(Nonces::<TestRuntime>::get(sender_account_id), nonce);
 
         // Check account balances are not changed
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, sender_account_id)),
             amount
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, recipient_account_id)),
             1
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, sender_account_id)),
             3
         );
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID_2, recipient_account_id)),
             4
         );
 
@@ -749,7 +749,7 @@ fn avn_test_lower_all_non_avt_token_succeed() {
         let (_, from_account_id, to_account_id, t1_recipient) =
             MockData::setup_lower_request_data();
         let from_account_balance_before =
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id));
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id));
         let amount = from_account_balance_before;
 
         assert_ok!(TokenManager::schedule_direct_lower(
@@ -764,7 +764,7 @@ fn avn_test_lower_all_non_avt_token_succeed() {
         fast_forward_to_block(get_expected_execution_block());
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id)),
             from_account_balance_before - amount
         );
         assert!(System::events().iter().any(|a| a.event ==
@@ -787,7 +787,7 @@ fn avn_test_lower_some_non_avt_token_succeed() {
         let (_, from_account_id, to_account_id, t1_recipient) =
             MockData::setup_lower_request_data();
         let from_account_balance_before =
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id));
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id));
         let amount = from_account_balance_before / 2;
 
         assert_ok!(TokenManager::schedule_direct_lower(
@@ -802,7 +802,7 @@ fn avn_test_lower_some_non_avt_token_succeed() {
         fast_forward_to_block(get_expected_execution_block());
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id)),
             from_account_balance_before - amount
         );
         assert!(System::events().iter().any(|a| a.event ==
@@ -829,7 +829,10 @@ fn avn_test_lower_non_avt_token_should_fail_when_sender_does_not_have_enough_tok
                 .unwrap();
         let amount = 1;
 
-        assert_eq!(<TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)), 0);
+        assert_eq!(
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id)),
+            0
+        );
 
         assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
@@ -842,7 +845,10 @@ fn avn_test_lower_non_avt_token_should_fail_when_sender_does_not_have_enough_tok
         // move a few blocks to trigger the execution
         fast_forward_to_block(get_expected_execution_block());
 
-        assert_eq!(<TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)), 0);
+        assert_eq!(
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id)),
+            0
+        );
 
         let dispatch_result = System::events().iter().find_map(|a| match a.event {
             RuntimeEvent::Scheduler(pallet_scheduler::Event::<TestRuntime>::Dispatched {
@@ -869,7 +875,7 @@ fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok
         let (_, from_account_id, to_account_id, t1_recipient) =
             MockData::setup_lower_request_data();
         let mut from_account_balance_before =
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id));
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id));
         let mut amount = from_account_balance_before;
 
         assert_ok!(TokenManager::schedule_direct_lower(
@@ -884,7 +890,7 @@ fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok
         fast_forward_to_block(get_expected_execution_block());
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id)),
             from_account_balance_before - amount
         );
         assert!(System::events().iter().any(|a| a.event ==
@@ -901,7 +907,7 @@ fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok
         amount = u128::max_value();
         TokenManager::initialise_non_avt_tokens_to_account(from_account_id, amount);
         from_account_balance_before =
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id));
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id));
 
         assert_ok!(TokenManager::schedule_direct_lower(
             RuntimeOrigin::signed(from_account_id),
@@ -915,7 +921,7 @@ fn avn_test_non_avt_token_total_lowered_amount_greater_than_balance_max_value_ok
         fast_forward_to_block(get_expected_execution_block());
 
         assert_eq!(
-            <TokenManager as Store>::Balances::get((NON_AVT_TOKEN_ID, from_account_id)),
+            TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from_account_id)),
             from_account_balance_before - amount
         );
         assert!(System::events().iter().any(|a| a.event ==

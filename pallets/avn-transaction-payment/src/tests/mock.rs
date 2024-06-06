@@ -1,4 +1,6 @@
-use crate::{self as pallet_avn_transaction_payment, system::limits, AvnCurrencyAdapter, Store};
+use crate::{
+    self as pallet_avn_transaction_payment, system::limits, AvnCurrencyAdapter, KnownSenders,
+};
 use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::DispatchClass,
@@ -155,7 +157,7 @@ impl pallet_balances::Config for TestRuntime {
 
 impl AvnTransactionPayment {
     pub fn is_known_sender(account_id: <TestRuntime as frame_system::Config>::AccountId) -> bool {
-        <AvnTransactionPayment as Store>::KnownSenders::contains_key(account_id)
+        KnownSenders::<TestRuntime>::contains_key(account_id)
     }
 }
 

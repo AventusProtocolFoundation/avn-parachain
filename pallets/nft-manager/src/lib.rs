@@ -32,7 +32,7 @@ use frame_support::{
     Parameter,
 };
 use frame_system::ensure_signed;
-use pallet_avn::{self as avn, ProcessedEventsChecker};
+use pallet_avn::{self as avn, BridgeInterfaceNotification, ProcessedEventsChecker};
 use sp_avn_common::{
     event_types::{
         EthEvent, EthEventId, EventData, NftCancelListingData, NftEndBatchListingData,
@@ -142,7 +142,6 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
-    #[pallet::generate_store(pub (super) trait Store)]
     #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
@@ -1183,10 +1182,8 @@ impl<T: Config> Pallet<T> {
 
         Ok(maybe_nft.expect("checked for none"))
     }
-}
 
-impl<T: Config> ProcessedEventHandler for Pallet<T> {
-    fn on_event_processed(event: &EthEvent) -> DispatchResult {
+    fn processed_event_handler(event: &EthEvent) -> DispatchResult {
         return match &event.event_data {
             EventData::LogNftTransferTo(data) => Self::transfer_eth_nft(&event.event_id, data),
             EventData::LogNftCancelListing(data) =>
@@ -1197,6 +1194,22 @@ impl<T: Config> ProcessedEventHandler for Pallet<T> {
                 process_end_batch_listing_event::<T>(&event.event_id, data),
             _ => Ok(()),
         }
+    }
+}
+
+impl<T: Config> ProcessedEventHandler for Pallet<T> {
+    fn on_event_processed(event: &EthEvent) -> DispatchResult {
+        Self::processed_event_handler(event)
+    }
+}
+
+impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
+    fn process_result(_: u32, _: Vec<u8>, _: bool) -> DispatchResult {
+        Ok(())
+    }
+    #[cfg(feature = "ethbridge-all-events")]
+    fn on_incoming_event_processed(event: &EthEvent) -> DispatchResult {
+        Self::processed_event_handler(event)
     }
 }
 

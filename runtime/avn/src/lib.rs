@@ -15,6 +15,8 @@ use core::cmp::Ordering;
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
 
+use sp_runtime::RuntimeAppPublic;
+
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160};
@@ -22,8 +24,10 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto},
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult,
+    ApplyExtrinsicResult, WeakBoundedVec,
 };
+
+use pallet_eth_bridge::Author;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -48,11 +52,14 @@ pub use frame_system::{
 use governance::pallet_custom_origins;
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::sr25519::Public;
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
+
+use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::Validator};
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
@@ -156,11 +163,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        pallet_parachain_staking::migration::EnableEthBridgeWireUp<Runtime>,
-        pallet_validators_manager::migration::RemovePalletVoting<Runtime>,
-        pallet_summary::migration::MigrateSummaryRootData<Runtime>,
-    ),
+    pallet_eth_bridge::migration::SetBlockRangeSize<Runtime>,
 >;
 
 impl_opaque_keys! {
@@ -177,7 +180,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 63,
+    spec_version: 70,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -629,6 +632,22 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
 }
 
+use sp_avn_common::{
+    event_discovery::{EthBridgeEventsFilter, EthereumEventsFilterTrait},
+    event_types::ValidEvents,
+};
+use sp_std::collections::btree_set::BTreeSet;
+
+pub struct EthBridgeAvnRuntimeEventsFilter;
+impl EthereumEventsFilterTrait for EthBridgeAvnRuntimeEventsFilter {
+    fn get_filter() -> EthBridgeEventsFilter {
+        let allowed_events: BTreeSet<ValidEvents> =
+            vec![ValidEvents::AvtLowerClaimed].into_iter().collect();
+
+        EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
+    }
+}
+
 impl pallet_eth_bridge::Config for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
@@ -640,7 +659,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
-    type EthereumEventsFilter = ();
+    type EthereumEventsFilter = EthBridgeAvnRuntimeEventsFilter;
 }
 
 // Other pallets
@@ -947,20 +966,30 @@ impl_runtime_apis! {
     }
 
     impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
-        fn query_current_author() -> Option<AccountId>{
-            Avn::get_validator_for_current_node()
-                .map(|validator| validator.account_id)
+        fn query_authors() -> Vec<([u8; 32], [u8; 32])> {
+            let validators = Avn::validators().to_vec();
+            let res = validators.iter().map(|validator| {
+                let mut address: [u8; 32] = Default::default();
+                address.copy_from_slice(&validator.account_id.encode()[0..32]);
+
+                let mut key: [u8; 32] = Default::default();
+                key.copy_from_slice(&validator.key.to_raw_vec()[0..32]);
+
+                return (address, key)
+            }).collect();
+            return res
         }
 
-        fn query_active_block_range()-> (EthBlockRange, u16){
+        fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
-                (active_eth_range.range, active_eth_range.partition)
-            }else {
-                (EthBlockRange::default(), 0)
+                Some((active_eth_range.range, active_eth_range.partition))
+            } else {
+                None
             }
         }
-        fn query_has_author_casted_event_vote(account_id: AccountId) -> bool{
-           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id)
+        fn query_has_author_casted_vote(account_id: AccountId) -> bool{
+           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id) ||
+           pallet_eth_bridge::author_has_submitted_latest_block::<Runtime>(&account_id)
         }
 
         fn query_signatures() -> Vec<sp_core::H256> {
@@ -971,23 +1000,19 @@ impl_runtime_apis! {
             Avn::get_bridge_contract_address()
         }
 
-        fn create_proof(account_id:AccountId, events_partition:EthereumEventsPartition)->Vec<u8>{
-            EthBridge::create_eth_events_proof(account_id, events_partition)
-        }
-
         fn submit_vote(author: AccountId,
             events_partition: EthereumEventsPartition,
             signature: sp_core::sr25519::Signature,
-        ) -> Result<(),()>{
-            EthBridge::submit_vote(author, events_partition, signature.into())
+        ) -> Option<()>{
+            EthBridge::submit_vote(author, events_partition, signature.into()).ok()
         }
 
         fn submit_latest_ethereum_block(
             author: AccountId,
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
-        ) -> Result<(), ()> {
-            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into())
+        ) -> Option<()>{
+            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
     }

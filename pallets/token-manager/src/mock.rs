@@ -15,11 +15,11 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::*;
-use crate::{self as token_manager};
+use crate::{self as token_manager, Balances as TokenManagerBalances};
 use frame_support::{
     dispatch::{DispatchClass, DispatchInfo},
     parameter_types,
-    traits::{ConstU8, EqualPrivilegeOnly, GenesisBuild, Hooks},
+    traits::{ConstU8, EqualPrivilegeOnly, Hooks},
     weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
 };
@@ -34,7 +34,7 @@ use sp_avn_common::{
 use sp_core::{sr25519, ConstU128, ConstU64, Pair, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    testing::{Header, TestXt, UintAuthorityId},
+    testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentifyAccount, IdentityLookup, Verify},
     BuildStorage, Perbill, SaturatedConversion,
 };
@@ -386,7 +386,7 @@ impl TokenManager {
         account_id: <TestRuntime as system::Config>::AccountId,
         amount: u128,
     ) {
-        <TokenManager as Store>::Balances::insert((NON_AVT_TOKEN_ID, account_id), amount);
+        TokenManagerBalances::<TestRuntime>::insert((NON_AVT_TOKEN_ID, account_id), amount);
     }
 }
 
