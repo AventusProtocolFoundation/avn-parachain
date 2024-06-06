@@ -864,11 +864,15 @@ pub mod pallet {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
                         if let Err(err) = process_ethereum_event::<T>(&discovered_event.event) {
-                                log::error!("💔 Invalid event to process: {:?}. Error: {:?}", discovered_event.event, err);
-                                <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
-                                    eth_event_id: discovered_event.event.event_id.clone(),
-                                    reason: err,
-                                });
+                            log::error!(
+                                "💔 Invalid event to process: {:?}. Error: {:?}",
+                                discovered_event.event,
+                                err
+                            );
+                            <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                                eth_event_id: discovered_event.event.event_id.clone(),
+                                reason: err,
+                            });
                         }
                     } else {
                         log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
