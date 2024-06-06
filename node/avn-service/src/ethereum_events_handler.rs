@@ -174,6 +174,7 @@ pub async fn identify_events(
         .from_block(web3::types::BlockNumber::Number(U64::from(start_block)))
         .to_block(web3::types::BlockNumber::Number(U64::from(end_block)))
         .build();
+
     let logs_result = web3.eth().logs(filter).await;
     let logs = match logs_result {
         Ok(logs) => logs,
@@ -188,6 +189,7 @@ pub async fn identify_events(
             Err(err) => return Err(err),
         }
     }
+
     Ok(events)
 }
 
@@ -584,6 +586,7 @@ where
         .runtime_api()
         .query_signatures(config.client.info().best_hash)
         .map_err(|err| format!("Failed to query event signatures: {:?}", err))?;
+
     let event_signatures_web3: Vec<Web3H256> = event_signatures
         .iter()
         .map(|h256| Web3H256::from_slice(&h256.to_fixed_bytes()))
