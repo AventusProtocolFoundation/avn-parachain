@@ -278,17 +278,25 @@ mod submit_discovered_events {
 pub struct LatestEthBlockContext {
     pub discovered_block: u32,
     pub author: Author<TestRuntime>,
+    pub eth_start_block: u32,
 }
 
 impl Default for LatestEthBlockContext {
     fn default() -> Self {
+        let discovered_block = 100;
         let primary_validator_id = 1;
         let author = Author::<TestRuntime> {
             key: UintAuthorityId(primary_validator_id),
             account_id: primary_validator_id,
         };
 
-        Self { author, discovered_block: 100 }
+        let eth_start_block = events_helpers::compute_finalised_block_number(
+            discovered_block,
+            EthBlockRangeSize::<TestRuntime>::get(),
+        )
+        .expect("set on genesis");
+
+        Self { author, discovered_block, eth_start_block }
     }
 }
 
@@ -314,9 +322,10 @@ impl LatestEthBlockContext {
     }
 
     fn range(&self) -> EthBlockRange {
-        events_helpers::compute_finalised_block_range_for_latest_ethereum_block(
-            self.discovered_block,
-        )
+        EthBlockRange {
+            start_block: self.eth_start_block,
+            length: EthBlockRangeSize::<TestRuntime>::get(),
+        }
     }
 }
 
@@ -366,6 +375,7 @@ mod initial_range_consensus {
                 .map(|id| Context {
                     author: Author::<TestRuntime> { key: UintAuthorityId(id), account_id: id },
                     discovered_block: id as u32 * 100,
+                    eth_start_block: 1,
                 })
                 .take(AVN::<TestRuntime>::supermajority_quorum() as usize)
                 .collect::<Vec<Context>>();
