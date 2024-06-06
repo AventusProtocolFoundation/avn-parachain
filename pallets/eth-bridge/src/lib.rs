@@ -361,6 +361,7 @@ pub mod pallet {
         NonActiveEthereumRange,
         VotingEnded,
         ValidatorNotFound,
+        InvalidEthereumBlockRange,
     }
 
     #[pallet::call]
@@ -567,8 +568,8 @@ pub mod pallet {
 
         // TODO update weights
         #[pallet::call_index(6)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCHE_SIZE).max(
-            <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCHE_SIZE)
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE).max(
+            <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE)
         ))]
         pub fn submit_ethereum_events(
             origin: OriginFor<T>,
@@ -605,12 +606,12 @@ pub mod pallet {
             let final_weight = if threshold_met {
                 <T as Config>::WeightInfo::submit_ethereum_events(
                     MAX_VALIDATOR_ACCOUNTS,
-                    MAX_INCOMING_EVENTS_BATCHE_SIZE,
+                    MAX_INCOMING_EVENTS_BATCH_SIZE,
                 )
             } else {
                 <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(
                     MAX_VALIDATOR_ACCOUNTS,
-                    MAX_INCOMING_EVENTS_BATCHE_SIZE,
+                    MAX_INCOMING_EVENTS_BATCH_SIZE,
                 )
             };
 
@@ -639,7 +640,8 @@ pub mod pallet {
             let latest_finalised_block = events_helpers::compute_finalised_block_number(
                 latest_seen_block,
                 eth_block_range_size,
-            );
+            )
+            .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
             let mut votes = SubmittedEthBlocks::<T>::get(&latest_finalised_block);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 

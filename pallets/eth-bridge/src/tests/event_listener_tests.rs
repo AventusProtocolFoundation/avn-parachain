@@ -65,7 +65,7 @@ fn init_active_range() {
     });
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct DiscoveredEthContext {
     pub discovered_events: Vec<DiscoveredEvent>,
     pub author: Author<TestRuntime>,
@@ -183,6 +183,7 @@ mod submit_discovered_events {
     fn finalises_vote() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
+            // given
             init_active_range();
             let contexts = (1..6 as u64)
                 .map(|id| Context {
@@ -194,11 +195,15 @@ mod submit_discovered_events {
 
             let first_partition_index = 0usize;
 
+            // when
             // Cast all votes
             for context in contexts.iter() {
                 assert_ok!(context.submit_events_partition(first_partition_index));
             }
+
+            // then
             let new_active_range = EthBridge::active_ethereum_range().expect("Should be ok");
+
             let second_partition_index = first_partition_index.saturating_add(1);
             assert_eq!(
                 contexts[0].partitions()[second_partition_index].range(),
@@ -287,7 +292,8 @@ impl Default for LatestEthBlockContext {
         let eth_start_block = events_helpers::compute_finalised_block_number(
             discovered_block,
             EthBlockRangeSize::<TestRuntime>::get(),
-        );
+        )
+        .expect("set on genesis");
 
         Self { author, discovered_block, eth_start_block }
     }
@@ -386,7 +392,8 @@ mod initial_range_consensus {
                     start_block: events_helpers::compute_finalised_block_number(
                         300,
                         EthBlockRangeSize::<TestRuntime>::get()
-                    ),
+                    )
+                    .expect("set on genesis"),
                     length: EthBlockRangeSize::<TestRuntime>::get()
                 }
             );
