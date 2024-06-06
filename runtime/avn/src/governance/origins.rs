@@ -115,9 +115,9 @@ pub mod pallet_custom_origins {
 
     decl_ensure! {
         pub type Spender: EnsureOrigin<Success = Balance> {
-            SmallSpender = 10 * AVT,
-            MediumSpender = 100 * AVT,
-            BigSpender = 1_000 * AVT,
+            SmallSpender = 1000 * AVT,
+            MediumSpender = 1000 * AVT,
+            BigSpender = 1000000 * AVT,
         }
     }
 }
