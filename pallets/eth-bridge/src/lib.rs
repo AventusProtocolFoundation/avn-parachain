@@ -899,11 +899,11 @@ pub mod pallet {
             Error::<T>::EventAlreadyProcessed
         );
 
-        let mut event_accepted = false;
+        // Add record of succesful processing via ProcessedEventsChecker
+        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true);
 
         match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
             Ok(_) => {
-                event_accepted = true;
                 <Pallet<T>>::deposit_event(Event::<T>::EventAccepted {
                     eth_event_id: event.event_id.clone(),
                 });
@@ -916,9 +916,6 @@ pub mod pallet {
                 });
             },
         };
-
-        // Add record of succesful processing via ProcessedEventsChecker
-        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), event_accepted);
 
         Ok(())
     }
