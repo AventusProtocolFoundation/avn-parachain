@@ -306,6 +306,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
     type ProcessedEventsChecker = ();
+    type EthereumEventsFilter = ();
 }
 
 impl pallet_timestamp::Config for TestRuntime {
