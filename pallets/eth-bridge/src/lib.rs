@@ -564,7 +564,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        // TODO update weights
         #[pallet::call_index(6)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE).max(
             <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE)
@@ -616,7 +615,6 @@ pub mod pallet {
             Ok(Some(final_weight).into())
         }
 
-        // TODO update weights
         #[pallet::call_index(7)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS).max(
             <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(MAX_VALIDATOR_ACCOUNTS)
