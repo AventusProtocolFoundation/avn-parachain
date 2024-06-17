@@ -5,8 +5,6 @@ use frame_support::{
     weights::Weight,
 };
 
-use sp_std::vec;
-
 use crate::*;
 
 #[cfg(feature = "try-runtime")]

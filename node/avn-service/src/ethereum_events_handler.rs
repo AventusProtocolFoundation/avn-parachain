@@ -7,7 +7,7 @@ use sc_keystore::LocalKeystore;
 use sp_api::ApiExt;
 use sp_avn_common::{
     event_discovery::{
-        encode_eth_event_submission_data, events_helpers::discovered_eth_events_partition_factory,
+        encode_eth_event_submission_data, events_helpers::EthereumEventsPartitionFactory,
         DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
     },
     event_types::{
@@ -638,7 +638,8 @@ where
     .await
     .map_err(|err| format!("Error retrieving events: {:?}", err))?;
 
-    let ethereum_events_partitions = discovered_eth_events_partition_factory(range, events);
+    let ethereum_events_partitions =
+        EthereumEventsPartitionFactory::create_partitions(range, events);
     let partition = ethereum_events_partitions
         .iter()
         .find(|p| p.partition() == partition_id)

@@ -99,7 +99,7 @@ impl DiscoveredEthContext {
         });
     }
     fn partitions(&self) -> Vec<EthereumEventsPartition> {
-        events_helpers::discovered_eth_events_partition_factory(
+        events_helpers::EthereumEventsPartitionFactory::create_partitions(
             self.range.clone(),
             self.discovered_events.clone(),
         )
@@ -318,13 +318,6 @@ impl LatestEthBlockContext {
                 self.discovered_block,
             ))
             .expect("Signature is signed")
-    }
-
-    fn range(&self) -> EthBlockRange {
-        EthBlockRange {
-            start_block: self.eth_start_block,
-            length: EthBlockRangeSize::<TestRuntime>::get(),
-        }
     }
 }
 

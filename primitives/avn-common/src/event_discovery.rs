@@ -147,27 +147,27 @@ pub mod events_helpers {
     pub extern crate alloc;
     use alloc::collections::BTreeSet;
 
-    pub fn discovered_eth_events_partition_factory(
-        range: EthBlockRange,
-        events: Vec<DiscoveredEvent>,
-    ) -> Vec<EthereumEventsPartition> {
-        let sorted_events = {
-            let mut mut_events = events.clone();
-            mut_events.sort();
-            mut_events
-        };
+    pub struct EthereumEventsPartitionFactory {}
 
-        let chunk_size: usize = <IncomingEventsBatchLimit as sp_core::Get<u32>>::get() as usize;
-        let mut partitions = Vec::<EthereumEventsPartition>::new();
+    impl EthereumEventsPartitionFactory {
+        pub fn create_partitions(
+            range: EthBlockRange,
+            events: Vec<DiscoveredEvent>,
+        ) -> Vec<EthereumEventsPartition> {
+            let sorted_events = {
+                let mut mut_events = events.clone();
+                mut_events.sort();
+                mut_events
+            };
 
-        let event_chunks: Vec<_> = sorted_events.chunks(chunk_size).collect();
-        let partitions_count = event_chunks.len();
+            let chunk_size: usize = <IncomingEventsBatchLimit as sp_core::Get<u32>>::get() as usize;
+            let mut partitions = Vec::<EthereumEventsPartition>::new();
 
-        let _ =
-            event_chunks
-                .iter()
-                .enumerate()
-                .try_for_each(|(partition, chunk)| -> Result<(), ()> {
+            let event_chunks: Vec<_> = sorted_events.chunks(chunk_size).collect();
+            let partitions_count = event_chunks.len();
+
+            let _ = event_chunks.iter().enumerate().try_for_each(
+                |(partition, chunk)| -> Result<(), ()> {
                     let inner_data: BTreeSet<DiscoveredEvent> = chunk.iter().cloned().collect();
                     let data = EthereumEventsSet::try_from(inner_data)?;
                     partitions.push(EthereumEventsPartition::new(
@@ -177,16 +177,18 @@ pub mod events_helpers {
                         data,
                     ));
                     Ok(())
-                });
-        if partitions.is_empty() {
-            partitions.push(EthereumEventsPartition::new(
-                range.clone(),
-                0,
-                true,
-                Default::default(),
-            ))
+                },
+            );
+            if partitions.is_empty() {
+                partitions.push(EthereumEventsPartition::new(
+                    range.clone(),
+                    0,
+                    true,
+                    Default::default(),
+                ))
+            }
+            partitions
         }
-        partitions
     }
 
     // TODO unit test this
