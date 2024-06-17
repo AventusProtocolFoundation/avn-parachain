@@ -1,21 +1,12 @@
 // Copyright 2023 Aventus Network Systems (UK) Ltd.
 
 #![cfg(test)]
-use crate::{eth::generate_send_calldata, mock::*, request::*, *};
-use frame_support::{
-    assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo, error::BadOrigin,
-};
-use sp_runtime::{testing::UintAuthorityId, DispatchError};
+use crate::{mock::*, *};
+use frame_support::assert_ok;
+use sp_runtime::DispatchError;
 pub extern crate alloc;
 use alloc::collections::BTreeSet;
 use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
-
-const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
-const REWARDS: &[u8] = b"15043665996000000000";
-const AVG_STAKED: &[u8] = b"9034532443555111110000";
-const PERIOD: &[u8] = b"3";
-const T2_PUB_KEY: &str = "14aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a547";
-const T1_PUB_KEY: &str = "23d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea";
 
 // Added this function as in event_listener_tests to initialize the active event range
 fn init_active_range() {
@@ -38,7 +29,6 @@ fn init_active_range() {
 
 mod process_events {
     use super::*;
-    use sp_avn_common::event_types::EthEventId;
 
     // succesfully process the specified ethereum_event
     #[test]

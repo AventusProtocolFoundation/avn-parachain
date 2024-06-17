@@ -7,7 +7,7 @@ use sc_keystore::LocalKeystore;
 use sp_api::ApiExt;
 use sp_avn_common::{
     event_discovery::{
-        encode_eth_event_submission_data, events_helpers::discovered_eth_events_partition_factory,
+        encode_eth_event_submission_data, events_helpers::EthereumEventsPartitionFactory,
         DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
     },
     event_types::{
@@ -21,7 +21,6 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_core::{sr25519::Public, H256 as SpH256};
 use sp_keystore::Keystore;
-use sp_runtime::AccountId32;
 use std::{collections::HashMap, marker::PhantomData, time::Instant};
 pub use std::{path::PathBuf, sync::Arc};
 use tide::Error as TideError;
@@ -442,12 +441,8 @@ where
         Some((range, partition_id)) => {
             log::info!("Getting events for range starting at: {:?}", range.start_block);
 
-            if web3_utils::is_eth_block_finalised(
-                &web3_ref,
-                get_range_end_block(range).into(),
-                ETH_FINALITY,
-            )
-            .await?
+            if web3_utils::is_eth_block_finalised(&web3_ref, range.end_block() as u64, ETH_FINALITY)
+                .await?
             {
                 process_events(
                     &web3_ref,
@@ -468,10 +463,6 @@ where
     };
 
     Ok(())
-}
-
-fn get_range_end_block(range: &EthBlockRange) -> u32 {
-    range.start_block + range.length
 }
 
 async fn submit_latest_ethereum_block<Block, ClientT>(
@@ -579,8 +570,6 @@ where
     let contract_address_web3 = web3::types::H160::from_slice(&contract_address.to_fixed_bytes());
     let contract_addresses = vec![contract_address_web3];
 
-    let end_block = get_range_end_block(&range);
-
     let event_signatures = config
         .client
         .runtime_api()
@@ -607,8 +596,6 @@ where
             config,
             &event_signatures_web3,
             contract_addresses,
-            range.start_block,
-            end_block,
             partition_id,
             current_node_author,
             range,
@@ -625,8 +612,6 @@ async fn execute_event_processing<Block, ClientT>(
     config: &EthEventHandlerConfig<Block, ClientT>,
     event_signatures_web3: &[Web3H256],
     contract_addresses: Vec<H160>,
-    start_block: u32,
-    end_block: u32,
     partition_id: u16,
     current_node_author: &CurrentNodeAuthor,
     range: EthBlockRange,
@@ -644,8 +629,8 @@ where
 {
     let events = identify_events(
         web3,
-        start_block,
-        end_block,
+        range.start_block,
+        range.end_block(),
         contract_addresses,
         event_signatures_web3.to_vec(),
         events_registry,
@@ -653,7 +638,8 @@ where
     .await
     .map_err(|err| format!("Error retrieving events: {:?}", err))?;
 
-    let ethereum_events_partitions = discovered_eth_events_partition_factory(range, events);
+    let ethereum_events_partitions =
+        EthereumEventsPartitionFactory::create_partitions(range, events);
     let partition = ethereum_events_partitions
         .iter()
         .find(|p| p.partition() == partition_id)
