@@ -26,8 +26,11 @@ impl EthBlockRange {
         }
     }
     pub fn range(&self) -> (u32, u32) {
-        let end_block = self.start_block.saturating_add(self.length).saturating_less_one();
+        let end_block = self.end_block();
         (self.start_block, end_block)
+    }
+    pub fn end_block(&self) -> u32 {
+        self.start_block.saturating_add(self.length).saturating_less_one()
     }
 }
 
