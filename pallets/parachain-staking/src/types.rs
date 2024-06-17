@@ -1427,6 +1427,8 @@ pub enum AdminSettings<Balance> {
     MinCollatorStake(Balance),
     /// Minimum nominator stake amount
     MinTotalNominatorStake(Balance),
+    /// Make auto-growth configurable
+    AutoGrowth(EraIndex),
 }
 
 impl<
@@ -1452,6 +1454,7 @@ impl<
                 s >= &<<T as Config>::MinNominationPerCollator as Get<BalanceOf<T>>>::get().into(),
             AdminSettings::MinCollatorStake(_) => true,
             _ => false,
+            AdminSettings::AutoGrowth(d) => d > &0,
         }
     }
 }

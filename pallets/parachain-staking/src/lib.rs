@@ -109,6 +109,7 @@ pub mod pallet {
     extern crate alloc;
     #[cfg(not(feature = "std"))]
     use alloc::{format, string::String};
+    // use mock::ErasPerGrowthPeriod;
 
     use crate::set::BoundedOrderedSet;
     pub use crate::{
@@ -217,7 +218,6 @@ pub mod pallet {
         #[pallet::constant]
         type MinNominationPerCollator: Get<BalanceOf<Self>>;
         /// Number of eras to MinNominationPerCollator before we process a new growth period
-        type ErasPerGrowthPeriod: Get<GrowthPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
         type RewardPotId: Get<PalletId>;
         /// A way to check if an event has been processed by Ethereum events
@@ -559,6 +559,11 @@ pub mod pallet {
     /// The collator candidates selected for the current era
     pub type SelectedCandidates<T: Config> =
         StorageValue<_, BoundedVec<T::AccountId, T::MaxCandidates>, ValueQuery>;
+    
+    /// Number of eras to MinNominationPerCollator before we process a new growth period
+    #[pallet::storage]
+    #[pallet::getter(fn eras_per_growth_period)]
+    pub type ErasPerGrowthPeriod<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn total)]
@@ -1675,6 +1680,13 @@ pub mod pallet {
                 AdminSettings::Delay(d) => <Delay<T>>::put(d),
                 AdminSettings::MinCollatorStake(s) => <MinCollatorStake<T>>::put(s),
                 AdminSettings::MinTotalNominatorStake(s) => <MinTotalNominatorStake<T>>::put(s),
+                AdminSettings::AutoGrowth(s) => {
+                    <ErasPerGrowthPeriod::<T>>::mutate(|growth| 
+                        { 
+                            *growth = s
+                        }
+                    );
+                },
             }
 
             Self::deposit_event(Event::AdminSettingsUpdated { value });
@@ -1816,6 +1828,9 @@ pub mod pallet {
             }
             let era_to_payout = now.saturating_sub(delay);
             let total_points = <Points<T>>::get(era_to_payout);
+
+            let collator_payout_period = Self::growth_period_info();
+
             if total_points.is_zero() {
                 return
             }
@@ -1829,20 +1844,32 @@ pub mod pallet {
                                                             * fields */
             };
 
-            <DelayedPayouts<T>>::insert(era_to_payout, &payout);
-
             let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
-                <AwardedPts<T>>::iter_prefix(era_to_payout)
-                    .map(|(collator, points)| CollatorScore::new(collator, points))
-                    .collect::<Vec<CollatorScore<T::AccountId>>>();
+            <AwardedPts<T>>::iter_prefix(era_to_payout)
+                .map(|(collator, points)| CollatorScore::new(collator, points))
+                .collect::<Vec<CollatorScore<T::AccountId>>>();
             let collator_scores = BoundedVec::truncate_from(collator_scores_vec);
-            Self::update_collator_payout(
-                era_to_payout,
-                total_staked,
-                payout,
-                total_points,
-                collator_scores,
-            );
+
+            if Self::is_growth_possible(&era_to_payout, &collator_payout_period) == true {
+                <DelayedPayouts<T>>::insert(era_to_payout, &payout);
+
+                Self::update_collator_payout(
+                    era_to_payout,
+                    total_staked,
+                    payout,
+                    total_points,
+                    collator_scores,
+                );
+            } else {
+                let staking_reward_paid_in_era = payout.total_staking_reward;
+                Self::accumulate_payout_for_period(
+                    collator_payout_period.index,
+                    total_staked,
+                    staking_reward_paid_in_era,
+                    total_points,
+                    collator_scores,
+                );
+            }
         }
 
         /// Wrapper around pay_one_collator_reward which handles the following logic:
@@ -2108,44 +2135,33 @@ pub mod pallet {
             total_points: RewardPoint,
             current_collator_scores: BoundedVec<CollatorScore<T::AccountId>, CollatorMaxScores>,
         ) {
-            let collator_payout_period = Self::growth_period_info();
             let staking_reward_paid_in_era = payout.total_staking_reward;
 
-            if Self::is_new_growth_period(&payout_era, &collator_payout_period) {
-                <GrowthPeriod<T>>::mutate(|info| {
-                    info.start_era_index = payout_era;
-                    info.index = info.index.saturating_add(1);
-                });
+            <GrowthPeriod<T>>::mutate(|info| {
+                info.start_era_index = payout_era;
+                info.index = info.index.saturating_add(1);
+            });
 
-                let new_growth_period = Self::growth_period_info().index;
-                let mut new_payout_info = GrowthInfo::new(payout_era);
-                new_payout_info.number_of_accumulations = 1u32;
-                new_payout_info.total_stake_accumulated = total_staked;
-                new_payout_info.total_staker_reward = staking_reward_paid_in_era;
-                new_payout_info.total_points = total_points;
-                new_payout_info.collator_scores = current_collator_scores;
+            let new_growth_period = Self::growth_period_info().index;
+            let mut new_payout_info = GrowthInfo::new(payout_era);
+            new_payout_info.number_of_accumulations = 1u32;
+            new_payout_info.total_stake_accumulated = total_staked;
+            new_payout_info.total_staker_reward = staking_reward_paid_in_era;
+            new_payout_info.total_points = total_points;
+            new_payout_info.collator_scores = current_collator_scores;
 
-                <Growth<T>>::insert(new_growth_period, new_payout_info);
+            <Growth<T>>::insert(new_growth_period, new_payout_info);
 
-                Self::trigger_outstanding_growths(&(new_growth_period - 1));
-            } else {
-                Self::accumulate_payout_for_period(
-                    collator_payout_period.index,
-                    total_staked,
-                    staking_reward_paid_in_era,
-                    total_points,
-                    current_collator_scores,
-                );
-            };
+            Self::trigger_outstanding_growths(&(new_growth_period - 1));
         }
 
-        fn is_new_growth_period(
+        fn is_growth_possible(
             era_index: &EraIndex,
             collator_payout_period: &GrowthPeriodInfo,
         ) -> bool {
             return collator_payout_period.index == 0 ||
                 era_index - collator_payout_period.start_era_index >=
-                    T::ErasPerGrowthPeriod::get()
+                Self::eras_per_growth_period()
         }
 
         fn accumulate_payout_for_period(

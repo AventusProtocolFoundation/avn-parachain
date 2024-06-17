@@ -460,7 +460,7 @@ impl pallet_parachain_staking::Config for Runtime {
     /// Minimum stake required to be reserved to be a nominator
     type MinNominationPerCollator = ConstU128<1>;
     type RewardPotId = RewardPotId;
-    type ErasPerGrowthPeriod = ConstU32<30>; // 30 eras (~ 1 month if era = 1 day)
+    // type ErasPerGrowthPeriod = ConstU32<30>; // 30 eras (~ 1 month if era = 1 day)
     type ProcessedEventsChecker = EthereumEvents;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;

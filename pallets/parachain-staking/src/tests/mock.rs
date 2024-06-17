@@ -232,7 +232,6 @@ impl Config for Test {
     type MaxNominationsPerNominator = MaxNominationsPerNominator;
     type MinNominationPerCollator = MinNominationPerCollator;
     type RewardPotId = RewardPotId;
-    type ErasPerGrowthPeriod = ErasPerGrowthPeriod;
     type ProcessedEventsChecker = ();
     type Public = AccountId;
     type Signature = Signature;
