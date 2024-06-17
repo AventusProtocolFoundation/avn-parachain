@@ -24,10 +24,8 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto},
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, WeakBoundedVec,
+    ApplyExtrinsicResult,
 };
-
-use pallet_eth_bridge::Author;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -988,6 +986,7 @@ impl_runtime_apis! {
                 None
             }
         }
+
         fn query_has_author_casted_vote(account_id: AccountId) -> bool{
            pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id) ||
            pallet_eth_bridge::author_has_submitted_latest_block::<Runtime>(&account_id)
