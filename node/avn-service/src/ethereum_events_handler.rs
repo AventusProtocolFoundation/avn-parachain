@@ -37,7 +37,6 @@ use crate::{server_error, setup_web3_connection, Web3Data};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
 pub struct EventInfo {
-    event_type: ValidEvents,
     parser: fn(Vec<u8>, Vec<Vec<u8>>) -> Result<EventData, AppError>,
 }
 
@@ -63,7 +62,6 @@ impl EventRegistry {
         m.insert(
             ValidEvents::AddedValidator.signature(),
             EventInfo {
-                event_type: ValidEvents::AddedValidator,
                 parser: |data, topics| {
                     AddedValidatorData::parse_bytes(Some(data), topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
@@ -74,7 +72,6 @@ impl EventRegistry {
         m.insert(
             ValidEvents::Lifted.signature(),
             EventInfo {
-                event_type: ValidEvents::Lifted,
                 parser: |data, topics| {
                     LiftedData::parse_bytes(Some(data), topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
@@ -85,7 +82,6 @@ impl EventRegistry {
         m.insert(
             ValidEvents::AvtGrowthLifted.signature(),
             EventInfo {
-                event_type: ValidEvents::AvtGrowthLifted,
                 parser: |data, topics| {
                     AvtGrowthLiftedData::parse_bytes(Some(data), topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
@@ -96,7 +92,6 @@ impl EventRegistry {
         m.insert(
             ValidEvents::NftCancelListing.signature(),
             EventInfo {
-                event_type: ValidEvents::NftCancelListing,
                 parser: |data, topics| {
                     NftCancelListingData::parse_bytes(Some(data), topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
@@ -107,7 +102,6 @@ impl EventRegistry {
         m.insert(
             ValidEvents::NftEndBatchListing.signature(),
             EventInfo {
-                event_type: ValidEvents::NftEndBatchListing,
                 parser: |data, topics| {
                     NftEndBatchListingData::parse_bytes(Some(data), topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
@@ -118,7 +112,6 @@ impl EventRegistry {
         m.insert(
             ValidEvents::NftMint.signature(),
             EventInfo {
-                event_type: ValidEvents::NftMint,
                 parser: |data, topics| {
                     NftMintData::parse_bytes(Some(data), topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
@@ -129,7 +122,6 @@ impl EventRegistry {
         m.insert(
             ValidEvents::NftTransferTo.signature(),
             EventInfo {
-                event_type: ValidEvents::NftTransferTo,
                 parser: |data, topics| {
                     NftTransferToData::parse_bytes(Some(data), topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
