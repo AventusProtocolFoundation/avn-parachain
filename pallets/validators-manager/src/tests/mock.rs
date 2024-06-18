@@ -296,7 +296,7 @@ parameter_types! {
     pub const RewardPaymentDelay: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
     pub const MaxCandidates: u32 = 256;
-    pub const GrowthEnabled: bool = false;
+    pub const GrowthEnabled: bool = true;
 }
 
 impl parachain_staking::Config for TestRuntime {
@@ -504,7 +504,7 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: 10,
             min_total_nominator_stake: 5,
-            growth_enabled: false
+            growth_enabled: true
         }
         .assimilate_storage(&mut self.storage);
 

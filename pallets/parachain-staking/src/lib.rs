@@ -1842,7 +1842,7 @@ pub mod pallet {
 
             <DelayedPayouts<T>>::insert(era_to_payout, &payout);
 
-            let growth_enabled = T::GrowthEnabled::get();
+            let growth_enabled = GrowthEnabledStorage::<T>::get();
             if growth_enabled {
                 let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
                 <AwardedPts<T>>::iter_prefix(era_to_payout)

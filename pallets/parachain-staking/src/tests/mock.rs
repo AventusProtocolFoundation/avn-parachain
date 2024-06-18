@@ -203,7 +203,7 @@ parameter_types! {
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
     pub const MaxCandidates:u32 = 100;
-    pub const GrowthEnabled: bool = false;
+    pub const GrowthEnabled: bool = true;
 }
 
 pub struct IsRegistered;
@@ -568,7 +568,7 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: self.min_collator_stake,
             min_total_nominator_stake: self.min_total_nominator_stake,
-            growth_enabled: false,
+            growth_enabled: true,
         }
         .assimilate_storage(&mut t)
         .expect("Parachain Staking's storage can be assimilated");
