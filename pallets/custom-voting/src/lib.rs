@@ -11,11 +11,9 @@ use log;
 mod benchmarking;
 
 pub type PollIndexOf<T, I = ()> = <<T as VotingConfig<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
-pub type ClassOf<T, I = ()> = <<T as VotingConfig<I>>::Polls as Polling<TallyOf<T, I>>>::Class;
-pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 pub type BalanceOf<T, I = ()> =
     <<T as VotingConfig<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub type VotesOf<T, I = ()> = BalanceOf<T, I>;
+
 #[frame_support::pallet]
 pub mod pallet {
     use frame_support::{
@@ -26,62 +24,48 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use pallet_conviction_voting::{AccountVote, TallyOf};
     use crate::default_weights::WeightInfo;
-    use crate::{PollIndexOf, ClassOf, AccountIdLookupOf, BalanceOf, VotingConfig};
+    use crate::{PollIndexOf, BalanceOf, VotingConfig};
     use pallet_conviction_voting::Conviction;
     use sp_runtime::{traits::StaticLookup, ArithmeticError};
 
     #[pallet::config]
-    pub trait Config<I: 'static = ()>: frame_system::Config + VotingConfig<I> {
-        type RuntimeEvent: From<Event<Self, I>>
-			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
-        type Balance: Parameter + From<u64> + Into<u128> + Copy;
-        type Currency: ReservableCurrency<Self::AccountId>
-            + LockableCurrency<Self::AccountId, Moment = BlockNumberFor<Self>>
-            + fungible::Inspect<Self::AccountId>;
+    pub trait Config: frame_system::Config + VotingConfig {
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        // type Balance: Parameter + From<u64> + Into<u128> + Copy;
         type WeightInfo: WeightInfo;
-        type VoteLockingPeriod: Get<BlockNumberFor<Self>>;
-        type MaxVotes: Get<u32>;
-        type MaxTurnout: Get<u128>;
-        type Polls: Polling<
-            TallyOf<Self, I>,
-            Votes = BalanceOf<Self, I>,
-            Moment = BlockNumberFor<Self>,
-        >;
     }
 
     #[pallet::pallet]
-    pub struct Pallet<T, I = ()>(_);
+    pub struct Pallet<T>(_);
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config<I>, I: 'static = ()> {
-        CustomVoteWeightCalculated(T::AccountId, T::Balance, u128),
+    pub enum Event<T: Config> {
+        // CustomVoteWeightCalculated(T::AccountId, T::Balance, u128),
     }
 
     #[pallet::error]
-    pub enum Error<T, I = ()> {
+    pub enum Error<T> {
         NoneValue,
         StorageOverflow,
         MaxVotesReached,
         AlreadyDelegating,
+        NotOngoing,
     }
 
-    // #[pallet::hooks]
-    // impl<T: Config, I = ()> Hooks<BlockNumberFor<T>> for Pallet<T> {}
-
     #[pallet::call]
-    impl<T: Config<I>, I: 'static> Pallet<T, I> {
+    impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as crate::Config<I>>::WeightInfo::calculate_custom_vote_weight())]
+        #[pallet::weight(<T as Config>::WeightInfo::calculate_custom_vote_weight())]
         pub fn vote(
             origin: OriginFor<T>,
-            poll_index: PollIndexOf<T, I>,
-            vote: AccountVote<BalanceOf<T, I>>,
+            poll_index: PollIndexOf<T>,
+            vote: AccountVote<BalanceOf<T>>,
         ) -> DispatchResult {
             let who = ensure_signed(origin.clone())?;
 
-            <T as VotingConfig<I>>::Polls::try_access_poll(poll_index, |poll_status| {
-                let (tally, class) = poll_status.ensure_ongoing().ok_or(pallet_conviction_voting::Error::<T, ()>::NotOngoing)?;
+            <T as VotingConfig>::Polls::try_access_poll(poll_index, |poll_status| {
+                let (tally, class) = poll_status.ensure_ongoing().ok_or(Error::<T>::NotOngoing)?;
                 pallet_conviction_voting::VotingFor::<T, ()>::try_mutate(who, &class, |voting| {
                     if let pallet_conviction_voting::Voting::Casting(pallet_conviction_voting::Casting { ref mut votes, delegations, .. }) = voting {
                         match votes.binary_search_by_key(&poll_index, |i| i.0) {

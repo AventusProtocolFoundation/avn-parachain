@@ -30,14 +30,7 @@ impl pallet_conviction_voting::Config for Runtime {
 
 impl pallet_custom_voting::Config for Runtime {
     type WeightInfo = pallet_custom_voting::default_weights::SubstrateWeight<Runtime>;
-    type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type VoteLockingPeriod = VoteLockingPeriod;
-    type MaxVotes = ConstU32<512>;
-    type MaxTurnout =
-        frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
-    type Polls = Referenda;
 }
 
 
