@@ -825,6 +825,7 @@ dependencies = [
  "pallet-avn-transaction-payment",
  "pallet-balances",
  "pallet-conviction-voting",
+ "pallet-custom-voting",
  "pallet-eth-bridge",
  "pallet-ethereum-events",
  "pallet-im-online",
@@ -7082,6 +7083,34 @@ dependencies = [
  "serde",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-custom-voting"
+version = "5.4.1"
+dependencies = [
+ "ethabi 13.0.0",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal 0.4.1",
+ "log",
+ "pallet-avn",
+ "pallet-conviction-voting",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec 3.6.4",
+ "parking_lot 0.12.1",
+ "rand 0.8.5",
+ "scale-info",
+ "sp-application-crypto",
+ "sp-avn-common",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
  "sp-std",
 ]
 
