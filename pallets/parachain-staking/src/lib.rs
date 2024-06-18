@@ -245,6 +245,8 @@ pub mod pallet {
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
 
         type BridgeInterface: pallet_avn::BridgeInterface;
+
+        type GrowthEnabled: Get<bool>;
     }
 
     #[pallet::error]
@@ -490,6 +492,10 @@ pub mod pallet {
     }
 
     #[pallet::storage]
+    #[pallet::getter(fn growth_enabled)]
+    pub type GrowthEnabledStorage<T> = StorageValue<_, bool, ValueQuery>;
+
+    #[pallet::storage]
     #[pallet::getter(fn delay)]
     /// Number of eras to wait before executing any staking action
     pub type Delay<T: Config> = StorageValue<_, EraIndex, ValueQuery>;
@@ -687,6 +693,7 @@ pub mod pallet {
         pub delay: EraIndex,
         pub min_collator_stake: BalanceOf<T>,
         pub min_total_nominator_stake: BalanceOf<T>,
+        pub growth_enabled: bool,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -697,6 +704,7 @@ pub mod pallet {
                 delay: Default::default(),
                 min_collator_stake: Default::default(),
                 min_total_nominator_stake: Default::default(),
+                growth_enabled: T::GrowthEnabled::get(),
             }
         }
     }
@@ -759,6 +767,8 @@ pub mod pallet {
             // Validate and set delay
             assert!(self.delay > 0, "Delay must be greater than 0.");
             <Delay<T>>::put(self.delay);
+
+            GrowthEnabledStorage::<T>::put(self.growth_enabled);
 
             // Set min staking values
             <MinCollatorStake<T>>::put(self.min_collator_stake);
@@ -1675,6 +1685,7 @@ pub mod pallet {
                 AdminSettings::Delay(d) => <Delay<T>>::put(d),
                 AdminSettings::MinCollatorStake(s) => <MinCollatorStake<T>>::put(s),
                 AdminSettings::MinTotalNominatorStake(s) => <MinTotalNominatorStake<T>>::put(s),
+                AdminSettings::GrowthEnabled(b) => <GrowthEnabledStorage<T>>::put(b),
             }
 
             Self::deposit_event(Event::AdminSettingsUpdated { value });
@@ -1831,18 +1842,21 @@ pub mod pallet {
 
             <DelayedPayouts<T>>::insert(era_to_payout, &payout);
 
-            let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
+            let growth_enabled = T::GrowthEnabled::get();
+            if growth_enabled {
+                let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
                 <AwardedPts<T>>::iter_prefix(era_to_payout)
                     .map(|(collator, points)| CollatorScore::new(collator, points))
                     .collect::<Vec<CollatorScore<T::AccountId>>>();
-            let collator_scores = BoundedVec::truncate_from(collator_scores_vec);
-            Self::update_collator_payout(
-                era_to_payout,
-                total_staked,
-                payout,
-                total_points,
-                collator_scores,
-            );
+                let collator_scores = BoundedVec::truncate_from(collator_scores_vec);
+                Self::update_collator_payout(
+                    era_to_payout,
+                    total_staked,
+                    payout,
+                    total_points,
+                    collator_scores,
+                );
+            }
         }
 
         /// Wrapper around pay_one_collator_reward which handles the following logic:

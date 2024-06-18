@@ -452,6 +452,7 @@ impl pallet_parachain_staking::Config for Runtime {
     type MaxCandidates = ConstU32<100>;
     type AccountToBytesConvert = Avn;
     type BridgeInterface = EthBridge;
+    type GrowthEnabled = ConstBool<false>;
 }
 
 // Substrate pallets that AvN has dependency
