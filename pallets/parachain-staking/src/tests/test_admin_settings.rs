@@ -1,11 +1,11 @@
 #[cfg(test)]
 use crate::mock::{
     ExtBuilder, MinNominationPerCollator, ParachainStaking, RuntimeEvent as MetaEvent,
-    RuntimeOrigin as Origin, Test, TestAccount,
+    RuntimeOrigin as Origin, Test, TestAccount
 };
 use crate::{
     assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event, MinCollatorStake,
-    MinTotalNominatorStake,
+    MinTotalNominatorStake, GrowthEnabledStorage
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -150,6 +150,46 @@ mod min_collator_stake_admin_setting {
             assert_eq!(<MinCollatorStake<Test>>::get(), new_min_value);
             assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
                 value: new_min_setting
+            }));
+        });
+    }
+}
+
+mod growth_enabled_admin_setting {
+    use super::*;
+
+    #[test]
+    fn can_be_updated() {
+        ExtBuilder::default().build().execute_with(|| {
+            let initial_value = <GrowthEnabledStorage<Test>>::get();
+            let new_growth_enabled_setting = AdminSettings::<BalanceOf<Test>>::GrowthEnabled(!initial_value);
+
+            assert_ok!(ParachainStaking::set_admin_setting(
+                Origin::root(),
+                new_growth_enabled_setting.clone()
+            ));
+
+            assert_eq!(<GrowthEnabledStorage<Test>>::get(), !initial_value);
+            assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
+                value: new_growth_enabled_setting
+            }));
+        });
+    }
+
+    #[test]
+    fn can_be_updated_to_same_value() {
+        ExtBuilder::default().build().execute_with(|| {
+            let initial_value = <GrowthEnabledStorage<Test>>::get();
+            let new_growth_enabled_setting = AdminSettings::<BalanceOf<Test>>::GrowthEnabled(initial_value);
+
+            assert_ok!(ParachainStaking::set_admin_setting(
+                Origin::root(),
+                new_growth_enabled_setting.clone()
+            ));
+
+            assert_eq!(<GrowthEnabledStorage<Test>>::get(), initial_value);
+            assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
+                value: new_growth_enabled_setting
             }));
         });
     }

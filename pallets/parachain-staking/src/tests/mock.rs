@@ -568,6 +568,7 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: self.min_collator_stake,
             min_total_nominator_stake: self.min_total_nominator_stake,
+            growth_enabled: false,
         }
         .assimilate_storage(&mut t)
         .expect("Parachain Staking's storage can be assimilated");

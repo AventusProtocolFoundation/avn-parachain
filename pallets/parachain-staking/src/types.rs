@@ -1427,6 +1427,8 @@ pub enum AdminSettings<Balance> {
     MinCollatorStake(Balance),
     /// Minimum nominator stake amount
     MinTotalNominatorStake(Balance),
+    /// Growth enabled flag
+    GrowthEnabled(bool),
 }
 
 impl<
@@ -1451,6 +1453,7 @@ impl<
             AdminSettings::MinTotalNominatorStake(s) =>
                 s >= &<<T as Config>::MinNominationPerCollator as Get<BalanceOf<T>>>::get().into(),
             AdminSettings::MinCollatorStake(_) => true,
+            AdminSettings::GrowthEnabled(_) => true,
             _ => false,
         }
     }
