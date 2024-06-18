@@ -11,9 +11,9 @@ use sp_avn_common::{
         DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
     },
     event_types::{
-        AddedValidatorData, AvtGrowthLiftedData, Error, EthEvent, EthEventId, EventData,
-        LiftedData, NftCancelListingData, NftEndBatchListingData, NftMintData, NftTransferToData,
-        ValidEvents,
+        AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Error, EthEvent, EthEventId,
+        EventData, LiftedData, NftCancelListingData, NftEndBatchListingData, NftMintData,
+        NftTransferToData, ValidEvents,
     },
     AVN_KEY_ID,
 };
@@ -37,7 +37,7 @@ use crate::{server_error, setup_web3_connection, Web3Data};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
 pub struct EventInfo {
-    parser: fn(Vec<u8>, Vec<Vec<u8>>) -> Result<EventData, AppError>,
+    parser: fn(Option<Vec<u8>>, Vec<Vec<u8>>) -> Result<EventData, AppError>,
 }
 
 #[derive(Clone, Debug)]
@@ -63,7 +63,7 @@ impl EventRegistry {
             ValidEvents::AddedValidator.signature(),
             EventInfo {
                 parser: |data, topics| {
-                    AddedValidatorData::parse_bytes(Some(data), topics)
+                    AddedValidatorData::parse_bytes(data, topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
                         .map(EventData::LogAddedValidator)
                 },
@@ -73,7 +73,7 @@ impl EventRegistry {
             ValidEvents::Lifted.signature(),
             EventInfo {
                 parser: |data, topics| {
-                    LiftedData::parse_bytes(Some(data), topics)
+                    LiftedData::parse_bytes(data, topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
                         .map(|data| EventData::LogLifted(data))
                 },
@@ -83,7 +83,7 @@ impl EventRegistry {
             ValidEvents::AvtGrowthLifted.signature(),
             EventInfo {
                 parser: |data, topics| {
-                    AvtGrowthLiftedData::parse_bytes(Some(data), topics)
+                    AvtGrowthLiftedData::parse_bytes(data, topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
                         .map(|data| EventData::LogAvtGrowthLifted(data))
                 },
@@ -93,7 +93,7 @@ impl EventRegistry {
             ValidEvents::NftCancelListing.signature(),
             EventInfo {
                 parser: |data, topics| {
-                    NftCancelListingData::parse_bytes(Some(data), topics)
+                    NftCancelListingData::parse_bytes(data, topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
                         .map(|data| EventData::LogNftCancelListing(data))
                 },
@@ -103,7 +103,7 @@ impl EventRegistry {
             ValidEvents::NftEndBatchListing.signature(),
             EventInfo {
                 parser: |data, topics| {
-                    NftEndBatchListingData::parse_bytes(Some(data), topics)
+                    NftEndBatchListingData::parse_bytes(data, topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
                         .map(|data| EventData::LogNftEndBatchListing(data))
                 },
@@ -113,7 +113,7 @@ impl EventRegistry {
             ValidEvents::NftMint.signature(),
             EventInfo {
                 parser: |data, topics| {
-                    NftMintData::parse_bytes(Some(data), topics)
+                    NftMintData::parse_bytes(data, topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
                         .map(|data| EventData::LogNftMinted(data))
                 },
@@ -123,9 +123,19 @@ impl EventRegistry {
             ValidEvents::NftTransferTo.signature(),
             EventInfo {
                 parser: |data, topics| {
-                    NftTransferToData::parse_bytes(Some(data), topics)
+                    NftTransferToData::parse_bytes(data, topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
                         .map(|data| EventData::LogNftTransferTo(data))
+                },
+            },
+        );
+        m.insert(
+            ValidEvents::AvtLowerClaimed.signature(),
+            EventInfo {
+                parser: |data, topics| {
+                    AvtLowerClaimedData::parse_bytes(data, topics)
+                        .map_err(|err| AppError::ParsingError(err.into()))
+                        .map(|data| EventData::LogLowerClaimed(data))
                 },
             },
         );
@@ -197,8 +207,14 @@ fn parse_log(log: Log, events_registry: &EventRegistry) -> Result<DiscoveredEven
     let event_id = EthEventId { signature, transaction_hash: SpH256::from(transaction_hash.0) };
 
     let topics: Vec<Vec<u8>> = log.topics.iter().map(|t| t.0.to_vec()).collect();
-    let event_data = parse_event_data(signature, log.data.0, topics, events_registry)
-        .or_else(|_| Err(AppError::ErrorParsingEventLogs))?;
+    let data: Option<Vec<u8>> = if log.data.0.is_empty() { None } else { Some(log.data.0) };
+    log::debug!(
+        "⛓️ Parsing discovered event: signature {:?}, data: {:?}, topics: {:?}",
+        signature,
+        data,
+        topics
+    );
+    let event_data = parse_event_data(signature, data, topics, events_registry)?;
 
     let block_number = log.block_number.ok_or(AppError::MissingBlockNumber)?;
 
@@ -207,7 +223,7 @@ fn parse_log(log: Log, events_registry: &EventRegistry) -> Result<DiscoveredEven
 
 fn parse_event_data(
     signature: SpH256,
-    data: Vec<u8>,
+    data: Option<Vec<u8>>,
     topics: Vec<Vec<u8>>,
     events_registry: &EventRegistry,
 ) -> Result<EventData, AppError> {
