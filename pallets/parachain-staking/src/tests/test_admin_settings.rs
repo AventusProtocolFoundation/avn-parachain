@@ -5,7 +5,7 @@ use crate::mock::{
 };
 use crate::{
     assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event, MinCollatorStake,
-    MinTotalNominatorStake, GrowthEnabledStorage
+    MinTotalNominatorStake, GrowthEnabled
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -161,7 +161,7 @@ mod growth_enabled_admin_setting {
     #[test]
     fn can_be_updated() {
         ExtBuilder::default().build().execute_with(|| {
-            let initial_value = <GrowthEnabledStorage<Test>>::get();
+            let initial_value = <GrowthEnabled<Test>>::get();
             let new_growth_enabled_setting = AdminSettings::<BalanceOf<Test>>::GrowthEnabled(!initial_value);
 
             assert_ok!(ParachainStaking::set_admin_setting(
@@ -169,7 +169,7 @@ mod growth_enabled_admin_setting {
                 new_growth_enabled_setting.clone()
             ));
 
-            assert_eq!(<GrowthEnabledStorage<Test>>::get(), !initial_value);
+            assert_eq!(<GrowthEnabled<Test>>::get(), !initial_value);
             assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
                 value: new_growth_enabled_setting
             }));
@@ -179,7 +179,7 @@ mod growth_enabled_admin_setting {
     #[test]
     fn can_be_updated_to_same_value() {
         ExtBuilder::default().build().execute_with(|| {
-            let initial_value = <GrowthEnabledStorage<Test>>::get();
+            let initial_value = <GrowthEnabled<Test>>::get();
             let new_growth_enabled_setting = AdminSettings::<BalanceOf<Test>>::GrowthEnabled(initial_value);
 
             assert_ok!(ParachainStaking::set_admin_setting(
@@ -187,7 +187,7 @@ mod growth_enabled_admin_setting {
                 new_growth_enabled_setting.clone()
             ));
 
-            assert_eq!(<GrowthEnabledStorage<Test>>::get(), initial_value);
+            assert_eq!(<GrowthEnabled<Test>>::get(), initial_value);
             assert_last_event!(MetaEvent::ParachainStaking(Event::AdminSettingsUpdated {
                 value: new_growth_enabled_setting
             }));

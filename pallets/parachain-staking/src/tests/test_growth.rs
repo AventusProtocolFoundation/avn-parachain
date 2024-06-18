@@ -6,7 +6,7 @@ use crate::{
         RuntimeOrigin, System, Test, TestAccount, RuntimeEvent
     },
     BalanceOf, CollatorScore, EraIndex, Error, Event, Growth, GrowthInfo, GrowthPeriod,
-    GrowthPeriodInfo, ProcessedGrowthPeriods, GrowthEnabledStorage, AdminSettings, assert_last_event
+    GrowthPeriodInfo, ProcessedGrowthPeriods, GrowthEnabled, AdminSettings, assert_last_event
 };
 use codec::{Decode, Encode};
 use frame_support::{assert_noop, assert_ok};
@@ -74,7 +74,7 @@ fn disable_growth() {
         new_growth_enabled_setting.clone()
     ));
 
-    assert_eq!(<GrowthEnabledStorage<Test>>::get(), false);
+    assert_eq!(<GrowthEnabled<Test>>::get(), false);
     assert_last_event!(RuntimeEvent::ParachainStaking(Event::AdminSettingsUpdated {
         value: new_growth_enabled_setting
     }));

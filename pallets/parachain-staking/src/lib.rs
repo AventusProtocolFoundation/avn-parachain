@@ -493,7 +493,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn growth_enabled)]
-    pub type GrowthEnabledStorage<T> = StorageValue<_, bool, ValueQuery>;
+    pub type GrowthEnabled<T> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn delay)]
@@ -768,7 +768,7 @@ pub mod pallet {
             assert!(self.delay > 0, "Delay must be greater than 0.");
             <Delay<T>>::put(self.delay);
 
-            GrowthEnabledStorage::<T>::put(self.growth_enabled);
+            GrowthEnabled::<T>::put(self.growth_enabled);
 
             // Set min staking values
             <MinCollatorStake<T>>::put(self.min_collator_stake);
@@ -1685,7 +1685,7 @@ pub mod pallet {
                 AdminSettings::Delay(d) => <Delay<T>>::put(d),
                 AdminSettings::MinCollatorStake(s) => <MinCollatorStake<T>>::put(s),
                 AdminSettings::MinTotalNominatorStake(s) => <MinTotalNominatorStake<T>>::put(s),
-                AdminSettings::GrowthEnabled(b) => <GrowthEnabledStorage<T>>::put(b),
+                AdminSettings::GrowthEnabled(b) => <GrowthEnabled<T>>::put(b),
             }
 
             Self::deposit_event(Event::AdminSettingsUpdated { value });
@@ -1842,7 +1842,7 @@ pub mod pallet {
 
             <DelayedPayouts<T>>::insert(era_to_payout, &payout);
 
-            let growth_enabled = GrowthEnabledStorage::<T>::get();
+            let growth_enabled = GrowthEnabled::<T>::get();
             if growth_enabled {
                 let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
                 <AwardedPts<T>>::iter_prefix(era_to_payout)
