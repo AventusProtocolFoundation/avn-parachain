@@ -1845,9 +1845,9 @@ pub mod pallet {
             let growth_enabled = GrowthEnabled::<T>::get();
             if growth_enabled {
                 let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
-                <AwardedPts<T>>::iter_prefix(era_to_payout)
-                    .map(|(collator, points)| CollatorScore::new(collator, points))
-                    .collect::<Vec<CollatorScore<T::AccountId>>>();
+                    <AwardedPts<T>>::iter_prefix(era_to_payout)
+                        .map(|(collator, points)| CollatorScore::new(collator, points))
+                        .collect::<Vec<CollatorScore<T::AccountId>>>();
                 let collator_scores = BoundedVec::truncate_from(collator_scores_vec);
                 Self::update_collator_payout(
                     era_to_payout,

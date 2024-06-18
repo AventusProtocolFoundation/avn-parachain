@@ -1,11 +1,11 @@
 #[cfg(test)]
 use crate::mock::{
     ExtBuilder, MinNominationPerCollator, ParachainStaking, RuntimeEvent as MetaEvent,
-    RuntimeOrigin as Origin, Test, TestAccount
+    RuntimeOrigin as Origin, Test, TestAccount,
 };
 use crate::{
-    assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event, MinCollatorStake,
-    MinTotalNominatorStake, GrowthEnabled
+    assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event, GrowthEnabled,
+    MinCollatorStake, MinTotalNominatorStake,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;
@@ -162,7 +162,8 @@ mod growth_enabled_admin_setting {
     fn can_be_updated() {
         ExtBuilder::default().build().execute_with(|| {
             let initial_value = <GrowthEnabled<Test>>::get();
-            let new_growth_enabled_setting = AdminSettings::<BalanceOf<Test>>::GrowthEnabled(!initial_value);
+            let new_growth_enabled_setting =
+                AdminSettings::<BalanceOf<Test>>::GrowthEnabled(!initial_value);
 
             assert_ok!(ParachainStaking::set_admin_setting(
                 Origin::root(),
@@ -180,7 +181,8 @@ mod growth_enabled_admin_setting {
     fn can_be_updated_to_same_value() {
         ExtBuilder::default().build().execute_with(|| {
             let initial_value = <GrowthEnabled<Test>>::get();
-            let new_growth_enabled_setting = AdminSettings::<BalanceOf<Test>>::GrowthEnabled(initial_value);
+            let new_growth_enabled_setting =
+                AdminSettings::<BalanceOf<Test>>::GrowthEnabled(initial_value);
 
             assert_ok!(ParachainStaking::set_admin_setting(
                 Origin::root(),
