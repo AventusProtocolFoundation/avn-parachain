@@ -770,7 +770,8 @@ construct_runtime!(
         Origins: pallet_custom_origins = 99,
         ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 100,
         Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 101,
-        Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102
+        Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102,
+        CustomVoting: pallet_custom_voting::{Pallet, Call, Storage, Event<T>} = 103
     }
 );
 
