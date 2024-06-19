@@ -905,6 +905,7 @@ dependencies = [
  "pallet-avn-transaction-payment",
  "pallet-balances",
  "pallet-conviction-voting",
+ "pallet-custom-voting",
  "pallet-eth-bridge",
  "pallet-ethereum-events",
  "pallet-im-online",

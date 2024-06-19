@@ -169,7 +169,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 72,
+    spec_version: 67,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -782,7 +782,8 @@ construct_runtime!(
          Origins: pallet_custom_origins = 99,
          ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 100,
          Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 101,
-         Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102
+         Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102,
+         CustomVoting: pallet_custom_voting::{Pallet, Call, Storage, Event<T>} = 103,
     }
 );
 

@@ -30,6 +30,11 @@ impl pallet_conviction_voting::Config for Runtime {
     type Polls = Referenda;
 }
 
+impl pallet_custom_voting::Config for Runtime {
+    type WeightInfo = pallet_custom_voting::default_weights::SubstrateWeight<Runtime>;
+    type RuntimeEvent = RuntimeEvent;
+}
+
 parameter_types! {
     pub const AlarmInterval: BlockNumber = 1;
     pub const SubmissionDeposit: Balance = 50 * AVT;

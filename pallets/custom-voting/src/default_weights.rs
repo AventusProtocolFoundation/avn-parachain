@@ -11,19 +11,19 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for pallet_custom_voting.
 pub trait WeightInfo {
-    fn calculate_custom_vote_weight() -> Weight;
+    fn custom_vote_weight() -> Weight;
 }
 
 /// Weights for pallet_custom_voting using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-    fn calculate_custom_vote_weight() -> Weight {
+    fn custom_vote_weight() -> Weight {
         Weight::from_parts(10_000, 0)
             .saturating_add(T::DbWeight::get().reads_writes(1, 1))
     }
 }
 impl WeightInfo for () {
-    fn calculate_custom_vote_weight() -> Weight {
+    fn custom_vote_weight() -> Weight {
         Weight::from_parts(10_000, 0)
             .saturating_add(RocksDbWeight::get().reads_writes(1, 1))
     }

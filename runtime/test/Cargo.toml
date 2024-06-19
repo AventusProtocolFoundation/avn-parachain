@@ -96,6 +96,7 @@ pallet-avn-proxy = { path = "../../pallets/avn-proxy", default-features = false 
 pallet-avn-transaction-payment = { path = "../../pallets/avn-transaction-payment", default-features = false }
 pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = false }
 pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
+pallet-custom-voting = { default-features = false, path = "../../pallets/custom-voting" }
 
 # Common Runtime
 runtime-common = { package = "avn-runtime-common", path = "../common", default-features = false }
@@ -171,6 +172,7 @@ std = [
 	# OpenGov
 	"pallet-referenda/std",
 	"pallet-conviction-voting/std",
+	"pallet-custom-voting/std",
 	"pallet-whitelist/std",
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
@@ -211,6 +213,7 @@ runtime-benchmarks = [
 	# OpenGov
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-custom-voting/runtime-benchmarks",
 	"pallet-whitelist/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
@@ -254,6 +257,7 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-conviction-voting/try-runtime",
+	"pallet-custom-voting/try-runtime",
 	"pallet-referenda/try-runtime",
 	"pallet-whitelist/try-runtime",
 ]
