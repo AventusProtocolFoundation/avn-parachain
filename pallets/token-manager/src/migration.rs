@@ -10,6 +10,9 @@ use frame_system::pallet_prelude::BlockNumberFor;
 #[cfg(feature = "try-runtime")]
 use crate::Vec;
 
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
+
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 pub fn set_lower_schedule_period<T: Config>() -> Weight {
@@ -54,14 +57,14 @@ impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
     }
 
     #[cfg(feature = "try-runtime")]
-    fn pre_upgrade() -> Result<Vec<u8>, &'static str> {
+    fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
         use codec::Encode;
 
         Ok(<LowerSchedulePeriod<T>>::get().encode())
     }
 
     #[cfg(feature = "try-runtime")]
-    fn post_upgrade(input: Vec<u8>) -> Result<(), &'static str> {
+    fn post_upgrade(input: Vec<u8>) -> Result<(), TryRuntimeError> {
         use codec::Decode;
         use sp_runtime::traits::Zero;
 
