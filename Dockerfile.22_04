@@ -28,11 +28,11 @@ RUN apt-get update && \
 	apt-get autoremove -y && \
 	apt-get clean && \
 	find /var/lib/apt/lists/ -type f -not -name lock -delete; \
-	# add user and link ~/.local/share/avn-node to /data
+	# add user and link ~/.local/share/avn-parachain-collator to /data
 	useradd -m -u 1000 -U -s /bin/sh -d /avn-node avn-node && \
 	mkdir -p /data /avn-node/.local/share && \
 	chown -R avn-node:avn-node /data && \
-	ln -s /data /avn-node/.local/share/avn-node && \
+	ln -s /data /avn-node/.local/share/avn-parachain-collator && \
 	mkdir -p /specs
 
 # add avn-node binary to the docker image
