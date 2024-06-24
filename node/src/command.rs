@@ -233,22 +233,30 @@ pub fn run() -> Result<()> {
         },
         #[cfg(feature = "try-runtime")]
         Some(Subcommand::TryRuntime(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-
+            //Err("try-runtime is deprecated. Use the CLI".into())
+            use crate::common::AvnParachainExecutor;
+            use avn_parachain_runtime::SLOT_DURATION;
             use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
-            type HostFunctionsOf<E> = ExtendedHostFunctions<
-                sp_io::SubstrateHostFunctions,
-                <E as NativeExecutionDispatch>::ExtendHostFunctions,
-            >;
+            use try_runtime_cli::block_building_info::substrate_info;
 
-            // grab the task manager.
-            let registry = &runner.config().prometheus_config.as_ref().map(|cfg| &cfg.registry);
-            let task_manager =
-                sc_service::TaskManager::new(runner.config().tokio_handle.clone(), *registry)
-                    .map_err(|e| format!("Error: {:?}", e))?;
+            let runner = cli.create_runner(cmd)?;
+            runner.async_run(|config| {
+                // we don't need any of the components of new_partial, just a runtime, or a task
+                // manager to do `async_run`.
+                let registry = config.prometheus_config.as_ref().map(|cfg| &cfg.registry);
+                let task_manager =
+                    sc_service::TaskManager::new(config.tokio_handle.clone(), registry)
+                        .map_err(|e| sc_cli::Error::Service(sc_service::Error::Prometheus(e)))?;
 
-            runner.async_run(|_| {
-                Ok((cmd.run::<Block, HostFunctionsOf<ParachainExecutor>>(), task_manager))
+                let info_provider = substrate_info(SLOT_DURATION);
+
+                Ok((
+                    cmd.run::<Block, ExtendedHostFunctions<
+                        sp_io::SubstrateHostFunctions,
+                        <AvnParachainExecutor as NativeExecutionDispatch>::ExtendHostFunctions,
+                    >, _>(Some(info_provider)),
+                    task_manager,
+                ))
             })
         },
         #[cfg(not(feature = "try-runtime"))]

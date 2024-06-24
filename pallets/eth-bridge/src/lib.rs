@@ -58,7 +58,10 @@ use alloc::{
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
-use frame_support::{dispatch::DispatchResultWithPostInfo, log, traits::IsSubType, BoundedVec};
+use frame_support::{
+    dispatch::DispatchResultWithPostInfo, log, pallet_prelude::StorageVersion, traits::IsSubType,
+    BoundedVec,
+};
 use frame_system::{
     ensure_none, ensure_root,
     offchain::{SendTransactionTypes, SubmitTransaction},
@@ -126,6 +129,8 @@ const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
+
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -200,6 +205,7 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
