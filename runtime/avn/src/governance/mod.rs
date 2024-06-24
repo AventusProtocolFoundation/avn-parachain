@@ -31,8 +31,10 @@ impl pallet_conviction_voting::Config for Runtime {
 impl pallet_custom_voting::Config for Runtime {
     type WeightInfo = pallet_custom_voting::default_weights::SubstrateWeight<Runtime>;
     type RuntimeEvent = RuntimeEvent;
+    type TimeProvider = Timestamp;
+    type MaxVoteAge = ConstU64<604_800>;
+    type Moment = u64;
 }
-
 
 parameter_types! {
     pub const AlarmInterval: BlockNumber = 1;

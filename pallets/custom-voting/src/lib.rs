@@ -15,17 +15,18 @@ pub type BalanceOf<T, I = ()> =
 #[frame_support::pallet]
 pub mod pallet {
     use crate::{default_weights::WeightInfo, BalanceOf, PollIndexOf, VotingConfig};
+    use codec::{Decode, Encode};
+    use core::fmt::Debug;
     use frame_support::{
         pallet_prelude::*,
         traits::{Polling, Time},
     };
     use frame_system::pallet_prelude::*;
     use pallet_conviction_voting::AccountVote;
+    use scale_info::TypeInfo;
     use sp_runtime::{traits::AtLeast32Bit, ArithmeticError};
-    use std::fmt::Debug;
-    use parity_scale_codec::{Encode, Decode};
 
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, Debug)]
     #[scale_info(skip_type_params(T))]
     pub struct VoteProof<T: Config> {
         voter: T::AccountId,
@@ -33,11 +34,9 @@ pub mod pallet {
         timestamp: T::Moment,
         ethereum_signature: [u8; 65],
     }
+
     #[pallet::config]
-    pub trait Config: frame_system::Config + VotingConfig
-    where
-        <Self as frame_system::Config>::AccountId: Debug,
-    {
+    pub trait Config: frame_system::Config + VotingConfig {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type WeightInfo: WeightInfo;
         type TimeProvider: Time<Moment = Self::Moment>;
@@ -48,9 +47,10 @@ pub mod pallet {
             + AtLeast32Bit
             + Default
             + From<u64>
-            + Debug
-            + TypeInfo;
+            + TypeInfo
+            + Debug;
     }
+
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
@@ -68,8 +68,6 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
-        NoneValue,
-        StorageOverflow,
         MaxVotesReached,
         AlreadyDelegating,
         NotOngoing,
@@ -79,7 +77,10 @@ pub mod pallet {
     }
 
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
+    impl<T: Config> Pallet<T>
+    where
+        VoteProof<T>: Encode + Decode + Debug,
+    {
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::custom_vote_weight())]
         pub fn vote(
@@ -87,8 +88,7 @@ pub mod pallet {
             poll_index: PollIndexOf<T>,
             vote: AccountVote<BalanceOf<T>>,
         ) -> DispatchResult {
-            let who = ensure_signed(origin.clone())?;
-
+            let who = ensure_signed(origin)?;
             Self::do_vote(who, poll_index, vote)
         }
 
@@ -115,7 +115,6 @@ pub mod pallet {
             Self::do_vote(vote_proof.voter.clone(), poll_index, vote_proof.vote)?;
 
             Self::deposit_event(Event::EthereumVoteProcessed(vote_proof.voter, poll_index));
-
             Ok(())
         }
     }
