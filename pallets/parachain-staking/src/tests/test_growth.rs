@@ -67,19 +67,6 @@ fn increase_collator_nomination(
     ));
 }
 
-// fn disable_growth() {
-//     let new_growth_enabled_setting = AdminSettings::<BalanceOf<Test>>::GrowthEnabled(false);
-//     assert_ok!(ParachainStaking::set_admin_setting(
-//         RuntimeOrigin::root(),
-//         new_growth_enabled_setting.clone()
-//     ));
-
-//     assert_eq!(<GrowthEnabled<Test>>::get(), false);
-//     assert_last_event!(RuntimeEvent::ParachainStaking(Event::AdminSettingsUpdated {
-//         value: new_growth_enabled_setting
-//     }));
-// }
-
 fn get_expected_block_number(growth_index: u64) -> u64 {
     return get_default_block_per_era() as u64 * ErasPerGrowthPeriod::get() as u64 * growth_index
 }
