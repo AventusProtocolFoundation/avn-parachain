@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::{Currency, Polling};
+use frame_support::traits::{Polling, Currency};
 pub use pallet::*;
 pub use pallet_conviction_voting::{Config as VotingConfig, TallyOf};
 pub mod default_weights;
@@ -14,10 +14,14 @@ pub type BalanceOf<T, I = ()> =
 
 #[frame_support::pallet]
 pub mod pallet {
-    use crate::{default_weights::WeightInfo, BalanceOf, PollIndexOf, VotingConfig};
-    use frame_support::{pallet_prelude::*, traits::Polling};
+    use frame_support::{
+        pallet_prelude::*,
+        traits::Polling,
+    };
     use frame_system::pallet_prelude::*;
     use pallet_conviction_voting::AccountVote;
+    use crate::default_weights::WeightInfo;
+    use crate::{PollIndexOf, BalanceOf, VotingConfig};
     use sp_runtime::ArithmeticError;
 
     #[pallet::config]
@@ -31,7 +35,9 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::event]
-    pub enum Event<T: Config> {}
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+    }
 
     #[pallet::error]
     pub enum Error<T> {
@@ -56,10 +62,7 @@ pub mod pallet {
             <T as VotingConfig>::Polls::try_access_poll(poll_index, |poll_status| {
                 let (tally, class) = poll_status.ensure_ongoing().ok_or(Error::<T>::NotOngoing)?;
                 pallet_conviction_voting::VotingFor::<T, ()>::try_mutate(who, &class, |voting| {
-                    if let pallet_conviction_voting::Voting::Casting(
-                        pallet_conviction_voting::Casting { ref mut votes, delegations, .. },
-                    ) = voting
-                    {
+                    if let pallet_conviction_voting::Voting::Casting(pallet_conviction_voting::Casting { ref mut votes, delegations, .. }) = voting {
                         match votes.binary_search_by_key(&poll_index, |i| i.0) {
                             Ok(i) => {
                                 tally.remove(votes[i].1).ok_or(ArithmeticError::Underflow)?;
@@ -79,7 +82,7 @@ pub mod pallet {
                             tally.increase(approve, *delegations);
                         }
                     } else {
-                        return Err(Error::<T>::AlreadyDelegating.into())
+                        return Err(Error::<T>::AlreadyDelegating.into());
                     }
                     Ok(())
                 })

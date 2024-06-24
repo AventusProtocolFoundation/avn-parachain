@@ -16,7 +16,7 @@ use sp_core::ConstU128;
 pub use tracks::TracksInfo;
 
 parameter_types! {
-    pub const VoteLockingPeriod: BlockNumber = 28 * DAYS;
+    pub const VoteLockingPeriod: BlockNumber = 10 * MINUTES;
 }
 
 impl pallet_conviction_voting::Config for Runtime {
@@ -38,7 +38,7 @@ impl pallet_custom_voting::Config for Runtime {
 parameter_types! {
     pub const AlarmInterval: BlockNumber = 1;
     pub const SubmissionDeposit: Balance = 50 * AVT;
-    pub const UndecidingTimeout: BlockNumber = 14 * DAYS;
+    pub const UndecidingTimeout: BlockNumber = 10 * MINUTES;
 }
 
 impl pallet_custom_origins::Config for Runtime {}
@@ -47,6 +47,7 @@ pub const MAX_SPEND: u128 = u128::MAX;
 
 pub type TreasurySpender =
     EitherOf<EnsureRootWithSuccess<AccountId, ConstU128<MAX_SPEND>>, Spender>;
+
 pub struct ToTreasury<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for ToTreasury<R>
 where
