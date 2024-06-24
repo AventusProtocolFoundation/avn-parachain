@@ -4,8 +4,8 @@ use crate::mock::{
     RuntimeOrigin as Origin, Test, TestAccount,
 };
 use crate::{
-    assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event,
-    MinCollatorStake, MinTotalNominatorStake,
+    assert_last_event, AdminSettings, BalanceOf, Delay, Error, Event, MinCollatorStake,
+    MinTotalNominatorStake,
 };
 use frame_support::{assert_noop, assert_ok};
 use frame_system::RawOrigin;

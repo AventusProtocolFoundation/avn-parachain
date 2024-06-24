@@ -45,6 +45,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     BuildStorage, DispatchError, Perbill, SaturatedConversion,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
@@ -203,7 +204,6 @@ parameter_types! {
     pub const ErasPerGrowthPeriod: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
     pub const MaxCandidates:u32 = 100;
-    pub const GrowthEnabled: bool = true;
 }
 
 pub struct IsRegistered;
@@ -243,7 +243,7 @@ impl Config for Test {
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
     type BridgeInterface = EthBridge;
-    type GrowthEnabled = GrowthEnabled;
+    type GrowthEnabled = TestGrowthEnabled;
 }
 
 // Deal with any positive imbalance by sending it to the fake treasury
@@ -264,6 +264,26 @@ impl pallet_session::historical::Config for Test {
 parameter_types! {
     pub static WeightToFee: u128 = 1u128;
     pub static TransactionByteFee: u128 = 0u128;
+}
+
+pub trait GrowthEnabledConfig {
+    fn set_growth_enabled(enabled: bool);
+}
+
+impl GrowthEnabledConfig for TestGrowthEnabled {
+    fn set_growth_enabled(enabled: bool) {
+        // Set the GrowthEnabled parameter dynamically.
+        GROWTH_ENABLED.store(enabled, Ordering::SeqCst);
+    }
+}
+
+static GROWTH_ENABLED: AtomicBool = AtomicBool::new(true);
+
+pub struct TestGrowthEnabled;
+impl Get<bool> for TestGrowthEnabled {
+    fn get() -> bool {
+        GROWTH_ENABLED.load(Ordering::SeqCst)
+    }
 }
 
 pub struct DealWithFees;
