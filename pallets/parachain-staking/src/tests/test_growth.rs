@@ -201,7 +201,7 @@ fn growth_period_indices_updated_correctly() {
 }
 
 mod growth_disabled {
-    use crate::mock::set_growth_enabled;
+    use crate::mock::disable_growth;
 
     use super::*;
 
