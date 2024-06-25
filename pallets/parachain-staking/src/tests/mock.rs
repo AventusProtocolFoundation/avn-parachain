@@ -20,6 +20,7 @@ use crate::{
     pallet, AwardedPts, Config, Points, Proof, TypeInfo, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID, *,
 };
 use codec::{Decode, Encode};
+use core::cell::RefCell;
 use frame_support::{
     assert_ok, construct_runtime,
     dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
@@ -266,24 +267,19 @@ parameter_types! {
     pub static TransactionByteFee: u128 = 0u128;
 }
 
-pub trait GrowthEnabledConfig {
-    fn set_growth_enabled(enabled: bool);
+thread_local! {
+    pub static GROWTH_ENABLED: RefCell<bool> = RefCell::new(true);
 }
-
-impl GrowthEnabledConfig for TestGrowthEnabled {
-    fn set_growth_enabled(enabled: bool) {
-        // Set the GrowthEnabled parameter dynamically.
-        GROWTH_ENABLED.store(enabled, Ordering::SeqCst);
-    }
-}
-
-static GROWTH_ENABLED: AtomicBool = AtomicBool::new(true);
 
 pub struct TestGrowthEnabled;
 impl Get<bool> for TestGrowthEnabled {
     fn get() -> bool {
-        GROWTH_ENABLED.load(Ordering::SeqCst)
+        GROWTH_ENABLED.with(|enabled| *enabled.borrow())
     }
+}
+
+pub fn disable_growth() {
+    GROWTH_ENABLED.with(|enabled| *enabled.borrow_mut() = false);
 }
 
 pub struct DealWithFees;

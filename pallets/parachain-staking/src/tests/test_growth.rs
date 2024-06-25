@@ -201,7 +201,7 @@ fn growth_period_indices_updated_correctly() {
 }
 
 mod growth_disabled {
-    use crate::mock::{GrowthEnabledConfig, TestGrowthEnabled};
+    use crate::mock::set_growth_enabled;
 
     use super::*;
 
@@ -214,8 +214,7 @@ mod growth_disabled {
             .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
             .build()
             .execute_with(|| {
-                // Set the GrowthEnabled parameter to false
-                TestGrowthEnabled::set_growth_enabled(false);
+                disable_growth();
 
                 let initial_growth_period_index = 0;
                 let mut era_index = ParachainStaking::era().current;
@@ -242,8 +241,7 @@ mod growth_disabled {
             .with_candidates(vec![(collator_1, collator1_stake), (collator_2, collator2_stake)])
             .build()
             .execute_with(|| {
-                // Set the GrowthEnabled parameter to false
-                TestGrowthEnabled::set_growth_enabled(false);
+                disable_growth();
 
                 let num_era_to_roll_foreward = reward_payment_delay + 1;
 
