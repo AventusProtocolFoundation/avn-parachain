@@ -34,6 +34,7 @@ impl pallet_custom_voting::Config for Runtime {
     type TimeProvider = Timestamp;
     type MaxVoteAge = ConstU64<604_800>;
     type Moment = u64;
+    type EthereumPublicKey = ecdsa::Public;
 }
 
 parameter_types! {

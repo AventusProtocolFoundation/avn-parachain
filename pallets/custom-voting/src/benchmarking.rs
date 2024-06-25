@@ -16,10 +16,8 @@ benchmarks! {
         let caller: T::AccountId = whitelisted_caller();
         let poll_index = PollIndexOf::<T>::max_value();
         let vote = AccountVote::Standard { vote: true, balance: BalanceOf::<T>::max_value() };
-        
         let ethereum_signature = [0u8; 65];
         let now = T::TimeProvider::now();
-        
         let vote_proof = VoteProof {
             voter: caller.clone(),
             vote: vote.clone(),
