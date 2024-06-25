@@ -46,7 +46,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     BuildStorage, DispatchError, Perbill, SaturatedConversion,
 };
-use std::sync::atomic::{AtomicBool, Ordering};
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
