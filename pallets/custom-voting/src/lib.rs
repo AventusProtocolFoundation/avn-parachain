@@ -56,8 +56,15 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn processed_votes)]
-    pub type ProcessedVotes<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
+    pub type ProcessedVotes<T: Config> = StorageDoubleMap<
+        _,
+        Twox64Concat,
+        T::AccountId,
+        Twox64Concat,
+        PollIndexOf<T>,
+        bool,
+        ValueQuery,
+    >;
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -102,7 +109,7 @@ pub mod pallet {
             let _ = ensure_signed(origin)?;
 
             ensure!(
-                !ProcessedVotes::<T>::contains_key(&vote_proof.voter),
+                !ProcessedVotes::<T>::contains_key(&vote_proof.voter, &poll_index),
                 Error::<T>::AlreadyVoted
             );
 
@@ -110,9 +117,9 @@ pub mod pallet {
             ensure!(vote_proof.timestamp <= now, Error::<T>::FutureTimestamp);
             ensure!(now - vote_proof.timestamp <= T::MaxVoteAge::get(), Error::<T>::VoteTooOld);
 
-            ProcessedVotes::<T>::insert(&vote_proof.voter, true);
-
             Self::do_vote(vote_proof.voter.clone(), poll_index, vote_proof.vote)?;
+            
+            ProcessedVotes::<T>::insert(&vote_proof.voter, &poll_index, true);
 
             Self::deposit_event(Event::EthereumVoteProcessed(vote_proof.voter, poll_index));
             Ok(())
