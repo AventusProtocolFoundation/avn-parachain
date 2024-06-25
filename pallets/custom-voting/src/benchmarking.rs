@@ -1,41 +1,40 @@
-//! # custom voting pallet
-// Copyright 2024 Aventus Systems (UK) Ltd.
-
-//! custom voting pallet benchmarking.
-
-// #![cfg(feature = "runtime-benchmarks")]
+#![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
+use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use pallet_conviction_voting::AccountVote;
+use sp_runtime::traits::Bounded;
 
-use crate::Pallet as CustomVotingPallet;
+const SEED: u32 = 0;
 
-benchmarks! {
-    vote {
-        let poll_index = 0;
-        let vote = AccountVote::Standard(100);
-        let caller = <T as frame_system::Config>::AccountId::from([1; 20]);
-        let poll_status = <T as VotingConfig>::Polls::poll_status(poll_index).unwrap();
-        let tally = poll_status.tally;
-        let class = poll_status.class;
-        let delegations = poll_status.delegations;
-        let voting = pallet_conviction_voting::Voting::Casting(pallet_conviction_voting::Casting {
-            votes: vec![(poll_index, vote.clone())],
-            delegations,
-        });
-        pallet_conviction_voting::VotingFor::<T, ()>::insert(caller, &class, &voting);
-
-    }: _(RawOrigin::Signed(caller), poll_index, vote)
-    verify {
-        let poll_status = <T as VotingConfig>::Polls::poll_status(poll_index).unwrap();
-        assert!(poll_status.tally.contains_key(&caller));
-    }
+fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
-impl_benchmark_test_suite!(
-    CustomVotingPallet,
-    crate::mock::ExtBuilder::build_default().as_externality(),
-    crate::mock::TestRuntime,
-);
+benchmarks! {
+    submit_ethereum_vote {
+        let caller: T::AccountId = whitelisted_caller();
+        let poll_index = PollIndexOf::<T>::max_value();
+        let vote = AccountVote::Standard { vote: true, balance: BalanceOf::<T>::max_value() };
+        
+        let ethereum_signature = [0u8; 65];
+        let now = T::TimeProvider::now();
+        
+        let vote_proof = VoteProof {
+            voter: caller.clone(),
+            vote: vote.clone(),
+            timestamp: now,
+            ethereum_signature,
+        };
+
+        // Set up an ongoing poll
+        let tally = T::Tally::new(true);  // Assuming `new` method exists, adjust as necessary
+        <T as VotingConfig>::Polls::create_ongoing(poll_index, tally).unwrap();
+
+    }: _(RawOrigin::Signed(caller.clone()), poll_index, vote_proof)
+    verify {
+        assert_last_event::<T>(Event::EthereumVoteProcessed(caller, poll_index).into());
+    }
+
+    impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
+}

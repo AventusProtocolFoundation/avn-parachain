@@ -5,8 +5,16 @@ pub use pallet::*;
 pub use pallet_conviction_voting::{Config as VotingConfig, TallyOf};
 pub mod default_weights;
 
-// #[cfg(feature = "runtime-benchmarks")]
-// mod benchmarking;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
+#[cfg(test)]
+#[path = "tests/mock.rs"]
+mod mock;
+
+#[cfg(test)]
+#[path = "tests/tests.rs"]
+mod tests;
 
 pub type PollIndexOf<T, I = ()> = <<T as VotingConfig<I>>::Polls as Polling<TallyOf<T, I>>>::Index;
 pub type BalanceOf<T, I = ()> =
@@ -89,7 +97,7 @@ pub mod pallet {
         VoteProof<T>: Encode + Decode + Debug,
     {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::custom_vote_weight())]
+        #[pallet::weight(<T as Config>::WeightInfo::vote())]
         pub fn vote(
             origin: OriginFor<T>,
             poll_index: PollIndexOf<T>,
@@ -100,7 +108,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::custom_vote_weight())]
+        #[pallet::weight(<T as Config>::WeightInfo::submit_ethereum_vote())]
         pub fn submit_ethereum_vote(
             origin: OriginFor<T>,
             poll_index: PollIndexOf<T>,
@@ -118,7 +126,7 @@ pub mod pallet {
             ensure!(now - vote_proof.timestamp <= T::MaxVoteAge::get(), Error::<T>::VoteTooOld);
 
             Self::do_vote(vote_proof.voter.clone(), poll_index, vote_proof.vote)?;
-            
+
             ProcessedVotes::<T>::insert(&vote_proof.voter, &poll_index, true);
 
             Self::deposit_event(Event::EthereumVoteProcessed(vote_proof.voter, poll_index));
@@ -175,10 +183,3 @@ pub mod pallet {
         }
     }
 }
-
-// #[cfg(test)]
-// mod mock;
-
-// #[cfg(test)]
-// #[path = "tests/tests.rs"]
-// mod tests;
