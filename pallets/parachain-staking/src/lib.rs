@@ -246,6 +246,7 @@ pub mod pallet {
 
         type BridgeInterface: pallet_avn::BridgeInterface;
 
+        #[pallet::constant]
         type GrowthEnabled: Get<bool>;
     }
 
