@@ -91,10 +91,11 @@ pallet-ethereum-events = { path = "../../pallets/ethereum-events", default-featu
 pallet-avn = { path = "../../pallets/avn", default-features = false }
 pallet-summary = { path = "../../pallets/summary", default-features = false }
 pallet-token-manager = { path = "../../pallets/token-manager", default-features = false }
-pallet-nft-manager = { path = "../../pallets/nft-manager", default-features = false }
+pallet-nft-manager = { path = "../../pallets/nft-manager", default-features = false, features = ["ethbridge-all-events"] }
 pallet-avn-proxy = { path = "../../pallets/avn-proxy", default-features = false }
 pallet-avn-transaction-payment = { path = "../../pallets/avn-transaction-payment", default-features = false }
 pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = false }
+pallet-eth-bridge-runtime-api = { path = "../../pallets/eth-bridge/runtime-api", default-features = false }
 pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
 
 # Common Runtime

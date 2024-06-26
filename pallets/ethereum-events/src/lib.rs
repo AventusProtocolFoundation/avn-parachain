@@ -422,8 +422,12 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// This extrinsic is being deprecated. Use add_ethereum_log
         // We need to maintain this till SYS-888 is resolved. After that it can be removed.
+        #[deprecated(
+            since = "5.5.0",
+            note = "This extrinsic is being deprecated and will be removed in the near future. Ethereum events will be automatically imported by EthBridge pallet.
+            Alternatively `add_ethereum_log` can be used although it's also deprecated but will be retained for a longer period"
+        )]
         #[pallet::call_index(0)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_validator_log
             (MAX_NUMBER_OF_UNCHECKED_EVENTS,
@@ -436,8 +440,12 @@ pub mod pallet {
             return Self::add_event(ValidEvents::AddedValidator, tx_hash, account_id)
         }
 
-        /// This extrinsic is being deprecated. Use add_ethereum_log
         // We need to maintain this till SYS-888 is resolved. After that it can be removed.
+        #[deprecated(
+            since = "5.5.0",
+            note = "This extrinsic is being deprecated and will be removed in the near future. Ethereum events will be automatically imported by EthBridge pallet.
+            Alternatively `add_ethereum_log` can be used although it's also deprecated but will be retained for a longer period"
+        )]
         #[pallet::call_index(1)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_lift_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
@@ -687,6 +695,10 @@ pub mod pallet {
         }
 
         /// Submits an ethereum transaction hash into the chain
+        #[deprecated(
+            since = "5.5.0",
+            note = "This extrinsic is being deprecated, ethereum events will be automatically imported by EthBridge pallet."
+        )]
         #[pallet::call_index(5)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::add_ethereum_log(
             MAX_NUMBER_OF_UNCHECKED_EVENTS,
@@ -1586,8 +1598,13 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> ProcessedEventsChecker for Pallet<T> {
-    fn check_event(event_id: &EthEventId) -> bool {
-        return <ProcessedEvents<T>>::contains_key(event_id)
+    fn processed_event_exists(event_id: &EthEventId) -> bool {
+        return <ProcessedEvents<T>>::contains_key(event_id) ||
+            Self::get_pending_event_index(event_id).is_ok()
+    }
+
+    fn add_processed_event(event_id: &EthEventId, accepted: bool) {
+        <ProcessedEvents<T>>::insert(event_id.clone(), accepted);
     }
 }
 

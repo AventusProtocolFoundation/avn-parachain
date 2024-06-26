@@ -60,7 +60,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use frame_support::{
     dispatch::DispatchResultWithPostInfo, log, pallet_prelude::StorageVersion, traits::IsSubType,
-    BoundedVec,
+    BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{
     ensure_none, ensure_root,
@@ -69,28 +69,37 @@ use frame_system::{
 };
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
-    MAX_VALIDATOR_ACCOUNTS,
+    ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
 };
 
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::event_types::Validator;
-use sp_core::{ecdsa, ConstU32, H256};
+use sp_avn_common::{bounds::MaximumValidatorsBound, event_discovery::*, event_types::Validator};
+use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
-use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable};
+use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
 
 mod call;
 mod eth;
+pub mod migration;
 mod request;
 mod tx;
-mod types;
+pub mod types;
 mod util;
 use crate::types::*;
 
+pub use call::{submit_ethereum_events, submit_latest_ethereum_block};
+
 mod benchmarking;
+#[cfg(test)]
+#[path = "tests/event_listener_tests.rs"]
+mod event_listener_tests;
+#[cfg(test)]
+#[path = "tests/incoming_events_tests.rs"]
+mod incoming_events_tests;
 #[cfg(test)]
 #[path = "tests/lower_proof_tests.rs"]
 mod lower_proof_tests;
@@ -129,15 +138,22 @@ const PALLET_NAME: &'static [u8] = b"EthBridge";
 const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
 const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
+pub const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
+pub const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
 
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 #[frame_support::pallet]
 pub mod pallet {
     use crate::offence::CorroborationOffenceType;
 
     use super::*;
-    use frame_support::{pallet_prelude::*, traits::UnixTime, Blake2_128Concat};
+    use frame_support::{
+        pallet_prelude::{ValueQuery, *},
+        traits::UnixTime,
+        Blake2_128Concat,
+    };
+    use sp_avn_common::event_types::{EthEvent, EthEventId, ValidEvents};
 
     #[pallet::config]
     pub trait Config:
@@ -167,6 +183,8 @@ pub mod pallet {
             IdentificationTuple<Self>,
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
+        type ProcessedEventsChecker: ProcessedEventsChecker;
+        type EthereumEventsFilter: EthereumEventsFilterTrait;
     }
 
     #[pallet::event]
@@ -202,6 +220,13 @@ pub mod pallet {
                 BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
             caller_id: BoundedVec<u8, CallerIdLimit>,
         },
+        EventAccepted {
+            eth_event_id: EthEventId,
+        },
+        EventRejected {
+            eth_event_id: EthEventId,
+            reason: DispatchError,
+        },
     }
 
     #[pallet::pallet]
@@ -228,24 +253,61 @@ pub mod pallet {
     #[pallet::storage]
     pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn active_ethereum_range)]
+    pub type ActiveEthereumRange<T: Config> = StorageValue<_, ActiveEthRange, OptionQuery>;
+
+    #[pallet::storage]
+    pub type EthereumEvents<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EthereumEventsPartition,
+        BoundedBTreeSet<T::AccountId, MaximumValidatorsBound>,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    pub type SubmittedEthBlocks<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        u32,
+        BoundedBTreeSet<T::AccountId, MaximumValidatorsBound>,
+        ValueQuery,
+    >;
+
+    // The number of blocks that make up a range
+    #[pallet::storage]
+    pub type EthBlockRangeSize<T: Config> = StorageValue<_, u32, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
         pub eth_tx_lifetime_secs: u64,
         pub next_tx_id: EthereumId,
+        pub eth_block_range_size: u32,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { _phantom: Default::default(), eth_tx_lifetime_secs: 60 * 30, next_tx_id: 0 }
+            Self {
+                _phantom: Default::default(),
+                eth_tx_lifetime_secs: 60 * 30,
+                next_tx_id: 0,
+                eth_block_range_size: 20,
+            }
         }
     }
 
     #[pallet::genesis_build]
     impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
         fn build(&self) {
+            assert!(self.eth_block_range_size > 0, "`EthBlockRangeSize` should be greater than 0");
+
             EthTxLifetimeSecs::<T>::put(self.eth_tx_lifetime_secs);
             NextTxId::<T>::put(self.next_tx_id);
+            EthBlockRangeSize::<T>::put(self.eth_block_range_size);
+
+            STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 
@@ -253,6 +315,7 @@ pub mod pallet {
     pub enum Error<T> {
         CorroborateCallFailed,
         DuplicateConfirmation,
+        DuplicateEventSubmission,
         EmptyFunctionName,
         ErrorAssigningSender,
         EthTxHashAlreadySet,
@@ -260,6 +323,8 @@ pub mod pallet {
         ExceedsConfirmationLimit,
         ExceedsCorroborationLimit,
         ExceedsFunctionNameLimit,
+        EventAlreadyProcessed,
+        EventNotProcessed,
         FunctionEncodingError,
         FunctionNameError,
         HandlePublishingResultFailed,
@@ -288,6 +353,13 @@ pub mod pallet {
         CallerIdLengthExceeded,
         NoActiveRequest,
         CannotCorroborateOwnTransaction,
+        EventVotesFull,
+        InvalidEventVote,
+        EventVoteExists,
+        NonActiveEthereumRange,
+        VotingEnded,
+        ValidatorNotFound,
+        InvalidEthereumBlockRange,
     }
 
     #[pallet::call]
@@ -491,6 +563,138 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::ActiveRequestRemoved { request_id });
             Ok(().into())
         }
+
+        #[pallet::call_index(6)]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE).max(
+            <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE)
+        ))]
+        pub fn submit_ethereum_events(
+            origin: OriginFor<T>,
+            author: Author<T>,
+            events_partition: EthereumEventsPartition,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+        ) -> DispatchResultWithPostInfo {
+            ensure_none(origin)?;
+
+            let active_range =
+                Self::active_ethereum_range().ok_or_else(|| Error::<T>::NonActiveEthereumRange)?;
+            ensure!(
+                *events_partition.range() == active_range.range &&
+                    events_partition.partition() == active_range.partition,
+                Error::<T>::NonActiveEthereumRange
+            );
+            ensure!(
+                author_has_cast_event_vote::<T>(&author.account_id) == false,
+                Error::<T>::EventVoteExists
+            );
+
+            let mut threshold_met = false;
+            let mut votes = EthereumEvents::<T>::get(&events_partition);
+            votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
+
+            if votes.len() < AVN::<T>::quorum() as usize {
+                EthereumEvents::<T>::insert(&events_partition, votes);
+            } else {
+                threshold_met = true;
+                process_ethereum_events_partition::<T>(&active_range, &events_partition);
+                advance_partition::<T>(&active_range, &events_partition);
+            }
+
+            let final_weight = if threshold_met {
+                <T as Config>::WeightInfo::submit_ethereum_events(
+                    MAX_VALIDATOR_ACCOUNTS,
+                    MAX_INCOMING_EVENTS_BATCH_SIZE,
+                )
+            } else {
+                <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(
+                    MAX_VALIDATOR_ACCOUNTS,
+                    MAX_INCOMING_EVENTS_BATCH_SIZE,
+                )
+            };
+
+            Ok(Some(final_weight).into())
+        }
+
+        #[pallet::call_index(7)]
+        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS).max(
+            <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(MAX_VALIDATOR_ACCOUNTS)
+        ))]
+        pub fn submit_latest_ethereum_block(
+            origin: OriginFor<T>,
+            author: Author<T>,
+            latest_seen_block: u32,
+            _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+        ) -> DispatchResultWithPostInfo {
+            ensure_none(origin)?;
+            ensure!(Self::active_ethereum_range().is_none(), Error::<T>::VotingEnded);
+            ensure!(
+                author_has_submitted_latest_block::<T>(&author.account_id) == false,
+                Error::<T>::EventVoteExists
+            );
+
+            let eth_block_range_size = EthBlockRangeSize::<T>::get();
+            let latest_finalised_block = events_helpers::compute_finalised_block_number(
+                latest_seen_block,
+                eth_block_range_size,
+            )
+            .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
+            let mut votes = SubmittedEthBlocks::<T>::get(&latest_finalised_block);
+            votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
+
+            SubmittedEthBlocks::<T>::insert(&latest_finalised_block, votes);
+
+            let mut total_votes_count = 0;
+            let mut submitted_blocks = Vec::new();
+
+            for (eth_block_num, votes) in SubmittedEthBlocks::<T>::iter() {
+                let vote_count = votes.len();
+                total_votes_count += vote_count;
+                submitted_blocks.push((eth_block_num, vote_count));
+            }
+
+            submitted_blocks.sort();
+
+            let mut remaining_votes_threshold = AVN::<T>::supermajority_quorum() as usize;
+            let mut threshold_met = false;
+
+            if total_votes_count >= remaining_votes_threshold as usize {
+                threshold_met = true;
+                let quorum = AVN::<T>::quorum() as usize;
+                let mut selected_range: EthBlockRange = Default::default();
+
+                for (eth_block_num, votes_count) in submitted_blocks.iter() {
+                    remaining_votes_threshold.saturating_reduce(*votes_count);
+                    if remaining_votes_threshold < quorum {
+                        selected_range = EthBlockRange {
+                            start_block: *eth_block_num,
+                            length: eth_block_range_size,
+                        };
+                        break
+                    }
+                }
+
+                ActiveEthereumRange::<T>::put(ActiveEthRange {
+                    range: selected_range,
+                    partition: 0,
+                    event_types_filter: T::EthereumEventsFilter::get_filter(),
+                });
+
+                let _ = SubmittedEthBlocks::<T>::clear(
+                    <MaximumValidatorsBound as sp_core::TypedGet>::get(),
+                    None,
+                );
+            }
+
+            let final_weight = if threshold_met {
+                <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(
+                    MAX_VALIDATOR_ACCOUNTS,
+                )
+            } else {
+                <T as Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS)
+            };
+
+            Ok(Some(final_weight).into())
+        }
     }
 
     #[pallet::hooks]
@@ -610,6 +814,110 @@ pub mod pallet {
         Ok(())
     }
 
+    pub fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
+        for (_partition, votes) in EthereumEvents::<T>::iter() {
+            if votes.contains(&author) {
+                return true
+            }
+        }
+        false
+    }
+
+    pub fn author_has_submitted_latest_block<T: Config>(author: &T::AccountId) -> bool {
+        for (_block_num, votes) in SubmittedEthBlocks::<T>::iter() {
+            if votes.contains(&author) {
+                return true
+            }
+        }
+        false
+    }
+
+    fn advance_partition<T: Config>(
+        active_range: &ActiveEthRange,
+        approved_partition: &EthereumEventsPartition,
+    ) {
+        let next_active_range = if approved_partition.is_last() {
+            ActiveEthRange {
+                range: active_range.range.next_range(),
+                partition: 0,
+                event_types_filter: T::EthereumEventsFilter::get_filter(),
+            }
+        } else {
+            ActiveEthRange {
+                partition: active_range.partition.saturating_add(1),
+                ..active_range.clone()
+            }
+        };
+        ActiveEthereumRange::<T>::put(next_active_range);
+    }
+
+    fn process_ethereum_events_partition<T: Config>(
+        active_range: &ActiveEthRange,
+        partition: &EthereumEventsPartition,
+    ) {
+        // Remove entry from storage. Ignore votes.
+        let _ = EthereumEvents::<T>::take(partition);
+        for discovered_event in partition.events().iter() {
+            match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
+                Some(valid_event) =>
+                    if active_range.event_types_filter.contains(&valid_event) {
+                        if let Err(err) = process_ethereum_event::<T>(&discovered_event.event) {
+                            log::error!(
+                                "💔 Invalid event to process: {:?}. Error: {:?}",
+                                discovered_event.event,
+                                err
+                            );
+                            <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                                eth_event_id: discovered_event.event.event_id.clone(),
+                                reason: err,
+                            });
+                        }
+                    } else {
+                        log::warn!("Ethereum event signature ({:?}) included in approved range ({:?}), but not part of the expected ones {:?}", &discovered_event.event.event_id.signature, active_range.range, active_range.event_types_filter);
+                    },
+                None => {
+                    log::warn!(
+                        "Unknown Ethereum event signature in range {:?}",
+                        &discovered_event.event.event_id.signature
+                    );
+                },
+            }
+        }
+
+        // Cleanup
+        for (partition, votes) in EthereumEvents::<T>::drain() {
+            // TODO raise offences
+            log::info!("Collators with invalid votes on ethereum events (range: {:?}, partition: {}): {:?}", partition.range(), partition.partition(), votes);
+        }
+    }
+
+    fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
+        ensure!(
+            false == T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()),
+            Error::<T>::EventAlreadyProcessed
+        );
+
+        // Add record of succesful processing via ProcessedEventsChecker
+        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true);
+
+        match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
+            Ok(_) => {
+                <Pallet<T>>::deposit_event(Event::<T>::EventAccepted {
+                    eth_event_id: event.event_id.clone(),
+                });
+            },
+            Err(err) => {
+                log::error!("💔 Processing ethereum event failed: {:?}", err);
+                <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                    eth_event_id: event.event_id.clone(),
+                    reason: err,
+                });
+            },
+        };
+
+        Ok(())
+    }
+
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
@@ -667,7 +975,40 @@ pub mod pallet {
                     } else {
                         InvalidTransaction::Custom(3u8).into()
                     },
-
+                Call::submit_ethereum_events { author, events_partition, signature } =>
+                    if AVN::<T>::signature_is_valid(
+                        &(
+                            &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
+                            &author.account_id,
+                            events_partition,
+                        ),
+                        &author,
+                        signature,
+                    ) {
+                        ValidTransaction::with_tag_prefix("EthBridgeAddEventRange")
+                            .and_provides((
+                                call,
+                                events_partition.range(),
+                                events_partition.partition(),
+                            ))
+                            .priority(TransactionPriority::max_value())
+                            .build()
+                    } else {
+                        InvalidTransaction::Custom(4u8).into()
+                    },
+                Call::submit_latest_ethereum_block { author, latest_seen_block, signature } =>
+                    if AVN::<T>::signature_is_valid(
+                        &(&SUBMIT_LATEST_ETH_BLOCK_CONTEXT, &author.account_id, *latest_seen_block),
+                        &author,
+                        signature,
+                    ) {
+                        ValidTransaction::with_tag_prefix("EthBridgeAddLatestEthBlock")
+                            .and_provides((call, latest_seen_block))
+                            .priority(TransactionPriority::max_value())
+                            .build()
+                    } else {
+                        InvalidTransaction::Custom(5u8).into()
+                    },
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -709,5 +1050,58 @@ pub mod pallet {
 
             Ok(())
         }
+    }
+}
+
+impl<T: Config> Pallet<T> {
+    pub fn signatures() -> Vec<H256> {
+        match Self::active_ethereum_range() {
+            Some(active_range) => active_range
+                .event_types_filter
+                .into_iter()
+                .map(|valid_event| valid_event.signature())
+                .collect::<Vec<H256>>(),
+            None => Default::default(),
+        }
+    }
+    pub fn submit_vote(
+        account_id: T::AccountId,
+        events_partition: EthereumEventsPartition,
+        signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+    ) -> Result<(), ()> {
+        let validator: Author<T> = AVN::<T>::validators()
+            .into_iter()
+            .filter(|v| v.account_id == account_id)
+            .nth(0)
+            .ok_or_else(|| {
+                log::warn!("Events vote sender({:?}) is not a member of authors", &account_id);
+                ()
+            })?;
+
+        submit_ethereum_events::<T>(validator, events_partition, signature)
+    }
+
+    pub fn submit_latest_ethereum_block_vote(
+        account_id: T::AccountId,
+        latest_seen_block: u32,
+        signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+    ) -> Result<(), ()> {
+        let validator: Author<T> = AVN::<T>::validators()
+            .into_iter()
+            .filter(|v| v.account_id == account_id)
+            .nth(0)
+            .ok_or_else(|| {
+                log::warn!(
+                    "Latest ethereum block vote sender({:?}) is not a member of authors",
+                    &account_id
+                );
+                ()
+            })?;
+
+        submit_latest_ethereum_block::<T>(validator, latest_seen_block, signature)
+    }
+
+    pub fn get_bridge_contract() -> H160 {
+        AVN::<T>::get_bridge_contract_address()
     }
 }
