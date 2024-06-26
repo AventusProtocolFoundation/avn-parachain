@@ -1,12 +1,12 @@
 use crate::{
-    assert_event_emitted, assert_last_event,
+    assert_event_emitted,
     mock::{
         get_default_block_per_era, roll_one_block, roll_to_era_begin, set_author, set_reward_pot,
         AccountId, Balances, ErasPerGrowthPeriod, ExtBuilder, ParachainStaking, RewardPaymentDelay,
-        RuntimeEvent, RuntimeOrigin, System, Test, TestAccount,
+        RuntimeOrigin, System, Test, TestAccount,
     },
-    AdminSettings, BalanceOf, CollatorScore, EraIndex, Error, Event, Growth, GrowthInfo,
-    GrowthPeriod, GrowthPeriodInfo, ProcessedGrowthPeriods,
+    BalanceOf, CollatorScore, EraIndex, Error, Event, Growth, GrowthInfo, GrowthPeriod,
+    GrowthPeriodInfo, ProcessedGrowthPeriods,
 };
 use codec::{Decode, Encode};
 use frame_support::{assert_noop, assert_ok};
