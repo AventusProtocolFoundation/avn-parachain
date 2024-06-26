@@ -689,7 +689,6 @@ pub mod pallet {
         pub delay: EraIndex,
         pub min_collator_stake: BalanceOf<T>,
         pub min_total_nominator_stake: BalanceOf<T>,
-        pub growth_enabled: bool,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -700,7 +699,6 @@ pub mod pallet {
                 delay: Default::default(),
                 min_collator_stake: Default::default(),
                 min_total_nominator_stake: Default::default(),
-                growth_enabled: T::GrowthEnabled::get(),
             }
         }
     }

@@ -120,7 +120,6 @@ pub(crate) fn testnet_genesis(
             min_collator_stake: COLLATOR_DEPOSIT,
             min_total_nominator_stake: 10 * AVT,
             delay: 2,
-            growth_enabled: true,
         },
         polkadot_xcm: avn_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(SAFE_XCM_VERSION),

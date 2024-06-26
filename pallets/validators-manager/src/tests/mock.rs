@@ -504,7 +504,6 @@ impl ExtBuilder {
             delay: 2,
             min_collator_stake: 10,
             min_total_nominator_stake: 5,
-            growth_enabled: true,
         }
         .assimilate_storage(&mut self.storage);
 
