@@ -20,6 +20,7 @@ pub use pallet_custom_origins::*;
 
 #[frame_support::pallet]
 pub mod pallet_custom_origins {
+    use crate::{Balance, AVT};
     use frame_support::pallet_prelude::*;
 
     #[pallet::config]
@@ -39,6 +40,12 @@ pub mod pallet_custom_origins {
         ReferendumKiller,
         /// Origin able to dispatch a whitelisted call.
         WhitelistedCaller,
+        /// Origin able to spend the amount specified in Spender.
+        SmallSpender,
+        /// Origin able to spend the amount specified in Spender.
+        MediumSpender,
+        /// Origin able to spend the amount specified in Spender.
+        BigSpender,
     }
 
     macro_rules! decl_unit_ensures {
@@ -72,4 +79,45 @@ pub mod pallet_custom_origins {
 		() => {}
 	}
     decl_unit_ensures!(GeneralAdmin, ReferendumCanceller, ReferendumKiller, WhitelistedCaller,);
+
+    macro_rules! decl_ensure {
+        (
+            $vis:vis type $name:ident: EnsureOrigin<Success = $success_type:ty> {
+                $( $item:ident = $success:expr, )*
+            }
+        ) => {
+            $vis struct $name;
+            impl<O: Into<Result<Origin, O>> + From<Origin>>
+                EnsureOrigin<O> for $name
+            {
+                type Success = $success_type;
+                fn try_origin(o: O) -> Result<Self::Success, O> {
+                    o.into().and_then(|o| match o {
+                        $(
+                            Origin::$item => Ok($success),
+                        )*
+                        r => Err(O::from(r)),
+                    })
+                }
+                #[cfg(feature = "runtime-benchmarks")]
+                fn try_successful_origin() -> Result<O, ()> {
+                    // By convention the more privileged origins go later, so for greatest chance
+                    // of success, we want the last one.
+                    let _result: Result<O, ()> = Err(());
+                    $(
+                        let _result: Result<O, ()> = Ok(O::from(Origin::$item));
+                    )*
+                    _result
+                }
+            }
+        }
+    }
+
+    decl_ensure! {
+        pub type Spender: EnsureOrigin<Success = Balance> {
+            SmallSpender = 1000 * AVT,
+            MediumSpender = 1000 * AVT,
+            BigSpender = 1000000 * AVT,
+        }
+    }
 }
