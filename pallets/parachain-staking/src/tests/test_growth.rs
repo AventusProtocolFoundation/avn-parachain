@@ -200,6 +200,71 @@ fn growth_period_indices_updated_correctly() {
         });
 }
 
+mod growth_disabled {
+    use super::*;
+    use crate::mock::disable_growth;
+
+    #[test]
+    fn growth_period_indices_are_not_updated() {
+        let collator_1 = to_acc_id(1u64);
+        let collator_2 = to_acc_id(2u64);
+        ExtBuilder::default()
+            .with_balances(vec![(collator_1, 100), (collator_2, 100)])
+            .with_candidates(vec![(collator_1, 10), (collator_2, 10)])
+            .build()
+            .execute_with(|| {
+                disable_growth();
+
+                let initial_growth_period_index = 0;
+                let mut era_index = ParachainStaking::era().current;
+
+                set_author(era_index, collator_1, 5);
+                set_author(era_index, collator_2, 5);
+                era_index = roll_one_growth_period(era_index);
+
+                let growth_period_info = ParachainStaking::growth_period_info();
+                // ensure indice is not updated
+                assert_eq!(initial_growth_period_index, growth_period_info.start_era_index);
+            });
+    }
+
+    #[test]
+    fn growth_info_is_not_updated() {
+        let collator_1 = to_acc_id(1u64);
+        let collator_2 = to_acc_id(2u64);
+        let collator1_stake = 20;
+        let collator2_stake = 10;
+        let reward_payment_delay = RewardPaymentDelay::get();
+        ExtBuilder::default()
+            .with_balances(vec![(collator_1, 10000), (collator_2, 10000)])
+            .with_candidates(vec![(collator_1, collator1_stake), (collator_2, collator2_stake)])
+            .build()
+            .execute_with(|| {
+                disable_growth();
+
+                let num_era_to_roll_foreward = reward_payment_delay + 1;
+
+                // Setup data by rolling forward and letting the system generate staking rewards.
+                // This is not "faked" data.
+                let raw_era_data: HashMap<EraIndex, GrowthData> = roll_foreward_and_pay_stakers(
+                    num_era_to_roll_foreward,
+                    collator_1,
+                    collator_2,
+                    collator1_stake,
+                    collator2_stake,
+                );
+
+                let growth = ParachainStaking::growth(1);
+                // Ensure info is not updated
+                assert_eq!(growth.number_of_accumulations, 0);
+                assert_eq!(growth.total_points, 0);
+                assert_eq!(growth.total_stake_accumulated, 0);
+                assert_eq!(growth.total_staker_reward, 0);
+                assert_eq!(growth.collator_scores.len(), 0);
+            });
+    }
+}
+
 mod growth_info_recorded_correctly {
     use super::*;
 

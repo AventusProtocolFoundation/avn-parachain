@@ -245,6 +245,9 @@ pub mod pallet {
         type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
 
         type BridgeInterface: pallet_avn::BridgeInterface;
+
+        #[pallet::constant]
+        type GrowthEnabled: Get<bool>;
     }
 
     #[pallet::error]
@@ -1831,18 +1834,21 @@ pub mod pallet {
 
             <DelayedPayouts<T>>::insert(era_to_payout, &payout);
 
-            let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
-                <AwardedPts<T>>::iter_prefix(era_to_payout)
-                    .map(|(collator, points)| CollatorScore::new(collator, points))
-                    .collect::<Vec<CollatorScore<T::AccountId>>>();
-            let collator_scores = BoundedVec::truncate_from(collator_scores_vec);
-            Self::update_collator_payout(
-                era_to_payout,
-                total_staked,
-                payout,
-                total_points,
-                collator_scores,
-            );
+            let growth_enabled = T::GrowthEnabled::get();
+            if growth_enabled {
+                let collator_scores_vec: Vec<CollatorScore<T::AccountId>> =
+                    <AwardedPts<T>>::iter_prefix(era_to_payout)
+                        .map(|(collator, points)| CollatorScore::new(collator, points))
+                        .collect::<Vec<CollatorScore<T::AccountId>>>();
+                let collator_scores = BoundedVec::truncate_from(collator_scores_vec);
+                Self::update_collator_payout(
+                    era_to_payout,
+                    total_staked,
+                    payout,
+                    total_points,
+                    collator_scores,
+                );
+            }
         }
 
         /// Wrapper around pay_one_collator_reward which handles the following logic:

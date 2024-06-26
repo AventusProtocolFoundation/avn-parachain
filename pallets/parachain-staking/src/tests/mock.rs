@@ -20,6 +20,7 @@ use crate::{
     pallet, AwardedPts, Config, Points, Proof, TypeInfo, COLLATOR_LOCK_ID, NOMINATOR_LOCK_ID, *,
 };
 use codec::{Decode, Encode};
+use core::cell::RefCell;
 use frame_support::{
     assert_ok, construct_runtime,
     dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
@@ -242,6 +243,7 @@ impl Config for Test {
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
     type BridgeInterface = EthBridge;
+    type GrowthEnabled = TestGrowthEnabled;
 }
 
 // Deal with any positive imbalance by sending it to the fake treasury
@@ -262,6 +264,21 @@ impl pallet_session::historical::Config for Test {
 parameter_types! {
     pub static WeightToFee: u128 = 1u128;
     pub static TransactionByteFee: u128 = 0u128;
+}
+
+thread_local! {
+    pub static GROWTH_ENABLED: RefCell<bool> = RefCell::new(true);
+}
+
+pub struct TestGrowthEnabled;
+impl Get<bool> for TestGrowthEnabled {
+    fn get() -> bool {
+        GROWTH_ENABLED.with(|enabled| *enabled.borrow())
+    }
+}
+
+pub fn disable_growth() {
+    GROWTH_ENABLED.with(|enabled| *enabled.borrow_mut() = false);
 }
 
 pub struct DealWithFees;

@@ -296,6 +296,7 @@ parameter_types! {
     pub const RewardPaymentDelay: u32 = 2;
     pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
     pub const MaxCandidates: u32 = 256;
+    pub const GrowthEnabled: bool = true;
 }
 
 impl parachain_staking::Config for TestRuntime {
@@ -320,6 +321,7 @@ impl parachain_staking::Config for TestRuntime {
     type MaxCandidates = MaxCandidates;
     type AccountToBytesConvert = AVN;
     type BridgeInterface = EthBridge;
+    type GrowthEnabled = GrowthEnabled;
 }
 
 /// An extrinsic type used for tests.
