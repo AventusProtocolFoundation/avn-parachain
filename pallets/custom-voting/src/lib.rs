@@ -3,8 +3,8 @@
 use frame_support::traits::{Currency, Polling};
 pub use pallet::*;
 pub use pallet_conviction_voting::{Config as VotingConfig, TallyOf};
-use sp_core::ecdsa;
 pub mod default_weights;
+use sp_std::vec::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -31,6 +31,7 @@ pub mod pallet {
     use codec::{Decode, Encode};
     use core::fmt::Debug;
     use frame_support::{
+        crypto::ecdsa,
         pallet_prelude::*,
         traits::{Polling, Time},
     };
@@ -38,6 +39,7 @@ pub mod pallet {
     use pallet_conviction_voting::AccountVote;
     use scale_info::TypeInfo;
     use sp_avn_common::recover_public_key_from_ecdsa_signature;
+    use sp_core::ecdsa::Signature as EcdsaSignature;
     use sp_io::hashing::keccak_256;
     use sp_runtime::{
         traits::{AtLeast32Bit, Zero},
@@ -50,7 +52,7 @@ pub mod pallet {
         pub voter: T::AccountId,
         pub vote: AccountVote<BalanceOf<T>>,
         pub timestamp: T::Moment,
-        pub ethereum_signature: ecdsa::Signature,
+        pub ethereum_signature: EcdsaSignature,
         pub ethereum_public_key: T::EthereumPublicKey,
     }
 
@@ -248,7 +250,7 @@ pub mod pallet {
         fn eth_signature_is_valid(
             data: Vec<u8>,
             public_key: &T::EthereumPublicKey,
-            signature: &ecdsa::Signature,
+            signature: &EcdsaSignature,
         ) -> bool {
             let recovered_public_key =
                 recover_public_key_from_ecdsa_signature(signature.clone(), hex::encode(data));

@@ -9,6 +9,7 @@ use origins::pallet_custom_origins::Spender;
 pub use origins::{
     pallet_custom_origins, ReferendumCanceller, ReferendumKiller, WhitelistedCaller,
 };
+use sp_core::ecdsa;
 
 pub mod tracks;
 use pallet_token_manager;
