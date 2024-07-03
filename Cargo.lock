@@ -7089,7 +7089,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-custom-voting"
-version = "5.4.1"
+version = "5.4.2"
 dependencies = [
  "ethabi 13.0.0",
  "frame-benchmarking",

@@ -14,6 +14,7 @@ use sp_core::ecdsa;
 pub mod tracks;
 use pallet_token_manager;
 use sp_core::ConstU128;
+use sp_runtime::{MultiSignature, MultiSigner};
 pub use tracks::TracksInfo;
 
 parameter_types! {
@@ -33,12 +34,16 @@ impl pallet_conviction_voting::Config for Runtime {
 
 impl pallet_custom_voting::Config for Runtime {
     type WeightInfo = pallet_custom_voting::default_weights::SubstrateWeight<Runtime>;
+    type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
     type TimeProvider = Timestamp;
     type MaxVoteAge = ConstU64<604_800>;
     type Moment = u64;
     type EthereumPublicKey = ecdsa::Public;
+    type Public = MultiSigner;
+    type Signature = MultiSignature;
 }
+
 
 parameter_types! {
     pub const AlarmInterval: BlockNumber = 1;

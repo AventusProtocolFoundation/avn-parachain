@@ -32,6 +32,7 @@ pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
+    use sp_runtime::MultiSignature;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
@@ -58,7 +59,7 @@ pub mod pallet {
             + Member
             + Decode
             + Encode
-            + From<sp_core::sr25519::Signature>
+            + From<MultiSignature>
             + TypeInfo;
 
         type ProxyConfig: Parameter

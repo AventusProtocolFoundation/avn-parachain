@@ -6,11 +6,11 @@ extern crate alloc;
 use alloc::string::String;
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{crypto::KeyTypeId, ecdsa, H160, H256};
-use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
+use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
+use sp_io::{crypto::{ecdsa_verify, secp256k1_ecdsa_recover_compressed, sr25519_verify}, hashing::keccak_256, EcdsaVerifyError};
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify},
+    traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify}, MultiSignature,
 };
 use sp_std::{boxed::Box, vec::Vec};
 
@@ -127,6 +127,7 @@ pub fn recover_public_key_from_ecdsa_signature(
     signature: ecdsa::Signature,
     message: String,
 ) -> Result<ecdsa::Public, ECDSAVerificationError> {
+    
     match secp256k1_ecdsa_recover_compressed(
         &signature.into(),
         &hash_with_ethereum_prefix(message)?,
@@ -146,20 +147,33 @@ pub fn hash_with_ethereum_prefix(hex_message: String) -> Result<[u8; 32], ECDSAV
     prefixed_message.append(&mut message_bytes.to_vec());
     Ok(keccak_256(&prefixed_message))
 }
+use sp_core::crypto::ByteArray;
 
-pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member>(
-    proof: &Proof<Signature, <<Signature as Verify>::Signer as IdentifyAccount>::AccountId>,
+
+pub fn verify_signature<Signature, AccountId>(
+    proof: &Proof<Signature, AccountId>,
     signed_payload: &[u8],
-) -> Result<(), ()> {
+) -> Result<(), ()>
+where
+    Signature: Verify + Member + TypeInfo,
+    AccountId: Member,
+    Signature::Signer: IdentifyAccount<AccountId = AccountId>,
+{
     let wrapped_signed_payload: Vec<u8> =
         [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
-    match proof.signature.verify(&*wrapped_signed_payload, &proof.signer) {
-        true => Ok(()),
-        false => match proof.signature.verify(signed_payload, &proof.signer) {
-            true => Ok(()),
-            false => Err(()),
-        },
+
+    // Try verifying with wrapped payload
+    if proof.signature.verify(&*wrapped_signed_payload, &proof.signer) {
+        return Ok(());
     }
+
+    // If that fails, try verifying with original payload
+    if proof.signature.verify(signed_payload, &proof.signer) {
+        return Ok(());
+    }
+
+    // If both verifications fail, return an error
+    Err(())
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]

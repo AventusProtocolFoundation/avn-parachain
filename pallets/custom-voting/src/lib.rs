@@ -4,7 +4,11 @@ use frame_support::traits::{Currency, Polling};
 pub use pallet::*;
 pub use pallet_conviction_voting::{Config as VotingConfig, TallyOf};
 pub mod default_weights;
-use sp_std::vec::Vec;
+use frame_support::{dispatch::GetDispatchInfo, traits::IsSubType};
+use sp_runtime::traits::{Dispatchable, Hash, IdentifyAccount, Verify};
+use sp_std::{boxed::Box, vec::Vec};
+use sp_core::ecdsa::Signature;
+
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -23,6 +27,7 @@ pub type BalanceOf<T, I = ()> =
 
 // const PALLET_NAME: &'static [u8] = b"CustomVoting";
 const ETHEREUM_VOTE: &'static [u8] = b"EthereumVote";
+const SIGNED_ETHEREUM_VOTE: &'static [u8] = b"SignedEthereumVote";
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -32,19 +37,24 @@ pub mod pallet {
     use core::fmt::Debug;
     use frame_support::{
         crypto::ecdsa,
+        dispatch::DispatchResult,
         pallet_prelude::*,
         traits::{Polling, Time},
     };
-    use frame_system::pallet_prelude::*;
+    use frame_system::pallet_prelude::{OriginFor, *};
     use pallet_conviction_voting::AccountVote;
     use scale_info::TypeInfo;
-    use sp_avn_common::recover_public_key_from_ecdsa_signature;
+    use sp_avn_common::{
+        hash_with_ethereum_prefix, recover_public_key_from_ecdsa_signature, verify_signature, CallDecoder, InnerCallValidator, Proof
+    };
     use sp_core::ecdsa::Signature as EcdsaSignature;
     use sp_io::hashing::keccak_256;
     use sp_runtime::{
         traits::{AtLeast32Bit, Zero},
-        ArithmeticError,
+        ArithmeticError, MultiSignature,
     };
+    use crate::Signature;
+
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, Debug)]
     #[scale_info(skip_type_params(T))]
@@ -57,8 +67,14 @@ pub mod pallet {
     }
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + VotingConfig {
+    pub trait Config: frame_system::Config + VotingConfig + core::fmt::Debug {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeCall: Parameter
+            + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
+            + IsSubType<Call<Self>>
+            + From<Call<Self>>
+            + GetDispatchInfo
+            + From<frame_system::Call<Self>>;
         type WeightInfo: WeightInfo;
         type TimeProvider: Time<Moment = Self::Moment>;
         type MaxVoteAge: Get<Self::Moment>;
@@ -70,8 +86,18 @@ pub mod pallet {
             + From<u64>
             + TypeInfo
             + Debug
-            + Encode;
+            + Encode
+            + Decode;
         type EthereumPublicKey: AsRef<[u8]> + Parameter;
+        // A type that can be used to verify signatures
+        type Public: IdentifyAccount<AccountId = Self::AccountId>;
+        /// The signature type used by accounts/transactions.
+        type Signature: Verify<Signer = Self::Public>
+            + Member
+            + Decode
+            + Encode
+            + From<MultiSignature>
+            + TypeInfo;
     }
 
     #[pallet::pallet]
@@ -94,6 +120,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         VoteRecorded(T::AccountId, PollIndexOf<T>),
         EthereumVoteProcessed(T::AccountId, PollIndexOf<T>),
+        CallDispatched { relayer: T::AccountId, call_hash: T::Hash },
     }
 
     #[pallet::error]
@@ -105,6 +132,9 @@ pub mod pallet {
         FutureTimestamp,
         VoteTooOld,
         InvalidEthereumSignature,
+        UnauthorizedProxyEthereumVote,
+        UnauthorizedProxyTransaction,
+        TransactionNotSupported,
     }
 
     #[pallet::call]
@@ -130,22 +160,46 @@ pub mod pallet {
             poll_index: PollIndexOf<T>,
             vote_proof: VoteProof<T>,
         ) -> DispatchResult {
+            log::info!(
+                "submit_ethereum_vote called with poll_index: {:?}, vote_proof: {:?}",
+                poll_index,
+                vote_proof
+            );
+            log::info!("Entering submit_ethereum_vote");
             let _ = ensure_signed(origin)?;
+            log::info!("Origin signed");
 
+            log::info!("Checking if vote already processed");
             ensure!(
                 !ProcessedVotes::<T>::contains_key(&vote_proof.voter, &poll_index),
                 Error::<T>::AlreadyVoted
             );
+            log::info!("Vote not already processed");
 
             let now = T::TimeProvider::now();
+            log::info!("Current time: {:?}", now);
+            log::info!("Vote proof timestamp: {:?}", vote_proof.timestamp);
+            log::info!("MaxVoteAge: {:?}", T::MaxVoteAge::get());
+
             ensure!(vote_proof.timestamp <= now, Error::<T>::FutureTimestamp);
-            ensure!(now - vote_proof.timestamp <= T::MaxVoteAge::get(), Error::<T>::VoteTooOld);
-            // BOTH NEEDED
-            // 1. validate eth signature
-            // Construct the message that was signed
+            log::info!("Timestamp is not in the future");
+
+            // Check if the subtraction will underflow
+            if now < vote_proof.timestamp {
+                log::error!("Time difference calculation would underflow");
+                return Err(Error::<T>::VoteTooOld.into())
+            }
+
+            let time_diff = now - vote_proof.timestamp;
+            log::info!("Time difference: {:?}", time_diff);
+
+            ensure!(time_diff <= T::MaxVoteAge::get(), Error::<T>::VoteTooOld);
+            log::info!("Vote is not too old");
+            log::info!("Constructing message to sign");
             let message =
                 Self::construct_vote_message(poll_index, &vote_proof.vote, vote_proof.timestamp);
 
+            log::info!("About to validate Ethereum signature");
             ensure!(
                 Self::eth_signature_is_valid(
                     message,
@@ -154,11 +208,54 @@ pub mod pallet {
                 ),
                 Error::<T>::InvalidEthereumSignature
             );
+            log::info!("Ethereum signature is valid");
 
-            // 2. can you think of a way to extend avn-proxy to work with ecdsa signature
-            // avn-proxy does the validation of the signature and passes the transaction to this
-            // pallet
-            // signer is going to be the extracted avn address
+            Self::do_vote(vote_proof.voter.clone(), poll_index, vote_proof.vote)?;
+
+            ProcessedVotes::<T>::insert(&vote_proof.voter, &poll_index, true);
+
+            Self::deposit_event(Event::EthereumVoteProcessed(vote_proof.voter, poll_index));
+            Ok(())
+        }
+
+        #[pallet::call_index(2)]
+        #[pallet::weight(<T as Config>::WeightInfo::submit_ethereum_vote())]
+        pub fn proxy(
+            origin: OriginFor<T>,
+            call: Box<<T as Config>::RuntimeCall>,
+        ) -> DispatchResult {
+            let relayer = ensure_signed(origin)?;
+
+            let proof = Self::get_proof(&*call)?;
+            ensure!(relayer == proof.relayer, Error::<T>::UnauthorizedProxyTransaction);
+
+            let call_hash: T::Hash = T::Hashing::hash_of(&call);
+            call.dispatch(frame_system::RawOrigin::Signed(proof.signer).into())
+                .map(|_| ())
+                .map_err(|e| e.error)?;
+            Self::deposit_event(Event::<T>::CallDispatched { relayer, call_hash });
+            Ok(())
+        }
+
+        #[pallet::call_index(3)]
+        #[pallet::weight(<T as Config>::WeightInfo::submit_ethereum_vote())]
+        pub fn signed_ethereum_vote(
+            origin: OriginFor<T>,
+            proof: Proof<T::Signature, T::AccountId>,
+            poll_index: PollIndexOf<T>,
+            vote_proof: VoteProof<T>,
+        ) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+
+            let signed_payload =
+                Self::encode_signed_vote_params(&proof, poll_index, &vote_proof.clone());
+
+            ensure!(
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                    .is_ok(),
+                Error::<T>::UnauthorizedProxyEthereumVote
+            );
+
             Self::do_vote(vote_proof.voter.clone(), poll_index, vote_proof.vote)?;
 
             ProcessedVotes::<T>::insert(&vote_proof.voter, &poll_index, true);
@@ -224,41 +321,158 @@ pub mod pallet {
             vote: &AccountVote<BalanceOf<T>>,
             timestamp: <<T as Config>::TimeProvider as Time>::Moment,
         ) -> Vec<u8> {
+            log::info!("Rust - Constructing vote message");
+            log::info!("Rust - Poll Index: {:?}", poll_index);
+            log::info!("Rust - Vote: {:?}", vote);
+            log::info!("Rust - Timestamp: {:?}", timestamp);
+
             let vote_type_hash = keccak_256(b"Vote(uint256 pollIndex,int8 voteType,uint256 aye,uint256 nay,uint256 abstain,uint256 timestamp)");
+            log::info!("Rust - Vote Type Hash: {:?}", hex::encode(vote_type_hash));
 
             let (vote_type, aye, nay, abstain) = match vote {
-                AccountVote::Standard { vote, balance } => (
-                    1i8,
-                    if vote.aye { *balance } else { Zero::zero() },
-                    if !vote.aye { *balance } else { Zero::zero() },
-                    Zero::zero(),
-                ),
-                AccountVote::Split { aye, nay } => (2i8, *aye, *nay, Zero::zero()),
-                AccountVote::SplitAbstain { aye, nay, abstain } => (3i8, *aye, *nay, *abstain),
+                AccountVote::Standard { vote, balance } => {
+                    log::info!("Rust - Vote type: Standard");
+                    (
+                        1i8,
+                        if vote.aye { *balance } else { Zero::zero() },
+                        if !vote.aye { *balance } else { Zero::zero() },
+                        Zero::zero(),
+                    )
+                },
+                AccountVote::Split { aye, nay } => {
+                    log::info!("Rust - Vote type: Split");
+                    (2i8, *aye, *nay, Zero::zero())
+                },
+                AccountVote::SplitAbstain { aye, nay, abstain } => {
+                    log::info!("Rust - Vote type: SplitAbstain");
+                    (3i8, *aye, *nay, *abstain)
+                },
             };
 
-            let vote_data = (poll_index, vote_type, aye, nay, abstain, timestamp).encode();
+            log::info!("Rust - Vote Type: {:?}", vote_type);
+            log::info!("Rust - Aye: {:?}", aye);
+            log::info!("Rust - Nay: {:?}", nay);
+            log::info!("Rust - Abstain: {:?}", abstain);
+
+            let vote_data = [
+                poll_index.encode(),
+                vote_type.encode(),
+                aye.encode(),
+                nay.encode(),
+                abstain.encode(),
+                timestamp.encode(),
+            ]
+            .concat();
+
+            log::info!("Rust - Vote Data: {:?}", hex::encode(&vote_data));
 
             let vote_hash =
                 keccak_256(&[vote_type_hash.to_vec(), keccak_256(&vote_data).to_vec()].concat());
+            log::info!("Rust - Vote Hash: {:?}", hex::encode(vote_hash));
 
-            let message = [ETHEREUM_VOTE, &vote_hash].concat();
+            // let message = [ETHEREUM_VOTE, &vote_hash].concat();
+            // log::info!("Rust - Message: {:?}", hex::encode(&message));
 
-            keccak_256(&message).to_vec()
+            // let final_hash = keccak_256(&vote_hash);
+            let final_hash = vote_hash;
+            log::info!("Rust - Final Hash: {:?}", hex::encode(final_hash));
+            log::info!("Ethereum Prefixed Hash: {}", hex::encode(hash_with_ethereum_prefix(hex::encode(final_hash)).unwrap()));
+
+            final_hash.to_vec()
         }
 
-        fn eth_signature_is_valid(
-            data: Vec<u8>,
-            public_key: &T::EthereumPublicKey,
-            signature: &EcdsaSignature,
-        ) -> bool {
-            let recovered_public_key =
-                recover_public_key_from_ecdsa_signature(signature.clone(), hex::encode(data));
-            if let Ok(recovered_key) = recovered_public_key {
-                recovered_key.as_ref() == public_key.as_ref()
-            } else {
-                false
+        fn eth_signature_is_valid(data: Vec<u8>, public_key: &T::EthereumPublicKey, signature: &EcdsaSignature) -> bool {
+            let message_hash = keccak_256(&data);
+            log::info!("Data to hash: {:?}", hex::encode(&data));
+            log::info!("Message hash: {:?}", hex::encode(&message_hash));
+        
+            // let eth_prefixed_hash = hash_with_ethereum_prefix(&message_hash);
+            // log::info!("Ethereum Prefixed Hash: {:?}", hex::encode(&eth_prefixed_hash));
+        
+            log::info!("Provided signature: {:?}", hex::encode(signature));
+            log::info!("Provided public key: {:?}", hex::encode(public_key.as_ref()));
+        
+            // let ecdsa_sig = ecdsa::Signature::from_slice(signature.as_ref())
+            //     .expect("Invalid signature format");
+        
+            // let recovered_pub_key = recover_public_key_from_ecdsa_signature(ecdsa_sig, hex::encode(eth_prefixed_hash));
+            let recovered_pub_key = recover_public_key_from_ecdsa_signature(signature.clone(), hex::encode(data));
+            
+            match recovered_pub_key {
+                Ok(recovered_key) => {
+                    log::info!("Recovered public key: {:?}", hex::encode(recovered_key.as_ref()));
+                    let is_valid = recovered_key.as_ref() == public_key.as_ref();
+                    log::info!("Signature is valid: {}", is_valid);
+                    is_valid
+                },
+                Err(e) => {
+                    log::error!("Failed to recover public key from signature: {:?}", e);
+                    false
+                }
             }
+        }
+
+        fn encode_signed_vote_params(
+            proof: &Proof<T::Signature, T::AccountId>,
+            poll_index: PollIndexOf<T>,
+            vote_proof: &VoteProof<T>,
+        ) -> Vec<u8> {
+            (SIGNED_ETHEREUM_VOTE, proof.relayer.clone(), poll_index, vote_proof.clone()).encode()
+        }
+
+        fn get_encoded_call_param(
+            call: &<T as Config>::RuntimeCall,
+        ) -> Option<(&Proof<T::Signature, T::AccountId>, PollIndexOf<T>, VoteProof<T>, Vec<u8>)>
+        {
+            let call = match call.is_sub_type() {
+                Some(call) => call,
+                None => return None,
+            };
+
+            match call {
+                Call::signed_ethereum_vote { proof, poll_index, vote_proof } => {
+                    let encoded_data =
+                        Self::encode_signed_vote_params(proof, *poll_index, &vote_proof);
+                    Some((proof, *poll_index, vote_proof.clone(), encoded_data))
+                },
+                _ => None,
+            }
+        }
+    }
+
+    impl<T: Config> CallDecoder for Pallet<T> {
+        type AccountId = T::AccountId;
+        type Signature = <T as Config>::Signature;
+        type Error = Error<T>;
+        type Call = <T as Config>::RuntimeCall;
+
+        fn get_proof(
+            call: &Self::Call,
+        ) -> Result<Proof<Self::Signature, Self::AccountId>, Self::Error> {
+            let call = match call.is_sub_type() {
+                Some(call) => call,
+                None => return Err(Error::TransactionNotSupported),
+            };
+
+            match call {
+                Call::signed_ethereum_vote { proof, .. } => return Ok(proof.clone()),
+                _ => return Err(Error::TransactionNotSupported),
+            }
+        }
+    }
+
+    impl<T: Config> InnerCallValidator for Pallet<T> {
+        type Call = <T as Config>::RuntimeCall;
+
+        fn signature_is_valid(call: &Box<Self::Call>) -> bool {
+            if let Some((proof, _, _, signed_payload)) = Self::get_encoded_call_param(call) {
+                return verify_signature::<T::Signature, T::AccountId>(
+                    &proof,
+                    &signed_payload.as_slice(),
+                )
+                .is_ok()
+            }
+            false
         }
     }
 }

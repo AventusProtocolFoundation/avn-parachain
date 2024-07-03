@@ -128,6 +128,11 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for AvnProxyConfig {
                     nominator: _,
                 },
             ) => return Some(proof.clone()),
+            RuntimeCall::CustomVoting(pallet_custom_voting::pallet::Call::signed_ethereum_vote {
+                proof,
+                poll_index: _,
+                vote_proof: _,
+            }) => return Some(proof.clone()),
             _ => None,
         }
     }
