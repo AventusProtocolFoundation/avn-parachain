@@ -715,9 +715,6 @@ pub mod pallet {
             let account_id = ensure_signed(origin)?;
             ensure!(&tx_hash != &H256::zero(), Error::<T>::MalformedHash);
 
-            let filter = T::EthereumEventsFilter::get_filter();
-            ensure!(!filter.contains(&event_type), Error::<T>::ErrorAddingEthereumLog);
-
             // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
             return Self::add_event(event_type, tx_hash, account_id)
         }
@@ -1489,8 +1486,10 @@ impl<T: Config> Pallet<T> {
 
     /// Adds an event: tx_hash must be a nonzero hash
     fn add_event(event_type: ValidEvents, tx_hash: H256, sender: T::AccountId) -> DispatchResult {
-        let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
+        let filter = T::EthereumEventsFilter::get_filter();
+        ensure!(!filter.contains(&event_type), Error::<T>::ErrorAddingEthereumLog);
 
+        let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
         ensure!(!Self::event_exists_in_system(&event_id), Error::<T>::DuplicateEvent);
 
         let ingress_counter = Self::get_next_ingress_counter();
