@@ -550,6 +550,7 @@ impl pallet_ethereum_events::Config for Runtime {
     type Signature = Signature;
     type ReportInvalidEthereumLog = Offences;
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
+    type EthereumEventsFilter = EthBridgeAvnRuntimeEventsFilter;
 }
 
 parameter_types! {

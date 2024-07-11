@@ -532,6 +532,24 @@ mod test_add_ethereum_log {
             assert_eq!(0, System::events().len());
         });
     }
+
+    #[test]
+    fn filtered_event_should_not_be_added() {
+        let mut ext = ExtBuilder::build_default().with_genesis_config().as_externality();
+        ext.execute_with(|| {
+            let context: Context = Default::default();
+            assert_noop!(
+                EthereumEvents::add_ethereum_log(
+                    context.origin.clone(),
+                    ValidEvents::AvtLowerClaimed,
+                    context.tx_hash
+                ),
+                Error::<TestRuntime>::ErrorAddingEthereumLog
+            );
+            // Ensure no events were emitted in avn
+            assert_eq!(0, System::events().len());
+        });
+    }
 }
 
 mod add_event {

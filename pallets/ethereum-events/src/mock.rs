@@ -7,9 +7,9 @@ use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    BuildStorage, Perbill, WeakBoundedVec,
+    BoundedBTreeSet, BuildStorage, Perbill, WeakBoundedVec,
 };
-use std::cell::RefCell;
+use std::{cell::RefCell, collections::BTreeSet};
 
 use frame_system as system;
 use hex_literal::hex;
@@ -111,6 +111,20 @@ pub mod crypto {
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
+pub type EventsTypesLimit = ConstU32<20>;
+pub type EthBridgeEventsFilter = BoundedBTreeSet<ValidEvents, EventsTypesLimit>;
+
+pub struct MyEthereumEventsFilter;
+
+impl EthereumEventsFilterTrait for MyEthereumEventsFilter {
+    fn get_filter() -> EthBridgeEventsFilter {
+        let allowed_events: BTreeSet<ValidEvents> =
+            vec![ValidEvents::AvtLowerClaimed].into_iter().collect();
+
+        EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
+    }
+}
+
 impl Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
@@ -120,6 +134,7 @@ impl Config for TestRuntime {
     type Public = AccountId;
     type Signature = Signature;
     type WeightInfo = ();
+    type EthereumEventsFilter = MyEthereumEventsFilter;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for TestRuntime

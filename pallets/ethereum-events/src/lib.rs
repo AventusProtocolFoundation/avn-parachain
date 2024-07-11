@@ -35,6 +35,7 @@ use sp_std::{cmp, prelude::*};
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
+    event_discovery::EthereumEventsFilterTrait,
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Challenge, ChallengeReason,
         CheckResult, EthEventCheckResult, EthEventId, EventData, LiftedData, NftCancelListingData,
@@ -186,6 +187,7 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+        type EthereumEventsFilter: EthereumEventsFilterTrait;
     }
 
     #[pallet::pallet]
@@ -286,6 +288,7 @@ pub mod pallet {
         UncheckedEventsOverflow,
         PrevChallengesOverflow,
         EventsPendingChallengeOverflow,
+        ErrorAddingEthereumLog,
     }
 
     #[pallet::storage]
@@ -711,6 +714,9 @@ pub mod pallet {
         ) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
             ensure!(&tx_hash != &H256::zero(), Error::<T>::MalformedHash);
+
+            let filter = T::EthereumEventsFilter::get_filter();
+            ensure!(!filter.contains(&event_type), Error::<T>::ErrorAddingEthereumLog);
 
             // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
             return Self::add_event(event_type, tx_hash, account_id)
