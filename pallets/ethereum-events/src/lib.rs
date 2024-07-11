@@ -35,6 +35,7 @@ use sp_std::{cmp, prelude::*};
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
+    event_discovery::EthereumEventsFilterTrait,
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Challenge, ChallengeReason,
         CheckResult, EthEventCheckResult, EthEventId, EventData, LiftedData, NftCancelListingData,
@@ -186,6 +187,7 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+        type EthereumEventsFilter: EthereumEventsFilterTrait;
     }
 
     #[pallet::pallet]
@@ -286,6 +288,7 @@ pub mod pallet {
         UncheckedEventsOverflow,
         PrevChallengesOverflow,
         EventsPendingChallengeOverflow,
+        ErrorAddingEthereumLog,
     }
 
     #[pallet::storage]
@@ -1483,8 +1486,10 @@ impl<T: Config> Pallet<T> {
 
     /// Adds an event: tx_hash must be a nonzero hash
     fn add_event(event_type: ValidEvents, tx_hash: H256, sender: T::AccountId) -> DispatchResult {
-        let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
+        let filter = T::EthereumEventsFilter::get_filter();
+        ensure!(!filter.contains(&event_type), Error::<T>::ErrorAddingEthereumLog);
 
+        let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
         ensure!(!Self::event_exists_in_system(&event_id), Error::<T>::DuplicateEvent);
 
         let ingress_counter = Self::get_next_ingress_counter();
