@@ -34,6 +34,24 @@ pub fn add_corroboration<T: Config>(
     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
 }
 
+pub fn submit_ethereum_events<T: Config>(
+    author: Author<T>,
+    events_partition: EthereumEventsPartition,
+    signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+) -> Result<(), ()> {
+    let call = Call::<T>::submit_ethereum_events { author, events_partition, signature };
+    SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+}
+
+pub fn submit_latest_ethereum_block<T: Config>(
+    author: Author<T>,
+    latest_seen_block: u32,
+    signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
+) -> Result<(), ()> {
+    let call = Call::<T>::submit_latest_ethereum_block { author, latest_seen_block, signature };
+    SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+}
+
 fn add_confirmation_proof<T: Config>(
     tx_id: EthereumId,
     confirmation: &ecdsa::Signature,

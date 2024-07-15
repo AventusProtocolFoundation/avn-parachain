@@ -20,6 +20,7 @@ use secp256k1::{Secp256k1, SecretKey};
 use tide::{http::StatusCode, Error as TideError};
 pub use web3Secp256k1::SecretKey as web3SecretKey;
 
+pub mod ethereum_events_handler;
 pub mod extrinsic_utils;
 pub mod keystore_utils;
 pub mod merkle_tree_utils;
@@ -33,6 +34,7 @@ use crate::{
 pub use crate::web3_utils::{public_key_address, secret_key_address};
 use jsonrpc_core::Error as RPCError;
 
+pub const ETH_FINALITY: u64 = 20u64;
 const MAX_BODY_SIZE: usize = 100_000; // 100 KB
 
 /// Error types for merkle tree and extrinsic utils.

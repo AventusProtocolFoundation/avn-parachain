@@ -352,6 +352,8 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type AccountToBytesConvert = AVN;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = OffenceHandler;
+    type ProcessedEventsChecker = ();
+    type EthereumEventsFilter = ();
 }
 
 impl pallet_timestamp::Config for TestRuntime {

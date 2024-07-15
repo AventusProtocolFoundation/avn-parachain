@@ -32,7 +32,7 @@ pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::MaximumValidatorsBound,
-    event_types::{EthEventId, Validator},
+    event_types::{EthEvent, EthEventId, Validator},
     ocw_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
@@ -78,6 +78,7 @@ pub mod sr25519 {
 const AVN_SERVICE_CALL_EXPIRY: u32 = 300_000;
 
 // used in benchmarks and weights calculation only
+// TODO: centralise this with MaximumValidatorsBound
 pub const MAX_VALIDATOR_ACCOUNTS: u32 = 10;
 
 pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
@@ -388,6 +389,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // verify that the incoming (unverified) pubkey is actually a validator
         if !Self::is_validator(&validator.account_id) {
+            warn!("Signature validation failed, account {:?}, is not validator", validator);
             return false
         }
 
@@ -395,6 +397,13 @@ impl<T: Config> Pallet<T> {
         let signature_valid =
             data.using_encoded(|encoded_data| validator.key.verify(&encoded_data, &signature));
 
+        debug!(
+            "🪲 Validating signature: [ data {:?} - account {:?} - signature {:?} ] Result: {}",
+            data.encode(),
+            validator.encode(),
+            signature,
+            signature_valid
+        );
         return signature_valid
     }
 
@@ -698,13 +707,16 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
 }
 
 pub trait ProcessedEventsChecker {
-    fn check_event(event_id: &EthEventId) -> bool;
+    fn processed_event_exists(event_id: &EthEventId) -> bool;
+    fn add_processed_event(event_id: &EthEventId, accepted: bool);
 }
 
 impl ProcessedEventsChecker for () {
-    fn check_event(_event_id: &EthEventId) -> bool {
-        return false
+    fn processed_event_exists(_event_id: &EthEventId) -> bool {
+        false
     }
+
+    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
 }
 
 pub trait OnGrowthLiftedHandler<Balance> {
@@ -744,6 +756,9 @@ pub trait BridgeInterfaceNotification {
     fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
         Ok(())
     }
+    fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
+        Ok(())
+    }
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -759,6 +774,11 @@ impl BridgeInterfaceNotification for Tuple {
         _encoded_lower: Result<Vec<u8>, ()>,
     ) -> DispatchResult {
         for_tuples!( #( Tuple::process_lower_proof_result(_lower_id, _caller_id.clone(), _encoded_lower.clone())?; )* );
+        Ok(())
+    }
+
+    fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
+        for_tuples!( #( Tuple::on_incoming_event_processed(_event)?; )* );
         Ok(())
     }
 }

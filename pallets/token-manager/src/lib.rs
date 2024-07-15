@@ -853,7 +853,7 @@ impl<T: Config> Pallet<T> {
         let recipient_account_id = T::AccountId::decode(&mut data.receiver_address.as_bytes())
             .expect("32 bytes will always decode into an AccountId");
 
-        let event_validity = T::ProcessedEventsChecker::check_event(event_id);
+        let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLifted);
 
         if data.amount == 0 {
@@ -882,7 +882,7 @@ impl<T: Config> Pallet<T> {
 
     fn process_avt_growth_lift(event: &EthEvent, data: &AvtGrowthLiftedData) -> DispatchResult {
         let event_id = &event.event_id;
-        let event_validity = T::ProcessedEventsChecker::check_event(event_id);
+        let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogAvtGrowthLifted);
 
         if data.amount == 0 {
@@ -913,7 +913,7 @@ impl<T: Config> Pallet<T> {
 
     fn process_lower_claim(event: &EthEvent, data: &AvtLowerClaimedData) -> DispatchResult {
         let event_id = &event.event_id;
-        let event_validity = T::ProcessedEventsChecker::check_event(event_id);
+        let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerClaimed);
 
         ensure!(
@@ -988,10 +988,8 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
-}
 
-impl<T: Config> ProcessedEventHandler for Pallet<T> {
-    fn on_event_processed(event: &EthEvent) -> DispatchResult {
+    fn processed_event_handler(event: &EthEvent) -> DispatchResult {
         return match &event.event_data {
             EventData::LogLifted(d) => return Self::process_lift(event, d),
             EventData::LogAvtGrowthLifted(d) => return Self::process_avt_growth_lift(event, d),
@@ -1000,6 +998,12 @@ impl<T: Config> ProcessedEventHandler for Pallet<T> {
             // Event handled or it is not for us, in which case ignore it.
             _ => Ok(()),
         }
+    }
+}
+
+impl<T: Config> ProcessedEventHandler for Pallet<T> {
+    fn on_event_processed(event: &EthEvent) -> DispatchResult {
+        Self::processed_event_handler(event)
     }
 }
 
@@ -1091,5 +1095,9 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
         }
 
         Ok(())
+    }
+
+    fn on_incoming_event_processed(event: &EthEvent) -> DispatchResult {
+        Self::processed_event_handler(event)
     }
 }

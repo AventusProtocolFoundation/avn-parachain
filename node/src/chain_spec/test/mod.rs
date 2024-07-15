@@ -9,9 +9,9 @@ use crate::chain_spec::{
     ImOnlineId, ParaId,
 };
 use avn_test_runtime::{
-    self as avn_test_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig, 
-    ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig,
-    TokenManagerConfig, ValidatorsManagerConfig,
+    self as avn_test_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig,
+    ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig, TokenManagerConfig,
+    ValidatorsManagerConfig,
 };
 use node_primitives::AccountId;
 
@@ -52,8 +52,8 @@ pub(crate) fn avn_test_runtime_genesis(
     event_challenge_period: BlockNumber,
     schedule_period: BlockNumber,
     voting_period: BlockNumber,
-) -> avn_test_runtime::GenesisConfig {
-    avn_test_runtime::GenesisConfig {
+) -> avn_test_runtime::RuntimeGenesisConfig {
+    avn_test_runtime::RuntimeGenesisConfig {
         avn: pallet_avn::GenesisConfig {
             _phantom: Default::default(),
             bridge_contract_address: avn_eth_contract.clone(),
@@ -67,7 +67,10 @@ pub(crate) fn avn_test_runtime_genesis(
         balances: avn_test_runtime::BalancesConfig {
             balances: endowed_accounts.iter().cloned().map(|(k, a)| (k, a)).collect(),
         },
-        parachain_info: avn_test_runtime::ParachainInfoConfig { parachain_id: id, ..Default::default() },
+        parachain_info: avn_test_runtime::ParachainInfoConfig {
+            parachain_id: id,
+            ..Default::default()
+        },
         session: avn_test_runtime::SessionConfig {
             keys: candidates
                 .iter()
@@ -89,6 +92,7 @@ pub(crate) fn avn_test_runtime_genesis(
             _phantom: Default::default(),
             eth_tx_lifetime_secs: 60 * 30 as u64, // 30 minutes
             next_tx_id: 1 as u32,
+            eth_block_range_size: 20u32,
         },
         ethereum_events: EthereumEventsConfig {
             nft_t1_contracts: nft_eth_contracts,

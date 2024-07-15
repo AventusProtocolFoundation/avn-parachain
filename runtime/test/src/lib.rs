@@ -14,6 +14,9 @@ use core::cmp::Ordering;
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
+use sp_core::sr25519::Public;
+
+use sp_runtime::RuntimeAppPublic;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use sp_api::impl_runtime_apis;
@@ -24,6 +27,8 @@ use sp_runtime::{
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
+pub extern crate alloc;
+use alloc::collections::BTreeSet;
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -67,7 +72,13 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use pallet_avn::sr25519::AuthorityId as AvnId;
 
 use pallet_avn_proxy::ProvableProxy;
-use sp_avn_common::{InnerCallValidator, Proof};
+use sp_avn_common::{
+    event_discovery::{
+        EthBlockRange, EthBridgeEventsFilter, EthereumEventsFilterTrait, EthereumEventsPartition,
+    },
+    event_types::ValidEvents,
+    InnerCallValidator, Proof,
+};
 
 use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -105,6 +116,26 @@ where
             }
             <ToStakingPot<R> as OnUnbalanced<_>>::on_unbalanced(fees);
         }
+    }
+}
+
+pub struct EthBridgeTestRuntimeEventsFilter;
+impl EthereumEventsFilterTrait for EthBridgeTestRuntimeEventsFilter {
+    fn get_filter() -> EthBridgeEventsFilter {
+        let allowed_events: BTreeSet<ValidEvents> = vec![
+            ValidEvents::AddedValidator,
+            ValidEvents::Lifted,
+            ValidEvents::AvtGrowthLifted,
+            ValidEvents::AvtLowerClaimed,
+            ValidEvents::NftMint,
+            ValidEvents::NftTransferTo,
+            ValidEvents::NftCancelListing,
+            ValidEvents::NftEndBatchListing,
+        ]
+        .into_iter()
+        .collect();
+
+        EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
     }
 }
 
@@ -152,7 +183,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (),
+    pallet_eth_bridge::migration::SetBlockRangeSize<Runtime>,
 >;
 
 impl_opaque_keys! {
@@ -169,7 +200,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 65,
+    spec_version: 70,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -561,6 +592,7 @@ impl pallet_ethereum_events::Config for Runtime {
     type Signature = Signature;
     type ReportInvalidEthereumLog = Offences;
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
+    type EthereumEventsFilter = EthBridgeTestRuntimeEventsFilter;
 }
 
 parameter_types! {
@@ -641,11 +673,13 @@ impl pallet_eth_bridge::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = MinEthBlockConfirmation;
+    type ProcessedEventsChecker = EthereumEvents;
     type AccountToBytesConvert = Avn;
     type ReportCorroborationOffence = Offences;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
+    type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
+    type EthereumEventsFilter = EthBridgeTestRuntimeEventsFilter;
 }
 
 // Other pallets
@@ -952,6 +986,59 @@ impl_runtime_apis! {
             TransactionPayment::length_to_fee(length)
         }
     }
+
+    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
+        fn query_authors() -> Vec<([u8; 32], [u8; 32])> {
+            let validators = Avn::validators().to_vec();
+            let res = validators.iter().map(|validator| {
+                let mut address: [u8; 32] = Default::default();
+                address.copy_from_slice(&validator.account_id.encode()[0..32]);
+
+                let mut key: [u8; 32] = Default::default();
+                key.copy_from_slice(&validator.key.to_raw_vec()[0..32]);
+
+                return (address, key)
+            }).collect();
+            return res
+        }
+
+        fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
+            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
+                Some((active_eth_range.range, active_eth_range.partition))
+            } else {
+                None
+            }
+        }
+        fn query_has_author_casted_vote(account_id: AccountId) -> bool{
+           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id) ||
+           pallet_eth_bridge::author_has_submitted_latest_block::<Runtime>(&account_id)
+        }
+
+        fn query_signatures() -> Vec<sp_core::H256> {
+            EthBridge::signatures()
+        }
+
+        fn query_bridge_contract() -> H160 {
+            Avn::get_bridge_contract_address()
+        }
+
+        fn submit_vote(author: AccountId,
+            events_partition: EthereumEventsPartition,
+            signature: sp_core::sr25519::Signature,
+        ) -> Option<()>{
+            EthBridge::submit_vote(author, events_partition, signature.into()).ok()
+        }
+
+        fn submit_latest_ethereum_block(
+            author: AccountId,
+            latest_seen_block: u32,
+            signature: sp_core::sr25519::Signature
+        ) -> Option<()>{
+            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
+        }
+
+    }
+
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
         fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
             ParachainSystem::collect_collation_info(header)

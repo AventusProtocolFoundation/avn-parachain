@@ -24,10 +24,7 @@ fn test_decompress_eth_public_key() {
     let decompressed_key = decompress_eth_public_key(compressed_key);
 
     match decompressed_key {
-        Ok(key) => {
-            println!("decompressed_pub_key: {:?}", key);
-            assert_eq!(key, expected_decompressed_key);
-        },
+        Ok(key) => assert_eq!(key, expected_decompressed_key),
         Err(e) => {
             panic!("decompress_eth_public_key failed with error: {:?}", e);
         },

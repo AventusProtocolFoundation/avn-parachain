@@ -298,18 +298,37 @@ where
 
         let avn_config = avn_service::Config::<Block, _> {
             keystore: params.keystore_container.local_keystore(),
-            keystore_path,
-            avn_port,
-            eth_node_url,
+            keystore_path: keystore_path.clone(),
+            avn_port: avn_port.clone(),
+            eth_node_url: eth_node_url.clone(),
             web3_data_mutex: Arc::new(Mutex::new(Web3Data::new())),
             client: client.clone(),
             _block: Default::default(),
         };
 
+        let eth_event_handler_config =
+            avn_service::ethereum_events_handler::EthEventHandlerConfig::<Block, _> {
+                keystore: params.keystore_container.local_keystore(),
+                keystore_path: keystore_path.clone(),
+                avn_port: avn_port.clone(),
+                eth_node_url: eth_node_url.clone(),
+                web3_data_mutex: Arc::new(Mutex::new(Web3Data::new())),
+                client: client.clone(),
+                _block: Default::default(),
+                offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
+                    transaction_pool.clone(),
+                ),
+            };
+
         task_manager.spawn_essential_handle().spawn(
             "avn-service",
             None,
             avn_service::start(avn_config),
+        );
+        task_manager.spawn_essential_handle().spawn(
+            "eth-events-handler",
+            None,
+            avn_service::ethereum_events_handler::start_eth_event_handler(eth_event_handler_config),
         );
         let parachain_consensus = build_consensus(
             client.clone(),
