@@ -642,7 +642,7 @@ pub struct EthBridgeAvnRuntimeEventsFilter;
 impl EthereumEventsFilterTrait for EthBridgeAvnRuntimeEventsFilter {
     fn get_filter() -> EthBridgeEventsFilter {
         let allowed_events: BTreeSet<ValidEvents> =
-            vec![ValidEvents::AvtLowerClaimed].into_iter().collect();
+            vec![ValidEvents::AvtLowerClaimed, ValidEvents::Lifted].into_iter().collect();
 
         EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
     }
