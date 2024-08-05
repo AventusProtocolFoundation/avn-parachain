@@ -4,7 +4,6 @@ use crate::EthQueryResponse;
 #[cfg(not(feature = "std"))]
 use alloc::{format, string::String};
 use codec::Decode;
-use frame_support::log;
 use hex::FromHex;
 use simple_json2::{
     self as json,

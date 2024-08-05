@@ -1,7 +1,6 @@
 use frame_support::{
-    dispatch::GetStorageVersion,
     pallet_prelude::*,
-    traits::{Get, OnRuntimeUpgrade},
+    traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
     weights::Weight,
 };
 

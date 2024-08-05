@@ -1,6 +1,6 @@
 use cumulus_primitives_core::ParaId;
 use frame_benchmarking_cli::{BenchmarkCmd, SUBSTRATE_REFERENCE_HARDWARE};
-use log::{info, warn};
+use log::info;
 use sc_cli::{
     ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams,
     NetworkParams, Result, SharedParams, SubstrateCli,
@@ -107,7 +107,7 @@ macro_rules! construct_async_run {
 	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
 		let runner = $cli.create_runner($cmd)?;
 		runner.async_run(|$config| {
-			let $components = new_partial::<RuntimeApi, ParachainExecutor>(&$config)?;
+			let $components = new_partial::<RuntimeApi>(&$config)?;
 			let task_manager = $components.task_manager;
 			{ $( $code )* }.map(|v| (v, task_manager))
 		})
@@ -170,7 +170,7 @@ pub fn run() -> Result<()> {
         Some(Subcommand::ExportGenesisState(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| {
-                let partials = new_partial::<RuntimeApi, ParachainExecutor>(&config)?;
+                let partials = new_partial::<RuntimeApi>(&config)?;
 
                 cmd.run(&*config.chain_spec, &*partials.client)
             })
@@ -205,7 +205,7 @@ pub fn run() -> Result<()> {
                             .into())
                     },
                 BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-                    let partials = new_partial::<RuntimeApi, ParachainExecutor>(&config)?;
+                    let partials = new_partial::<RuntimeApi>(&config)?;
                     cmd.run(partials.client)
                 }),
                 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -218,7 +218,7 @@ pub fn run() -> Result<()> {
                     .into()),
                 #[cfg(feature = "runtime-benchmarks")]
                 BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-                    let partials = new_partial::<RuntimeApi, ParachainExecutor>(&config)?;
+                    let partials = new_partial::<RuntimeApi>(&config)?;
                     let db = partials.backend.expose_db();
                     let storage = partials.backend.expose_storage();
                     cmd.run(config, partials.client.clone(), db, storage)
@@ -231,38 +231,8 @@ pub fn run() -> Result<()> {
                 _ => Err("Benchmarking sub-command unsupported".into()),
             }
         },
-        #[cfg(feature = "try-runtime")]
-        Some(Subcommand::TryRuntime(cmd)) => {
-            //Err("try-runtime is deprecated. Use the CLI".into())
-            use crate::common::AvnParachainExecutor;
-            use avn_parachain_runtime::SLOT_DURATION;
-            use sc_executor::{sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch};
-            use try_runtime_cli::block_building_info::substrate_info;
+		Some(Subcommand::TryRuntime) => Err("The `try-runtime` subcommand has been migrated to a standalone CLI (https://github.com/paritytech/try-runtime-cli). It is no longer being maintained here and will be removed entirely some time after January 2024. Please remove this subcommand from your runtime and use the standalone CLI.".into()),
 
-            let runner = cli.create_runner(cmd)?;
-            runner.async_run(|config| {
-                // we don't need any of the components of new_partial, just a runtime, or a task
-                // manager to do `async_run`.
-                let registry = config.prometheus_config.as_ref().map(|cfg| &cfg.registry);
-                let task_manager =
-                    sc_service::TaskManager::new(config.tokio_handle.clone(), registry)
-                        .map_err(|e| sc_cli::Error::Service(sc_service::Error::Prometheus(e)))?;
-
-                let info_provider = substrate_info(SLOT_DURATION);
-
-                Ok((
-                    cmd.run::<Block, ExtendedHostFunctions<
-                        sp_io::SubstrateHostFunctions,
-                        <AvnParachainExecutor as NativeExecutionDispatch>::ExtendHostFunctions,
-                    >, _>(Some(info_provider)),
-                    task_manager,
-                ))
-            })
-        },
-        #[cfg(not(feature = "try-runtime"))]
-        Some(Subcommand::TryRuntime) => Err("Try-runtime was not enabled when building the node. \
-			You can enable it with `--features try-runtime`."
-            .into()),
         Some(Subcommand::Key(cmd)) => cmd.run(&cli),
         None => {
             let runner = cli.create_runner(&cli.run.normalize())?;
@@ -305,17 +275,7 @@ pub fn run() -> Result<()> {
                 info!("Parachain Account: {parachain_account}");
                 info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-                if !collator_options.relay_chain_rpc_urls.is_empty() &&
-                    !cli.relay_chain_args.is_empty()
-                {
-                    warn!(
-                        "Detected relay chain node arguments together with --relay-chain-rpc-url. \
-                        This command starts a minimal Polkadot node that only uses a \
-                        network-related subset of all relay chain CLI options."
-                    );
-                }
-
-                crate::service::start_parachain_node::<RuntimeApi, ParachainExecutor>(
+                crate::service::start_parachain_node::<RuntimeApi>(
                     config,
                     polkadot_config,
                     avn_config,

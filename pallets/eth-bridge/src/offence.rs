@@ -1,5 +1,4 @@
 use codec::{Decode, Encode};
-use frame_support::log;
 use pallet_session::{historical::IdentificationTuple, Config as SessionConfig};
 use sp_runtime::{scale_info::TypeInfo, traits::Convert, Perbill};
 use sp_staking::{

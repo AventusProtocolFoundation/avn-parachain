@@ -1,6 +1,6 @@
 use super::*;
 use crate::{util::bound_params, Config};
-use frame_support::{log, BoundedVec};
+use frame_support::BoundedVec;
 use sp_core::Get;
 
 pub fn add_new_send_request<T: Config>(

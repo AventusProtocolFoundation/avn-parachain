@@ -19,15 +19,15 @@ hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 hex-literal = { version = "0.4.1", default-features = false }
 impl-trait-for-tuples = "0.2.2"
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"], default-features = false }
-scale-info = { version = "2.5.0", default-features = false, features = [
+scale-info = { version = "2.9.0", default-features = false, features = [
 	"derive",
 ] }
-log = { version = "0.4.17", default-features = false }
+log = { version = "0.4.20",  default-features = false }
 
-sp-core = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-std = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0", features = ["serde"]}
-sp-io = { default-features = false, git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", features = ["serde"]}
+sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 
 libsecp256k1 = { version = "0.7.0", default-features = false, features = [
 	"hmac",

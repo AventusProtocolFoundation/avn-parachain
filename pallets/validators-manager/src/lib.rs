@@ -15,8 +15,7 @@ use alloc::string::String;
 pub type EthereumTransactionId = u32;
 
 use frame_support::{
-    dispatch::DispatchResult, ensure, log, pallet_prelude::StorageVersion, traits::Get,
-    transactional,
+    dispatch::DispatchResult, ensure, pallet_prelude::StorageVersion, traits::Get, transactional,
 };
 use frame_system::{offchain::SendTransactionTypes, RawOrigin};
 use pallet_session::{self as session, Config as SessionConfig};

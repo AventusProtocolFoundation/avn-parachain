@@ -14,7 +14,6 @@ use core::cmp::Ordering;
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
-use sp_core::sr25519::Public;
 
 use sp_runtime::RuntimeAppPublic;
 
@@ -44,7 +43,7 @@ use frame_support::{
         OnUnbalanced, PrivilegeCmp,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
-    PalletId, RuntimeDebug,
+    PalletId,
 };
 use frame_system::{
     limits::{BlockLength, BlockWeights},
@@ -53,7 +52,7 @@ use frame_system::{
 use governance::pallet_custom_origins;
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
+pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
@@ -173,9 +172,6 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
     generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-/// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, RuntimeCall, SignedExtra>;
-
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
     Runtime,
@@ -200,7 +196,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 70,
+    spec_version: 71,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,

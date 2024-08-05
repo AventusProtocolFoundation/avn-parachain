@@ -20,9 +20,9 @@ use crate::{
     NominationScheduledRequests, Nominator, NominatorState, Pallet, Total,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get, RuntimeDebug};
+use frame_support::{dispatch::DispatchResultWithPostInfo, ensure, traits::Get};
 use scale_info::TypeInfo;
-use sp_runtime::{traits::Saturating, BoundedVec};
+use sp_runtime::{traits::Saturating, BoundedVec, RuntimeDebug};
 use sp_std::vec;
 
 /// An action that can be performed upon a nomination

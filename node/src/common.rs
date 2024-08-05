@@ -1,6 +1,5 @@
 use codec::Codec;
 use node_primitives::{AccountId, Balance, Block as BlockT, Nonce};
-use polkadot_service::BlakeTwo256;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 
 use sc_cli::ChainSpec;
@@ -30,13 +29,11 @@ pub trait AvnRuntimeApiCollection:
     + sp_consensus_aura::AuraApi<BlockT, AuraId>
     + pallet_eth_bridge_runtime_api::EthEventHandlerApi<BlockT, AccountId>
 where
-    <Self as sp_api::ApiExt<BlockT>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
     AccountId: Codec,
 {
 }
 
-impl<Api> AvnRuntimeApiCollection for Api
-where
+impl<Api> AvnRuntimeApiCollection for Api where
     Api: sp_transaction_pool::runtime_api::TaggedTransactionQueue<BlockT>
         + sp_api::ApiExt<BlockT>
         + sp_block_builder::BlockBuilder<BlockT>
@@ -47,8 +44,7 @@ where
         + sp_session::SessionKeys<BlockT>
         + cumulus_primitives_core::CollectCollationInfo<BlockT>
         + sp_consensus_aura::AuraApi<BlockT, AuraId>
-        + pallet_eth_bridge_runtime_api::EthEventHandlerApi<BlockT, AccountId>,
-    <Self as sp_api::ApiExt<BlockT>>::StateBackend: sp_api::StateBackend<BlakeTwo256>,
+        + pallet_eth_bridge_runtime_api::EthEventHandlerApi<BlockT, AccountId>
 {
 }
 

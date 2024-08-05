@@ -59,7 +59,7 @@ use alloc::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use frame_support::{
-    dispatch::DispatchResultWithPostInfo, log, pallet_prelude::StorageVersion, traits::IsSubType,
+    dispatch::DispatchResultWithPostInfo, pallet_prelude::StorageVersion, traits::IsSubType,
     BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{
