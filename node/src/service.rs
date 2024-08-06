@@ -1,15 +1,15 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 // std
+use codec::Encode;
+use cumulus_client_cli::CollatorOptions;
 use futures::lock::Mutex;
+use runtime_common::opaque::Block;
+use sc_client_api::Backend;
 use sc_network_sync::SyncingService;
 use sp_api::ConstructRuntimeApi;
+use sp_core::offchain::OffchainStorage;
 use std::{sync::Arc, time::Duration};
-
-use cumulus_client_cli::CollatorOptions;
-use runtime_common::opaque::Block;
-
-use sc_client_api::Backend;
 
 // Cumulus Imports
 use cumulus_client_consensus_aura::{AuraConsensus, BuildAuraConsensusParams, SlotProportion};
@@ -33,6 +33,7 @@ use sc_service::{
 };
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 
+use sp_avn_common::{DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY};
 use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
@@ -212,6 +213,18 @@ where
 
     if parachain_config.offchain_worker.enabled {
         use futures::FutureExt;
+
+        let port_number = avn_port
+            .clone()
+            .unwrap_or_else(|| DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER.to_string());
+
+        if let Some(mut local_db) = backend.offchain_storage() {
+            local_db.set(
+                sp_core::offchain::STORAGE_PREFIX,
+                EXTERNAL_SERVICE_PORT_NUMBER_KEY,
+                &port_number.encode(),
+            );
+        }
 
         task_manager.spawn_handle().spawn(
             "offchain-workers-runner",
