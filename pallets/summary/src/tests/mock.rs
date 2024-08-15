@@ -1,7 +1,9 @@
 // Copyright 2022 Aventus Network Services (UK) Ltd.
 
 pub use crate::{self as summary, *};
-use frame_support::{parameter_types, BasicExternalities};
+use frame_support::parameter_types;
+use sp_state_machine::BasicExternalities;
+
 use frame_system as system;
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,

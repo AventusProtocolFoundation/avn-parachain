@@ -7176,6 +7176,7 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-state-machine",
  "sp-std",
  "substrate-test-utils",
 ]
@@ -7198,6 +7199,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+ "sp-state-machine",
  "sp-std",
 ]
 
@@ -7540,6 +7542,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+ "sp-state-machine",
  "sp-std",
 ]
 
@@ -7585,6 +7588,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+ "sp-state-machine",
  "sp-std",
  "substrate-test-utils",
 ]
@@ -8188,6 +8192,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+ "sp-state-machine",
  "sp-std",
  "substrate-test-utils",
 ]
@@ -8257,6 +8262,7 @@ dependencies = [
  "sp-io",
  "sp-keystore",
  "sp-runtime",
+ "sp-state-machine",
  "sp-std",
  "substrate-test-utils",
 ]
@@ -8369,6 +8375,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-staking",
+ "sp-state-machine",
  "sp-std",
  "substrate-test-utils",
 ]

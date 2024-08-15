@@ -46,6 +46,7 @@ pallet-timestamp = { default-features = false, git = "https://github.com/parityt
 pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
 pallet-scheduler = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 pallet-preimage = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-state-machine = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 
 [features]
 default = ["std"]

@@ -24,6 +24,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::{self as system, limits, EnsureRoot};
+use sp_state_machine::BasicExternalities;
 
 use pallet_avn::BridgeInterfaceNotification;
 use pallet_transaction_payment::CurrencyAdapter;
@@ -421,7 +422,7 @@ impl ExtBuilder {
 
     pub fn with_validators(mut self) -> Self {
         let genesis_accounts_ids = genesis_collators();
-        frame_support::BasicExternalities::execute_with_storage(&mut self.storage, || {
+        BasicExternalities::execute_with_storage(&mut self.storage, || {
             for ref k in genesis_accounts_ids.clone() {
                 frame_system::Pallet::<TestRuntime>::inc_providers(k);
             }

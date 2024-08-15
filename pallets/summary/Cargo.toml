@@ -45,6 +45,7 @@ pallet-session = { features = [
 	"historical",
 ], git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
 pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-state-machine = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 assert_matches = "1.3.0"
 pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
 
