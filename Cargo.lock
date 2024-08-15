@@ -1062,6 +1062,7 @@ dependencies = [
  "pallet-whitelist",
  "pallet-xcm",
  "parachain-info",
+ "parachains-common",
  "parity-scale-codec 3.6.4",
  "polkadot-parachain-primitives",
  "polkadot-runtime-common",

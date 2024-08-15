@@ -82,6 +82,7 @@ cumulus-primitives-core = { git = "https://github.com/paritytech/polkadot-sdk", 
 cumulus-primitives-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
 cumulus-primitives-utility = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
 parachain-info = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
+parachains-common = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
 
 # AvN pallets
 sp-avn-common = { path = "../../primitives/avn-common", default-features = false }

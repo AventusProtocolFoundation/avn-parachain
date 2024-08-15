@@ -29,7 +29,9 @@ use crate::{
     NominationAction, Pallet, Points, Proof, ScheduledRequest,
 };
 use codec::{Decode, Encode};
-use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, vec, Zero};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use sp_runtime::traits::Zero;
+
 use frame_support::traits::{Currency, Get, OnFinalize, OnInitialize};
 use frame_system::{self as system, EventRecord, RawOrigin};
 use hex_literal::hex;
@@ -38,7 +40,7 @@ use rand::{RngCore, SeedableRng};
 use sp_application_crypto::KeyTypeId;
 use sp_core::{bounded::BoundedVec, ecdsa, ConstU32};
 use sp_runtime::{traits::StaticLookup, RuntimeAppPublic, WeakBoundedVec};
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use sp_std::{collections::btree_map::BTreeMap, vec, vec::Vec};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 
