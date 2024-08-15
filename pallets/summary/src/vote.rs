@@ -9,14 +9,10 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::event_types::Validator;
 use sp_std::prelude::*;
 
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    log,
-};
 use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
 use pallet_avn::{self as avn, vote::*, Error as avn_error};
 use sp_application_crypto::RuntimeAppPublic;
-use sp_runtime::scale_info::TypeInfo;
+use sp_runtime::{scale_info::TypeInfo, DispatchError, DispatchResult};
 use sp_std::fmt::Debug;
 
 use super::{Call, Config};

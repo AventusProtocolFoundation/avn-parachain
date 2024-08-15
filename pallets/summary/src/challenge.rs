@@ -1,7 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::log;
 use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::event_types::Validator;

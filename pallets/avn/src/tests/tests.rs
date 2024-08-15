@@ -1,8 +1,4 @@
-use crate::{
-    mock::{TestRuntime, *},
-    Error,
-};
-use frame_support::{assert_err, assert_noop};
+use crate::mock::*;
 use sp_runtime::testing::UintAuthorityId;
 
 fn setup_last_validator_as_primary() {
@@ -27,7 +23,7 @@ mod when_advance_primary_validator_for_sending_is_called {
         ext.execute_with(|| {
             let eth_index_before: u8 = AVN::get_primary_collator();
 
-            AVN::advance_primary_validator_for_sending();
+            let _ = AVN::advance_primary_validator_for_sending();
 
             let eth_index_after: u8 = AVN::get_primary_collator();
             assert_eq!(eth_index_after, eth_index_before + 1);
@@ -77,7 +73,7 @@ mod calling_is_primary_validator_for_ethereum {
             let mut result = AVN::is_primary_validator_for_sending(&expected_primary).unwrap();
             assert!(result == true, "Wrong primary validator");
 
-            AVN::advance_primary_validator_for_sending();
+            let _ = AVN::advance_primary_validator_for_sending();
 
             expected_primary = 2;
             result = AVN::is_primary_validator_for_sending(&expected_primary).unwrap();
@@ -99,7 +95,7 @@ mod calling_is_primary_validator_for_ethereum {
     fn fails_with_no_validators() {
         let mut ext = ExtBuilder::build_default().as_externality();
         ext.execute_with(|| {
-            let mut expected_primary = 1;
+            let expected_primary = 1;
             let result = AVN::is_primary_validator_for_sending(&expected_primary);
             assert!(result.is_err());
         });
@@ -161,9 +157,9 @@ mod calling_is_primary_validator_for_avn {
     fn returns_false_if_it_is_not() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
-            let mut wrong_validator = 4;
+            let wrong_validator = 4;
             let block_number = System::block_number();
-            let mut result = AVN::is_primary_for_block(block_number, &wrong_validator).unwrap();
+            let result = AVN::is_primary_for_block(block_number, &wrong_validator).unwrap();
             assert!(result != true, "Primary validator is unexpectedly correct");
         });
     }
@@ -172,7 +168,7 @@ mod calling_is_primary_validator_for_avn {
     fn fails_with_no_validators() {
         let mut ext = ExtBuilder::build_default().as_externality();
         ext.execute_with(|| {
-            let mut expected_primary = 1;
+            let expected_primary = 1;
             let block_number = System::block_number();
             let result = AVN::is_primary_for_block(block_number, &expected_primary);
             assert!(result.is_err());

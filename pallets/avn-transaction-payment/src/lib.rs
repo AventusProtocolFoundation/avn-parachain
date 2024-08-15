@@ -8,7 +8,6 @@
 
 use frame_support::{
     dispatch::{DispatchResult, GetDispatchInfo, PostDispatchInfo},
-    log,
     traits::{Currency, Imbalance, OnUnbalanced},
     unsigned::TransactionValidityError,
 };

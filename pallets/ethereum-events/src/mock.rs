@@ -2,13 +2,14 @@
 
 #![cfg(test)]
 
-use frame_support::{assert_ok, parameter_types, weights::Weight, BasicExternalities};
+use frame_support::{assert_ok, parameter_types, weights::Weight};
 use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     BoundedBTreeSet, BuildStorage, Perbill, WeakBoundedVec,
 };
+use sp_state_machine::BasicExternalities;
 use std::{cell::RefCell, collections::BTreeSet};
 
 use frame_system as system;

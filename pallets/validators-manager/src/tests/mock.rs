@@ -4,8 +4,10 @@ use crate::{self as validators_manager, *};
 use frame_support::{
     parameter_types,
     traits::{Currency, GenesisBuild, OnFinalize, OnInitialize},
-    BasicExternalities, PalletId,
+    PalletId,
 };
+use sp_state_machine::BasicExternalities;
+
 use hex_literal::hex;
 use pallet_balances as balances;
 use pallet_eth_bridge::offence::CorroborationOffence;

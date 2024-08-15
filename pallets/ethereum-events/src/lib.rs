@@ -12,7 +12,7 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 use frame_support::{
     dispatch::DispatchResult,
-    ensure, log,
+    ensure,
     traits::{Get, IsSubType},
 };
 use frame_system::{

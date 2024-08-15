@@ -22,8 +22,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use frame_support::{
     dispatch::{
-        DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, Dispatchable,
-        PostDispatchInfo,
+        DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, PostDispatchInfo,
     },
     ensure,
     pallet_prelude::StorageVersion,
@@ -44,7 +43,7 @@ use sp_core::{ConstU32, H160, H256, U256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::{Hash, IdentifyAccount, Member, Verify},
+    traits::{Dispatchable, Hash, IdentifyAccount, Member, Verify},
     BoundedVec,
 };
 use sp_std::prelude::*;
