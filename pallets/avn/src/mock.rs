@@ -3,7 +3,7 @@
 #![cfg(test)]
 
 use crate::{self as pallet_avn, *};
-use frame_support::{parameter_types, weights::Weight, BasicExternalities};
+use frame_support::{parameter_types, weights::Weight};
 use frame_system as system;
 use hex_literal::hex;
 use pallet_session as session;
@@ -16,6 +16,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup},
     BuildStorage, Perbill,
 };
+use sp_state_machine::BasicExternalities;
 use std::cell::RefCell;
 
 pub type AccountId = <TestRuntime as system::Config>::AccountId;

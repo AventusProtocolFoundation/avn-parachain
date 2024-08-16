@@ -12,7 +12,7 @@ repository = { workspace = true }
 # third-party dependencies
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 structopt = "0.3.8"
-log = "0.4.17"
+log = "0.4.20"
 serde_json = "1.0.85"
 serde = "1.0.163"
 tide = { version = "0.16.0" }
@@ -42,25 +42,25 @@ ethereum-types = "0.11.0"
 
 pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = false }
 pallet-eth-bridge-runtime-api = { path = "../../pallets/eth-bridge/runtime-api", default-features = false }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-block-builder = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-blockchain = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 
 # primitives
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 sp-avn-common = { path = "../../primitives/avn-common", default-features = false }
-sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sp-state-machine = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-api = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-state-machine = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 
 # client dependencies
-sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sc-client-db = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
+sc-keystore = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sc-service = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sc-client-db = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v1.0.0" }
-node-primitives = { version = "2.0.0", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v1.0.0" }
+frame-system = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+node-primitives = { version = "2.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 

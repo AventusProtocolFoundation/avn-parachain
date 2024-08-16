@@ -1,8 +1,7 @@
 use crate::{Config, LowerSchedulePeriod, Pallet};
 use frame_support::{
-    dispatch::GetStorageVersion,
     pallet_prelude::{PhantomData, StorageVersion},
-    traits::{Get, OnRuntimeUpgrade},
+    traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
     weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;

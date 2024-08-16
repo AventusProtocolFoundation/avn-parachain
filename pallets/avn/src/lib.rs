@@ -23,7 +23,7 @@ use alloc::{
 
 use codec::{Decode, Encode};
 use core::convert::TryInto;
-use frame_support::{dispatch::DispatchResult, log::*, traits::OneSessionHandler};
+use frame_support::{dispatch::DispatchResult, traits::OneSessionHandler};
 use frame_system::{
     ensure_root,
     pallet_prelude::{BlockNumberFor, OriginFor},
@@ -225,11 +225,14 @@ impl<T: Config> Pallet<T> {
         // so we need to make sure we only run this once per block
         OcwLock::record_block_run(block_number, caller_id).map_err(|e| match e {
             OcwStorageError::OffchainWorkerAlreadyRun => {
-                info!("❌ Offchain worker has already run for block number: {:?}", block_number);
+                log::info!(
+                    "❌ Offchain worker has already run for block number: {:?}",
+                    block_number
+                );
                 Error::<T>::OffchainWorkerAlreadyRun
             },
             OcwStorageError::ErrorRecordingOffchainWorkerRun => {
-                error!(
+                log::error!(
                     "❌ Unable to record offchain worker run for block {:?}, skipping",
                     block_number
                 );
@@ -370,7 +373,7 @@ impl<T: Config> Pallet<T> {
         let mut url = String::from("eth/sign/");
         url.push_str(data_to_sign);
 
-        info!(target: "avn-service", "avn-service sign request (ecdsa) for hex-encoded data {:?}", data_to_sign);
+        log::info!(target: "avn-service", "avn-service sign request (ecdsa) for hex-encoded data {:?}", data_to_sign);
 
         let ecdsa_signature_utf8 = Self::get_data_from_service(url)?;
         let ecdsa_signature_bytes = core::str::from_utf8(&ecdsa_signature_utf8)
@@ -389,7 +392,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // verify that the incoming (unverified) pubkey is actually a validator
         if !Self::is_validator(&validator.account_id) {
-            warn!("Signature validation failed, account {:?}, is not validator", validator);
+            log::warn!("Signature validation failed, account {:?}, is not validator", validator);
             return false
         }
 
@@ -397,7 +400,7 @@ impl<T: Config> Pallet<T> {
         let signature_valid =
             data.using_encoded(|encoded_data| validator.key.verify(&encoded_data, &signature));
 
-        debug!(
+        log::debug!(
             "🪲 Validating signature: [ data {:?} - account {:?} - signature {:?} ] Result: {}",
             data.encode(),
             validator.encode(),
@@ -466,17 +469,17 @@ impl<T: Config> Pallet<T> {
     pub fn get_finalised_block_from_external_service() -> Result<BlockNumberFor<T>, Error<T>> {
         let response = Self::get_data_from_service(String::from("latest_finalised_block"))
             .map_err(|e| {
-                error!("❌ Error getting finalised block from avn service: {:?}", e);
+                log::error!("❌ Error getting finalised block from avn service: {:?}", e);
                 Error::<T>::ErrorGettingFinalisedBlock
             })?;
 
         let finalised_block_bytes = hex::decode(&response).map_err(|e| {
-            error!("❌ Error decoding finalised block data {:?}", e);
+            log::error!("❌ Error decoding finalised block data {:?}", e);
             Error::<T>::InvalidResponse
         })?;
 
         let finalised_block = u32::decode(&mut &finalised_block_bytes[..]).map_err(|e| {
-            error!("❌ Finalised block is not a valid u32: {:?}", e);
+            log::error!("❌ Finalised block is not a valid u32: {:?}", e);
             Error::<T>::ErrorDecodingU32
         })?;
 
@@ -493,7 +496,7 @@ impl<T: Config> Pallet<T> {
 
         let port_number = core::str::from_utf8(&port_number_bytes);
         if let Err(e) = port_number {
-            trace!(
+            log::trace!(
                 "❌ External service port {} is not formatted correctly. Using default port.",
                 e
             );
@@ -503,7 +506,7 @@ impl<T: Config> Pallet<T> {
         let port_number = port_number.expect("Already checked for errors");
 
         if port_number.parse::<u32>().is_err() {
-            trace!(
+            log::trace!(
                 "❌ External service port {} is not a valid number. Using default port.",
                 port_number
             );
@@ -531,21 +534,21 @@ impl<T: Config> Pallet<T> {
             .url(&url)
             .send()
             .map_err(|e| {
-                error!("❌ Request failed: {:?}", e);
+                log::error!("❌ Request failed: {:?}", e);
                 Error::<T>::RequestFailed
             })?
             .try_wait(deadline)
             .map_err(|e| {
-                error!("❌ Response failed: {:?}", e);
+                log::error!("❌ Response failed: {:?}", e);
                 Error::<T>::ResponseFailed
             })?
             .map_err(|e| {
-                error!("❌ Invalid response: {:?}", e);
+                log::error!("❌ Invalid response: {:?}", e);
                 Error::<T>::InvalidResponse
             })?;
 
         if response.code != 200 {
-            error!("❌ Unexpected status code: {}", response.code);
+            log::error!("❌ Unexpected status code: {}", response.code);
             return Err(Error::<T>::UnexpectedStatusCode)?
         }
 
@@ -579,7 +582,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
     where
         I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
     {
-        trace!("Avn pallet genesis session entrypoint");
+        log::trace!("Avn pallet genesis session entrypoint");
         let avn_validators = WeakBoundedVec::force_from(
             validators.map(|x| Validator::new(x.0.clone(), x.1)).collect::<Vec<_>>(),
             Some("Too many validators for session"),
@@ -596,7 +599,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
     where
         I: Iterator<Item = (&'a T::AccountId, T::AuthorityId)>,
     {
-        trace!("Avn pallet new session entrypoint");
+        log::trace!("Avn pallet new session entrypoint");
         // Update the list of validators if it has changed
         let mut disabled_avn_validators: Vec<T::AccountId> = vec![];
         let mut active_avn_validators: Vec<Validator<T::AuthorityId, T::AccountId>> = vec![];

@@ -26,7 +26,7 @@ use codec::{Decode, Encode};
 use core::convert::{TryFrom, TryInto};
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo},
-    ensure, log,
+    ensure,
     traits::{
         schedule::{
             v3::{Anon as ScheduleAnon, Named as ScheduleNamed, TaskName},

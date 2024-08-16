@@ -1,7 +1,9 @@
 use super::*;
 use crate::{self as eth_bridge, request::add_new_send_request};
 use avn;
-use frame_support::{parameter_types, BasicExternalities};
+use frame_support::parameter_types;
+use sp_state_machine::BasicExternalities;
+
 use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;

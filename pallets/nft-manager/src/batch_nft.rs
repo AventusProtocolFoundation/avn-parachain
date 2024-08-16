@@ -21,9 +21,10 @@ use crate::{
     ProcessedEventsChecker, Proof, Royalty, Vec, BATCH_ID_CONTEXT, BATCH_NFT_ID_CONTEXT, H160,
     U256,
 };
-use frame_support::{dispatch::DispatchError, ensure};
+use frame_support::ensure;
 use sp_avn_common::event_types::NftMintData;
 use sp_core::bounded::BoundedVec;
+use sp_runtime::DispatchError;
 
 pub const SIGNED_CREATE_BATCH_CONTEXT: &'static [u8] = b"authorization for create batch operation";
 pub const SIGNED_MINT_BATCH_NFT_CONTEXT: &'static [u8] =

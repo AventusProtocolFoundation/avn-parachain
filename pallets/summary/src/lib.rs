@@ -26,7 +26,7 @@ use sp_std::prelude::*;
 use avn::BridgeInterfaceNotification;
 use core::convert::TryInto;
 use frame_support::{
-    dispatch::DispatchResult, ensure, log, pallet_prelude::StorageVersion, traits::Get,
+    dispatch::DispatchResult, ensure, pallet_prelude::StorageVersion, traits::Get,
 };
 use frame_system::{
     self as system, ensure_none, ensure_root,
