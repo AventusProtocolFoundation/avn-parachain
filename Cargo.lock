@@ -1035,6 +1035,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-avn",
+ "pallet-avn-anchor",
  "pallet-avn-offence-handler",
  "pallet-avn-proxy",
  "pallet-avn-transaction-payment",
@@ -7180,6 +7181,25 @@ dependencies = [
  "sp-state-machine",
  "sp-std",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-avn-anchor"
+version = "5.6.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "log",
+ "pallet-avn",
+ "parity-scale-codec 3.6.4",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-runtime",
+ "sp-staking",
 ]
 
 [[package]]

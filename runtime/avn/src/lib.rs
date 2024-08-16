@@ -631,6 +631,11 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
 }
 
+impl pallet_avn_anchor::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
+}
+
 use sp_avn_common::{
     event_discovery::{EthBridgeEventsFilter, EthereumEventsFilterTrait},
     event_types::ValidEvents,
@@ -789,6 +794,7 @@ construct_runtime!(
         AvnProxy: pallet_avn_proxy = 89,
         AvnTransactionPayment: pallet_avn_transaction_payment = 90,
         EthBridge: pallet_eth_bridge = 91,
+        AvnAnchor: pallet_avn_anchor = 92,
 
         // OpenGov pallets
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 97,
@@ -820,6 +826,7 @@ mod benches {
         [pallet_timestamp, Timestamp]
         [pallet_utility, Utility]
         [pallet_parachain_staking, ParachainStaking]
+        // [pallet_avn_anchor, AvnAnchor]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
     );
 }

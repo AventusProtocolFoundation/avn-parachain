@@ -1,0 +1,60 @@
+[package]
+name = "pallet-avn-anchor"
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+rust-version = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0.163", default-features = false, optional = true }
+codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false }
+hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+hex-literal = { version = "0.4.1", default-features = false }
+scale-info = { version = "2.9.0", default-features = false, features = [
+	"derive",
+] }
+log = { version = "0.4.20",  default-features = false }
+
+# sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+# sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+sp-staking = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+# sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+# sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", optional = true }
+
+pallet-avn = { path = "../avn", default-features = false }
+
+[features]
+migrate = []
+default = ["std"]
+std = [
+	"frame-benchmarking?/std",
+	"serde/std",
+	"scale-info/std",
+	"codec/std",
+	# "sp-std/std",
+	# "sp-io/std",
+	"sp-core/std",
+	"sp-runtime/std",
+	# "sp-application-crypto/std",
+	"sp-staking/std",
+	# "sp-avn-common/std",
+	"frame-support/std",
+	"frame-system/std",
+
+    "pallet-avn/std",
+]
+runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
+try-runtime = ["frame-support/try-runtime"]
