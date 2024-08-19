@@ -632,7 +632,7 @@ impl pallet_avn_transaction_payment::Config for Runtime {
 }
 
 impl pallet_avn_anchor::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
+    // type RuntimeEvent = RuntimeEvent;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
 }
 

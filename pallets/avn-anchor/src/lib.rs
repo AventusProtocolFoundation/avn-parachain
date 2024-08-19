@@ -1,18 +1,23 @@
-pub use pallet::*;
+#![cfg_attr(not(feature = "std"), no_std)]
 
-use pallet_avn::{self as avn};
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+
+// use pallet_avn::{self as avn};
 use frame_system::{
     self as system, ensure_none, ensure_root,
-    offchain::{SendTransactionTypes, SubmitTransaction},
 };
 use frame_support::{
     dispatch::DispatchResult, ensure, pallet_prelude::StorageVersion, traits::Get,
 };
+// use sp_std::prelude::*;
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -21,23 +26,21 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
-    pub trait Config:
-        SendTransactionTypes<Call<Self>> + frame_system::Config + avn::Config
+    pub trait Config: frame_system::Config + pallet_avn::Config 
     {
-        type RuntimeEvent: From<Event<Self>>
-            + Into<<Self as frame_system::Config>::RuntimeEvent>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        // type RuntimeEvent: From<Event<Self>>
+        //     + Into<<Self as frame_system::Config>::RuntimeEvent>
+        //     + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         type WeightInfo: WeightInfo;
     }
 
     #[pallet::pallet]
-    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
-    #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config> {}
+    // #[pallet::event]
+    // #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    // pub enum Event<T: Config> {}
 
     #[pallet::error]
     pub enum Error<T> {}
