@@ -18,6 +18,14 @@ pub use default_weights::WeightInfo;
 pub use pallet::*;
 use sp_core::ConstU32;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
+mod benchmarking;
+
 pub type MaximumHandlersBound = ConstU32<256>;
 
 #[frame_support::pallet]
@@ -68,13 +76,16 @@ pub mod pallet {
             chain_id: ChainId,
             handler_account_id: T::AccountId,
         ) -> DispatchResult {
-            ensure_root(origin)?; // Assuming only the root can register handlers
+            ensure_signed(origin)?;
 
             ensure!(!ChainHandlers::<T>::contains_key(&chain_id), Error::<T>::HandlerAlreadyExists);
 
             ChainHandlers::<T>::insert(chain_id, handler_account_id.clone());
 
-            Self::deposit_event(Event::ChainHandlerRegistered(chain_id, handler_account_id.clone()));
+            Self::deposit_event(Event::ChainHandlerRegistered(
+                chain_id,
+                handler_account_id.clone(),
+            ));
 
             Ok(())
         }
@@ -86,7 +97,7 @@ pub mod pallet {
             chain_id: ChainId,
             new_handler_account_id: T::AccountId,
         ) -> DispatchResult {
-            ensure_root(origin)?;
+            ensure_signed(origin)?;
 
             ChainHandlers::<T>::try_mutate(&chain_id, |maybe_handler| -> DispatchResult {
                 let handler = maybe_handler.as_mut().ok_or(Error::<T>::HandlerNotRegistered)?;
@@ -94,7 +105,10 @@ pub mod pallet {
                 Ok(())
             })?;
 
-            Self::deposit_event(Event::ChainHandlerUpdated(chain_id, new_handler_account_id.clone()));
+            Self::deposit_event(Event::ChainHandlerUpdated(
+                chain_id,
+                new_handler_account_id.clone(),
+            ));
 
             Ok(())
         }
