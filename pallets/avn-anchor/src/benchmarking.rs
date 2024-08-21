@@ -2,10 +2,8 @@
 
 use super::*;
 
-use crate::{Pallet as AvnAnchor, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_system::{EventRecord, RawOrigin};
-use sp_runtime::traits::Bounded;
+use frame_system::RawOrigin;
 
 const SEED: u32 = 0;
 
@@ -33,6 +31,19 @@ benchmarks! {
         assert!(ChainHandlers::<T>::contains_key(&new_handler));
         let chain_data = ChainHandlers::<T>::get(&new_handler).unwrap();
         assert_eq!(chain_data.name, name);
+    }
+
+    submit_checkpoint_with_identity {
+        let caller: T::AccountId = account("known_sender", 1, 1);
+        let chain_id: ChainId = 1;
+        let checkpoint = H256::random();
+
+        ChainHandlers::<T>::insert(chain_id, caller.clone());
+
+    }: _(RawOrigin::Signed(caller), chain_id, checkpoint)
+    verify {
+        assert_eq!(Checkpoints::<T>::get(chain_id, 0), checkpoint);
+        assert_eq!(NextCheckpointId::<T>::get(chain_id), 1);
     }
 }
 
