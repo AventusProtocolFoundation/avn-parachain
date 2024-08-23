@@ -28,6 +28,8 @@ mod benchmarking;
 
 pub type MaximumHandlersBound = ConstU32<256>;
 
+pub type  ChainNameLimit = ConstU32<32>;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -35,6 +37,12 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     pub type ChainId = u32;
+    #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+    #[scale_info(skip_type_params(T))]
+    pub struct ChainData {
+        pub chain_id: ChainId,
+        pub name: BoundedVec<u8, ChainNameLimit>,
+    }
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_avn::Config {
@@ -51,21 +59,27 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// A new chain handler was registered. [chain_id, handler_account_id]
-        ChainHandlerRegistered(ChainId, T::AccountId),
-        /// A chain handler was updated. [chain_id, new_handler_account_id]
-        ChainHandlerUpdated(ChainId, T::AccountId),
+        /// A new chain handler was registered. [handler_account_id, chain_id, name]
+        ChainHandlerRegistered(T::AccountId, ChainId, BoundedVec<u8, ChainNameLimit>),
+        /// A chain handler was updated. [old_handler_account_id, new_handler_account_id, chain_id, name]
+        ChainHandlerUpdated(T::AccountId, T::AccountId, ChainId, BoundedVec<u8, ChainNameLimit>),
     }
 
     #[pallet::error]
     pub enum Error<T> {
-        HandlerAlreadyExists,
-        HandlerNotRegistered,
+        ChainNotRegistered,
+        HandlerAlreadyRegistered,
+        UnauthorizedHandler,
+        NoAvailableChainId,
     }
 
     #[pallet::storage]
     #[pallet::getter(fn chain_handlers)]
-    pub type ChainHandlers<T: Config> = StorageMap<_, Blake2_128Concat, ChainId, T::AccountId>;
+    pub type ChainHandlers<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, ChainData>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_chain_id)]
+    pub type NextChainId<T> = StorageValue<_, ChainId, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -73,19 +87,22 @@ pub mod pallet {
         #[pallet::call_index(0)]
         pub fn register_chain_handler(
             origin: OriginFor<T>,
-            chain_id: ChainId,
-            handler_account_id: T::AccountId,
+            name: BoundedVec<u8, ChainNameLimit>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let handler = ensure_signed(origin)?;
 
-            ensure!(!ChainHandlers::<T>::contains_key(&chain_id), Error::<T>::HandlerAlreadyExists);
+            ensure!(!ChainHandlers::<T>::contains_key(&handler), Error::<T>::HandlerAlreadyRegistered);
 
-            ChainHandlers::<T>::insert(chain_id, handler_account_id.clone());
+            let chain_id = Self::get_next_chain_id()?;
 
-            Self::deposit_event(Event::ChainHandlerRegistered(
+            let chain_data = ChainData {
                 chain_id,
-                handler_account_id.clone(),
-            ));
+                name: name.clone(),
+            };
+
+            ChainHandlers::<T>::insert(&handler, chain_data);
+
+            Self::deposit_event(Event::ChainHandlerRegistered(handler, chain_id, name));
 
             Ok(())
         }
@@ -94,20 +111,22 @@ pub mod pallet {
         #[pallet::call_index(1)]
         pub fn update_chain_handler(
             origin: OriginFor<T>,
-            chain_id: ChainId,
-            new_handler_account_id: T::AccountId,
+            new_handler: T::AccountId,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
+            let old_handler = ensure_signed(origin)?;
 
-            ChainHandlers::<T>::try_mutate(&chain_id, |maybe_handler| -> DispatchResult {
-                let handler = maybe_handler.as_mut().ok_or(Error::<T>::HandlerNotRegistered)?;
-                *handler = new_handler_account_id.clone();
-                Ok(())
-            })?;
+            let chain_data = ChainHandlers::<T>::get(&old_handler).ok_or(Error::<T>::ChainNotRegistered)?;
+
+            ensure!(!ChainHandlers::<T>::contains_key(&new_handler), Error::<T>::HandlerAlreadyRegistered);
+
+            ChainHandlers::<T>::remove(&old_handler);
+            ChainHandlers::<T>::insert(&new_handler, chain_data.clone());
 
             Self::deposit_event(Event::ChainHandlerUpdated(
-                chain_id,
-                new_handler_account_id.clone(),
+                old_handler,
+                new_handler,
+                chain_data.chain_id,
+                chain_data.name,
             ));
 
             Ok(())
@@ -121,6 +140,16 @@ pub mod pallet {
             // identity
         ) -> DispatchResult {
             Ok(())
+        }
+    }
+
+    impl<T: Config> Pallet<T> {
+        fn get_next_chain_id() -> Result<ChainId, DispatchError> {
+            NextChainId::<T>::try_mutate(|id| {
+                let current_id = *id;
+                *id = id.checked_add(1).ok_or(Error::<T>::NoAvailableChainId)?;
+                Ok(current_id)
+            })
         }
     }
 }

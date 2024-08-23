@@ -11,24 +11,28 @@ const SEED: u32 = 0;
 
 benchmarks! {
     register_chain_handler {
-        let caller: T::AccountId = account("known_sender", 1, 1);
-        let chain_id: ChainId = 1;
-        let handler: T::AccountId = account("handler", 0, SEED);
-    }: _(RawOrigin::Signed(caller), chain_id, handler.clone())
+        let caller: T::AccountId = account("caller", 0, SEED);
+        let name: BoundedVec<u8, ConstU32<32>> = BoundedVec::try_from(vec![0u8; 32]).unwrap();
+    }: _(RawOrigin::Signed(caller.clone()), name.clone())
     verify {
-        assert_eq!(ChainHandlers::<T>::get(chain_id), Some(handler));
+        assert!(ChainHandlers::<T>::contains_key(&caller));
+        let chain_data = ChainHandlers::<T>::get(&caller).unwrap();
+        assert_eq!(chain_data.name, name);
     }
 
     update_chain_handler {
-        let caller: T::AccountId = account("known_sender", 1, 1);
-        let chain_id: ChainId = 1;
-        let initial_handler: T::AccountId = account("initial_handler", 0, SEED);
+        let old_handler: T::AccountId = account("old_handler", 0, SEED);
         let new_handler: T::AccountId = account("new_handler", 1, SEED);
+        let name: BoundedVec<u8, ConstU32<32>> = BoundedVec::try_from(vec![0u8; 32]).unwrap();
 
-        Pallet::<T>::register_chain_handler(RawOrigin::Signed(caller.clone()).into(), chain_id, initial_handler)?;
-    }: _(RawOrigin::Signed(caller), chain_id, new_handler.clone())
+        // Register the initial handler
+        Pallet::<T>::register_chain_handler(RawOrigin::Signed(old_handler.clone()).into(), name.clone())?;
+    }: _(RawOrigin::Signed(old_handler.clone()), new_handler.clone())
     verify {
-        assert_eq!(ChainHandlers::<T>::get(chain_id), Some(new_handler));
+        assert!(!ChainHandlers::<T>::contains_key(&old_handler));
+        assert!(ChainHandlers::<T>::contains_key(&new_handler));
+        let chain_data = ChainHandlers::<T>::get(&new_handler).unwrap();
+        assert_eq!(chain_data.name, name);
     }
 }
 

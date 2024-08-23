@@ -7193,6 +7193,7 @@ dependencies = [
  "log",
  "pallet-avn",
  "parity-scale-codec 3.6.4",
+ "parking_lot 0.12.1",
  "scale-info",
  "sp-application-crypto",
  "sp-avn-common",
