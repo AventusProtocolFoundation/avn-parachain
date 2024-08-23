@@ -200,7 +200,10 @@ fn update_chain_handler_fails_for_non_handler() {
         assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(current_handler), name.clone()));
         
         assert_noop!(
-            AvnAnchor::update_chain_handler(RuntimeOrigin::signed(unauthorized_account), new_handler),
+            AvnAnchor::update_chain_handler(
+                RuntimeOrigin::signed(unauthorized_account),
+                new_handler
+            ),
             Error::<TestRuntime>::ChainNotRegistered
         );
 
@@ -210,7 +213,10 @@ fn update_chain_handler_fails_for_non_handler() {
         assert_eq!(chain_data.name, name);
 
         // Verify that the update is successful when initiated by the current handler
-        assert_ok!(AvnAnchor::update_chain_handler(RuntimeOrigin::signed(current_handler), new_handler));
+        assert_ok!(AvnAnchor::update_chain_handler(
+            RuntimeOrigin::signed(current_handler),
+            new_handler
+        ));
 
         // Verify that the handler has now changed
         assert!(AvnAnchor::chain_handlers(current_handler).is_none());
@@ -218,7 +224,67 @@ fn update_chain_handler_fails_for_non_handler() {
         assert_eq!(updated_chain_data.chain_id, 0);
         assert_eq!(updated_chain_data.name, name);
 
-        System::assert_last_event(Event::ChainHandlerUpdated(current_handler, new_handler, 0, name).into());
+        System::assert_last_event(
+            Event::ChainHandlerUpdated(current_handler, new_handler, 0, name).into(),
+        );
+    });
+}
+
+#[test]
+fn submit_checkpoint_with_identity_works() {
+    new_test_ext().execute_with(|| {
+        let handler = 1;
+        let name = bounded_vec(b"Test Chain");
+        let checkpoint = H256::random();
+
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler),
+            checkpoint
+        ));
+
+        assert_eq!(AvnAnchor::checkpoints(0, 0), checkpoint);
+
+        System::assert_last_event(Event::CheckpointSubmitted(handler, 0, 0, checkpoint).into());
+    });
+}
+
+#[test]
+fn submit_checkpoint_with_identity_fails_for_unregistered_handler() {
+    new_test_ext().execute_with(|| {
+        let handler = 1;
+        let checkpoint = H256::random();
+
+        assert_noop!(
+            AvnAnchor::submit_checkpoint_with_identity(RuntimeOrigin::signed(handler), checkpoint),
+            Error::<TestRuntime>::ChainNotRegistered
+        );
+    });
+}
+
+#[test]
+fn submit_multiple_checkpoints_increments_checkpoint_id() {
+    new_test_ext().execute_with(|| {
+        let handler = 1;
+        let name = bounded_vec(b"Test Chain");
+        let checkpoint1 = H256::random();
+        let checkpoint2 = H256::random();
+
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler),
+            checkpoint1
+        ));
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler),
+            checkpoint2
+        ));
+
+        assert_eq!(AvnAnchor::checkpoints(0, 0), checkpoint1);
+        assert_eq!(AvnAnchor::checkpoints(0, 1), checkpoint2);
+
+        System::assert_has_event(Event::CheckpointSubmitted(handler, 0, 0, checkpoint1).into());
+        System::assert_has_event(Event::CheckpointSubmitted(handler, 0, 1, checkpoint2).into());
     });
 }
 
@@ -230,8 +296,14 @@ fn register_multiple_chains_increments_chain_id() {
         let name1 = bounded_vec(b"Chain 1");
         let name2 = bounded_vec(b"Chain 2");
 
-        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler1), name1.clone()));
-        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler2), name2.clone()));
+        assert_ok!(AvnAnchor::register_chain_handler(
+            RuntimeOrigin::signed(handler1),
+            name1.clone()
+        ));
+        assert_ok!(AvnAnchor::register_chain_handler(
+            RuntimeOrigin::signed(handler2),
+            name2.clone()
+        ));
 
         let chain_data1 = AvnAnchor::chain_handlers(handler1).unwrap();
         let chain_data2 = AvnAnchor::chain_handlers(handler2).unwrap();
