@@ -2,8 +2,8 @@
 
 use super::*;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_system::RawOrigin;
 use frame_support::BoundedVec;
+use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
 const SEED: u32 = 0;

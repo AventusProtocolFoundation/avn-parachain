@@ -1,14 +1,18 @@
 use crate::{self as avn_anchor, *};
 use frame_support::traits::{ConstU16, ConstU64};
 use frame_system as system;
-use sp_core::H256;
+use sp_core::{sr25519, H256};
 use sp_runtime::{
     testing::UintAuthorityId,
-    traits::{BlakeTwo256, IdentityLookup},
+    traits::{BlakeTwo256, IdentityLookup, Verify},
     BuildStorage,
 };
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
+
+pub type Signature = sr25519::Signature;
+
+pub type AccountId = <Signature as Verify>::Signer;
 
 frame_support::construct_runtime!(
     pub enum TestRuntime
@@ -47,6 +51,9 @@ impl system::Config for TestRuntime {
 
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Public = u64;
+    type Signature = u64;
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
 }
 
