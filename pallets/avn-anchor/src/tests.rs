@@ -123,11 +123,8 @@ fn update_chain_handler_fails_for_non_handler() {
         let unauthorized_account = 3;
         let name = bounded_vec(b"Test Chain");
 
-        assert_ok!(AvnAnchor::register_chain_handler(
-            RuntimeOrigin::signed(current_handler),
-            name.clone()
-        ));
-
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(current_handler), name.clone()));
+        
         assert_noop!(
             AvnAnchor::update_chain_handler(
                 RuntimeOrigin::signed(unauthorized_account),
@@ -156,6 +153,64 @@ fn update_chain_handler_fails_for_non_handler() {
         System::assert_last_event(
             Event::ChainHandlerUpdated(current_handler, new_handler, 0, name).into(),
         );
+    });
+}
+
+#[test]
+fn submit_checkpoint_with_identity_works() {
+    new_test_ext().execute_with(|| {
+        let handler = 1;
+        let name = bounded_vec(b"Test Chain");
+        let checkpoint = H256::random();
+
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler),
+            checkpoint
+        ));
+
+        assert_eq!(AvnAnchor::checkpoints(0, 0), checkpoint);
+
+        System::assert_last_event(Event::CheckpointSubmitted(handler, 0, 0, checkpoint).into());
+    });
+}
+
+#[test]
+fn submit_checkpoint_with_identity_fails_for_unregistered_handler() {
+    new_test_ext().execute_with(|| {
+        let handler = 1;
+        let checkpoint = H256::random();
+
+        assert_noop!(
+            AvnAnchor::submit_checkpoint_with_identity(RuntimeOrigin::signed(handler), checkpoint),
+            Error::<TestRuntime>::ChainNotRegistered
+        );
+    });
+}
+
+#[test]
+fn submit_multiple_checkpoints_increments_checkpoint_id() {
+    new_test_ext().execute_with(|| {
+        let handler = 1;
+        let name = bounded_vec(b"Test Chain");
+        let checkpoint1 = H256::random();
+        let checkpoint2 = H256::random();
+
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler),
+            checkpoint1
+        ));
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler),
+            checkpoint2
+        ));
+
+        assert_eq!(AvnAnchor::checkpoints(0, 0), checkpoint1);
+        assert_eq!(AvnAnchor::checkpoints(0, 1), checkpoint2);
+
+        System::assert_has_event(Event::CheckpointSubmitted(handler, 0, 0, checkpoint1).into());
+        System::assert_has_event(Event::CheckpointSubmitted(handler, 0, 1, checkpoint2).into());
     });
 }
 

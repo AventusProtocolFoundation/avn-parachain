@@ -15,7 +15,7 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 pub use pallet::*;
-use sp_core::ConstU32;
+use sp_core::{ConstU32, H256};
 
 #[cfg(test)]
 mod mock;
@@ -42,6 +42,7 @@ pub mod pallet {
         pub chain_id: ChainId,
         pub name: BoundedVec<u8, ChainNameLimit>,
     }
+    pub type CheckpointId = u64;
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_avn::Config {
@@ -63,6 +64,9 @@ pub mod pallet {
         /// A chain handler was updated. [old_handler_account_id, new_handler_account_id, chain_id,
         /// name]
         ChainHandlerUpdated(T::AccountId, T::AccountId, ChainId, BoundedVec<u8, ChainNameLimit>),
+        /// A new checkpoint was submitted. [handler_account_id, chain_id, checkpoint_id,
+        /// checkpoint]
+        CheckpointSubmitted(T::AccountId, ChainId, CheckpointId, H256),
     }
 
     #[pallet::error]
@@ -72,6 +76,7 @@ pub mod pallet {
         UnauthorizedHandler,
         NoAvailableChainId,
         EmptyChainName,
+        NoAvailableCheckpointId,
     }
 
     #[pallet::storage]
@@ -81,6 +86,22 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn next_chain_id)]
     pub type NextChainId<T> = StorageValue<_, ChainId, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn checkpoints)]
+    pub type Checkpoints<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        ChainId,
+        Blake2_128Concat,
+        CheckpointId,
+        H256,
+        ValueQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_checkpoint_id)]
+    pub type NextCheckpointId<T> = StorageValue<_, CheckpointId, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -140,13 +161,28 @@ pub mod pallet {
             Ok(())
         }
 
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkpoint_with_identity())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::submit_checkpoint_with_identity())]
         #[pallet::call_index(2)]
         pub fn submit_checkpoint_with_identity(
             origin: OriginFor<T>,
-            // checkpoint
-            // identity
+            checkpoint: H256,
         ) -> DispatchResult {
+            let handler = ensure_signed(origin)?;
+
+            let chain_data =
+                ChainHandlers::<T>::get(&handler).ok_or(Error::<T>::ChainNotRegistered)?;
+
+            let checkpoint_id = Self::get_next_checkpoint_id()?;
+
+            Checkpoints::<T>::insert(chain_data.chain_id, checkpoint_id, checkpoint);
+
+            Self::deposit_event(Event::CheckpointSubmitted(
+                handler,
+                chain_data.chain_id,
+                checkpoint_id,
+                checkpoint,
+            ));
+
             Ok(())
         }
     }
@@ -156,6 +192,14 @@ pub mod pallet {
             NextChainId::<T>::try_mutate(|id| {
                 let current_id = *id;
                 *id = id.checked_add(1).ok_or(Error::<T>::NoAvailableChainId)?;
+                Ok(current_id)
+            })
+        }
+
+        fn get_next_checkpoint_id() -> Result<CheckpointId, DispatchError> {
+            NextCheckpointId::<T>::try_mutate(|id| {
+                let current_id = *id;
+                *id = id.checked_add(1).ok_or(Error::<T>::NoAvailableCheckpointId)?;
                 Ok(current_id)
             })
         }
