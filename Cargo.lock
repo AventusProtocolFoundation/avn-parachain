@@ -7187,15 +7187,20 @@ dependencies = [
 name = "pallet-avn-anchor"
 version = "5.6.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
  "pallet-avn",
  "parity-scale-codec 3.6.4",
+ "parking_lot 0.12.1",
  "scale-info",
+ "sp-application-crypto",
  "sp-avn-common",
  "sp-core",
+ "sp-io",
  "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
