@@ -5,7 +5,6 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-// use pallet_avn::{self as avn};
 use frame_support::{
     dispatch::DispatchResult, ensure, pallet_prelude::StorageVersion, traits::Get,
 };
