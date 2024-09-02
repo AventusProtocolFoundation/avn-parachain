@@ -27,7 +27,7 @@ mod benchmarking;
 
 pub type MaximumHandlersBound = ConstU32<256>;
 
-pub type  ChainNameLimit = ConstU32<32>;
+pub type ChainNameLimit = ConstU32<32>;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -60,7 +60,8 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// A new chain handler was registered. [handler_account_id, chain_id, name]
         ChainHandlerRegistered(T::AccountId, ChainId, BoundedVec<u8, ChainNameLimit>),
-        /// A chain handler was updated. [old_handler_account_id, new_handler_account_id, chain_id, name]
+        /// A chain handler was updated. [old_handler_account_id, new_handler_account_id, chain_id,
+        /// name]
         ChainHandlerUpdated(T::AccountId, T::AccountId, ChainId, BoundedVec<u8, ChainNameLimit>),
     }
 
@@ -70,6 +71,7 @@ pub mod pallet {
         HandlerAlreadyRegistered,
         UnauthorizedHandler,
         NoAvailableChainId,
+        EmptyChainName,
     }
 
     #[pallet::storage]
@@ -90,14 +92,16 @@ pub mod pallet {
         ) -> DispatchResult {
             let handler = ensure_signed(origin)?;
 
-            ensure!(!ChainHandlers::<T>::contains_key(&handler), Error::<T>::HandlerAlreadyRegistered);
+            ensure!(
+                !ChainHandlers::<T>::contains_key(&handler),
+                Error::<T>::HandlerAlreadyRegistered
+            );
+
+            ensure!(!name.is_empty(), Error::<T>::EmptyChainName);
 
             let chain_id = Self::get_next_chain_id()?;
 
-            let chain_data = ChainData {
-                chain_id,
-                name: name.clone(),
-            };
+            let chain_data = ChainData { chain_id, name: name.clone() };
 
             ChainHandlers::<T>::insert(&handler, chain_data);
 
@@ -113,21 +117,26 @@ pub mod pallet {
             new_handler: T::AccountId,
         ) -> DispatchResult {
             let old_handler = ensure_signed(origin)?;
-
-            let chain_data = ChainHandlers::<T>::get(&old_handler).ok_or(Error::<T>::ChainNotRegistered)?;
-
-            ensure!(!ChainHandlers::<T>::contains_key(&new_handler), Error::<T>::HandlerAlreadyRegistered);
-
-            ChainHandlers::<T>::remove(&old_handler);
-            ChainHandlers::<T>::insert(&new_handler, chain_data.clone());
-
-            Self::deposit_event(Event::ChainHandlerUpdated(
-                old_handler,
-                new_handler,
-                chain_data.chain_id,
-                chain_data.name,
-            ));
-
+    
+            ensure!(
+                !ChainHandlers::<T>::contains_key(&new_handler),
+                Error::<T>::HandlerAlreadyRegistered
+            );
+    
+            ChainHandlers::<T>::try_mutate(&old_handler, |maybe_chain_data| -> DispatchResult {
+                let chain_data = maybe_chain_data.take().ok_or(Error::<T>::ChainNotRegistered)?;
+                ChainHandlers::<T>::insert(&new_handler, chain_data.clone());
+    
+                Self::deposit_event(Event::ChainHandlerUpdated(
+                    old_handler.clone(),
+                    new_handler.clone(),
+                    chain_data.chain_id,
+                    chain_data.name,
+                ));
+    
+                Ok(())
+            })?;
+    
             Ok(())
         }
 
