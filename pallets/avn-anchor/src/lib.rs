@@ -26,6 +26,10 @@ pub type MaximumHandlersBound = ConstU32<256>;
 
 pub type ChainNameLimit = ConstU32<32>;
 
+const REGISTER_CHAIN_HANDLER: &'static [u8] = b"register_chain_handler";
+const UPDATE_CHAIN_HANDLER: &'static [u8] = b"update_chain_handler";
+const SUBMIT_CHECKPOINT: &'static [u8] = b"submit_checkpoint";
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -125,7 +129,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn next_checkpoint_id)]
-    pub type NextCheckpointId<T> = StorageValue<_, CheckpointId, ValueQuery>;
+    pub type NextCheckpointId<T> =
+        StorageMap<_, Blake2_128Concat, ChainId, CheckpointId, ValueQuery>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -196,7 +201,7 @@ pub mod pallet {
             let chain_data =
                 ChainHandlers::<T>::get(&handler).ok_or(Error::<T>::ChainNotRegistered)?;
 
-            let checkpoint_id = Self::get_next_checkpoint_id()?;
+            let checkpoint_id = Self::get_next_checkpoint_id(chain_data.chain_id)?;
 
             Checkpoints::<T>::insert(chain_data.chain_id, checkpoint_id, checkpoint);
 
@@ -316,8 +321,8 @@ pub mod pallet {
             })
         }
 
-        fn get_next_checkpoint_id() -> Result<CheckpointId, DispatchError> {
-            NextCheckpointId::<T>::try_mutate(|id| {
+        fn get_next_checkpoint_id(chain_id: ChainId) -> Result<CheckpointId, DispatchError> {
+            NextCheckpointId::<T>::try_mutate(chain_id, |id| {
                 let current_id = *id;
                 *id = id.checked_add(1).ok_or(Error::<T>::NoAvailableCheckpointId)?;
                 Ok(current_id)
@@ -330,7 +335,7 @@ pub mod pallet {
             name: &BoundedVec<u8, ChainNameLimit>,
             sender_nonce: u64,
         ) -> Vec<u8> {
-            (b"register_chain_handler", proof.relayer.clone(), handler, name, sender_nonce).encode()
+            (REGISTER_CHAIN_HANDLER, proof.relayer.clone(), handler, name, sender_nonce).encode()
         }
 
         fn encode_signed_update_chain_handler_params(
@@ -339,8 +344,7 @@ pub mod pallet {
             new_handler: &T::AccountId,
             sender_nonce: u64,
         ) -> Vec<u8> {
-            (b"update_chain_handler", proof.relayer.clone(), old_handler, new_handler, sender_nonce)
-                .encode()
+            (UPDATE_CHAIN_HANDLER, proof.relayer.clone(), old_handler, new_handler, sender_nonce).encode()
         }
 
         fn encode_signed_submit_checkpoint_params(
@@ -349,8 +353,7 @@ pub mod pallet {
             checkpoint: &H256,
             sender_nonce: u64,
         ) -> Vec<u8> {
-            (b"submit_checkpoint", proof.relayer.clone(), handler, checkpoint, sender_nonce)
-                .encode()
+            (SUBMIT_CHECKPOINT, proof.relayer.clone(), handler, checkpoint, sender_nonce).encode()
         }
 
         fn do_register_chain_handler(
@@ -403,7 +406,7 @@ pub mod pallet {
             let chain_data =
                 ChainHandlers::<T>::get(handler).ok_or(Error::<T>::ChainNotRegistered)?;
 
-            let checkpoint_id = Self::get_next_checkpoint_id()?;
+            let checkpoint_id = Self::get_next_checkpoint_id(chain_data.chain_id)?;
 
             Checkpoints::<T>::insert(chain_data.chain_id, checkpoint_id, checkpoint);
 

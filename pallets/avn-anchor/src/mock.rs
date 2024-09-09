@@ -11,6 +11,7 @@ use sp_runtime::{
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub type Signature = sr25519::Signature;
+pub type Public = sr25519::Public;
 
 pub type AccountId = <Signature as Verify>::Signer;
 
@@ -33,7 +34,7 @@ impl system::Config for TestRuntime {
     type Nonce = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
-    type AccountId = u64;
+    type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Block = Block;
     type RuntimeEvent = RuntimeEvent;
@@ -52,8 +53,8 @@ impl system::Config for TestRuntime {
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
-    type Public = u64;
-    type Signature = u64;
+    type Public = AccountId;
+    type Signature = Signature;
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
 }
 
