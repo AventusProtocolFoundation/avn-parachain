@@ -26,17 +26,17 @@ pub type MaximumHandlersBound = ConstU32<256>;
 
 pub type ChainNameLimit = ConstU32<32>;
 
-const REGISTER_CHAIN_HANDLER: &'static [u8] = b"register_chain_handler";
-const UPDATE_CHAIN_HANDLER: &'static [u8] = b"update_chain_handler";
-const SUBMIT_CHECKPOINT: &'static [u8] = b"submit_checkpoint";
+pub const REGISTER_CHAIN_HANDLER: &'static [u8] = b"register_chain_handler";
+pub const UPDATE_CHAIN_HANDLER: &'static [u8] = b"update_chain_handler";
+pub const SUBMIT_CHECKPOINT: &'static [u8] = b"submit_checkpoint";
 
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType};
     use frame_system::pallet_prelude::*;
-    use sp_avn_common::{verify_signature, Proof};
-    use sp_runtime::traits::{Dispatchable, IdentifyAccount, Verify};
+    use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
+    use sp_runtime::traits::{Dispatchable, IdentifyAccount, Verify, Hash};
 
     pub type ChainId = u32;
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
@@ -88,6 +88,8 @@ pub mod pallet {
         /// A new checkpoint was submitted. [handler_account_id, chain_id, checkpoint_id,
         /// checkpoint]
         CheckpointSubmitted(T::AccountId, ChainId, CheckpointId, H256),
+
+        CallDispatched { relayer: T::AccountId, call_hash: T::Hash },
     }
 
     #[pallet::error]
@@ -101,6 +103,7 @@ pub mod pallet {
         UnauthorizedSignedTransaction,
         SenderNotValid,
         TransactionNotSupported,
+        UnauthorizedProxyTransaction
     }
 
     #[pallet::storage]
@@ -228,14 +231,14 @@ pub mod pallet {
             let sender_nonce = Self::nonces(&sender);
 
             let signed_payload = Self::encode_signed_register_chain_handler_params(
-                &proof,
+                &proof.relayer,
                 &handler,
                 &name,
                 sender_nonce,
             );
 
             ensure!(
-                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload.as_slice())
+                verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload)
                     .is_ok(),
                 Error::<T>::UnauthorizedSignedTransaction
             );
@@ -310,6 +313,25 @@ pub mod pallet {
 
             Ok(())
         }
+
+        #[pallet::call_index(6)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::proxy().saturating_add(call.get_dispatch_info().weight))]
+        pub fn proxy(
+            origin: OriginFor<T>,
+            call: Box<<T as Config>::RuntimeCall>,
+        ) -> DispatchResult {
+            let relayer = ensure_signed(origin)?;
+
+            let proof = Self::get_proof(&*call)?;
+            ensure!(relayer == proof.relayer, Error::<T>::UnauthorizedProxyTransaction);
+
+            let call_hash: T::Hash = T::Hashing::hash_of(&call);
+            call.dispatch(frame_system::RawOrigin::Signed(proof.signer).into())
+                .map(|_| ())
+                .map_err(|e| e.error)?;
+            Self::deposit_event(Event::<T>::CallDispatched { relayer, call_hash });
+            Ok(())
+        }
     }
 
     impl<T: Config> Pallet<T> {
@@ -330,12 +352,12 @@ pub mod pallet {
         }
 
         fn encode_signed_register_chain_handler_params(
-            proof: &Proof<T::Signature, T::AccountId>,
+            relayer: &T::AccountId,
             handler: &T::AccountId,
             name: &BoundedVec<u8, ChainNameLimit>,
             sender_nonce: u64,
         ) -> Vec<u8> {
-            (REGISTER_CHAIN_HANDLER, proof.relayer.clone(), handler, name, sender_nonce).encode()
+            (REGISTER_CHAIN_HANDLER, relayer, handler, name, sender_nonce).encode()
         }
 
         fn encode_signed_update_chain_handler_params(
@@ -432,7 +454,7 @@ pub mod pallet {
                 Call::signed_register_chain_handler { ref proof, ref handler, ref name } => {
                     let sender_nonce = Self::nonces(handler);
                     let encoded_data = Self::encode_signed_register_chain_handler_params(
-                        proof,
+                        &proof.relayer.clone(),
                         handler,
                         name,
                         sender_nonce,
@@ -495,6 +517,22 @@ pub mod pallet {
                 Call::signed_submit_checkpoint_with_identity { proof, .. } => Ok(proof.clone()),
                 _ => Err(Error::<T>::TransactionNotSupported),
             }
+        }
+    }
+
+    impl<T: Config> InnerCallValidator for Pallet<T> {
+        type Call = <T as Config>::RuntimeCall;
+    
+        fn signature_is_valid(call: &Box<Self::Call>) -> bool {
+            if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {
+                return verify_signature::<T::Signature, T::AccountId>(
+                    &proof,
+                    &signed_payload.as_slice(),
+                )
+                .is_ok()
+            }
+    
+            return false
         }
     }
 }

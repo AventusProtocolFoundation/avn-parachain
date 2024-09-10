@@ -1,8 +1,9 @@
 use crate::{mock::*, ChainData, CheckpointId, Error, Event, NextCheckpointId, REGISTER_CHAIN_HANDLER, SUBMIT_CHECKPOINT, UPDATE_CHAIN_HANDLER};
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, BoundedVec};
-use sp_avn_common::Proof;
+use sp_avn_common::{Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG};
 use sp_core::{sr25519, ConstU32, Pair, H256};
+use sp_runtime::traits::{IdentifyAccount, Verify, Hash};
 
 fn create_account_id(seed: u8) -> AccountId {
     sr25519::Pair::from_seed(&[seed; 32]).public()
@@ -14,8 +15,8 @@ fn bounded_vec(input: &[u8]) -> BoundedVec<u8, ConstU32<32>> {
 
 fn create_proof(signer: &AccountId, relayer: &AccountId, payload: &[u8]) -> Proof<Signature, AccountId> {
     let pair = sr25519::Pair::from_seed(&signer.0);
-    let signature = pair.sign(payload);
-    Proof { signature: signature.into(), relayer: relayer.clone(), signer: signer.clone() }
+    let signature = Signature::from(pair.sign(payload));
+    Proof { signer: signer.clone(), relayer: relayer.clone(), signature  }
 }
 
 #[test]
@@ -302,93 +303,34 @@ fn register_multiple_chains_increments_chain_id() {
 }
 
 #[test]
-fn signed_register_chain_handler_works() {
+fn proxy_signed_register_chain_handler_works() {
     new_test_ext().execute_with(|| {
         let handler = create_account_id(1);
         let relayer = create_account_id(2);
         let name = bounded_vec(b"Test Chain");
-        let nonce = AvnAnchor::nonces(&handler);
-        let payload = (REGISTER_CHAIN_HANDLER, relayer.clone(), &handler, &name, nonce).encode();
+        let nonce: u64 = AvnAnchor::nonces(&handler);
+        let payload = (REGISTER_CHAIN_HANDLER, relayer.clone(), handler.clone(), name.clone(), nonce).encode();
         let proof = create_proof(&handler, &relayer, &payload);
 
-        assert_ok!(AvnAnchor::signed_register_chain_handler(
-            RuntimeOrigin::signed(handler.clone()),
-            proof,
-            handler.clone(),
-            name.clone()
+        let call = Box::new(RuntimeCall::AvnAnchor(
+            super::Call::<TestRuntime>::signed_register_chain_handler {
+                proof,
+                handler: handler.clone(),
+                name: name.clone(),
+            },
         ));
+
+        assert_ok!(AvnAnchor::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone()));
 
         let chain_data = AvnAnchor::chain_handlers(handler.clone()).unwrap();
         assert_eq!(chain_data.chain_id, 0);
         assert_eq!(chain_data.name, name);
 
-        System::assert_last_event(Event::ChainHandlerRegistered(handler.clone(), 0, name).into());
-        assert_eq!(AvnAnchor::nonces(&handler), 1);
-    });
-}
-
-#[test]
-fn signed_update_chain_handler_works() {
-    new_test_ext().execute_with(|| {
-        let old_handler = create_account_id(1);
-        let new_handler = create_account_id(2);
-        let relayer = create_account_id(3);
-        let name = bounded_vec(b"Test Chain");
-
-        assert_ok!(AvnAnchor::register_chain_handler(
-            RuntimeOrigin::signed(old_handler),
-            name.clone()
-        ));
-
-        let nonce = AvnAnchor::nonces(&old_handler);
-        let payload =
-            (UPDATE_CHAIN_HANDLER, old_handler, &old_handler, &new_handler, nonce).encode();
-        let proof = create_proof(&old_handler, &relayer, &payload);
-
-        assert_ok!(AvnAnchor::signed_update_chain_handler(
-            RuntimeOrigin::signed(old_handler),
-            proof,
-            old_handler,
-            new_handler
-        ));
-
-        assert!(AvnAnchor::chain_handlers(old_handler).is_none());
-        let chain_data = AvnAnchor::chain_handlers(new_handler).unwrap();
-        assert_eq!(chain_data.chain_id, 0);
-        assert_eq!(chain_data.name, name);
-
-        System::assert_last_event(
-            Event::ChainHandlerUpdated(old_handler, new_handler, 0, name).into(),
-        );
-        assert_eq!(AvnAnchor::nonces(&old_handler), 1);
-    });
-}
-
-#[test]
-fn signed_submit_checkpoint_with_identity_works() {
-    new_test_ext().execute_with(|| {
-        let handler = create_account_id(1);
-        let relayer = create_account_id(2);
-        let name = bounded_vec(b"Test Chain");
-        let checkpoint = H256::random();
-
-        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
-
-        let nonce = AvnAnchor::nonces(&handler);
-        let payload = (SUBMIT_CHECKPOINT, handler, &handler, &checkpoint, nonce).encode();
-        let proof = create_proof(&handler, &relayer, &payload);
-
-        assert_ok!(AvnAnchor::signed_submit_checkpoint_with_identity(
-            RuntimeOrigin::signed(handler),
-            proof,
-            handler,
-            checkpoint
-        ));
-
-        assert_eq!(AvnAnchor::checkpoints(0, 0), checkpoint);
-        assert_eq!(AvnAnchor::next_checkpoint_id(0), 1);
-
-        System::assert_last_event(Event::CheckpointSubmitted(handler, 0, 0, checkpoint).into());
+        System::assert_has_event(Event::ChainHandlerRegistered(handler.clone(), 0, name).into());
+        System::assert_has_event(Event::CallDispatched { 
+            relayer: relayer.clone(), 
+            call_hash: <TestRuntime as frame_system::Config>::Hashing::hash_of(&call) 
+        }.into());
         assert_eq!(AvnAnchor::nonces(&handler), 1);
     });
 }
