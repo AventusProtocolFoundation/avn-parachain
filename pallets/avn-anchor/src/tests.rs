@@ -5,20 +5,22 @@ use sp_avn_common::{Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG};
 use sp_core::{sr25519, ConstU32, Pair, H256};
 use sp_runtime::traits::{IdentifyAccount, Verify, Hash};
 use crate::tests::RuntimeCall;
-use sp_runtime::sp_application_crypto::RuntimePublic;
 
 fn create_account_id(seed: u8) -> AccountId {
-    sr25519::Pair::from_seed(&[seed; 32]).public()
+    create_account_pair(seed).public()
+}
+
+fn create_account_pair(seed: u8) -> sr25519::Pair {
+    sr25519::Pair::from_seed(&[seed; 32])
 }
 
 fn bounded_vec(input: &[u8]) -> BoundedVec<u8, ConstU32<32>> {
     BoundedVec::<u8, ConstU32<32>>::try_from(input.to_vec()).unwrap()
 }
 
-fn create_proof(signer: &AccountId, relayer: &AccountId, payload: &[u8]) -> Proof<Signature, AccountId> {
-    let pair = sr25519::Pair::from_seed(&signer.0).public();
-    let signature = Signature::from(pair.sign(payload));
-    Proof { signer: signer.clone(), relayer: relayer.clone(), signature  }
+fn create_proof(signer_pair: &sr25519::Pair, relayer: &AccountId, payload: &[u8]) -> Proof<Signature, AccountId> {
+    let signature = Signature::from(signer_pair.sign(payload));
+    Proof { signer: signer_pair.public(), relayer: relayer.clone(), signature  }
 }
 
 #[test]
@@ -307,33 +309,35 @@ fn register_multiple_chains_increments_chain_id() {
 #[test]
 fn proxy_signed_register_chain_handler_works() {
     new_test_ext().execute_with(|| {
-        let handler = create_account_id(1);
+        let handler_pair = create_account_pair(1);
+        let handler_account = handler_pair.public();
         let relayer = create_account_id(2);
         let name = bounded_vec(b"Test Chain");
-        let nonce: u64 = AvnAnchor::nonces(&handler);
-        let payload = (REGISTER_CHAIN_HANDLER, relayer.clone(), handler.clone(), name.clone(), nonce).encode();
-        let proof = create_proof(&handler, &relayer, &payload);
+
+        let nonce: u64 = AvnAnchor::nonces(&handler_account);
+        let payload = (REGISTER_CHAIN_HANDLER, relayer.clone(), handler_account.clone(), name.clone(), nonce).encode();
+        let proof = create_proof(&handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(
             super::Call::<TestRuntime>::signed_register_chain_handler {
                 proof,
-                handler: handler.clone(),
+                handler: handler_account.clone(),
                 name: name.clone(),
             },
         ));
 
         assert_ok!(AvnAnchor::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone()));
 
-        let chain_data = AvnAnchor::chain_handlers(handler.clone()).unwrap();
+        let chain_data = AvnAnchor::chain_handlers(handler_account.clone()).unwrap();
         assert_eq!(chain_data.chain_id, 0);
         assert_eq!(chain_data.name, name);
 
-        System::assert_has_event(Event::ChainHandlerRegistered(handler.clone(), 0, name).into());
-        System::assert_has_event(Event::CallDispatched { 
-            relayer: relayer.clone(), 
-            call_hash: <TestRuntime as frame_system::Config>::Hashing::hash_of(&call) 
+        System::assert_has_event(Event::ChainHandlerRegistered(handler_account.clone(), 0, name).into());
+        System::assert_has_event(Event::CallDispatched {
+            relayer: relayer.clone(),
+            call_hash: <TestRuntime as frame_system::Config>::Hashing::hash_of(&call)
         }.into());
-        assert_eq!(AvnAnchor::nonces(&handler), 1);
+        assert_eq!(AvnAnchor::nonces(&handler_account), 1);
     });
 }
 
