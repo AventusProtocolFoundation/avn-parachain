@@ -237,6 +237,8 @@ pub mod pallet {
                 sender_nonce,
             );
 
+            println!("HELP signer!!! {:?}", proof.signer);
+
             ensure!(
                 verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload)
                     .is_ok(),

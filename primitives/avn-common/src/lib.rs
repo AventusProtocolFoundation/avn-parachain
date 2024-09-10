@@ -154,6 +154,7 @@ pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member
 ) -> Result<(), ()> {
     let wrapped_signed_payload: Vec<u8> =
         [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
+    println!("HELP !!! signature: {:?}, signed data: {:?}", proof.signature, hex::encode(signed_payload));
     match proof.signature.verify(&*wrapped_signed_payload, &proof.signer) {
         true => Ok(()),
         false => match proof.signature.verify(signed_payload, &proof.signer) {

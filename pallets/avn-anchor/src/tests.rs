@@ -4,6 +4,8 @@ use frame_support::{assert_noop, assert_ok, BoundedVec};
 use sp_avn_common::{Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG};
 use sp_core::{sr25519, ConstU32, Pair, H256};
 use sp_runtime::traits::{IdentifyAccount, Verify, Hash};
+use crate::tests::RuntimeCall;
+use sp_runtime::sp_application_crypto::RuntimePublic;
 
 fn create_account_id(seed: u8) -> AccountId {
     sr25519::Pair::from_seed(&[seed; 32]).public()
@@ -14,7 +16,7 @@ fn bounded_vec(input: &[u8]) -> BoundedVec<u8, ConstU32<32>> {
 }
 
 fn create_proof(signer: &AccountId, relayer: &AccountId, payload: &[u8]) -> Proof<Signature, AccountId> {
-    let pair = sr25519::Pair::from_seed(&signer.0);
+    let pair = sr25519::Pair::from_seed(&signer.0).public();
     let signature = Signature::from(pair.sign(payload));
     Proof { signer: signer.clone(), relayer: relayer.clone(), signature  }
 }
