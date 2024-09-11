@@ -37,7 +37,7 @@ pub mod pallet {
     use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType};
     use frame_system::pallet_prelude::*;
     use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
-    use sp_runtime::traits::{Dispatchable, Hash, IdentifyAccount, Verify};
+    use sp_runtime::traits::{Dispatchable, IdentifyAccount, Verify};
 
     pub type ChainId = u32;
     #[derive(Clone, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]

@@ -1,12 +1,13 @@
 use crate::{
-    mock::*, tests::RuntimeCall, ChainData, CheckpointId, Error, Event, NextCheckpointId,
+    mock::*, tests::RuntimeCall, CheckpointId, Error, Event, NextCheckpointId,
     REGISTER_CHAIN_HANDLER, SUBMIT_CHECKPOINT, UPDATE_CHAIN_HANDLER,
 };
 use codec::Encode;
 use frame_support::{assert_noop, assert_ok, BoundedVec};
-use sp_avn_common::{Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG};
+use sp_avn_common::Proof;
 use sp_core::{sr25519, ConstU32, Pair, H256};
-use sp_runtime::traits::{Hash, IdentifyAccount, Verify};
+use sp_runtime::traits::Hash;
+use pallet_avn_proxy::Error as avn_proxy_error;
 
 fn create_account_id(seed: u8) -> AccountId {
     create_account_pair(seed).public()
@@ -75,6 +76,18 @@ fn register_chain_handler_fails_for_empty_name() {
         );
     });
 }
+
+// #[test]
+// fn register_chain_handler_fails_for_duplicate_names() {
+//     new_test_ext().execute_with(|| {
+//         let handler = create_account_id(1);
+//         let name = bounded_vec(b"Test Chain");
+
+//         assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name.clone()));
+//         let second_handler = create_account_id(2);
+//         assert_err!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(second_handler), name.clone()));
+//     });
+// }
 
 #[test]
 fn register_chain_with_max_length_name_succeeds() {
@@ -350,7 +363,7 @@ fn proxy_signed_register_chain_handler_works() {
             },
         ));
 
-        assert_ok!(AvnAnchor::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone()));
+        assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone(), None));
 
         let chain_data = AvnAnchor::chain_handlers(handler_account.clone()).unwrap();
         assert_eq!(chain_data.chain_id, 0);
@@ -359,13 +372,8 @@ fn proxy_signed_register_chain_handler_works() {
         System::assert_has_event(
             Event::ChainHandlerRegistered(handler_account.clone(), 0, name).into(),
         );
-        System::assert_has_event(
-            Event::CallDispatched {
-                relayer: relayer.clone(),
-                call_hash: <TestRuntime as frame_system::Config>::Hashing::hash_of(&call),
-            }
-            .into(),
-        );
+
+        assert_eq!(true, proxy_event_emitted(relayer.clone(), <TestRuntime as frame_system::Config>::Hashing::hash_of(&call)));
         assert_eq!(AvnAnchor::nonces(&handler_account), 1);
     });
 }
@@ -403,7 +411,7 @@ fn proxy_signed_update_chain_handler_works() {
             },
         ));
 
-        assert_ok!(AvnAnchor::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone()));
+        assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone(), None));
 
         assert!(AvnAnchor::chain_handlers(old_handler).is_none());
         let chain_data = AvnAnchor::chain_handlers(new_handler.clone()).unwrap();
@@ -413,13 +421,7 @@ fn proxy_signed_update_chain_handler_works() {
         System::assert_has_event(
             Event::ChainHandlerUpdated(old_handler.clone(), new_handler.clone(), 0, name).into(),
         );
-        System::assert_has_event(
-            Event::CallDispatched {
-                relayer: relayer.clone(),
-                call_hash: <TestRuntime as frame_system::Config>::Hashing::hash_of(&call),
-            }
-            .into(),
-        );
+        assert_eq!(true, proxy_event_emitted(relayer.clone(), <TestRuntime as frame_system::Config>::Hashing::hash_of(&call)));
         assert_eq!(AvnAnchor::nonces(&old_handler), 1);
     });
 }
@@ -448,7 +450,7 @@ fn proxy_signed_submit_checkpoint_with_identity_works() {
             },
         ));
 
-        assert_ok!(AvnAnchor::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone()));
+        assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone(), None));
 
         assert_eq!(AvnAnchor::checkpoints(0, 0), checkpoint);
         assert_eq!(AvnAnchor::next_checkpoint_id(0), 1);
@@ -456,13 +458,7 @@ fn proxy_signed_submit_checkpoint_with_identity_works() {
         System::assert_has_event(
             Event::CheckpointSubmitted(handler.clone(), 0, 0, checkpoint).into(),
         );
-        System::assert_has_event(
-            Event::CallDispatched {
-                relayer: relayer.clone(),
-                call_hash: <TestRuntime as frame_system::Config>::Hashing::hash_of(&call),
-            }
-            .into(),
-        );
+        assert_eq!(true, proxy_event_emitted(relayer.clone(), <TestRuntime as frame_system::Config>::Hashing::hash_of(&call)));
         assert_eq!(AvnAnchor::nonces(&handler), 1);
     });
 }
@@ -491,8 +487,8 @@ fn proxy_signed_register_chain_handler_fails_with_wrong_relayer() {
         ));
 
         assert_noop!(
-            AvnAnchor::proxy(RuntimeOrigin::signed(wrong_relayer), call.clone()),
-            Error::<TestRuntime>::UnauthorizedProxyTransaction
+            AvnProxy::proxy(RuntimeOrigin::signed(wrong_relayer), call.clone(), None),
+            avn_proxy_error::<TestRuntime>::UnauthorizedProxyTransaction
         );
     });
 }
@@ -510,16 +506,6 @@ fn proxy_signed_update_chain_handler_fails_with_invalid_signature() {
             RuntimeOrigin::signed(old_handler.clone()),
             name.clone()
         ));
-
-        let nonce: u64 = AvnAnchor::nonces(&old_handler);
-        let payload = (
-            UPDATE_CHAIN_HANDLER,
-            relayer.clone(),
-            old_handler.clone(),
-            new_handler.clone(),
-            nonce,
-        )
-            .encode();
 
         // Create an invalid signature by signing a different payload
         let invalid_payload = b"invalid payload";
@@ -539,9 +525,13 @@ fn proxy_signed_update_chain_handler_fails_with_invalid_signature() {
             },
         ));
 
-        assert_noop!(
-            AvnAnchor::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone()),
-            Error::<TestRuntime>::UnauthorizedSignedTransaction
+        assert_ok!(
+            AvnProxy::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone(), None),
+        );
+
+        assert_eq!(
+            true,
+            inner_call_failed_event_emitted(avn_proxy_error::<TestRuntime>::UnauthorizedProxyTransaction.into())
         );
     });
 }
@@ -567,9 +557,13 @@ fn proxy_signed_submit_checkpoint_with_identity_fails_with_unregistered_handler(
             },
         ));
 
-        assert_noop!(
-            AvnAnchor::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone()),
-            Error::<TestRuntime>::ChainNotRegistered
+        // The proxy transaction succeeds
+        assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone(), None));
+
+        // But the dispatch fails
+        assert_eq!(
+            true,
+            inner_call_failed_event_emitted(Error::<TestRuntime>::ChainNotRegistered.into())
         );
     });
 }
@@ -593,3 +587,12 @@ fn checkpoint_id_overflow_fails() {
         );
     });
 }
+
+
+
+// assert_eq!(
+//     true,
+//     inner_call_failed_event_emitted(
+//         avn_proxy_error::<Test>::UnauthorizedProxyTransaction.into()
+//     )
+// );

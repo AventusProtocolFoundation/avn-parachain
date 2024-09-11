@@ -50,14 +50,11 @@ pub use frame_system::{
 use governance::pallet_custom_origins;
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::sr25519::Public;
 pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-
-use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::Validator};
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
