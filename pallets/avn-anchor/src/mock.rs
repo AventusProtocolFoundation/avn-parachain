@@ -1,15 +1,19 @@
 use crate::{self as avn_anchor, *};
 use codec::{Decode, Encode};
-use frame_support::{parameter_types, pallet_prelude::*, traits::{ConstU16, ConstU64}};
+use frame_support::{
+    pallet_prelude::*,
+    parameter_types,
+    traits::{ConstU16, ConstU64},
+};
 use frame_system as system;
+use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
+use sp_avn_common::{InnerCallValidator, Proof};
 use sp_core::{sr25519, H256};
 use sp_runtime::{
     testing::UintAuthorityId,
     traits::{BlakeTwo256, IdentityLookup, Verify},
     BuildStorage,
 };
-use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
-use sp_avn_common::{Proof, InnerCallValidator};
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub type Signature = sr25519::Signature;
@@ -120,9 +124,17 @@ impl Default for TestAvnProxyConfig {
 impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
     fn get_proof(call: &RuntimeCall) -> Option<Proof<Signature, AccountId>> {
         match call {
-            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_register_chain_handler {proof, ..}) => return Some(proof.clone()),
-            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {proof, ..}) => return Some(proof.clone()),
-            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {proof, ..}) => return Some(proof.clone()),
+            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_register_chain_handler {
+                proof,
+                ..
+            }) => return Some(proof.clone()),
+            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {
+                proof, ..
+            }) => return Some(proof.clone()),
+            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {
+                proof,
+                ..
+            }) => return Some(proof.clone()),
             _ => None,
         }
     }
