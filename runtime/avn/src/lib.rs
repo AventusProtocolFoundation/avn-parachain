@@ -633,6 +633,7 @@ impl pallet_avn_transaction_payment::Config for Runtime {
 
 impl pallet_avn_anchor::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
@@ -713,7 +714,7 @@ pub struct OriginPrivilegeCmp;
 impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
         if left == right {
-            return Some(Ordering::Equal)
+            return Some(Ordering::Equal);
         }
 
         match (left, right) {

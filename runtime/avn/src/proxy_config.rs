@@ -128,6 +128,17 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for AvnProxyConfig {
                     nominator: _,
                 },
             ) => return Some(proof.clone()),
+            RuntimeCall::AvnAnchor(pallet_avn_anchor::Call::signed_register_chain_handler {
+                proof,
+                ..
+            }) => return Some(proof.clone()),
+            RuntimeCall::AvnAnchor(pallet_avn_anchor::Call::signed_update_chain_handler {
+                proof,
+                ..
+            }) => return Some(proof.clone()),
+            RuntimeCall::AvnAnchor(
+                pallet_avn_anchor::Call::signed_submit_checkpoint_with_identity { proof, .. },
+            ) => return Some(proof.clone()),
             _ => None,
         }
     }
@@ -146,6 +157,8 @@ impl InnerCallValidator for AvnProxyConfig {
                 return pallet_nft_manager::Pallet::<Runtime>::signature_is_valid(call),
             RuntimeCall::ParachainStaking(..) =>
                 return pallet_parachain_staking::Pallet::<Runtime>::signature_is_valid(call),
+            RuntimeCall::AvnAnchor(..) =>
+                return pallet_avn_anchor::Pallet::<Runtime>::signature_is_valid(call),
             _ => false,
         }
     }
