@@ -13,6 +13,7 @@ pub use default_weights::WeightInfo;
 pub use pallet::*;
 use sp_avn_common::CallDecoder;
 use sp_core::{ConstU32, H256};
+use sp_std::prelude::*;
 
 #[cfg(test)]
 mod mock;
@@ -520,19 +521,19 @@ pub mod pallet {
         }
     }
 
-    impl<T: Config> InnerCallValidator for Pallet<T> {
-        type Call = <T as Config>::RuntimeCall;
+    // impl<T: Config> InnerCallValidator for Pallet<T> {
+    //     type Call = <T as Config>::RuntimeCall;
     
-        fn signature_is_valid(call: &Box<Self::Call>) -> bool {
-            if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {
-                return verify_signature::<T::Signature, T::AccountId>(
-                    &proof,
-                    &signed_payload.as_slice(),
-                )
-                .is_ok()
-            }
+    //     fn signature_is_valid(call: &Box<Self::Call>) -> bool {
+    //         if let Some((proof, signed_payload)) = Self::get_encoded_call_param(call) {
+    //             return verify_signature::<T::Signature, T::AccountId>(
+    //                 &proof,
+    //                 &signed_payload.as_slice(),
+    //             )
+    //             .is_ok()
+    //         }
     
-            return false
-        }
-    }
+    //         return false
+    //     }
+    // }
 }
