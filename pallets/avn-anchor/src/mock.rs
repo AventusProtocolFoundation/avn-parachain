@@ -156,9 +156,9 @@ pub fn proxy_event_emitted(
     relayer: AccountId,
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
-    return System::events().iter().any(|a| {
-        a.event ==
-            RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
+    System::events().iter().any(|a| {
+        a.event
+            == RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
                 relayer,
                 hash: call_hash,
             })
@@ -170,12 +170,17 @@ pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bo
         RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::InnerCallFailed {
             dispatch_error,
             ..
-        }) =>
+        }) => {
             if dispatch_error == call_dispatch_error {
-                return true
+                return true;
             } else {
-                return false
-            },
+                return false;
+            }
+        },
         _ => false,
-    })
+    });
+}
+
+pub fn get_chain_id_for_handler(handler: &AccountId) -> Option<ChainId> {
+    AvnAnchor::chain_handlers(handler).map(|chain_data| chain_data.chain_id)
 }

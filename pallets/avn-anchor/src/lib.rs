@@ -107,7 +107,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn nonces)]
-    pub type Nonces<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
+    pub type Nonces<T: Config> = StorageMap<_, Blake2_128Concat, ChainId, u64, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn chain_handlers)]
@@ -148,14 +148,13 @@ pub mod pallet {
                 !ChainHandlers::<T>::contains_key(&handler),
                 Error::<T>::HandlerAlreadyRegistered
             );
-
             ensure!(!name.is_empty(), Error::<T>::EmptyChainName);
 
             let chain_id = Self::get_next_chain_id()?;
-
             let chain_data = ChainData { chain_id, name: name.clone() };
 
             ChainHandlers::<T>::insert(&handler, chain_data);
+            <Nonces<T>>::insert(chain_id, 0);
 
             Self::deposit_event(Event::ChainHandlerRegistered(handler, chain_id, name));
 
@@ -202,14 +201,16 @@ pub mod pallet {
 
             let chain_data =
                 ChainHandlers::<T>::get(&handler).ok_or(Error::<T>::ChainNotRegistered)?;
+            let chain_id = chain_data.chain_id;
 
-            let checkpoint_id = Self::get_next_checkpoint_id(chain_data.chain_id)?;
+            let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
 
-            Checkpoints::<T>::insert(chain_data.chain_id, checkpoint_id, checkpoint);
+            Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint);
+            <Nonces<T>>::mutate(chain_id, |n| *n += 1);
 
             Self::deposit_event(Event::CheckpointSubmitted(
                 handler,
-                chain_data.chain_id,
+                chain_id,
                 checkpoint_id,
                 checkpoint,
             ));
@@ -227,13 +228,16 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == handler, Error::<T>::SenderNotValid);
-            let sender_nonce = Self::nonces(&sender);
+
+            let chain_id = Self::next_chain_id();
+            let nonce = 0;
 
             let signed_payload = Self::encode_signed_register_chain_handler_params(
                 &proof.relayer,
                 &handler,
                 &name,
-                sender_nonce,
+                chain_id,
+                nonce,
             );
 
             ensure!(
@@ -243,11 +247,8 @@ pub mod pallet {
 
             Self::do_register_chain_handler(&handler, name)?;
 
-            <Nonces<T>>::mutate(&handler, |n| *n += 1);
-
             Ok(())
         }
-
         #[pallet::weight(<T as pallet::Config>::WeightInfo::signed_update_chain_handler())]
         #[pallet::call_index(4)]
         pub fn signed_update_chain_handler(
@@ -258,13 +259,18 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == old_handler, Error::<T>::SenderNotValid);
-            let sender_nonce = Self::nonces(&sender);
+
+            let chain_data =
+                ChainHandlers::<T>::get(&old_handler).ok_or(Error::<T>::ChainNotRegistered)?;
+            let chain_id = chain_data.chain_id;
+            let nonce = Self::nonces(chain_id);
 
             let signed_payload = Self::encode_signed_update_chain_handler_params(
                 &proof,
                 &old_handler,
                 &new_handler,
-                sender_nonce,
+                chain_id,
+                nonce,
             );
 
             ensure!(
@@ -275,7 +281,7 @@ pub mod pallet {
 
             Self::do_update_chain_handler(&old_handler, &new_handler)?;
 
-            <Nonces<T>>::mutate(&old_handler, |n| *n += 1);
+            <Nonces<T>>::mutate(chain_id, |n| *n += 1);
 
             Ok(())
         }
@@ -290,13 +296,18 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == handler, Error::<T>::SenderNotValid);
-            let sender_nonce = Self::nonces(&sender);
+
+            let chain_data =
+                ChainHandlers::<T>::get(&handler).ok_or(Error::<T>::ChainNotRegistered)?;
+            let chain_id = chain_data.chain_id;
+            let nonce = Self::nonces(chain_id);
 
             let signed_payload = Self::encode_signed_submit_checkpoint_params(
                 &proof,
                 &handler,
                 &checkpoint,
-                sender_nonce,
+                chain_id,
+                nonce,
             );
 
             ensure!(
@@ -306,8 +317,6 @@ pub mod pallet {
             );
 
             Self::do_submit_checkpoint(&handler, checkpoint)?;
-
-            <Nonces<T>>::mutate(&handler, |n| *n += 1);
 
             Ok(())
         }
@@ -334,18 +343,20 @@ pub mod pallet {
             relayer: &T::AccountId,
             handler: &T::AccountId,
             name: &BoundedVec<u8, ChainNameLimit>,
-            sender_nonce: u64,
+            chain_id: ChainId,
+            nonce: u64,
         ) -> Vec<u8> {
-            (REGISTER_CHAIN_HANDLER, relayer, handler, name, sender_nonce).encode()
+            (REGISTER_CHAIN_HANDLER, relayer, handler, name, chain_id, nonce).encode()
         }
 
         fn encode_signed_update_chain_handler_params(
             proof: &Proof<T::Signature, T::AccountId>,
             old_handler: &T::AccountId,
             new_handler: &T::AccountId,
-            sender_nonce: u64,
+            chain_id: ChainId,
+            nonce: u64,
         ) -> Vec<u8> {
-            (UPDATE_CHAIN_HANDLER, proof.relayer.clone(), old_handler, new_handler, sender_nonce)
+            (UPDATE_CHAIN_HANDLER, proof.relayer.clone(), old_handler, new_handler, chain_id, nonce)
                 .encode()
         }
 
@@ -353,31 +364,36 @@ pub mod pallet {
             proof: &Proof<T::Signature, T::AccountId>,
             handler: &T::AccountId,
             checkpoint: &H256,
-            sender_nonce: u64,
+            chain_id: ChainId,
+            nonce: u64,
         ) -> Vec<u8> {
-            (SUBMIT_CHECKPOINT, proof.relayer.clone(), handler, checkpoint, sender_nonce).encode()
+            (SUBMIT_CHECKPOINT, proof.relayer.clone(), handler, checkpoint, chain_id, nonce)
+                .encode()
         }
 
         fn do_register_chain_handler(
             handler: &T::AccountId,
             name: BoundedVec<u8, ChainNameLimit>,
-        ) -> DispatchResult {
+        ) -> Result<ChainId, DispatchError> {
             ensure!(
                 !ChainHandlers::<T>::contains_key(handler),
                 Error::<T>::HandlerAlreadyRegistered
             );
-
             ensure!(!name.is_empty(), Error::<T>::EmptyChainName);
 
             let chain_id = Self::get_next_chain_id()?;
-
             let chain_data = ChainData { chain_id, name: name.clone() };
 
             ChainHandlers::<T>::insert(handler, chain_data);
+            <Nonces<T>>::insert(chain_id, 0);
 
-            Self::deposit_event(Event::ChainHandlerRegistered(handler.clone(), chain_id, name));
+            Self::deposit_event(Event::ChainHandlerRegistered(
+                handler.clone(),
+                chain_id,
+                name.clone(),
+            ));
 
-            Ok(())
+            Ok(chain_id)
         }
 
         fn do_update_chain_handler(
@@ -407,17 +423,20 @@ pub mod pallet {
         fn do_submit_checkpoint(handler: &T::AccountId, checkpoint: H256) -> DispatchResult {
             let chain_data =
                 ChainHandlers::<T>::get(handler).ok_or(Error::<T>::ChainNotRegistered)?;
+            let chain_id = chain_data.chain_id;
 
-            let checkpoint_id = Self::get_next_checkpoint_id(chain_data.chain_id)?;
+            let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
 
-            Checkpoints::<T>::insert(chain_data.chain_id, checkpoint_id, checkpoint);
+            Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint);
 
             Self::deposit_event(Event::CheckpointSubmitted(
                 handler.clone(),
-                chain_data.chain_id,
+                chain_id,
                 checkpoint_id,
                 checkpoint,
             ));
+
+            <Nonces<T>>::mutate(chain_id, |n| *n += 1);
 
             Ok(())
         }
@@ -432,12 +451,14 @@ pub mod pallet {
 
             match call {
                 Call::signed_register_chain_handler { ref proof, ref handler, ref name } => {
-                    let sender_nonce = Self::nonces(handler);
+                    let chain_id = Self::next_chain_id();
+                    let nonce = 0; // Initial nonce for a new chain
                     let encoded_data = Self::encode_signed_register_chain_handler_params(
-                        &proof.relayer.clone(),
+                        &proof.relayer,
                         handler,
                         name,
-                        sender_nonce,
+                        chain_id,
+                        nonce,
                     );
 
                     Some((proof, encoded_data))
@@ -447,12 +468,17 @@ pub mod pallet {
                     ref old_handler,
                     ref new_handler,
                 } => {
-                    let sender_nonce = Self::nonces(old_handler);
+                    let chain_data = ChainHandlers::<T>::get(old_handler)
+                        .ok_or(Error::<T>::ChainNotRegistered)
+                        .ok()?;
+                    let chain_id = chain_data.chain_id;
+                    let nonce = Self::nonces(chain_id);
                     let encoded_data = Self::encode_signed_update_chain_handler_params(
                         proof,
                         old_handler,
                         new_handler,
-                        sender_nonce,
+                        chain_id,
+                        nonce,
                     );
 
                     Some((proof, encoded_data))
@@ -462,12 +488,13 @@ pub mod pallet {
                     ref handler,
                     ref checkpoint,
                 } => {
-                    let sender_nonce = Self::nonces(handler);
+                    let chain_data = ChainHandlers::<T>::get(handler)
+                        .ok_or(Error::<T>::ChainNotRegistered)
+                        .ok()?;
+                    let chain_id = chain_data.chain_id;
+                    let nonce = Self::nonces(chain_id);
                     let encoded_data = Self::encode_signed_submit_checkpoint_params(
-                        proof,
-                        handler,
-                        checkpoint,
-                        sender_nonce,
+                        proof, handler, checkpoint, chain_id, nonce,
                     );
 
                     Some((proof, encoded_data))
@@ -515,5 +542,4 @@ pub mod pallet {
             return false;
         }
     }
-
 }
