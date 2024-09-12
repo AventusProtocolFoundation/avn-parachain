@@ -7192,6 +7192,8 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-avn",
+ "pallet-avn-proxy",
+ "pallet-balances",
  "parity-scale-codec 3.6.4",
  "parking_lot 0.12.1",
  "scale-info",

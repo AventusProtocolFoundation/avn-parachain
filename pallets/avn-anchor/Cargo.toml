@@ -33,6 +33,8 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 parking_lot = { version = "0.12.0" }
 sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0",features=["insecure_zero_ed"] }
+pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
 
 [features]
 default = ["std"]
