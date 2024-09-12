@@ -50,14 +50,11 @@ pub use frame_system::{
 use governance::pallet_custom_origins;
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::sr25519::Public;
 pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
 use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
-
-use sp_avn_common::{bounds::MaximumValidatorsBound, event_types::Validator};
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
@@ -632,8 +629,12 @@ impl pallet_avn_transaction_payment::Config for Runtime {
 }
 
 impl pallet_avn_anchor::Config for Runtime {
+    type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
+    type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+    type Signature = Signature;
 }
 
 use sp_avn_common::{
@@ -711,7 +712,7 @@ pub struct OriginPrivilegeCmp;
 impl PrivilegeCmp<OriginCaller> for OriginPrivilegeCmp {
     fn cmp_privilege(left: &OriginCaller, right: &OriginCaller) -> Option<Ordering> {
         if left == right {
-            return Some(Ordering::Equal)
+            return Some(Ordering::Equal);
         }
 
         match (left, right) {
