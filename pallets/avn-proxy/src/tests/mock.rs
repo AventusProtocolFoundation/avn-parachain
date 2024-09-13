@@ -23,6 +23,8 @@ pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 pub type Signature = sr25519::Signature;
 /// An identifier for an account on this system.
 pub type AccountId = <Signature as Verify>::Signer;
+/// A token type
+pub type Token = H160;
 
 use crate::{self as avn_proxy};
 frame_support::construct_runtime!(
@@ -44,6 +46,8 @@ impl Config for TestRuntime {
     type Signature = Signature;
     type ProxyConfig = TestAvnProxyConfig;
     type WeightInfo = ();
+    type FeeHandler = Self;
+    type Token = H160;
 }
 
 pub type AvnProxyCall = super::Call<TestRuntime>;
@@ -141,7 +145,7 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
         match call {
             RuntimeCall::System(system::Call::remark { remark: _msg }) => {
                 let context: ProxyContext = Default::default();
-                return Some(context.get_proof())
+                return Some(context.get_proof());
             },
 
             RuntimeCall::NftManager(pallet_nft_manager::Call::signed_mint_single_nft {
@@ -216,21 +220,21 @@ impl TestAccount {
     }
 
     pub fn account_id(&self) -> AccountId {
-        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap()
+        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap();
     }
 
     pub fn key_pair(&self) -> sr25519::Pair {
-        return sr25519::Pair::from_seed(&self.seed)
+        return sr25519::Pair::from_seed(&self.seed);
     }
 }
 
 pub fn sign(signer: &sr25519::Pair, message_to_sign: &[u8]) -> Signature {
-    return Signature::from(signer.sign(message_to_sign))
+    return Signature::from(signer.sign(message_to_sign));
 }
 
 #[allow(dead_code)]
 pub fn verify_signature(signature: Signature, signer: AccountId, signed_data: &[u8]) -> bool {
-    return signature.verify(signed_data, &signer)
+    return signature.verify(signed_data, &signer);
 }
 
 #[derive(Clone)]
@@ -258,11 +262,11 @@ impl ProxyContext {
             signer: self.signer.account_id(),
             relayer: self.relayer.account_id(),
             signature: self.signature.clone(),
-        }
+        };
     }
 
     pub fn create_valid_inner_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
-        return Box::new(RuntimeCall::System(SystemCall::remark { remark: vec![] }))
+        return Box::new(RuntimeCall::System(SystemCall::remark { remark: vec![] }));
     }
 
     pub fn create_invalid_inner_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
@@ -270,14 +274,14 @@ impl ProxyContext {
         return Box::new(RuntimeCall::Balances(BalancesCall::transfer_allow_death {
             dest: invalid_receiver.account_id(),
             value: Default::default(),
-        }))
+        }));
     }
 
     pub fn create_proxy_call(&self) -> Box<<TestRuntime as Config>::RuntimeCall> {
         return Box::new(RuntimeCall::AvnProxy(AvnProxyCall::proxy {
             call: self.create_valid_inner_call(),
             payment_info: None,
-        }))
+        }));
     }
 }
 
@@ -291,7 +295,7 @@ pub fn proxy_event_emitted(
                 relayer,
                 hash: call_hash,
             })
-    })
+    });
 }
 
 pub fn inner_call_failed_event_emitted(
@@ -305,12 +309,12 @@ pub fn inner_call_failed_event_emitted(
             ..
         }) =>
             if relayer == call_relayer && call_hash == hash {
-                return true
+                return true;
             } else {
-                return false
+                return false;
             },
         _ => false,
-    })
+    });
 }
 
 #[derive(Clone)]
@@ -338,7 +342,7 @@ pub fn create_signed_mint_single_nft_call(
     let single_nft_data: SingleNftContext = Default::default();
     let proof = get_mint_single_nft_proxy_proof(context, &single_nft_data);
 
-    return get_signed_mint_single_nft_call(&single_nft_data, &proof)
+    return get_signed_mint_single_nft_call(&single_nft_data, &proof);
 }
 
 pub fn get_signed_mint_single_nft_call(
@@ -350,7 +354,7 @@ pub fn get_signed_mint_single_nft_call(
         unique_external_ref: single_nft_data.unique_external_ref.clone(),
         royalties: single_nft_data.royalties.clone(),
         t1_authority: single_nft_data.t1_authority,
-    }))
+    }));
 }
 
 pub fn get_mint_single_nft_proxy_proof(
@@ -373,11 +377,11 @@ pub fn get_mint_single_nft_proxy_proof(
         signature,
     };
 
-    return proof
+    return proof;
 }
 
 pub fn single_nft_minted_events_emitted() -> bool {
-    return single_nft_minted_events_count() > 0
+    return single_nft_minted_events_count() > 0;
 }
 
 pub fn single_nft_minted_events_count() -> usize {
@@ -386,4 +390,20 @@ pub fn single_nft_minted_events_count() -> usize {
         .map(|r| r.event)
         .filter_map(|e| if let RuntimeEvent::NftManager(inner) = e { Some(inner) } else { None })
         .count()
+}
+
+impl FeePaymentHandler for TestRuntime {
+    type Token = H160;
+    type TokenBalance = u128;
+    type AccountId = AccountId;
+    type Error = sp_runtime::DispatchError;
+
+    fn pay_fee(
+        _token_id: &Self::Token,
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+        _recipient: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
+        Err(sp_runtime::DispatchError::Other("Test - Not setup"))
+    }
 }

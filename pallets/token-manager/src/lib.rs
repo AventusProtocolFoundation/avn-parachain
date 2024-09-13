@@ -48,7 +48,7 @@ use sp_avn_common::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
         ProcessedEventHandler,
     },
-    verify_signature, CallDecoder, InnerCallValidator, Proof,
+    verify_signature, CallDecoder, InnerCallValidator, Proof, FeePaymentHandler
 };
 use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
 use sp_runtime::{
@@ -1099,5 +1099,16 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
 
     fn on_incoming_event_processed(event: &EthEvent) -> DispatchResult {
         Self::processed_event_handler(event)
+    }
+}
+
+impl<T: Config> FeePaymentHandler for Pallet<T> {
+    type Token = T::TokenId;
+    type TokenBalance = T::TokenBalance;
+    type AccountId = T::AccountId;
+    type Error = sp_runtime::DispatchError;
+
+    fn pay_fee(token_id: &Self::Token, amount: &Self::TokenBalance, payer: &Self::AccountId, recipient: &Self::AccountId) -> Result<(), Self::Error> {
+        Self::settle_transfer(token_id, payer, recipient, amount)
     }
 }

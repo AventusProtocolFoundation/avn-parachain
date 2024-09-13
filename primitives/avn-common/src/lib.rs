@@ -110,6 +110,40 @@ pub trait InnerCallValidator {
     }
 }
 
+pub trait FeePaymentHandler {
+    // The type that represents an account id defined in the trait (T::AccountId)
+    type AccountId;
+    // The type that represents a non native token balance
+    type TokenBalance;
+    // The type that represents a non native token identifier
+    type Token;
+    // The type used to throw an error (Error<T>)
+    type Error;
+
+    fn pay_fee(
+        _token: &Self::Token,
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+        _recipient: &Self::AccountId,
+    ) -> Result<(), Self::Error>;
+}
+
+impl FeePaymentHandler for () {
+    type Token = ();
+    type TokenBalance = ();
+    type AccountId = ();
+    type Error = ();
+
+    fn pay_fee(
+        _token: &Self::Token,
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+        _recipient: &Self::AccountId,
+    ) -> Result<(), ()> {
+        Err(())
+    }
+}
+
 pub fn safe_add_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
     left: BlockNumber,
     right: BlockNumber,

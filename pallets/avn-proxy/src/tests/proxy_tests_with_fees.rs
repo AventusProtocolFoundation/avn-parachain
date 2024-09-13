@@ -11,15 +11,15 @@ pub const PAYMENT_AUTH_CONTEXT: &'static [u8] = b"authorization for proxy paymen
 pub fn create_default_payment_authorisation(
     context: &ProxyContext,
     proxy_proof: Proof<Signature, AccountId>,
-) -> PaymentInfo<AccountId, u128, Signature> {
-    return create_payment_authorisation(&context.relayer, &context.signer, proxy_proof, 0_u64)
+) -> PaymentInfo<AccountId, u128, Signature, Token> {
+    return create_payment_authorisation(&context.relayer, &context.signer, proxy_proof, 0_u64);
 }
 
 pub fn create_payment_authorisation_with_nonce(
     context: &ProxyContext,
     proxy_proof: Proof<Signature, AccountId>,
     nonce: u64,
-) -> PaymentInfo<AccountId, u128, Signature> {
+) -> PaymentInfo<AccountId, u128, Signature, Token> {
     let data_to_sign =
         (PAYMENT_AUTH_CONTEXT, &proxy_proof, &context.relayer.account_id(), &GATEWAY_FEE, nonce);
     let signature = sign(&context.signer.key_pair(), &data_to_sign.encode());
@@ -29,9 +29,10 @@ pub fn create_payment_authorisation_with_nonce(
         recipient: context.relayer.account_id(),
         amount: GATEWAY_FEE.into(),
         signature,
+        token: H160::zero(),
     };
 
-    return payment_info
+    return payment_info;
 }
 
 pub fn create_payment_authorisation(
@@ -39,7 +40,7 @@ pub fn create_payment_authorisation(
     payer: &TestAccount,
     proxy_proof: Proof<Signature, AccountId>,
     nonce: u64,
-) -> PaymentInfo<AccountId, u128, Signature> {
+) -> PaymentInfo<AccountId, u128, Signature, Token> {
     let data_to_sign =
         (PAYMENT_AUTH_CONTEXT, &proxy_proof, &relayer.account_id(), &GATEWAY_FEE, nonce);
     let signature = sign(&payer.key_pair(), &data_to_sign.encode());
@@ -49,9 +50,10 @@ pub fn create_payment_authorisation(
         recipient: relayer.account_id(),
         amount: GATEWAY_FEE.into(),
         signature,
+        token: H160::zero(),
     };
 
-    return payment_info
+    return payment_info;
 }
 
 mod charging_fees {

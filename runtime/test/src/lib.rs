@@ -662,6 +662,8 @@ impl pallet_avn_proxy::Config for Runtime {
     type Signature = Signature;
     type ProxyConfig = AvnProxyConfig;
     type WeightInfo = pallet_avn_proxy::default_weights::SubstrateWeight<Runtime>;
+    type FeeHandler = TokenManager;
+    type Token = EthAddress;
 }
 
 impl pallet_eth_bridge::Config for Runtime {
