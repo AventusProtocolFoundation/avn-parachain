@@ -48,7 +48,7 @@ use sp_avn_common::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
         ProcessedEventHandler,
     },
-    verify_signature, CallDecoder, InnerCallValidator, Proof, FeePaymentHandler
+    verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, Proof,
 };
 use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
 use sp_runtime::{
@@ -330,7 +330,7 @@ pub mod pallet {
                 lower_account_id: H256::zero(),
                 avt_token_contract: H160::zero(),
                 lower_schedule_period: BlockNumberFor::<T>::zero(),
-                balances: vec![]
+                balances: vec![],
             }
         }
     }
@@ -344,7 +344,7 @@ pub mod pallet {
             <LowerSchedulePeriod<T>>::put(self.lower_schedule_period);
             for (token_id, recipient, amount) in self.balances.clone().into_iter() {
                 let key: (T::TokenId, T::AccountId) = (token_id.into(), recipient);
-                let val: T::TokenBalance =  <T::TokenBalance as TryFrom<u128>>::try_from(amount)
+                let val: T::TokenBalance = <T::TokenBalance as TryFrom<u128>>::try_from(amount)
                     .unwrap_or_else(|_| <T::TokenBalance>::default());
                 Balances::<T>::insert(key, val);
             }
@@ -1116,7 +1116,12 @@ impl<T: Config> FeePaymentHandler for Pallet<T> {
     type AccountId = T::AccountId;
     type Error = sp_runtime::DispatchError;
 
-    fn pay_fee(token_id: &Self::Token, amount: &Self::TokenBalance, payer: &Self::AccountId, recipient: &Self::AccountId) -> Result<(), Self::Error> {
+    fn pay_fee(
+        token_id: &Self::Token,
+        amount: &Self::TokenBalance,
+        payer: &Self::AccountId,
+        recipient: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
         Self::settle_transfer(token_id, payer, recipient, amount)
     }
 }
