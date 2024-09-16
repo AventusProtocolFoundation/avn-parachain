@@ -46,6 +46,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     BuildStorage, DispatchError, Perbill, SaturatedConversion,
 };
+use sp_avn_common::FeePaymentHandler;
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
@@ -352,6 +353,8 @@ impl avn_proxy::Config for Test {
     type Signature = Signature;
     type ProxyConfig = TestAvnProxyConfig;
     type WeightInfo = ();
+    type FeeHandler = Self;
+    type Token = sp_core::H160;
 }
 
 impl pallet_eth_bridge::Config for Test {
@@ -674,6 +677,22 @@ impl ParachainStaking {
         <GrowthPeriod<Test>>::mutate(|info| {
             info.index = info.index.saturating_add(1);
         });
+    }
+}
+
+impl FeePaymentHandler for Test {
+    type Token = sp_core::H160;
+    type TokenBalance = u128;
+    type AccountId = AccountId;
+    type Error = DispatchError;
+
+    fn pay_fee(
+        _token: &Self::Token,
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+        _recipient: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
+        return Err(DispatchError::Other("Test - Error"))
     }
 }
 
