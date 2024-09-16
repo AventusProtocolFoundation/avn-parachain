@@ -114,7 +114,11 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::charge_fee().saturating_add(call.get_dispatch_info().weight).saturating_add(Weight::from_parts(50_000 as u64, 0)))]
+        #[pallet::weight(
+            <T as pallet::Config>::WeightInfo::charge_fee()
+            .saturating_add(call.get_dispatch_info().weight)
+            .saturating_add(Weight::from_parts(50_000 as u64, 0)))
+        ]
         pub fn proxy(
             origin: OriginFor<T>,
             call: Box<<T as Config>::RuntimeCall>,
@@ -244,8 +248,8 @@ impl<T: Config> Pallet<T> {
             &payment_info.payer,
             &payment_info.recipient,
         )?;
-        <PaymentNonces<T>>::mutate(&payment_info.payer, |n| *n += 1);
 
+        <PaymentNonces<T>>::mutate(&payment_info.payer, |n| *n += 1);
         Ok(())
     }
 }
