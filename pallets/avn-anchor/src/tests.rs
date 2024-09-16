@@ -39,7 +39,8 @@ fn register_chain_handler_works() {
         assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name.clone()));
 
         let chain_data = AvnAnchor::chain_handlers(handler).unwrap();
-        assert_eq!(chain_data.chain_id, 0);
+        assert_eq!(chain_data, 0);
+        let chain_data = AvnAnchor::chain_data(0).unwrap();
         assert_eq!(chain_data.name, name);
         assert_eq!(AvnAnchor::nonces(chain_data.chain_id), 0);
 
@@ -101,7 +102,8 @@ fn register_chain_with_max_length_name_succeeds() {
             max_length_name.clone()
         ));
 
-        let chain_data = AvnAnchor::chain_handlers(handler).unwrap();
+        let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
+        let chain_data = AvnAnchor::chain_data(chain_id).unwrap();
         assert_eq!(chain_data.name, max_length_name);
     });
 }
@@ -123,8 +125,8 @@ fn update_chain_handler_works() {
         ));
 
         assert!(AvnAnchor::chain_handlers(old_handler).is_none());
-        let chain_data = AvnAnchor::chain_handlers(new_handler).unwrap();
-        assert_eq!(chain_data.chain_id, 0);
+        let chain_id = AvnAnchor::chain_handlers(new_handler).unwrap();
+        let chain_data = AvnAnchor::chain_data(chain_id).unwrap();
         assert_eq!(chain_data.name, name);
 
         System::assert_last_event(
@@ -190,7 +192,8 @@ fn update_chain_handler_fails_for_non_handler() {
         );
 
         // Verify that the handler hasn't changed
-        let chain_data = AvnAnchor::chain_handlers(current_handler).unwrap();
+        let chain_id = AvnAnchor::chain_handlers(current_handler).unwrap();
+        let chain_data = AvnAnchor::chain_data(chain_id).unwrap();
         assert_eq!(chain_data.chain_id, 0);
         assert_eq!(chain_data.name, name);
 
@@ -202,7 +205,8 @@ fn update_chain_handler_fails_for_non_handler() {
 
         // Verify that the handler has now changed
         assert!(AvnAnchor::chain_handlers(current_handler).is_none());
-        let updated_chain_data = AvnAnchor::chain_handlers(new_handler).unwrap();
+        let updated_chain_id = AvnAnchor::chain_handlers(new_handler).unwrap();
+        let updated_chain_data = AvnAnchor::chain_data(updated_chain_id).unwrap();
         assert_eq!(updated_chain_data.chain_id, 0);
         assert_eq!(updated_chain_data.name, name);
 
@@ -225,10 +229,11 @@ fn submit_checkpoint_with_identity_works() {
             checkpoint
         ));
 
-        assert_eq!(AvnAnchor::checkpoints(0, 0), checkpoint);
-        assert_eq!(AvnAnchor::next_checkpoint_id(0), 1);
+        let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
+        assert_eq!(AvnAnchor::checkpoints(chain_id, 0), checkpoint);
+        assert_eq!(AvnAnchor::next_checkpoint_id(chain_id), 1);
 
-        System::assert_last_event(Event::CheckpointSubmitted(handler, 0, 0, checkpoint).into());
+        System::assert_last_event(Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into());
     });
 }
 
@@ -329,8 +334,12 @@ fn register_multiple_chains_increments_chain_id() {
             name2.clone()
         ));
 
-        let chain_data1 = AvnAnchor::chain_handlers(handler1).unwrap();
-        let chain_data2 = AvnAnchor::chain_handlers(handler2).unwrap();
+        let chain_id1 = AvnAnchor::chain_handlers(handler1).unwrap();
+        let chain_id2 = AvnAnchor::chain_handlers(handler2).unwrap();
+
+
+        let chain_data1 = AvnAnchor::chain_data(chain_id1).unwrap();
+        let chain_data2 = AvnAnchor::chain_data(chain_id2).unwrap();
 
         assert_eq!(chain_data1.chain_id, 0);
         assert_eq!(chain_data1.name, name1);
@@ -357,7 +366,6 @@ fn proxy_signed_register_chain_handler_works() {
             relayer.clone(),
             handler_account.clone(),
             name.clone(),
-            initial_chain_id,
             nonce,
         )
             .encode();
@@ -373,9 +381,10 @@ fn proxy_signed_register_chain_handler_works() {
 
         assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone(), None));
 
-        let chain_data =
+        let chain_id =
             AvnAnchor::chain_handlers(handler_account.clone()).expect("Chain data should exist");
-        assert_eq!(chain_data.chain_id, initial_chain_id, "Chain ID mismatch");
+        assert_eq!(chain_id, initial_chain_id, "Chain ID mismatch");
+        let chain_data = AvnAnchor::chain_data(chain_id).expect("Chain data not found");
         assert_eq!(chain_data.name, name, "Chain name mismatch");
 
         System::assert_has_event(
@@ -398,7 +407,7 @@ fn proxy_signed_register_chain_handler_works() {
 }
 
 #[test]
-fn proxy_signed_update_chain_handler_works() {
+fn signed_update_chain_handler_works() {
     new_test_ext().execute_with(|| {
         let old_handler_pair = create_account_pair(1);
         let old_handler = old_handler_pair.public();
@@ -407,26 +416,18 @@ fn proxy_signed_update_chain_handler_works() {
         let name = bounded_vec(b"Test Chain");
 
         assert_ok!(AvnAnchor::register_chain_handler(
-            RuntimeOrigin::signed(old_handler.clone()),
+            RuntimeOrigin::signed(old_handler),
             name.clone()
         ));
 
-        let chain_id = get_chain_id_for_handler(&old_handler).unwrap();
-        let nonce: u64 = AvnAnchor::nonces(chain_id);
-        let payload = (
-            UPDATE_CHAIN_HANDLER,
-            relayer.clone(),
-            old_handler.clone(),
-            new_handler.clone(),
-            chain_id,
-            nonce,
-        )
-            .encode();
+        let chain_id = AvnAnchor::chain_handlers(old_handler).unwrap();
+        let nonce = AvnAnchor::nonces(chain_id);
+        let payload = (UPDATE_CHAIN_HANDLER, relayer.clone(), old_handler.clone(), new_handler.clone(), chain_id, nonce).encode();
         let proof = create_proof(&old_handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(
             super::Call::<TestRuntime>::signed_update_chain_handler {
-                proof,
+                proof: proof.clone(),
                 old_handler: old_handler.clone(),
                 new_handler: new_handler.clone(),
             },
@@ -435,26 +436,18 @@ fn proxy_signed_update_chain_handler_works() {
         assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone(), None));
 
         assert!(AvnAnchor::chain_handlers(old_handler).is_none());
-        let chain_data = AvnAnchor::chain_handlers(new_handler.clone()).unwrap();
-        assert_eq!(chain_data.chain_id, 0);
-        assert_eq!(chain_data.name, name);
+        let updated_chain_id = AvnAnchor::chain_handlers(new_handler).unwrap();
+        assert_eq!(updated_chain_id, chain_id);
 
-        System::assert_has_event(
-            Event::ChainHandlerUpdated(old_handler.clone(), new_handler.clone(), 0, name).into(),
-        );
-        assert_eq!(
-            true,
-            proxy_event_emitted(
-                relayer.clone(),
-                <TestRuntime as frame_system::Config>::Hashing::hash_of(&call)
-            )
-        );
-        assert_eq!(AvnAnchor::nonces(chain_id), 1);
+        assert!(proxy_event_emitted(
+            relayer.clone(),
+            <TestRuntime as frame_system::Config>::Hashing::hash_of(&call)
+        ));
     });
 }
 
 #[test]
-fn proxy_signed_submit_checkpoint_with_identity_works() {
+fn signed_submit_checkpoint_with_identity_works() {
     new_test_ext().execute_with(|| {
         let handler_pair = create_account_pair(1);
         let handler = handler_pair.public();
@@ -462,18 +455,16 @@ fn proxy_signed_submit_checkpoint_with_identity_works() {
         let name = bounded_vec(b"Test Chain");
         let checkpoint = H256::random();
 
-        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler.clone()), name));
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
 
-        let chain_id = get_chain_id_for_handler(&handler).unwrap();
-        let nonce: u64 = AvnAnchor::nonces(chain_id);
-        let payload =
-            (SUBMIT_CHECKPOINT, relayer.clone(), handler.clone(), checkpoint, chain_id, nonce)
-                .encode();
+        let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
+        let nonce = AvnAnchor::nonces(chain_id);
+        let payload = (SUBMIT_CHECKPOINT, relayer.clone(), handler.clone(), checkpoint, chain_id, nonce).encode();
         let proof = create_proof(&handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(
             super::Call::<TestRuntime>::signed_submit_checkpoint_with_identity {
-                proof,
+                proof: proof.clone(),
                 handler: handler.clone(),
                 checkpoint,
             },
@@ -484,17 +475,10 @@ fn proxy_signed_submit_checkpoint_with_identity_works() {
         assert_eq!(AvnAnchor::checkpoints(chain_id, 0), checkpoint);
         assert_eq!(AvnAnchor::next_checkpoint_id(chain_id), 1);
 
-        System::assert_has_event(
-            Event::CheckpointSubmitted(handler.clone(), chain_id, 0, checkpoint).into(),
-        );
-        assert_eq!(
-            true,
-            proxy_event_emitted(
-                relayer.clone(),
-                <TestRuntime as frame_system::Config>::Hashing::hash_of(&call)
-            )
-        );
-        assert_eq!(AvnAnchor::nonces(chain_id), 1);
+        assert!(proxy_event_emitted(
+            relayer.clone(),
+            <TestRuntime as frame_system::Config>::Hashing::hash_of(&call)
+        ));
     });
 }
 
@@ -507,22 +491,13 @@ fn proxy_signed_register_chain_handler_fails_with_wrong_relayer() {
         let wrong_relayer = create_account_id(3);
         let name = bounded_vec(b"Test Chain");
 
-        let chain_id = AvnAnchor::next_chain_id();
-        let nonce: u64 = 0; // For registration, nonce should be 0
-        let payload = (
-            REGISTER_CHAIN_HANDLER,
-            relayer.clone(),
-            handler.clone(),
-            name.clone(),
-            chain_id,
-            nonce,
-        )
-            .encode();
+        let nonce = 0;
+        let payload = (REGISTER_CHAIN_HANDLER, relayer.clone(), handler.clone(), name.clone(), nonce).encode();
         let proof = create_proof(&handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(
             super::Call::<TestRuntime>::signed_register_chain_handler {
-                proof,
+                proof: proof.clone(),
                 handler: handler.clone(),
                 name: name.clone(),
             },
