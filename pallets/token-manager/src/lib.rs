@@ -319,6 +319,7 @@ pub mod pallet {
         pub lower_account_id: H256,
         pub avt_token_contract: H160,
         pub lower_schedule_period: BlockNumberFor<T>,
+        pub balances: Vec<(H160, T::AccountId, u128)>,
     }
 
     // #[cfg(feature = "std")]
@@ -329,6 +330,7 @@ pub mod pallet {
                 lower_account_id: H256::zero(),
                 avt_token_contract: H160::zero(),
                 lower_schedule_period: BlockNumberFor::<T>::zero(),
+                balances: vec![]
             }
         }
     }
@@ -340,6 +342,12 @@ pub mod pallet {
             <LowerAccountId<T>>::put(self.lower_account_id);
             <AVTTokenContract<T>>::put(self.avt_token_contract);
             <LowerSchedulePeriod<T>>::put(self.lower_schedule_period);
+            for (token_id, recipient, amount) in self.balances.clone().into_iter() {
+                let key: (T::TokenId, T::AccountId) = (token_id.into(), recipient);
+                let val: T::TokenBalance =  <T::TokenBalance as TryFrom<u128>>::try_from(amount)
+                    .unwrap_or_else(|_| <T::TokenBalance>::default());
+                Balances::<T>::insert(key, val);
+            }
         }
     }
 

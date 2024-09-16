@@ -16,6 +16,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"], default-features = false }
 hex-literal = { version = "0.4.1", default-features = false }
+hex = "0.4"
 scale-info = { version = "2.9.0", default-features = false, features = [
 	"derive",
 ] }
@@ -35,7 +36,14 @@ sp-io = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1
 sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 substrate-test-utils = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", features=["insecure_zero_ed"] }
+pallet-scheduler = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
+pallet-session = { features = [
+	"historical",
+], git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0", default-features = false }
 pallet-nft-manager = { path = "../nft-manager" }
+pallet-token-manager = { path = "../token-manager" }
+pallet-eth-bridge = { path = "../eth-bridge" }
 pallet-avn = { path = "../avn" }
 parking_lot = { version = "0.12.0" }
 

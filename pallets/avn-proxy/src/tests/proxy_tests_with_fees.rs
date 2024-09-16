@@ -12,7 +12,7 @@ pub fn create_default_payment_authorisation(
     context: &ProxyContext,
     proxy_proof: Proof<Signature, AccountId>,
 ) -> PaymentInfo<AccountId, u128, Signature, Token> {
-    return create_payment_authorisation(&context.relayer, &context.signer, proxy_proof, 0_u64);
+    return create_payment_authorisation(&context.relayer, &context.signer, proxy_proof, 0_u64, AVT_TOKEN_CONTRACT);
 }
 
 pub fn create_payment_authorisation_with_nonce(
@@ -40,6 +40,7 @@ pub fn create_payment_authorisation(
     payer: &TestAccount,
     proxy_proof: Proof<Signature, AccountId>,
     nonce: u64,
+    token: H160,
 ) -> PaymentInfo<AccountId, u128, Signature, Token> {
     let data_to_sign =
         (PAYMENT_AUTH_CONTEXT, &proxy_proof, &relayer.account_id(), &GATEWAY_FEE, nonce);
@@ -50,7 +51,7 @@ pub fn create_payment_authorisation(
         recipient: relayer.account_id(),
         amount: GATEWAY_FEE.into(),
         signature,
-        token: H160::zero(),
+        token,
     };
 
     return payment_info;
@@ -164,6 +165,7 @@ mod charging_fees {
                     new_payment_proof_signer,
                     proxy_proof,
                     0u64,
+                    AVT_TOKEN_CONTRACT,
                 )));
 
                 let call_hash = Hashing::hash_of(&inner_call);

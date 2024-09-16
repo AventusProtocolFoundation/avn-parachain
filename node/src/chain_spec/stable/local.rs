@@ -38,6 +38,8 @@ pub fn development_config() -> ChainSpec {
                     (get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
+                    // Use in avn-proxy benchmarks
+                    (get_account_id_from_seed::<sr25519::Public>("aa1488619fd87c3ee824d4ae4529ba38acc5227c7a66f414236a7fdfdaccf5d9"), AVT_ENDOWMENT),
                     (
                         get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"),
                         AVT_ENDOWMENT,
@@ -61,6 +63,8 @@ pub fn development_config() -> ChainSpec {
                 SMALL_EVENT_CHALLENGE_PERIOD,
                 HALF_HOUR_SCHEDULE_PERIOD,
                 SMALL_VOTING_PERIOD,
+                // Non AVT token address
+                Some(H160(hex!("ea5da4fd16cc61ffc4235874d6ff05216e3e038e"))),
             )
         },
         Vec::new(),
@@ -106,6 +110,8 @@ pub fn local_testnet_config() -> ChainSpec {
                     (get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
+                    // Use in avn-proxy benchmarks
+                    (get_account_id_from_seed::<sr25519::Public>("aa1488619fd87c3ee824d4ae4529ba38acc5227c7a66f414236a7fdfdaccf5d9"), AVT_ENDOWMENT),
                     (
                         get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"),
                         AVT_ENDOWMENT,
@@ -129,6 +135,8 @@ pub fn local_testnet_config() -> ChainSpec {
                 SMALL_EVENT_CHALLENGE_PERIOD,
                 HALF_HOUR_SCHEDULE_PERIOD,
                 SMALL_VOTING_PERIOD,
+                // Non AVT token address
+                Some(H160(hex!("ea5da4fd16cc61ffc4235874d6ff05216e3e038e"))),
             )
         },
         // Bootnodes
