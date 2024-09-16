@@ -38,7 +38,7 @@ use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_eth_bridge;
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
-use sp_avn_common::InnerCallValidator;
+use sp_avn_common::{FeePaymentHandler, InnerCallValidator};
 use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_io;
 use sp_runtime::{
@@ -46,7 +46,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
     BuildStorage, DispatchError, Perbill, SaturatedConversion,
 };
-use sp_avn_common::FeePaymentHandler;
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
