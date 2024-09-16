@@ -18,7 +18,7 @@ pub fn create_default_payment_authorisation(
         proxy_proof,
         0_u64,
         AVT_TOKEN_CONTRACT,
-    );
+    )
 }
 
 pub fn create_payment_authorisation_with_nonce(
@@ -38,7 +38,7 @@ pub fn create_payment_authorisation_with_nonce(
         token: H160::zero(),
     };
 
-    return payment_info;
+    return payment_info
 }
 
 pub fn create_payment_authorisation(
@@ -60,7 +60,7 @@ pub fn create_payment_authorisation(
         token,
     };
 
-    return payment_info;
+    return payment_info
 }
 
 mod charging_fees {

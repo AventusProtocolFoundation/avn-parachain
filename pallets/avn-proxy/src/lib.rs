@@ -163,7 +163,7 @@ pub mod pallet {
 
                 // Return an OK even if the signature is bad. The `InnerCallFailed` event will
                 // inform the caller about the failure
-                return Ok(Some(final_weight).into());
+                return Ok(Some(final_weight).into())
             }
 
             let sender: T::RuntimeOrigin =
@@ -195,7 +195,7 @@ impl<T: Config> Pallet<T> {
     fn validate_inner_call_signature(call: &Box<<T as Config>::RuntimeCall>) -> DispatchResult {
         let inner_call_sig_valid = <T as Config>::ProxyConfig::signature_is_valid(call);
         if inner_call_sig_valid == false {
-            return Err(Error::<T>::UnauthorizedProxyTransaction)?;
+            return Err(Error::<T>::UnauthorizedProxyTransaction)?
         }
 
         Ok(())

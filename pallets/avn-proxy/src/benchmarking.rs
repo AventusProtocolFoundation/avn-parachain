@@ -16,7 +16,7 @@ fn get_proof<T: Config>(
     relayer: T::AccountId,
     signature: sr25519::Signature,
 ) -> Proof<T::Signature, T::AccountId> {
-    return Proof { signer, relayer, signature: signature.into() };
+    return Proof { signer, relayer, signature: signature.into() }
 }
 
 fn get_payment_info<T: Config>(
@@ -26,7 +26,7 @@ fn get_payment_info<T: Config>(
     signature: T::Signature,
     token: T::Token,
 ) -> PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token> {
-    return PaymentInfo { payer, recipient, amount, signature, token };
+    return PaymentInfo { payer, recipient, amount, signature, token }
 }
 
 fn setup_balances<T: Config>(account: T::AccountId, amount: BalanceOf<T>) {
@@ -73,7 +73,7 @@ fn get_inner_call_proof<T: Config>(
 
     setup_balances::<T>(signer.clone(), amount);
 
-    return (proof, payment_authorisation, signer);
+    return (proof, payment_authorisation, signer)
 }
 
 benchmarks! {
