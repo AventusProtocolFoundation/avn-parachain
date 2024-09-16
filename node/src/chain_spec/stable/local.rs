@@ -3,7 +3,8 @@ use crate::chain_spec::{
 };
 
 use crate::chain_spec::stable::{
-    get_account_id_from_seed, get_account_id_from_seed_no_derivation, get_authority_keys_from_seed, testnet_genesis,
+    get_account_id_from_seed, get_account_id_from_seed_no_derivation, get_authority_keys_from_seed,
+    testnet_genesis,
 };
 use hex_literal::hex;
 use sp_core::{ecdsa, sr25519, ByteArray, H160};

@@ -61,7 +61,9 @@ pub(crate) mod helpers {
     }
 
     /// Helper function to generate a crypto pair from seed without any derivation
-    pub fn get_public_from_seed_no_derivation<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+    pub fn get_public_from_seed_no_derivation<TPublic: Public>(
+        seed: &str,
+    ) -> <TPublic::Pair as Pair>::Public {
         TPublic::Pair::from_string(&format!("{}", seed), None)
             .expect("static values are valid; qed")
             .public()

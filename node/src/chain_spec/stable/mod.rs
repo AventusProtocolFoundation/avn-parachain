@@ -52,7 +52,7 @@ pub(crate) fn testnet_genesis(
     event_challenge_period: BlockNumber,
     schedule_period: BlockNumber,
     voting_period: BlockNumber,
-    default_non_avt_token: Option<H160>
+    default_non_avt_token: Option<H160>,
 ) -> avn_runtime::RuntimeGenesisConfig {
     avn_runtime::RuntimeGenesisConfig {
         avn: pallet_avn::GenesisConfig {
@@ -139,11 +139,15 @@ pub(crate) fn testnet_genesis(
             lower_schedule_period: 10,
             balances: {
                 if default_non_avt_token.is_some() {
-                    endowed_accounts.iter().cloned().map(|(k, a)| (default_non_avt_token.unwrap(), k, a)).collect()
+                    endowed_accounts
+                        .iter()
+                        .cloned()
+                        .map(|(k, a)| (default_non_avt_token.unwrap(), k, a))
+                        .collect()
                 } else {
                     vec![]
                 }
             },
-        }
+        },
     }
 }
