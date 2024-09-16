@@ -3,7 +3,7 @@ use crate::chain_spec::{
 };
 
 use crate::chain_spec::stable::{
-    get_account_id_from_seed, get_authority_keys_from_seed, testnet_genesis,
+    get_account_id_from_seed, get_account_id_from_seed_no_derivation, get_authority_keys_from_seed, testnet_genesis,
 };
 use hex_literal::hex;
 use sp_core::{ecdsa, sr25519, ByteArray, H160};
@@ -39,7 +39,7 @@ pub fn development_config() -> ChainSpec {
                     (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
                     // Use in avn-proxy benchmarks
-                    (get_account_id_from_seed::<sr25519::Public>("aa1488619fd87c3ee824d4ae4529ba38acc5227c7a66f414236a7fdfdaccf5d9"), AVT_ENDOWMENT),
+                    (get_account_id_from_seed_no_derivation::<sr25519::Public>("kiss mule sheriff twice make bike twice improve rate quote draw enough"), AVT_ENDOWMENT),
                     (
                         get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"),
                         AVT_ENDOWMENT,
@@ -111,7 +111,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
                     // Use in avn-proxy benchmarks
-                    (get_account_id_from_seed::<sr25519::Public>("aa1488619fd87c3ee824d4ae4529ba38acc5227c7a66f414236a7fdfdaccf5d9"), AVT_ENDOWMENT),
+                    (get_account_id_from_seed_no_derivation::<sr25519::Public>("kiss mule sheriff twice make bike twice improve rate quote draw enough"), AVT_ENDOWMENT),
                     (
                         get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"),
                         AVT_ENDOWMENT,

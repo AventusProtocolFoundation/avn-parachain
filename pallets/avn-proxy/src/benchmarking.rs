@@ -84,7 +84,7 @@ benchmarks! {
         let token: H160 = crate::mock::AVT_TOKEN_CONTRACT;
         #[cfg(not(test))]
         // Make sure this matched the chainspec value
-        let token: H160 = H160(hex!("dB1Cff52f66195f0a5Bd3db91137db98cfc54AE6"));
+        let token: H160 = H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730"));
 
         let (proof, payment_authorisation, signer) = get_inner_call_proof::<T>(&recipient, amount, token);
     }: {
@@ -101,7 +101,7 @@ benchmarks! {
         let token: H160 = crate::mock::NON_AVT_TOKEN_CONTRACT;
         #[cfg(not(test))]
         // Make sure this matched the chainspec value
-        let token: H160 = H160(hex!("dB1Cff52f66195f0a5Bd3db91137db98cfc54AE6"));
+        let token: H160 = H160(hex!("ea5da4fd16cc61ffc4235874d6ff05216e3e038e"));
 
         let (proof, payment_authorisation, signer) = get_inner_call_proof::<T>(&recipient, amount, token);
         let previous_payment_nonce = <PaymentNonces::<T>>::get(&signer);
