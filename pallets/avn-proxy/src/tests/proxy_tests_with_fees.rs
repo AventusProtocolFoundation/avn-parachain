@@ -12,7 +12,13 @@ pub fn create_default_payment_authorisation(
     context: &ProxyContext,
     proxy_proof: Proof<Signature, AccountId>,
 ) -> PaymentInfo<AccountId, u128, Signature, Token> {
-    return create_payment_authorisation(&context.relayer, &context.signer, proxy_proof, 0_u64, AVT_TOKEN_CONTRACT);
+    return create_payment_authorisation(
+        &context.relayer,
+        &context.signer,
+        proxy_proof,
+        0_u64,
+        AVT_TOKEN_CONTRACT,
+    );
 }
 
 pub fn create_payment_authorisation_with_nonce(

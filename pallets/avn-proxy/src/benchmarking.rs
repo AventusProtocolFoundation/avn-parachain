@@ -6,10 +6,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use crate::Pallet as AvnProxy;
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use hex_literal::hex;
 use sp_core::{sr25519, H256};
-use crate::Pallet as AvnProxy;
 
 fn get_proof<T: Config>(
     signer: T::AccountId,
@@ -38,11 +38,22 @@ fn get_inner_call_proof<T: Config>(
     recipient: &T::AccountId,
     amount: BalanceOf<T>,
     token: H160,
-) -> (Proof<T::Signature, T::AccountId>, PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token>, T::AccountId) {
+) -> (
+    Proof<T::Signature, T::AccountId>,
+    PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token>,
+    T::AccountId,
+) {
     #[cfg(test)]
-    let signer = T::AccountId::decode(&mut (H256::from_slice(&crate::mock::get_default_signer().public_key()).as_bytes())).expect("valid account id");
+    let signer = T::AccountId::decode(
+        &mut (H256::from_slice(&crate::mock::get_default_signer().public_key()).as_bytes()),
+    )
+    .expect("valid account id");
     #[cfg(not(test))]
-    let signer = T::AccountId::decode(&mut H256(hex!("482eae97356cdfd3b12774db1e5950471504d28b89aa169179d6c0527a04de23")).as_bytes()).expect("valid account id");
+    let signer = T::AccountId::decode(
+        &mut H256(hex!("482eae97356cdfd3b12774db1e5950471504d28b89aa169179d6c0527a04de23"))
+            .as_bytes(),
+    )
+    .expect("valid account id");
 
     let inner_call_signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("a6350211fcdf1d7f0c79bf0a9c296de17449ca88a899f0cd19a70b07513fc107b7d34249dba71d4761ceeec2ed6bc1305defeb96418e6869e6b6199ed0de558e")).unwrap().into();
     let proof = get_proof::<T>(signer.clone(), recipient.clone(), inner_call_signature);
@@ -52,8 +63,13 @@ fn get_inner_call_proof<T: Config>(
     #[cfg(not(test))]
     let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("4cf3364106905fa0caba16d93f1ca4b5afa64d37ef70e2b1dc0b95972183af025f977aa29012d4a19dce4869ded87ab4659f1f3ee05d79b6fb9723dac262418b")).unwrap().into();
 
-    let payment_authorisation =
-        get_payment_info::<T>(signer.clone(), recipient.clone(), amount, signature.into(), token.into());
+    let payment_authorisation = get_payment_info::<T>(
+        signer.clone(),
+        recipient.clone(),
+        amount,
+        signature.into(),
+        token.into(),
+    );
 
     setup_balances::<T>(signer.clone(), amount);
 

@@ -1,21 +1,26 @@
 //Copyright 2022 Aventus Network Services (UK) Ltd.
 
 use super::*;
-use frame_support::{parameter_types, PalletId, traits:: EqualPrivilegeOnly, pallet_prelude::{DispatchClass, Weight}};
-use frame_system::{self as system, EnsureRoot, limits::BlockWeights };
+use frame_support::{
+    pallet_prelude::{DispatchClass, Weight},
+    parameter_types,
+    traits::EqualPrivilegeOnly,
+    PalletId,
+};
+use frame_system::{self as system, limits::BlockWeights, EnsureRoot};
 use hex_literal::hex;
+use pallet_avn::BridgeInterfaceNotification;
 use pallet_balances;
-use pallet_session as session;
 use pallet_nft_manager::nft_data::Royalty;
+use pallet_session as session;
 use sp_core::{sr25519, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, IdentityLookup, Verify, ConvertInto},
-    BuildStorage, Perbill
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    BuildStorage, Perbill,
 };
 pub use std::sync::Arc;
-use pallet_avn::BridgeInterfaceNotification;
 
 pub const BASE_FEE: u64 = 12;
 
