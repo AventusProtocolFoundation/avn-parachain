@@ -1,5 +1,5 @@
 use crate::{
-    mock::*, tests::RuntimeCall, ChainData, CheckpointId, Error, Event, NextCheckpointId,
+    mock::*, tests::RuntimeCall, CheckpointId, Error, Event, NextCheckpointId,
     REGISTER_CHAIN_HANDLER, SUBMIT_CHECKPOINT, UPDATE_CHAIN_HANDLER,
 };
 use codec::Encode;
@@ -233,7 +233,9 @@ fn submit_checkpoint_with_identity_works() {
         assert_eq!(AvnAnchor::checkpoints(chain_id, 0), checkpoint);
         assert_eq!(AvnAnchor::next_checkpoint_id(chain_id), 1);
 
-        System::assert_last_event(Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into());
+        System::assert_last_event(
+            Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),
+        );
     });
 }
 
@@ -337,7 +339,6 @@ fn register_multiple_chains_increments_chain_id() {
         let chain_id1 = AvnAnchor::chain_handlers(handler1).unwrap();
         let chain_id2 = AvnAnchor::chain_handlers(handler2).unwrap();
 
-
         let chain_data1 = AvnAnchor::chain_data(chain_id1).unwrap();
         let chain_data2 = AvnAnchor::chain_data(chain_id2).unwrap();
 
@@ -361,14 +362,9 @@ fn proxy_signed_register_chain_handler_works() {
 
         let initial_chain_id = AvnAnchor::next_chain_id();
         let nonce: u64 = 0;
-        let payload = (
-            REGISTER_CHAIN_HANDLER,
-            relayer.clone(),
-            handler_account.clone(),
-            name.clone(),
-            nonce,
-        )
-            .encode();
+        let payload =
+            (REGISTER_CHAIN_HANDLER, relayer.clone(), handler_account.clone(), name.clone(), nonce)
+                .encode();
         let proof = create_proof(&handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(
@@ -422,7 +418,15 @@ fn signed_update_chain_handler_works() {
 
         let chain_id = AvnAnchor::chain_handlers(old_handler).unwrap();
         let nonce = AvnAnchor::nonces(chain_id);
-        let payload = (UPDATE_CHAIN_HANDLER, relayer.clone(), old_handler.clone(), new_handler.clone(), chain_id, nonce).encode();
+        let payload = (
+            UPDATE_CHAIN_HANDLER,
+            relayer.clone(),
+            old_handler.clone(),
+            new_handler.clone(),
+            chain_id,
+            nonce,
+        )
+            .encode();
         let proof = create_proof(&old_handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(
@@ -459,7 +463,9 @@ fn signed_submit_checkpoint_with_identity_works() {
 
         let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
         let nonce = AvnAnchor::nonces(chain_id);
-        let payload = (SUBMIT_CHECKPOINT, relayer.clone(), handler.clone(), checkpoint, chain_id, nonce).encode();
+        let payload =
+            (SUBMIT_CHECKPOINT, relayer.clone(), handler.clone(), checkpoint, chain_id, nonce)
+                .encode();
         let proof = create_proof(&handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(
@@ -492,7 +498,9 @@ fn proxy_signed_register_chain_handler_fails_with_wrong_relayer() {
         let name = bounded_vec(b"Test Chain");
 
         let nonce = 0;
-        let payload = (REGISTER_CHAIN_HANDLER, relayer.clone(), handler.clone(), name.clone(), nonce).encode();
+        let payload =
+            (REGISTER_CHAIN_HANDLER, relayer.clone(), handler.clone(), name.clone(), nonce)
+                .encode();
         let proof = create_proof(&handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(

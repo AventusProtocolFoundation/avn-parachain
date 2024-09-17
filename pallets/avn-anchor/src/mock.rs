@@ -10,12 +10,12 @@ use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use scale_info::TypeInfo;
 use sp_avn_common::{InnerCallValidator, Proof};
 use sp_core::{sr25519, H256};
+use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    testing::TestXt,
     traits::{BlakeTwo256, IdentityLookup, Verify},
     BuildStorage,
 };
-use system::EnsureRoot;
+use std::sync::Arc;
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
@@ -118,11 +118,17 @@ impl Default for TestAvnProxyConfig {
 impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
     fn get_proof(call: &RuntimeCall) -> Option<Proof<Signature, AccountId>> {
         match call {
-            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_register_chain_handler { proof, .. }) |
-            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler { proof, .. }) |
-            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity { proof, .. }) => {
-                Some(proof.clone())
-            }
+            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_register_chain_handler {
+                proof,
+                ..
+            })
+            | RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {
+                proof, ..
+            })
+            | RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {
+                proof,
+                ..
+            }) => Some(proof.clone()),
             _ => None,
         }
     }
@@ -141,16 +147,12 @@ impl InnerCallValidator for TestAvnProxyConfig {
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
+    let keystore = MemoryKeystore::new();
     let t = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
+    ext.register_extension(KeystoreExt(Arc::new(keystore)));
     ext.execute_with(|| System::set_block_number(1));
     ext
-}
-
-pub type TestExtrinsic = TestXt<RuntimeCall, ()>;
-
-pub fn last_event() -> RuntimeEvent {
-    System::events().pop().expect("Event expected").event
 }
 
 pub fn proxy_event_emitted(
@@ -158,10 +160,11 @@ pub fn proxy_event_emitted(
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
     System::events().iter().any(|a| {
-        a.event == RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
-            relayer,
-            hash: call_hash,
-        })
+        a.event
+            == RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
+                relayer,
+                hash: call_hash,
+            })
     })
 }
 
@@ -173,8 +176,4 @@ pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bo
         }) => dispatch_error == call_dispatch_error,
         _ => false,
     })
-}
-
-pub fn get_chain_id_for_handler(handler: &AccountId) -> Option<ChainId> {
-    AvnAnchor::chain_handlers(handler)
 }

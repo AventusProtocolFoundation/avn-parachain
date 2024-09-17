@@ -11,7 +11,7 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 use codec::Encode;
-use sp_avn_common::{CallDecoder, Proof};
+use sp_avn_common::CallDecoder;
 use sp_core::{ConstU32, H256};
 use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
@@ -273,7 +273,7 @@ pub mod pallet {
             let nonce = Self::nonces(chain_id);
 
             let signed_payload = encode_signed_update_chain_handler_params::<T>(
-                &proof,
+                &proof.relayer,
                 &old_handler,
                 &new_handler,
                 chain_id,
@@ -309,7 +309,7 @@ pub mod pallet {
             let nonce = Self::nonces(chain_id);
 
             let signed_payload = encode_signed_submit_checkpoint_params::<T>(
-                &proof,
+                &proof.relayer,
                 &handler,
                 &checkpoint,
                 chain_id,
@@ -383,15 +383,16 @@ pub mod pallet {
             ChainHandlers::<T>::try_mutate(old_handler, |maybe_chain_data| -> DispatchResult {
                 let chain_id = maybe_chain_data.take().ok_or(Error::<T>::ChainNotRegistered)?;
                 ChainHandlers::<T>::insert(new_handler, chain_id);
-                let chain_data = Self::chain_data(chain_id).ok_or(Error::<T>::NoChainDataAvailable)?;
-            
+                let chain_data =
+                    Self::chain_data(chain_id).ok_or(Error::<T>::NoChainDataAvailable)?;
+
                 Self::deposit_event(Event::ChainHandlerUpdated(
                     old_handler.clone(),
                     new_handler.clone(),
                     chain_id,
                     chain_data.name,
                 ));
-            
+
                 Ok(())
             })
         }
@@ -447,7 +448,7 @@ pub mod pallet {
 
                     let nonce = Self::nonces(chain_id);
                     let encoded_data = encode_signed_update_chain_handler_params::<T>(
-                        proof,
+                        &proof.relayer,
                         old_handler,
                         new_handler,
                         chain_id,
@@ -467,7 +468,11 @@ pub mod pallet {
 
                     let nonce = Self::nonces(chain_id);
                     let encoded_data = encode_signed_submit_checkpoint_params::<T>(
-                        proof, handler, checkpoint, chain_id, nonce,
+                        &proof.relayer,
+                        handler,
+                        checkpoint,
+                        chain_id,
+                        nonce,
                     );
 
                     Some((proof, encoded_data))
@@ -527,24 +532,23 @@ pub fn encode_signed_register_chain_handler_params<T: Config>(
 }
 
 pub fn encode_signed_update_chain_handler_params<T: Config>(
-    proof: &Proof<T::Signature, T::AccountId>,
+    relayer: &T::AccountId,
     old_handler: &T::AccountId,
     new_handler: &T::AccountId,
     chain_id: ChainId,
     nonce: u64,
 ) -> Vec<u8> {
-    (UPDATE_CHAIN_HANDLER, proof.relayer.clone(), old_handler, new_handler, chain_id, nonce)
-        .encode()
+    (UPDATE_CHAIN_HANDLER, relayer.clone(), old_handler, new_handler, chain_id, nonce).encode()
 }
 
 pub fn encode_signed_submit_checkpoint_params<T: Config>(
-    proof: &Proof<T::Signature, T::AccountId>,
+    relayer: &T::AccountId,
     handler: &T::AccountId,
     checkpoint: &H256,
     chain_id: ChainId,
     nonce: u64,
 ) -> Vec<u8> {
-    (SUBMIT_CHECKPOINT, proof.relayer.clone(), handler, checkpoint, chain_id, nonce).encode()
+    (SUBMIT_CHECKPOINT, relayer.clone(), handler, checkpoint, chain_id, nonce).encode()
 }
 
 pub fn get_chain_data_for_handler<T: Config>(handler: &T::AccountId) -> Option<ChainDataStruct> {
