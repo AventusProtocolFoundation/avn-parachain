@@ -222,13 +222,12 @@ impl<T: Config> Pallet<T> {
             [OPEN_BYTES_TAG, encoded_payload.as_slice(), CLOSE_BYTES_TAG].concat();
         match payment_info.signature.verify(&*wrapped_encoded_payload, &payment_info.payer) {
             true => Ok(()),
-            false => {
+            false =>
                 match payment_info.signature.verify(encoded_payload.as_slice(), &payment_info.payer)
                 {
                     true => Ok(()),
                     false => Err(<Error<T>>::UnauthorizedFee.into()),
-                }
-            },
+                },
         }
     }
 
