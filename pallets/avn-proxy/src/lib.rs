@@ -211,6 +211,7 @@ impl<T: Config> Pallet<T> {
             &proof,
             &payment_info.recipient,
             &payment_info.amount,
+            &payment_info.token,
             payment_nonce,
         )
             .encode();

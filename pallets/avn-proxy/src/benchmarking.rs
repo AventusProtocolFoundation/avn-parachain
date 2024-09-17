@@ -38,6 +38,7 @@ fn get_inner_call_proof<T: Config>(
     recipient: &T::AccountId,
     amount: BalanceOf<T>,
     token: H160,
+    signature: sr25519::Signature,
 ) -> (
     Proof<T::Signature, T::AccountId>,
     PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token>,
@@ -57,11 +58,6 @@ fn get_inner_call_proof<T: Config>(
 
     let inner_call_signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("a6350211fcdf1d7f0c79bf0a9c296de17449ca88a899f0cd19a70b07513fc107b7d34249dba71d4761ceeec2ed6bc1305defeb96418e6869e6b6199ed0de558e")).unwrap().into();
     let proof = get_proof::<T>(signer.clone(), recipient.clone(), inner_call_signature);
-
-    #[cfg(test)]
-    let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("98dca66ceef8a68d6df1a3b989ea6f80337447753091844f5be8f5dcdf694338b94a5335f0297b005252d712d89ced7450755823b9dde5b1ffd57708a2c1ad81")).unwrap().into();
-    #[cfg(not(test))]
-    let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("4cf3364106905fa0caba16d93f1ca4b5afa64d37ef70e2b1dc0b95972183af025f977aa29012d4a19dce4869ded87ab4659f1f3ee05d79b6fb9723dac262418b")).unwrap().into();
 
     let payment_authorisation = get_payment_info::<T>(
         signer.clone(),
@@ -86,7 +82,12 @@ benchmarks! {
         // Make sure this matched the chainspec value
         let token: H160 = H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730"));
 
-        let (proof, payment_authorisation, signer) = get_inner_call_proof::<T>(&recipient, amount, token);
+        #[cfg(test)]
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("5c2991619f1c3ae9b3a403b050d1d2dea83e7ae15b43ce632fcbdac32bd8150f0b6790368c0fa51c51ac593f52d48bdfd9f773297a28d5d6a4a13c6c95595989")).unwrap().into();
+        #[cfg(not(test))]
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("3ac45911012bb5cd4cacabdc7b8789a9888cd7e396d007be9cd2fdab9fb612618007c87fb1f7b3d72f318f97477feb82836cf5c1d7af1e2293d456cf88894181")).unwrap().into();
+
+        let (proof, payment_authorisation, signer) = get_inner_call_proof::<T>(&recipient, amount, token, signature);
     }: {
         AvnProxy::<T>::charge_fee(&proof, payment_authorisation)?;
     }
@@ -103,7 +104,12 @@ benchmarks! {
         // Make sure this matched the chainspec value
         let token: H160 = H160(hex!("ea5da4fd16cc61ffc4235874d6ff05216e3e038e"));
 
-        let (proof, payment_authorisation, signer) = get_inner_call_proof::<T>(&recipient, amount, token);
+        #[cfg(test)]
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("e4996309bafbf4a57ae54bba2979f6d986da72e49318ac6d05e48fe844d2b614c79803c9dabe462bc94f8f3ca50688f88e8ae79fe56179847576c4f8af64cc87")).unwrap().into();
+        #[cfg(not(test))]
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("746f4aa8602ba8d97245023f3ca918560a4539dc6736c4d794bb4458a5f44122fd71b97fb5a5a63ff83a35c31867e78c593bfc3904cc912c08e17c9123989a8f")).unwrap().into();
+
+        let (proof, payment_authorisation, signer) = get_inner_call_proof::<T>(&recipient, amount, token, signature);
         let previous_payment_nonce = <PaymentNonces::<T>>::get(&signer);
     }: {
         AvnProxy::<T>::charge_fee(&proof, payment_authorisation)?;
