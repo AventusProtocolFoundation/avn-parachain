@@ -1117,6 +1117,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-avn",
+ "pallet-avn-anchor",
  "pallet-avn-offence-handler",
  "pallet-avn-proxy",
  "pallet-avn-transaction-payment",
