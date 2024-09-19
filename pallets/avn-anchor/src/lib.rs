@@ -185,7 +185,10 @@ pub mod pallet {
                 Error::<T>::HandlerAlreadyRegistered
             );
 
-            Self::do_update_chain_handler(&old_handler, &new_handler)?;
+            let chain_id =
+                ChainHandlers::<T>::get(&old_handler).ok_or(Error::<T>::ChainNotRegistered)?;
+
+            Self::do_update_chain_handler(&old_handler, &new_handler, chain_id)?;
 
             Ok(())
         }
@@ -226,8 +229,6 @@ pub mod pallet {
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == handler, Error::<T>::SenderNotValid);
-
-            let nonce = 0;
 
             let signed_payload = encode_signed_register_chain_handler_params::<T>(
                 &proof.relayer,
@@ -273,7 +274,7 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedTransaction
             );
 
-            Self::do_update_chain_handler(&old_handler, &new_handler)?;
+            Self::do_update_chain_handler(&old_handler, &new_handler, chain_id)?;
 
             <Nonces<T>>::mutate(chain_id, |n| *n += 1);
 
@@ -361,6 +362,7 @@ pub mod pallet {
         fn do_update_chain_handler(
             old_handler: &T::AccountId,
             new_handler: &T::AccountId,
+            chain_id: ChainId
         ) -> DispatchResult {
             ensure!(
                 !ChainHandlers::<T>::contains_key(new_handler),
@@ -371,8 +373,7 @@ pub mod pallet {
                 ChainHandlers::<T>::contains_key(&old_handler),
                 Error::<T>::ChainNotRegistered
             );
-            let chain_id =
-                ChainHandlers::<T>::get(&old_handler).ok_or(Error::<T>::ChainNotRegistered)?;
+            
             let chain_data =
                 ChainData::<T>::get(chain_id).ok_or(Error::<T>::NoChainDataAvailable)?;
             ChainHandlers::<T>::insert(&new_handler, chain_id);
@@ -418,7 +419,6 @@ pub mod pallet {
 
             match call {
                 Call::signed_register_chain_handler { ref proof, ref handler, ref name } => {
-                    let nonce = 0; // Initial nonce for a new chain
                     let encoded_data = encode_signed_register_chain_handler_params::<T>(
                         &proof.relayer,
                         handler,

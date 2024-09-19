@@ -361,7 +361,6 @@ fn proxy_signed_register_chain_handler_works() {
         let name = bounded_vec(b"Test Chain");
 
         let initial_chain_id = AvnAnchor::next_chain_id();
-        let nonce: u64 = 0;
         let payload =
             (REGISTER_CHAIN_HANDLER, relayer.clone(), handler_account.clone(), name.clone())
                 .encode();
