@@ -631,7 +631,6 @@ impl pallet_avn_transaction_payment::Config for Runtime {
 impl pallet_avn_anchor::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;

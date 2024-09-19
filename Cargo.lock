@@ -7201,6 +7201,7 @@ dependencies = [
  "sp-avn-common",
  "sp-core",
  "sp-io",
+ "sp-keystore",
  "sp-runtime",
  "sp-std",
 ]

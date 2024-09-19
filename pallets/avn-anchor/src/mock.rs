@@ -3,22 +3,24 @@ use codec::{Decode, Encode};
 use frame_support::{
     pallet_prelude::*,
     parameter_types,
-    traits::{ConstU16, ConstU64},
+    traits::{ConstU16, ConstU32, ConstU64, Everything},
 };
 use frame_system as system;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
+use scale_info::TypeInfo;
 use sp_avn_common::{InnerCallValidator, Proof};
 use sp_core::{sr25519, H256};
+use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    testing::UintAuthorityId,
     traits::{BlakeTwo256, IdentityLookup, Verify},
     BuildStorage,
 };
+use std::sync::Arc;
+
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
 pub type Signature = sr25519::Signature;
 pub type Balance = u128;
-
 pub type AccountId = <Signature as Verify>::Signer;
 
 frame_support::construct_runtime!(
@@ -33,7 +35,7 @@ frame_support::construct_runtime!(
 );
 
 impl system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
+    type BaseCallFilter = Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
@@ -55,20 +57,32 @@ impl system::Config for TestRuntime {
     type SystemWeightInfo = ();
     type SS58Prefix = ConstU16<42>;
     type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+    type MaxConsumers = ConstU32<16>;
 }
 
-impl Config for TestRuntime {
+parameter_types! {
+    pub const ExistentialDeposit: Balance = 1;
+}
+
+impl pallet_balances::Config for TestRuntime {
+    type MaxLocks = ConstU32<50>;
+    type Balance = Balance;
     type RuntimeEvent = RuntimeEvent;
-    type RuntimeCall = RuntimeCall;
-    type Public = AccountId;
-    type Signature = Signature;
-    type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+    type WeightInfo = ();
+    type MaxReserves = ();
+    type ReserveIdentifier = [u8; 8];
+    type FreezeIdentifier = ();
+    type MaxHolds = ();
+    type RuntimeHoldReason = ();
+    type MaxFreezes = ();
 }
 
 impl pallet_avn::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-    type AuthorityId = UintAuthorityId;
+    type AuthorityId = sp_runtime::testing::UintAuthorityId;
     type EthereumPublicKeyChecker = ();
     type NewSessionHandler = ();
     type DisabledValidatorChecker = ();
@@ -85,33 +99,13 @@ impl avn_proxy::Config for TestRuntime {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: u128 = 0;
-}
-
-impl pallet_balances::Config for TestRuntime {
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 4];
-    type MaxLocks = ();
-    type Balance = Balance;
+impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
-    type WeightInfo = ();
-    type FreezeIdentifier = ();
-    type MaxFreezes = ();
-    type MaxHolds = ();
-    type RuntimeHoldReason = ();
+    type RuntimeCall = RuntimeCall;
+    type Public = AccountId;
+    type Signature = Signature;
+    type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
 }
-
-pub fn new_test_ext() -> sp_io::TestExternalities {
-    let t = frame_system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
-    let mut ext = sp_io::TestExternalities::new(t);
-    ext.execute_with(|| System::set_block_number(1));
-    ext
-}
-
 // Test Avn proxy configuration logic
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo)]
 pub struct TestAvnProxyConfig {}
@@ -127,14 +121,14 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
             RuntimeCall::AvnAnchor(avn_anchor::Call::signed_register_chain_handler {
                 proof,
                 ..
-            }) => return Some(proof.clone()),
-            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {
+            })
+            | RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {
                 proof, ..
-            }) => return Some(proof.clone()),
-            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {
+            })
+            | RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {
                 proof,
                 ..
-            }) => return Some(proof.clone()),
+            }) => Some(proof.clone()),
             _ => None,
         }
     }
@@ -152,13 +146,22 @@ impl InnerCallValidator for TestAvnProxyConfig {
     }
 }
 
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    let keystore = MemoryKeystore::new();
+    let t = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
+    let mut ext = sp_io::TestExternalities::new(t);
+    ext.register_extension(KeystoreExt(Arc::new(keystore)));
+    ext.execute_with(|| System::set_block_number(1));
+    ext
+}
+
 pub fn proxy_event_emitted(
     relayer: AccountId,
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
-    return System::events().iter().any(|a| {
-        a.event ==
-            RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
+    System::events().iter().any(|a| {
+        a.event
+            == RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
                 relayer,
                 hash: call_hash,
             })
@@ -166,16 +169,11 @@ pub fn proxy_event_emitted(
 }
 
 pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bool {
-    return System::events().iter().any(|a| match a.event {
+    System::events().iter().any(|a| match a.event {
         RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::InnerCallFailed {
             dispatch_error,
             ..
-        }) =>
-            if dispatch_error == call_dispatch_error {
-                return true
-            } else {
-                return false
-            },
+        }) => dispatch_error == call_dispatch_error,
         _ => false,
     })
 }
