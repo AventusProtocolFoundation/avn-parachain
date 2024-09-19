@@ -1035,6 +1035,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-avn",
+ "pallet-avn-anchor",
  "pallet-avn-offence-handler",
  "pallet-avn-proxy",
  "pallet-avn-transaction-payment",
@@ -1116,6 +1117,7 @@ dependencies = [
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-avn",
+ "pallet-avn-anchor",
  "pallet-avn-offence-handler",
  "pallet-avn-proxy",
  "pallet-avn-transaction-payment",
@@ -7180,6 +7182,29 @@ dependencies = [
  "sp-state-machine",
  "sp-std",
  "substrate-test-utils",
+]
+
+[[package]]
+name = "pallet-avn-anchor"
+version = "5.7.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-avn",
+ "pallet-avn-proxy",
+ "pallet-balances",
+ "parity-scale-codec 3.6.4",
+ "parking_lot 0.12.1",
+ "scale-info",
+ "sp-application-crypto",
+ "sp-avn-common",
+ "sp-core",
+ "sp-io",
+ "sp-keystore",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
