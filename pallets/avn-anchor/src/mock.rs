@@ -121,11 +121,11 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
             RuntimeCall::AvnAnchor(avn_anchor::Call::signed_register_chain_handler {
                 proof,
                 ..
-            })
-            | RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {
+            }) |
+            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {
                 proof, ..
-            })
-            | RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {
+            }) |
+            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {
                 proof,
                 ..
             }) => Some(proof.clone()),
@@ -160,8 +160,8 @@ pub fn proxy_event_emitted(
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
     System::events().iter().any(|a| {
-        a.event
-            == RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
+        a.event ==
+            RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
                 relayer,
                 hash: call_hash,
             })
