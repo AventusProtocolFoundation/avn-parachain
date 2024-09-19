@@ -8,7 +8,7 @@ use frame_support::{
 use frame_system as system;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use scale_info::TypeInfo;
-use sp_avn_common::{InnerCallValidator, Proof};
+use sp_avn_common::{FeePaymentHandler, InnerCallValidator, Proof};
 use sp_core::{sr25519, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
@@ -97,6 +97,8 @@ impl avn_proxy::Config for TestRuntime {
     type Signature = Signature;
     type ProxyConfig = TestAvnProxyConfig;
     type WeightInfo = ();
+    type FeeHandler = Self;
+    type Token = sp_core::H160;
 }
 
 impl Config for TestRuntime {
@@ -176,4 +178,20 @@ pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bo
         }) => dispatch_error == call_dispatch_error,
         _ => false,
     })
+}
+
+impl FeePaymentHandler for TestRuntime {
+    type Token = sp_core::H160;
+    type TokenBalance = u128;
+    type AccountId = AccountId;
+    type Error = DispatchError;
+
+    fn pay_fee(
+        _token: &Self::Token,
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+        _recipient: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
+        return Err(DispatchError::Other("Test - Error"));
+    }
 }
