@@ -154,20 +154,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let handler = ensure_signed(origin)?;
 
-            ensure!(
-                !ChainHandlers::<T>::contains_key(&handler),
-                Error::<T>::HandlerAlreadyRegistered
-            );
-            ensure!(!name.is_empty(), Error::<T>::EmptyChainName);
-
-            let chain_id = Self::get_next_chain_id()?;
-            let chain_data = ChainDataStruct { chain_id, name: name.clone() };
-
-            ChainHandlers::<T>::insert(&handler, chain_id);
-            ChainData::<T>::insert(chain_id, chain_data);
-            <Nonces<T>>::insert(chain_id, 0);
-
-            Self::deposit_event(Event::ChainHandlerRegistered(handler, chain_id, name));
+            Self::do_register_chain_handler(&handler, name)?;
 
             Ok(())
         }
@@ -204,17 +191,7 @@ pub mod pallet {
             let chain_id =
                 ChainHandlers::<T>::get(&handler).ok_or(Error::<T>::ChainNotRegistered)?;
 
-            let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
-
-            Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint);
-            <Nonces<T>>::mutate(chain_id, |n| *n += 1);
-
-            Self::deposit_event(Event::CheckpointSubmitted(
-                handler,
-                chain_id,
-                checkpoint_id,
-                checkpoint,
-            ));
+            Self::do_submit_checkpoint(&handler, checkpoint, chain_id)?;
 
             Ok(())
         }
@@ -310,7 +287,7 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedTransaction
             );
 
-            Self::do_submit_checkpoint(&handler, checkpoint)?;
+            Self::do_submit_checkpoint(&handler, checkpoint, chain_id)?;
 
             Ok(())
         }
@@ -389,10 +366,7 @@ pub mod pallet {
             Ok(())
         }
 
-        fn do_submit_checkpoint(handler: &T::AccountId, checkpoint: H256) -> DispatchResult {
-            let chain_id =
-                ChainHandlers::<T>::get(handler).ok_or(Error::<T>::ChainNotRegistered)?;
-
+        fn do_submit_checkpoint(handler: &T::AccountId, checkpoint: H256, chain_id: ChainId) -> DispatchResult {
             let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
 
             Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint);

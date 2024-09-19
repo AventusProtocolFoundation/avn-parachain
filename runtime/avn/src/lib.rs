@@ -826,7 +826,7 @@ mod benches {
         [pallet_timestamp, Timestamp]
         [pallet_utility, Utility]
         [pallet_parachain_staking, ParachainStaking]
-        // [pallet_avn_anchor, AvnAnchor]
+        [pallet_avn_anchor, AvnAnchor]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
     );
 }

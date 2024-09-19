@@ -98,6 +98,7 @@ pallet-avn-transaction-payment = { path = "../../pallets/avn-transaction-payment
 pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = false }
 pallet-eth-bridge-runtime-api = { path = "../../pallets/eth-bridge/runtime-api", default-features = false }
 pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
+pallet-avn-anchor = { path = "../../pallets/avn-anchor", default-features = false }
 
 # Common Runtime
 runtime-common = { package = "avn-runtime-common", path = "../common", default-features = false }
@@ -158,6 +159,7 @@ std = [
 	# AvN pallets
 	"sp-avn-common/std",
 	"pallet-avn/std",
+	"pallet-avn-anchor/std",
 	"pallet-avn-proxy/std",
 	"pallet-avn-offence-handler/std",
 	"pallet-eth-bridge/std",
@@ -199,6 +201,7 @@ runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"pallet-sudo/runtime-benchmarks",
 	# AvN pallets
+	"pallet-avn-anchor/runtime-benchmarks",
 	"pallet-avn-proxy/runtime-benchmarks",
 	"pallet-avn-offence-handler/runtime-benchmarks",
 	"pallet-eth-bridge/runtime-benchmarks",
@@ -240,6 +243,7 @@ try-runtime = [
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"runtime-common/try-runtime",
+	"pallet-avn-anchor/try-runtime",
 	"pallet-avn-offence-handler/try-runtime",
 	"pallet-validators-manager/try-runtime",
 	"pallet-ethereum-events/try-runtime",
