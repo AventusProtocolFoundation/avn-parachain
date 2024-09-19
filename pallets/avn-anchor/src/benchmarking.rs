@@ -86,7 +86,7 @@ benchmarks! {
         let name: BoundedVec<u8, ConstU32<32>> = BoundedVec::try_from(vec![0u8; 32]).unwrap();
         let nonce = 0;
 
-        let payload = encode_signed_register_chain_handler_params::<T>(&relayer, &handler, &name, nonce);
+        let payload = encode_signed_register_chain_handler_params::<T>(&relayer, &handler, &name);
         let signature = signer_pair.sign(&payload).ok_or("Error signing proof")?;
         let proof = create_proof::<T>(signature.into(), handler.clone(), relayer);
     }: _(RawOrigin::Signed(handler.clone()), proof, handler.clone(), name.clone())

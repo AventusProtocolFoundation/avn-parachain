@@ -185,21 +185,9 @@ pub mod pallet {
                 Error::<T>::HandlerAlreadyRegistered
             );
 
-            ChainHandlers::<T>::try_mutate(&old_handler, |maybe_chain_id| -> DispatchResult {
-                let chain_id = maybe_chain_id.take().ok_or(Error::<T>::ChainNotRegistered)?;
-                ChainHandlers::<T>::insert(&new_handler, chain_id);
-                let chain_data =
-                    ChainData::<T>::get(chain_id).ok_or(Error::<T>::NoChainDataAvailable)?;
+            Self::do_update_chain_handler(&old_handler, &new_handler)?;
 
-                Self::deposit_event(Event::ChainHandlerUpdated(
-                    old_handler.clone(),
-                    new_handler.clone(),
-                    chain_id,
-                    chain_data.name,
-                ));
-
-                Ok(())
-            })
+            Ok(())
         }
 
         #[pallet::weight(<T as pallet::Config>::WeightInfo::submit_checkpoint_with_identity())]
@@ -245,7 +233,6 @@ pub mod pallet {
                 &proof.relayer,
                 &handler,
                 &name,
-                nonce,
             );
 
             ensure!(
@@ -380,21 +367,25 @@ pub mod pallet {
                 Error::<T>::HandlerAlreadyRegistered
             );
 
-            ChainHandlers::<T>::try_mutate(old_handler, |maybe_chain_data| -> DispatchResult {
-                let chain_id = maybe_chain_data.take().ok_or(Error::<T>::ChainNotRegistered)?;
-                ChainHandlers::<T>::insert(new_handler, chain_id);
-                let chain_data =
-                    Self::chain_data(chain_id).ok_or(Error::<T>::NoChainDataAvailable)?;
+            ensure!(
+                ChainHandlers::<T>::contains_key(&old_handler),
+                Error::<T>::ChainNotRegistered
+            );
+            let chain_id =
+                ChainHandlers::<T>::get(&old_handler).ok_or(Error::<T>::ChainNotRegistered)?;
+            let chain_data =
+                ChainData::<T>::get(chain_id).ok_or(Error::<T>::NoChainDataAvailable)?;
+            ChainHandlers::<T>::insert(&new_handler, chain_id);
+            ChainHandlers::<T>::remove(&old_handler);
 
-                Self::deposit_event(Event::ChainHandlerUpdated(
-                    old_handler.clone(),
-                    new_handler.clone(),
-                    chain_id,
-                    chain_data.name,
-                ));
+            Self::deposit_event(Event::ChainHandlerUpdated(
+                old_handler.clone(),
+                new_handler.clone(),
+                chain_id,
+                chain_data.name,
+            ));
 
-                Ok(())
-            })
+            Ok(())
         }
 
         fn do_submit_checkpoint(handler: &T::AccountId, checkpoint: H256) -> DispatchResult {
@@ -432,7 +423,6 @@ pub mod pallet {
                         &proof.relayer,
                         handler,
                         name,
-                        nonce,
                     );
 
                     Some((proof, encoded_data))
@@ -526,9 +516,8 @@ pub fn encode_signed_register_chain_handler_params<T: Config>(
     relayer: &T::AccountId,
     handler: &T::AccountId,
     name: &BoundedVec<u8, ChainNameLimit>,
-    nonce: u64,
 ) -> Vec<u8> {
-    (REGISTER_CHAIN_HANDLER, relayer, handler, name, nonce).encode()
+    (REGISTER_CHAIN_HANDLER, relayer, handler, name).encode()
 }
 
 pub fn encode_signed_update_chain_handler_params<T: Config>(

@@ -363,7 +363,7 @@ fn proxy_signed_register_chain_handler_works() {
         let initial_chain_id = AvnAnchor::next_chain_id();
         let nonce: u64 = 0;
         let payload =
-            (REGISTER_CHAIN_HANDLER, relayer.clone(), handler_account.clone(), name.clone(), nonce)
+            (REGISTER_CHAIN_HANDLER, relayer.clone(), handler_account.clone(), name.clone())
                 .encode();
         let proof = create_proof(&handler_pair, &relayer, &payload);
 
