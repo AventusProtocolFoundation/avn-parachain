@@ -207,11 +207,8 @@ pub mod pallet {
             let sender = ensure_signed(origin)?;
             ensure!(sender == handler, Error::<T>::SenderNotValid);
 
-            let signed_payload = encode_signed_register_chain_handler_params::<T>(
-                &proof.relayer,
-                &handler,
-                &name,
-            );
+            let signed_payload =
+                encode_signed_register_chain_handler_params::<T>(&proof.relayer, &handler, &name);
 
             ensure!(
                 verify_signature::<T::Signature, T::AccountId>(&proof, &signed_payload).is_ok(),
@@ -339,18 +336,15 @@ pub mod pallet {
         fn do_update_chain_handler(
             old_handler: &T::AccountId,
             new_handler: &T::AccountId,
-            chain_id: ChainId
+            chain_id: ChainId,
         ) -> DispatchResult {
             ensure!(
                 !ChainHandlers::<T>::contains_key(new_handler),
                 Error::<T>::HandlerAlreadyRegistered
             );
 
-            ensure!(
-                ChainHandlers::<T>::contains_key(&old_handler),
-                Error::<T>::ChainNotRegistered
-            );
-            
+            ensure!(ChainHandlers::<T>::contains_key(&old_handler), Error::<T>::ChainNotRegistered);
+
             let chain_data =
                 ChainData::<T>::get(chain_id).ok_or(Error::<T>::NoChainDataAvailable)?;
             ChainHandlers::<T>::insert(&new_handler, chain_id);
@@ -366,7 +360,11 @@ pub mod pallet {
             Ok(())
         }
 
-        fn do_submit_checkpoint(handler: &T::AccountId, checkpoint: H256, chain_id: ChainId) -> DispatchResult {
+        fn do_submit_checkpoint(
+            handler: &T::AccountId,
+            checkpoint: H256,
+            chain_id: ChainId,
+        ) -> DispatchResult {
             let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
 
             Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint);
