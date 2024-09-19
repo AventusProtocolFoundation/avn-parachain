@@ -192,6 +192,6 @@ impl FeePaymentHandler for TestRuntime {
         _payer: &Self::AccountId,
         _recipient: &Self::AccountId,
     ) -> Result<(), Self::Error> {
-        return Err(DispatchError::Other("Test - Error"));
+        return Err(DispatchError::Other("Test - Error"))
     }
 }
