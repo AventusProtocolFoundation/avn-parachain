@@ -6,11 +6,10 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
+use crate::Pallet as AvnProxy;
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use hex_literal::hex;
 use sp_core::{sr25519, H256};
-
-use crate::Pallet as AvnProxy;
 
 fn get_proof<T: Config>(
     signer: T::AccountId,
@@ -25,8 +24,9 @@ fn get_payment_info<T: Config>(
     recipient: T::AccountId,
     amount: BalanceOf<T>,
     signature: T::Signature,
-) -> PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature> {
-    return PaymentInfo { payer, recipient, amount, signature }
+    token: T::Token,
+) -> PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token> {
+    return PaymentInfo { payer, recipient, amount, signature, token }
 }
 
 fn setup_balances<T: Config>(account: T::AccountId, amount: BalanceOf<T>) {
@@ -37,38 +37,85 @@ fn setup_balances<T: Config>(account: T::AccountId, amount: BalanceOf<T>) {
 fn get_inner_call_proof<T: Config>(
     recipient: &T::AccountId,
     amount: BalanceOf<T>,
-) -> (Proof<T::Signature, T::AccountId>, PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>) {
-    let signer_account_raw: H256 =
-        H256(hex!("482eae97356cdfd3b12774db1e5950471504d28b89aa169179d6c0527a04de23"));
-    let signer =
-        T::AccountId::decode(&mut signer_account_raw.as_bytes()).expect("valid account id");
+    token: H160,
+    signature: sr25519::Signature,
+) -> (
+    Proof<T::Signature, T::AccountId>,
+    PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token>,
+    T::AccountId,
+) {
+    #[cfg(test)]
+    let signer = T::AccountId::decode(
+        &mut (H256::from_slice(&crate::mock::get_default_signer().public_key()).as_bytes()),
+    )
+    .expect("valid account id");
+    #[cfg(not(test))]
+    let signer = T::AccountId::decode(
+        &mut H256(hex!("482eae97356cdfd3b12774db1e5950471504d28b89aa169179d6c0527a04de23"))
+            .as_bytes(),
+    )
+    .expect("valid account id");
+
     let inner_call_signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("a6350211fcdf1d7f0c79bf0a9c296de17449ca88a899f0cd19a70b07513fc107b7d34249dba71d4761ceeec2ed6bc1305defeb96418e6869e6b6199ed0de558e")).unwrap().into();
     let proof = get_proof::<T>(signer.clone(), recipient.clone(), inner_call_signature);
 
-    #[cfg(test)]
-    let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("98dca66ceef8a68d6df1a3b989ea6f80337447753091844f5be8f5dcdf694338b94a5335f0297b005252d712d89ced7450755823b9dde5b1ffd57708a2c1ad81")).unwrap().into();
-    #[cfg(not(test))]
-    let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("4cf3364106905fa0caba16d93f1ca4b5afa64d37ef70e2b1dc0b95972183af025f977aa29012d4a19dce4869ded87ab4659f1f3ee05d79b6fb9723dac262418b")).unwrap().into();
+    let payment_authorisation = get_payment_info::<T>(
+        signer.clone(),
+        recipient.clone(),
+        amount,
+        signature.into(),
+        token.into(),
+    );
 
-    let payment_authorisation =
-        get_payment_info::<T>(signer.clone(), recipient.clone(), amount, signature.into());
+    setup_balances::<T>(signer.clone(), amount);
 
-    setup_balances::<T>(signer, amount);
-
-    return (proof, payment_authorisation)
+    return (proof, payment_authorisation, signer)
 }
 
 benchmarks! {
     charge_fee {
         let recipient: T::AccountId = whitelisted_caller();
         let amount: BalanceOf<T> = 10u32.into();
+        #[cfg(test)]
+        let token: H160 = crate::mock::AVT_TOKEN_CONTRACT;
+        #[cfg(not(test))]
+        // Make sure this matched the chainspec value
+        let token: H160 = H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730"));
 
-        let (proof, payment_authorisation) = get_inner_call_proof::<T>(&recipient, amount);
+        #[cfg(test)]
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("5c2991619f1c3ae9b3a403b050d1d2dea83e7ae15b43ce632fcbdac32bd8150f0b6790368c0fa51c51ac593f52d48bdfd9f773297a28d5d6a4a13c6c95595989")).unwrap().into();
+        #[cfg(not(test))]
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("bac8dcf41c8603a29d9f50de6b67826ba339306ef5a278bab34a1f334628446844e673fe09043b0e884faa15d2527e8aaa7fb2af6e6c711162678a166534e78a")).unwrap().into();
+
+        let (proof, payment_authorisation, signer) = get_inner_call_proof::<T>(&recipient, amount, token, signature);
     }: {
         AvnProxy::<T>::charge_fee(&proof, payment_authorisation)?;
     }
     verify {
         assert_eq!(T::Currency::free_balance(&recipient), amount.into());
+    }
+
+    charge_fee_in_token {
+        let recipient: T::AccountId = whitelisted_caller();
+        let amount: BalanceOf<T> = 10u32.into();
+        #[cfg(test)]
+        let token: H160 = crate::mock::NON_AVT_TOKEN_CONTRACT;
+        #[cfg(not(test))]
+        // Make sure this matched the chainspec value
+        let token: H160 = H160(hex!("ea5da4fd16cc61ffc4235874d6ff05216e3e038e"));
+
+        #[cfg(test)]
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("e4996309bafbf4a57ae54bba2979f6d986da72e49318ac6d05e48fe844d2b614c79803c9dabe462bc94f8f3ca50688f88e8ae79fe56179847576c4f8af64cc87")).unwrap().into();
+        #[cfg(not(test))]
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("6e59c93ff34689af7286aa2d40e940b403c4db76de7bd972837f4e08119aff46f3ebfc9050e110495991dc92e517ada1b622c2f76902f6701ded81878470e984")).unwrap().into();
+
+        let (proof, payment_authorisation, signer) = get_inner_call_proof::<T>(&recipient, amount, token, signature);
+        let previous_payment_nonce = <PaymentNonces::<T>>::get(&signer);
+    }: {
+        AvnProxy::<T>::charge_fee(&proof, payment_authorisation)?;
+    }
+    verify {
+        assert_eq!(previous_payment_nonce + 1, <PaymentNonces::<T>>::get(&signer));
     }
 }
 

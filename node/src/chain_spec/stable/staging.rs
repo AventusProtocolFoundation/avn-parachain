@@ -59,6 +59,7 @@ pub fn staging_testnet_config() -> ChainSpec {
                 SMALL_EVENT_CHALLENGE_PERIOD,
                 HALF_HOUR_SCHEDULE_PERIOD,
                 SMALL_VOTING_PERIOD,
+                None,
             )
         },
         // Bootnodes
@@ -118,6 +119,7 @@ pub fn staging_dev_testnet_config() -> ChainSpec {
                 NORMAL_EVENT_CHALLENGE_PERIOD,
                 FOUR_HOURS_SCHEDULE_PERIOD,
                 NORMAL_VOTING_PERIOD,
+                None,
             )
         },
         // Bootnodes

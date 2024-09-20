@@ -48,7 +48,7 @@ use sp_avn_common::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
         ProcessedEventHandler,
     },
-    verify_signature, CallDecoder, InnerCallValidator, Proof,
+    verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, Proof,
 };
 use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
 use sp_runtime::{
@@ -319,6 +319,7 @@ pub mod pallet {
         pub lower_account_id: H256,
         pub avt_token_contract: H160,
         pub lower_schedule_period: BlockNumberFor<T>,
+        pub balances: Vec<(H160, T::AccountId, u128)>,
     }
 
     // #[cfg(feature = "std")]
@@ -329,6 +330,7 @@ pub mod pallet {
                 lower_account_id: H256::zero(),
                 avt_token_contract: H160::zero(),
                 lower_schedule_period: BlockNumberFor::<T>::zero(),
+                balances: vec![],
             }
         }
     }
@@ -340,6 +342,12 @@ pub mod pallet {
             <LowerAccountId<T>>::put(self.lower_account_id);
             <AVTTokenContract<T>>::put(self.avt_token_contract);
             <LowerSchedulePeriod<T>>::put(self.lower_schedule_period);
+            for (token_id, recipient, amount) in self.balances.clone().into_iter() {
+                let key: (T::TokenId, T::AccountId) = (token_id.into(), recipient);
+                let val: T::TokenBalance = <T::TokenBalance as TryFrom<u128>>::try_from(amount)
+                    .unwrap_or_else(|_| <T::TokenBalance>::default());
+                Balances::<T>::insert(key, val);
+            }
         }
     }
 
@@ -1099,5 +1107,21 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
 
     fn on_incoming_event_processed(event: &EthEvent) -> DispatchResult {
         Self::processed_event_handler(event)
+    }
+}
+
+impl<T: Config> FeePaymentHandler for Pallet<T> {
+    type Token = T::TokenId;
+    type TokenBalance = T::TokenBalance;
+    type AccountId = T::AccountId;
+    type Error = sp_runtime::DispatchError;
+
+    fn pay_fee(
+        token_id: &Self::Token,
+        amount: &Self::TokenBalance,
+        payer: &Self::AccountId,
+        recipient: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
+        Self::settle_transfer(token_id, payer, recipient, amount)
     }
 }

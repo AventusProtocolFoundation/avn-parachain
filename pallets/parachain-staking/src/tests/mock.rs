@@ -38,7 +38,7 @@ use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_eth_bridge;
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
-use sp_avn_common::InnerCallValidator;
+use sp_avn_common::{FeePaymentHandler, InnerCallValidator};
 use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_io;
 use sp_runtime::{
@@ -352,6 +352,8 @@ impl avn_proxy::Config for Test {
     type Signature = Signature;
     type ProxyConfig = TestAvnProxyConfig;
     type WeightInfo = ();
+    type FeeHandler = Self;
+    type Token = sp_core::H160;
 }
 
 impl pallet_eth_bridge::Config for Test {
@@ -674,6 +676,22 @@ impl ParachainStaking {
         <GrowthPeriod<Test>>::mutate(|info| {
             info.index = info.index.saturating_add(1);
         });
+    }
+}
+
+impl FeePaymentHandler for Test {
+    type Token = sp_core::H160;
+    type TokenBalance = u128;
+    type AccountId = AccountId;
+    type Error = DispatchError;
+
+    fn pay_fee(
+        _token: &Self::Token,
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+        _recipient: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
+        return Err(DispatchError::Other("Test - Error"))
     }
 }
 

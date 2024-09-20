@@ -12,13 +12,16 @@ use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
     ensure,
     pallet_prelude::ValueQuery,
-    traits::{Currency, ExistenceRequirement, IsSubType},
+    traits::{Currency, IsSubType},
 };
 use frame_system::{self as system, ensure_signed};
-use sp_avn_common::{InnerCallValidator, Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG};
+use sp_avn_common::{
+    FeePaymentHandler, InnerCallValidator, Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG,
+};
 
 use core::convert::TryInto;
 pub use pallet::*;
+use sp_core::{MaxEncodedLen, H160};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Dispatchable, Hash, IdentifyAccount, Member, Verify},
@@ -70,6 +73,18 @@ pub mod pallet {
             + InnerCallValidator<Call = <Self as Config>::RuntimeCall>;
 
         type WeightInfo: WeightInfo;
+
+        /// The type of token identifier
+        /// (a H160 because this is an Ethereum address)
+        type Token: Parameter + Default + Copy + From<H160> + Into<H160> + MaxEncodedLen;
+
+        /// A handler to process relayer fee payments
+        type FeeHandler: FeePaymentHandler<
+            AccountId = Self::AccountId,
+            Token = Self::Token,
+            TokenBalance = <Self::Currency as Currency<Self::AccountId>>::Balance,
+            Error = DispatchError,
+        >;
     }
 
     #[pallet::pallet]
@@ -99,11 +114,17 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::charge_fee().saturating_add(call.get_dispatch_info().weight).saturating_add(Weight::from_parts(50_000 as u64, 0)))]
+        #[pallet::weight(
+            <T as pallet::Config>::WeightInfo::charge_fee()
+            .saturating_add(call.get_dispatch_info().weight)
+            .saturating_add(Weight::from_parts(50_000 as u64, 0)))
+        ]
         pub fn proxy(
             origin: OriginFor<T>,
             call: Box<<T as Config>::RuntimeCall>,
-            payment_info: Option<Box<PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>>>,
+            payment_info: Option<
+                Box<PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token>>,
+            >,
         ) -> DispatchResultWithPostInfo {
             let relayer = ensure_signed(origin)?;
             let mut final_weight = call
@@ -182,7 +203,7 @@ impl<T: Config> Pallet<T> {
 
     fn verify_payment_authorisation_signature(
         proof: &Proof<T::Signature, T::AccountId>,
-        payment_info: &PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
+        payment_info: &PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token>,
         payment_nonce: u64,
     ) -> Result<(), Error<T>> {
         let encoded_payload = (
@@ -190,6 +211,7 @@ impl<T: Config> Pallet<T> {
             &proof,
             &payment_info.recipient,
             &payment_info.amount,
+            &payment_info.token,
             payment_nonce,
         )
             .encode();
@@ -211,7 +233,7 @@ impl<T: Config> Pallet<T> {
 
     pub(crate) fn charge_fee(
         proof: &Proof<T::Signature, T::AccountId>,
-        payment_info: PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature>,
+        payment_info: PaymentInfo<T::AccountId, BalanceOf<T>, T::Signature, T::Token>,
     ) -> DispatchResult {
         let payment_nonce = Self::payment_nonces(&payment_info.payer);
         ensure!(
@@ -220,15 +242,14 @@ impl<T: Config> Pallet<T> {
             Error::<T>::UnauthorizedFee
         );
 
-        T::Currency::transfer(
+        T::FeeHandler::pay_fee(
+            &payment_info.token,
+            &payment_info.amount,
             &payment_info.payer,
             &payment_info.recipient,
-            payment_info.amount,
-            ExistenceRequirement::KeepAlive,
         )?;
 
         <PaymentNonces<T>>::mutate(&payment_info.payer, |n| *n += 1);
-
         Ok(())
     }
 }
@@ -240,11 +261,12 @@ pub trait ProvableProxy<Call, Signature: scale_info::TypeInfo, AccountId>:
 }
 
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Default, Debug, TypeInfo)]
-pub struct PaymentInfo<AccountId, Balance, Signature: TypeInfo> {
+pub struct PaymentInfo<AccountId, Balance, Signature: TypeInfo, Token> {
     pub payer: AccountId,
     pub recipient: AccountId,
     pub amount: Balance,
     pub signature: Signature,
+    pub token: Token,
 }
 
 #[cfg(test)]

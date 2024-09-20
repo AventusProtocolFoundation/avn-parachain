@@ -3,7 +3,8 @@ use crate::chain_spec::{
 };
 
 use crate::chain_spec::stable::{
-    get_account_id_from_seed, get_authority_keys_from_seed, testnet_genesis,
+    get_account_id_from_seed, get_account_id_from_seed_no_derivation, get_authority_keys_from_seed,
+    testnet_genesis,
 };
 use hex_literal::hex;
 use sp_core::{ecdsa, sr25519, ByteArray, H160};
@@ -38,6 +39,8 @@ pub fn development_config() -> ChainSpec {
                     (get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
+                    // Use in avn-proxy benchmarks
+                    (get_account_id_from_seed_no_derivation::<sr25519::Public>("kiss mule sheriff twice make bike twice improve rate quote draw enough"), AVT_ENDOWMENT),
                     (
                         get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"),
                         AVT_ENDOWMENT,
@@ -61,6 +64,8 @@ pub fn development_config() -> ChainSpec {
                 SMALL_EVENT_CHALLENGE_PERIOD,
                 HALF_HOUR_SCHEDULE_PERIOD,
                 SMALL_VOTING_PERIOD,
+                // Non AVT token address
+                Some(H160(hex!("ea5da4fd16cc61ffc4235874d6ff05216e3e038e"))),
             )
         },
         Vec::new(),
@@ -106,6 +111,8 @@ pub fn local_testnet_config() -> ChainSpec {
                     (get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
                     (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
+                    // Use in avn-proxy benchmarks
+                    (get_account_id_from_seed_no_derivation::<sr25519::Public>("kiss mule sheriff twice make bike twice improve rate quote draw enough"), AVT_ENDOWMENT),
                     (
                         get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"),
                         AVT_ENDOWMENT,
@@ -129,6 +136,8 @@ pub fn local_testnet_config() -> ChainSpec {
                 SMALL_EVENT_CHALLENGE_PERIOD,
                 HALF_HOUR_SCHEDULE_PERIOD,
                 SMALL_VOTING_PERIOD,
+                // Non AVT token address
+                Some(H160(hex!("ea5da4fd16cc61ffc4235874d6ff05216e3e038e"))),
             )
         },
         // Bootnodes

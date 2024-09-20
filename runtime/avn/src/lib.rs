@@ -172,7 +172,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 73,
+    spec_version: 74,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -619,6 +619,8 @@ impl pallet_avn_proxy::Config for Runtime {
     type Signature = Signature;
     type ProxyConfig = AvnProxyConfig;
     type WeightInfo = pallet_avn_proxy::default_weights::SubstrateWeight<Runtime>;
+    type FeeHandler = TokenManager;
+    type Token = EthAddress;
 }
 
 impl pallet_avn_transaction_payment::Config for Runtime {

@@ -1,38 +1,71 @@
 //Copyright 2022 Aventus Network Services (UK) Ltd.
 
 use super::*;
-use frame_support::parameter_types;
-use frame_system as system;
+use frame_support::{
+    pallet_prelude::{DispatchClass, Weight},
+    parameter_types,
+    traits::EqualPrivilegeOnly,
+    PalletId,
+};
+use frame_system::{self as system, limits::BlockWeights, EnsureRoot};
 use hex_literal::hex;
+use pallet_avn::BridgeInterfaceNotification;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
-use sp_core::{sr25519, ConstU32, Pair, H160, H256};
+use pallet_session as session;
+use sp_core::{sr25519, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    testing::UintAuthorityId,
-    traits::{BlakeTwo256, IdentityLookup, Verify},
-    BuildStorage,
+    testing::{TestXt, UintAuthorityId},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    BuildStorage, Perbill,
 };
 pub use std::sync::Arc;
 
+pub const BASE_FEE: u64 = 12;
+
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+const MAX_BLOCK_WEIGHT: Weight =
+    Weight::from_parts(2_000_000_000_000 as u64, 0).set_proof_size(u64::MAX);
 pub const ONE_AVT: u128 = 1_000000_000000_000000u128;
 pub const HUNDRED_AVT: u128 = 100 * ONE_AVT;
 pub const EXISTENTIAL_DEPOSIT: u64 = 0;
+pub const AVT_TOKEN_CONTRACT: H160 = H160(hex!("dB1Cff52f66195f0a5Bd3db91137db98cfc54AE6"));
+pub const NON_AVT_TOKEN_CONTRACT: H160 = H160(hex!("2020202020202020202020202020202020202020"));
 
 /// The signature type used by accounts/transactions.
 pub type Signature = sr25519::Signature;
 /// An identifier for an account on this system.
 pub type AccountId = <Signature as Verify>::Signer;
+/// A token type
+pub type Token = H160;
+
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
 
 use crate::{self as avn_proxy};
+
+impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type OverarchingCall = RuntimeCall;
+    type Extrinsic = Extrinsic;
+}
+
 frame_support::construct_runtime!(
     pub enum TestRuntime
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         NftManager: pallet_nft_manager::{Pallet, Call, Storage, Event<T>},
         AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event, Config<T>},
+        TokenManager: pallet_token_manager::{Pallet, Call, Storage, Event<T>},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Historical: pallet_session::historical::{Pallet, Storage},
     }
 );
 
@@ -44,6 +77,8 @@ impl Config for TestRuntime {
     type Signature = Signature;
     type ProxyConfig = TestAvnProxyConfig;
     type WeightInfo = ();
+    type FeeHandler = TokenManager;
+    type Token = H160;
 }
 
 pub type AvnProxyCall = super::Call<TestRuntime>;
@@ -126,6 +161,106 @@ impl pallet_avn::Config for TestRuntime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
+    pub static TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
+}
+
+impl pallet_token_manager::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type ProcessedEventsChecker = ();
+    type TokenId = sp_core::H160;
+    type TokenBalance = u128;
+    type Public = AccountId;
+    type Signature = Signature;
+    type AvnTreasuryPotId = AvnTreasuryPotId;
+    type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
+    type OnGrowthLiftedHandler = ();
+    type WeightInfo = ();
+    type Scheduler = Scheduler;
+    type Preimages = ();
+    type PalletsOrigin = OriginCaller;
+    type BridgeInterface = EthBridge;
+}
+
+parameter_types! {
+    pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
+        .base_block(Weight::from_parts(10 as u64, 0))
+        .for_class(DispatchClass::all(), |weights| {
+            weights.base_extrinsic = Weight::from_parts(BASE_FEE as u64, 0);
+        })
+        .for_class(DispatchClass::Normal, |weights| {
+            weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT);
+        })
+        .for_class(DispatchClass::Operational, |weights| {
+            weights.max_total = Some(MAX_BLOCK_WEIGHT);
+            weights.reserved = Some(
+                MAX_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT
+            );
+    })
+    .avg_block_initialization(Perbill::from_percent(0))
+    .build_or_panic();
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_scheduler::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = ConstU32<100>;
+    type WeightInfo = ();
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type Preimages = ();
+}
+
+impl pallet_eth_bridge::Config for TestRuntime {
+    type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type TimeProvider = Timestamp;
+    type MinEthBlockConfirmation = ConstU64<20>;
+    type RuntimeCall = RuntimeCall;
+    type WeightInfo = ();
+    type AccountToBytesConvert = AVN;
+    type BridgeInterfaceNotification = Self;
+    type ReportCorroborationOffence = ();
+    type ProcessedEventsChecker = ();
+    type EthereumEventsFilter = ();
+}
+
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = frame_support::traits::ConstU64<12000>;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const Period: u64 = 1;
+    pub const Offset: u64 = 0;
+}
+
+impl session::Config for TestRuntime {
+    type SessionManager = ();
+    type Keys = UintAuthorityId;
+    type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+    type SessionHandler = (AVN,);
+    type RuntimeEvent = RuntimeEvent;
+    type ValidatorId = AccountId;
+    type ValidatorIdOf = ConvertInto;
+    type NextSessionRotation = ();
+    type WeightInfo = ();
+}
+
+impl pallet_session::historical::Config for TestRuntime {
+    type FullIdentification = AccountId;
+    type FullIdentificationOf = ConvertInto;
+}
+
 // Test Avn proxy configuration logic
 // We only allow System::Remark and signed_mint_single_nft calls to be proxied
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo)]
@@ -176,7 +311,15 @@ pub struct ExtBuilder {
 
 impl ExtBuilder {
     pub fn build_default() -> Self {
-        let storage = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
+        let mut storage = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
+        let _ = pallet_token_manager::GenesisConfig::<TestRuntime> {
+            _phantom: Default::default(),
+            avt_token_contract: AVT_TOKEN_CONTRACT,
+            lower_account_id: H256::random(),
+            lower_schedule_period: 10,
+            balances: vec![(NON_AVT_TOKEN_CONTRACT, get_default_signer_account_id(), 100)],
+        }
+        .assimilate_storage(&mut storage);
         Self { storage }
     }
 
@@ -219,6 +362,10 @@ impl TestAccount {
         return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap()
     }
 
+    pub fn public_key(&self) -> sr25519::Public {
+        return self.key_pair().public()
+    }
+
     pub fn key_pair(&self) -> sr25519::Pair {
         return sr25519::Pair::from_seed(&self.seed)
     }
@@ -231,6 +378,19 @@ pub fn sign(signer: &sr25519::Pair, message_to_sign: &[u8]) -> Signature {
 #[allow(dead_code)]
 pub fn verify_signature(signature: Signature, signer: AccountId, signed_data: &[u8]) -> bool {
     return signature.verify(signed_data, &signer)
+}
+
+pub fn get_default_signer() -> TestAccount {
+    let hex_str = "aa1488619fd87c3ee824d4ae4529ba38acc5227c7a66f414236a7fdfdaccf5d9";
+    let bytes = hex::decode(hex_str).expect("Decoding failed");
+
+    // Ensure it's a [u8; 32]
+    let seed: [u8; 32] = bytes.try_into().expect("Incorrect length");
+    TestAccount::new(seed)
+}
+
+pub fn get_default_signer_account_id() -> AccountId {
+    get_default_signer().account_id()
 }
 
 #[derive(Clone)]
@@ -386,4 +546,14 @@ pub fn single_nft_minted_events_count() -> usize {
         .map(|r| r.event)
         .filter_map(|e| if let RuntimeEvent::NftManager(inner) = e { Some(inner) } else { None })
         .count()
+}
+
+impl BridgeInterfaceNotification for TestRuntime {
+    fn process_result(
+        _tx_id: u32,
+        _caller_id: Vec<u8>,
+        _tx_succeeded: bool,
+    ) -> sp_runtime::DispatchResult {
+        Ok(())
+    }
 }
