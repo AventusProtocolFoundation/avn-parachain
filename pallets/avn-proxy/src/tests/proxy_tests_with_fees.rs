@@ -536,7 +536,7 @@ mod for_token_transfer_extrinsics {
         pub from: AccountId,
         pub to: AccountId,
         pub token: H160,
-        pub amount: u128
+        pub amount: u128,
     }
 
     impl Default for TokenTransferContext {
@@ -559,7 +559,7 @@ mod for_token_transfer_extrinsics {
             from: transfer_data.from,
             to: transfer_data.to,
             token_id: transfer_data.token,
-            amount: transfer_data.amount
+            amount: transfer_data.amount,
         }))
     }
 
@@ -575,7 +575,7 @@ mod for_token_transfer_extrinsics {
             &data.to,
             data.token,
             data.amount,
-            nonce
+            nonce,
         );
 
         let signature = sign(&context.signer.key_pair(), &data_to_sign.encode());
@@ -591,18 +591,22 @@ mod for_token_transfer_extrinsics {
 
     pub fn native_token_transfered_events_emitted() -> bool {
         return System::events()
-        .into_iter()
-        .map(|r| r.event)
-        .filter_map(|e| if let RuntimeEvent::Balances(inner) = e { Some(inner) } else { None })
-        .count() > 0
+            .into_iter()
+            .map(|r| r.event)
+            .filter_map(|e| if let RuntimeEvent::Balances(inner) = e { Some(inner) } else { None })
+            .count() >
+            0
     }
 
     pub fn non_native_token_transfered_events_emitted() -> bool {
         return System::events()
-        .into_iter()
-        .map(|r| r.event)
-        .filter_map(|e| if let RuntimeEvent::TokenManager(inner) = e { Some(inner) } else { None })
-        .count() > 0
+            .into_iter()
+            .map(|r| r.event)
+            .filter_map(
+                |e| if let RuntimeEvent::TokenManager(inner) = e { Some(inner) } else { None },
+            )
+            .count() >
+            0
     }
 
     mod charging_fees {
@@ -634,12 +638,21 @@ mod for_token_transfer_extrinsics {
                         payment_authorisation
                     ));
 
-                    assert_eq!(true, proxy_event_emitted(context.relayer.account_id(), call_hash), "Proxy failed");
-                    assert_eq!(true, native_token_transfered_events_emitted(), "Tokens not transfered");
+                    assert_eq!(
+                        true,
+                        proxy_event_emitted(context.relayer.account_id(), call_hash),
+                        "Proxy failed"
+                    );
+                    assert_eq!(
+                        true,
+                        native_token_transfered_events_emitted(),
+                        "Tokens not transfered"
+                    );
 
                     // Check that a fee has been paid
                     assert_eq!(
-                        signer_balance - (ONE_AVT + ONE_AVT), //1 for the relayer and another to transfer
+                        signer_balance - (ONE_AVT + ONE_AVT), /* 1 for the relayer and another
+                                                               * to transfer */
                         Balances::free_balance(context.signer.account_id())
                     );
                     assert_eq!(
@@ -661,7 +674,10 @@ mod for_token_transfer_extrinsics {
 
                     // Create a new payer and fund them
                     let new_payment_proof_signer = &TestAccount::new([100u8; 32]);
-                    Balances::make_free_balance_be(&new_payment_proof_signer.account_id(), HUNDRED_AVT);
+                    Balances::make_free_balance_be(
+                        &new_payment_proof_signer.account_id(),
+                        HUNDRED_AVT,
+                    );
 
                     let payment_authorisation = Some(Box::new(create_payment_authorisation(
                         &context.relayer,
@@ -684,10 +700,19 @@ mod for_token_transfer_extrinsics {
                         inner_call,
                         payment_authorisation
                     ));
-                    assert_eq!(true, proxy_event_emitted(context.relayer.account_id(), call_hash), "Proxy failed");
-                    assert_eq!(true, native_token_transfered_events_emitted(), "Tokens not transfered");
+                    assert_eq!(
+                        true,
+                        proxy_event_emitted(context.relayer.account_id(), call_hash),
+                        "Proxy failed"
+                    );
+                    assert_eq!(
+                        true,
+                        native_token_transfered_events_emitted(),
+                        "Tokens not transfered"
+                    );
 
-                    // The signer transfers 1 AVT but is not affected by the proxy fee because `new payer` is paying the fees
+                    // The signer transfers 1 AVT but is not affected by the proxy fee because `new
+                    // payer` is paying the fees
                     assert_eq!(
                         signer_balance - ONE_AVT,
                         Balances::free_balance(context.signer.account_id())
@@ -724,7 +749,8 @@ mod for_token_transfer_extrinsics {
                         Balances::make_free_balance_be(&transfer_data.from, HUNDRED_AVT);
 
                         let proxy_proof = get_signed_transfer_proxy_proof(&context, &transfer_data);
-                        let inner_call = get_signed_transfer_token_call(&transfer_data, &proxy_proof);
+                        let inner_call =
+                            get_signed_transfer_token_call(&transfer_data, &proxy_proof);
 
                         let payment_authorisation = Some(Box::new(create_payment_authorisation(
                             &context.relayer,
@@ -736,11 +762,22 @@ mod for_token_transfer_extrinsics {
 
                         let call_hash = Hashing::hash_of(&inner_call);
 
-                        let signer_avt_balance = Balances::free_balance(context.signer.account_id());
-                        let relayer_avt_balance = Balances::free_balance(context.relayer.account_id());
-                        let relayer_non_avt_balance = TokenManager::get_token_balance(&context.relayer.account_id(), &NON_AVT_TOKEN_CONTRACT).unwrap_or(0_u128.into());
-                        let new_payer_avt_balance = Balances::free_balance(new_payment_proof_signer.account_id());
-                        let new_payer_non_avt_balance = TokenManager::get_token_balance(&new_payment_proof_signer.account_id(), &NON_AVT_TOKEN_CONTRACT).unwrap_or(0_u128.into());
+                        let signer_avt_balance =
+                            Balances::free_balance(context.signer.account_id());
+                        let relayer_avt_balance =
+                            Balances::free_balance(context.relayer.account_id());
+                        let relayer_non_avt_balance = TokenManager::get_token_balance(
+                            &context.relayer.account_id(),
+                            &NON_AVT_TOKEN_CONTRACT,
+                        )
+                        .unwrap_or(0_u128.into());
+                        let new_payer_avt_balance =
+                            Balances::free_balance(new_payment_proof_signer.account_id());
+                        let new_payer_non_avt_balance = TokenManager::get_token_balance(
+                            &new_payment_proof_signer.account_id(),
+                            &NON_AVT_TOKEN_CONTRACT,
+                        )
+                        .unwrap_or(0_u128.into());
                         let recipient_avt_balance = Balances::free_balance(transfer_data.to);
 
                         <frame_system::Pallet<TestRuntime>>::reset_events();
@@ -749,11 +786,24 @@ mod for_token_transfer_extrinsics {
                             inner_call,
                             payment_authorisation
                         ));
-                        assert_eq!(true, proxy_event_emitted(context.relayer.account_id(), call_hash), "Proxy failed");
-                        assert_eq!(true, native_token_transfered_events_emitted(), "Tokens not transfered");
-                        assert_eq!(true, non_native_token_transfered_events_emitted(), "Proxy payment not complete");
+                        assert_eq!(
+                            true,
+                            proxy_event_emitted(context.relayer.account_id(), call_hash),
+                            "Proxy failed"
+                        );
+                        assert_eq!(
+                            true,
+                            native_token_transfered_events_emitted(),
+                            "Tokens not transfered"
+                        );
+                        assert_eq!(
+                            true,
+                            non_native_token_transfered_events_emitted(),
+                            "Proxy payment not complete"
+                        );
 
-                        // The signer transfers 1 AVT but is not affected by the proxy fee because `new payer` is paying the fees
+                        // The signer transfers 1 AVT but is not affected by the proxy fee because
+                        // `new payer` is paying the fees
                         assert_eq!(
                             signer_avt_balance - ONE_AVT,
                             Balances::free_balance(context.signer.account_id())
@@ -768,7 +818,11 @@ mod for_token_transfer_extrinsics {
                         // The new payer's non avt balance decreases because they paid the proxy fee
                         assert_eq!(
                             new_payer_non_avt_balance - ONE_AVT,
-                            TokenManager::get_token_balance(&new_payment_proof_signer.account_id(), &NON_AVT_TOKEN_CONTRACT).unwrap()
+                            TokenManager::get_token_balance(
+                                &new_payment_proof_signer.account_id(),
+                                &NON_AVT_TOKEN_CONTRACT
+                            )
+                            .unwrap()
                         );
 
                         // The relayer's AVT balance doesn't change
@@ -780,7 +834,11 @@ mod for_token_transfer_extrinsics {
                         // The relayer receives 1 NON AVT TOKEN
                         assert_eq!(
                             relayer_non_avt_balance + ONE_AVT,
-                            TokenManager::get_token_balance(&context.relayer.account_id(), &NON_AVT_TOKEN_CONTRACT).unwrap()
+                            TokenManager::get_token_balance(
+                                &context.relayer.account_id(),
+                                &NON_AVT_TOKEN_CONTRACT
+                            )
+                            .unwrap()
                         );
 
                         // The receiver's balance goes up by 1 AVT
@@ -798,7 +856,8 @@ mod for_token_transfer_extrinsics {
                         let context: ProxyContext = Default::default();
                         let transfer_data: TokenTransferContext = Default::default();
                         let proxy_proof = get_signed_transfer_proxy_proof(&context, &transfer_data);
-                        let inner_call = get_signed_transfer_token_call(&transfer_data, &proxy_proof);
+                        let inner_call =
+                            get_signed_transfer_token_call(&transfer_data, &proxy_proof);
 
                         // Create a new payer
                         let new_payment_proof_signer = get_default_signer();
@@ -813,11 +872,22 @@ mod for_token_transfer_extrinsics {
 
                         let call_hash = Hashing::hash_of(&inner_call);
 
-                        let signer_avt_balance = Balances::free_balance(context.signer.account_id());
-                        let relayer_avt_balance = Balances::free_balance(context.relayer.account_id());
-                        let relayer_non_avt_balance = TokenManager::get_token_balance(&context.relayer.account_id(), &NON_AVT_TOKEN_CONTRACT).unwrap_or(0_u128.into());
-                        let new_payer_avt_balance = Balances::free_balance(new_payment_proof_signer.account_id());
-                        let new_payer_non_avt_balance = TokenManager::get_token_balance(&new_payment_proof_signer.account_id(), &NON_AVT_TOKEN_CONTRACT).unwrap_or(0_u128.into());
+                        let signer_avt_balance =
+                            Balances::free_balance(context.signer.account_id());
+                        let relayer_avt_balance =
+                            Balances::free_balance(context.relayer.account_id());
+                        let relayer_non_avt_balance = TokenManager::get_token_balance(
+                            &context.relayer.account_id(),
+                            &NON_AVT_TOKEN_CONTRACT,
+                        )
+                        .unwrap_or(0_u128.into());
+                        let new_payer_avt_balance =
+                            Balances::free_balance(new_payment_proof_signer.account_id());
+                        let new_payer_non_avt_balance = TokenManager::get_token_balance(
+                            &new_payment_proof_signer.account_id(),
+                            &NON_AVT_TOKEN_CONTRACT,
+                        )
+                        .unwrap_or(0_u128.into());
 
                         assert_eq!(false, native_token_transfered_events_emitted());
                         assert_ok!(AvnProxy::proxy(
@@ -825,10 +895,19 @@ mod for_token_transfer_extrinsics {
                             inner_call,
                             payment_authorisation
                         ));
-                        assert_eq!(true, proxy_event_emitted(context.relayer.account_id(), call_hash), "Proxy failed");
-                        assert_eq!(true, non_native_token_transfered_events_emitted(), "Tokens not transfered");
+                        assert_eq!(
+                            true,
+                            proxy_event_emitted(context.relayer.account_id(), call_hash),
+                            "Proxy failed"
+                        );
+                        assert_eq!(
+                            true,
+                            non_native_token_transfered_events_emitted(),
+                            "Tokens not transfered"
+                        );
 
-                        // The signer transfers 1 AVT but is not affected by the proxy fee because `new payer` is paying the fees
+                        // The signer transfers 1 AVT but is not affected by the proxy fee because
+                        // `new payer` is paying the fees
                         assert_eq!(
                             signer_avt_balance - ONE_AVT,
                             Balances::free_balance(context.signer.account_id())
@@ -843,7 +922,11 @@ mod for_token_transfer_extrinsics {
                         // The new payer's non avt balance decreases
                         assert_eq!(
                             new_payer_non_avt_balance - ONE_AVT,
-                            TokenManager::get_token_balance(&new_payment_proof_signer.account_id(), &NON_AVT_TOKEN_CONTRACT).unwrap()
+                            TokenManager::get_token_balance(
+                                &new_payment_proof_signer.account_id(),
+                                &NON_AVT_TOKEN_CONTRACT
+                            )
+                            .unwrap()
                         );
 
                         // The relayer's AVT balance doesn't change
@@ -855,7 +938,11 @@ mod for_token_transfer_extrinsics {
                         // The relayer receives 1 NON AVT TOKEN
                         assert_eq!(
                             relayer_non_avt_balance + ONE_AVT,
-                            TokenManager::get_token_balance(&context.relayer.account_id(), &NON_AVT_TOKEN_CONTRACT).unwrap()
+                            TokenManager::get_token_balance(
+                                &context.relayer.account_id(),
+                                &NON_AVT_TOKEN_CONTRACT
+                            )
+                            .unwrap()
                         );
                     })
                 }

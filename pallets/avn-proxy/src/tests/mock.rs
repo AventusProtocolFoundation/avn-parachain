@@ -280,10 +280,12 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
                 return Some(context.get_proof())
             },
             RuntimeCall::NftManager(pallet_nft_manager::Call::signed_mint_single_nft {
-                proof, ..
+                proof,
+                ..
             }) => return Some(proof.clone()),
             RuntimeCall::TokenManager(pallet_token_manager::Call::signed_transfer {
-                proof, ..
+                proof,
+                ..
             }) => return Some(proof.clone()),
             _ => None,
         }
@@ -319,7 +321,11 @@ impl ExtBuilder {
             avt_token_contract: AVT_TOKEN_CONTRACT,
             lower_account_id: H256::random(),
             lower_schedule_period: 10,
-            balances: vec![(NON_AVT_TOKEN_CONTRACT, get_default_signer_account_id(), 100 * ONE_AVT)],
+            balances: vec![(
+                NON_AVT_TOKEN_CONTRACT,
+                get_default_signer_account_id(),
+                100 * ONE_AVT,
+            )],
         }
         .assimilate_storage(&mut storage);
         Self { storage }
