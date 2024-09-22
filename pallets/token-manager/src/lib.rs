@@ -1008,12 +1008,15 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_token_balance(account: &T::AccountId, token_id: &T::TokenId,) -> Option<T::TokenBalance> {
+    pub fn get_token_balance(
+        account: &T::AccountId,
+        token_id: &T::TokenId,
+    ) -> Option<T::TokenBalance> {
         if Balances::<T>::contains_key((token_id, account)) {
-            return Some(Self::balance((token_id, account)));
+            return Some(Self::balance((token_id, account)))
         }
 
-        return None;
+        return None
     }
 }
 
