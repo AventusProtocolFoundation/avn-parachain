@@ -239,7 +239,7 @@ pub mod pallet {
             new_period: BlockNumberFor<T>,
         },
         LoweringEnabled,
-        LoweringDisabled
+        LoweringDisabled,
     }
 
     #[pallet::error]
@@ -589,18 +589,15 @@ pub mod pallet {
 
         #[pallet::call_index(10)]
         #[pallet::weight(0)]
-        pub fn toggle_lowering(
-            origin: OriginFor<T>,
-            enabled: bool,
-        ) -> DispatchResult {
+        pub fn toggle_lowering(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let _ = ensure_root(origin)?;
 
             <LowersDisabled<T>>::put(!enabled);
 
             if enabled {
-                Self::deposit_event(Event::<T>::LoweringDisabled);
-            } else {
                 Self::deposit_event(Event::<T>::LoweringEnabled);
+            } else {
+                Self::deposit_event(Event::<T>::LoweringDisabled);
             }
 
             return Ok(())
@@ -1039,12 +1036,15 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    pub fn get_token_balance(account: &T::AccountId, token_id: &T::TokenId,) -> Option<T::TokenBalance> {
+    pub fn get_token_balance(
+        account: &T::AccountId,
+        token_id: &T::TokenId,
+    ) -> Option<T::TokenBalance> {
         if Balances::<T>::contains_key((token_id, account)) {
-            return Some(Self::balance((token_id, account)));
+            return Some(Self::balance((token_id, account)))
         }
 
-        return None;
+        return None
     }
 }
 
