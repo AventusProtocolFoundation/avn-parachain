@@ -238,6 +238,8 @@ pub mod pallet {
         LowerSchedulePeriodUpdated {
             new_period: BlockNumberFor<T>,
         },
+        LoweringEnabled,
+        LoweringDisabled
     }
 
     #[pallet::error]
@@ -263,6 +265,7 @@ pub mod pallet {
         InvalidLowerCall,
         LowerDataLimitExceeded,
         InvalidLowerId,
+        LoweringDisabled,
     }
 
     #[pallet::storage]
@@ -312,6 +315,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn lower_schedule_period)]
     pub type LowerSchedulePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
+    /// The number of blocks lower transactions are delayed before executing
+    #[pallet::storage]
+    #[pallet::getter(fn lowers_disabled)]
+    pub type LowersDisabled<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -449,6 +457,7 @@ pub mod pallet {
             lower_id: LowerId,
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
+            ensure!(<LowersDisabled<T>>::get() == false, Error::<T>::LoweringDisabled);
 
             Self::settle_lower(token_id, &from, &to_account_id, amount, t1_recipient, lower_id)?;
 
@@ -472,7 +481,9 @@ pub mod pallet {
             t1_recipient: H160, // the receiver address on tier1
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
+
             ensure!(sender == from, Error::<T>::SenderNotValid);
+            ensure!(<LowersDisabled<T>>::get() == false, Error::<T>::LoweringDisabled);
             ensure!(amount != 0, Error::<T>::AmountIsZero);
 
             let to_account_id = T::AccountId::decode(&mut Self::lower_account_id().as_bytes())
@@ -496,6 +507,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             ensure!(sender == from, Error::<T>::SenderNotValid);
+            ensure!(<LowersDisabled<T>>::get() == false, Error::<T>::LoweringDisabled);
             ensure!(amount != 0, Error::<T>::AmountIsZero);
 
             let sender_nonce = Self::nonce(&sender);
@@ -571,6 +583,25 @@ pub mod pallet {
 
             <LowerSchedulePeriod<T>>::put(new_period);
             Self::deposit_event(Event::<T>::LowerSchedulePeriodUpdated { new_period });
+
+            return Ok(())
+        }
+
+        #[pallet::call_index(10)]
+        #[pallet::weight(0)]
+        pub fn toggle_lowering(
+            origin: OriginFor<T>,
+            enabled: bool,
+        ) -> DispatchResult {
+            let _ = ensure_root(origin)?;
+
+            <LowersDisabled<T>>::put(!enabled);
+
+            if enabled {
+                Self::deposit_event(Event::<T>::LoweringDisabled);
+            } else {
+                Self::deposit_event(Event::<T>::LoweringEnabled);
+            }
 
             return Ok(())
         }
