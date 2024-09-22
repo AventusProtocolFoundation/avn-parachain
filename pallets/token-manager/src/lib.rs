@@ -588,7 +588,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(10)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::toggle_lowering())]
         pub fn toggle_lowering(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
             let _ = ensure_root(origin)?;
 
