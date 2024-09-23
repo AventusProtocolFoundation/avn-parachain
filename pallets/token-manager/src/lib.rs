@@ -316,7 +316,7 @@ pub mod pallet {
     #[pallet::getter(fn lower_schedule_period)]
     pub type LowerSchedulePeriod<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
-    /// The number of blocks lower transactions are delayed before executing
+    /// A flag that controls if lowering is enabled
     #[pallet::storage]
     #[pallet::getter(fn lowers_disabled)]
     pub type LowersDisabled<T: Config> = StorageValue<_, bool, ValueQuery>;
