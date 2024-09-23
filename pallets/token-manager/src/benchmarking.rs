@@ -354,6 +354,14 @@ benchmarks! {
     verify {
         assert_eq!(LowerSchedulePeriod::<T>::get(), new_period);
     }
+
+    toggle_lowering {
+        let lower_enabled = false;
+    }: _(RawOrigin::Root, lower_enabled)
+    verify {
+        assert_eq!(LowersDisabled::<T>::get(), true);
+        assert_last_event::<T>(Event::<T>::LoweringDisabled.into());
+    }
 }
 
 impl_benchmark_test_suite!(
