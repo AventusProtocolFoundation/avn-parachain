@@ -85,6 +85,7 @@ pub type AvnProxyCall = super::Call<TestRuntime>;
 pub type SystemCall = frame_system::Call<TestRuntime>;
 pub type BalancesCall = pallet_balances::Call<TestRuntime>;
 pub type NftManagerCall = pallet_nft_manager::Call<TestRuntime>;
+pub type TokenManagerCall = pallet_token_manager::Call<TestRuntime>;
 pub type Hashing = <TestRuntime as system::Config>::Hashing;
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
@@ -278,12 +279,13 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
                 let context: ProxyContext = Default::default();
                 return Some(context.get_proof())
             },
-
             RuntimeCall::NftManager(pallet_nft_manager::Call::signed_mint_single_nft {
                 proof,
-                unique_external_ref: _,
-                royalties: _,
-                t1_authority: _,
+                ..
+            }) => return Some(proof.clone()),
+            RuntimeCall::TokenManager(pallet_token_manager::Call::signed_transfer {
+                proof,
+                ..
             }) => return Some(proof.clone()),
             _ => None,
         }
@@ -298,6 +300,8 @@ impl InnerCallValidator for TestAvnProxyConfig {
             RuntimeCall::System(..) => return true,
             RuntimeCall::NftManager(..) =>
                 return pallet_nft_manager::Pallet::<TestRuntime>::signature_is_valid(call),
+            RuntimeCall::TokenManager(..) =>
+                return pallet_token_manager::Pallet::<TestRuntime>::signature_is_valid(call),
             _ => false,
         }
     }
@@ -317,7 +321,11 @@ impl ExtBuilder {
             avt_token_contract: AVT_TOKEN_CONTRACT,
             lower_account_id: H256::random(),
             lower_schedule_period: 10,
-            balances: vec![(NON_AVT_TOKEN_CONTRACT, get_default_signer_account_id(), 100)],
+            balances: vec![(
+                NON_AVT_TOKEN_CONTRACT,
+                get_default_signer_account_id(),
+                100 * ONE_AVT,
+            )],
         }
         .assimilate_storage(&mut storage);
         Self { storage }

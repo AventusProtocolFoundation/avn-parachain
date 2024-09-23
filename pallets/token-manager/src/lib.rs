@@ -408,6 +408,8 @@ pub mod pallet {
 
             Self::settle_transfer(&token_id, &from, &to, &amount)?;
 
+            <Nonces<T>>::mutate(from, |n| *n += 1);
+
             Ok(())
         }
 
@@ -619,8 +621,6 @@ impl<T: Config> Pallet<T> {
                 token_balance: amount.clone(),
             });
         }
-
-        <Nonces<T>>::mutate(from, |n| *n += 1);
 
         Ok(())
     }
@@ -1006,6 +1006,17 @@ impl<T: Config> Pallet<T> {
             // Event handled or it is not for us, in which case ignore it.
             _ => Ok(()),
         }
+    }
+
+    pub fn get_token_balance(
+        account: &T::AccountId,
+        token_id: &T::TokenId,
+    ) -> Option<T::TokenBalance> {
+        if Balances::<T>::contains_key((token_id, account)) {
+            return Some(Self::balance((token_id, account)))
+        }
+
+        return None
     }
 }
 
