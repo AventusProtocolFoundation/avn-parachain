@@ -181,7 +181,7 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     prefixed_message.append(&mut message_bytes.to_vec());
     let hash = keccak_256(&prefixed_message);
     log::debug!(
-        "🪲 Request to sign data: {:?},\n data with ethereum prefix: {:?}, \n result hash: {:?}",
+        "🪲 Data without prefix: {:?},\n data with ethereum prefix: {:?}, \n result hash: {:?}",
         &hex_message,
         &prefixed_message,
         hex::encode(&hash),

@@ -417,7 +417,7 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // verify that the incoming (unverified) pubkey is actually a validator
         if !Self::is_validator(&validator.account_id) {
-            log::warn!("✋ Account: {:?} is not a authority.", &validator.account_id);
+            log::warn!("✋ Account: {:?} is not an authority.", &validator.account_id);
             return false
         }
         let recovered_public_key = recover_public_key_from_ecdsa_signature(signature, &data);
