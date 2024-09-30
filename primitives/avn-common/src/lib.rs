@@ -159,11 +159,11 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
 }
 
 pub fn recover_public_key_from_ecdsa_signature(
-    signature: ecdsa::Signature,
-    message: String,
+    signature: &ecdsa::Signature,
+    message: &String,
 ) -> Result<ecdsa::Public, ECDSAVerificationError> {
     match secp256k1_ecdsa_recover_compressed(
-        &signature.into(),
+        signature.as_ref(),
         &hash_with_ethereum_prefix(message)?,
     ) {
         Ok(pubkey) => return Ok(ecdsa::Public::from_raw(pubkey)),
@@ -173,13 +173,20 @@ pub fn recover_public_key_from_ecdsa_signature(
     }
 }
 
-pub fn hash_with_ethereum_prefix(hex_message: String) -> Result<[u8; 32], ECDSAVerificationError> {
+pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSAVerificationError> {
     let message_bytes = hex::decode(hex_message.trim_start_matches("0x"))
         .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
     let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
     prefixed_message.append(&mut message_bytes.to_vec());
-    Ok(keccak_256(&prefixed_message))
+    let hash = keccak_256(&prefixed_message);
+    log::debug!(
+        "🪲 Data without prefix: {:?},\n data with ethereum prefix: {:?}, \n result hash: {:?}",
+        &hex_message,
+        &prefixed_message,
+        hex::encode(&hash),
+    );
+    Ok(hash)
 }
 
 pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member>(
