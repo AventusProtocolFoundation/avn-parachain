@@ -242,7 +242,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn get_next_block_to_process)]
-    pub type NextBlockToProcess<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type NextBlockToProcess<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
     pub type TxIdToRoot<T: Config<I>, I: 'static = ()> = StorageMap<
@@ -255,19 +256,23 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn block_number_for_next_slot)]
-    pub type NextSlotAtBlock<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type NextSlotAtBlock<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn current_slot)]
-    pub type CurrentSlot<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type CurrentSlot<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn slot_validator)]
-    pub type CurrentSlotsValidator<T: Config<I>, I: 'static = ()> = StorageValue<_, T::AccountId, OptionQuery>;
+    pub type CurrentSlotsValidator<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, T::AccountId, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn last_summary_slot)]
-    pub type SlotOfLastPublishedSummary<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type SlotOfLastPublishedSummary<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
     pub type Roots<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
@@ -298,23 +303,26 @@ pub mod pallet {
     /// The total ingresses of roots
     #[pallet::storage]
     #[pallet::getter(fn get_ingress_counter)]
-    pub type TotalIngresses<T: Config<I>, I: 'static = ()> = StorageValue<_, IngressCounter, ValueQuery>;
+    pub type TotalIngresses<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, IngressCounter, ValueQuery>;
 
     /// A period (in block number) where summaries are calculated
     #[pallet::storage]
     #[pallet::getter(fn schedule_period)]
-    pub type SchedulePeriod<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type SchedulePeriod<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     /// A period (in block number) where validators are allowed to vote on the validity of a root
     /// hash
     #[pallet::storage]
     #[pallet::getter(fn voting_period)]
-    pub type VotingPeriod<T: Config<I>, I: 'static = ()> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type VotingPeriod<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
         /// Dummy marker.
-		pub _phantom: sp_std::marker::PhantomData<I>,
+        pub _phantom: sp_std::marker::PhantomData<I>,
         pub schedule_period: BlockNumberFor<T>,
         pub voting_period: BlockNumberFor<T>,
     }

@@ -178,7 +178,9 @@ fn send_challenge_transaction<T: Config<I>, I: 'static>(
     Ok(())
 }
 
-pub fn challenge_lock_name<T: Config<I>, I: 'static>(challenge: &SummaryChallenge<T::AccountId>) -> Vec<u8> {
+pub fn challenge_lock_name<T: Config<I>, I: 'static>(
+    challenge: &SummaryChallenge<T::AccountId>,
+) -> Vec<u8> {
     let mut name = b"challenge_summary::slot::".to_vec();
     name.extend_from_slice(&mut challenge.encode());
     name

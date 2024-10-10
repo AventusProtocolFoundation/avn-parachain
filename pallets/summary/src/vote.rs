@@ -30,11 +30,16 @@ pub struct RootVotingSession<T: Config<I>, I: 'static> {
 
 impl<T: Config<I>, I: 'static> RootVotingSession<T, I> {
     pub fn new(root_id: &RootId<BlockNumberFor<T>>) -> Self {
-        return RootVotingSession::<T, I> { root_id: root_id.clone(), _phantom_data: Default::default() }
+        return RootVotingSession::<T, I> {
+            root_id: root_id.clone(),
+            _phantom_data: Default::default(),
+        }
     }
 }
 
-impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVotingSession<T, I> {
+impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor<T>>
+    for RootVotingSession<T, I>
+{
     fn cast_vote_context(&self) -> &'static [u8] {
         return CAST_VOTE_CONTEXT
     }
@@ -66,7 +71,8 @@ impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor
 
         let root_already_accepted =
             root_data_result.expect("already checked for error").is_validated;
-        let pending_approval_root_ingress_counter = PendingApproval::<T, I>::get(self.root_id.range);
+        let pending_approval_root_ingress_counter =
+            PendingApproval::<T, I>::get(self.root_id.range);
         let vote_is_for_correct_version_of_root_range =
             pending_approval_root_ingress_counter == self.root_id.ingress_counter;
 
@@ -104,7 +110,9 @@ impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor
 
 /***************** Functions that run in an offchain worker context  **************** */
 
-pub fn create_vote_lock_name<T: Config<I>, I: 'static>(root_id: &RootId<BlockNumberFor<T>>) -> Vec<u8> {
+pub fn create_vote_lock_name<T: Config<I>, I: 'static>(
+    root_id: &RootId<BlockNumberFor<T>>,
+) -> Vec<u8> {
     let mut name = b"vote_summary::hash::".to_vec();
     name.extend_from_slice(&mut root_id.range.from_block.encode());
     name.extend_from_slice(&mut root_id.range.to_block.encode());
@@ -112,7 +120,9 @@ pub fn create_vote_lock_name<T: Config<I>, I: 'static>(root_id: &RootId<BlockNum
     name
 }
 
-fn is_vote_in_transaction_pool<T: Config<I>, I: 'static>(root_id: &RootId<BlockNumberFor<T>>) -> bool {
+fn is_vote_in_transaction_pool<T: Config<I>, I: 'static>(
+    root_id: &RootId<BlockNumberFor<T>>,
+) -> bool {
     let persistent_data = create_vote_lock_name::<T, I>(root_id);
     return OcwLock::is_locked::<frame_system::Pallet<T>>(&persistent_data)
 }
@@ -135,8 +145,10 @@ pub fn cast_votes_if_required<T: Config<I>, I: 'static>(
         let mut lock = AVN::<T>::get_ocw_locker(&vote_lock_name);
 
         if let Ok(guard) = lock.try_lock() {
-            let root_hash =
-                Summary::<T, I>::compute_root_hash(root_id.range.from_block, root_id.range.to_block);
+            let root_hash = Summary::<T, I>::compute_root_hash(
+                root_id.range.from_block,
+                root_id.range.to_block,
+            );
 
             if root_hash.is_err() {
                 log::error!(

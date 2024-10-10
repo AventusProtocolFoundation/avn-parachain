@@ -8,7 +8,7 @@
 use super::*;
 
 use crate::offence::create_offenders_identification;
-use frame_benchmarking::{account, impl_benchmark_test_suite, benchmarks_instance_pallet};
+use frame_benchmarking::{account, benchmarks_instance_pallet, impl_benchmark_test_suite};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
@@ -177,7 +177,10 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
     assert_last_nth_event::<T, I>(generic_event, 1);
 }
 
-fn assert_last_nth_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::RuntimeEvent, n: u32) {
+fn assert_last_nth_event<T: Config<I>, I: 'static>(
+    generic_event: <T as Config<I>>::RuntimeEvent,
+    n: u32,
+) {
     let events = frame_system::Pallet::<T>::events();
     let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
     // compare to the last event record
