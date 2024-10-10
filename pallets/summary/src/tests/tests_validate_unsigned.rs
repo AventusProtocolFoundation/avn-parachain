@@ -85,7 +85,7 @@ pub mod input_is_record_summary_calculation {
                 let second_validator_signed_signature =
                     get_signature_for_record_summary_calculation(
                         second_validator.clone(),
-                        UPDATE_BLOCK_NUMBER_CONTEXT,
+                        &Summary::update_block_number_context(),
                         context.root_hash_h256,
                         context.last_block_in_range,
                         context.root_id.ingress_counter,
@@ -111,7 +111,7 @@ pub mod input_is_record_summary_calculation {
                 let non_validator = get_non_validator();
                 let non_validator_signed_signature = get_signature_for_record_summary_calculation(
                     non_validator.clone(),
-                    UPDATE_BLOCK_NUMBER_CONTEXT,
+                    &Summary::update_block_number_context(),
                     context.root_hash_h256,
                     context.last_block_in_range,
                     context.root_id.ingress_counter,
@@ -151,7 +151,7 @@ pub mod input_is_record_summary_calculation {
                     let signature_signed_by_different_validator =
                         get_signature_for_record_summary_calculation(
                             second_validator,
-                            UPDATE_BLOCK_NUMBER_CONTEXT,
+                            &Summary::update_block_number_context(),
                             context.root_hash_h256,
                             context.last_block_in_range,
                             context.root_id.ingress_counter,
@@ -194,7 +194,7 @@ pub mod input_is_record_summary_calculation {
                     let signature_with_wrong_last_processed_block_number =
                         get_signature_for_record_summary_calculation(
                             context.validator.clone(),
-                            UPDATE_BLOCK_NUMBER_CONTEXT,
+                            &Summary::update_block_number_context(),
                             context.root_hash_h256.clone(),
                             wrong_last_processed_block_number,
                             context.root_id.ingress_counter,
@@ -216,7 +216,7 @@ pub mod input_is_record_summary_calculation {
                     let signature_with_wrong_root_hash =
                         get_signature_for_record_summary_calculation(
                             context.validator.clone(),
-                            UPDATE_BLOCK_NUMBER_CONTEXT,
+                            &Summary::update_block_number_context(),
                             wrong_root_hash,
                             context.last_block_in_range.clone(),
                             context.root_id.ingress_counter,
@@ -1268,7 +1268,7 @@ pub fn expected_valid_record_summary_calculation_transaction(
 ) -> TransactionValidity {
     ValidTransaction::with_tag_prefix("Summary")
         .priority(TransactionPriority::max_value())
-        .and_provides(vec![(UPDATE_BLOCK_NUMBER_CONTEXT, root_hash, ingress_counter).encode()])
+        .and_provides(vec![(&Summary::update_block_number_context(), root_hash, ingress_counter).encode()])
         .longevity(64_u64)
         .propagate(true)
         .build()

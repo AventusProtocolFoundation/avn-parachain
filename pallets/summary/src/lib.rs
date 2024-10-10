@@ -128,8 +128,12 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
-
+        /// An Ethereum bridge provider
         type BridgeInterface: avn::BridgeInterface;
+        /// A flag to determine if summaries will be automatically sent to Ethereum
+        type AutoSubmitSummaries: Get<bool>;
+        /// A unique instance id to differentiate different instances
+        type InstanceId: Get<u8>;
     }
 
     #[pallet::pallet]
@@ -678,6 +682,20 @@ pub mod pallet {
         }
     }
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        pub fn update_block_number_context() -> Vec<u8>{
+            let mut context = Vec::with_capacity(1 + UPDATE_BLOCK_NUMBER_CONTEXT.len());
+            context.push(T::InstanceId::get());
+            context.extend_from_slice(UPDATE_BLOCK_NUMBER_CONTEXT);
+            context
+        }
+
+        pub fn advance_block_context() -> Vec<u8>{
+            let mut context = Vec::with_capacity(1 + ADVANCE_SLOT_CONTEXT.len());
+            context.push(T::InstanceId::get());
+            context.extend_from_slice(ADVANCE_SLOT_CONTEXT);
+            context
+        }
+
         fn validate_schedule_period(
             schedule_period_in_blocks: BlockNumberFor<T>,
         ) -> DispatchResult {
@@ -1001,7 +1019,7 @@ pub mod pallet {
                 .key
                 .sign(
                     &(
-                        UPDATE_BLOCK_NUMBER_CONTEXT,
+                        Self::update_block_number_context(),
                         root_hash,
                         ingress_counter,
                         last_processed_block_number,
@@ -1038,7 +1056,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let signature = validator
                 .key
-                .sign(&(ADVANCE_SLOT_CONTEXT, Self::current_slot()).encode())
+                .sign(&(Self::advance_block_context(), Self::current_slot()).encode())
                 .ok_or(Error::<T, I>::ErrorSigning)?;
 
             SubmitTransaction::<T, Call<T, I>>::submit_unsigned_transaction(
@@ -1212,7 +1230,7 @@ pub mod pallet {
                 }
 
                 let signed_data =
-                    &(UPDATE_BLOCK_NUMBER_CONTEXT, root_hash, ingress_counter, new_block_number);
+                    &(Self::update_block_number_context(), root_hash, ingress_counter, new_block_number);
                 if !AVN::<T>::signature_is_valid(signed_data, &validator, signature) {
                     return InvalidTransaction::BadProof.into()
                 };
@@ -1220,7 +1238,7 @@ pub mod pallet {
                 return ValidTransaction::with_tag_prefix("Summary")
                     .priority(TransactionPriority::max_value())
                     .and_provides(vec![
-                        (UPDATE_BLOCK_NUMBER_CONTEXT, root_hash, ingress_counter).encode()
+                        (Self::update_block_number_context(), root_hash, ingress_counter).encode()
                     ])
                     .longevity(64_u64)
                     .propagate(true)
@@ -1247,14 +1265,14 @@ pub mod pallet {
                 // the slot outside their turn. Should this be slashable?
 
                 let current_slot = Self::current_slot();
-                let signed_data = &(ADVANCE_SLOT_CONTEXT, current_slot);
+                let signed_data = &(Self::advance_block_context(), current_slot);
                 if !AVN::<T>::signature_is_valid(signed_data, &validator, signature) {
                     return InvalidTransaction::BadProof.into()
                 };
 
                 return ValidTransaction::with_tag_prefix("Summary")
                     .priority(TransactionPriority::max_value())
-                    .and_provides(vec![(ADVANCE_SLOT_CONTEXT, current_slot).encode()])
+                    .and_provides(vec![(Self::advance_block_context(), current_slot).encode()])
                     .longevity(64_u64)
                     .propagate(true)
                     .build()

@@ -343,7 +343,7 @@ mod challenge_slot_if_required {
         fn sign_advance_slot(slot_number: BlockNumber, validator: &MockValidator) -> TestSignature {
             let signature = validator
                 .key
-                .sign(&(ADVANCE_SLOT_CONTEXT, slot_number).encode())
+                .sign(&(Summary::advance_block_context(), slot_number).encode())
                 .expect("Signature is signed");
             return signature
         }

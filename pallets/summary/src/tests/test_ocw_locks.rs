@@ -176,7 +176,7 @@ mod record_summary_locks {
             .key
             .sign(
                 &(
-                    UPDATE_BLOCK_NUMBER_CONTEXT,
+                    &Summary::update_block_number_context(),
                     context.root_hash_h256,
                     context.root_id.ingress_counter,
                     context.last_block_in_range,
