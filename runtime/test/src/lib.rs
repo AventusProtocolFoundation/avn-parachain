@@ -611,6 +611,8 @@ parameter_types! {
     pub const MinBlockAge: BlockNumber = 5;
     pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
+    pub const EthereumInstanceId: u8 = 1u8;
+    pub const EthAutoSubmitSummaries: bool = true;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -621,6 +623,8 @@ impl pallet_summary::Config for Runtime {
     type ReportSummaryOffence = Offences;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterface = EthBridge;
+    type AutoSubmitSummaries = EthAutoSubmitSummaries;
+    type InstanceId = EthereumInstanceId;
 }
 
 impl pallet_avn_anchor::Config for Runtime {
