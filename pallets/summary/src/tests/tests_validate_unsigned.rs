@@ -1268,7 +1268,9 @@ pub fn expected_valid_record_summary_calculation_transaction(
 ) -> TransactionValidity {
     ValidTransaction::with_tag_prefix("Summary")
         .priority(TransactionPriority::max_value())
-        .and_provides(vec![(&Summary::update_block_number_context(), root_hash, ingress_counter).encode()])
+        .and_provides(vec![
+            (&Summary::update_block_number_context(), root_hash, ingress_counter).encode()
+        ])
         .longevity(64_u64)
         .propagate(true)
         .build()

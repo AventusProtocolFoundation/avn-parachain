@@ -682,14 +682,14 @@ pub mod pallet {
         }
     }
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        pub fn update_block_number_context() -> Vec<u8>{
+        pub fn update_block_number_context() -> Vec<u8> {
             let mut context = Vec::with_capacity(1 + UPDATE_BLOCK_NUMBER_CONTEXT.len());
             context.push(T::InstanceId::get());
             context.extend_from_slice(UPDATE_BLOCK_NUMBER_CONTEXT);
             context
         }
 
-        pub fn advance_block_context() -> Vec<u8>{
+        pub fn advance_block_context() -> Vec<u8> {
             let mut context = Vec::with_capacity(1 + ADVANCE_SLOT_CONTEXT.len());
             context.push(T::InstanceId::get());
             context.extend_from_slice(ADVANCE_SLOT_CONTEXT);
@@ -1229,17 +1229,24 @@ pub mod pallet {
                     return InvalidTransaction::Custom(ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY).into()
                 }
 
-                let signed_data =
-                    &(Self::update_block_number_context(), root_hash, ingress_counter, new_block_number);
+                let signed_data = &(
+                    Self::update_block_number_context(),
+                    root_hash,
+                    ingress_counter,
+                    new_block_number,
+                );
                 if !AVN::<T>::signature_is_valid(signed_data, &validator, signature) {
                     return InvalidTransaction::BadProof.into()
                 };
 
                 return ValidTransaction::with_tag_prefix("Summary")
                     .priority(TransactionPriority::max_value())
-                    .and_provides(vec![
-                        (Self::update_block_number_context(), root_hash, ingress_counter).encode()
-                    ])
+                    .and_provides(vec![(
+                        Self::update_block_number_context(),
+                        root_hash,
+                        ingress_counter,
+                    )
+                        .encode()])
                     .longevity(64_u64)
                     .propagate(true)
                     .build()
