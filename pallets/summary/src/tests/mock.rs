@@ -531,7 +531,7 @@ impl ExtBuilder {
     }
 
     pub fn with_genesis_config(mut self) -> Self {
-        let _ = summary::GenesisConfig::<TestRuntime> { schedule_period: 160, voting_period: 100 }
+        let _ = summary::GenesisConfig::<TestRuntime> { schedule_period: 160, voting_period: 100, _phantom: Default::default() }
             .assimilate_storage(&mut self.storage);
         self
     }
