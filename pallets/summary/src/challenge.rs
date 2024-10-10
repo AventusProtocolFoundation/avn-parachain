@@ -55,13 +55,13 @@ impl<AccountId: Member> SummaryChallenge<AccountId> {
     ) -> bool {
         match self.challenge_reason {
             SummaryChallengeReason::SlotNotAdvanced(slot_number_to_challenge) => {
-                let current_slot_validator = CurrentSlotsValidator::<T>::get();
+                let current_slot_validator = CurrentSlotsValidator::<T, I>::get();
                 if current_slot_validator.is_none() {
                     return false
                 }
 
                 return BlockNumberFor::<T>::from(slot_number_to_challenge) == current_slot_number &&
-                    Summary::<T>::grace_period_elapsed(current_block_number) &&
+                    Summary::<T, I>::grace_period_elapsed(current_block_number) &&
                     *challengee == current_slot_validator.expect("checked for none")
             },
             _ => false,
@@ -100,14 +100,14 @@ pub fn challenge_slot_if_required<T: Config<I>, I: 'static>(
     offchain_worker_block_number: BlockNumberFor<T>,
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
 ) {
-    let slot_number: BlockNumberFor<T> = CurrentSlot::<T>::get();
+    let slot_number: BlockNumberFor<T> = CurrentSlot::<T, I>::get();
     let slot_as_u32 = AVN::<T>::convert_block_number_to_u32(slot_number);
     if let Err(_) = slot_as_u32 {
         log::error!("💔 Error converting block number: {:?} into u32", slot_number);
         return
     }
 
-    let current_slot_validator = CurrentSlotsValidator::<T>::get();
+    let current_slot_validator = CurrentSlotsValidator::<T, I>::get();
     if current_slot_validator.is_none() {
         log::error!("💔 Current slot validator is not found for slot: {:?}", slot_number);
         return
@@ -119,8 +119,8 @@ pub fn challenge_slot_if_required<T: Config<I>, I: 'static>(
         current_slot_validator.expect("Checked for none"),
     );
 
-    if can_challenge::<T>(&challenge, this_validator, offchain_worker_block_number) {
-        let _ = send_challenge_transaction::<T>(&challenge, this_validator);
+    if can_challenge::<T, I>(&challenge, this_validator, offchain_worker_block_number) {
+        let _ = send_challenge_transaction::<T, I>(&challenge, this_validator);
     }
 }
 
@@ -129,7 +129,7 @@ fn can_challenge<T: Config<I>, I: 'static>(
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
     ocw_block_number: BlockNumberFor<T>,
 ) -> bool {
-    if OcwLock::is_locked::<frame_system::Pallet<T>>(&challenge_lock_name::<T>(challenge)) {
+    if OcwLock::is_locked::<frame_system::Pallet<T>>(&challenge_lock_name::<T, I>(challenge)) {
         return false
     }
 
@@ -137,7 +137,7 @@ fn can_challenge<T: Config<I>, I: 'static>(
         AVN::<T>::is_primary_for_block(ocw_block_number, &this_validator.account_id)
             .unwrap_or_else(|_| false);
 
-    let grace_period_elapsed = Summary::<T>::grace_period_elapsed(ocw_block_number);
+    let grace_period_elapsed = Summary::<T, I>::grace_period_elapsed(ocw_block_number);
 
     return is_chosen_validator && grace_period_elapsed
 }
@@ -153,7 +153,7 @@ fn send_challenge_transaction<T: Config<I>, I: 'static>(
         return Err(())
     };
 
-    if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+    if let Err(e) = SubmitTransaction::<T, Call<T, I>>::submit_unsigned_transaction(
         Call::add_challenge {
             challenge: challenge.clone(),
             validator: this_validator.clone(),
@@ -165,7 +165,7 @@ fn send_challenge_transaction<T: Config<I>, I: 'static>(
         return Err(())
     }
 
-    let challenge_lock_name = challenge_lock_name::<T>(challenge);
+    let challenge_lock_name = challenge_lock_name::<T, I>(challenge);
     let mut lock = AVN::<T>::get_ocw_locker(&challenge_lock_name);
 
     // Add a lock to record the fact that we have sent a challenge.

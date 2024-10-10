@@ -23,14 +23,14 @@ pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"root_end_voting_period";
 const MAX_VOTING_SESSIONS_RETURNED: usize = 5;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, Debug, MaxEncodedLen, TypeInfo)]
-pub struct RootVotingSession<T: Config, I: 'static> {
+pub struct RootVotingSession<T: Config<I>, I: 'static> {
     pub root_id: RootId<BlockNumberFor<T>>,
     _phantom_data: sp_std::marker::PhantomData<I>,
 }
 
 impl<T: Config<I>, I: 'static> RootVotingSession<T, I> {
     pub fn new(root_id: &RootId<BlockNumberFor<T>>) -> Self {
-        return RootVotingSession::<T> { root_id: root_id.clone() }
+        return RootVotingSession::<T, I> { root_id: root_id.clone(), _phantom_data: Default::default() }
     }
 }
 
@@ -44,17 +44,17 @@ impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor
     }
 
     fn state(&self) -> Result<VotingSessionData<T::AccountId, BlockNumberFor<T>>, DispatchError> {
-        if VotesRepository::<T>::contains_key(self.root_id) {
-            return Ok(Summary::<T>::get_vote(self.root_id))
+        if VotesRepository::<T, I>::contains_key(self.root_id) {
+            return Ok(Summary::<T, I>::get_vote(self.root_id))
         }
         return Err(DispatchError::Other("Root Id is not found in votes repository"))
     }
 
     fn is_valid(&self) -> bool {
         let voting_session_data = self.state();
-        let root_data_result = Summary::<T>::try_get_root_data(&self.root_id);
-        let root_is_pending_approval = PendingApproval::<T>::contains_key(&self.root_id.range);
-        let voting_session_exists_for_root = VotesRepository::<T>::contains_key(&self.root_id);
+        let root_data_result = Summary::<T, I>::try_get_root_data(&self.root_id);
+        let root_is_pending_approval = PendingApproval::<T, I>::contains_key(&self.root_id.range);
+        let voting_session_exists_for_root = VotesRepository::<T, I>::contains_key(&self.root_id);
 
         if root_data_result.is_err() ||
             !root_is_pending_approval ||
@@ -66,7 +66,7 @@ impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor
 
         let root_already_accepted =
             root_data_result.expect("already checked for error").is_validated;
-        let pending_approval_root_ingress_counter = PendingApproval::<T>::get(self.root_id.range);
+        let pending_approval_root_ingress_counter = PendingApproval::<T, I>::get(self.root_id.range);
         let vote_is_for_correct_version_of_root_range =
             pending_approval_root_ingress_counter == self.root_id.ingress_counter;
 
@@ -82,7 +82,7 @@ impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor
     }
 
     fn record_approve_vote(&self, voter: T::AccountId) -> DispatchResult {
-        VotesRepository::<T>::try_mutate(&self.root_id, |vote| -> DispatchResult {
+        VotesRepository::<T, I>::try_mutate(&self.root_id, |vote| -> DispatchResult {
             vote.ayes.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
             Ok(())
         })?;
@@ -90,7 +90,7 @@ impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor
     }
 
     fn record_reject_vote(&self, voter: T::AccountId) -> DispatchResult {
-        VotesRepository::<T>::try_mutate(&self.root_id, |vote| -> DispatchResult {
+        VotesRepository::<T, I>::try_mutate(&self.root_id, |vote| -> DispatchResult {
             vote.nays.try_push(voter).map_err(|_| avn_error::<T>::VectorBoundsExceeded)?;
             Ok(())
         })?;
@@ -98,7 +98,7 @@ impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor
     }
 
     fn end_voting_session(&self, sender: T::AccountId) -> DispatchResult {
-        return Summary::<T>::end_voting(sender, &self.root_id)
+        return Summary::<T, I>::end_voting(sender, &self.root_id)
     }
 }
 
@@ -113,17 +113,17 @@ pub fn create_vote_lock_name<T: Config<I>, I: 'static>(root_id: &RootId<BlockNum
 }
 
 fn is_vote_in_transaction_pool<T: Config<I>, I: 'static>(root_id: &RootId<BlockNumberFor<T>>) -> bool {
-    let persistent_data = create_vote_lock_name::<T>(root_id);
+    let persistent_data = create_vote_lock_name::<T, I>(root_id);
     return OcwLock::is_locked::<frame_system::Pallet<T>>(&persistent_data)
 }
 
 pub fn cast_votes_if_required<T: Config<I>, I: 'static>(
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    let root_ids: Vec<RootId<BlockNumberFor<T>>> = PendingApproval::<T>::iter()
+    let root_ids: Vec<RootId<BlockNumberFor<T>>> = PendingApproval::<T, I>::iter()
         .filter(|(root_range, ingress_counter)| {
             let root_id = RootId::new(*root_range, *ingress_counter);
-            root_can_be_voted_on::<T>(&root_id, &this_validator.account_id)
+            root_can_be_voted_on::<T, I>(&root_id, &this_validator.account_id)
         })
         .take(MAX_VOTING_SESSIONS_RETURNED)
         .map(|(root_range, ingress_counter)| RootId::new(root_range, ingress_counter))
@@ -131,12 +131,12 @@ pub fn cast_votes_if_required<T: Config<I>, I: 'static>(
 
     // try to send 1 of MAX_VOTING_SESSIONS_RETURNED votes
     for root_id in root_ids {
-        let vote_lock_name = create_vote_lock_name::<T>(&root_id);
+        let vote_lock_name = create_vote_lock_name::<T, I>(&root_id);
         let mut lock = AVN::<T>::get_ocw_locker(&vote_lock_name);
 
         if let Ok(guard) = lock.try_lock() {
             let root_hash =
-                Summary::<T>::compute_root_hash(root_id.range.from_block, root_id.range.to_block);
+                Summary::<T, I>::compute_root_hash(root_id.range.from_block, root_id.range.to_block);
 
             if root_hash.is_err() {
                 log::error!(
@@ -146,7 +146,7 @@ pub fn cast_votes_if_required<T: Config<I>, I: 'static>(
                 continue
             }
 
-            let root_data = Summary::<T>::try_get_root_data(&root_id);
+            let root_data = Summary::<T, I>::try_get_root_data(&root_id);
             if let Err(e) = root_data {
                 log::error!(
                     "💔️ Error getting root data while signing root id {:?} to vote. {:?}",
@@ -158,12 +158,12 @@ pub fn cast_votes_if_required<T: Config<I>, I: 'static>(
 
             if root_hash.expect("has valid hash") == root_data.expect("checked for error").root_hash
             {
-                if send_approve_vote::<T>(&root_id, this_validator).is_err() {
+                if send_approve_vote::<T, I>(&root_id, this_validator).is_err() {
                     // TODO: should we output any error message here?
                     continue
                 }
             } else {
-                if send_reject_vote::<T>(&root_id, this_validator).is_err() {
+                if send_reject_vote::<T, I>(&root_id, this_validator).is_err() {
                     // TODO: should we output any error message here?
                     continue
                 }
@@ -183,17 +183,17 @@ pub fn end_voting_if_required<T: Config<I>, I: 'static>(
     block_number: BlockNumberFor<T>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
-    let root_ids: Vec<RootId<BlockNumberFor<T>>> = PendingApproval::<T>::iter()
+    let root_ids: Vec<RootId<BlockNumberFor<T>>> = PendingApproval::<T, I>::iter()
         .filter(|(root_range, ingress_counter)| {
             let root_id = RootId::new(*root_range, *ingress_counter);
-            block_number > Summary::<T>::get_vote(root_id).end_of_voting_period
+            block_number > Summary::<T, I>::get_vote(root_id).end_of_voting_period
         })
         .take(MAX_VOTING_SESSIONS_RETURNED)
         .map(|(root_range, ingress_counter)| RootId::new(root_range, ingress_counter))
         .collect();
 
     for root_id in root_ids {
-        let voting_session_data = Summary::<T>::get_root_voting_session(&root_id).state();
+        let voting_session_data = Summary::<T, I>::get_root_voting_session(&root_id).state();
         if voting_session_data.is_err() {
             log::error!(
                 "💔 Error getting voting session data with root id {:?} to end voting period",
@@ -215,7 +215,7 @@ pub fn end_voting_if_required<T: Config<I>, I: 'static>(
             },
         };
 
-        if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+        if let Err(e) = SubmitTransaction::<T, Call<T, I>>::submit_unsigned_transaction(
             Call::end_voting_period {
                 root_id: root_id.clone(),
                 validator: this_validator.clone(),
@@ -238,11 +238,11 @@ fn root_can_be_voted_on<T: Config<I>, I: 'static>(
 ) -> bool {
     // There is an edge case here. If this is being run very close to `end_of_voting_period`, by the
     // time the vote gets mined. It may be outside the voting window and get rejected.
-    let root_voting_session = Summary::<T>::get_root_voting_session(root_id);
+    let root_voting_session = Summary::<T, I>::get_root_voting_session(root_id);
     let voting_session_data = root_voting_session.state();
     return voting_session_data.is_ok() &&
         !voting_session_data.expect("voting session data is ok").has_voted(voter) &&
-        !is_vote_in_transaction_pool::<T>(root_id) &&
+        !is_vote_in_transaction_pool::<T, I>(root_id) &&
         root_voting_session.is_active()
 }
 
@@ -251,11 +251,11 @@ fn send_approve_vote<T: Config<I>, I: 'static>(
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
     let approve_vote_extrinsic_signature =
-        sign_for_approve_vote_extrinsic::<T>(root_id, this_validator)?;
+        sign_for_approve_vote_extrinsic::<T, I>(root_id, this_validator)?;
 
     log::trace!(target: "avn", "🖊️  Worker sends approval vote for summary calculation: {:?}]", &root_id);
 
-    if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+    if let Err(e) = SubmitTransaction::<T, Call<T, I>>::submit_unsigned_transaction(
         Call::approve_root {
             root_id: root_id.clone(),
             validator: this_validator.clone(),
@@ -278,7 +278,7 @@ fn sign_for_approve_vote_extrinsic<T: Config<I>, I: 'static>(
     root_id: &RootId<BlockNumberFor<T>>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<<T::AuthorityId as RuntimeAppPublic>::Signature, ()> {
-    let voting_session_data = Summary::<T>::get_root_voting_session(&root_id).state();
+    let voting_session_data = Summary::<T, I>::get_root_voting_session(&root_id).state();
     if voting_session_data.is_err() {
         log::error!("💔 Error getting voting session data with root id {:?} to vote", &root_id);
         return Err(())
@@ -302,7 +302,7 @@ fn send_reject_vote<T: Config<I>, I: 'static>(
     root_id: &RootId<BlockNumberFor<T>>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
-    let voting_session_data = Summary::<T>::get_root_voting_session(&root_id).state();
+    let voting_session_data = Summary::<T, I>::get_root_voting_session(&root_id).state();
     if voting_session_data.is_err() {
         log::error!("💔 Error getting voting session data with root id {:?} to vote", &root_id);
         return Err(())
@@ -321,7 +321,7 @@ fn send_reject_vote<T: Config<I>, I: 'static>(
 
     log::trace!(target: "avn", "🖊️  Worker sends reject vote for summary calculation: {:?}]", &root_id);
 
-    if let Err(e) = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+    if let Err(e) = SubmitTransaction::<T, Call<T, I>>::submit_unsigned_transaction(
         Call::reject_root {
             root_id: root_id.clone(),
             validator: this_validator.clone(),
