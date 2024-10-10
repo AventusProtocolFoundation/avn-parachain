@@ -47,7 +47,7 @@ impl<AccountId: Member> SummaryChallenge<AccountId> {
     }
 
     /// Validates the challenge and returns true if it's correct.
-    pub fn is_valid<T: Config>(
+    pub fn is_valid<T: Config<I>, I: 'static>(
         &self,
         current_slot_number: BlockNumberFor<T>,
         current_block_number: BlockNumberFor<T>,
@@ -75,7 +75,7 @@ impl Default for SummaryChallengeReason {
     }
 }
 
-pub fn add_challenge_validate_unsigned<T: Config>(
+pub fn add_challenge_validate_unsigned<T: Config<I>, I: 'static>(
     challenge: &SummaryChallenge<T::AccountId>,
     validator: &Validator<T::AuthorityId, T::AccountId>,
     signature: &<T::AuthorityId as RuntimeAppPublic>::Signature,
@@ -96,7 +96,7 @@ pub fn add_challenge_validate_unsigned<T: Config>(
         .build()
 }
 
-pub fn challenge_slot_if_required<T: Config>(
+pub fn challenge_slot_if_required<T: Config<I>, I: 'static>(
     offchain_worker_block_number: BlockNumberFor<T>,
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
 ) {
@@ -124,7 +124,7 @@ pub fn challenge_slot_if_required<T: Config>(
     }
 }
 
-fn can_challenge<T: Config>(
+fn can_challenge<T: Config<I>, I: 'static>(
     challenge: &SummaryChallenge<T::AccountId>,
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
     ocw_block_number: BlockNumberFor<T>,
@@ -142,7 +142,7 @@ fn can_challenge<T: Config>(
     return is_chosen_validator && grace_period_elapsed
 }
 
-fn send_challenge_transaction<T: Config>(
+fn send_challenge_transaction<T: Config<I>, I: 'static>(
     challenge: &SummaryChallenge<T::AccountId>,
     this_validator: &Validator<T::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
@@ -178,7 +178,7 @@ fn send_challenge_transaction<T: Config>(
     Ok(())
 }
 
-pub fn challenge_lock_name<T: Config>(challenge: &SummaryChallenge<T::AccountId>) -> Vec<u8> {
+pub fn challenge_lock_name<T: Config<I>, I: 'static>(challenge: &SummaryChallenge<T::AccountId>) -> Vec<u8> {
     let mut name = b"challenge_summary::slot::".to_vec();
     name.extend_from_slice(&mut challenge.encode());
     name

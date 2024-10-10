@@ -23,17 +23,18 @@ pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"root_end_voting_period";
 const MAX_VOTING_SESSIONS_RETURNED: usize = 5;
 
 #[derive(PartialEq, Eq, Clone, Encode, Decode, Default, Debug, MaxEncodedLen, TypeInfo)]
-pub struct RootVotingSession<T: Config> {
+pub struct RootVotingSession<T: Config, I: 'static> {
     pub root_id: RootId<BlockNumberFor<T>>,
+    _phantom_data: sp_std::marker::PhantomData<I>,
 }
 
-impl<T: Config> RootVotingSession<T> {
+impl<T: Config<I>, I: 'static> RootVotingSession<T, I> {
     pub fn new(root_id: &RootId<BlockNumberFor<T>>) -> Self {
         return RootVotingSession::<T> { root_id: root_id.clone() }
     }
 }
 
-impl<T: Config> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVotingSession<T> {
+impl<T: Config<I>, I: 'static> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVotingSession<T, I> {
     fn cast_vote_context(&self) -> &'static [u8] {
         return CAST_VOTE_CONTEXT
     }
@@ -103,7 +104,7 @@ impl<T: Config> VotingSessionManager<T::AccountId, BlockNumberFor<T>> for RootVo
 
 /***************** Functions that run in an offchain worker context  **************** */
 
-pub fn create_vote_lock_name<T: Config>(root_id: &RootId<BlockNumberFor<T>>) -> Vec<u8> {
+pub fn create_vote_lock_name<T: Config<I>, I: 'static>(root_id: &RootId<BlockNumberFor<T>>) -> Vec<u8> {
     let mut name = b"vote_summary::hash::".to_vec();
     name.extend_from_slice(&mut root_id.range.from_block.encode());
     name.extend_from_slice(&mut root_id.range.to_block.encode());
@@ -111,12 +112,12 @@ pub fn create_vote_lock_name<T: Config>(root_id: &RootId<BlockNumberFor<T>>) -> 
     name
 }
 
-fn is_vote_in_transaction_pool<T: Config>(root_id: &RootId<BlockNumberFor<T>>) -> bool {
+fn is_vote_in_transaction_pool<T: Config<I>, I: 'static>(root_id: &RootId<BlockNumberFor<T>>) -> bool {
     let persistent_data = create_vote_lock_name::<T>(root_id);
     return OcwLock::is_locked::<frame_system::Pallet<T>>(&persistent_data)
 }
 
-pub fn cast_votes_if_required<T: Config>(
+pub fn cast_votes_if_required<T: Config<I>, I: 'static>(
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
     let root_ids: Vec<RootId<BlockNumberFor<T>>> = PendingApproval::<T>::iter()
@@ -178,7 +179,7 @@ pub fn cast_votes_if_required<T: Config>(
     }
 }
 
-pub fn end_voting_if_required<T: Config>(
+pub fn end_voting_if_required<T: Config<I>, I: 'static>(
     block_number: BlockNumberFor<T>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) {
@@ -231,7 +232,7 @@ pub fn end_voting_if_required<T: Config>(
     }
 }
 
-fn root_can_be_voted_on<T: Config>(
+fn root_can_be_voted_on<T: Config<I>, I: 'static>(
     root_id: &RootId<BlockNumberFor<T>>,
     voter: &T::AccountId,
 ) -> bool {
@@ -245,7 +246,7 @@ fn root_can_be_voted_on<T: Config>(
         root_voting_session.is_active()
 }
 
-fn send_approve_vote<T: Config>(
+fn send_approve_vote<T: Config<I>, I: 'static>(
     root_id: &RootId<BlockNumberFor<T>>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
@@ -273,7 +274,7 @@ fn send_approve_vote<T: Config>(
     Ok(())
 }
 
-fn sign_for_approve_vote_extrinsic<T: Config>(
+fn sign_for_approve_vote_extrinsic<T: Config<I>, I: 'static>(
     root_id: &RootId<BlockNumberFor<T>>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<<T::AuthorityId as RuntimeAppPublic>::Signature, ()> {
@@ -297,7 +298,7 @@ fn sign_for_approve_vote_extrinsic<T: Config>(
     return Ok(signature.expect("Signature is not empty if it gets here"))
 }
 
-fn send_reject_vote<T: Config>(
+fn send_reject_vote<T: Config<I>, I: 'static>(
     root_id: &RootId<BlockNumberFor<T>>,
     this_validator: &Validator<<T as avn::Config>::AuthorityId, T::AccountId>,
 ) -> Result<(), ()> {
