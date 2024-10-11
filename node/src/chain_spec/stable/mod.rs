@@ -10,7 +10,7 @@ use crate::chain_spec::{
 };
 use avn_parachain_runtime::{
     self as avn_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig,
-    ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig, AnchorSummaryConfig, TokenManagerConfig,
+    ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig, TokenManagerConfig,
     ValidatorsManagerConfig,
 };
 use node_primitives::AccountId;
@@ -129,7 +129,6 @@ pub(crate) fn testnet_genesis(
         },
         sudo: SudoConfig { key: Some(sudo_account) },
         summary: SummaryConfig { schedule_period, voting_period, _phantom: Default::default() },
-        anchor_summary: AnchorSummaryConfig { schedule_period, voting_period, _phantom: Default::default() },
         token_manager: TokenManagerConfig {
             _phantom: Default::default(),
             lower_account_id: H256(hex!(
