@@ -46,7 +46,6 @@ use pallet_session::historical::IdentificationTuple;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
 use sp_staking::offence::ReportOffence;
-//pub use weights::WeightInfo;
 
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
