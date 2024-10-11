@@ -127,8 +127,12 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
-
+        /// An Ethereum bridge provider
         type BridgeInterface: avn::BridgeInterface;
+        /// A flag to determine if summaries will be automatically sent to Ethereum
+        type AutoSubmitSummaries: Get<bool>;
+        /// A unique instance id to differentiate different instances
+        type InstanceId: Get<u8>;
     }
 
     #[pallet::pallet]
@@ -317,6 +321,16 @@ pub mod pallet {
     #[pallet::getter(fn voting_period)]
     pub type VotingPeriod<T: Config<I>, I: 'static = ()> =
         StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn anchor_roots_counter)]
+    pub type AnchorRootsCounter<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
+
+    // Roots created to be anchored to other chains (apart from Ethereum)
+    #[pallet::storage]
+    #[pallet::getter(fn anchor_roots)]
+    pub type AnchorRoots<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Blake2_128Concat, u32, H256, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -677,6 +691,20 @@ pub mod pallet {
         }
     }
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        pub fn update_block_number_context() -> Vec<u8> {
+            let mut context = Vec::with_capacity(1 + UPDATE_BLOCK_NUMBER_CONTEXT.len());
+            context.push(T::InstanceId::get());
+            context.extend_from_slice(UPDATE_BLOCK_NUMBER_CONTEXT);
+            context
+        }
+
+        pub fn advance_block_context() -> Vec<u8> {
+            let mut context = Vec::with_capacity(1 + ADVANCE_SLOT_CONTEXT.len());
+            context.push(T::InstanceId::get());
+            context.extend_from_slice(ADVANCE_SLOT_CONTEXT);
+            context
+        }
+
         fn validate_schedule_period(
             schedule_period_in_blocks: BlockNumberFor<T>,
         ) -> DispatchResult {
@@ -1000,7 +1028,7 @@ pub mod pallet {
                 .key
                 .sign(
                     &(
-                        UPDATE_BLOCK_NUMBER_CONTEXT,
+                        Self::update_block_number_context(),
                         root_hash,
                         ingress_counter,
                         last_processed_block_number,
@@ -1037,7 +1065,7 @@ pub mod pallet {
         ) -> DispatchResult {
             let signature = validator
                 .key
-                .sign(&(ADVANCE_SLOT_CONTEXT, Self::current_slot()).encode())
+                .sign(&(Self::advance_block_context(), Self::current_slot()).encode())
                 .ok_or(Error::<T, I>::ErrorSigning)?;
 
             SubmitTransaction::<T, Call<T, I>>::submit_unsigned_transaction(
@@ -1082,6 +1110,38 @@ pub mod pallet {
             return Ok(H256::from_slice(&data))
         }
 
+        fn send_root_to_ethereum(
+            root_id: &RootId<BlockNumberFor<T>>,
+            root_data: &RootData<T::AccountId>,
+        ) -> DispatchResult {
+            // There are a couple possible reasons for failure here.
+            // 1. We fail before sending to T1: likely a bug on our part
+            // 2. Quorum mismatch. There is no guarantee that between accepting a root and
+            // submitting it to T1, the tier2 session hasn't changed and with it
+            // the quorum, making ethereum-transactions reject it
+            // In either case, we should not slash anyone.
+            let function_name: &[u8] = b"publishRoot";
+            let params = vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
+            let tx_id = T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
+                .map_err(|e| DispatchError::Other(e.into()))?;
+
+            <Roots<T, I>>::mutate(root_id.range, root_id.ingress_counter, |root| {
+                root.tx_id = Some(tx_id)
+            });
+
+            <TxIdToRoot<T, I>>::insert(tx_id, root_id);
+
+            Ok(())
+        }
+
+        fn get_next_approved_root_id() -> Result<u32, DispatchError> {
+            AnchorRootsCounter::<T, I>::try_mutate(|counter| {
+                let current_counter = *counter;
+                *counter = counter.checked_add(1).ok_or(Error::<T, I>::Overflow)?;
+                Ok(current_counter)
+            })
+        }
+
         pub fn end_voting(
             reporter: T::AccountId,
             root_id: &RootId<BlockNumberFor<T>>,
@@ -1098,25 +1158,13 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    let function_name: &[u8] = b"publishRoot";
-                    let params =
-                        vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
-                    let tx_id =
-                        T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
-                            .map_err(|e| DispatchError::Other(e.into()))?;
-
-                    <Roots<T, I>>::mutate(root_id.range, root_id.ingress_counter, |root| {
-                        root.tx_id = Some(tx_id)
-                    });
-
-                    <TxIdToRoot<T, I>>::insert(tx_id, root_id);
-
-                    // There are a couple possible reasons for failure.
-                    // 1. We fail before sending to T1: likely a bug on our part
-                    // 2. Quorum mismatch. There is no guarantee that between accepting a root and
-                    // submitting it to T1, the tier2 session hasn't changed and with it
-                    // the quorum, making ethereum-transactions reject it
-                    // In either case, we should not slash anyone.
+                    if T::AutoSubmitSummaries::get() {
+                        Self::send_root_to_ethereum(root_id, &root_data)?;
+                    } else {
+                        // Add root to anchor storage
+                        let approved_root_id = Self::get_next_approved_root_id()?;
+                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                    }
                 }
                 // If we get here, then we did not get an error when submitting to T1.
 
@@ -1210,17 +1258,24 @@ pub mod pallet {
                     return InvalidTransaction::Custom(ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY).into()
                 }
 
-                let signed_data =
-                    &(UPDATE_BLOCK_NUMBER_CONTEXT, root_hash, ingress_counter, new_block_number);
+                let signed_data = &(
+                    Self::update_block_number_context(),
+                    root_hash,
+                    ingress_counter,
+                    new_block_number,
+                );
                 if !AVN::<T>::signature_is_valid(signed_data, &validator, signature) {
                     return InvalidTransaction::BadProof.into()
                 };
 
                 return ValidTransaction::with_tag_prefix("Summary")
                     .priority(TransactionPriority::max_value())
-                    .and_provides(vec![
-                        (UPDATE_BLOCK_NUMBER_CONTEXT, root_hash, ingress_counter).encode()
-                    ])
+                    .and_provides(vec![(
+                        Self::update_block_number_context(),
+                        root_hash,
+                        ingress_counter,
+                    )
+                        .encode()])
                     .longevity(64_u64)
                     .propagate(true)
                     .build()
@@ -1246,14 +1301,14 @@ pub mod pallet {
                 // the slot outside their turn. Should this be slashable?
 
                 let current_slot = Self::current_slot();
-                let signed_data = &(ADVANCE_SLOT_CONTEXT, current_slot);
+                let signed_data = &(Self::advance_block_context(), current_slot);
                 if !AVN::<T>::signature_is_valid(signed_data, &validator, signature) {
                     return InvalidTransaction::BadProof.into()
                 };
 
                 return ValidTransaction::with_tag_prefix("Summary")
                     .priority(TransactionPriority::max_value())
-                    .and_provides(vec![(ADVANCE_SLOT_CONTEXT, current_slot).encode()])
+                    .and_provides(vec![(Self::advance_block_context(), current_slot).encode()])
                     .longevity(64_u64)
                     .propagate(true)
                     .build()
@@ -1355,6 +1410,7 @@ impl<AccountId> Default for RootData<AccountId> {
         }
     }
 }
+
 impl<T: Config<I>, I: 'static> BridgeInterfaceNotification for Pallet<T, I> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
         if caller_id == PALLET_ID.to_vec() && <TxIdToRoot<T, I>>::contains_key(tx_id) {
@@ -1367,6 +1423,8 @@ impl<T: Config<I>, I: 'static> BridgeInterfaceNotification for Pallet<T, I> {
                     "✅  Transaction with ID {} was successfully published to Ethereum.",
                     tx_id
                 );
+                // Reclaim storage space
+                <TxIdToRoot<T, I>>::remove(tx_id);
             } else {
                 log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
             }

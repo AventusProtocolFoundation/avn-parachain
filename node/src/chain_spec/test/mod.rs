@@ -9,7 +9,7 @@ use crate::chain_spec::{
     ImOnlineId, ParaId,
 };
 use avn_test_runtime::{
-    self as avn_test_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig,
+    AnchorSummaryConfig, self as avn_test_runtime, AuthorityDiscoveryConfig, EthBridgeConfig, EthereumEventsConfig,
     ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig, TokenManagerConfig,
     ValidatorsManagerConfig,
 };
@@ -131,6 +131,7 @@ pub(crate) fn avn_test_runtime_genesis(
         },
         sudo: SudoConfig { key: Some(sudo_account) },
         summary: SummaryConfig { schedule_period, voting_period },
+        anchor_summary: AnchorSummaryConfig { schedule_period, voting_period, _phantom: Default::default() },
         token_manager: TokenManagerConfig {
             _phantom: Default::default(),
             lower_account_id: H256(hex!(
