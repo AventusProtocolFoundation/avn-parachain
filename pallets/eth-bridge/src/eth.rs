@@ -67,12 +67,12 @@ pub fn corroborate<T: Config>(
 }
 
 pub fn check_reference_rate<T: Config>(author: &Author<T>) -> Result<U256, DispatchError> {
-    log::info!("🚨🚨🚨🚨🚨🚨🚨");
+    log::warn!("🚨🚨🚨🚨🚨🚨🚨");
     if let Ok(calldata) = generate_check_reference_rate_calldata::<T>() {
-        log::info!("🚨🚨🚨🚨🚨🚨🚨 -- calldata {:?}", calldata);
+        log::warn!("🚨🚨🚨🚨🚨🚨🚨 -- calldata {:?}", calldata);
 
         if let Ok(result) = call_check_reference_rate_method::<T>(calldata, &author.account_id) {
-            log::info!("🚨🚨🚨🚨🚨🚨🚨 -- result {:?}", result);
+            log::warn!("🚨🚨🚨🚨🚨🚨🚨 -- result {:?}", result);
 
             return Ok(result);
         } else {

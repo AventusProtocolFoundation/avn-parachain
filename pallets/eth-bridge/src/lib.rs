@@ -833,10 +833,10 @@ pub mod pallet {
     }
 
     pub fn read_smart_contract<T: Config>(author: &Author<T>) -> Result<U256, DispatchError> {
-        log::info!("🚨🚨🚨🚨🚨🚨🚨");
+        log::warn!("🚨🚨🚨🚨🚨🚨🚨");
 
         let rate = eth::check_reference_rate::<T>(&author)?;
-        log::info!("🚨🚨🚨-------🚨🚨🚨🚨");
+        log::warn!("🚨🚨🚨-------🚨🚨🚨🚨");
 
         Ok(rate)
     }
