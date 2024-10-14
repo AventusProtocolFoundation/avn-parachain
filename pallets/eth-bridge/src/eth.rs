@@ -66,6 +66,17 @@ pub fn corroborate<T: Config>(
     return Ok((None, None))
 }
 
+pub fn check_reference_rate<T: Config>(author: &Author<T>) -> Result<U256, DispatchError> {
+    if let Ok(calldata) = generate_check_reference_rate_calldata::<T>() {
+        if let Ok(result) = call_check_reference_rate_method::<T>(calldata, &author.account_id) {
+            return Ok(result);
+        } else {
+            return Err(Error::<T>::CorroborateCallFailed.into())
+        }
+    }
+    Err(Error::<T>::InvalidCorroborateCalldata.into())
+}
+
 fn check_tx_status<T: Config>(
     tx: &ActiveTransactionData<T>,
     author: &Author<T>,
@@ -132,6 +143,12 @@ fn generate_corroborate_calldata<T: Config>(
     ];
 
     abi_encode_function(b"corroborate", &params)
+}
+
+fn generate_check_reference_rate_calldata<T: Config>() -> Result<Vec<u8>, Error<T>> {
+    let params = vec![];
+
+    abi_encode_function(b"checkReferenceRate", &params)
 }
 
 pub fn generate_encoded_lower_proof<T: Config>(
@@ -244,6 +261,18 @@ fn call_corroborate_method<T: Config>(
     )
 }
 
+fn call_check_reference_rate_method<T: Config>(
+    calldata: Vec<u8>,
+    author_account_id: &T::AccountId,
+) -> Result<U256, DispatchError> {
+    make_ethereum_call::<U256, T>(
+        author_account_id,
+        "view",
+        calldata,
+        process_check_reference_rate_result::<T>,
+    )
+}
+
 fn make_ethereum_call<R, T: Config>(
     author_account_id: &T::AccountId,
     endpoint: &str,
@@ -280,6 +309,18 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     }
 
     Ok(result_bytes[31] as i8)
+}
+
+fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<U256, DispatchError> {
+    let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
+
+    if result_bytes.len() != 32 {
+        return Err(Error::<T>::InvalidBytesLength.into())
+    }
+
+    let u256_value = U256::from_big_endian(&result);
+
+    Ok(u256_value)
 }
 
 fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), DispatchError> {

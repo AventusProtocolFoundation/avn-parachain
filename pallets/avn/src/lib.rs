@@ -766,6 +766,12 @@ pub trait BridgeInterface {
         params: &LowerParams,
         caller_id: Vec<u8>,
     ) -> Result<(), DispatchError>;
+    // fn read_smart_contract(author: &Validator<<T as self::Config>::AuthorityId, <T as
+    // frame_system::Config>::AccountId>); fn aqnother_function(
+    //     lower_id: u32,
+    //     params: &LowerParams,
+    //     caller_id: Vec<u8>,
+    // ) -> Result<(), DispatchError>;
 }
 
 pub trait BridgeInterfaceNotification {
