@@ -317,13 +317,13 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
 }
 
 fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<U256, DispatchError> {
-    // let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
+    let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
 
-    if result.len() != 32 {
+    if result_bytes.len() != 32 {
         return Err(Error::<T>::InvalidBytesLength.into())
     }
 
-    let u256_value = U256::from_big_endian(&result);
+    let u256_value = U256::from_big_endian(&result_bytes);
 
     Ok(u256_value)
 }
