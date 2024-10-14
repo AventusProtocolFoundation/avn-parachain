@@ -351,7 +351,7 @@ where
         log::info!("⛓️  avn-service: view request result {:?}", result);
         let encoded_value = hex::encode(result.0);
         log::info!("⛓️⛓️⛓️⛓️⛓️⛓️⛓️⛓️⛓️⛓️");
-        return encoded_value
+        return Ok(encoded_value);
         // Ok(hex::encode(result.0))
     } else {
         Err(server_error(format!("Failed to acquire web3 mutex")))
