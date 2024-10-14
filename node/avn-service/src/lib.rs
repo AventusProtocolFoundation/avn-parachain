@@ -349,6 +349,7 @@ where
             .await
             .map_err(|e| server_error(format!("Error calling view method on Ethereum: {:?}", e)))?;
         log::info!("⛓️  avn-service: view request result {:?}", result);
+        log::info!("⛓️⛓️⛓️⛓️⛓️--------------------⛓️⛓️⛓️⛓️⛓️");
         let encoded_value = hex::encode(result.0);
         log::info!("⛓️⛓️⛓️⛓️⛓️⛓️⛓️⛓️⛓️⛓️");
         return Ok(encoded_value);
