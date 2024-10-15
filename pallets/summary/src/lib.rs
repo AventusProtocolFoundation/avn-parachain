@@ -52,7 +52,7 @@ use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryO
 
 pub type EthereumTransactionId = u32;
 
-const PALLET_ID: &'static [u8; 7] = b"summary";
+const PALLET_ID: &'static [u8; 8] = b"summary-";
 const UPDATE_BLOCK_NUMBER_CONTEXT: &'static [u8] = b"update_last_processed_block_number";
 const ADVANCE_SLOT_CONTEXT: &'static [u8] = b"advance_slot";
 
@@ -624,15 +624,23 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            log::info!("🚧 🚧 Running offchain worker for block: {:?}", block_number);
-            let setup_result = AVN::<T>::pre_run_setup(block_number, PALLET_ID.to_vec());
+            log::info!(
+                "🚧 🚧 Instance({}) - Running offchain worker for block: {:?}",
+                T::InstanceId::get(),
+                block_number
+            );
+            let setup_result = AVN::<T>::pre_run_setup(block_number, Self::pallet_id());
             if let Err(e) = setup_result {
                 match e {
                     _ if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => {
                         ();
                     },
                     _ => {
-                        log::error!("💔️ Unable to run offchain worker: {:?}", e);
+                        log::error!(
+                            "💔️ Instance({}) Unable to run offchain worker: {:?}",
+                            T::InstanceId::get(),
+                            e
+                        );
                     },
                 };
 
@@ -645,6 +653,38 @@ pub mod pallet {
             cast_votes_if_required::<T, I>(&this_validator);
             end_voting_if_required::<T, I>(block_number, &this_validator);
             challenge_slot_if_required::<T, I>(block_number, &this_validator);
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            let onchain = Pallet::<T, I>::on_chain_storage_version();
+
+            if onchain < 1 {
+                log::info!(
+                    "💽 Running Summary pallet migration with current storage version {:?} / onchain {:?}",
+                    Pallet::<T, I>::current_storage_version(),
+                    onchain
+                );
+
+                let schedule_period_in_blocks: BlockNumberFor<T> = DEFAULT_SCHEDULE_PERIOD.into();
+                <NextSlotAtBlock<T, I>>::put(schedule_period_in_blocks);
+                <SchedulePeriod<T, I>>::put(schedule_period_in_blocks);
+
+                let voting_period_in_blocks: BlockNumberFor<T> = MIN_VOTING_PERIOD.into();
+                <VotingPeriod<T, I>>::put(voting_period_in_blocks);
+
+                let maybe_first_validator =
+                    AVN::<T>::validators().into_iter().map(|v| v.account_id).nth(0);
+
+                <CurrentSlotsValidator<T, I>>::put(
+                    maybe_first_validator.expect("Validator is checked for none"),
+                );
+
+                STORAGE_VERSION.put::<Pallet<T, I>>();
+
+                return T::DbWeight::get().reads_writes(0, 5)
+            }
+
+            Weight::zero()
         }
     }
 
@@ -836,12 +876,16 @@ pub mod pallet {
             let response = AVN::<T>::get_data_from_service(url_path);
 
             if let Err(e) = response {
-                log::error!("💔️ Error getting summary data from external service: {:?}", e);
+                log::error!(
+                    "💔️ Instance({}) Error getting summary data from external service: {:?}",
+                    T::InstanceId::get(),
+                    e
+                );
                 return Err(Error::<T, I>::ErrorGettingSummaryDataFromService)?
             }
 
             let root_hash = Self::validate_response(response.expect("checked for error"))?;
-            log::trace!(target: "avn", "🥽 Calculated root hash {:?} for range [{:?}, {:?}]", &root_hash, &from_block_number, &to_block_number);
+            log::trace!(target: "avn", "🥽 Instance({}) Calculated root hash {:?} for range [{:?}, {:?}]", T::InstanceId::get(), &root_hash, &from_block_number, &to_block_number);
 
             return Ok(root_hash)
         }
@@ -865,8 +909,8 @@ pub mod pallet {
             let current_slot_validator = Self::slot_validator();
             if current_slot_validator.is_none() {
                 log::error!(
-                    "💔 Current slot validator is not found. Cannot advance slot for block: {:?}",
-                    block_number
+                    "💔 Instance({}) Current slot validator is not found. Cannot advance slot for block: {:?}",
+                    T::InstanceId::get(), block_number
                 );
                 return
             }
@@ -882,7 +926,11 @@ pub mod pallet {
                 if let Ok(guard) = lock.try_lock() {
                     let result = Self::dispatch_advance_slot(this_validator);
                     if let Err(e) = result {
-                        log::warn!("💔️ Error starting a new summary creation slot: {:?}", e);
+                        log::warn!(
+                            "💔️ Instance({}) Error starting a new summary creation slot: {:?}",
+                            T::InstanceId::get(),
+                            e
+                        );
                         //free the lock so we can potentially retry
                         drop(guard);
                         return
@@ -1093,13 +1141,21 @@ pub mod pallet {
 
         fn validate_response(response: Vec<u8>) -> Result<H256, Error<T, I>> {
             if response.len() != 64 {
-                log::error!("❌ Root hash is not valid: {:?}", response);
+                log::error!(
+                    "❌ Instance({}) Root hash is not valid: {:?}",
+                    T::InstanceId::get(),
+                    response
+                );
                 return Err(Error::<T, I>::InvalidRootHashLength)?
             }
 
             let root_hash = core::str::from_utf8(&response);
             if let Err(e) = root_hash {
-                log::error!("❌ Error converting root hash bytes to string: {:?}", e);
+                log::error!(
+                    "❌ Instance({}) Error converting root hash bytes to string: {:?}",
+                    T::InstanceId::get(),
+                    e
+                );
                 return Err(Error::<T, I>::InvalidUTF8Bytes)?
             }
 
@@ -1122,7 +1178,7 @@ pub mod pallet {
             // In either case, we should not slash anyone.
             let function_name: &[u8] = b"publishRoot";
             let params = vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
-            let tx_id = T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
+            let tx_id = T::BridgeInterface::publish(function_name, &params, Self::pallet_id())
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
             <Roots<T, I>>::mutate(root_id.range, root_id.ingress_counter, |root| {
@@ -1340,6 +1396,10 @@ pub mod pallet {
 
             Err(Error::<T, I>::RootDataNotFound)?
         }
+
+        pub(crate) fn pallet_id() -> Vec<u8> {
+            [PALLET_ID.to_vec(), vec![T::InstanceId::get()]].concat()
+        }
     }
 }
 
@@ -1413,7 +1473,16 @@ impl<AccountId> Default for RootData<AccountId> {
 
 impl<T: Config<I>, I: 'static> BridgeInterfaceNotification for Pallet<T, I> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
-        if caller_id == PALLET_ID.to_vec() && <TxIdToRoot<T, I>>::contains_key(tx_id) {
+        let matches_caller = if T::AutoSubmitSummaries::get() {
+            // This is to enable backwards compatibility since the id of the pallet has changed.
+            // The instance that is auto submitting summaries is allowed to process old results.
+            // So pallet with id "summary-1" that used to be "summary" should handle the old results
+            // as well. This can be removed once this has been rolled out.
+            Self::pallet_id().starts_with(&caller_id)
+        } else {
+            caller_id == Self::pallet_id()
+        };
+        if matches_caller && <TxIdToRoot<T, I>>::contains_key(tx_id) {
             if succeeded {
                 let root_id = <TxIdToRoot<T, I>>::get(tx_id);
                 <Roots<T, I>>::mutate(root_id.range, root_id.ingress_counter, |root| {
