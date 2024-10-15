@@ -832,12 +832,8 @@ pub mod pallet {
         false
     }
 
-    pub fn read_smart_contract<T: Config>(author: &Author<T>) -> Result<U256, DispatchError> {
-        log::warn!("🚨🚨🚨🚨🚨🚨🚨");
-
-        let rate = eth::check_reference_rate::<T>(&author)?;
-        log::warn!("🚨🚨🚨-------🚨🚨🚨🚨");
-
+    pub fn read_smart_contract<T: Config>(author: &Author<T>, eth_block: u32) -> Result<U256, DispatchError> {
+        let rate = eth::check_reference_rate::<T>(&author, eth_block)?;
         Ok(rate)
     }
 
