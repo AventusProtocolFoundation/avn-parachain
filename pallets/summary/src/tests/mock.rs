@@ -295,6 +295,8 @@ impl Config for TestRuntime {
     type ReportSummaryOffence = OffenceHandler;
     type WeightInfo = ();
     type BridgeInterface = EthBridge;
+    type AutoSubmitSummaries = AutoSubmitSummaries;
+    type InstanceId = InstanceId;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -307,6 +309,8 @@ where
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
+    pub const AutoSubmitSummaries: bool = true;
+    pub const InstanceId: u8 = 1u8;
 }
 
 impl system::Config for TestRuntime {
@@ -531,8 +535,12 @@ impl ExtBuilder {
     }
 
     pub fn with_genesis_config(mut self) -> Self {
-        let _ = summary::GenesisConfig::<TestRuntime> { schedule_period: 160, voting_period: 100 }
-            .assimilate_storage(&mut self.storage);
+        let _ = summary::GenesisConfig::<TestRuntime> {
+            schedule_period: 160,
+            voting_period: 100,
+            _phantom: Default::default(),
+        }
+        .assimilate_storage(&mut self.storage);
         self
     }
 
@@ -656,7 +664,7 @@ pub fn setup_context() -> Context {
         root_id,
         record_summary_calculation_signature: get_signature_for_record_summary_calculation(
             validator,
-            UPDATE_BLOCK_NUMBER_CONTEXT,
+            &Summary::update_block_number_context(),
             root_hash_h256,
             root_id.ingress_counter,
             last_block_in_range,

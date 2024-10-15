@@ -71,7 +71,7 @@ mod advance_slot {
     pub fn create_signature(slot_number: BlockNumber, validator: &MockValidator) -> TestSignature {
         let signature = validator
             .key
-            .sign(&(ADVANCE_SLOT_CONTEXT, slot_number).encode())
+            .sign(&(Summary::advance_block_context(), slot_number).encode())
             .expect("Signature is signed");
         return signature
     }
@@ -119,7 +119,7 @@ mod advance_slot {
         ) -> crate::Call<TestRuntime> {
             let signature = validator
                 .key
-                .sign(&(ADVANCE_SLOT_CONTEXT, Summary::current_slot()).encode())
+                .sign(&(Summary::advance_block_context(), Summary::current_slot()).encode())
                 .expect("Signature is signed");
 
             return crate::Call::advance_slot { validator: validator.clone(), signature }
@@ -585,7 +585,7 @@ mod signature_in {
                         validator,
                         signature,
                     }) => {
-                        let data = &(ADVANCE_SLOT_CONTEXT, context.slot_number);
+                        let data = &(Summary::advance_block_context(), context.slot_number);
 
                         let signature_is_valid = data.using_encoded(|encoded_data| {
                             validator.key.verify(&encoded_data, &signature)
@@ -628,7 +628,7 @@ mod signature_in {
                             validator: _,
                             signature,
                         }) => {
-                            let data = &(ADVANCE_SLOT_CONTEXT, context.slot_number);
+                            let data = &(Summary::advance_block_context(), context.slot_number);
 
                             let signature_is_valid = data.using_encoded(|encoded_data| {
                                 context.other_validator.key.verify(&encoded_data, &signature)
@@ -708,7 +708,7 @@ mod signature_in {
                             validator,
                             signature,
                         }) => {
-                            let data = &(ADVANCE_SLOT_CONTEXT, context.slot_number + 1);
+                            let data = &(Summary::advance_block_context(), context.slot_number + 1);
 
                             let signature_is_valid = data.using_encoded(|encoded_data| {
                                 validator.key.verify(&encoded_data, &signature)
@@ -775,7 +775,7 @@ mod cases_for_no_summary_created_offences {
             // End vote and update `SlotOfLastPublishedSummary`
             let record_summary_signature = get_signature_for_record_summary_calculation(
                 validator.clone(),
-                UPDATE_BLOCK_NUMBER_CONTEXT,
+                &Summary::update_block_number_context(),
                 root_hash,
                 root_context.root_id.ingress_counter,
                 context.summary_last_block_in_range,

@@ -45,7 +45,7 @@ fn expected_unsigned_record_summary_calculation_call(
         .key
         .sign(
             &(
-                UPDATE_BLOCK_NUMBER_CONTEXT,
+                &Summary::update_block_number_context(),
                 context.root_hash_h256,
                 context.root_id.ingress_counter,
                 context.last_block_in_range,
@@ -538,7 +538,7 @@ mod process_summary {
                 .key
                 .sign(
                     &(
-                        UPDATE_BLOCK_NUMBER_CONTEXT,
+                        &Summary::update_block_number_context(),
                         context.root_hash_h256,
                         expected_ingress_counter,
                         context.last_block_in_range,
@@ -1257,7 +1257,7 @@ pub mod record_summary_calculation {
         new_context.record_summary_calculation_signature =
             get_signature_for_record_summary_calculation(
                 context.validator.clone(),
-                UPDATE_BLOCK_NUMBER_CONTEXT,
+                &Summary::update_block_number_context(),
                 context.root_hash_h256,
                 ingress_counter,
                 context.last_block_in_range,
@@ -1350,7 +1350,7 @@ mod if_process_summary_is_called_a_second_time {
             url_param: get_url_param(next_block_to_process),
             record_summary_calculation_signature: get_signature_for_record_summary_calculation(
                 validator,
-                UPDATE_BLOCK_NUMBER_CONTEXT,
+                &Summary::update_block_number_context(),
                 root_hash_h256,
                 ingress_counter,
                 last_block_in_range,
