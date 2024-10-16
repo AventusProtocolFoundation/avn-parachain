@@ -66,7 +66,7 @@ pub fn corroborate<T: Config>(
     return Ok((None, None))
 }
 
-pub fn check_reference_rate<T: Config>(author: &Author<T>, eth_block: u32) -> Result<U256, DispatchError> {
+pub fn check_vow_reference_rate<T: Config>(author: &Author<T>, eth_block: Option<u32>) -> Result<U256, DispatchError> {
     if let Ok(calldata) = generate_check_reference_rate_calldata::<T>() {
         if let Ok(result) = call_check_reference_rate_method::<T>(calldata, &author.account_id, eth_block) {
             return Ok(result);
@@ -239,6 +239,7 @@ fn get_transaction_call_data<T: Config>(
         "query",
         query_request.encode(),
         process_query_result::<T>,
+        None
     )
 }
 
@@ -246,7 +247,7 @@ fn send_transaction<T: Config>(
     calldata: Vec<u8>,
     author_account_id: &T::AccountId,
 ) -> Result<H256, DispatchError> {
-    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>)
+    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>, None)
 }
 
 fn call_corroborate_method<T: Config>(
@@ -258,15 +259,16 @@ fn call_corroborate_method<T: Config>(
         "view",
         calldata,
         process_corroborate_result::<T>,
+        None
     )
 }
 
 fn call_check_reference_rate_method<T: Config>(
     calldata: Vec<u8>,
     author_account_id: &T::AccountId,
-    eth_block: u32,
+    eth_block: Option<u32>,
 ) -> Result<U256, DispatchError> {
-    make_ethereum_call_2::<U256, T>(
+    make_ethereum_call::<U256, T>(
         author_account_id,
         "view",
         calldata,
@@ -275,31 +277,20 @@ fn call_check_reference_rate_method<T: Config>(
     )
 }
 
-fn make_ethereum_call_2<R, T: Config>(
-    author_account_id: &T::AccountId,
-    endpoint: &str,
-    calldata: Vec<u8>,
-    process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
-    eth_block: u32,
-) -> Result<R, DispatchError> {
-    let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
-    let contract_address = AVN::<T>::get_bridge_contract_address();
-    let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
-    let url_path = format!("eth/{}/:{}", endpoint, eth_block);
-    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
-    process_result(result)
-}
-
 fn make_ethereum_call<R, T: Config>(
     author_account_id: &T::AccountId,
     endpoint: &str,
     calldata: Vec<u8>,
     process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
+    eth_block: Option<u32>,
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
     let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
-    let url_path = format!("eth/{}", endpoint);
+    let url_path = eth_block
+        .map(|block| format!("eth/{}/{}", endpoint, block))
+        .unwrap_or_else(|| format!("eth/{}", endpoint));
+
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
 }

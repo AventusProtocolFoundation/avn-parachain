@@ -834,35 +834,23 @@ pub mod pallet {
         false
     }
 
-    pub fn check_current_vow_reference_rate<T: Config>(author: &Author<T>, eth_block: u32) -> Result<U256, DispatchError> {
-        let rate = eth::check_reference_rate::<T>(&author, eth_block)?;
+    pub fn check_current_vow_reference_rate<T: Config>(author: &Author<T>, eth_block: Option<u32>) -> Result<U256, DispatchError> {
+        let rate = eth::check_vow_reference_rate::<T>(&author, eth_block)?;
         Ok(rate)
     }
 
-    pub fn latest_finalised_ethereum_block<T: Config>() -> Result<u32, DispatchError> {
-        let response =
-        AVN::<T>::get_data_from_service(String::from("latest_eth_block"))
-            .map_err(|e| {
-                log::error!("❌ Error getting latest block from avn service: {:?}", e);
-                Error::<T>::ErrorGettingLatestEthereumBlock
-            })?;
-        let latest_block_bytes = hex::decode(&response).map_err(|e| {
-            log::error!("❌ Error decoding finalised block data {:?}", e);
-            Error::<T>::InvalidHexString
-        })?;
-        let latest_block = u32::decode(&mut &latest_block_bytes[..]).map_err(|e| {
-            log::error!("❌ Finalised block is not a valid u32: {:?}", e);
-            Error::<T>::ErrorDecodingU32
-        })?;
+    pub fn latest_finalised_ethereum_block<T: Config>() -> Option<u32> {
+        let response = AVN::<T>::get_data_from_service(String::from("latest_eth_block")).ok()?;
+        let latest_block_bytes = hex::decode(&response).ok()?;
+        let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
 
         let eth_block_range_size = EthBlockRangeSize::<T>::get();
         let latest_finalised_block = events_helpers::compute_finalised_block_number(
             latest_block,
             eth_block_range_size,
-        )
-        .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
+        ).ok()?;
 
-        return Ok(latest_finalised_block);
+        Some(latest_finalised_block)
     }
 
     fn advance_partition<T: Config>(
