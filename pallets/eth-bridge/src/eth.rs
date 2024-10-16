@@ -74,7 +74,7 @@ pub fn check_vow_reference_rate<T: Config>(
         if let Ok(result) =
             call_check_reference_rate_method::<T>(calldata, &author.account_id, eth_block)
         {
-            Ok(result)
+            return Ok(result)
         } else {
             return Err(Error::<T>::CheckVowReferenceRateCallFailed.into())
         }
