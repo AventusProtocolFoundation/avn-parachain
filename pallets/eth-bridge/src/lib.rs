@@ -834,7 +834,10 @@ pub mod pallet {
         false
     }
 
-    pub fn check_current_vow_reference_rate<T: Config>(author: &Author<T>, eth_block: Option<u32>) -> Result<U256, DispatchError> {
+    pub fn check_current_vow_reference_rate<T: Config>(
+        author: &Author<T>,
+        eth_block: Option<u32>,
+    ) -> Result<U256, DispatchError> {
         let rate = eth::check_vow_reference_rate::<T>(&author, eth_block)?;
         Ok(rate)
     }
@@ -845,10 +848,9 @@ pub mod pallet {
         let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
 
         let eth_block_range_size = EthBlockRangeSize::<T>::get();
-        let latest_finalised_block = events_helpers::compute_finalised_block_number(
-            latest_block,
-            eth_block_range_size,
-        ).ok()?;
+        let latest_finalised_block =
+            events_helpers::compute_finalised_block_number(latest_block, eth_block_range_size)
+                .ok()?;
 
         Some(latest_finalised_block)
     }

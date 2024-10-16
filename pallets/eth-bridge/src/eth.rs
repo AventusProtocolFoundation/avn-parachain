@@ -66,9 +66,14 @@ pub fn corroborate<T: Config>(
     return Ok((None, None))
 }
 
-pub fn check_vow_reference_rate<T: Config>(author: &Author<T>, eth_block: Option<u32>) -> Result<U256, DispatchError> {
+pub fn check_vow_reference_rate<T: Config>(
+    author: &Author<T>,
+    eth_block: Option<u32>,
+) -> Result<U256, DispatchError> {
     if let Ok(calldata) = generate_check_reference_rate_calldata::<T>() {
-        if let Ok(result) = call_check_reference_rate_method::<T>(calldata, &author.account_id, eth_block) {
+        if let Ok(result) =
+            call_check_reference_rate_method::<T>(calldata, &author.account_id, eth_block)
+        {
             return Ok(result);
         } else {
             return Err(Error::<T>::CheckVowReferenceRateCallFailed.into())
@@ -238,7 +243,7 @@ fn get_transaction_call_data<T: Config>(
         "query",
         query_request.encode(),
         process_query_result::<T>,
-        None
+        None,
     )
 }
 
@@ -258,7 +263,7 @@ fn call_corroborate_method<T: Config>(
         "view",
         calldata,
         process_corroborate_result::<T>,
-        None
+        None,
     )
 }
 
