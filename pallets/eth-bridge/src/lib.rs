@@ -360,8 +360,8 @@ pub mod pallet {
         VotingEnded,
         ValidatorNotFound,
         InvalidEthereumBlockRange,
-        ErrorGettingLatestEthereumBlock,
-        ErrorDecodingU32
+        InvalidVowReferenceRateCallData,
+        CheckVowReferenceRateCallFailed,
     }
 
     #[pallet::call]
