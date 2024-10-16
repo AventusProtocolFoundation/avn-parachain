@@ -82,6 +82,21 @@ pub fn check_vow_reference_rate<T: Config>(
     Err(Error::<T>::InvalidVowReferenceRateCallData.into())
 }
 
+pub fn check_latest_vow_reference_rate_block<T: Config>(
+    author: &Author<T>,
+) -> Result<U256, DispatchError> {
+    if let Ok(calldata) = generate_latest_reference_rate_block_calldata::<T>() {
+        if let Ok(result) =
+            call_latest_reference_rate_block_method::<T>(calldata, &author.account_id)
+        {
+            return Ok(result)
+        } else {
+            return Err(Error::<T>::CheckVowReferenceRateCallFailed.into())
+        }
+    }
+    Err(Error::<T>::InvalidVowReferenceRateCallData.into())
+}
+
 fn check_tx_status<T: Config>(
     tx: &ActiveTransactionData<T>,
     author: &Author<T>,
@@ -153,6 +168,11 @@ fn generate_corroborate_calldata<T: Config>(
 fn generate_check_reference_rate_calldata<T: Config>() -> Result<Vec<u8>, Error<T>> {
     let params = vec![];
     abi_encode_function(b"checkReferenceRate", &params)
+}
+
+fn generate_latest_reference_rate_block_calldata<T: Config>() -> Result<Vec<u8>, Error<T>> {
+    let params = vec![];
+    abi_encode_function(b"referenceRateUpdatedAt", &params)
 }
 
 pub fn generate_encoded_lower_proof<T: Config>(
@@ -278,6 +298,19 @@ fn call_check_reference_rate_method<T: Config>(
         calldata,
         process_check_reference_rate_result::<T>,
         eth_block,
+    )
+}
+
+fn call_latest_reference_rate_block_method<T: Config>(
+    calldata: Vec<u8>,
+    author_account_id: &T::AccountId,
+) -> Result<U256, DispatchError> {
+    make_ethereum_call::<U256, T>(
+        author_account_id,
+        "view",
+        calldata,
+        process_check_reference_rate_result::<T>,
+        None,
     )
 }
 

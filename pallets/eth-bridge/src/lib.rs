@@ -842,6 +842,13 @@ pub mod pallet {
         Ok(rate)
     }
 
+    pub fn latest_reference_rate_update_block<T: Config>(
+        author: &Author<T>,
+    ) -> Result<U256, DispatchError> {
+        let block_number = eth::check_latest_vow_reference_rate_block::<T>(&author)?;
+        Ok(block_number)
+    }
+
     pub fn latest_finalised_ethereum_block<T: Config>() -> Option<u32> {
         let response = AVN::<T>::get_data_from_service(String::from("latest_eth_block")).ok()?;
         let latest_block_bytes = hex::decode(&response).ok()?;
