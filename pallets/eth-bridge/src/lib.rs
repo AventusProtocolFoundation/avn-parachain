@@ -834,7 +834,7 @@ pub mod pallet {
         false
     }
 
-    pub fn read_smart_contract<T: Config>(author: &Author<T>, eth_block: u32) -> Result<U256, DispatchError> {
+    pub fn check_current_vow_reference_rate<T: Config>(author: &Author<T>, eth_block: u32) -> Result<U256, DispatchError> {
         let rate = eth::check_reference_rate::<T>(&author, eth_block)?;
         Ok(rate)
     }
@@ -1083,11 +1083,6 @@ pub mod pallet {
 
             Ok(())
         }
-
-        // fn read_smart_contract(author: &Author<T>) -> Result<U256, DispatchError> {
-        //     let rate = eth::check_reference_rate::<T>(&author)?;
-        //     Ok(rate)
-        // }
     }
 }
 
