@@ -360,6 +360,8 @@ pub mod pallet {
         VotingEnded,
         ValidatorNotFound,
         InvalidEthereumBlockRange,
+        ErrorGettingLatestEthereumBlock,
+        ErrorDecodingU32
     }
 
     #[pallet::call]
@@ -835,6 +837,32 @@ pub mod pallet {
     pub fn read_smart_contract<T: Config>(author: &Author<T>, eth_block: u32) -> Result<U256, DispatchError> {
         let rate = eth::check_reference_rate::<T>(&author, eth_block)?;
         Ok(rate)
+    }
+
+    pub fn latest_finalised_ethereum_block<T: Config>() -> Result<u32, DispatchError> {
+        let response =
+        AVN::<T>::get_data_from_service(String::from("latest_eth_block"))
+            .map_err(|e| {
+                log::error!("❌ Error getting latest block from avn service: {:?}", e);
+                Error::<T>::ErrorGettingLatestEthereumBlock
+            })?;
+        let latest_block_bytes = hex::decode(&response).map_err(|e| {
+            log::error!("❌ Error decoding finalised block data {:?}", e);
+            Error::<T>::InvalidHexString
+        })?;
+        let latest_block = u32::decode(&mut &latest_block_bytes[..]).map_err(|e| {
+            log::error!("❌ Finalised block is not a valid u32: {:?}", e);
+            Error::<T>::ErrorDecodingU32
+        })?;
+
+        let eth_block_range_size = EthBlockRangeSize::<T>::get();
+        let latest_finalised_block = events_helpers::compute_finalised_block_number(
+            latest_block,
+            eth_block_range_size,
+        )
+        .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
+
+        return Ok(latest_finalised_block);
     }
 
     fn advance_partition<T: Config>(
