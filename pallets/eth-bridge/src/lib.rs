@@ -845,8 +845,9 @@ pub mod pallet {
 
     pub fn latest_reference_rate_update_block<T: Config>(
         author: &Author<T>,
+        eth_block: Option<u32>,
     ) -> Result<U256, DispatchError> {
-        let block_number = eth::check_latest_vow_reference_rate_block::<T>(&author)?;
+        let block_number = eth::check_latest_vow_reference_rate_block::<T>(&author, eth_block)?;
         Ok(block_number)
     }
 

@@ -84,10 +84,11 @@ pub fn check_vow_reference_rate<T: Config>(
 
 pub fn check_latest_vow_reference_rate_block<T: Config>(
     author: &Author<T>,
+    eth_block: Option<u32>,
 ) -> Result<U256, DispatchError> {
     if let Ok(calldata) = generate_latest_reference_rate_block_calldata::<T>() {
         if let Ok(result) =
-            call_latest_reference_rate_block_method::<T>(calldata, &author.account_id)
+            call_check_reference_rate_method::<T>(calldata, &author.account_id, eth_block)
         {
             return Ok(result)
         } else {
