@@ -766,6 +766,11 @@ pub trait BridgeInterface {
         params: &LowerParams,
         caller_id: Vec<u8>,
     ) -> Result<(), DispatchError>;
+    fn read_smart_contract(
+        author_account_bytes: Vec<u8>,
+        calldata: Vec<u8>,
+        eth_block: Option<u32>,
+    ) -> Result<(), DispatchError>;
 }
 
 pub trait BridgeInterfaceNotification {

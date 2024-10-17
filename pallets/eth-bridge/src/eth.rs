@@ -315,7 +315,7 @@ fn call_latest_reference_rate_block_method<T: Config>(
     )
 }
 
-fn make_ethereum_call<R, T: Config>(
+pub fn make_ethereum_call<R, T: Config>(
     author_account_id: &T::AccountId,
     endpoint: &str,
     calldata: Vec<u8>,
@@ -358,7 +358,7 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     Ok(result_bytes[31] as i8)
 }
 
-fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<U256, DispatchError> {
+pub fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<U256, DispatchError> {
     let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
     if result_bytes.len() != 32 {
         return Err(Error::<T>::InvalidBytesLength.into())

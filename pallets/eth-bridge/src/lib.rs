@@ -339,6 +339,7 @@ pub mod pallet {
         InvalidParamData,
         InvalidSendCalldata,
         InvalidUint,
+        InvalidAccountId,
         InvalidUTF8,
         MsgHashError,
         ParamsLimitExceeded,
@@ -1079,6 +1080,28 @@ pub mod pallet {
                 params: *params,
                 caller_id,
             });
+
+            Ok(())
+        }
+
+        fn read_smart_contract(
+            author_account_bytes: Vec<u8>,
+            calldata: Vec<u8>,
+            eth_block: Option<u32>
+        ) -> Result<(), DispatchError> {
+
+            // Decode the bytes back into an AccountId
+            let author_account_id = T::AccountId::decode(&mut &author_account_bytes[..])
+                .map_err(|_| Error::<T>::InvalidAccountId)?;
+
+            // Now call the original function with the decoded author_account_id
+            eth::make_ethereum_call::<U256, T>(
+                &author_account_id,
+                "view",
+                calldata,
+                eth::process_check_reference_rate_result::<T>,
+                eth_block,
+            )?;
 
             Ok(())
         }
