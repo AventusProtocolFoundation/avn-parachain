@@ -43,6 +43,7 @@ pub trait WeightInfo {
 	fn signed_register_chain_handler() -> Weight;
 	fn signed_update_chain_handler() -> Weight;
 	fn signed_submit_checkpoint_with_identity() -> Weight;
+	fn set_checkpoint_fee() -> Weight;
 }
 
 /// Weights for pallet_avn_anchor using the Substrate node and recommended hardware.
@@ -136,6 +137,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `AvnAnchor::Checkpoints` (r:0 w:1)
 	/// Proof: `AvnAnchor::Checkpoints` (`max_values`: None, `max_size`: Some(76), added: 2551, mode: `MaxEncodedLen`)
 	fn signed_submit_checkpoint_with_identity() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `297`
+		//  Estimated: `3517`
+		// Minimum execution time: 82_980_000 picoseconds.
+		Weight::from_parts(90_203_000, 3517)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+
+	fn set_checkpoint_fee() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `297`
 		//  Estimated: `3517`
@@ -243,5 +254,15 @@ impl WeightInfo for () {
 		Weight::from_parts(90_203_000, 3517)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+
+	fn set_checkpoint_fee() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `297`
+		//  Estimated: `3517`
+		// Minimum execution time: 82_980_000 picoseconds.
+		Weight::from_parts(90_203_000, 3517)
+		.saturating_add(RocksDbWeight::get().reads(3_u64))
+		.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 }
