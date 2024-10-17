@@ -771,7 +771,6 @@ pub trait BridgeInterface {
         author_account_bytes: Vec<u8>,
         function_name: &[u8],
         params: &[(Vec<u8>, Vec<u8>)],
-        calldata: Vec<u8>,
         eth_block: Option<u32>
     ) -> Result<U256, DispatchError>;
 }
