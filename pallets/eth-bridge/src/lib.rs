@@ -837,9 +837,10 @@ pub mod pallet {
     pub fn check_current_vow_reference_rate<T: Config>(
         author: &Author<T>,
         eth_block: Option<u32>,
-    ) -> Result<U256, DispatchError> {
-        let rate = eth::check_vow_reference_rate::<T>(&author, eth_block)?;
-        Ok(rate)
+        period: u32
+    ) -> (Result<U256, DispatchError>, u32) {
+        let rate = eth::check_vow_reference_rate::<T>(&author, eth_block).unwrap();
+        (Ok(rate), period)
     }
 
     pub fn latest_reference_rate_update_block<T: Config>(
