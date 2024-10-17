@@ -835,23 +835,6 @@ pub mod pallet {
         false
     }
 
-    pub fn check_current_vow_reference_rate<T: Config>(
-        author: &Author<T>,
-        eth_block: Option<u32>,
-        period: u32
-    ) -> (Result<U256, DispatchError>, u32) {
-        let rate = eth::check_vow_reference_rate::<T>(&author, eth_block).unwrap();
-        (Ok(rate), period)
-    }
-
-    pub fn latest_reference_rate_update_block<T: Config>(
-        author: &Author<T>,
-        eth_block: Option<u32>,
-    ) -> Result<U256, DispatchError> {
-        let block_number = eth::check_latest_vow_reference_rate_block::<T>(&author, eth_block)?;
-        Ok(block_number)
-    }
-
     pub fn latest_finalised_ethereum_block<T: Config>() -> Option<u32> {
         let response = AVN::<T>::get_data_from_service(String::from("latest_eth_block")).ok()?;
         let latest_block_bytes = hex::decode(&response).ok()?;
@@ -1084,29 +1067,16 @@ pub mod pallet {
             Ok(())
         }
 
-        fn read_smart_contract(
+        fn read_bridge_contract(
             author_account_bytes: Vec<u8>,
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
             eth_block: Option<u32>
         ) -> Result<U256, DispatchError> {
-
-            // Decode the bytes back into an AccountId
             let author_account_id = T::AccountId::decode(&mut &author_account_bytes[..])
                 .map_err(|_| Error::<T>::InvalidAccountId)?;
 
             let calldata = eth::abi_encode_function::<T>(function_name, params)?;
-            // if let Ok(calldata) = generate_latest_reference_rate_block_calldata::<T>() {
-            //     if let Ok(result) =
-            //         call_check_reference_rate_method::<T>(calldata, &author.account_id, eth_block)
-            //     {
-            //         return Ok(result)
-            //     } else {
-            //         return Err(Error::<T>::CheckVowReferenceRateCallFailed.into())
-            //     }
-            // }
-            // Err(Error::<T>::InvalidVowReferenceRateCallData.into())
-            // Now call the original function with the decoded author_account_id
             eth::make_ethereum_call::<U256, T>(
                 &author_account_id,
                 "view",
@@ -1114,8 +1084,6 @@ pub mod pallet {
                 eth::process_check_reference_rate_result::<T>,
                 eth_block,
             )
-
-            // Ok(())
         }
     }
 }

@@ -767,7 +767,7 @@ pub trait BridgeInterface {
         params: &LowerParams,
         caller_id: Vec<u8>,
     ) -> Result<(), DispatchError>;
-    fn read_smart_contract(
+    fn read_bridge_contract(
         author_account_bytes: Vec<u8>,
         function_name: &[u8],
         params: &[(Vec<u8>, Vec<u8>)],
