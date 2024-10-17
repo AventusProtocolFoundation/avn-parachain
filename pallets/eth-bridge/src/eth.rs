@@ -329,6 +329,7 @@ fn make_ethereum_call<R, T: Config>(
         .map(|block| format!("eth/{}/{}", endpoint, block))
         .unwrap_or_else(|| format!("eth/{}", endpoint));
 
+    log::info!("url_path: {:?}", url_path);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
 }
