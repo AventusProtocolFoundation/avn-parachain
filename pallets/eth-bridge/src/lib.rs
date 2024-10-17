@@ -1071,19 +1071,20 @@ pub mod pallet {
             author_account_bytes: Vec<u8>,
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
-            eth_block: Option<u32>
-        ) -> Result<U256, DispatchError> {
+            eth_block: Option<u32>,
+            id: Option<u32>,
+        ) -> (Result<U256, DispatchError>, Option<u32>) {
             let author_account_id = T::AccountId::decode(&mut &author_account_bytes[..])
-                .map_err(|_| Error::<T>::InvalidAccountId)?;
+                .map_err(|_| Error::<T>::InvalidAccountId).unwrap();
 
-            let calldata = eth::abi_encode_function::<T>(function_name, params)?;
-            eth::make_ethereum_call::<U256, T>(
+            let calldata = eth::abi_encode_function::<T>(function_name, params).unwrap();
+            (eth::make_ethereum_call::<U256, T>(
                 &author_account_id,
                 "view",
                 calldata,
                 eth::process_check_reference_rate_result::<T>,
                 eth_block,
-            )
+            ), id)
         }
 
         fn latest_finalised_ethereum_block() -> Option<u32> {
