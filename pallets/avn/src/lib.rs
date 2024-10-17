@@ -773,6 +773,7 @@ pub trait BridgeInterface {
         params: &[(Vec<u8>, Vec<u8>)],
         eth_block: Option<u32>
     ) -> Result<U256, DispatchError>;
+    fn latest_finalised_ethereum_block() -> Option<u32>;
 }
 
 pub trait BridgeInterfaceNotification {

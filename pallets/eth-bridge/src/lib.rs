@@ -1085,6 +1085,19 @@ pub mod pallet {
                 eth_block,
             )
         }
+
+        fn latest_finalised_ethereum_block() -> Option<u32> {
+            let response = AVN::<T>::get_data_from_service(String::from("latest_eth_block")).ok()?;
+            let latest_block_bytes = hex::decode(&response).ok()?;
+            let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
+
+            let eth_block_range_size = EthBlockRangeSize::<T>::get();
+            let latest_finalised_block =
+                events_helpers::compute_finalised_block_number(latest_block, eth_block_range_size)
+                    .ok()?;
+
+            Some(latest_finalised_block)
+        }
     }
 }
 
