@@ -5,7 +5,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-use frame_support::{dispatch::DispatchResult, ensure};
+use frame_support::{dispatch::DispatchResult, ensure, traits::Currency};
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
@@ -36,12 +36,16 @@ pub use self::pallet::*;
 pub type ChainId = u32;
 pub type CheckpointId = u64;
 
+pub(crate) type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType};
     use frame_system::pallet_prelude::*;
-    use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
+    use sp_avn_common::{verify_signature, FeePaymentHandler, InnerCallValidator, Proof};
+    use sp_core::H160;
     use sp_runtime::traits::{Dispatchable, IdentifyAccount, Verify};
 
     pub type ChainId = u32;
@@ -78,6 +82,21 @@ pub mod pallet {
             + TypeInfo;
 
         type WeightInfo: WeightInfo;
+
+        /// Currency type for processing fee payment
+        type Currency: Currency<Self::AccountId>;
+
+        /// The type of token identifier
+        /// (a H160 because this is an Ethereum address)
+        type Token: Parameter + Default + Copy + From<H160> + Into<H160> + MaxEncodedLen;
+
+        /// A handler to process relayer fee payments
+        type FeeHandler: FeePaymentHandler<
+            AccountId = Self::AccountId,
+            Token = Self::Token,
+            TokenBalance = <Self::Currency as Currency<Self::AccountId>>::Balance,
+            Error = DispatchError,
+        >;
     }
 
     #[pallet::pallet]
@@ -94,6 +113,8 @@ pub mod pallet {
         /// A new checkpoint was submitted. [handler_account_id, chain_id, checkpoint_id,
         /// checkpoint]
         CheckpointSubmitted(T::AccountId, ChainId, CheckpointId, H256),
+        /// The checkpoint fee was updated. [new_fee]
+        CheckpointFeeUpdated(BalanceOf<T>),
     }
 
     #[pallet::error]
@@ -110,6 +131,15 @@ pub mod pallet {
         UnauthorizedProxyTransaction,
         NoChainDataAvailable,
     }
+
+    #[pallet::storage]
+    #[pallet::getter(fn checkpoint_fee)]
+    pub type CheckpointFee<T> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+     /// An account nonce that represents the number of payments from this account
+    /// It is shared for all proxy transactions performed by that account
+    pub type PaymentNonces<T: Config> =
+    StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn nonces)]
@@ -285,12 +315,36 @@ pub mod pallet {
             );
 
             Self::do_submit_checkpoint(&handler, checkpoint, chain_id)?;
+            Self::charge_fee(handler);
 
+            Ok(())
+        }
+
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_checkpoint_fee())]
+        #[pallet::call_index(6)]
+        pub fn set_checkpoint_fee(origin: OriginFor<T>, new_fee: BalanceOf<T>) -> DispatchResult {
+            ensure_root(origin)?;
+            CheckpointFee::<T>::put(new_fee);
+            Self::deposit_event(Event::CheckpointFeeUpdated(new_fee));
             Ok(())
         }
     }
 
     impl<T: Config> Pallet<T> {
+        pub(crate) fn charge_fee(handler: T::AccountId,) -> DispatchResult {
+            let payment_nonce = Self::payment_nonces(&handler);
+            let checkpoint_fee = Self::checkpoint_fee();
+            
+            T::FeeHandler::pay_fee(
+                &,
+                &checkpoint_fee,
+                &handler,
+                &payment_info.recipient,
+            )?;
+
+            <PaymentNonces<T>>::mutate(&handler, |n| *n += 1);
+            Ok(())
+        }
         fn get_next_chain_id() -> Result<ChainId, DispatchError> {
             NextChainId::<T>::try_mutate(|id| {
                 let current_id = *id;
@@ -476,10 +530,10 @@ pub mod pallet {
                     &proof,
                     &signed_payload.as_slice(),
                 )
-                .is_ok()
+                .is_ok();
             }
 
-            return false
+            return false;
         }
     }
 }
