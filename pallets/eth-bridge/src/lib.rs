@@ -1086,14 +1086,27 @@ pub mod pallet {
 
         fn read_smart_contract(
             author_account_bytes: Vec<u8>,
+            function_name: &[u8],
+            params: &[(Vec<u8>, Vec<u8>)],
             calldata: Vec<u8>,
             eth_block: Option<u32>
-        ) -> Result<(), DispatchError> {
+        ) -> Result<U256, DispatchError> {
 
             // Decode the bytes back into an AccountId
             let author_account_id = T::AccountId::decode(&mut &author_account_bytes[..])
                 .map_err(|_| Error::<T>::InvalidAccountId)?;
 
+            let calldata = eth::abi_encode_function::<T>(function_name, params)?;
+            // if let Ok(calldata) = generate_latest_reference_rate_block_calldata::<T>() {
+            //     if let Ok(result) =
+            //         call_check_reference_rate_method::<T>(calldata, &author.account_id, eth_block)
+            //     {
+            //         return Ok(result)
+            //     } else {
+            //         return Err(Error::<T>::CheckVowReferenceRateCallFailed.into())
+            //     }
+            // }
+            // Err(Error::<T>::InvalidVowReferenceRateCallData.into())
             // Now call the original function with the decoded author_account_id
             eth::make_ethereum_call::<U256, T>(
                 &author_account_id,
@@ -1101,9 +1114,9 @@ pub mod pallet {
                 calldata,
                 eth::process_check_reference_rate_result::<T>,
                 eth_block,
-            )?;
+            )
 
-            Ok(())
+            // Ok(())
         }
     }
 }

@@ -188,7 +188,7 @@ pub fn generate_encoded_lower_proof<T: Config>(
     return compact_lower_data
 }
 
-fn abi_encode_function<T: pallet::Config>(
+pub fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<Vec<u8>, Error<T>> {
