@@ -71,7 +71,6 @@ use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
     ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
 };
-
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 

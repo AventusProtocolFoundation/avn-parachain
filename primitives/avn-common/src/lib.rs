@@ -81,12 +81,12 @@ pub struct NewEthTransaction {
     pub to: H160,
     pub data: Vec<u8>,
     pub block: Option<u32>,
-    pub identifier: Option<u32>,
+    pub period_id: Option<u32>,
 }
 
 impl NewEthTransaction {
-    pub fn new(from: [u8; 32], to: H160, data: Vec<u8>, block: Option<u32>, identifier: Option<u32>) -> Self {
-        return NewEthTransaction { from, to, data, block, identifier }
+    pub fn new(from: [u8; 32], to: H160, data: Vec<u8>, block: Option<u32>, period_id: Option<u32>) -> Self {
+        return NewEthTransaction { from, to, data, block, period_id }
     }
 }
 

@@ -9,6 +9,7 @@ use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
 use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
 use sp_std::vec;
+use sp_avn_common::NewEthTransaction;
 
 pub const UINT256: &[u8] = b"uint256";
 pub const UINT128: &[u8] = b"uint128";
