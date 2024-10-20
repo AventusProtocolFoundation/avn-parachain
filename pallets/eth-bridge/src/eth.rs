@@ -265,6 +265,28 @@ pub fn make_ethereum_call<R, T: Config>(
     process_result(result)
 }
 
+pub fn new_make_ethereum_call<R, T: Config>(
+    author_account_id: &T::AccountId,
+    endpoint: &str,
+    calldata: Vec<u8>,
+    process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
+    eth_block: Option<u32>,
+    period_id: Option<u32>,
+) -> Result<R, DispatchError> {
+    let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
+    let contract_address = AVN::<T>::get_bridge_contract_address();
+    let ethereum_call = NewEthTransaction::new(sender, contract_address, calldata, eth_block, period_id);
+    // let url_path = eth_block
+    //     .map(|block| format!("eth/{}/{}", endpoint, block))
+    //     .unwrap_or_else(|| format!("eth/{}/", endpoint));
+
+    let url_path = format!("eth/{}", endpoint);
+
+    log::info!("url_path: {:?}", url_path);
+    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
+    process_result(result)
+}
+
 fn process_tx_hash<T: Config>(result: Vec<u8>) -> Result<H256, DispatchError> {
     if result.len() != 64 {
         return Err(Error::<T>::InvalidHashLength.into())

@@ -1078,12 +1078,13 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::InvalidAccountId).unwrap();
 
             let calldata = eth::abi_encode_function::<T>(function_name, params).unwrap();
-            (eth::make_ethereum_call::<U256, T>(
+            (eth::new_make_ethereum_call::<U256, T>(
                 &author_account_id,
                 "view",
                 calldata,
                 eth::process_check_reference_rate_result::<T>,
                 eth_block,
+                period_id
             ), id)
         }
 

@@ -75,6 +75,21 @@ impl EthTransaction {
     }
 }
 
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, Default)]
+pub struct NewEthTransaction {
+    pub from: [u8; 32],
+    pub to: H160,
+    pub data: Vec<u8>,
+    pub block: Option<u32>,
+    pub identifier: Option<u32>,
+}
+
+impl NewEthTransaction {
+    pub fn new(from: [u8; 32], to: H160, data: Vec<u8>, block: Option<u32>, identifier: Option<u32>) -> Self {
+        return NewEthTransaction { from, to, data, block, identifier }
+    }
+}
+
 #[derive(Encode, Decode, Copy, Clone, PartialEq, Eq, Default, Debug, TypeInfo)]
 pub struct Proof<Signature: TypeInfo, AccountId> {
     pub signer: AccountId,
