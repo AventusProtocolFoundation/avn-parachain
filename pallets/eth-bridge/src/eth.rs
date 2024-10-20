@@ -321,6 +321,37 @@ pub fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result
     Ok(U256::from_big_endian(&result_bytes))
 }
 
+pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<(U256, Option<u32>), DispatchError> {
+    // Decode the hex string into bytes
+    let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
+
+    // The U256 result must be 32 bytes long
+    if result_bytes.len() < 32 {
+        return Err(Error::<T>::InvalidBytesLength.into());
+    }
+
+    // Extract the main 32 bytes as the U256 value
+    let u256_value = U256::from_big_endian(&result_bytes[0..32]);
+
+    // If the result contains more than 32 bytes, try to extract the period_id (assuming it's u32)
+    let period_id = if result_bytes.len() > 32 {
+        // Try to extract the period_id from the next 4 bytes after the 32-byte U256 value
+        if result_bytes.len() >= 36 {
+            let mut period_id_bytes = [0u8; 4];
+            period_id_bytes.copy_from_slice(&result_bytes[32..36]);
+            Some(u32::from_be_bytes(period_id_bytes)) // Decode the u32 in big-endian format
+        } else {
+            // If the result is between 33 and 35 bytes long, it's invalid
+            return Err(Error::<T>::InvalidBytesLength.into());
+        }
+    } else {
+        None
+    };
+
+    // Return the U256 value and the optional period_id
+    Ok((u256_value, period_id))
+}
+
 fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), DispatchError> {
     let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
     let (call_data, eth_tx_confirmations) = try_process_query_result::<Vec<u8>, T>(result_bytes)
