@@ -834,19 +834,6 @@ pub mod pallet {
         false
     }
 
-    // pub fn latest_finalised_ethereum_block<T: Config>() -> Option<u32> {
-    //     let response = AVN::<T>::get_data_from_service(String::from("latest_eth_block")).ok()?;
-    //     let latest_block_bytes = hex::decode(&response).ok()?;
-    //     let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
-
-    //     let eth_block_range_size = EthBlockRangeSize::<T>::get();
-    //     let latest_finalised_block =
-    //         events_helpers::compute_finalised_block_number(latest_block, eth_block_range_size)
-    //             .ok()?;
-
-    //     Some(latest_finalised_block)
-    // }
-
     fn advance_partition<T: Config>(
         active_range: &ActiveEthRange,
         approved_partition: &EthereumEventsPartition,
