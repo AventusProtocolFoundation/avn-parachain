@@ -325,12 +325,8 @@ pub fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result
 }
 
 pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<(U256, Option<u32>), DispatchError> {
-    log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 1");
-
     // Convert the Vec<u8> into a string, assuming it was encoded into hex and period_id
     let result_string = String::from_utf8(result).map_err(|_| Error::<T>::InvalidBytes)?;
-
-    log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 2 {:?}", result_string);
 
     // Split the string into two parts: the hex-encoded result and the period_id (if present)
     let parts: Vec<&str> = result_string.split(':').collect();
@@ -342,8 +338,6 @@ pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Re
     // Decode the first part (the hex-encoded string) into bytes
     let result_bytes = hex::decode(parts[0]).map_err(|_| Error::<T>::InvalidBytes)?;
 
-    log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 3 {:?}", result_bytes.len());
-
     // The U256 result must be 32 bytes long
     if result_bytes.len() != 32 {
         return Err(Error::<T>::InvalidBytesLength.into());
@@ -352,8 +346,6 @@ pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Re
     // Extract the main 32 bytes as the U256 value
     let u256_value = U256::from_big_endian(&result_bytes[0..32]);
 
-    log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 4 {:?}", u256_value);
-
     // Extract the period_id from the second part (if it exists)
     let period_id = if parts.len() > 1 {
         // Parse the period_id as a u32
@@ -361,9 +353,6 @@ pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Re
     } else {
         None
     };
-
-    log::info!("u256_value: {:?}", u256_value);
-    log::info!("period_id: {:?}", period_id);
 
     // Return the U256 value and the optional period_id
     Ok((u256_value, period_id))
