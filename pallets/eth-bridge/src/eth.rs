@@ -285,6 +285,9 @@ pub fn new_make_ethereum_call<R, T: Config>(
 
     log::info!("url_path: {:?}", url_path);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
+
+    log::info!("!!!!!!!!!!!!!!!!!!!!!!!! before fmt result {:?}", result);
+
     process_result(result)
 }
 
