@@ -276,7 +276,13 @@ pub fn new_make_ethereum_call<R, T: Config>(
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
-    let ethereum_call = NewEthTransaction::new(sender, contract_address, calldata, eth_block, period_id);
+
+    let ethereum_call = EthTransaction::new(sender, contract_address, calldata)
+        .set_block(eth_block)
+        .set_period_id(period_id);
+
+    // let ethereum_call = NewEthTransaction::new(sender, contract_address, calldata, eth_block, period_id);
+
     // let url_path = eth_block
     //     .map(|block| format!("eth/{}/{}", endpoint, block))
     //     .unwrap_or_else(|| format!("eth/{}/", endpoint));
