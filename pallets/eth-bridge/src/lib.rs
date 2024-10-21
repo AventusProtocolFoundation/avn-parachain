@@ -360,8 +360,6 @@ pub mod pallet {
         VotingEnded,
         ValidatorNotFound,
         InvalidEthereumBlockRange,
-        InvalidVowReferenceRateCallData,
-        CheckVowReferenceRateCallFailed,
     }
 
     #[pallet::call]
@@ -1069,7 +1067,7 @@ pub mod pallet {
                 &author_account_id,
                 "view",
                 calldata,
-                eth::new_process_check_reference_rate_result::<T>,
+                eth::process_bridge_contract_data::<T>,
                 eth_block,
                 period_id,
             )

@@ -300,39 +300,34 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     Ok(result_bytes[31] as i8)
 }
 
-pub fn new_process_check_reference_rate_result<T: Config>(
+pub fn process_bridge_contract_data<T: Config>(
     result: Vec<u8>,
 ) -> Result<(U256, Option<u32>), DispatchError> {
-    // Convert the Vec<u8> into a string, assuming it was encoded into hex and period_id
     let result_string = String::from_utf8(result).map_err(|_| Error::<T>::InvalidBytes)?;
 
     // Split the string into two parts: the hex-encoded result and the period_id (if present)
-    let parts: Vec<&str> = result_string.split(':').collect();
-
-    if parts.len() < 1 {
-        return Err(Error::<T>::InvalidBytesLength.into());
-    }
+    let (hex_result, period_id) = match result_string.split_once(':') {
+        Some((hex, id)) => (hex, Some(id)),
+        None => (result_string.as_str(), None),
+    };
 
     // Decode the first part (the hex-encoded string) into bytes
-    let result_bytes = hex::decode(parts[0]).map_err(|_| Error::<T>::InvalidBytes)?;
+    let result_bytes = hex::decode(hex_result).map_err(|_| Error::<T>::InvalidBytes)?;
 
     // The U256 result must be 32 bytes long
     if result_bytes.len() != 32 {
         return Err(Error::<T>::InvalidBytesLength.into());
     }
 
-    // Extract the main 32 bytes as the U256 value
-    let u256_value = U256::from_big_endian(&result_bytes[0..32]);
+    // Convert the first 32 bytes into U256
+    let u256_value = U256::from_big_endian(&result_bytes);
 
-    // Extract the period_id from the second part (if it exists)
-    let period_id = if parts.len() > 1 {
-        // Parse the period_id as a u32
-        Some(parts[1].parse::<u32>().map_err(|_| Error::<T>::InvalidBytes)?)
-    } else {
-        None
-    };
+    // Parse the period_id if present
+    let period_id = period_id
+        .map(|id| id.parse::<u32>())
+        .transpose()
+        .map_err(|_| Error::<T>::InvalidBytes)?;
 
-    // Return the U256 value and the optional period_id
     Ok((u256_value, period_id))
 }
 
