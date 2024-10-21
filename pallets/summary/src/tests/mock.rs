@@ -21,7 +21,7 @@ use sp_core::{
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    ConstU64, H256,
+    ConstU64, H256, U256,
 };
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
@@ -393,6 +393,21 @@ impl BridgeInterface for TestRuntime {
 
     fn generate_lower_proof(_: u32, _: &LowerParams, _: Vec<u8>) -> Result<(), DispatchError> {
         Ok(())
+    }
+
+    fn read_bridge_contract(
+        _: Vec<u8>,
+        _: &[u8],
+        _: &[(Vec<u8>, Vec<u8>)],
+        _: Option<u32>,
+        _: Option<u32>,
+    ) -> Result<(U256, Option<u32>), DispatchError> {
+        let mockResult: U256 = U256::from(0);
+        Ok((mockResult, None))
+    }
+
+    fn latest_finalised_ethereum_block() -> Option<u32> {
+        None
     }
 }
 

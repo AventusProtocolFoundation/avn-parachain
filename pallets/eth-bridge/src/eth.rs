@@ -5,17 +5,13 @@ use crate::{
 };
 use ethabi::{Address, Function, Int, Param, ParamType, Token};
 use pallet_avn::AccountToBytesConverter;
-use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
+use sp_avn_common::{
+    EthQueryRequest, EthQueryResponseType, EthTransaction, ADDRESS, BYTES, BYTES32, UINT128,
+    UINT256, UINT32,
+};
 use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
 use sp_std::vec;
-
-pub const UINT256: &[u8] = b"uint256";
-pub const UINT128: &[u8] = b"uint128";
-pub const UINT32: &[u8] = b"uint32";
-pub const BYTES: &[u8] = b"bytes";
-pub const BYTES32: &[u8] = b"bytes32";
-pub const ADDRESS: &[u8] = b"address";
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);
@@ -146,7 +142,7 @@ pub fn generate_encoded_lower_proof<T: Config>(
     return compact_lower_data
 }
 
-fn abi_encode_function<T: pallet::Config>(
+pub fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<Vec<u8>, Error<T>> {
@@ -258,6 +254,24 @@ fn make_ethereum_call<R, T: Config>(
     process_result(result)
 }
 
+pub fn make_historical_ethereum_call<R, T: Config>(
+    author_account_id: &T::AccountId,
+    endpoint: &str,
+    calldata: Vec<u8>,
+    process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
+    eth_block: Option<u32>,
+    period_id: Option<u32>,
+) -> Result<R, DispatchError> {
+    let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
+    let contract_address = AVN::<T>::get_bridge_contract_address();
+    let ethereum_call = EthTransaction::new(sender, contract_address, calldata)
+        .set_block(eth_block)
+        .set_period_id(period_id);
+    let url_path = format!("eth/{}", endpoint);
+    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
+    process_result(result)
+}
+
 fn process_tx_hash<T: Config>(result: Vec<u8>) -> Result<H256, DispatchError> {
     if result.len() != 64 {
         return Err(Error::<T>::InvalidHashLength.into())
@@ -280,6 +294,37 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     }
 
     Ok(result_bytes[31] as i8)
+}
+
+pub fn process_bridge_contract_data<T: Config>(
+    result: Vec<u8>,
+) -> Result<(U256, Option<u32>), DispatchError> {
+    let result_string = String::from_utf8(result).map_err(|_| Error::<T>::InvalidBytes)?;
+
+    // Split the string into two parts: the hex-encoded result and the period_id (if present)
+    let (hex_result, period_id) = match result_string.split_once(':') {
+        Some((hex, id)) => (hex, Some(id)),
+        None => (result_string.as_str(), None),
+    };
+
+    // Decode the first part (the hex-encoded string) into bytes
+    let result_bytes = hex::decode(hex_result).map_err(|_| Error::<T>::InvalidBytes)?;
+
+    // The U256 result must be 32 bytes long
+    if result_bytes.len() != 32 {
+        return Err(Error::<T>::InvalidBytesLength.into())
+    }
+
+    // Convert the first 32 bytes into U256
+    let u256_value = U256::from_big_endian(&result_bytes);
+
+    // Parse the period_id if present
+    let period_id = period_id
+        .map(|id| id.parse::<u32>())
+        .transpose()
+        .map_err(|_| Error::<T>::InvalidBytes)?;
+
+    Ok((u256_value, period_id))
 }
 
 fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), DispatchError> {
