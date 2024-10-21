@@ -40,6 +40,14 @@ pub const EXTERNAL_SERVICE_PORT_NUMBER_KEY: &'static [u8; 15] = b"avn_port_numbe
 /// Default port number the external service runs on.
 pub const DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER: &str = "2020";
 
+// Ethereum param types
+pub const UINT256: &[u8] = b"uint256";
+pub const UINT128: &[u8] = b"uint128";
+pub const UINT32: &[u8] = b"uint32";
+pub const BYTES: &[u8] = b"bytes";
+pub const BYTES32: &[u8] = b"bytes32";
+pub const ADDRESS: &[u8] = b"address";
+
 pub mod bounds {
     use sp_core::ConstU32;
 

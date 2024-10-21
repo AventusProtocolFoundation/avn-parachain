@@ -5,17 +5,13 @@ use crate::{
 };
 use ethabi::{Address, Function, Int, Param, ParamType, Token};
 use pallet_avn::AccountToBytesConverter;
-use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
+use sp_avn_common::{
+    EthQueryRequest, EthQueryResponseType, EthTransaction, ADDRESS, BYTES, BYTES32, UINT128,
+    UINT256, UINT32,
+};
 use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
 use sp_std::vec;
-
-pub const UINT256: &[u8] = b"uint256";
-pub const UINT128: &[u8] = b"uint128";
-pub const UINT32: &[u8] = b"uint32";
-pub const BYTES: &[u8] = b"bytes";
-pub const BYTES32: &[u8] = b"bytes32";
-pub const ADDRESS: &[u8] = b"address";
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);
