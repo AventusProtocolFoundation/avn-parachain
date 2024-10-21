@@ -834,18 +834,18 @@ pub mod pallet {
         false
     }
 
-    pub fn latest_finalised_ethereum_block<T: Config>() -> Option<u32> {
-        let response = AVN::<T>::get_data_from_service(String::from("latest_eth_block")).ok()?;
-        let latest_block_bytes = hex::decode(&response).ok()?;
-        let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
+    // pub fn latest_finalised_ethereum_block<T: Config>() -> Option<u32> {
+    //     let response = AVN::<T>::get_data_from_service(String::from("latest_eth_block")).ok()?;
+    //     let latest_block_bytes = hex::decode(&response).ok()?;
+    //     let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
 
-        let eth_block_range_size = EthBlockRangeSize::<T>::get();
-        let latest_finalised_block =
-            events_helpers::compute_finalised_block_number(latest_block, eth_block_range_size)
-                .ok()?;
+    //     let eth_block_range_size = EthBlockRangeSize::<T>::get();
+    //     let latest_finalised_block =
+    //         events_helpers::compute_finalised_block_number(latest_block, eth_block_range_size)
+    //             .ok()?;
 
-        Some(latest_finalised_block)
-    }
+    //     Some(latest_finalised_block)
+    // }
 
     fn advance_partition<T: Config>(
         active_range: &ActiveEthRange,
@@ -1074,28 +1074,23 @@ pub mod pallet {
             period_id: Option<u32>,
         ) -> Result<(U256, Option<u32>), DispatchError> {
             let author_account_id = T::AccountId::decode(&mut &author_account_bytes[..])
-                .map_err(|_| Error::<T>::InvalidAccountId).unwrap();
-
+                .map_err(|_| Error::<T>::InvalidAccountId)
+                .unwrap();
             let calldata = eth::abi_encode_function::<T>(function_name, params).unwrap();
-            // (eth::new_make_ethereum_call::<U256, T>(
-            //     &author_account_id,
-            //     "view",
-            //     calldata,
-            //     eth::new_process_check_reference_rate_result::<T>,
-            //     eth_block,
-            //     period_id
-            // ), period_id)
-            eth::new_make_ethereum_call::<(U256, Option<u32>), T>(
+
+            eth::make_historical_ethereum_call::<(U256, Option<u32>), T>(
                 &author_account_id,
                 "view",
                 calldata,
                 eth::new_process_check_reference_rate_result::<T>,
                 eth_block,
-                period_id)
+                period_id,
+            )
         }
 
         fn latest_finalised_ethereum_block() -> Option<u32> {
-            let response = AVN::<T>::get_data_from_service(String::from("latest_eth_block")).ok()?;
+            let response =
+                AVN::<T>::get_data_from_service(String::from("/eth/latest_block")).ok()?;
             let latest_block_bytes = hex::decode(&response).ok()?;
             let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
 

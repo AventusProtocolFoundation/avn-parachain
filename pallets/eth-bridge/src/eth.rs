@@ -9,7 +9,6 @@ use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
 use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
 use sp_std::vec;
-use sp_avn_common::NewEthTransaction;
 
 pub const UINT256: &[u8] = b"uint256";
 pub const UINT128: &[u8] = b"uint128";
@@ -223,7 +222,6 @@ fn get_transaction_call_data<T: Config>(
         "query",
         query_request.encode(),
         process_query_result::<T>,
-        None,
     )
 }
 
@@ -231,7 +229,7 @@ fn send_transaction<T: Config>(
     calldata: Vec<u8>,
     author_account_id: &T::AccountId,
 ) -> Result<H256, DispatchError> {
-    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>, None)
+    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>)
 }
 
 fn call_corroborate_method<T: Config>(
@@ -243,7 +241,6 @@ fn call_corroborate_method<T: Config>(
         "view",
         calldata,
         process_corroborate_result::<T>,
-        None,
     )
 }
 
@@ -252,21 +249,16 @@ pub fn make_ethereum_call<R, T: Config>(
     endpoint: &str,
     calldata: Vec<u8>,
     process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
-    eth_block: Option<u32>,
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
     let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
-    let url_path = eth_block
-        .map(|block| format!("eth/{}/{}", endpoint, block))
-        .unwrap_or_else(|| format!("eth/{}/", endpoint));
-
-    log::info!("url_path: {:?}", url_path);
+    let url_path = format!("eth/{}", endpoint);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
 }
 
-pub fn new_make_ethereum_call<R, T: Config>(
+pub fn make_historical_ethereum_call<R, T: Config>(
     author_account_id: &T::AccountId,
     endpoint: &str,
     calldata: Vec<u8>,
@@ -276,24 +268,11 @@ pub fn new_make_ethereum_call<R, T: Config>(
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
-
     let ethereum_call = EthTransaction::new(sender, contract_address, calldata)
         .set_block(eth_block)
         .set_period_id(period_id);
-
-    // let ethereum_call = NewEthTransaction::new(sender, contract_address, calldata, eth_block, period_id);
-
-    // let url_path = eth_block
-    //     .map(|block| format!("eth/{}/{}", endpoint, block))
-    //     .unwrap_or_else(|| format!("eth/{}/", endpoint));
-
     let url_path = format!("eth/{}", endpoint);
-
-    log::info!("url_path: {:?}", url_path);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
-
-    log::info!("!!!!!!!!!!!!!!!!!!!!!!!! before fmt result {:?}", result);
-
     process_result(result)
 }
 
@@ -321,7 +300,9 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     Ok(result_bytes[31] as i8)
 }
 
-pub fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<U256, DispatchError> {
+pub fn process_check_reference_rate_result<T: Config>(
+    result: Vec<u8>,
+) -> Result<U256, DispatchError> {
     let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
     if result_bytes.len() != 32 {
         return Err(Error::<T>::InvalidBytesLength.into())
@@ -330,7 +311,9 @@ pub fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result
     Ok(U256::from_big_endian(&result_bytes))
 }
 
-pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<(U256, Option<u32>), DispatchError> {
+pub fn new_process_check_reference_rate_result<T: Config>(
+    result: Vec<u8>,
+) -> Result<(U256, Option<u32>), DispatchError> {
     // Convert the Vec<u8> into a string, assuming it was encoded into hex and period_id
     let result_string = String::from_utf8(result).map_err(|_| Error::<T>::InvalidBytes)?;
 
@@ -363,55 +346,6 @@ pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Re
     // Return the U256 value and the optional period_id
     Ok((u256_value, period_id))
 }
-
-// pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<(U256, Option<u32>), DispatchError> {
-
-//     log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 1");
-
-
-//     // Decode the hex string into bytes
-//     let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
-
-//     log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 2 {:?}", result_bytes);
-
-//     log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 3 {:?}", result_bytes.len());
-
-//     // The U256 result must be 32 bytes long
-//     if result_bytes.len() < 32 {
-//         return Err(Error::<T>::InvalidBytesLength.into());
-//     }
-
-//     // log::info!("@@@@@@@@@@@@@@@@@@@@@@ INSIDE FMT THING");
-
-
-//     // Extract the main 32 bytes as the U256 value
-//     let u256_value = U256::from_big_endian(&result_bytes[0..32]);
-
-//     log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 4 {:?}", u256_value);
-
-
-//     // If the result contains more than 32 bytes, try to extract the period_id (assuming it's u32)
-//     let period_id = if result_bytes.len() > 32 {
-//         // Try to extract the period_id from the next 4 bytes after the 32-byte U256 value
-//         if result_bytes.len() >= 36 {
-//             let mut period_id_bytes = [0u8; 4];
-//             period_id_bytes.copy_from_slice(&result_bytes[32..36]);
-//             Some(u32::from_be_bytes(period_id_bytes)) // Decode the u32 in big-endian format
-//         } else {
-//             // If the result is between 33 and 35 bytes long, it's invalid
-//             return Err(Error::<T>::InvalidBytesLength.into());
-//         }
-//     } else {
-//         None
-//     };
-
-
-//     log::info!("u256_value: {:?}", u256_value);
-//     log::info!("period_id: {:?}", period_id);
-
-//     // Return the U256 value and the optional period_id
-//     Ok((u256_value, period_id))
-// }
 
 fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), DispatchError> {
     let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;

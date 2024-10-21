@@ -37,7 +37,7 @@ use sp_avn_common::{
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
-use sp_core::{ecdsa, H160};
+use sp_core::{ecdsa, H160, U256};
 use sp_runtime::{
     offchain::{
         http,
@@ -49,7 +49,6 @@ use sp_runtime::{
     DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
-use sp_core::U256;
 
 #[path = "tests/testing.rs"]
 pub mod testing;
