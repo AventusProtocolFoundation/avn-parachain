@@ -325,19 +325,30 @@ pub fn process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result
 }
 
 pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Result<(U256, Option<u32>), DispatchError> {
+
+    log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 1");
+
+
     // Decode the hex string into bytes
     let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
+
+    log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 2 {:?}", result_bytes);
+
+    log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 3 {:?}", result_bytes.len());
 
     // The U256 result must be 32 bytes long
     if result_bytes.len() < 32 {
         return Err(Error::<T>::InvalidBytesLength.into());
     }
 
-    log::info!("@@@@@@@@@@@@@@@@@@@@@@ INSIDE FMT THING");
+    // log::info!("@@@@@@@@@@@@@@@@@@@@@@ INSIDE FMT THING");
 
 
     // Extract the main 32 bytes as the U256 value
     let u256_value = U256::from_big_endian(&result_bytes[0..32]);
+
+    log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 4 {:?}", u256_value);
+
 
     // If the result contains more than 32 bytes, try to extract the period_id (assuming it's u32)
     let period_id = if result_bytes.len() > 32 {
