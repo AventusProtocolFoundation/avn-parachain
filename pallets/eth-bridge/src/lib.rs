@@ -1085,7 +1085,7 @@ pub mod pallet {
             //     eth_block,
             //     period_id
             // ), period_id)
-            eth::new_make_ethereum_call::<(U256, Option<u32>), T>(
+            eth::::<(U256, Option<u32>), T>(
                 &author_account_id,
                 "view",
                 calldata,

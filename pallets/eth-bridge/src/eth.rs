@@ -330,6 +330,9 @@ pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Re
         return Err(Error::<T>::InvalidBytesLength.into());
     }
 
+    log::info!("@@@@@@@@@@@@@@@@@@@@@@ INSIDE FMT THING");
+
+
     // Extract the main 32 bytes as the U256 value
     let u256_value = U256::from_big_endian(&result_bytes[0..32]);
 
@@ -347,6 +350,10 @@ pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Re
     } else {
         None
     };
+
+
+    log::info!("u256_value: {:?}", u256_value);
+    log::info!("period_id: {:?}", period_id);
 
     // Return the U256 value and the optional period_id
     Ok((u256_value, period_id))
