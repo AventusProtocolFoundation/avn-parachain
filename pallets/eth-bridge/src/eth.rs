@@ -312,7 +312,7 @@ pub fn process_bridge_contract_data<T: Config>(
 
     // The U256 result must be 32 bytes long
     if result_bytes.len() != 32 {
-        return Err(Error::<T>::InvalidBytesLength.into());
+        return Err(Error::<T>::InvalidBytesLength.into())
     }
 
     // Convert the first 32 bytes into U256
