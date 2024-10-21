@@ -332,6 +332,7 @@ pub fn new_process_check_reference_rate_result<T: Config>(result: Vec<u8>) -> Re
     // Decode the hex string into bytes
     // let result_bytes = hex::decode(&result).map_err(|_| Error::<T>::InvalidBytes)?;
 
+    let result_bytes = result;
     log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 2 {:?}", result_bytes);
 
     log::info!("@@@@@@@@@@@@@@@@@@@@@@ - 3 {:?}", result_bytes.len());
