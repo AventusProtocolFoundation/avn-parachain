@@ -643,6 +643,7 @@ impl pallet_avn_anchor::Config for Runtime {
     type FeeHandler = TokenManager;
     type Signature = Signature;
     type Token = EthAddress;
+    type TreasuryAccount = AvnTreasuryPotId;
 }
 
 use sp_avn_common::{

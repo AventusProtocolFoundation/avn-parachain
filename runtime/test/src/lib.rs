@@ -646,9 +646,13 @@ impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
 impl pallet_avn_anchor::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+    type FeeHandler = TokenManager;
     type Signature = Signature;
+    type Token = EthAddress;
+    type TreasuryAccount = AvnTreasuryPotId;
 }
 
 pub type EthAddress = H160;
