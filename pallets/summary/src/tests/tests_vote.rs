@@ -753,14 +753,14 @@ mod cast_votes_if_required {
 
                 // TODO [TYPE: test][PRI: medium][JIRA: 321]: mock of set_lock_with_expiry returns
                 // error
-                let lock_name = vote::create_vote_lock_name::<TestRuntime, _>(&context.root_id);
+                let lock_name = vote::create_vote_lock_name::<TestRuntime, ()>(&context.root_id);
                 let mut lock = AVN::<TestRuntime>::get_ocw_locker(&lock_name);
 
                 // Protect against sending more than once. When guard is out of scope the lock will
                 // be released.
                 if let Ok(_guard) = lock.try_lock() {
                     let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
-                    cast_votes_if_required::<TestRuntime, _>(&second_validator);
+                    cast_votes_if_required::<TestRuntime, ()>(&second_validator);
 
                     assert!(pool_state.read().transactions.is_empty());
                 };
@@ -786,7 +786,7 @@ mod cast_votes_if_required {
                 setup_voting_for_root_id(&context);
                 let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-                cast_votes_if_required::<TestRuntime, _>(&second_validator);
+                cast_votes_if_required::<TestRuntime, ()>(&second_validator);
 
                 assert!(pool_state.read().transactions.is_empty());
             });
@@ -812,7 +812,7 @@ mod cast_votes_if_required {
             setup_voting_for_root_id(&context);
             let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-            cast_votes_if_required::<TestRuntime, _>(&second_validator);
+            cast_votes_if_required::<TestRuntime, ()>(&second_validator);
 
             let tx = pool_state.write().transactions.pop().unwrap();
             assert!(pool_state.read().transactions.is_empty());
@@ -853,7 +853,7 @@ mod cast_votes_if_required {
             setup_voting_for_root_id(&context);
             let second_validator = get_validator(SECOND_VALIDATOR_INDEX);
 
-            cast_votes_if_required::<TestRuntime, _>(&second_validator);
+            cast_votes_if_required::<TestRuntime, ()>(&second_validator);
 
             let tx = pool_state.write().transactions.pop().unwrap();
             assert!(pool_state.read().transactions.is_empty());
