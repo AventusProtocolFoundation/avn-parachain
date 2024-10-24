@@ -64,7 +64,7 @@ fn setup_success_preconditions() -> LocalContext {
 }
 
 fn call_challenge_slot_if_required(block_number: BlockNumber, validator: &MockValidator) {
-    challenge_slot_if_required::<TestRuntime>(block_number, &validator);
+    challenge_slot_if_required::<TestRuntime, ()>(block_number, &validator);
 }
 
 fn call_add_challenge(
@@ -343,7 +343,7 @@ mod challenge_slot_if_required {
         fn sign_advance_slot(slot_number: BlockNumber, validator: &MockValidator) -> TestSignature {
             let signature = validator
                 .key
-                .sign(&(ADVANCE_SLOT_CONTEXT, slot_number).encode())
+                .sign(&(Summary::advance_block_context(), slot_number).encode())
                 .expect("Signature is signed");
             return signature
         }

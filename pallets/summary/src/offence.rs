@@ -8,10 +8,10 @@ use sp_staking::{
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_session::{historical::IdentificationTuple, Config as SessionConfig};
+use sp_core::Get;
 use sp_runtime::{scale_info::TypeInfo, traits::Convert};
 use sp_staking::offence::ReportOffence;
 use sp_std::prelude::*;
-
 #[derive(PartialEq, Eq, Clone, Debug, Encode, Decode, MaxEncodedLen, TypeInfo)]
 pub enum SummaryOffenceType {
     InvalidSignatureSubmitted,
@@ -63,7 +63,7 @@ impl<Offender: Clone> Offence<Offender> for SummaryOffence<Offender> {
     }
 }
 
-pub fn create_offenders_identification<T: crate::Config>(
+pub fn create_offenders_identification<T: crate::Config<I>, I: 'static>(
     offenders_accounts: &Vec<T::AccountId>,
 ) -> Vec<IdentificationTuple<T>> {
     let offenders = offenders_accounts
@@ -74,12 +74,12 @@ pub fn create_offenders_identification<T: crate::Config>(
     return offenders
 }
 
-pub fn create_and_report_summary_offence<T: crate::Config>(
+pub fn create_and_report_summary_offence<T: crate::Config<I>, I: 'static>(
     reporter: &T::AccountId,
     offenders_accounts: &Vec<T::AccountId>,
     offence_type: SummaryOffenceType,
 ) {
-    let offenders = create_offenders_identification::<T>(offenders_accounts);
+    let offenders = create_offenders_identification::<T, I>(offenders_accounts);
 
     if !offenders.is_empty() {
         let invalid_event_offence = SummaryOffence {
@@ -99,11 +99,11 @@ pub fn create_and_report_summary_offence<T: crate::Config>(
             {
                 log::info!(
                     target: "pallet-summary",
-                    "ℹ️ Error while reporting offence: {:?}. Stored in deferred",
-                    e
+                    "ℹ️ Instance({}) Error while reporting offence: {:?}. Stored in deferred",
+                    T::InstanceId::get(), e
                 );
             }
-            <crate::Pallet<T>>::deposit_event(Event::<T>::SummaryOffenceReported {
+            <crate::Pallet<T, I>>::deposit_event(Event::<T, I>::SummaryOffenceReported {
                 offence_type,
                 offenders,
             });
