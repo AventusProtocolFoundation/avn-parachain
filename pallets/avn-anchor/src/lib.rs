@@ -42,7 +42,9 @@ pub(crate) type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType, PalletId};
+    use frame_support::{
+        dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType, PalletId,
+    };
     use frame_system::pallet_prelude::*;
     use sp_avn_common::{verify_signature, FeePaymentHandler, InnerCallValidator, Proof};
     use sp_core::H160;
@@ -100,6 +102,9 @@ pub mod pallet {
 
         /// The account that will receive the checkpoint fees
         type TreasuryAccount: Get<PalletId>;
+
+        /// The default fee for checkpoint submission
+        type DefaultCheckpointFee: Get<BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -117,10 +122,7 @@ pub mod pallet {
         /// checkpoint]
         CheckpointSubmitted(T::AccountId, ChainId, CheckpointId, H256),
         /// The checkpoint fee was updated. [new_fee]
-        CheckpointFeeUpdated {
-            chain_id: ChainId,
-            new_fee: BalanceOf<T>
-        },
+        CheckpointFeeUpdated { chain_id: ChainId, new_fee: BalanceOf<T> },
 
         /// Fee was charged for checkpoint submission [handler, fee, nonce]
         CheckpointFeeCharged {
@@ -338,15 +340,15 @@ pub mod pallet {
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_checkpoint_fee())]
         #[pallet::call_index(6)]
         pub fn set_checkpoint_fee(
-            origin: OriginFor<T>, 
+            origin: OriginFor<T>,
             chain_id: ChainId,
-            new_fee: BalanceOf<T>
+            new_fee: BalanceOf<T>,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            
+
             CheckpointFee::<T>::insert(chain_id, new_fee);
             Self::deposit_event(Event::CheckpointFeeUpdated { chain_id, new_fee });
-            
+
             Ok(())
         }
     }
@@ -354,7 +356,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         pub(crate) fn charge_fee(handler: T::AccountId, chain_id: ChainId) -> DispatchResult {
             let payment_nonce = PaymentNonces::<T>::get(&handler);
-            let checkpoint_fee = Self::checkpoint_fee(chain_id);
+            let checkpoint_fee = Self::get_checkpoint_fee(chain_id);
             let treasury_account_id = compute_treasury_account_id::<T>();
 
             T::FeeHandler::pay_fee(
@@ -370,11 +372,21 @@ pub mod pallet {
                 handler: handler.clone(),
                 fee: checkpoint_fee,
                 nonce: payment_nonce,
-                chain_id
+                chain_id,
             });
 
             Ok(())
         }
+
+        pub fn get_checkpoint_fee(chain_id: ChainId) -> BalanceOf<T> {
+            let fee = CheckpointFee::<T>::get(chain_id);
+            if fee == BalanceOf::<T>::default() {
+                T::DefaultCheckpointFee::get()
+            } else {
+                fee
+            }
+        }
+
         fn get_next_chain_id() -> Result<ChainId, DispatchError> {
             NextChainId::<T>::try_mutate(|id| {
                 let current_id = *id;

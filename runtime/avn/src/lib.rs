@@ -644,6 +644,7 @@ impl pallet_avn_anchor::Config for Runtime {
     type Signature = Signature;
     type Token = EthAddress;
     type TreasuryAccount = AvnTreasuryPotId;
+    type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
 use sp_avn_common::{
@@ -683,6 +684,7 @@ parameter_types! {
     pub const StringLimit: u32 = 50;
     pub const MetadataDepositBase: Balance = 1 * MILLI_AVT;
     pub const MetadataDepositPerByte: Balance = 100 * MICRO_AVT;
+    pub const DefaultCheckpointFee: Balance = 1 * AVT;
 }
 const ASSET_ACCOUNT_DEPOSIT: Balance = 100 * MICRO_AVT;
 

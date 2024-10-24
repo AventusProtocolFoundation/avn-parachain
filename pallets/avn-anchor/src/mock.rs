@@ -1,19 +1,25 @@
 use crate::{self as avn_anchor, *};
 use codec::{Decode, Encode};
+use core::cell::RefCell;
 use frame_support::{
     pallet_prelude::*,
     parameter_types,
-    traits::{ConstU16, ConstU32, ConstU64, Everything},
+    traits::{ConstU16, ConstU32, ConstU64, EqualPrivilegeOnly, Everything},
+    PalletId,
 };
-use frame_system as system;
+use frame_system::{self as system, limits::BlockWeights, EnsureRoot};
+use pallet_avn::BridgeInterfaceNotification;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
+use pallet_session as session;
 use scale_info::TypeInfo;
 use sp_avn_common::{FeePaymentHandler, InnerCallValidator, Proof};
-use sp_core::{sr25519, H256};
+use sp_core::Pair;
+use sp_core::{sr25519, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup, Verify},
-    BuildStorage,
+    testing::{TestXt, UintAuthorityId},
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    BuildStorage, Perbill,
 };
 use std::sync::Arc;
 
@@ -22,6 +28,59 @@ type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub type Signature = sr25519::Signature;
 pub type Balance = u128;
 pub type AccountId = <Signature as Verify>::Signer;
+pub type SessionIndex = u32;
+pub type Extrinsic = TestXt<RuntimeCall, ()>;
+pub const BASE_FEE: u64 = 12;
+
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
+const MAX_BLOCK_WEIGHT: Weight =
+    Weight::from_parts(2_000_000_000_000 as u64, 0).set_proof_size(u64::MAX);
+pub const INITIAL_BALANCE: Balance = 1_000_000_000_000;
+pub const ONE_AVT: Balance = 1_000000_000000_000000u128;
+pub const HUNDRED_AVT: Balance = 100 * ONE_AVT;
+
+// TODO: Refactor this struct to be reused in all tests
+pub struct TestAccount {
+    pub seed: [u8; 32],
+}
+
+impl TestAccount {
+    pub fn new(seed: [u8; 32]) -> Self {
+        TestAccount { seed }
+    }
+
+    pub fn account_id(&self) -> AccountId {
+        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap();
+    }
+
+    pub fn key_pair(&self) -> sr25519::Pair {
+        return sr25519::Pair::from_seed(&self.seed);
+    }
+}
+
+pub fn validator_id_1() -> AccountId {
+    TestAccount::new([1u8; 32]).account_id()
+}
+pub fn validator_id_2() -> AccountId {
+    TestAccount::new([2u8; 32]).account_id()
+}
+pub fn validator_id_3() -> AccountId {
+    TestAccount::new([3u8; 32]).account_id()
+}
+
+thread_local! {
+    pub static MOCK_FEE_HANDLER_SHOULD_FAIL: RefCell<bool> = RefCell::new(false);
+    // validator accounts (aka public addresses, public keys-ish)
+    pub static VALIDATORS: RefCell<Option<Vec<AccountId>>> = RefCell::new(Some(vec![
+        validator_id_1(),
+        validator_id_2(),
+        validator_id_3(),
+    ]));
+}
+
+pub fn set_mock_fee_handler_should_fail(should_fail: bool) {
+    MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow_mut() = should_fail);
+}
 
 frame_support::construct_runtime!(
     pub enum TestRuntime
@@ -31,8 +90,28 @@ frame_support::construct_runtime!(
         Avn: pallet_avn::{Pallet, Storage, Event},
         AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
         AvnAnchor: avn_anchor::{Pallet, Call, Storage, Event<T>},
+        TokenManager: pallet_token_manager::{Pallet, Call, Storage, Event<T>},
+        EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
+        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
+        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
 );
+
+parameter_types! {
+    pub const Period: u64 = 1;
+    pub const Offset: u64 = 0;
+    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(33);
+    pub const DefaultCheckpointFee: Balance = 1_000_000_000;
+}
+
+impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
+where
+    RuntimeCall: From<LocalCall>,
+{
+    type OverarchingCall = RuntimeCall;
+    type Extrinsic = Extrinsic;
+}
 
 impl system::Config for TestRuntime {
     type BaseCallFilter = Everything;
@@ -62,6 +141,57 @@ impl system::Config for TestRuntime {
 
 parameter_types! {
     pub const ExistentialDeposit: Balance = 1;
+    pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
+    pub static TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
+    pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
+        .base_block(Weight::from_parts(10 as u64, 0))
+        .for_class(DispatchClass::all(), |weights| {
+            weights.base_extrinsic = Weight::from_parts(BASE_FEE as u64, 0);
+        })
+        .for_class(DispatchClass::Normal, |weights| {
+            weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT);
+        })
+        .for_class(DispatchClass::Operational, |weights| {
+            weights.max_total = Some(MAX_BLOCK_WEIGHT);
+            weights.reserved = Some(
+                MAX_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT
+            );
+    })
+    .avg_block_initialization(Perbill::from_percent(0))
+    .build_or_panic();
+    pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_scheduler::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeOrigin = RuntimeOrigin;
+    type PalletsOrigin = OriginCaller;
+    type RuntimeCall = RuntimeCall;
+    type MaximumWeight = MaximumSchedulerWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = ConstU32<100>;
+    type WeightInfo = ();
+    type OriginPrivilegeCmp = EqualPrivilegeOnly;
+    type Preimages = ();
+}
+
+impl pallet_token_manager::Config for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type Currency = Balances;
+    type ProcessedEventsChecker = ();
+    type TokenId = sp_core::H160;
+    type TokenBalance = u128;
+    type Public = AccountId;
+    type Signature = Signature;
+    type AvnTreasuryPotId = AvnTreasuryPotId;
+    type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
+    type OnGrowthLiftedHandler = ();
+    type WeightInfo = ();
+    type Scheduler = Scheduler;
+    type Preimages = ();
+    type PalletsOrigin = OriginCaller;
+    type BridgeInterface = EthBridge;
 }
 
 impl pallet_balances::Config for TestRuntime {
@@ -101,12 +231,87 @@ impl avn_proxy::Config for TestRuntime {
     type Token = sp_core::H160;
 }
 
+impl pallet_eth_bridge::Config for TestRuntime {
+    type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type TimeProvider = Timestamp;
+    type MinEthBlockConfirmation = ConstU64<20>;
+    type RuntimeCall = RuntimeCall;
+    type WeightInfo = ();
+    type AccountToBytesConvert = Avn;
+    type BridgeInterfaceNotification = Self;
+    type ReportCorroborationOffence = ();
+    type ProcessedEventsChecker = ();
+    type EthereumEventsFilter = ();
+}
+
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = frame_support::traits::ConstU64<12000>;
+    type WeightInfo = ();
+}
+
+impl BridgeInterfaceNotification for TestRuntime {
+    fn process_result(
+        _tx_id: u32,
+        _caller_id: Vec<u8>,
+        _tx_succeeded: bool,
+    ) -> sp_runtime::DispatchResult {
+        Ok(())
+    }
+}
+
+pub struct TestSessionManager;
+impl session::SessionManager<AccountId> for TestSessionManager {
+    fn new_session(_new_index: SessionIndex) -> Option<Vec<AccountId>> {
+        VALIDATORS.with(|l| l.borrow_mut().take())
+    }
+    fn end_session(_: SessionIndex) {}
+    fn start_session(_: SessionIndex) {}
+}
+
+impl session::Config for TestRuntime {
+    type SessionManager =
+        pallet_session::historical::NoteHistoricalRoot<TestRuntime, TestSessionManager>;
+    type Keys = UintAuthorityId;
+    type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+    type SessionHandler = (Avn,);
+    type RuntimeEvent = RuntimeEvent;
+    type ValidatorId = AccountId;
+    type ValidatorIdOf = ConvertInto;
+    type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
+    type WeightInfo = ();
+}
+
+impl pallet_session::historical::Config for TestRuntime {
+    type FullIdentification = AccountId;
+    type FullIdentificationOf = ConvertInto;
+}
+
+impl pallet_session::historical::SessionManager<AccountId, AccountId> for TestSessionManager {
+    fn new_session(_new_index: SessionIndex) -> Option<Vec<(AccountId, AccountId)>> {
+        VALIDATORS.with(|l| {
+            l.borrow_mut()
+                .take()
+                .map(|validators| validators.iter().map(|v| (*v, *v)).collect())
+        })
+    }
+    fn end_session(_: SessionIndex) {}
+    fn start_session(_: SessionIndex) {}
+}
+
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Public = AccountId;
     type Signature = Signature;
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
+    type FeeHandler = TokenManager;
+    type Token = sp_core::H160;
+    type TreasuryAccount = AvnTreasuryPotId;
+    type Currency = Balances;
+    type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 // Test Avn proxy configuration logic
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, Debug, TypeInfo)]
@@ -150,7 +355,17 @@ impl InnerCallValidator for TestAvnProxyConfig {
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
     let keystore = MemoryKeystore::new();
-    let t = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
+    let mut t = system::GenesisConfig::<TestRuntime>::default().build_storage().unwrap();
+    pallet_balances::GenesisConfig::<TestRuntime> {
+        balances: vec![
+            (create_account_id(1), INITIAL_BALANCE),
+            (create_account_id(2), INITIAL_BALANCE),
+            (create_account_id(3), INITIAL_BALANCE),
+            (compute_treasury_account_id::<TestRuntime>(), INITIAL_BALANCE),
+        ],
+    }
+    .assimilate_storage(&mut t)
+    .unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
     ext.register_extension(KeystoreExt(Arc::new(keystore)));
     ext.execute_with(|| System::set_block_number(1));
@@ -188,10 +403,23 @@ impl FeePaymentHandler for TestRuntime {
 
     fn pay_fee(
         _token: &Self::Token,
-        _amount: &Self::TokenBalance,
-        _payer: &Self::AccountId,
-        _recipient: &Self::AccountId,
+        amount: &Self::TokenBalance,
+        payer: &Self::AccountId,
+        recipient: &Self::AccountId,
     ) -> Result<(), Self::Error> {
-        return Err(DispatchError::Other("Test - Error"));
+        if MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow()) {
+            return Err(DispatchError::Other("Test - Error"));
+        }
+
+        Balances::transfer(RuntimeOrigin::signed(payer.clone()), recipient.clone(), *amount)?;
+
+        Ok(())
     }
+}
+pub fn create_account_id(seed: u8) -> AccountId {
+    TestAccount::new([seed; 32]).account_id()
+}
+
+pub fn get_balance(account: &AccountId) -> Balance {
+    Balances::free_balance(account)
 }
