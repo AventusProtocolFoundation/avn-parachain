@@ -5,7 +5,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-use frame_support::{dispatch::DispatchResult, ensure};
+use frame_support::{dispatch::DispatchResult, ensure, traits::Currency};
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
@@ -36,12 +36,18 @@ pub use self::pallet::*;
 pub type ChainId = u32;
 pub type CheckpointId = u64;
 
+pub(crate) type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType};
+    use frame_support::{
+        dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType, PalletId,
+    };
     use frame_system::pallet_prelude::*;
-    use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
+    use sp_avn_common::{verify_signature, FeePaymentHandler, InnerCallValidator, Proof};
+    use sp_core::H160;
     use sp_runtime::traits::{Dispatchable, IdentifyAccount, Verify};
 
     pub type ChainId = u32;
@@ -78,6 +84,27 @@ pub mod pallet {
             + TypeInfo;
 
         type WeightInfo: WeightInfo;
+
+        /// Currency type for processing fee payment
+        type Currency: Currency<Self::AccountId>;
+
+        /// The type of token identifier
+        /// (a H160 because this is an Ethereum address)
+        type Token: Parameter + Default + Copy + From<H160> + Into<H160> + MaxEncodedLen;
+
+        /// A handler to process relayer fee payments
+        type FeeHandler: FeePaymentHandler<
+            AccountId = Self::AccountId,
+            Token = Self::Token,
+            TokenBalance = <Self::Currency as Currency<Self::AccountId>>::Balance,
+            Error = DispatchError,
+        >;
+
+        /// The account that will receive the checkpoint fees
+        type TreasuryAccount: Get<PalletId>;
+
+        /// The default fee for checkpoint submission
+        type DefaultCheckpointFee: Get<BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -94,6 +121,16 @@ pub mod pallet {
         /// A new checkpoint was submitted. [handler_account_id, chain_id, checkpoint_id,
         /// checkpoint]
         CheckpointSubmitted(T::AccountId, ChainId, CheckpointId, H256),
+        /// The checkpoint fee was updated. [new_fee]
+        CheckpointFeeUpdated { chain_id: ChainId, new_fee: BalanceOf<T> },
+
+        /// Fee was charged for checkpoint submission [handler, fee, nonce]
+        CheckpointFeeCharged {
+            handler: T::AccountId,
+            chain_id: ChainId,
+            fee: BalanceOf<T>,
+            nonce: u64,
+        },
     }
 
     #[pallet::error]
@@ -110,6 +147,17 @@ pub mod pallet {
         UnauthorizedProxyTransaction,
         NoChainDataAvailable,
     }
+
+    #[pallet::storage]
+    #[pallet::getter(fn checkpoint_fee)]
+    pub type CheckpointFee<T> = StorageMap<_, Blake2_128Concat, ChainId, BalanceOf<T>, ValueQuery>;
+
+    /// An account nonce that represents the number of payments from this account
+    /// It is shared for all proxy transactions performed by that account
+    #[pallet::storage]
+    #[pallet::getter(fn payment_nonces)]
+    pub type PaymentNonces<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn nonces)]
@@ -288,9 +336,57 @@ pub mod pallet {
 
             Ok(())
         }
+
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_checkpoint_fee())]
+        #[pallet::call_index(6)]
+        pub fn set_checkpoint_fee(
+            origin: OriginFor<T>,
+            chain_id: ChainId,
+            new_fee: BalanceOf<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            CheckpointFee::<T>::insert(chain_id, new_fee);
+            Self::deposit_event(Event::CheckpointFeeUpdated { chain_id, new_fee });
+
+            Ok(())
+        }
     }
 
     impl<T: Config> Pallet<T> {
+        pub(crate) fn charge_fee(handler: T::AccountId, chain_id: ChainId) -> DispatchResult {
+            let payment_nonce = PaymentNonces::<T>::get(&handler);
+            let checkpoint_fee = Self::get_checkpoint_fee(chain_id);
+            let treasury_account_id = compute_treasury_account_id::<T>();
+
+            T::FeeHandler::pay_fee(
+                &T::Token::default(),
+                &checkpoint_fee,
+                &handler,
+                &treasury_account_id,
+            )?;
+
+            <PaymentNonces<T>>::mutate(&handler, |n| *n += 1);
+
+            Self::deposit_event(Event::CheckpointFeeCharged {
+                handler: handler.clone(),
+                fee: checkpoint_fee,
+                nonce: payment_nonce,
+                chain_id,
+            });
+
+            Ok(())
+        }
+
+        pub fn get_checkpoint_fee(chain_id: ChainId) -> BalanceOf<T> {
+            let fee = CheckpointFee::<T>::get(chain_id);
+            if fee == BalanceOf::<T>::default() {
+                T::DefaultCheckpointFee::get()
+            } else {
+                fee
+            }
+        }
+
         fn get_next_chain_id() -> Result<ChainId, DispatchError> {
             NextChainId::<T>::try_mutate(|id| {
                 let current_id = *id;
@@ -377,7 +473,7 @@ pub mod pallet {
             ));
 
             <Nonces<T>>::mutate(chain_id, |n| *n += 1);
-
+            let _ = Self::charge_fee(handler.clone(), chain_id)?;
             Ok(())
         }
 
@@ -476,10 +572,10 @@ pub mod pallet {
                     &proof,
                     &signed_payload.as_slice(),
                 )
-                .is_ok()
+                .is_ok();
             }
 
-            return false
+            return false;
         }
     }
 }
@@ -514,4 +610,11 @@ pub fn encode_signed_submit_checkpoint_params<T: Config>(
 
 pub fn get_chain_data_for_handler<T: Config>(handler: &T::AccountId) -> Option<ChainDataStruct> {
     Pallet::<T>::chain_handlers(handler).and_then(|chain_id| Pallet::<T>::chain_data(chain_id))
+}
+
+use sp_core::Get;
+use sp_runtime::traits::AccountIdConversion;
+
+fn compute_treasury_account_id<T: Config>() -> T::AccountId {
+    T::TreasuryAccount::get().into_account_truncating()
 }
