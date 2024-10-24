@@ -40,6 +40,14 @@ pub const EXTERNAL_SERVICE_PORT_NUMBER_KEY: &'static [u8; 15] = b"avn_port_numbe
 /// Default port number the external service runs on.
 pub const DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER: &str = "2020";
 
+// Ethereum param types
+pub const UINT256: &[u8] = b"uint256";
+pub const UINT128: &[u8] = b"uint128";
+pub const UINT32: &[u8] = b"uint32";
+pub const BYTES: &[u8] = b"bytes";
+pub const BYTES32: &[u8] = b"bytes32";
+pub const ADDRESS: &[u8] = b"address";
+
 pub mod bounds {
     use sp_core::ConstU32;
 
@@ -67,11 +75,23 @@ pub struct EthTransaction {
     pub from: [u8; 32],
     pub to: H160,
     pub data: Vec<u8>,
+    pub block: Option<u32>,
+    pub period_id: Option<u32>,
 }
 
 impl EthTransaction {
     pub fn new(from: [u8; 32], to: H160, data: Vec<u8>) -> Self {
-        return EthTransaction { from, to, data }
+        return EthTransaction { from, to, data, block: None, period_id: None }
+    }
+
+    pub fn set_block(mut self, block: Option<u32>) -> Self {
+        self.block = block;
+        self
+    }
+
+    pub fn set_period_id(mut self, period_id: Option<u32>) -> Self {
+        self.period_id = period_id;
+        self
     }
 }
 

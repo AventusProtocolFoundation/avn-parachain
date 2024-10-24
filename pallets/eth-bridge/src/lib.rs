@@ -71,13 +71,12 @@ use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
     ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
 };
-
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{bounds::MaximumValidatorsBound, event_discovery::*, event_types::Validator};
-use sp_core::{ecdsa, ConstU32, H160, H256};
+use sp_core::{ecdsa, ConstU32, H160, H256, U256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
@@ -339,6 +338,7 @@ pub mod pallet {
         InvalidParamData,
         InvalidSendCalldata,
         InvalidUint,
+        InvalidAccountId,
         InvalidUTF8,
         MsgHashError,
         ParamsLimitExceeded,
@@ -1049,6 +1049,42 @@ pub mod pallet {
             });
 
             Ok(())
+        }
+
+        fn read_bridge_contract(
+            author_account_bytes: Vec<u8>,
+            function_name: &[u8],
+            params: &[(Vec<u8>, Vec<u8>)],
+            eth_block: Option<u32>,
+            period_id: Option<u32>,
+        ) -> Result<(U256, Option<u32>), DispatchError> {
+            let author_account_id = T::AccountId::decode(&mut &author_account_bytes[..])
+                .map_err(|_| Error::<T>::InvalidAccountId)
+                .unwrap();
+            let calldata = eth::abi_encode_function::<T>(function_name, params).unwrap();
+
+            eth::make_historical_ethereum_call::<(U256, Option<u32>), T>(
+                &author_account_id,
+                "view",
+                calldata,
+                eth::process_bridge_contract_data::<T>,
+                eth_block,
+                period_id,
+            )
+        }
+
+        fn latest_finalised_ethereum_block() -> Option<u32> {
+            let response =
+                AVN::<T>::get_data_from_service(String::from("/eth/latest_block")).ok()?;
+            let latest_block_bytes = hex::decode(&response).ok()?;
+            let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
+
+            let eth_block_range_size = EthBlockRangeSize::<T>::get();
+            let latest_finalised_block =
+                events_helpers::compute_finalised_block_number(latest_block, eth_block_range_size)
+                    .ok()?;
+
+            Some(latest_finalised_block)
         }
     }
 }

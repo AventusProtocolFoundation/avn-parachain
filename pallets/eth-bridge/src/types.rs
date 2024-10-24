@@ -1,6 +1,5 @@
 use crate::*;
-use sp_avn_common::event_discovery::EthBridgeEventsFilter;
-
+use sp_avn_common::{event_discovery::EthBridgeEventsFilter, UINT256, UINT32};
 // The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
@@ -41,8 +40,8 @@ impl SendRequestData {
         Error<T>,
     > {
         let mut extended_params = util::unbound_params(&self.params);
-        extended_params.push((eth::UINT256.to_vec(), expiry.to_string().into_bytes()));
-        extended_params.push((eth::UINT32.to_vec(), self.tx_id.to_string().into_bytes()));
+        extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
+        extended_params.push((UINT32.to_vec(), self.tx_id.to_string().into_bytes()));
 
         Ok(util::bound_params(&extended_params)?)
     }
