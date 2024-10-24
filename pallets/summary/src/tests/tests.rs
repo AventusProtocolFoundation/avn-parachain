@@ -114,7 +114,7 @@ mod process_summary_if_required {
         Summary::set_current_slot(slot_number);
         Summary::set_current_slot_validator(slot_validator.account_id.clone());
 
-        let url_param = get_url_param(next_block_to_process);
+        let url_param = get_url_param(next_block_to_process, schedule_period);
         let root_hash = ROOT_HASH_HEX_STRING.to_vec();
 
         return LocalContext {
@@ -1347,7 +1347,7 @@ mod if_process_summary_is_called_a_second_time {
             root_id: RootId::new(root_range, ingress_counter),
             root_hash_h256,
             root_hash_vec,
-            url_param: get_url_param(next_block_to_process),
+            url_param: get_url_param(next_block_to_process, Summary::schedule_period()),
             record_summary_calculation_signature: get_signature_for_record_summary_calculation(
                 validator,
                 &Summary::update_block_number_context(),

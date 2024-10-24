@@ -64,7 +64,7 @@ fn setup_success_preconditions() -> LocalContext {
 }
 
 fn call_challenge_slot_if_required(block_number: BlockNumber, validator: &MockValidator) {
-    challenge_slot_if_required::<TestRuntime, _>(block_number, &validator);
+    challenge_slot_if_required::<TestRuntime, ()>(block_number, &validator);
 }
 
 fn call_add_challenge(

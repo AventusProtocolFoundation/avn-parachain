@@ -1535,4 +1535,8 @@ mod tests_set_periods;
 #[path = "tests/test_ocw_locks.rs"]
 mod test_ocw_locks;
 
+#[cfg(test)]
+#[path = "tests/anchor_tests.rs"]
+mod anchor_tests;
+
 // TODO: Add unit tests for setting schedule period and voting period
