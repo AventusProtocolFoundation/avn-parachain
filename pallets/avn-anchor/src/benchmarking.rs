@@ -12,8 +12,7 @@ use frame_system::RawOrigin;
 use sp_application_crypto::KeyTypeId;
 use sp_avn_common::Proof;
 use sp_core::H256;
-use sp_runtime::RuntimeAppPublic;
-use sp_runtime::Saturating;
+use sp_runtime::{RuntimeAppPublic, Saturating};
 
 pub const BENCH_KEY_TYPE_ID: KeyTypeId = KeyTypeId(*b"test");
 
@@ -79,7 +78,7 @@ fn ensure_fee_payment_possible<T: Config>(
     let fee = Pallet::<T>::get_checkpoint_fee(chain_id);
     let balance = T::Currency::free_balance(account);
     if balance < fee {
-        return Err("Insufficient balance for fee payment");
+        return Err("Insufficient balance for fee payment")
     }
     Ok(())
 }

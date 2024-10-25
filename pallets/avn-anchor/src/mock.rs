@@ -13,8 +13,7 @@ use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_session as session;
 use scale_info::TypeInfo;
 use sp_avn_common::{FeePaymentHandler, InnerCallValidator, Proof};
-use sp_core::Pair;
-use sp_core::{sr25519, H160, H256};
+use sp_core::{sr25519, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
@@ -50,11 +49,11 @@ impl TestAccount {
     }
 
     pub fn account_id(&self) -> AccountId {
-        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap();
+        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap()
     }
 
     pub fn key_pair(&self) -> sr25519::Pair {
-        return sr25519::Pair::from_seed(&self.seed);
+        return sr25519::Pair::from_seed(&self.seed)
     }
 }
 
@@ -327,11 +326,11 @@ impl ProvableProxy<RuntimeCall, Signature, AccountId> for TestAvnProxyConfig {
             RuntimeCall::AvnAnchor(avn_anchor::Call::signed_register_chain_handler {
                 proof,
                 ..
-            })
-            | RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {
+            }) |
+            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_update_chain_handler {
                 proof, ..
-            })
-            | RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {
+            }) |
+            RuntimeCall::AvnAnchor(avn_anchor::Call::signed_submit_checkpoint_with_identity {
                 proof,
                 ..
             }) => Some(proof.clone()),
@@ -375,8 +374,8 @@ pub fn proxy_event_emitted(
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
     System::events().iter().any(|a| {
-        a.event
-            == RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
+        a.event ==
+            RuntimeEvent::AvnProxy(avn_proxy::Event::<TestRuntime>::CallDispatched {
                 relayer,
                 hash: call_hash,
             })
@@ -395,7 +394,7 @@ pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bo
 
 fn fake_treasury() -> AccountId {
     let seed: [u8; 32] = [01; 32];
-    return TestAccount::new(seed).account_id();
+    return TestAccount::new(seed).account_id()
 }
 
 impl FeePaymentHandler for TestRuntime {
@@ -411,7 +410,7 @@ impl FeePaymentHandler for TestRuntime {
         recipient: &Self::AccountId,
     ) -> Result<(), Self::Error> {
         if MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow()) {
-            return Err(DispatchError::Other("Test - Error"));
+            return Err(DispatchError::Other("Test - Error"))
         }
 
         Balances::transfer(RuntimeOrigin::signed(payer.clone()), recipient.clone(), *amount)?;
@@ -425,7 +424,7 @@ impl FeePaymentHandler for TestRuntime {
         payer: &Self::AccountId,
     ) -> Result<(), Self::Error> {
         if MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow()) {
-            return Err(DispatchError::Other("Test - Error"));
+            return Err(DispatchError::Other("Test - Error"))
         }
 
         let recipient = fake_treasury();
