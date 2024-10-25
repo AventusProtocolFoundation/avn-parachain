@@ -767,11 +767,10 @@ pub trait BridgeInterface {
         caller_id: Vec<u8>,
     ) -> Result<(), DispatchError>;
     fn read_bridge_contract(
-        author_account_bytes: Vec<u8>,
+        account_id_bytes: Vec<u8>,
         function_name: &[u8],
         params: &[(Vec<u8>, Vec<u8>)],
         eth_block: Option<u32>,
-        id: Option<u32>,
     ) -> Result<(U256, Option<u32>), DispatchError>;
     fn latest_finalised_ethereum_block() -> Option<u32>;
 }

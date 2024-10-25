@@ -256,19 +256,15 @@ fn make_ethereum_call<R, T: Config>(
 
 pub fn make_historical_ethereum_call<R, T: Config>(
     author_account_id: &T::AccountId,
-    endpoint: &str,
     calldata: Vec<u8>,
     process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
     eth_block: Option<u32>,
-    period_id: Option<u32>,
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
-    let ethereum_call = EthTransaction::new(sender, contract_address, calldata)
-        .set_block(eth_block)
-        .set_period_id(period_id);
-    let url_path = format!("eth/{}", endpoint);
-    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
+    let ethereum_call =
+        EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
+    let result = AVN::<T>::post_data_to_service(String::from("eth/view"), ethereum_call.encode())?;
     process_result(result)
 }
 

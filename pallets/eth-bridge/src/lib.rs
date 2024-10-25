@@ -1052,24 +1052,21 @@ pub mod pallet {
         }
 
         fn read_bridge_contract(
-            author_account_bytes: Vec<u8>,
+            account_id_bytes: Vec<u8>,
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
             eth_block: Option<u32>,
-            period_id: Option<u32>,
         ) -> Result<(U256, Option<u32>), DispatchError> {
-            let author_account_id = T::AccountId::decode(&mut &author_account_bytes[..])
+            let account_id = T::AccountId::decode(&mut &account_id_bytes[..])
                 .map_err(|_| Error::<T>::InvalidAccountId)
                 .unwrap();
             let calldata = eth::abi_encode_function::<T>(function_name, params).unwrap();
 
             eth::make_historical_ethereum_call::<(U256, Option<u32>), T>(
-                &author_account_id,
-                "view",
+                &account_id,
                 calldata,
                 eth::process_bridge_contract_data::<T>,
                 eth_block,
-                period_id,
             )
         }
 

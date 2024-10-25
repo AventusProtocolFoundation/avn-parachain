@@ -400,7 +400,6 @@ impl BridgeInterface for TestRuntime {
         _: &[u8],
         _: &[(Vec<u8>, Vec<u8>)],
         _: Option<u32>,
-        _: Option<u32>,
     ) -> Result<(U256, Option<u32>), DispatchError> {
         let mockResult: U256 = U256::from(0);
         Ok((mockResult, None))
