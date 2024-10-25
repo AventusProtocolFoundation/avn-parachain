@@ -43,7 +43,7 @@ pub(crate) type BalanceOf<T> =
 pub mod pallet {
     use super::*;
     use frame_support::{
-        dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType, PalletId,
+        dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType,
     };
     use frame_system::pallet_prelude::*;
     use sp_avn_common::{verify_signature, FeePaymentHandler, InnerCallValidator, Proof};
@@ -100,9 +100,6 @@ pub mod pallet {
             Error = DispatchError,
         >;
 
-        /// The account that will receive the checkpoint fees
-        type TreasuryAccount: Get<PalletId>;
-
         /// The default fee for checkpoint submission
         type DefaultCheckpointFee: Get<BalanceOf<Self>>;
     }
@@ -129,7 +126,6 @@ pub mod pallet {
             handler: T::AccountId,
             chain_id: ChainId,
             fee: BalanceOf<T>,
-            nonce: u64,
         },
     }
 
@@ -151,13 +147,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn checkpoint_fee)]
     pub type CheckpointFee<T> = StorageMap<_, Blake2_128Concat, ChainId, BalanceOf<T>, ValueQuery>;
-
-    /// An account nonce that represents the number of payments from this account
-    /// It is shared for all proxy transactions performed by that account
-    #[pallet::storage]
-    #[pallet::getter(fn payment_nonces)]
-    pub type PaymentNonces<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, u64, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn nonces)]
@@ -355,23 +344,17 @@ pub mod pallet {
 
     impl<T: Config> Pallet<T> {
         pub(crate) fn charge_fee(handler: T::AccountId, chain_id: ChainId) -> DispatchResult {
-            let payment_nonce = PaymentNonces::<T>::get(&handler);
             let checkpoint_fee = Self::get_checkpoint_fee(chain_id);
-            let treasury_account_id = compute_treasury_account_id::<T>();
 
-            T::FeeHandler::pay_fee(
+            T::FeeHandler::pay_treasury(
                 &T::Token::default(),
                 &checkpoint_fee,
                 &handler,
-                &treasury_account_id,
             )?;
-
-            <PaymentNonces<T>>::mutate(&handler, |n| *n += 1);
 
             Self::deposit_event(Event::CheckpointFeeCharged {
                 handler: handler.clone(),
                 fee: checkpoint_fee,
-                nonce: payment_nonce,
                 chain_id,
             });
 
@@ -613,8 +596,3 @@ pub fn get_chain_data_for_handler<T: Config>(handler: &T::AccountId) -> Option<C
 }
 
 use sp_core::Get;
-use sp_runtime::traits::AccountIdConversion;
-
-fn compute_treasury_account_id<T: Config>() -> T::AccountId {
-    T::TreasuryAccount::get().into_account_truncating()
-}

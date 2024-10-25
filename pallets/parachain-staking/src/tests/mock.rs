@@ -693,6 +693,13 @@ impl FeePaymentHandler for Test {
     ) -> Result<(), Self::Error> {
         return Err(DispatchError::Other("Test - Error"))
     }
+    fn pay_treasury(
+            _token: &Self::Token,
+            _amount: &Self::TokenBalance,
+            _payer: &Self::AccountId,
+        ) -> Result<(), Self::Error> {
+            return Err(DispatchError::Other("Test - Error"))
+    }
 }
 
 /// Assert input equal to the last event emitted

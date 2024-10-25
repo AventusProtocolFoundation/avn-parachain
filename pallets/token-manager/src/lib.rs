@@ -103,6 +103,7 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::{ensure_root, pallet_prelude::*};
@@ -1162,5 +1163,13 @@ impl<T: Config> FeePaymentHandler for Pallet<T> {
         recipient: &Self::AccountId,
     ) -> Result<(), Self::Error> {
         Self::settle_transfer(token_id, payer, recipient, amount)
+    }
+    fn pay_treasury(
+        token_id: &Self::Token,
+            amount: &Self::TokenBalance,
+            payer: &Self::AccountId,
+        ) -> Result<(), Self::Error> {
+        let recipient = Self::compute_treasury_account_id();
+        Self::settle_transfer(token_id, payer, &recipient, amount)
     }
 }

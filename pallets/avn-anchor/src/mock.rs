@@ -309,7 +309,6 @@ impl Config for TestRuntime {
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
     type FeeHandler = TokenManager;
     type Token = sp_core::H160;
-    type TreasuryAccount = AvnTreasuryPotId;
     type Currency = Balances;
     type DefaultCheckpointFee = DefaultCheckpointFee;
 }
@@ -361,7 +360,6 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
             (create_account_id(1), INITIAL_BALANCE),
             (create_account_id(2), INITIAL_BALANCE),
             (create_account_id(3), INITIAL_BALANCE),
-            (compute_treasury_account_id::<TestRuntime>(), INITIAL_BALANCE),
         ],
     }
     .assimilate_storage(&mut t)
@@ -395,6 +393,11 @@ pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bo
     })
 }
 
+fn fake_treasury() -> AccountId {
+    let seed: [u8;32] = [01;32];
+    return TestAccount::new(seed).account_id()
+}
+
 impl FeePaymentHandler for TestRuntime {
     type Token = sp_core::H160;
     type TokenBalance = u128;
@@ -414,6 +417,22 @@ impl FeePaymentHandler for TestRuntime {
         Balances::transfer(RuntimeOrigin::signed(payer.clone()), recipient.clone(), *amount)?;
 
         Ok(())
+    }
+
+    fn pay_treasury(
+            token: &Self::Token,
+            amount: &Self::TokenBalance,
+            payer: &Self::AccountId,
+        ) -> Result<(), Self::Error> {
+            if MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow()) {
+                return Err(DispatchError::Other("Test - Error"));
+            }
+
+            let recipient = fake_treasury();
+    
+            Balances::transfer(RuntimeOrigin::signed(payer.clone()), recipient, *amount)?;
+    
+            Ok(())
     }
 }
 pub fn create_account_id(seed: u8) -> AccountId {

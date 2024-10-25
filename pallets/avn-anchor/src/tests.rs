@@ -222,7 +222,7 @@ fn submit_checkpoint_with_identity_works() {
             Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),
         );
         System::assert_has_event(
-            Event::CheckpointFeeCharged { handler, chain_id, fee: default_fee, nonce: 0 }.into(),
+            Event::CheckpointFeeCharged { handler, chain_id, fee: default_fee }.into(),
         );
     });
 }
@@ -646,14 +646,10 @@ fn charge_fee_works() {
 
         assert_ok!(AvnAnchor::set_checkpoint_fee(RuntimeOrigin::root(), chain_id, fee));
 
-        assert_eq!(AvnAnchor::payment_nonces(handler.clone()), 0);
-
         assert_ok!(AvnAnchor::charge_fee(handler.clone(), chain_id));
 
-        assert_eq!(AvnAnchor::payment_nonces(handler.clone()), 1);
-
         System::assert_last_event(
-            Event::CheckpointFeeCharged { handler: handler.clone(), chain_id, fee, nonce: 0 }
+            Event::CheckpointFeeCharged { handler: handler.clone(), chain_id, fee }
                 .into(),
         );
     });
@@ -680,10 +676,8 @@ fn submit_checkpoint_charges_correct_fee() {
             Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),
         );
         System::assert_has_event(
-            Event::CheckpointFeeCharged { handler, chain_id, fee, nonce: 0 }.into(),
+            Event::CheckpointFeeCharged { handler, chain_id, fee }.into(),
         );
-
-        assert_eq!(AvnAnchor::payment_nonces(handler), 1);
     });
 }
 
@@ -744,37 +738,5 @@ fn fee_override_works() {
 
         let other_chain_id = chain_id + 1;
         assert_eq!(AvnAnchor::get_checkpoint_fee(other_chain_id), DefaultCheckpointFee::get());
-    });
-}
-
-#[test]
-fn payment_nonces_increment_correctly() {
-    new_test_ext().execute_with(|| {
-        let handler = create_account_id(1);
-        let name = bounded_vec(b"Test Chain");
-        let checkpoint1 = H256::random();
-        let checkpoint2 = H256::random();
-
-        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
-
-        let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
-
-        assert_ok!(AvnAnchor::set_checkpoint_fee(RuntimeOrigin::root(), chain_id, 100));
-
-        assert_eq!(AvnAnchor::payment_nonces(handler), 0);
-
-        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
-            RuntimeOrigin::signed(handler),
-            checkpoint1
-        ));
-
-        assert_eq!(AvnAnchor::payment_nonces(handler), 1);
-
-        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
-            RuntimeOrigin::signed(handler),
-            checkpoint2
-        ));
-
-        assert_eq!(AvnAnchor::payment_nonces(handler), 2);
     });
 }
