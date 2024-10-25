@@ -1166,9 +1166,9 @@ impl<T: Config> FeePaymentHandler for Pallet<T> {
     }
     fn pay_treasury(
         token_id: &Self::Token,
-            amount: &Self::TokenBalance,
-            payer: &Self::AccountId,
-        ) -> Result<(), Self::Error> {
+        amount: &Self::TokenBalance,
+        payer: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
         let recipient = Self::compute_treasury_account_id();
         Self::settle_transfer(token_id, payer, &recipient, amount)
     }
