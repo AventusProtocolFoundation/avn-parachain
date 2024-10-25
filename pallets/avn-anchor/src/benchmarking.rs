@@ -111,11 +111,9 @@ benchmarks! {
 
     submit_checkpoint_with_identity {
         let handler: T::AccountId = create_account_id::<T>(0);
-        let treasury: T::AccountId = T::TreasuryAccount::get().into_account_truncating();
 
         // Setup balances
         setup_balance::<T>(&handler);
-        setup_balance::<T>(&treasury);
 
         // Setup chain and verify initial state
         let (chain_id, _) = setup_chain::<T>(&handler)?;
@@ -186,11 +184,9 @@ benchmarks! {
         let signer_pair = SignerId::generate_pair(None);
         let handler: T::AccountId = T::AccountId::decode(&mut Encode::encode(&signer_pair).as_slice()).expect("valid account id");
         let relayer: T::AccountId = create_account_id::<T>(1);
-        let treasury: T::AccountId = T::TreasuryAccount::get().into_account_truncating();
 
         setup_balance::<T>(&handler);
         setup_balance::<T>(&relayer);
-        setup_balance::<T>(&treasury);
 
         let (chain_id, _) = setup_chain::<T>(&handler)?;
         ensure_fee_payment_possible::<T>(chain_id, &handler)?;
