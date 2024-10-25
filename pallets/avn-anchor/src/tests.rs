@@ -649,8 +649,7 @@ fn charge_fee_works() {
         assert_ok!(AvnAnchor::charge_fee(handler.clone(), chain_id));
 
         System::assert_last_event(
-            Event::CheckpointFeeCharged { handler: handler.clone(), chain_id, fee }
-                .into(),
+            Event::CheckpointFeeCharged { handler: handler.clone(), chain_id, fee }.into(),
         );
     });
 }
@@ -675,9 +674,7 @@ fn submit_checkpoint_charges_correct_fee() {
         System::assert_has_event(
             Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),
         );
-        System::assert_has_event(
-            Event::CheckpointFeeCharged { handler, chain_id, fee }.into(),
-        );
+        System::assert_has_event(Event::CheckpointFeeCharged { handler, chain_id, fee }.into());
     });
 }
 

@@ -42,9 +42,7 @@ pub(crate) type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::{
-        dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType,
-    };
+    use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType};
     use frame_system::pallet_prelude::*;
     use sp_avn_common::{verify_signature, FeePaymentHandler, InnerCallValidator, Proof};
     use sp_core::H160;
@@ -122,11 +120,7 @@ pub mod pallet {
         CheckpointFeeUpdated { chain_id: ChainId, new_fee: BalanceOf<T> },
 
         /// Fee was charged for checkpoint submission [handler, fee, nonce]
-        CheckpointFeeCharged {
-            handler: T::AccountId,
-            chain_id: ChainId,
-            fee: BalanceOf<T>,
-        },
+        CheckpointFeeCharged { handler: T::AccountId, chain_id: ChainId, fee: BalanceOf<T> },
     }
 
     #[pallet::error]
@@ -346,11 +340,7 @@ pub mod pallet {
         pub(crate) fn charge_fee(handler: T::AccountId, chain_id: ChainId) -> DispatchResult {
             let checkpoint_fee = Self::get_checkpoint_fee(chain_id);
 
-            T::FeeHandler::pay_treasury(
-                &T::Token::default(),
-                &checkpoint_fee,
-                &handler,
-            )?;
+            T::FeeHandler::pay_treasury(&T::Token::default(), &checkpoint_fee, &handler)?;
 
             Self::deposit_event(Event::CheckpointFeeCharged {
                 handler: handler.clone(),

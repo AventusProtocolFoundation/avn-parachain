@@ -394,8 +394,8 @@ pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bo
 }
 
 fn fake_treasury() -> AccountId {
-    let seed: [u8;32] = [01;32];
-    return TestAccount::new(seed).account_id()
+    let seed: [u8; 32] = [01; 32];
+    return TestAccount::new(seed).account_id();
 }
 
 impl FeePaymentHandler for TestRuntime {
@@ -420,19 +420,19 @@ impl FeePaymentHandler for TestRuntime {
     }
 
     fn pay_treasury(
-            token: &Self::Token,
-            amount: &Self::TokenBalance,
-            payer: &Self::AccountId,
-        ) -> Result<(), Self::Error> {
-            if MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow()) {
-                return Err(DispatchError::Other("Test - Error"));
-            }
+        token: &Self::Token,
+        amount: &Self::TokenBalance,
+        payer: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
+        if MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow()) {
+            return Err(DispatchError::Other("Test - Error"));
+        }
 
-            let recipient = fake_treasury();
-    
-            Balances::transfer(RuntimeOrigin::signed(payer.clone()), recipient, *amount)?;
-    
-            Ok(())
+        let recipient = fake_treasury();
+
+        Balances::transfer(RuntimeOrigin::signed(payer.clone()), recipient, *amount)?;
+
+        Ok(())
     }
 }
 pub fn create_account_id(seed: u8) -> AccountId {
