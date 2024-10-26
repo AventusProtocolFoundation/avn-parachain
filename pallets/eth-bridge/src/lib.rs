@@ -76,7 +76,7 @@ use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{bounds::MaximumValidatorsBound, event_discovery::*, event_types::Validator};
-use sp_core::{ecdsa, ConstU32, H160, H256, U256};
+use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
@@ -1056,18 +1056,13 @@ pub mod pallet {
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
             eth_block: Option<u32>,
-        ) -> Result<(U256, Option<u32>), DispatchError> {
+        ) -> Result<Vec<u8>, DispatchError> {
             let account_id = T::AccountId::decode(&mut &account_id_bytes[..])
                 .map_err(|_| Error::<T>::InvalidAccountId)
                 .unwrap();
             let calldata = eth::abi_encode_function::<T>(function_name, params).unwrap();
 
-            eth::make_historical_ethereum_call::<(U256, Option<u32>), T>(
-                &account_id,
-                calldata,
-                eth::process_bridge_contract_data::<T>,
-                eth_block,
-            )
+            eth::make_historical_ethereum_call::<T>(&account_id, calldata, eth_block)
         }
 
         fn latest_finalised_ethereum_block() -> Option<u32> {

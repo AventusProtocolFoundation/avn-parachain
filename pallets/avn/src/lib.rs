@@ -37,7 +37,7 @@ use sp_avn_common::{
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
     EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
-use sp_core::{ecdsa, H160, U256};
+use sp_core::{ecdsa, H160};
 use sp_runtime::{
     offchain::{
         http,
@@ -771,7 +771,7 @@ pub trait BridgeInterface {
         function_name: &[u8],
         params: &[(Vec<u8>, Vec<u8>)],
         eth_block: Option<u32>,
-    ) -> Result<(U256, Option<u32>), DispatchError>;
+    ) -> Result<Vec<u8>, DispatchError>;
     fn latest_finalised_ethereum_block() -> Option<u32>;
 }
 

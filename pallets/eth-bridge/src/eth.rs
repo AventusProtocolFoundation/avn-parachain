@@ -254,18 +254,16 @@ fn make_ethereum_call<R, T: Config>(
     process_result(result)
 }
 
-pub fn make_historical_ethereum_call<R, T: Config>(
+pub fn make_historical_ethereum_call<T: Config>(
     author_account_id: &T::AccountId,
     calldata: Vec<u8>,
-    process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
     eth_block: Option<u32>,
-) -> Result<R, DispatchError> {
+) -> Result<Vec<u8>, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
     let ethereum_call =
         EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
-    let result = AVN::<T>::post_data_to_service(String::from("eth/view"), ethereum_call.encode())?;
-    process_result(result)
+    AVN::<T>::post_data_to_service(String::from("eth/view"), ethereum_call.encode())
 }
 
 fn process_tx_hash<T: Config>(result: Vec<u8>) -> Result<H256, DispatchError> {
@@ -290,37 +288,6 @@ fn process_corroborate_result<T: Config>(result: Vec<u8>) -> Result<i8, Dispatch
     }
 
     Ok(result_bytes[31] as i8)
-}
-
-pub fn process_bridge_contract_data<T: Config>(
-    result: Vec<u8>,
-) -> Result<(U256, Option<u32>), DispatchError> {
-    let result_string = String::from_utf8(result).map_err(|_| Error::<T>::InvalidBytes)?;
-
-    // Split the string into two parts: the hex-encoded result and the period_id (if present)
-    let (hex_result, period_id) = match result_string.split_once(':') {
-        Some((hex, id)) => (hex, Some(id)),
-        None => (result_string.as_str(), None),
-    };
-
-    // Decode the first part (the hex-encoded string) into bytes
-    let result_bytes = hex::decode(hex_result).map_err(|_| Error::<T>::InvalidBytes)?;
-
-    // The U256 result must be 32 bytes long
-    if result_bytes.len() != 32 {
-        return Err(Error::<T>::InvalidBytesLength.into())
-    }
-
-    // Convert the first 32 bytes into U256
-    let u256_value = U256::from_big_endian(&result_bytes);
-
-    // Parse the period_id if present
-    let period_id = period_id
-        .map(|id| id.parse::<u32>())
-        .transpose()
-        .map_err(|_| Error::<T>::InvalidBytes)?;
-
-    Ok((u256_value, period_id))
 }
 
 fn process_query_result<T: Config>(result: Vec<u8>) -> Result<(String, u64), DispatchError> {
