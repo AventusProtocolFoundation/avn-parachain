@@ -172,7 +172,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 75,
+    spec_version: 76,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -568,6 +568,8 @@ parameter_types! {
     pub const MinBlockAge: BlockNumber = 5;
     pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
+    pub const EthAutoSubmitSummaries: bool = true;
+    pub const EthereumInstanceId: u8 = 1u8;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -578,6 +580,8 @@ impl pallet_summary::Config for Runtime {
     type ReportSummaryOffence = Offences;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterface = EthBridge;
+    type AutoSubmitSummaries = EthAutoSubmitSummaries;
+    type InstanceId = EthereumInstanceId;
 }
 
 pub type EthAddress = H160;
