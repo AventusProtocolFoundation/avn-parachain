@@ -633,7 +633,7 @@ pub mod pallet {
             );
 
             let eth_block_range_size = EthBlockRangeSize::<T>::get();
-            let latest_finalised_block = events_helpers::compute_finalised_block_number(
+            let latest_finalised_block = events_helpers::compute_adjusted_block_number(
                 latest_seen_block,
                 eth_block_range_size,
             )
@@ -1070,13 +1070,7 @@ pub mod pallet {
                 AVN::<T>::get_data_from_service(String::from("/eth/latest_block")).ok()?;
             let latest_block_bytes = hex::decode(&response).ok()?;
             let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
-
-            let eth_block_range_size = EthBlockRangeSize::<T>::get();
-            let latest_finalised_block =
-                events_helpers::compute_finalised_block_number(latest_block, eth_block_range_size)
-                    .ok()?;
-
-            Some(latest_finalised_block)
+            Some(latest_block)
         }
     }
 }
