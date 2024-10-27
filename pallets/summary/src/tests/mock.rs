@@ -508,8 +508,7 @@ impl BridgeInterface for TestRuntime {
         _: &[(Vec<u8>, Vec<u8>)],
         _: Option<u32>,
     ) -> Result<Vec<u8>, DispatchError> {
-        let mockResult: U256 = U256::from(0);
-        Ok((mockResult, None))
+        Ok(vec![])
     }
 
     fn latest_finalised_ethereum_block() -> Option<u32> {

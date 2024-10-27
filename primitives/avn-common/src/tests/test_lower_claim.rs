@@ -2,7 +2,6 @@
 #[cfg(test)]
 use super::*;
 use sha3::{Digest, Keccak256};
-use sp_core::U256;
 use sp_std::vec::Vec;
 
 mod end_batch_listing {
