@@ -21,7 +21,7 @@ use sp_core::{
         },
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    ConstU64, H256, U256,
+    ConstU64, H256,
 };
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},

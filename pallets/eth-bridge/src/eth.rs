@@ -255,11 +255,11 @@ fn make_ethereum_call<R, T: Config>(
 }
 
 pub fn make_historical_ethereum_call<T: Config>(
-    author_account_id: &T::AccountId,
+    account_id: &T::AccountId,
     calldata: Vec<u8>,
     eth_block: Option<u32>,
 ) -> Result<Vec<u8>, DispatchError> {
-    let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
+    let sender = T::AccountToBytesConvert::into_bytes(&account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
     let ethereum_call =
         EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
