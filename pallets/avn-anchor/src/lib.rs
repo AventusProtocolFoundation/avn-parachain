@@ -12,7 +12,7 @@ pub use default_weights::WeightInfo;
 
 use codec::Encode;
 use sp_avn_common::CallDecoder;
-use sp_core::{ConstU32, H256};
+use sp_core::{ConstU32, Get, H256};
 use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
 
@@ -340,7 +340,7 @@ pub mod pallet {
         pub(crate) fn charge_fee(handler: T::AccountId, chain_id: ChainId) -> DispatchResult {
             let checkpoint_fee = Self::get_checkpoint_fee(chain_id);
 
-            T::FeeHandler::pay_treasury(&T::Token::default(), &checkpoint_fee, &handler)?;
+            T::FeeHandler::pay_treasury(&checkpoint_fee, &handler)?;
 
             Self::deposit_event(Event::CheckpointFeeCharged {
                 handler: handler.clone(),
@@ -353,10 +353,10 @@ pub mod pallet {
 
         pub fn get_checkpoint_fee(chain_id: ChainId) -> BalanceOf<T> {
             let fee = CheckpointFee::<T>::get(chain_id);
-            if fee == BalanceOf::<T>::default() {
-                T::DefaultCheckpointFee::get()
-            } else {
+            if CheckpointFee::<T>::contains_key(chain_id) {
                 fee
+            } else {
+                T::DefaultCheckpointFee::get()
             }
         }
 
@@ -584,5 +584,3 @@ pub fn encode_signed_submit_checkpoint_params<T: Config>(
 pub fn get_chain_data_for_handler<T: Config>(handler: &T::AccountId) -> Option<ChainDataStruct> {
     Pallet::<T>::chain_handlers(handler).and_then(|chain_id| Pallet::<T>::chain_data(chain_id))
 }
-
-use sp_core::Get;

@@ -837,7 +837,6 @@ impl FeePaymentHandler for TestRuntime {
     }
 
     fn pay_treasury(
-        _token: &Self::Token,
         _amount: &Self::TokenBalance,
         _payer: &Self::AccountId,
     ) -> Result<(), Self::Error> {

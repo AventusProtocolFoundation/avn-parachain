@@ -409,17 +409,10 @@ impl FeePaymentHandler for TestRuntime {
         payer: &Self::AccountId,
         recipient: &Self::AccountId,
     ) -> Result<(), Self::Error> {
-        if MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow()) {
-            return Err(DispatchError::Other("Test - Error"))
-        }
-
-        Balances::transfer(RuntimeOrigin::signed(payer.clone()), recipient.clone(), *amount)?;
-
         Ok(())
     }
 
     fn pay_treasury(
-        token: &Self::Token,
         amount: &Self::TokenBalance,
         payer: &Self::AccountId,
     ) -> Result<(), Self::Error> {

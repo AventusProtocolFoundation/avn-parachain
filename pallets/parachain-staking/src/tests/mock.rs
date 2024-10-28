@@ -694,7 +694,6 @@ impl FeePaymentHandler for Test {
         return Err(DispatchError::Other("Test - Error"))
     }
     fn pay_treasury(
-        _token: &Self::Token,
         _amount: &Self::TokenBalance,
         _payer: &Self::AccountId,
     ) -> Result<(), Self::Error> {

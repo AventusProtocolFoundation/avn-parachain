@@ -331,7 +331,6 @@ pub mod pallet {
         pub balances: Vec<(H160, T::AccountId, u128)>,
     }
 
-    // #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
@@ -1165,11 +1164,11 @@ impl<T: Config> FeePaymentHandler for Pallet<T> {
         Self::settle_transfer(token_id, payer, recipient, amount)
     }
     fn pay_treasury(
-        token_id: &Self::Token,
         amount: &Self::TokenBalance,
         payer: &Self::AccountId,
     ) -> Result<(), Self::Error> {
         let recipient = Self::compute_treasury_account_id();
-        Self::settle_transfer(token_id, payer, &recipient, amount)
+        let token: Self::Token = self::AVTTokenContract::<T>::get().into();
+        Self::settle_transfer(&token, payer, &recipient, amount)
     }
 }

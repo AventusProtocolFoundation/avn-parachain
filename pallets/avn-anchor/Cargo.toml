@@ -41,9 +41,9 @@ pallet-session = { features = [
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0",features=["insecure_zero_ed"] }
 pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", tag = "polkadot-v1.1.0" }
 
-pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
-pallet-token-manager = { default-features = false, path = "../token-manager" }
-pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
+pallet-avn-proxy = { path = "../avn-proxy" }
+pallet-token-manager = { path = "../token-manager" }
+pallet-eth-bridge = { path = "../eth-bridge" }
 
 [features]
 default = ["std"]

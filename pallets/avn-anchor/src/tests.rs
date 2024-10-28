@@ -679,6 +679,30 @@ fn submit_checkpoint_charges_correct_fee() {
 }
 
 #[test]
+fn submit_checkpoint_charges_zero_fee() {
+    new_test_ext().execute_with(|| {
+        let handler = create_account_id(1);
+        let chain_id = 0;
+        let fee = 0;
+        let name = bounded_vec(b"Test Chain");
+        let checkpoint = H256::random();
+
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
+        assert_ok!(AvnAnchor::set_checkpoint_fee(RuntimeOrigin::root(), chain_id, fee));
+
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler),
+            checkpoint
+        ));
+
+        System::assert_has_event(
+            Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),
+        );
+        System::assert_has_event(Event::CheckpointFeeCharged { handler, chain_id, fee }.into());
+    });
+}
+
+#[test]
 fn different_chains_can_have_different_fees() {
     new_test_ext().execute_with(|| {
         let handler1 = create_account_id(1);
