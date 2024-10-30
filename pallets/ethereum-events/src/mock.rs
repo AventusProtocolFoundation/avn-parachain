@@ -835,4 +835,11 @@ impl FeePaymentHandler for TestRuntime {
     ) -> Result<(), Self::Error> {
         return Err(DispatchError::Other("Test - Error"))
     }
+
+    fn pay_treasury(
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
+        return Err(DispatchError::Other("Test - Error"))
+    }
 }

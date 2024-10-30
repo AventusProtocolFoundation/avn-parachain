@@ -126,6 +126,11 @@ pub trait FeePaymentHandler {
         _payer: &Self::AccountId,
         _recipient: &Self::AccountId,
     ) -> Result<(), Self::Error>;
+
+    fn pay_treasury(
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+    ) -> Result<(), Self::Error>;
 }
 
 impl FeePaymentHandler for () {
@@ -140,6 +145,13 @@ impl FeePaymentHandler for () {
         _payer: &Self::AccountId,
         _recipient: &Self::AccountId,
     ) -> Result<(), ()> {
+        Err(())
+    }
+
+    fn pay_treasury(
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
         Err(())
     }
 }
