@@ -352,7 +352,6 @@ pub mod pallet {
             Ok(())
         }
 
-
         fn get_next_chain_id() -> Result<ChainId, DispatchError> {
             NextChainId::<T>::try_mutate(|id| {
                 let current_id = *id;

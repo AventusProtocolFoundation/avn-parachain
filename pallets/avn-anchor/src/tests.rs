@@ -708,11 +708,9 @@ fn submit_checkpoint_charges_zero_fee() {
 
         let balance_after = get_balance(&handler);
         assert_eq!(
-            balance_before, 
-            balance_after,
+            balance_before, balance_after,
             "Handler balance should remain unchanged when checkpoint fee is zero"
         );
-
 
         System::assert_has_event(
             Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),

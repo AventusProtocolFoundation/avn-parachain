@@ -25,7 +25,7 @@
 // --repeat
 // 20
 // --output
-// test_weights_2.rs
+// avn_anchor_weights.rs
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
