@@ -1058,9 +1058,8 @@ pub mod pallet {
             eth_block: Option<u32>,
         ) -> Result<Vec<u8>, DispatchError> {
             let account_id = T::AccountId::decode(&mut &account_id_bytes[..])
-                .map_err(|_| Error::<T>::InvalidAccountId)
-                .unwrap();
-            let calldata = eth::abi_encode_function::<T>(function_name, params).unwrap();
+                .map_err(|_| Error::<T>::InvalidAccountId)?;
+            let calldata = eth::abi_encode_function::<T>(function_name, params)?;
 
             eth::make_historical_ethereum_call::<T>(&account_id, calldata, eth_block)
         }
