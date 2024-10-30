@@ -75,7 +75,7 @@ fn ensure_fee_payment_possible<T: Config>(
     chain_id: ChainId,
     account: &T::AccountId,
 ) -> Result<(), &'static str> {
-    let fee = Pallet::<T>::get_checkpoint_fee(chain_id);
+    let fee = Pallet::<T>::checkpoint_fee(chain_id);
     let balance = T::Currency::free_balance(account);
     if balance < fee {
         return Err("Insufficient balance for fee payment")
@@ -123,7 +123,7 @@ benchmarks! {
         let initial_checkpoint_id = NextCheckpointId::<T>::get(chain_id);
 
         // Verify initial balance is sufficient
-        let fee = Pallet::<T>::get_checkpoint_fee(chain_id);
+        let fee = Pallet::<T>::checkpoint_fee(chain_id);
         let initial_balance = T::Currency::free_balance(&handler);
         assert!(initial_balance >= fee, "Insufficient initial balance");
     }: _(RawOrigin::Signed(handler.clone()), checkpoint)
@@ -200,7 +200,7 @@ benchmarks! {
         let proof = create_proof::<T>(signature.into(), handler.clone(), relayer);
 
         let initial_balance = T::Currency::free_balance(&handler);
-        let fee = Pallet::<T>::get_checkpoint_fee(chain_id);
+        let fee = Pallet::<T>::checkpoint_fee(chain_id);
         assert!(initial_balance >= fee, "Insufficient initial balance");
     }: _(RawOrigin::Signed(handler.clone()), proof, handler.clone(), checkpoint)
     verify {
