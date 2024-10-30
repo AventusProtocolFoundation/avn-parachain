@@ -297,7 +297,7 @@ fn submit_latest_block_from_other_authors<T: Config>(
 ) {
     let eth_block_range_size = EthBlockRangeSize::<T>::get();
     let latest_finalised_block =
-        events_helpers::compute_adjusted_block_number(*latest_seen_block, eth_block_range_size)
+        events_helpers::compute_start_block_from_finalised_block_number(*latest_seen_block, eth_block_range_size)
             .expect("set on genesis");
 
     let mut votes = SubmittedEthBlocks::<T>::get(latest_finalised_block);
@@ -475,7 +475,7 @@ benchmarks! {
     }: _(RawOrigin::None, author.clone(), latest_seen_block, signature )
     verify {
         let eth_block_range_size = EthBlockRangeSize::<T>::get();
-        let latest_finalised_block = events_helpers::compute_adjusted_block_number(
+        let latest_finalised_block = events_helpers::compute_start_block_from_finalised_block_number(
             latest_seen_block,
             eth_block_range_size,
         ).expect("set on genesis");
@@ -500,7 +500,7 @@ benchmarks! {
     }: submit_latest_ethereum_block(RawOrigin::None, author.clone(), latest_seen_block, signature )
     verify {
         let eth_block_range_size = EthBlockRangeSize::<T>::get();
-        let latest_finalised_block = events_helpers::compute_adjusted_block_number(
+        let latest_finalised_block = events_helpers::compute_start_block_from_finalised_block_number(
             latest_seen_block,
             eth_block_range_size,
         ).expect("set on genesis");
