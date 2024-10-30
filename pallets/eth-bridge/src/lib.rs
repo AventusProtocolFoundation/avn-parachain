@@ -633,11 +633,12 @@ pub mod pallet {
             );
 
             let eth_block_range_size = EthBlockRangeSize::<T>::get();
-            let latest_finalised_block = events_helpers::compute_start_block_from_finalised_block_number(
-                latest_seen_block,
-                eth_block_range_size,
-            )
-            .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
+            let latest_finalised_block =
+                events_helpers::compute_start_block_from_finalised_block_number(
+                    latest_seen_block,
+                    eth_block_range_size,
+                )
+                .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
             let mut votes = SubmittedEthBlocks::<T>::get(&latest_finalised_block);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
@@ -1061,7 +1062,13 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::InvalidAccountId)?;
             let calldata = eth::abi_encode_function::<T>(function_name, params)?;
 
-            eth::make_historical_ethereum_call::<T>(&account_id, calldata, eth_block)
+            eth::make_ethereum_call::<Vec<u8>, T>(
+                &account_id,
+                "view",
+                calldata,
+                |data| Ok(data),
+                eth_block,
+            )
         }
 
         fn latest_finalised_ethereum_block() -> Option<u32> {

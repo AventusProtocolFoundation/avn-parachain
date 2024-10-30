@@ -296,9 +296,11 @@ fn submit_latest_block_from_other_authors<T: Config>(
     authors: Vec<crate::Author<T>>,
 ) {
     let eth_block_range_size = EthBlockRangeSize::<T>::get();
-    let latest_finalised_block =
-        events_helpers::compute_start_block_from_finalised_block_number(*latest_seen_block, eth_block_range_size)
-            .expect("set on genesis");
+    let latest_finalised_block = events_helpers::compute_start_block_from_finalised_block_number(
+        *latest_seen_block,
+        eth_block_range_size,
+    )
+    .expect("set on genesis");
 
     let mut votes = SubmittedEthBlocks::<T>::get(latest_finalised_block);
     for i in 0..num_votes_to_add {

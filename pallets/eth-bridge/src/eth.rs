@@ -218,6 +218,7 @@ fn get_transaction_call_data<T: Config>(
         "query",
         query_request.encode(),
         process_query_result::<T>,
+        None,
     )
 }
 
@@ -225,7 +226,7 @@ fn send_transaction<T: Config>(
     calldata: Vec<u8>,
     author_account_id: &T::AccountId,
 ) -> Result<H256, DispatchError> {
-    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>)
+    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>, None)
 }
 
 fn call_corroborate_method<T: Config>(
@@ -237,33 +238,24 @@ fn call_corroborate_method<T: Config>(
         "view",
         calldata,
         process_corroborate_result::<T>,
+        None,
     )
 }
 
-fn make_ethereum_call<R, T: Config>(
+pub fn make_ethereum_call<R, T: Config>(
     author_account_id: &T::AccountId,
     endpoint: &str,
     calldata: Vec<u8>,
     process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
+    eth_block: Option<u32>,
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
-    let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
+    let ethereum_call =
+        EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
     let url_path = format!("eth/{}", endpoint);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
-}
-
-pub fn make_historical_ethereum_call<T: Config>(
-    account_id: &T::AccountId,
-    calldata: Vec<u8>,
-    eth_block: Option<u32>,
-) -> Result<Vec<u8>, DispatchError> {
-    let sender = T::AccountToBytesConvert::into_bytes(&account_id);
-    let contract_address = AVN::<T>::get_bridge_contract_address();
-    let ethereum_call =
-        EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
-    AVN::<T>::post_data_to_service(String::from("eth/view"), ethereum_call.encode())
 }
 
 fn process_tx_hash<T: Config>(result: Vec<u8>) -> Result<H256, DispatchError> {
