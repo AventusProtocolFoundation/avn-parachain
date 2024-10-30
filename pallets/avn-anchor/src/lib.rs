@@ -140,7 +140,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn checkpoint_fee)]
-    pub type CheckpointFee<T> = StorageMap<_, Blake2_128Concat, ChainId, BalanceOf<T>, ValueQuery>;
+    pub type CheckpointFee<T: Config> =
+        StorageMap<_, Blake2_128Concat, ChainId, BalanceOf<T>, ValueQuery, T::DefaultCheckpointFee>;
 
     #[pallet::storage]
     #[pallet::getter(fn nonces)]
@@ -338,7 +339,7 @@ pub mod pallet {
 
     impl<T: Config> Pallet<T> {
         pub(crate) fn charge_fee(handler: T::AccountId, chain_id: ChainId) -> DispatchResult {
-            let checkpoint_fee = Self::get_checkpoint_fee(chain_id);
+            let checkpoint_fee = Self::checkpoint_fee(chain_id);
 
             T::FeeHandler::pay_treasury(&checkpoint_fee, &handler)?;
 
@@ -351,14 +352,6 @@ pub mod pallet {
             Ok(())
         }
 
-        pub fn get_checkpoint_fee(chain_id: ChainId) -> BalanceOf<T> {
-            let fee = CheckpointFee::<T>::get(chain_id);
-            if CheckpointFee::<T>::contains_key(chain_id) {
-                fee
-            } else {
-                T::DefaultCheckpointFee::get()
-            }
-        }
 
         fn get_next_chain_id() -> Result<ChainId, DispatchError> {
             NextChainId::<T>::try_mutate(|id| {
@@ -446,7 +439,7 @@ pub mod pallet {
             ));
 
             <Nonces<T>>::mutate(chain_id, |n| *n += 1);
-            let _ = Self::charge_fee(handler.clone(), chain_id)?;
+            Self::charge_fee(handler.clone(), chain_id)?;
             Ok(())
         }
 

@@ -736,7 +736,7 @@ fn default_fee_applies_when_no_override() {
 
         let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
 
-        assert_eq!(AvnAnchor::get_checkpoint_fee(chain_id), DefaultCheckpointFee::get());
+        assert_eq!(AvnAnchor::checkpoint_fee(chain_id), DefaultCheckpointFee::get());
     });
 }
 
@@ -751,13 +751,13 @@ fn fee_override_works() {
 
         let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
 
-        assert_eq!(AvnAnchor::get_checkpoint_fee(chain_id), DefaultCheckpointFee::get());
+        assert_eq!(AvnAnchor::checkpoint_fee(chain_id), DefaultCheckpointFee::get());
 
         assert_ok!(AvnAnchor::set_checkpoint_fee(RuntimeOrigin::root(), chain_id, override_fee));
 
-        assert_eq!(AvnAnchor::get_checkpoint_fee(chain_id), override_fee);
+        assert_eq!(AvnAnchor::checkpoint_fee(chain_id), override_fee);
 
         let other_chain_id = chain_id + 1;
-        assert_eq!(AvnAnchor::get_checkpoint_fee(other_chain_id), DefaultCheckpointFee::get());
+        assert_eq!(AvnAnchor::checkpoint_fee(other_chain_id), DefaultCheckpointFee::get());
     });
 }
