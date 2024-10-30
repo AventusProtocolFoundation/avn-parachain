@@ -666,10 +666,19 @@ fn submit_checkpoint_charges_correct_fee() {
         assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
         assert_ok!(AvnAnchor::set_checkpoint_fee(RuntimeOrigin::root(), chain_id, fee));
 
+        let balance_before = get_balance(&handler);
+
         assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
             RuntimeOrigin::signed(handler),
             checkpoint
         ));
+
+        let balance_after = get_balance(&handler);
+        assert_eq!(
+            balance_before - fee,
+            balance_after,
+            "Handler balance should be reduced by exactly the checkpoint fee amount"
+        );
 
         System::assert_has_event(
             Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),
@@ -690,10 +699,20 @@ fn submit_checkpoint_charges_zero_fee() {
         assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
         assert_ok!(AvnAnchor::set_checkpoint_fee(RuntimeOrigin::root(), chain_id, fee));
 
+        let balance_before = get_balance(&handler);
+
         assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
             RuntimeOrigin::signed(handler),
             checkpoint
         ));
+
+        let balance_after = get_balance(&handler);
+        assert_eq!(
+            balance_before, 
+            balance_after,
+            "Handler balance should remain unchanged when checkpoint fee is zero"
+        );
+
 
         System::assert_has_event(
             Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),
