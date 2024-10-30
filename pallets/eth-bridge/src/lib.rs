@@ -71,7 +71,6 @@ use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
     ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
 };
-
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
@@ -339,6 +338,7 @@ pub mod pallet {
         InvalidParamData,
         InvalidSendCalldata,
         InvalidUint,
+        InvalidAccountId,
         InvalidUTF8,
         MsgHashError,
         ParamsLimitExceeded,
@@ -633,11 +633,12 @@ pub mod pallet {
             );
 
             let eth_block_range_size = EthBlockRangeSize::<T>::get();
-            let latest_finalised_block = events_helpers::compute_finalised_block_number(
-                latest_seen_block,
-                eth_block_range_size,
-            )
-            .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
+            let latest_finalised_block =
+                events_helpers::compute_start_block_from_finalised_block_number(
+                    latest_seen_block,
+                    eth_block_range_size,
+                )
+                .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
             let mut votes = SubmittedEthBlocks::<T>::get(&latest_finalised_block);
             votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
 
@@ -1049,6 +1050,33 @@ pub mod pallet {
             });
 
             Ok(())
+        }
+
+        fn read_bridge_contract(
+            account_id_bytes: Vec<u8>,
+            function_name: &[u8],
+            params: &[(Vec<u8>, Vec<u8>)],
+            eth_block: Option<u32>,
+        ) -> Result<Vec<u8>, DispatchError> {
+            let account_id = T::AccountId::decode(&mut &account_id_bytes[..])
+                .map_err(|_| Error::<T>::InvalidAccountId)?;
+            let calldata = eth::abi_encode_function::<T>(function_name, params)?;
+
+            eth::make_ethereum_call::<Vec<u8>, T>(
+                &account_id,
+                "view",
+                calldata,
+                |data| Ok(data),
+                eth_block,
+            )
+        }
+
+        fn latest_finalised_ethereum_block() -> Option<u32> {
+            let response =
+                AVN::<T>::get_data_from_service(String::from("/eth/latest_block")).ok()?;
+            let latest_block_bytes = hex::decode(&response).ok()?;
+            let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
+            Some(latest_block)
         }
     }
 }

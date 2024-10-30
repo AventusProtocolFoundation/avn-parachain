@@ -766,6 +766,13 @@ pub trait BridgeInterface {
         params: &LowerParams,
         caller_id: Vec<u8>,
     ) -> Result<(), DispatchError>;
+    fn read_bridge_contract(
+        account_id_bytes: Vec<u8>,
+        function_name: &[u8],
+        params: &[(Vec<u8>, Vec<u8>)],
+        eth_block: Option<u32>,
+    ) -> Result<Vec<u8>, DispatchError>;
+    fn latest_finalised_ethereum_block() -> Option<u32>;
 }
 
 pub trait BridgeInterfaceNotification {

@@ -501,6 +501,19 @@ impl BridgeInterface for TestRuntime {
     fn generate_lower_proof(_: u32, _: &LowerParams, _: Vec<u8>) -> Result<(), DispatchError> {
         Ok(())
     }
+
+    fn read_bridge_contract(
+        _: Vec<u8>,
+        _: &[u8],
+        _: &[(Vec<u8>, Vec<u8>)],
+        _: Option<u32>,
+    ) -> Result<Vec<u8>, DispatchError> {
+        Ok(vec![])
+    }
+
+    fn latest_finalised_ethereum_block() -> Option<u32> {
+        None
+    }
 }
 
 /*********************** Add validators support ********************** */

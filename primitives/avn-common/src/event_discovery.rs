@@ -191,7 +191,7 @@ pub mod events_helpers {
     }
 
     // TODO unit test this
-    pub fn compute_finalised_block_number(
+    pub fn compute_start_block_from_finalised_block_number(
         ethereum_block: u32,
         range_length: u32,
     ) -> Result<u32, ()> {
