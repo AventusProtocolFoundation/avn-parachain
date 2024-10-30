@@ -103,6 +103,7 @@ pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::{ensure_root, pallet_prelude::*};
@@ -330,7 +331,6 @@ pub mod pallet {
         pub balances: Vec<(H160, T::AccountId, u128)>,
     }
 
-    // #[cfg(feature = "std")]
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
@@ -1162,5 +1162,13 @@ impl<T: Config> FeePaymentHandler for Pallet<T> {
         recipient: &Self::AccountId,
     ) -> Result<(), Self::Error> {
         Self::settle_transfer(token_id, payer, recipient, amount)
+    }
+    fn pay_treasury(
+        amount: &Self::TokenBalance,
+        payer: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
+        let recipient = Self::compute_treasury_account_id();
+        let token: Self::Token = self::AVTTokenContract::<T>::get().into();
+        Self::settle_transfer(&token, payer, &recipient, amount)
     }
 }

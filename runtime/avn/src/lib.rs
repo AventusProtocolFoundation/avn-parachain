@@ -172,7 +172,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 76,
+    spec_version: 77,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -637,9 +637,13 @@ impl pallet_avn_transaction_payment::Config for Runtime {
 impl pallet_avn_anchor::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+    type FeeHandler = TokenManager;
     type Signature = Signature;
+    type Token = EthAddress;
+    type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
 use sp_avn_common::{
@@ -679,6 +683,7 @@ parameter_types! {
     pub const StringLimit: u32 = 50;
     pub const MetadataDepositBase: Balance = 1 * MILLI_AVT;
     pub const MetadataDepositPerByte: Balance = 100 * MICRO_AVT;
+    pub const DefaultCheckpointFee: Balance = 60 * MILLI_AVT;
 }
 const ASSET_ACCOUNT_DEPOSIT: Balance = 100 * MICRO_AVT;
 
