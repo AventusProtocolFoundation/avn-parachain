@@ -571,6 +571,23 @@ fn publish_to_ethereum_creates_new_transaction_request() {
 }
 
 #[test]
+fn read_bridge_contract_with_invalid_account_id() {
+    let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+    ext.execute_with(|| {
+        let context = setup_context();
+        let invalid_account_id_encoded = vec![];
+
+        let result = EthBridge::read_bridge_contract(
+            invalid_account_id_encoded,
+            b"referenceRateUpdatedAt",
+            &vec![],
+            None,
+        );
+        assert_err!(result, Error::<TestRuntime>::InvalidAccountId);
+    });
+}
+
+#[test]
 fn publish_fails_with_empty_function_name() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
