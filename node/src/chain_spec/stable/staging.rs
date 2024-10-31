@@ -12,76 +12,64 @@ use sp_core::{crypto::UncheckedInto, ecdsa, sr25519, ByteArray, H160};
 
 pub fn staging_testnet_config() -> ChainSpec {
     let staging_parachain_id: u32 = 3000;
-    ChainSpec::from_genesis(
-        // Name
-        "AvN Staging Parachain",
-        // ID
-        "avn_staging_testnet",
-        ChainType::Live,
-        move || {
-            testnet_genesis(
-                // initial collators.
-                vec![
-                    get_authority_keys_from_seed_with_derivation("avn-collator-1"),
-                    get_authority_keys_from_seed_with_derivation("avn-collator-2"),
-                    get_authority_keys_from_seed_with_derivation("avn-collator-3"),
-                    get_authority_keys_from_seed_with_derivation("avn-collator-4"),
-                ],
-                // endowed accounts
-                vec![
-                    (get_account_id_from_seed::<sr25519::Public>("avn-collator-1"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("avn-collator-2"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("avn-collator-3"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("avn-collator-4"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("avn-sudo"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
-                    (
-                        get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"),
-                        AVT_ENDOWMENT,
-                    ),
-                    (
-                        get_account_id_from_seed::<sr25519::Public>("onboarding-relayer"),
-                        AVT_ENDOWMENT,
-                    ),
-                    (get_account_id_from_seed::<sr25519::Public>("test-account"), AVT_ENDOWMENT),
-                ],
-                staging_parachain_id.into(),
-                // SUDO account
-                get_account_id_from_seed::<sr25519::Public>("avn-sudo"),
-                // AVT contract
-                H160(hex!("b3594297e1F257AD2A90222F66393645C6622263")),
-                // AVN contract
-                H160(hex!("2bb59e4f9Cd053779E5d6f6dB2724F5DF5e53ce6")),
-                vec![],
-                staging_ethereum_public_keys(),
-                vec![],
-                SMALL_EVENT_CHALLENGE_PERIOD,
-                HALF_HOUR_SCHEDULE_PERIOD,
-                SMALL_VOTING_PERIOD,
-                None,
-            )
-        },
-        // Bootnodes
-        Vec::new(),
-        // Telemetry
-        None,
-        // Protocol ID
-        Some("staging-parachain"),
-        // Fork ID
-        None,
-        // Properties
-        avn_chain_properties(),
-        // Extensions
+    let properties = avn_chain_properties();
+
+    ChainSpec::builder(
+        avn_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
         Extensions {
-            relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
+            relay_chain: "rococo-local".into(),
+            // You MUST set this to the correct network!
             para_id: staging_parachain_id,
         },
     )
+    .with_name("AvN Staging Parachain")
+    .with_protocol_id("avn-staging-testnet")
+    .with_id("staging-parachain")
+    .with_properties(properties)
+    .with_chain_type(ChainType::Live)
+    .with_genesis_config_patch(testnet_genesis(
+        // initial collators.
+        vec![
+            get_authority_keys_from_seed_with_derivation("avn-collator-1"),
+            get_authority_keys_from_seed_with_derivation("avn-collator-2"),
+            get_authority_keys_from_seed_with_derivation("avn-collator-3"),
+            get_authority_keys_from_seed_with_derivation("avn-collator-4"),
+        ],
+        // endowed accounts
+        vec![
+            (get_account_id_from_seed::<sr25519::Public>("avn-collator-1"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("avn-collator-2"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("avn-collator-3"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("avn-collator-4"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("avn-sudo"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("onboarding-relayer"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("test-account"), AVT_ENDOWMENT),
+        ],
+        staging_parachain_id.into(),
+        // SUDO account
+        get_account_id_from_seed::<sr25519::Public>("avn-sudo"),
+        // AVT contract
+        H160(hex!("b3594297e1F257AD2A90222F66393645C6622263")),
+        // AVN contract
+        H160(hex!("2bb59e4f9Cd053779E5d6f6dB2724F5DF5e53ce6")),
+        vec![],
+        staging_ethereum_public_keys(),
+        vec![],
+        SMALL_EVENT_CHALLENGE_PERIOD,
+        HALF_HOUR_SCHEDULE_PERIOD,
+        SMALL_VOTING_PERIOD,
+        None,
+    ))
+    .build()
 }
 
 pub fn staging_dev_testnet_config() -> ChainSpec {
     let staging_parachain_id: u32 = 2000;
+    let properties = avn_chain_properties();
+
     let mut endowed_accounts = vec![
         // SUDO account
         (
@@ -93,51 +81,41 @@ pub fn staging_dev_testnet_config() -> ChainSpec {
     ];
     endowed_accounts.append(&mut staging_dev_endowed_collators());
 
-    ChainSpec::from_genesis(
-        // Name
-        "AvN Staging Dev Parachain",
-        // ID
-        "avn_staging_dev_testnet",
-        ChainType::Live,
-        move || {
-            testnet_genesis(
-                // initial collators.
-                staging_uat_authorities_keys(),
-                // endowed accounts
-                endowed_accounts.clone(),
-                staging_parachain_id.into(),
-                // SUDO account
-                hex!["20ef357ca657d8cce8fcfc2e230871347fc68b1451a575eaedb9797616101608"].into(),
-                // AVT contract
-                H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730")),
-                // AVN contract
-                H160(hex!("0Dd31348e68b6400bf8BdE84a1AaF733D9fCBf9B")),
-                // TODO update this if needed with the nft contracts
-                vec![],
-                staging_dev_ethereum_public_keys(),
-                vec![],
-                NORMAL_EVENT_CHALLENGE_PERIOD,
-                FOUR_HOURS_SCHEDULE_PERIOD,
-                NORMAL_VOTING_PERIOD,
-                None,
-            )
-        },
-        // Bootnodes
-        Vec::new(),
-        // Telemetry
-        None,
-        // Protocol ID
-        Some("staging-dev"),
-        // Fork ID
-        None,
-        // Properties
-        avn_chain_properties(),
-        // Extensions
+    ChainSpec::builder(
+        avn_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
         Extensions {
-            relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
+            relay_chain: "rococo-local".into(),
+            // You MUST set this to the correct network!
             para_id: staging_parachain_id,
         },
     )
+    .with_name("AvN Staging Dev Parachain")
+    .with_protocol_id("staging-dev")
+    .with_id("avn_staging_dev_testnet")
+    .with_properties(properties)
+    .with_chain_type(ChainType::Live)
+    .with_genesis_config_patch(testnet_genesis(
+        // initial collators.
+        staging_uat_authorities_keys(),
+        // endowed accounts
+        endowed_accounts.clone(),
+        staging_parachain_id.into(),
+        // SUDO account
+        hex!["20ef357ca657d8cce8fcfc2e230871347fc68b1451a575eaedb9797616101608"].into(),
+        // AVT contract
+        H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730")),
+        // AVN contract
+        H160(hex!("0Dd31348e68b6400bf8BdE84a1AaF733D9fCBf9B")),
+        // TODO update this if needed with the nft contracts
+        vec![],
+        staging_dev_ethereum_public_keys(),
+        vec![],
+        NORMAL_EVENT_CHALLENGE_PERIOD,
+        FOUR_HOURS_SCHEDULE_PERIOD,
+        NORMAL_VOTING_PERIOD,
+        None,
+    ))
+    .build()
 }
 
 #[rustfmt::skip]

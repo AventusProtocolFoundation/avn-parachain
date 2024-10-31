@@ -436,7 +436,7 @@ where
             let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
 
             let secret = SecretKey::from_slice(&my_priv_key)?;
-            let message = secp256k1::Message::from_slice(&hashed_message)?;
+            let message = secp256k1::Message::from_digest_slice(&hashed_message)?;
             let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
 
             Ok(hex::encode(signature.encode()))
