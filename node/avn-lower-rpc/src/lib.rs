@@ -12,8 +12,13 @@ use jsonrpsee::{
 use avn_service::{extrinsic_utils::*, merkle_tree_utils::*, Error as AvnServiceError};
 use node_primitives::AccountId;
 
+#[deprecated]
 #[rpc(server)]
 pub trait LowerDataProviderRpc {
+    #[deprecated(
+        since = "6.3.1",
+        note = "This method is being deprecated and will be removed in the near future"
+    )]
     #[method(name = "lower_data", blocking)]
     fn get_lower_data(
         &self,
@@ -24,6 +29,10 @@ pub trait LowerDataProviderRpc {
     ) -> Result<String>;
 }
 
+#[deprecated(
+    since = "6.3.1",
+    note = "This method is being deprecated and will be removed in the near future"
+)]
 pub struct LowerDataProvider<C, Block> {
     client: Arc<C>,
     _marker: std::marker::PhantomData<Block>,
