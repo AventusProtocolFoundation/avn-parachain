@@ -1139,7 +1139,6 @@ version = "6.3.1"
 dependencies = [
  "avn-runtime-common",
  "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
@@ -1172,6 +1171,7 @@ dependencies = [
  "pallet-eth-bridge-runtime-api",
  "pallet-ethereum-events",
  "pallet-im-online",
+ "pallet-message-queue",
  "pallet-nft-manager",
  "pallet-offences",
  "pallet-parachain-staking",
@@ -1201,6 +1201,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -1208,6 +1209,7 @@ dependencies = [
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0)",
  "sp-transaction-pool",
  "sp-version",
+ "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -1220,7 +1222,6 @@ version = "6.3.1"
 dependencies = [
  "avn-runtime-common",
  "cumulus-pallet-aura-ext",
- "cumulus-pallet-dmp-queue",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-session-benchmarking",
  "cumulus-pallet-xcm",
@@ -1253,6 +1254,7 @@ dependencies = [
  "pallet-eth-bridge-runtime-api",
  "pallet-ethereum-events",
  "pallet-im-online",
+ "pallet-message-queue",
  "pallet-nft-manager",
  "pallet-offences",
  "pallet-parachain-staking",
@@ -1282,6 +1284,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -1289,6 +1292,7 @@ dependencies = [
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0)",
  "sp-transaction-pool",
  "sp-version",
+ "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -1332,7 +1336,7 @@ dependencies = [
  "sc-transaction-pool",
  "sc-transaction-pool-api",
  "secp256k1 0.21.3",
- "secp256k1 0.24.3",
+ "secp256k1 0.28.0",
  "serde",
  "serde_json",
  "sp-api",
@@ -2775,24 +2779,6 @@ dependencies = [
  "sp-consensus-aura",
  "sp-runtime",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0)",
-]
-
-[[package]]
-name = "cumulus-pallet-dmp-queue"
-version = "0.1.0"
-source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
-dependencies = [
- "cumulus-primitives-core",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec 3.6.5",
- "scale-info",
- "sp-io",
- "sp-runtime",
- "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0)",
- "staging-xcm",
 ]
 
 [[package]]
@@ -7130,11 +7116,13 @@ name = "pallet-asset-tx-payment"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-transaction-payment",
  "parity-scale-codec 3.6.5",
  "scale-info",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -7498,6 +7486,7 @@ name = "pallet-collator-selection"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?tag=polkadot-v1.6.0#481165d92297d7dfd5eaf9c7f442441761fc0a12"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -12520,15 +12509,6 @@ dependencies = [
 
 [[package]]
 name = "secp256k1"
-version = "0.24.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b1629c9c557ef9b293568b338dddfc8208c98a18c59d722a9d53f859d9c9b62"
-dependencies = [
- "secp256k1-sys 0.6.1",
-]
-
-[[package]]
-name = "secp256k1"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2acea373acb8c21ecb5a23741452acd2593ed44ee3d343e72baaa143bc89d0d5"
@@ -12541,15 +12521,6 @@ name = "secp256k1-sys"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "957da2573cde917463ece3570eab4a0b3f19de6f1646cde62e6fd3868f566036"
-dependencies = [
- "cc",
-]
-
-[[package]]
-name = "secp256k1-sys"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "83080e2c2fc1006e625be82e5d1eb6a43b7fd9578b617fcc55814daf286bba4b"
 dependencies = [
  "cc",
 ]
