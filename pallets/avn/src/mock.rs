@@ -3,8 +3,8 @@
 #![cfg(test)]
 
 use crate::{self as pallet_avn, *};
-use frame_support::{parameter_types, weights::Weight};
-use frame_system as system;
+use frame_support::{derive_impl, parameter_types, weights::Weight};
+use frame_system::{self as system, DefaultConfig};
 use hex_literal::hex;
 use pallet_session as session;
 use sp_core::{
@@ -50,30 +50,15 @@ parameter_types! {
     pub const ChallengePeriod: u64 = 2;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
     type RuntimeOrigin = RuntimeOrigin;
     type Nonce = u64;
     type RuntimeCall = RuntimeCall;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = u64;
-    type Lookup = IdentityLookup<Self::AccountId>;
     type Block = Block;
     type RuntimeEvent = RuntimeEvent;
     type BlockHashCount = BlockHashCount;
-    type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
