@@ -7,15 +7,8 @@ use frame_support::{derive_impl, parameter_types, weights::Weight};
 use frame_system::{self as system, DefaultConfig};
 use hex_literal::hex;
 use pallet_session as session;
-use sp_core::{
-    offchain::testing::{OffchainState, PendingRequest},
-    H256,
-};
-use sp_runtime::{
-    testing::UintAuthorityId,
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    BuildStorage, Perbill,
-};
+use sp_core::offchain::testing::{OffchainState, PendingRequest};
+use sp_runtime::{testing::UintAuthorityId, traits::ConvertInto, BuildStorage, Perbill};
 use sp_state_machine::BasicExternalities;
 use std::cell::RefCell;
 
@@ -33,14 +26,8 @@ frame_support::construct_runtime!(
     }
 );
 
-impl Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
-    type AuthorityId = UintAuthorityId;
-    type EthereumPublicKeyChecker = ();
-    type NewSessionHandler = ();
-    type DisabledValidatorChecker = ();
-    type WeightInfo = ();
-}
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
+impl Config for TestRuntime {}
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;

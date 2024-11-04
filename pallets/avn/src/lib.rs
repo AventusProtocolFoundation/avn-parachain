@@ -97,9 +97,10 @@ pub mod pallet {
         AvnBridgeContractUpdated { old_contract: H160, new_contract: H160 },
     }
 
-    #[pallet::config]
+    #[pallet::config(with_default)]
     pub trait Config: frame_system::Config {
         /// Overarching event type
+        #[pallet::no_default_bounds]
         type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// The identifier type for an authority.
@@ -117,6 +118,28 @@ pub mod pallet {
         type DisabledValidatorChecker: DisabledValidatorChecker<Self::AccountId>;
 
         type WeightInfo: WeightInfo;
+    }
+
+    /// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+    pub mod config_preludes {
+        use super::*;
+        use frame_support::derive_impl;
+        use sp_runtime::testing::UintAuthorityId;
+        pub struct TestDefaultConfig;
+
+        #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+        impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+        #[frame_support::register_default_impl(TestDefaultConfig)]
+        impl DefaultConfig for TestDefaultConfig {
+            #[inject_runtime_type]
+            type RuntimeEvent = ();
+            type AuthorityId = UintAuthorityId;
+            type EthereumPublicKeyChecker = ();
+            type NewSessionHandler = ();
+            type DisabledValidatorChecker = ();
+            type WeightInfo = ();
+        }
     }
 
     #[pallet::pallet]
