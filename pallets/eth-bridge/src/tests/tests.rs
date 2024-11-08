@@ -5,6 +5,7 @@ use crate::{eth::generate_send_calldata, mock::*, request::*, *};
 use frame_support::{
     assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo, error::BadOrigin,
 };
+use sp_avn_common::BridgeContractMethod;
 use sp_runtime::{testing::UintAuthorityId, DispatchError};
 
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";

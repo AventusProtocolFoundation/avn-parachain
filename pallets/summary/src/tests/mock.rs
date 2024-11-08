@@ -512,7 +512,7 @@ impl BridgeInterface for TestRuntime {
     }
 
     fn latest_finalised_ethereum_block() -> Result<u32, DispatchError> {
-        None
+        Ok(0)
     }
 }
 
