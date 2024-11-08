@@ -147,9 +147,15 @@ pub mod pallet {
         /// Handler to notify the runtime when AVT growth is lifted.
         type OnGrowthLiftedHandler: OnGrowthLiftedHandler<BalanceOf<Self>>;
         type Scheduler: ScheduleAnon<BlockNumberFor<Self>, CallOf<Self>, Self::PalletsOrigin>
-            + ScheduleNamed<BlockNumberFor<Self>, CallOf<Self>, Self::PalletsOrigin>;
+            + ScheduleNamed<
+                BlockNumberFor<Self>,
+                CallOf<Self>,
+                Self::PalletsOrigin,
+                Hasher = Self::Hashing,
+            >;
+
         /// The preimage provider.
-        type Preimages: QueryPreimage + StorePreimage;
+        type Preimages: QueryPreimage<H = Self::Hashing> + StorePreimage;
         /// Overarching type of all pallets origins.
         type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
         type BridgeInterface: BridgeInterface;
@@ -991,14 +997,15 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         let lower_id = Self::lower_id();
         let schedule_name = ("Lower", &lower_id).using_encoded(sp_io::hashing::blake2_256);
-        let call = Box::new(Call::execute_lower {
+        let call: CallOf<T> = Call::<T>::execute_lower {
             from: from.clone(),
             to_account_id,
             token_id,
             amount,
             t1_recipient,
             lower_id,
-        });
+        }
+        .into();
 
         T::Scheduler::schedule_named(
             schedule_name,
@@ -1006,7 +1013,7 @@ impl<T: Config> Pallet<T> {
             None,
             HARD_DEADLINE,
             frame_system::RawOrigin::Root.into(),
-            T::Preimages::bound(CallOf::<T>::from(*call))
+            T::Preimages::bound(CallOf::<T>::from(call))
                 .map_err(|_| Error::<T>::InvalidLowerCall)?,
         )?;
 
