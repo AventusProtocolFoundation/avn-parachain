@@ -47,7 +47,7 @@ fn corroborate_bad_transactions(
 
 #[test]
 fn check_publish_root_encoding() {
-    let function_name = b"publishRoot".to_vec();
+    let function_name = BridgeContractMethod::PublishRoot.as_bytes().to_vec();
     let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
     let expected_msg_hash = "778a3de5c54e9f2d1c0249cc5c15edf56e205daca24349cc6a71ee0ab04b6300";
     let expected_calldata = "0664c0ba30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a000000000000000000000000000000000000000000000000000000000651407c9000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000";
@@ -57,7 +57,7 @@ fn check_publish_root_encoding() {
 
 #[test]
 fn check_trigger_growth_encoding() {
-    let function_name = b"triggerGrowth".to_vec();
+    let function_name = BridgeContractMethod::TriggerGrowth.as_bytes().to_vec();
     let params = vec![
         (b"uint128".to_vec(), REWARDS.to_vec()),
         (b"uint128".to_vec(), AVG_STAKED.to_vec()),
@@ -71,7 +71,7 @@ fn check_trigger_growth_encoding() {
 
 #[test]
 fn check_add_author_encoding() {
-    let function_name = b"addAuthor".to_vec();
+    let function_name = BridgeContractMethod::AddAuthor.as_bytes().to_vec();
     let params = vec![
         (b"bytes".to_vec(), hex::decode(T1_PUB_KEY).unwrap()),
         (b"bytes32".to_vec(), hex::decode(T2_PUB_KEY).unwrap()),
@@ -84,7 +84,7 @@ fn check_add_author_encoding() {
 
 #[test]
 fn check_remove_author_encoding() {
-    let function_name = b"removeAuthor".to_vec();
+    let function_name = BridgeContractMethod::RemoveAuthor.as_bytes().to_vec();
     let params = vec![
         (b"bytes32".to_vec(), hex::decode(T2_PUB_KEY).unwrap()),
         (b"bytes".to_vec(), hex::decode(T1_PUB_KEY).unwrap()),
@@ -247,7 +247,7 @@ mod remove_active_request {
         ext.execute_with(|| {
             let context = setup_context();
             let tx_id = add_new_send_request::<TestRuntime>(
-                &b"removeAuthor".to_vec(),
+                &BridgeContractMethod::RemoveAuthor.as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
             )
@@ -273,7 +273,7 @@ mod remove_active_request {
         ext.execute_with(|| {
             let context = setup_context();
             let _ = add_new_send_request::<TestRuntime>(
-                &b"removeAuthor".to_vec(),
+                &BridgeContractMethod::RemoveAuthor.as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
             )
@@ -554,7 +554,7 @@ mod add_corroboration {
 fn publish_to_ethereum_creates_new_transaction_request() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
-            let function_name = b"publishRoot".to_vec();
+            let function_name = BridgeContractMethod::PublishRoot.as_bytes().to_vec();
             let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
             let transaction_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
@@ -565,7 +565,7 @@ fn publish_to_ethereum_creates_new_transaction_request() {
             assert!(System::events().iter().any(|record| matches!(
                 &record.event,
                 mock::RuntimeEvent::EthBridge(crate::Event::PublishToEthereum { function_name, params, tx_id, caller_id: _ })
-                if function_name == &b"publishRoot".to_vec() && tx_id == &transaction_id && params == &vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())]
+                if function_name == &BridgeContractMethod::PublishRoot.as_bytes().to_vec() && tx_id == &transaction_id && params == &vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())]
             )));
         });
 }
@@ -579,7 +579,7 @@ fn read_bridge_contract_with_invalid_account_id() {
 
         let result = EthBridge::read_bridge_contract(
             invalid_account_id_encoded,
-            b"referenceRateUpdatedAt",
+            BridgeContractMethod::ReferenceRateUpdatedAt.as_bytes(),
             &vec![],
             None,
         );
@@ -603,7 +603,7 @@ fn publish_fails_with_empty_function_name() {
 fn publish_fails_with_exceeding_params_limit() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
-        let function_name: &[u8] = b"publishRoot";
+        let function_name: &[u8] = BridgeContractMethod::PublishRoot.as_bytes();
         let params = vec![(b"param1".to_vec(), b"value1".to_vec()); 6]; // ParamsLimit is 5
 
         let result = EthBridge::publish(function_name, &params, vec![]);
@@ -615,7 +615,7 @@ fn publish_fails_with_exceeding_params_limit() {
 fn publish_fails_with_exceeding_type_limit_in_params() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
-        let function_name: &[u8] = b"publishRoot";
+        let function_name: &[u8] = BridgeContractMethod::PublishRoot.as_bytes();
         let params = vec![(vec![b'a'; 8], b"value1".to_vec())]; // TypeLimit is 7
 
         let result = EthBridge::publish(function_name, &params, vec![]);
@@ -633,7 +633,7 @@ fn publish_and_confirm_transaction() {
     ext.execute_with(|| {
         let context = setup_context();
 
-        let function_name = b"publishRoot".to_vec();
+        let function_name = BridgeContractMethod::PublishRoot.as_bytes().to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
         let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
@@ -663,7 +663,7 @@ fn publish_and_send_transaction() {
     ext.execute_with(|| {
         let context = setup_context();
 
-        let function_name = b"publishRoot".to_vec();
+        let function_name = BridgeContractMethod::PublishRoot.as_bytes().to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
         let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
@@ -698,7 +698,7 @@ fn publish_and_corroborate_transaction() {
     ext.execute_with(|| {
         let context = setup_context();
 
-        let function_name = b"publishRoot".to_vec();
+        let function_name = BridgeContractMethod::PublishRoot.as_bytes().to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
         let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
@@ -734,7 +734,7 @@ fn unsent_transactions_are_replayed() {
     ext.execute_with(|| {
         let context = setup_context();
 
-        let function_name = b"publishRoot".to_vec();
+        let function_name = BridgeContractMethod::PublishRoot.as_bytes().to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
         let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
@@ -778,7 +778,7 @@ fn self_corroborate_fails() {
     ext.execute_with(|| {
         let context = setup_context();
 
-        let function_name = b"publishRoot".to_vec();
+        let function_name = BridgeContractMethod::PublishRoot.as_bytes().to_vec();
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
         let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();

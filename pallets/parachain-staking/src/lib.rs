@@ -140,7 +140,7 @@ pub mod pallet {
 
     pub use sp_avn_common::{
         bounds::VotingSessionIdBound, event_types::Validator, safe_add_block_numbers,
-        verify_signature, IngressCounter, Proof,
+        verify_signature, IngressCounter, Proof, BridgeContractMethod
     };
     pub use sp_runtime::{
         traits::{
@@ -2442,7 +2442,7 @@ pub mod pallet {
             )
             .map_err(|_| DispatchError::Other(Error::<T>::ErrorConvertingBalance.into()))?;
 
-            let function_name: &[u8] = b"triggerGrowth";
+            let function_name: &[u8] = BridgeContractMethod::TriggerGrowth.as_bytes();
             let params = vec![
                 (b"uint128".to_vec(), format!("{}", rewards_in_period_128).as_bytes().to_vec()),
                 (

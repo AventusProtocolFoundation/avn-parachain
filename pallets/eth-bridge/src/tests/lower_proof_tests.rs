@@ -307,7 +307,7 @@ mod lower_proofs {
 
             // Queue a send tx request
             let tx_id = add_new_send_request::<TestRuntime>(
-                &b"removeAuthor".to_vec(),
+                &BridgeContractMethod::RemoveAuthor.as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
             )

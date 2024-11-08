@@ -75,7 +75,7 @@ pub enum BridgeContractMethod {
     PublishRoot,
     TriggerGrowth,
     AddAuthor,
-    RawOriginemoveAuthor,
+    RemoveAuthor,
 }
 
 impl BridgeContractMethod {
@@ -86,8 +86,8 @@ impl BridgeContractMethod {
             BridgeContractMethod::UpdateReferenceRate => b"updateReferenceRate",
             BridgeContractMethod::PublishRoot => b"publishRoot",
             BridgeContractMethod::TriggerGrowth => b"TriggerGrowth",
-            BridgeContractMethod::AddAuthor => b"AddAuthor",
-            BridgeContractMethod::RawOriginemoveAuthor => b"RawOriginemoveAuthor",
+            BridgeContractMethod::AddAuthor => b"addAuthor",
+            BridgeContractMethod::RemoveAuthor => b"removeAuthor",
         }
     }
 }
