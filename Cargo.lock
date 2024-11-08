@@ -1172,6 +1172,7 @@ dependencies = [
  "pallet-eth-bridge-runtime-api",
  "pallet-ethereum-events",
  "pallet-im-online",
+ "pallet-message-queue",
  "pallet-nft-manager",
  "pallet-offences",
  "pallet-parachain-staking",
@@ -1201,6 +1202,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -1208,6 +1210,7 @@ dependencies = [
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
  "sp-transaction-pool",
  "sp-version",
+ "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -1253,6 +1256,7 @@ dependencies = [
  "pallet-eth-bridge-runtime-api",
  "pallet-ethereum-events",
  "pallet-im-online",
+ "pallet-message-queue",
  "pallet-nft-manager",
  "pallet-offences",
  "pallet-parachain-staking",
@@ -1282,6 +1286,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
+ "sp-genesis-builder",
  "sp-inherents",
  "sp-offchain",
  "sp-runtime",
@@ -1289,6 +1294,7 @@ dependencies = [
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
  "sp-transaction-pool",
  "sp-version",
+ "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
@@ -2783,7 +2789,6 @@ version = "0.1.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0#f00a911c52c047db3119dedfddc86c332ff6626b"
 dependencies = [
  "cumulus-primitives-core",
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -7156,11 +7161,13 @@ name = "pallet-asset-tx-payment"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0#f00a911c52c047db3119dedfddc86c332ff6626b"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "pallet-transaction-payment",
  "parity-scale-codec 3.6.11",
  "scale-info",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -7557,6 +7564,7 @@ name = "pallet-collator-selection"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0#f00a911c52c047db3119dedfddc86c332ff6626b"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
