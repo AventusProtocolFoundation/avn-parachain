@@ -487,8 +487,7 @@ pub mod pallet {
                 let mut result = result;
                 result.ready_for_processing_after_block = current_block
                     .checked_add(&Self::event_challenge_period())
-                    .ok_or(Error::<T>::Overflow)?
-                    .into();
+                    .ok_or(Error::<T>::Overflow)?;
                 result.min_challenge_votes =
                     (AVN::<T>::active_validators().len() as u32) / Self::quorum_factor();
 
