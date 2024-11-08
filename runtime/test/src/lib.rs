@@ -18,11 +18,12 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeAppPublic;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto},
+    traits::{Block as BlockT, ConvertInto},
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
@@ -34,13 +35,16 @@ use sp_std::prelude::*;
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
-    construct_runtime,
+    construct_runtime, derive_impl,
     dispatch::DispatchClass,
+    genesis_builder_helper::{build_config, create_default_config},
     parameter_types,
     traits::{
-        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance,
-        OnUnbalanced, PrivilegeCmp,
+        fungible::HoldConsideration, AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64,
+        Contains, Currency, Imbalance, LinearStoragePrice, OnUnbalanced, PrivilegeCmp,
+        TransformOrigin,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId,
@@ -49,20 +53,19 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureRoot, EnsureSigned,
 };
+
 use governance::pallet_custom_origins;
+use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use proxy_config::AvnProxyConfig;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
-use xcm_config::{XcmConfig, XcmOriginToTransactDispatchOrigin};
+use xcm_config::XcmOriginToTransactDispatchOrigin;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
-
-// XCM Imports
-use xcm_executor::XcmExecutor;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical::{self as pallet_session_historical};
@@ -196,7 +199,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 77,
+    spec_version: 80,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -265,8 +268,6 @@ parameter_types! {
     pub const SS58Prefix: u16 = 42;
 }
 
-// Configure FRAME pallets to include in runtime.
-
 /// Use this filter to block users from calling extrinsics listed here.
 pub struct RestrictedEndpointFilter;
 impl Contains<RuntimeCall> for RestrictedEndpointFilter {
@@ -305,44 +306,29 @@ impl Contains<RuntimeCall> for RestrictedEndpointFilter {
     }
 }
 
+/// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
+/// [`ParaChainDefaultConfig`](`struct@frame_system::config_preludes::ParaChainDefaultConfig`),
+/// but overridden as needed.
+#[derive_impl(frame_system::config_preludes::ParaChainDefaultConfig as frame_system::DefaultConfig)]
 impl frame_system::Config for Runtime {
     /// The identifier used to distinguish between accounts.
     type AccountId = AccountId;
-    /// The aggregated dispatch type that is available for extrinsics.
-    type RuntimeCall = RuntimeCall;
-    /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-    type Lookup = AccountIdLookup<AccountId, ()>;
     /// The index type for storing how many extrinsics an account has signed.
     type Nonce = Nonce;
     /// The type for hashing blocks and tries.
     type Hash = Hash;
-    /// The hashing algorithm used.
-    type Hashing = BlakeTwo256;
     /// The header type.
     type Block = Block;
-    /// The ubiquitous event type.
-    type RuntimeEvent = RuntimeEvent;
-    // type Call = Call;
-    /// The ubiquitous origin type.
-    type RuntimeOrigin = RuntimeOrigin;
     /// Maximum number of block number to block hash mappings to keep (oldest pruned first).
     type BlockHashCount = BlockHashCount;
     /// Runtime version.
     type Version = Version;
-    /// Converts a module to an index of this module in the runtime.
-    type PalletInfo = PalletInfo;
     /// The data to be stored in an account.
     type AccountData = pallet_balances::AccountData<Balance>;
-    /// What to do if a new account is created.
-    type OnNewAccount = ();
-    /// What to do if an account is fully reaped from the system.
-    type OnKilledAccount = ();
     /// The weight of database operations that the runtime can invoke.
     type DbWeight = RocksDbWeight;
     /// The basic call filter to use in dispatchable.
     type BaseCallFilter = RestrictedEndpointFilter;
-    /// Weight information for the extrinsics of this pallet.
-    type SystemWeightInfo = ();
     /// Block & extrinsics weights: base values and limits.
     type BlockWeights = RuntimeBlockWeights;
     /// The maximum length of a block (in bytes).
@@ -384,6 +370,7 @@ impl pallet_balances::Config for Runtime {
     type MaxReserves = ConstU32<50>;
     type ReserveIdentifier = [u8; 8];
     type RuntimeHoldReason = RuntimeHoldReason;
+    type RuntimeFreezeReason = RuntimeFreezeReason;
     type FreezeIdentifier = ();
     type MaxHolds = ConstU32<0>;
     type MaxFreezes = ConstU32<0>;
@@ -402,14 +389,16 @@ impl pallet_transaction_payment::Config for Runtime {
 parameter_types! {
     pub const ReservedXcmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
     pub const ReservedDmpWeight: Weight = MAXIMUM_BLOCK_WEIGHT.saturating_div(4);
+    pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
+    type WeightInfo = ();
     type RuntimeEvent = RuntimeEvent;
     type OnSystemEvent = ();
     type SelfParaId = parachain_info::Pallet<Runtime>;
     type OutboundXcmpMessageSource = XcmpQueue;
-    type DmpMessageHandler = DmpQueue;
+    type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
     type ReservedDmpWeight = ReservedDmpWeight;
     type XcmpMessageHandler = XcmpQueue;
     type ReservedXcmpWeight = ReservedXcmpWeight;
@@ -418,24 +407,45 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 
 impl parachain_info::Config for Runtime {}
 
+parameter_types! {
+       pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+}
+
+impl pallet_message_queue::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    #[cfg(feature = "runtime-benchmarks")]
+    type MessageProcessor = pallet_message_queue::mock_helpers::NoopMessageProcessor<
+        cumulus_primitives_core::AggregateMessageOrigin,
+    >;
+    #[cfg(not(feature = "runtime-benchmarks"))]
+    type MessageProcessor = xcm_builder::ProcessXcmMessage<
+        AggregateMessageOrigin,
+        xcm_executor::XcmExecutor<xcm_config::XcmConfig>,
+        RuntimeCall,
+    >;
+    type Size = u32;
+    // The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
+    type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
+    type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
+    type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+    type MaxStale = sp_core::ConstU32<8>;
+    type ServiceWeight = MessageQueueServiceWeight;
+}
+
 impl cumulus_pallet_aura_ext::Config for Runtime {}
 
 impl cumulus_pallet_xcmp_queue::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
     type ChannelInfo = ParachainSystem;
     type VersionWrapper = ();
-    type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+    // Enqueue XCMP messages from siblings for later processing.
+    type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
+    type MaxInboundSuspended = sp_core::ConstU32<1_000>;
     type ControllerOrigin = EnsureRoot<AccountId>;
     type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
     type WeightInfo = ();
-    type PriceForSiblingDelivery = ();
-}
-
-impl cumulus_pallet_dmp_queue::Config for Runtime {
-    type RuntimeEvent = RuntimeEvent;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
-    type ExecuteOverweightOrigin = EnsureRoot<AccountId>;
+    type PriceForSiblingDelivery = NoPriceForMessageDelivery<ParaId>;
 }
 
 parameter_types! {
@@ -783,18 +793,29 @@ impl pallet_scheduler::Config for Runtime {
     type Preimages = Preimage;
 }
 
+parameter_types! {
+    // 5 AVT
+    pub const PreimageBaseDeposit: Balance = deposit(5, 64);
+    pub const PreimageByteDeposit: Balance = deposit(0, 1);
+    pub const PreimageHoldReason: RuntimeHoldReason = RuntimeHoldReason::Preimage(pallet_preimage::HoldReason::Preimage);
+}
+
 impl pallet_preimage::Config for Runtime {
     type WeightInfo = pallet_preimage::weights::SubstrateWeight<Runtime>;
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type ManagerOrigin = EnsureRoot<AccountId>;
-    type BaseDeposit = ConstU128<{ 5 * AVT }>;
-    type ByteDeposit = ConstU128<{ 100 * MICRO_AVT }>;
+    type Consideration = HoldConsideration<
+        AccountId,
+        Balances,
+        PreimageHoldReason,
+        LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
+    >;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
-    pub enum Runtime
+    pub struct Runtime
     {
         // System support stuff.
         System: frame_system = 0,
@@ -820,7 +841,7 @@ construct_runtime!(
         XcmpQueue: cumulus_pallet_xcmp_queue = 30,
         PolkadotXcm: pallet_xcm = 31,
         CumulusXcm: cumulus_pallet_xcm = 32,
-        DmpQueue: cumulus_pallet_dmp_queue = 33,
+        MessageQueue: pallet_message_queue = 33,
 
         // Substrate pallets
         Assets: pallet_assets = 60,
@@ -844,12 +865,12 @@ construct_runtime!(
         AnchorSummary: pallet_summary::<Instance2> = 110,
 
          // OpenGov pallets
-         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 97,
-         Scheduler: pallet_scheduler::{Pallet, Storage, Event<T>, Call} = 98,
-         Origins: pallet_custom_origins::{Origin} = 99,
-         ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 100,
-         Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 101,
-         Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 97,
+        Scheduler: pallet_scheduler::{Pallet, Storage, Event<T>, Call} = 98,
+        Origins: pallet_custom_origins::{Origin} = 99,
+        ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 100,
+        Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 101,
+        Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102
     }
 );
 
@@ -874,9 +895,11 @@ mod benches {
         [pallet_validators_manager, ValidatorsManager]
         [pallet_session, SessionBench::<Runtime>]
         [pallet_timestamp, Timestamp]
+        [pallet_message_queue, MessageQueue]
         [pallet_utility, Utility]
         [pallet_parachain_staking, ParachainStaking]
         [pallet_avn_anchor, AvnAnchor]
+        [cumulus_pallet_parachain_system, ParachainSystem]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
     );
 }
@@ -1152,6 +1175,16 @@ impl_runtime_apis! {
     impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
         fn authorities() -> Vec<AuthorityDiscoveryId> {
             AuthorityDiscovery::authorities()
+        }
+    }
+
+    impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
+        fn create_default_config() -> Vec<u8> {
+                create_default_config::<RuntimeGenesisConfig>()
+        }
+
+        fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
+                build_config::<RuntimeGenesisConfig>(config)
         }
     }
 }
