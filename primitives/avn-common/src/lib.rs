@@ -85,7 +85,7 @@ impl BridgeContractMethod {
             BridgeContractMethod::CheckReferenceRate => b"checkReferenceRate",
             BridgeContractMethod::UpdateReferenceRate => b"updateReferenceRate",
             BridgeContractMethod::PublishRoot => b"publishRoot",
-            BridgeContractMethod::TriggerGrowth => b"TriggerGrowth",
+            BridgeContractMethod::TriggerGrowth => b"triggerGrowth",
             BridgeContractMethod::AddAuthor => b"addAuthor",
             BridgeContractMethod::RemoveAuthor => b"removeAuthor",
         }
