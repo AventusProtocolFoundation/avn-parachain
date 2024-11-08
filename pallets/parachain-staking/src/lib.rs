@@ -140,7 +140,7 @@ pub mod pallet {
 
     pub use sp_avn_common::{
         bounds::VotingSessionIdBound, event_types::Validator, safe_add_block_numbers,
-        verify_signature, IngressCounter, Proof, BridgeContractMethod
+        verify_signature, BridgeContractMethod, IngressCounter, Proof,
     };
     pub use sp_runtime::{
         traits::{

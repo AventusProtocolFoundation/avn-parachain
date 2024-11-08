@@ -360,6 +360,9 @@ pub mod pallet {
         VotingEnded,
         ValidatorNotFound,
         InvalidEthereumBlockRange,
+        ErrorGettingFinalisedEthereumBlock,
+        InvalidResponse,
+        ErrorDecodingU32,
     }
 
     #[pallet::call]
@@ -1071,12 +1074,24 @@ pub mod pallet {
             )
         }
 
-        fn latest_finalised_ethereum_block() -> Option<u32> {
-            let response =
-                AVN::<T>::get_data_from_service(String::from("/eth/latest_block")).ok()?;
-            let latest_block_bytes = hex::decode(&response).ok()?;
-            let latest_block = u32::decode(&mut &latest_block_bytes[..]).ok()?;
-            Some(latest_block)
+        fn latest_finalised_ethereum_block() -> Result<u32, DispatchError> {
+            let response = AVN::<T>::get_data_from_service(String::from("/eth/latest_block"))
+                .map_err(|e| {
+                    log::error!("❌ Error getting finalised ethereum block: {:?}", e);
+                    Error::<T>::ErrorGettingFinalisedEthereumBlock
+                })?;
+
+            let latest_block_bytes = hex::decode(&response).map_err(|e| {
+                log::error!("❌ Error decoding finalised eth block data {:?}", e);
+                Error::<T>::InvalidResponse
+            })?;
+
+            let latest_block = u32::decode(&mut &latest_block_bytes[..]).map_err(|e| {
+                log::error!("❌ Finalised block is not a valid u32: {:?}", e);
+                Error::<T>::ErrorDecodingU32
+            })?;
+
+            Ok(latest_block)
         }
     }
 }

@@ -511,7 +511,7 @@ impl BridgeInterface for TestRuntime {
         Ok(vec![])
     }
 
-    fn latest_finalised_ethereum_block() -> Option<u32> {
+    fn latest_finalised_ethereum_block() -> Result<u32, DispatchError> {
         None
     }
 }
