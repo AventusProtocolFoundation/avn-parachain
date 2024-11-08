@@ -10,8 +10,7 @@ use std::sync::Arc;
 use node_primitives::{AccountId, Balance, Nonce};
 use runtime_common::opaque::Block;
 
-use sc_client_api::{client::BlockBackend, AuxStore, UsageProvider};
-pub use sc_rpc::{DenyUnsafe, SubscriptionTaskExecutor};
+pub use sc_rpc::DenyUnsafe;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
@@ -37,29 +36,22 @@ pub fn create_full<C, P>(
 where
     C: ProvideRuntimeApi<Block>
         + HeaderBackend<Block>
-        + AuxStore
         + HeaderMetadata<Block, Error = BlockChainError>
         + Send
         + Sync
         + 'static,
-    C: BlockBackend<Block>,
-    C: UsageProvider<Block>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + Sync + Send + 'static,
 {
-    use avn_lower_rpc::{LowerDataProvider, LowerDataProviderRpcServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
 
     let mut module = RpcExtension::new(());
     let FullDeps { client, pool, deny_unsafe } = deps;
 
-    module.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
-    module.merge(TransactionPayment::new(client.clone()).into_rpc())?;
-
-    module.merge(LowerDataProvider::new(client).into_rpc())?;
-
+    module.merge(System::new(client.clone(), pool, deny_unsafe).into_rpc())?;
+    module.merge(TransactionPayment::new(client).into_rpc())?;
     Ok(module)
 }
