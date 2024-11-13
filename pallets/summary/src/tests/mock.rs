@@ -492,7 +492,7 @@ impl BridgeInterface for TestRuntime {
         _params: &[(Vec<u8>, Vec<u8>)],
         _caller_id: Vec<u8>,
     ) -> Result<u32, DispatchError> {
-        if function_name == b"publishRoot" {
+        if function_name == BridgeContractMethod::PublishRoot.as_bytes() {
             return Ok(INITIAL_TRANSACTION_ID)
         }
         Err(Error::<TestRuntime>::ErrorPublishingSummary.into())
@@ -511,8 +511,8 @@ impl BridgeInterface for TestRuntime {
         Ok(vec![])
     }
 
-    fn latest_finalised_ethereum_block() -> Option<u32> {
-        None
+    fn latest_finalised_ethereum_block() -> Result<u32, DispatchError> {
+        Ok(0)
     }
 }
 

@@ -8,7 +8,10 @@ use frame_system as system;
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
-use sp_avn_common::event_types::{EthEvent, EthEventId, LiftedData, ValidEvents};
+use sp_avn_common::{
+    event_types::{EthEvent, EthEventId, LiftedData, ValidEvents},
+    BridgeContractMethod,
+};
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
@@ -294,7 +297,7 @@ pub fn setup_context() -> Context {
         third_confirming_author: third_confirming_author.clone(),
         fourth_confirming_author: fourth_confirming_author.clone(),
         confirmation_signature,
-        request_function_name: b"publishRoot".to_vec(),
+        request_function_name: BridgeContractMethod::PublishRoot.as_bytes().to_vec(),
         request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
         lower_params: [1u8; 76],
         finalised_block_vec,

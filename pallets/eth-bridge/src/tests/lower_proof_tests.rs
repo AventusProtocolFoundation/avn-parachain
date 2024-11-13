@@ -10,6 +10,7 @@ use codec::{alloc::sync::Arc, Decode, Encode};
 use frame_support::traits::Hooks;
 use pallet_avn::{LowerParams, PACKED_LOWER_PARAM_SIZE};
 use parking_lot::RwLock;
+use sp_avn_common::BridgeContractMethod;
 use sp_core::{
     ecdsa,
     offchain::testing::{OffchainState, PendingRequest, PoolState},
@@ -307,7 +308,7 @@ mod lower_proofs {
 
             // Queue a send tx request
             let tx_id = add_new_send_request::<TestRuntime>(
-                &b"removeAuthor".to_vec(),
+                &BridgeContractMethod::RemoveAuthor.as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
             )
