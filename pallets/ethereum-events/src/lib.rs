@@ -148,15 +148,17 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     // Public interface of this pallet
-    #[pallet::config]
+    #[pallet::config(with_default)]
     pub trait Config:
         SendTransactionTypes<Call<Self>>
         + frame_system::Config
         + avn::Config
         + pallet_session::historical::Config
     {
+        #[pallet::no_default_bounds]
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
+        #[pallet::no_default_bounds]
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
             + IsSubType<Call<Self>>
@@ -168,6 +170,7 @@ pub mod pallet {
         type MinEthBlockConfirmation: Get<u64>;
 
         ///  A type that gives the pallet the ability to report offences
+        #[pallet::no_default]
         type ReportInvalidEthereumLog: ReportOffence<
             Self::AccountId,
             IdentificationTuple<Self>,
@@ -175,9 +178,11 @@ pub mod pallet {
         >;
 
         /// A type that can be used to verify signatures
+        #[pallet::no_default]
         type Public: IdentifyAccount<AccountId = Self::AccountId>;
 
         /// The signature type used by accounts/transactions.
+        #[pallet::no_default]
         type Signature: Verify<Signer = Self::Public>
             + Member
             + Decode
@@ -190,6 +195,32 @@ pub mod pallet {
         type EthereumEventsFilter: EthereumEventsFilterTrait;
     }
 
+    /// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+    pub mod config_preludes {
+        use super::*;
+        use frame_support::derive_impl;
+        pub struct TestDefaultConfig;
+        use frame_support::parameter_types;
+
+        parameter_types! {
+            pub const MinEthBlockConfirmation: u64 = 2;
+        }
+
+        #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+        impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+        #[frame_support::register_default_impl(TestDefaultConfig)]
+        impl DefaultConfig for TestDefaultConfig {
+            #[inject_runtime_type]
+            type RuntimeEvent = ();
+            #[inject_runtime_type]
+            type RuntimeCall = ();
+            type ProcessedEventHandler = ();
+            type MinEthBlockConfirmation = MinEthBlockConfirmation;
+            type EthereumEventsFilter = ();
+            type WeightInfo = ();
+        }
+    }
     #[pallet::pallet]
     pub struct Pallet<T>(_);
 
