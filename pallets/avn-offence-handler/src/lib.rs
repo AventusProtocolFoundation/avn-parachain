@@ -35,18 +35,37 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     // Public interface of this pallet
-    #[pallet::config]
+    #[pallet::config(with_default)]
     pub trait Config: frame_system::Config + session::historical::Config {
         /// The overarching event type.
+        #[pallet::no_default_bounds]
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A trait responsible for punishing malicious validators
+        #[pallet::no_default]
         type Enforcer: Enforcer<<Self as session::Config>::ValidatorId>;
 
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+    }
+
+    /// Default implementations of [`DefaultConfig`], which can be used to implement [`Config`].
+    pub mod config_preludes {
+        use super::*;
+        use frame_support::derive_impl;
+        pub struct TestDefaultConfig;
+
+        #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
+        impl frame_system::DefaultConfig for TestDefaultConfig {}
+
+        #[frame_support::register_default_impl(TestDefaultConfig)]
+        impl DefaultConfig for TestDefaultConfig {
+            #[inject_runtime_type]
+            type RuntimeEvent = ();
+            type WeightInfo = ();
+        }
     }
 
     #[pallet::pallet]
