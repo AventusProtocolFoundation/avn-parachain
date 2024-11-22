@@ -417,10 +417,16 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // verify that the incoming (unverified) pubkey is actually a validator
         if !Self::is_validator(&validator.account_id) {
+            log::warn!("✋ Account: {:?} is not an authority.", &validator.account_id);
             return false
         }
-        let recovered_public_key = recover_public_key_from_ecdsa_signature(signature.clone(), data);
+        let recovered_public_key = recover_public_key_from_ecdsa_signature(signature, &data);
         if recovered_public_key.is_err() {
+            log::error!(
+                "❌ Recovery of public key from ECDSA Signature: {:?} and data: {:?} failed",
+                &signature,
+                data
+            );
             return false
         }
 
@@ -428,7 +434,15 @@ impl<T: Config> Pallet<T> {
             &recovered_public_key.expect("Checked for error"),
         ) {
             Some(maybe_validator) => maybe_validator == validator.account_id,
-            _ => false,
+            _ => {
+                log::error!(
+                    "❌ ECDSA signature validation failed on data {:?} validator: {:?} signature {:?}.",
+                    &data,
+                    validator,
+                    signature
+                );
+                false
+            },
         }
     }
 
@@ -752,6 +766,13 @@ pub trait BridgeInterface {
         params: &LowerParams,
         caller_id: Vec<u8>,
     ) -> Result<(), DispatchError>;
+    fn read_bridge_contract(
+        account_id_bytes: Vec<u8>,
+        function_name: &[u8],
+        params: &[(Vec<u8>, Vec<u8>)],
+        eth_block: Option<u32>,
+    ) -> Result<Vec<u8>, DispatchError>;
+    fn latest_finalised_ethereum_block() -> Result<u32, DispatchError>;
 }
 
 pub trait BridgeInterfaceNotification {

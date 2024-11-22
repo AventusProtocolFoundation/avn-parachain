@@ -5,14 +5,14 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-use frame_support::{dispatch::DispatchResult, ensure};
+use frame_support::{dispatch::DispatchResult, ensure, traits::Currency};
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 use codec::Encode;
 use sp_avn_common::CallDecoder;
-use sp_core::{ConstU32, H256};
+use sp_core::{ConstU32, Get, H256};
 use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
 
@@ -36,12 +36,16 @@ pub use self::pallet::*;
 pub type ChainId = u32;
 pub type CheckpointId = u64;
 
+pub(crate) type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType};
     use frame_system::pallet_prelude::*;
-    use sp_avn_common::{verify_signature, InnerCallValidator, Proof};
+    use sp_avn_common::{verify_signature, FeePaymentHandler, InnerCallValidator, Proof};
+    use sp_core::H160;
     use sp_runtime::traits::{Dispatchable, IdentifyAccount, Verify};
 
     pub type ChainId = u32;
@@ -78,6 +82,24 @@ pub mod pallet {
             + TypeInfo;
 
         type WeightInfo: WeightInfo;
+
+        /// Currency type for processing fee payment
+        type Currency: Currency<Self::AccountId>;
+
+        /// The type of token identifier
+        /// (a H160 because this is an Ethereum address)
+        type Token: Parameter + Default + Copy + From<H160> + Into<H160> + MaxEncodedLen;
+
+        /// A handler to process relayer fee payments
+        type FeeHandler: FeePaymentHandler<
+            AccountId = Self::AccountId,
+            Token = Self::Token,
+            TokenBalance = <Self::Currency as Currency<Self::AccountId>>::Balance,
+            Error = DispatchError,
+        >;
+
+        /// The default fee for checkpoint submission
+        type DefaultCheckpointFee: Get<BalanceOf<Self>>;
     }
 
     #[pallet::pallet]
@@ -94,6 +116,11 @@ pub mod pallet {
         /// A new checkpoint was submitted. [handler_account_id, chain_id, checkpoint_id,
         /// checkpoint]
         CheckpointSubmitted(T::AccountId, ChainId, CheckpointId, H256),
+        /// The checkpoint fee was updated. [new_fee]
+        CheckpointFeeUpdated { chain_id: ChainId, new_fee: BalanceOf<T> },
+
+        /// Fee was charged for checkpoint submission [handler, fee, nonce]
+        CheckpointFeeCharged { handler: T::AccountId, chain_id: ChainId, fee: BalanceOf<T> },
     }
 
     #[pallet::error]
@@ -110,6 +137,11 @@ pub mod pallet {
         UnauthorizedProxyTransaction,
         NoChainDataAvailable,
     }
+
+    #[pallet::storage]
+    #[pallet::getter(fn checkpoint_fee)]
+    pub type CheckpointFee<T: Config> =
+        StorageMap<_, Blake2_128Concat, ChainId, BalanceOf<T>, ValueQuery, T::DefaultCheckpointFee>;
 
     #[pallet::storage]
     #[pallet::getter(fn nonces)]
@@ -288,9 +320,38 @@ pub mod pallet {
 
             Ok(())
         }
+
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_checkpoint_fee())]
+        #[pallet::call_index(6)]
+        pub fn set_checkpoint_fee(
+            origin: OriginFor<T>,
+            chain_id: ChainId,
+            new_fee: BalanceOf<T>,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            CheckpointFee::<T>::insert(chain_id, new_fee);
+            Self::deposit_event(Event::CheckpointFeeUpdated { chain_id, new_fee });
+
+            Ok(())
+        }
     }
 
     impl<T: Config> Pallet<T> {
+        pub(crate) fn charge_fee(handler: T::AccountId, chain_id: ChainId) -> DispatchResult {
+            let checkpoint_fee = Self::checkpoint_fee(chain_id);
+
+            T::FeeHandler::pay_treasury(&checkpoint_fee, &handler)?;
+
+            Self::deposit_event(Event::CheckpointFeeCharged {
+                handler: handler.clone(),
+                fee: checkpoint_fee,
+                chain_id,
+            });
+
+            Ok(())
+        }
+
         fn get_next_chain_id() -> Result<ChainId, DispatchError> {
             NextChainId::<T>::try_mutate(|id| {
                 let current_id = *id;
@@ -377,7 +438,7 @@ pub mod pallet {
             ));
 
             <Nonces<T>>::mutate(chain_id, |n| *n += 1);
-
+            Self::charge_fee(handler.clone(), chain_id)?;
             Ok(())
         }
 

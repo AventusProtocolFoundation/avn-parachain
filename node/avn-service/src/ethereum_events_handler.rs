@@ -376,7 +376,7 @@ where
 
     let events_registry = EventRegistry::new();
 
-    log::info!("⛓️  ETH EVENT HANDLER INITIALIZED");
+    log::info!("⛓️  Ethereum events handler service initialised.");
 
     let current_node_author;
     loop {

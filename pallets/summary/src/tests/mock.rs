@@ -243,8 +243,95 @@ impl Summary {
     }
 }
 
-type Block = frame_system::mocking::MockBlock<TestRuntime>;
+impl AnchorSummary {
+    pub fn get_root_data(root_id: &RootId<BlockNumber>) -> RootData<AccountId> {
+        return Roots::<TestRuntime, Instance1>::get(root_id.range, root_id.ingress_counter)
+    }
 
+    pub fn insert_root_hash(
+        root_id: &RootId<BlockNumber>,
+        root_hash: H256,
+        account_id: AccountId,
+        tx_id: EthereumTransactionId,
+    ) {
+        Roots::<TestRuntime, Instance1>::insert(
+            root_id.range,
+            root_id.ingress_counter,
+            RootData::new(root_hash, account_id, Some(tx_id)),
+        );
+    }
+
+    pub fn set_schedule_and_voting_periods(
+        schedule_period: BlockNumber,
+        voting_period: BlockNumber,
+    ) {
+        SchedulePeriod::<TestRuntime, Instance1>::put(schedule_period);
+        VotingPeriod::<TestRuntime, Instance1>::put(voting_period);
+    }
+
+    pub fn set_root_as_validated(root_id: &RootId<BlockNumber>) {
+        Roots::<TestRuntime, Instance1>::mutate(root_id.range, root_id.ingress_counter, |root| {
+            root.is_validated = true
+        });
+    }
+
+    pub fn set_next_block_to_process(next_block_number_to_process: BlockNumber) {
+        NextBlockToProcess::<TestRuntime, Instance1>::put(next_block_number_to_process);
+    }
+
+    pub fn set_next_slot_block_number(slot_block_number: BlockNumber) {
+        NextSlotAtBlock::<TestRuntime, Instance1>::put(slot_block_number);
+    }
+
+    pub fn set_current_slot(slot: BlockNumber) {
+        CurrentSlot::<TestRuntime, Instance1>::put(slot);
+    }
+
+    pub fn set_current_slot_validator(validator_account: AccountId) {
+        CurrentSlotsValidator::<TestRuntime, Instance1>::put(validator_account);
+    }
+
+    pub fn set_previous_summary_slot(slot: BlockNumber) {
+        SlotOfLastPublishedSummary::<TestRuntime, Instance1>::put(slot);
+    }
+
+    pub fn insert_pending_approval(root_id: &RootId<BlockNumber>) {
+        PendingApproval::<TestRuntime, Instance1>::insert(root_id.range, root_id.ingress_counter);
+    }
+
+    pub fn remove_pending_approval(root_range: &RootRange<BlockNumber>) {
+        PendingApproval::<TestRuntime, Instance1>::remove(root_range);
+    }
+
+    pub fn get_vote_for_root(
+        root_id: &RootId<BlockNumber>,
+    ) -> VotingSessionData<AccountId, BlockNumber> {
+        VotesRepository::<TestRuntime, Instance1>::get(root_id)
+    }
+
+    pub fn register_root_for_voting(
+        root_id: &RootId<BlockNumber>,
+        quorum: u32,
+        voting_period_end: u64,
+    ) {
+        VotesRepository::<TestRuntime, Instance1>::insert(
+            root_id,
+            VotingSessionData::new(root_id.session_id(), quorum, voting_period_end, 0),
+        );
+    }
+
+    pub fn record_approve_vote(root_id: &RootId<BlockNumber>, voter: AccountId) {
+        VotesRepository::<TestRuntime, Instance1>::mutate(root_id, |vote| {
+            vote.ayes.try_push(voter).expect("Failed to record aye vote");
+        });
+    }
+
+    pub fn set_total_ingresses(ingress_counter: IngressCounter) {
+        <TotalIngresses<TestRuntime, Instance1>>::put(ingress_counter);
+    }
+}
+
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
 frame_support::construct_runtime!(
     pub enum TestRuntime
     {
@@ -255,6 +342,7 @@ frame_support::construct_runtime!(
         Historical: pallet_session::historical::{Pallet, Storage},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        AnchorSummary: summary::<Instance1>::{Pallet, Call, Storage, Event<T>, Config<T>},
     }
 );
 
@@ -295,6 +383,21 @@ impl Config for TestRuntime {
     type ReportSummaryOffence = OffenceHandler;
     type WeightInfo = ();
     type BridgeInterface = EthBridge;
+    type AutoSubmitSummaries = AutoSubmitSummaries;
+    type InstanceId = InstanceId;
+}
+
+type AvnAnchorSummary = summary::Instance1;
+impl Config<AvnAnchorSummary> for TestRuntime {
+    type RuntimeEvent = RuntimeEvent;
+    type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
+    type MinBlockAge = MinBlockAge;
+    type AccountToBytesConvert = U64To32BytesConverter;
+    type ReportSummaryOffence = OffenceHandler;
+    type WeightInfo = ();
+    type BridgeInterface = EthBridge;
+    type AutoSubmitSummaries = DoNotSubmit;
+    type InstanceId = AnchorInstanceId;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -307,6 +410,10 @@ where
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
+    pub const AutoSubmitSummaries: bool = true;
+    pub const InstanceId: u8 = 1u8;
+    pub const DoNotSubmit: bool = false;
+    pub const AnchorInstanceId: u8 = 2u8;
 }
 
 impl system::Config for TestRuntime {
@@ -385,7 +492,7 @@ impl BridgeInterface for TestRuntime {
         _params: &[(Vec<u8>, Vec<u8>)],
         _caller_id: Vec<u8>,
     ) -> Result<u32, DispatchError> {
-        if function_name == b"publishRoot" {
+        if function_name == BridgeContractMethod::PublishRoot.as_bytes() {
             return Ok(INITIAL_TRANSACTION_ID)
         }
         Err(Error::<TestRuntime>::ErrorPublishingSummary.into())
@@ -393,6 +500,19 @@ impl BridgeInterface for TestRuntime {
 
     fn generate_lower_proof(_: u32, _: &LowerParams, _: Vec<u8>) -> Result<(), DispatchError> {
         Ok(())
+    }
+
+    fn read_bridge_contract(
+        _: Vec<u8>,
+        _: &[u8],
+        _: &[(Vec<u8>, Vec<u8>)],
+        _: Option<u32>,
+    ) -> Result<Vec<u8>, DispatchError> {
+        Ok(vec![])
+    }
+
+    fn latest_finalised_ethereum_block() -> Result<u32, DispatchError> {
+        Ok(0)
     }
 }
 
@@ -531,8 +651,18 @@ impl ExtBuilder {
     }
 
     pub fn with_genesis_config(mut self) -> Self {
-        let _ = summary::GenesisConfig::<TestRuntime> { schedule_period: 160, voting_period: 100 }
-            .assimilate_storage(&mut self.storage);
+        let _ = summary::GenesisConfig::<TestRuntime> {
+            schedule_period: 160,
+            voting_period: 100,
+            _phantom: Default::default(),
+        }
+        .assimilate_storage(&mut self.storage);
+        let _ = summary::GenesisConfig::<TestRuntime, Instance1> {
+            schedule_period: 170,
+            voting_period: 101,
+            _phantom: Default::default(),
+        }
+        .assimilate_storage(&mut self.storage);
         self
     }
 
@@ -649,14 +779,14 @@ pub fn setup_context() -> Context {
         current_slot: CURRENT_SLOT,
         next_block_to_process,
         last_block_in_range,
-        url_param: get_url_param(next_block_to_process),
+        url_param: get_url_param(next_block_to_process, Summary::schedule_period()),
         validator: validator.clone(),
         root_hash_h256,
         root_hash_vec,
         root_id,
         record_summary_calculation_signature: get_signature_for_record_summary_calculation(
             validator,
-            UPDATE_BLOCK_NUMBER_CONTEXT,
+            &Summary::update_block_number_context(),
             root_hash_h256,
             root_id.ingress_counter,
             last_block_in_range,
@@ -751,12 +881,12 @@ pub fn get_signature_for_reject_cast_vote(
         .expect("Signature is signed")
 }
 
-pub fn get_url_param(next_block_to_process: u64) -> String {
+pub fn get_url_param(next_block_to_process: u64, schedule_period: u64) -> String {
     let mut url_param = next_block_to_process.to_string();
     url_param.push_str(&"/".to_string());
 
     let adjust = if next_block_to_process > 0 { 1 } else { 0 };
-    let last_block = next_block_to_process + Summary::schedule_period() - adjust;
+    let last_block = next_block_to_process + schedule_period - adjust;
     url_param.push_str(&last_block.to_string());
     url_param
 }

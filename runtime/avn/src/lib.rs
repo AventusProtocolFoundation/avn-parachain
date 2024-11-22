@@ -568,6 +568,8 @@ parameter_types! {
     pub const MinBlockAge: BlockNumber = 5;
     pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
+    pub const EthAutoSubmitSummaries: bool = true;
+    pub const EthereumInstanceId: u8 = 1u8;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -578,6 +580,8 @@ impl pallet_summary::Config for Runtime {
     type ReportSummaryOffence = Offences;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterface = EthBridge;
+    type AutoSubmitSummaries = EthAutoSubmitSummaries;
+    type InstanceId = EthereumInstanceId;
 }
 
 pub type EthAddress = H160;
@@ -633,9 +637,13 @@ impl pallet_avn_transaction_payment::Config for Runtime {
 impl pallet_avn_anchor::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+    type FeeHandler = TokenManager;
     type Signature = Signature;
+    type Token = EthAddress;
+    type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
 use sp_avn_common::{
@@ -675,6 +683,7 @@ parameter_types! {
     pub const StringLimit: u32 = 50;
     pub const MetadataDepositBase: Balance = 1 * MILLI_AVT;
     pub const MetadataDepositPerByte: Balance = 100 * MICRO_AVT;
+    pub const DefaultCheckpointFee: Balance = 60 * MILLI_AVT;
 }
 const ASSET_ACCOUNT_DEPOSIT: Balance = 100 * MICRO_AVT;
 

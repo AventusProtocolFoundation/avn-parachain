@@ -5,10 +5,10 @@ use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_avn_common::{
-    EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
-    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
+    hash_with_ethereum_prefix, EthQueryRequest, EthQueryResponse, EthQueryResponseType,
+    EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
 };
-use sp_core::{ecdsa::Signature, hashing::keccak_256};
+use sp_core::ecdsa::Signature;
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
 use web3::{transports::Http, types::TransactionReceipt, Web3};
@@ -143,13 +143,6 @@ impl TxQueryData for Vec<u8> {
 pub fn server_error(message: String) -> TideError {
     log::error!("⛓️ 💔 avn-service {:?}", message);
     return TideError::from_str(StatusCode::InternalServerError, format!("{:?}", message))
-}
-
-pub fn hash_with_ethereum_prefix(data_to_sign: &Vec<u8>) -> [u8; 32] {
-    // T1 Solidity code expects "packed" encoding of the signed message & prefix so we concatenate
-    let mut prefixed_message = b"\x19Ethereum Signed Message:\n32".to_vec();
-    prefixed_message.append(&mut data_to_sign.clone());
-    keccak_256(&prefixed_message)
 }
 
 // TODO: Create common version of this, eg in primitives/avn-common, to share with version in
@@ -428,16 +421,15 @@ where
             let secp = Secp256k1::new();
             let keystore_path = &req.state().keystore_path;
 
-            let data_to_sign: Vec<u8> =
-                hex::decode(req.param("data_to_sign")?.trim_start_matches("0x")).map_err(|e| {
+            let data_to_sign = req.param("data_to_sign")?;
+            let hashed_message =
+                hash_with_ethereum_prefix(&data_to_sign.to_string()).map_err(|e| {
                     server_error(format!("Error converting data_to_sign into hex string {:?}", e))
                 })?;
 
-            let hashed_message = hash_with_ethereum_prefix(&data_to_sign);
-
             log::info!(
                 "⛓️  avn-service: data to sign: {:?},\n hashed data to sign: {:?}",
-                hex::encode(data_to_sign),
+                data_to_sign,
                 hex::encode(hashed_message)
             );
             let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;

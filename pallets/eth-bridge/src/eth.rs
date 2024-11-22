@@ -5,17 +5,13 @@ use crate::{
 };
 use ethabi::{Address, Function, Int, Param, ParamType, Token};
 use pallet_avn::AccountToBytesConverter;
-use sp_avn_common::{EthQueryRequest, EthQueryResponseType, EthTransaction};
+use sp_avn_common::{
+    EthQueryRequest, EthQueryResponseType, EthTransaction, ADDRESS, BYTES, BYTES32, UINT128,
+    UINT256, UINT32,
+};
 use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
 use sp_std::vec;
-
-pub const UINT256: &[u8] = b"uint256";
-pub const UINT128: &[u8] = b"uint128";
-pub const UINT32: &[u8] = b"uint32";
-pub const BYTES: &[u8] = b"bytes";
-pub const BYTES32: &[u8] = b"bytes32";
-pub const ADDRESS: &[u8] = b"address";
 
 pub fn sign_msg_hash<T: Config>(msg_hash: &H256) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);
@@ -146,7 +142,7 @@ pub fn generate_encoded_lower_proof<T: Config>(
     return compact_lower_data
 }
 
-fn abi_encode_function<T: pallet::Config>(
+pub fn abi_encode_function<T: pallet::Config>(
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
 ) -> Result<Vec<u8>, Error<T>> {
@@ -222,6 +218,7 @@ fn get_transaction_call_data<T: Config>(
         "query",
         query_request.encode(),
         process_query_result::<T>,
+        None,
     )
 }
 
@@ -229,7 +226,7 @@ fn send_transaction<T: Config>(
     calldata: Vec<u8>,
     author_account_id: &T::AccountId,
 ) -> Result<H256, DispatchError> {
-    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>)
+    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>, None)
 }
 
 fn call_corroborate_method<T: Config>(
@@ -241,18 +238,21 @@ fn call_corroborate_method<T: Config>(
         "view",
         calldata,
         process_corroborate_result::<T>,
+        None,
     )
 }
 
-fn make_ethereum_call<R, T: Config>(
+pub fn make_ethereum_call<R, T: Config>(
     author_account_id: &T::AccountId,
     endpoint: &str,
     calldata: Vec<u8>,
     process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
+    eth_block: Option<u32>,
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let contract_address = AVN::<T>::get_bridge_contract_address();
-    let ethereum_call = EthTransaction::new(sender, contract_address, calldata);
+    let ethereum_call =
+        EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
     let url_path = format!("eth/{}", endpoint);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)

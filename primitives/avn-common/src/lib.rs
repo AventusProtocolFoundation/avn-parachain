@@ -40,6 +40,14 @@ pub const EXTERNAL_SERVICE_PORT_NUMBER_KEY: &'static [u8; 15] = b"avn_port_numbe
 /// Default port number the external service runs on.
 pub const DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER: &str = "2020";
 
+// Ethereum param types
+pub const UINT256: &[u8] = b"uint256";
+pub const UINT128: &[u8] = b"uint128";
+pub const UINT32: &[u8] = b"uint32";
+pub const BYTES: &[u8] = b"bytes";
+pub const BYTES32: &[u8] = b"bytes32";
+pub const ADDRESS: &[u8] = b"address";
+
 pub mod bounds {
     use sp_core::ConstU32;
 
@@ -60,6 +68,30 @@ pub enum ECDSAVerificationError {
     BadSignature,
 }
 
+pub enum BridgeContractMethod {
+    ReferenceRateUpdatedAt,
+    CheckReferenceRate,
+    UpdateReferenceRate,
+    PublishRoot,
+    TriggerGrowth,
+    AddAuthor,
+    RemoveAuthor,
+}
+
+impl BridgeContractMethod {
+    pub fn as_bytes(&self) -> &[u8] {
+        match self {
+            BridgeContractMethod::ReferenceRateUpdatedAt => b"referenceRateUpdatedAt",
+            BridgeContractMethod::CheckReferenceRate => b"checkReferenceRate",
+            BridgeContractMethod::UpdateReferenceRate => b"updateReferenceRate",
+            BridgeContractMethod::PublishRoot => b"publishRoot",
+            BridgeContractMethod::TriggerGrowth => b"triggerGrowth",
+            BridgeContractMethod::AddAuthor => b"addAuthor",
+            BridgeContractMethod::RemoveAuthor => b"removeAuthor",
+        }
+    }
+}
+
 // Struct that holds the information about an Ethereum transaction
 // See https://github.com/ethereum/wiki/wiki/JSON-RPC#parameters-22
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, Default)]
@@ -67,11 +99,17 @@ pub struct EthTransaction {
     pub from: [u8; 32],
     pub to: H160,
     pub data: Vec<u8>,
+    pub block: Option<u32>,
 }
 
 impl EthTransaction {
     pub fn new(from: [u8; 32], to: H160, data: Vec<u8>) -> Self {
-        return EthTransaction { from, to, data }
+        return EthTransaction { from, to, data, block: None }
+    }
+
+    pub fn set_block(mut self, block: Option<u32>) -> Self {
+        self.block = block;
+        self
     }
 }
 
@@ -126,6 +164,11 @@ pub trait FeePaymentHandler {
         _payer: &Self::AccountId,
         _recipient: &Self::AccountId,
     ) -> Result<(), Self::Error>;
+
+    fn pay_treasury(
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+    ) -> Result<(), Self::Error>;
 }
 
 impl FeePaymentHandler for () {
@@ -140,6 +183,13 @@ impl FeePaymentHandler for () {
         _payer: &Self::AccountId,
         _recipient: &Self::AccountId,
     ) -> Result<(), ()> {
+        Err(())
+    }
+
+    fn pay_treasury(
+        _amount: &Self::TokenBalance,
+        _payer: &Self::AccountId,
+    ) -> Result<(), Self::Error> {
         Err(())
     }
 }
@@ -159,11 +209,11 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
 }
 
 pub fn recover_public_key_from_ecdsa_signature(
-    signature: ecdsa::Signature,
-    message: String,
+    signature: &ecdsa::Signature,
+    message: &String,
 ) -> Result<ecdsa::Public, ECDSAVerificationError> {
     match secp256k1_ecdsa_recover_compressed(
-        &signature.into(),
+        signature.as_ref(),
         &hash_with_ethereum_prefix(message)?,
     ) {
         Ok(pubkey) => return Ok(ecdsa::Public::from_raw(pubkey)),
@@ -173,13 +223,20 @@ pub fn recover_public_key_from_ecdsa_signature(
     }
 }
 
-pub fn hash_with_ethereum_prefix(hex_message: String) -> Result<[u8; 32], ECDSAVerificationError> {
+pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSAVerificationError> {
     let message_bytes = hex::decode(hex_message.trim_start_matches("0x"))
         .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
     let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
     prefixed_message.append(&mut message_bytes.to_vec());
-    Ok(keccak_256(&prefixed_message))
+    let hash = keccak_256(&prefixed_message);
+    log::debug!(
+        "🪲 Data without prefix: {:?},\n data with ethereum prefix: {:?}, \n result hash: {:?}",
+        &hex_message,
+        &prefixed_message,
+        hex::encode(&hash),
+    );
+    Ok(hash)
 }
 
 pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member>(

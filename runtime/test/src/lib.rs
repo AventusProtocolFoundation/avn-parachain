@@ -611,9 +611,14 @@ parameter_types! {
     pub const MinBlockAge: BlockNumber = 5;
     pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
+    pub const EthereumInstanceId: u8 = 1u8;
+    pub const EthAutoSubmitSummaries: bool = true;
+    pub const AvnAutoSubmitSummaries: bool = false;
+    pub const AvnInstanceId: u8 = 2u8;
 }
 
-impl pallet_summary::Config for Runtime {
+pub type EthSummary = pallet_summary::Instance1;
+impl pallet_summary::Config<EthSummary> for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
     type MinBlockAge = MinBlockAge;
@@ -621,14 +626,33 @@ impl pallet_summary::Config for Runtime {
     type ReportSummaryOffence = Offences;
     type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterface = EthBridge;
+    type AutoSubmitSummaries = EthAutoSubmitSummaries;
+    type InstanceId = EthereumInstanceId;
+}
+
+pub type AvnAnchorSummary = pallet_summary::Instance2;
+impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
+    type MinBlockAge = MinBlockAge;
+    type AccountToBytesConvert = Avn;
+    type ReportSummaryOffence = Offences;
+    type WeightInfo = pallet_summary::default_weights::SubstrateWeight<Runtime>;
+    type BridgeInterface = EthBridge;
+    type AutoSubmitSummaries = AvnAutoSubmitSummaries;
+    type InstanceId = AvnInstanceId;
 }
 
 impl pallet_avn_anchor::Config for Runtime {
     type RuntimeCall = RuntimeCall;
     type RuntimeEvent = RuntimeEvent;
+    type Currency = Balances;
     type WeightInfo = pallet_avn_anchor::default_weights::SubstrateWeight<Runtime>;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
+    type FeeHandler = TokenManager;
     type Signature = Signature;
+    type Token = EthAddress;
+    type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
 pub type EthAddress = H160;
@@ -695,6 +719,7 @@ parameter_types! {
     pub const StringLimit: u32 = 50;
     pub const MetadataDepositBase: Balance = 1 * MILLI_AVT;
     pub const MetadataDepositPerByte: Balance = 100 * MICRO_AVT;
+    pub const DefaultCheckpointFee: Balance = 100 * MILLI_AVT;
 }
 const ASSET_ACCOUNT_DEPOSIT: Balance = 100 * MICRO_AVT;
 
@@ -812,10 +837,11 @@ construct_runtime!(
         EthereumEvents: pallet_ethereum_events = 84,
         NftManager: pallet_nft_manager = 86,
         TokenManager: pallet_token_manager = 87,
-        Summary: pallet_summary = 88,
+        Summary: pallet_summary::<Instance1> = 88,
         AvnProxy: pallet_avn_proxy = 89,
         EthBridge: pallet_eth_bridge = 91,
         AvnAnchor: pallet_avn_anchor = 92,
+        AnchorSummary: pallet_summary::<Instance2> = 110,
 
          // OpenGov pallets
          Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 97,

@@ -20,6 +20,13 @@ pub fn get_eth_address_bytes_from_keystore(keystore_path: &PathBuf) -> Result<Ve
         Err(server_error(format!("No keys found in the keystore for {:?}", ETHEREUM_SIGNING_KEY)))?
     }
 
+    if addresses.len() > 1 {
+        Err(server_error(format!(
+            "Multiple keys found in the keystore for {:?}. Only one should be present.",
+            ETHEREUM_SIGNING_KEY
+        )))?
+    }
+
     return Ok(addresses[0].clone())
 }
 

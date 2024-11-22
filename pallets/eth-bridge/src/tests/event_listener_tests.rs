@@ -289,7 +289,7 @@ impl Default for LatestEthBlockContext {
             key: UintAuthorityId(primary_validator_id),
             account_id: primary_validator_id,
         };
-        let eth_start_block = events_helpers::compute_finalised_block_number(
+        let eth_start_block = events_helpers::compute_start_block_from_finalised_block_number(
             discovered_block,
             EthBlockRangeSize::<TestRuntime>::get(),
         )
@@ -382,7 +382,7 @@ mod initial_range_consensus {
             assert_eq!(
                 active_range.range,
                 EthBlockRange {
-                    start_block: events_helpers::compute_finalised_block_number(
+                    start_block: events_helpers::compute_start_block_from_finalised_block_number(
                         300,
                         EthBlockRangeSize::<TestRuntime>::get()
                     )
