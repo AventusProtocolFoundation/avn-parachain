@@ -13,7 +13,7 @@ use sp_avn_common::{
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Error, EthEvent, EthEventId,
         EventData, LiftedData, NftCancelListingData, NftEndBatchListingData, NftMintData,
-        NftTransferToData, ValidEvents,
+        NftTransferToData, ValidEvents, LiftedToPredictionMarketData,
     },
     AVN_KEY_ID,
 };
@@ -136,6 +136,16 @@ impl EventRegistry {
                     AvtLowerClaimedData::parse_bytes(data, topics)
                         .map_err(|err| AppError::ParsingError(err.into()))
                         .map(|data| EventData::LogLowerClaimed(data))
+                },
+            },
+        );
+        m.insert(
+            ValidEvents::LiftedToPredictionMarket.signature(),
+            EventInfo {
+                parser: |data, topics| {
+                    LiftedToPredictionMarketData::parse_bytes(data, topics)
+                        .map_err(|err| AppError::ParsingError(err.into()))
+                        .map(|data| EventData::LogLiftedToPredictionMarket(data))
                 },
             },
         );
