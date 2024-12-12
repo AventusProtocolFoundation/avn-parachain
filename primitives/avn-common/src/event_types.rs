@@ -2,7 +2,7 @@ use crate::bounds::NftExternalRefBound;
 use codec::{Decode, Encode, MaxEncodedLen};
 use hex_literal::hex;
 use sp_core::{bounded::BoundedVec, H160, H256, H512, U256};
-use sp_runtime::{scale_info::TypeInfo, traits::Member, DispatchResult};
+use sp_runtime::{scale_info::TypeInfo, traits::Member, DispatchError, DispatchResult};
 use sp_std::{convert::TryInto, vec::Vec};
 
 // ================================= Events Types ====================================
@@ -358,11 +358,7 @@ impl LiftedToPredictionMarketData {
                 .try_into()
                 .expect("Slice is the correct size"),
         );
-        return Ok(LiftedToPredictionMarketData {
-            token_contract,
-            receiver_address,
-            amount,
-        })
+        return Ok(LiftedToPredictionMarketData { token_contract, receiver_address, amount })
     }
 }
 
@@ -870,6 +866,16 @@ pub trait TokenInterface {
     fn process_lift(event: &EthEvent) -> DispatchResult;
 
     fn process_lower() -> DispatchResult;
+}
+
+impl TokenInterface for () {
+    fn process_lift(_event: &EthEvent) -> DispatchResult {
+        return Err(DispatchError::Other("Not implemented"))
+    }
+
+    fn process_lower() -> DispatchResult {
+        return Err(DispatchError::Other("Not implemented"))
+    }
 }
 
 // ======================================== Tests
