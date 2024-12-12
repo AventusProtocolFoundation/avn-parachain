@@ -12,8 +12,8 @@ use sp_avn_common::{
     },
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Error, EthEvent, EthEventId,
-        EventData, LiftedData, NftCancelListingData, NftEndBatchListingData, NftMintData,
-        NftTransferToData, ValidEvents, LiftedToPredictionMarketData,
+        EventData, LiftedData, LiftedToPredictionMarketData, NftCancelListingData,
+        NftEndBatchListingData, NftMintData, NftTransferToData, ValidEvents,
     },
     AVN_KEY_ID,
 };
