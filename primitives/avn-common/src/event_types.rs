@@ -865,6 +865,13 @@ impl ProcessedEventHandler for Tuple {
     }
 }
 
+/// Trait to expose lift and lower functionality to external pallets
+pub trait TokenInterface {
+    fn process_lift(event: &EthEvent) -> DispatchResult;
+
+    fn process_lower() -> DispatchResult;
+}
+
 // ======================================== Tests
 // =====================================================
 

@@ -46,7 +46,7 @@ use pallet_avn::{
 use sp_avn_common::{
     event_types::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
-        ProcessedEventHandler,
+        ProcessedEventHandler, TokenInterface,
     },
     verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, Proof,
 };
@@ -1170,5 +1170,15 @@ impl<T: Config> FeePaymentHandler for Pallet<T> {
         let recipient = Self::compute_treasury_account_id();
         let token: Self::Token = self::AVTTokenContract::<T>::get().into();
         Self::settle_transfer(&token, payer, &recipient, amount)
+    }
+}
+
+impl<T: Config> TokenInterface for Pallet<T> {
+    fn process_lift(event: &EthEvent) -> DispatchResult {
+        Self::processed_event_handler(event)
+    }
+
+    fn process_lower() -> DispatchResult {
+        Ok(())
     }
 }
