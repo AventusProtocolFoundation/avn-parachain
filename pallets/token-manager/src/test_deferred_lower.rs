@@ -315,14 +315,9 @@ fn toggling_lowering_works() {
         // Lowering has been successfully disabled
         assert_eq!(LowersDisabled::<TestRuntime>::get(), true);
 
-        let (_, from, burn_acc, t1_recipient) = MockData::setup_lower_request_data();
+        let (_, from, _, t1_recipient) = MockData::setup_lower_request_data();
         let pre_lower_balance = TokenManagerBalances::<TestRuntime>::get((NON_AVT_TOKEN_ID, from));
         let amount = pre_lower_balance;
-
-        let expected_lower_id = 0;
-        let expected_schedule_name =
-            ("Lower", &expected_lower_id).using_encoded(sp_io::hashing::blake2_256);
-        let expected_execution_block = get_expected_execution_block();
 
         //schedule_lower(from, amount, t1_recipient);
         // Only root can cancel the lower

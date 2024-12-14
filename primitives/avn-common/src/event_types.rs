@@ -862,18 +862,26 @@ impl ProcessedEventHandler for Tuple {
 }
 
 /// Trait to expose lift and lower functionality to external pallets
-pub trait TokenInterface {
+pub trait TokenInterface<TokenId, AccountId> {
     fn process_lift(event: &EthEvent) -> DispatchResult;
 
-    fn process_lower() -> DispatchResult;
+    fn deposit_tokens(
+        token_id: TokenId,
+        recipient_account_id: AccountId,
+        raw_amount: u128,
+    ) -> DispatchResult;
 }
 
-impl TokenInterface for () {
+impl<TokenId, AccountId> TokenInterface<TokenId, AccountId> for () {
     fn process_lift(_event: &EthEvent) -> DispatchResult {
         return Err(DispatchError::Other("Not implemented"))
     }
 
-    fn process_lower() -> DispatchResult {
+    fn deposit_tokens(
+        _token_id: TokenId,
+        _recipient_account_id: AccountId,
+        _raw_amount: u128,
+    ) -> DispatchResult {
         return Err(DispatchError::Other("Not implemented"))
     }
 }
