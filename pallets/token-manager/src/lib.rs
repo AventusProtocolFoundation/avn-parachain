@@ -273,6 +273,7 @@ pub mod pallet {
         LowerDataLimitExceeded,
         InvalidLowerId,
         LoweringDisabled,
+        InvalidLiftRequest,
     }
 
     #[pallet::storage]
@@ -1207,9 +1208,19 @@ impl<T: Config> FeePaymentHandler for Pallet<T> {
     }
 }
 
+// TODO: The implementation feels too specific to PM, try to generalise it
 impl<T: Config> TokenInterface<T::TokenId, T::AccountId> for Pallet<T> {
     fn process_lift(event: &EthEvent) -> DispatchResult {
-        Self::processed_event_handler(event)
+        return match &event.event_data {
+            EventData::LogLiftedToPredictionMarket(d) => {
+                let lifted_data = LiftedData::new(d.token_contract, d.receiver_address, d.amount);
+                return Self::process_lift(event, &lifted_data)
+            },
+
+            // Any other event should not be calling this hook, they should use the regular lift
+            // pathway
+            _ => Err(Error::<T>::InvalidLiftRequest)?,
+        }
     }
 
     fn deposit_tokens(

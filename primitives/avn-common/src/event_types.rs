@@ -244,6 +244,16 @@ impl LiftedData {
         return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
     }
 
+    pub fn new(token_contract: H160, receiver_address: H256, amount: u128) -> Self {
+        LiftedData {
+            token_contract,
+            receiver_address,
+            amount,
+            sender_address: H160::zero(),
+            nonce: U256::zero(),
+        }
+    }
+
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
         // Structure of input bytes:
         // data --> amount (32 bytes) (big endian)
