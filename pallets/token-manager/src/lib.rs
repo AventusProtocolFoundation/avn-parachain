@@ -46,7 +46,7 @@ use pallet_avn::{
 use sp_avn_common::{
     event_types::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
-        ProcessedEventHandler,
+        ProcessedEventHandler, TokenInterface,
     },
     verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, Proof,
 };
@@ -241,6 +241,12 @@ pub mod pallet {
         },
         LoweringEnabled,
         LoweringDisabled,
+        /// Event emitted when non native tokens are transferred to this pallet
+        TokensDeposited {
+            token_id: T::TokenId,
+            recipient: T::AccountId,
+            token_balance: T::TokenBalance,
+        },
     }
 
     #[pallet::error]
@@ -267,6 +273,7 @@ pub mod pallet {
         LowerDataLimitExceeded,
         InvalidLowerId,
         LoweringDisabled,
+        InvalidLiftRequest,
     }
 
     #[pallet::storage]
@@ -722,15 +729,8 @@ impl<T: Config> Pallet<T> {
         recipient_account_id: T::AccountId,
         raw_amount: u128,
     ) -> DispatchResult {
-        let amount = <T::TokenBalance as TryFrom<u128>>::try_from(raw_amount)
-            .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
-
-        if <Balances<T>>::contains_key((token_id, &recipient_account_id)) {
-            Self::increment_token_balance(token_id, &recipient_account_id, &amount)?;
-        } else {
-            <Balances<T>>::insert((token_id, &recipient_account_id), amount);
-        }
-
+        let amount =
+            Self::do_update_token_balance(token_id, recipient_account_id.clone(), raw_amount)?;
         Self::deposit_event(Event::<T>::TokenLifted {
             token_id,
             recipient: recipient_account_id,
@@ -739,6 +739,24 @@ impl<T: Config> Pallet<T> {
         });
 
         Ok(())
+    }
+
+    fn do_update_token_balance(
+        token_id: T::TokenId,
+        recipient_account_id: T::AccountId,
+        raw_amount: u128,
+    ) -> Result<T::TokenBalance, Error<T>> {
+        let amount = <T::TokenBalance as TryFrom<u128>>::try_from(raw_amount)
+            .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
+
+        if <Balances<T>>::contains_key((token_id, &recipient_account_id)) {
+            Self::increment_token_balance(token_id, &recipient_account_id, &amount)
+                .map_err(|_e| Error::<T>::AmountOverflow)?;
+        } else {
+            <Balances<T>>::insert((token_id, &recipient_account_id), amount);
+        }
+
+        Ok(amount)
     }
 
     fn update_avt_balance(
@@ -774,6 +792,23 @@ impl<T: Config> Pallet<T> {
         let new_balance = current_balance.checked_add(amount).ok_or(Error::<T>::AmountOverflow)?;
 
         <Balances<T>>::mutate((token_id, recipient_account_id), |balance| *balance = new_balance);
+
+        Ok(())
+    }
+
+    fn process_token_deposit(
+        token_id: T::TokenId,
+        recipient_account_id: T::AccountId,
+        raw_amount: u128,
+    ) -> DispatchResult {
+        let amount =
+            Self::do_update_token_balance(token_id, recipient_account_id.clone(), raw_amount)?;
+
+        Self::deposit_event(Event::<T>::TokensDeposited {
+            token_id,
+            recipient: recipient_account_id,
+            token_balance: amount,
+        });
 
         Ok(())
     }
@@ -1170,5 +1205,29 @@ impl<T: Config> FeePaymentHandler for Pallet<T> {
         let recipient = Self::compute_treasury_account_id();
         let token: Self::Token = self::AVTTokenContract::<T>::get().into();
         Self::settle_transfer(&token, payer, &recipient, amount)
+    }
+}
+
+// TODO: The implementation feels too specific to PM, try to generalise it
+impl<T: Config> TokenInterface<T::TokenId, T::AccountId> for Pallet<T> {
+    fn process_lift(event: &EthEvent) -> DispatchResult {
+        return match &event.event_data {
+            EventData::LogLiftedToPredictionMarket(d) => {
+                let lifted_data = LiftedData::new(d.token_contract, d.receiver_address, d.amount);
+                return Self::process_lift(event, &lifted_data)
+            },
+
+            // Any other event should not be calling this hook, they should use the regular lift
+            // pathway
+            _ => Err(Error::<T>::InvalidLiftRequest)?,
+        }
+    }
+
+    fn deposit_tokens(
+        token_id: T::TokenId,
+        recipient_account_id: T::AccountId,
+        raw_amount: u128,
+    ) -> DispatchResult {
+        Self::process_token_deposit(token_id, recipient_account_id, raw_amount)
     }
 }

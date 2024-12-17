@@ -2,7 +2,7 @@ use crate::bounds::NftExternalRefBound;
 use codec::{Decode, Encode, MaxEncodedLen};
 use hex_literal::hex;
 use sp_core::{bounded::BoundedVec, H160, H256, H512, U256};
-use sp_runtime::{scale_info::TypeInfo, traits::Member, DispatchResult};
+use sp_runtime::{scale_info::TypeInfo, traits::Member, DispatchError, DispatchResult};
 use sp_std::{convert::TryInto, vec::Vec};
 
 // ================================= Events Types ====================================
@@ -59,6 +59,12 @@ pub enum Error {
     AvtLowerClaimedEventWrongTopicCount,
     AvtLowerClaimedEventBadTopicLength,
     AvtLowerClaimedEventIdConversion,
+
+    LiftedToPredictionMarketEventMissingData,
+    LiftedToPredictionMarketEventDataOverflow,
+    LiftedToPredictionMarketEventBadDataLength,
+    LiftedToPredictionMarketEventWrongTopicCount,
+    LiftedToPredictionMarketEventBadTopicLength,
 }
 
 #[derive(Encode, Decode, Clone, PartialOrd, Ord, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
@@ -71,6 +77,7 @@ pub enum ValidEvents {
     NftEndBatchListing,
     AvtGrowthLifted,
     AvtLowerClaimed,
+    LiftedToPredictionMarket,
 }
 
 impl ValidEvents {
@@ -88,6 +95,10 @@ impl ValidEvents {
             // hex string of Keccak-256 for LogLifted(address,bytes32,uint256)
             ValidEvents::Lifted =>
                 H256(hex!("418da8f85cfa851601f87634c6950491b6b8785a6445c8584f5658048d512cae")),
+
+            // hex string of Keccak-256 for LogLiftedToPredictionMarket(address,bytes32,uint256)
+            ValidEvents::LiftedToPredictionMarket =>
+                H256(hex!("2bf8107bf8c15cdcd8d6360f4a02ee97d7098a46b18fccd32df8796775552fc0")),
 
             // hex string of Keccak-256 for AvnMintTo(uint256,uint64,bytes32,string)
             ValidEvents::NftMint =>
@@ -132,6 +143,8 @@ impl ValidEvents {
             return Some(ValidEvents::AvtGrowthLifted)
         } else if signature == &ValidEvents::AvtLowerClaimed.signature() {
             return Some(ValidEvents::AvtLowerClaimed)
+        } else if signature == &ValidEvents::LiftedToPredictionMarket.signature() {
+            return Some(ValidEvents::LiftedToPredictionMarket)
         } else {
             return None
         }
@@ -212,8 +225,8 @@ impl AddedValidatorData {
 }
 
 // T1 Event definition:
-// event LogLifted(address indexed tokenContract, address indexed lifter, bytes32 indexed liftee,
-// uint amount);
+// event LogLifted(address indexed tokenContract, bytes32 indexed liftee,
+// uint256 amount);
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct LiftedData {
     pub token_contract: H160,
@@ -229,6 +242,16 @@ impl LiftedData {
 
     pub fn is_valid(&self) -> bool {
         return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
+    }
+
+    pub fn new(token_contract: H160, receiver_address: H256, amount: u128) -> Self {
+        LiftedData {
+            token_contract,
+            receiver_address,
+            amount,
+            sender_address: H160::zero(),
+            nonce: U256::zero(),
+        }
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -282,6 +305,70 @@ impl LiftedData {
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
             nonce: U256::zero(),
         })
+    }
+}
+
+// T1 Event definition:
+// event LogLiftedToPredictionMarket(address indexed tokenContract, bytes32 indexed t2PubKey,
+// uint256 amount);
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct LiftedToPredictionMarketData {
+    pub token_contract: H160,
+    pub receiver_address: H256,
+    pub amount: u128,
+}
+
+impl LiftedToPredictionMarketData {
+    const TOPIC_CURRENCY_CONTRACT: usize = 1;
+    const TOPIC_INDEX_T2_ADDRESS: usize = 2;
+
+    pub fn is_valid(&self) -> bool {
+        return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
+    }
+
+    pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
+        // Structure of input bytes:
+        // data --> amount (32 bytes) (big endian)
+        // all topics are 32 bytes long
+        // topics[0] --> event signature (can be ignored)
+        // topics[1] --> currency contract address (first 12 bytes are 0 and should be ignored)
+        // topics[2] --> receiver t2 public key (32 bytes)
+
+        if data.is_none() {
+            return Err(Error::LiftedToPredictionMarketEventMissingData)
+        }
+        let data = data.expect("Already checked for errors");
+
+        if data.len() != WORD_LENGTH {
+            return Err(Error::LiftedToPredictionMarketEventBadDataLength)
+        }
+
+        if topics.len() != 3 {
+            return Err(Error::LiftedToPredictionMarketEventWrongTopicCount)
+        }
+
+        if topics[Self::TOPIC_CURRENCY_CONTRACT].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_INDEX_T2_ADDRESS].len() != WORD_LENGTH
+        {
+            return Err(Error::LiftedToPredictionMarketEventBadTopicLength)
+        }
+
+        let token_contract = H160::from_slice(
+            &topics[Self::TOPIC_CURRENCY_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
+        );
+
+        let receiver_address = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
+
+        if data[0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
+            return Err(Error::LiftedToPredictionMarketEventDataOverflow)
+        }
+
+        let amount = u128::from_be_bytes(
+            data[HALF_WORD_LENGTH..WORD_LENGTH]
+                .try_into()
+                .expect("Slice is the correct size"),
+        );
+        return Ok(LiftedToPredictionMarketData { token_contract, receiver_address, amount })
     }
 }
 
@@ -611,6 +698,7 @@ pub enum EventData {
     LogNftEndBatchListing(NftEndBatchListingData),
     LogAvtGrowthLifted(AvtGrowthLiftedData),
     LogLowerClaimed(AvtLowerClaimedData),
+    LogLiftedToPredictionMarket(LiftedToPredictionMarketData),
 }
 
 impl EventData {
@@ -624,6 +712,7 @@ impl EventData {
             EventData::LogNftCancelListing(d) => d.is_valid(),
             EventData::LogNftEndBatchListing(d) => d.is_valid(),
             EventData::LogAvtGrowthLifted(d) => d.is_valid(),
+            EventData::LogLiftedToPredictionMarket(d) => d.is_valid(),
             EventData::EmptyEvent => true,
             _ => false,
         }
@@ -779,6 +868,31 @@ impl ProcessedEventHandler for Tuple {
     fn on_event_processed(_event: &EthEvent) -> DispatchResult {
         for_tuples!( #( Tuple::on_event_processed(_event)?; )* );
         Ok(())
+    }
+}
+
+/// Trait to expose lift and lower functionality to external pallets
+pub trait TokenInterface<TokenId, AccountId> {
+    fn process_lift(event: &EthEvent) -> DispatchResult;
+
+    fn deposit_tokens(
+        token_id: TokenId,
+        recipient_account_id: AccountId,
+        raw_amount: u128,
+    ) -> DispatchResult;
+}
+
+impl<TokenId, AccountId> TokenInterface<TokenId, AccountId> for () {
+    fn process_lift(_event: &EthEvent) -> DispatchResult {
+        return Err(DispatchError::Other("Not implemented"))
+    }
+
+    fn deposit_tokens(
+        _token_id: TokenId,
+        _recipient_account_id: AccountId,
+        _raw_amount: u128,
+    ) -> DispatchResult {
+        return Err(DispatchError::Other("Not implemented"))
     }
 }
 
