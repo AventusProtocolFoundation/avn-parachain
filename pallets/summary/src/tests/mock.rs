@@ -1,10 +1,10 @@
 // Copyright 2022 Aventus Network Services (UK) Ltd.
 
 pub use crate::{self as summary, *};
-use frame_support::parameter_types;
+use frame_support::{derive_impl, parameter_types};
 use sp_state_machine::BasicExternalities;
 
-use frame_system as system;
+use frame_system::{self as system, DefaultConfig};
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,
     LowerParams,
@@ -25,7 +25,7 @@ use sp_core::{
 };
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    traits::ConvertInto,
     BuildStorage,
 };
 use sp_staking::{
@@ -409,47 +409,20 @@ where
 }
 
 parameter_types! {
-    pub const BlockHashCount: u64 = 250;
     pub const AutoSubmitSummaries: bool = true;
     pub const InstanceId: u8 = 1u8;
     pub const DoNotSubmit: bool = false;
     pub const AnchorInstanceId: u8 = 2u8;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
     type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = u64;
-    type Lookup = IdentityLookup<Self::AccountId>;
     type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
-    type AuthorityId = UintAuthorityId;
-    type EthereumPublicKeyChecker = Self;
-    type NewSessionHandler = ();
-    type DisabledValidatorChecker = ();
-    type WeightInfo = ();
-}
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
+impl avn::Config for TestRuntime {}
 
 impl pallet_eth_bridge::Config for TestRuntime {
     type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;
