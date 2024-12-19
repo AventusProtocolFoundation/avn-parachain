@@ -2,11 +2,11 @@
 
 #![cfg(test)]
 
-use frame_support::{assert_ok, derive_impl, parameter_types, weights::Weight};
+use frame_support::{assert_ok, derive_impl, parameter_types};
 use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    traits::{ConvertInto, IdentityLookup},
     BoundedBTreeSet, BuildStorage, Perbill, WeakBoundedVec,
 };
 use sp_state_machine::BasicExternalities;
@@ -142,14 +142,6 @@ where
 {
     type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
-}
-
-parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = Weight::from_parts(1024 as u64, 0);
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    pub const MinEthBlockConfirmation: u64 = 2;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
