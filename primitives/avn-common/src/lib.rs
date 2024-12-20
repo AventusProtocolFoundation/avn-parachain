@@ -3,10 +3,10 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::String;
+use alloc::string::{String, ToString};
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{crypto::KeyTypeId, ecdsa, H160, H256};
+use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -239,19 +239,41 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     Ok(hash)
 }
 
-pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member>(
+pub fn verify_signature<Signature, AccountId>(
     proof: &Proof<Signature, <<Signature as Verify>::Signer as IdentifyAccount>::AccountId>,
     signed_payload: &[u8],
-) -> Result<(), ()> {
+) -> Result<(), ()>
+where
+    Signature: Member + Verify + TypeInfo + codec::Encode,
+    AccountId: Member + codec::Encode + PartialEq,
+    <<Signature as Verify>::Signer as IdentifyAccount>::AccountId: Into<AccountId> + Clone,
+{
     let wrapped_signed_payload: Vec<u8> =
         [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
-    match proof.signature.verify(&*wrapped_signed_payload, &proof.signer) {
-        true => Ok(()),
-        false => match proof.signature.verify(signed_payload, &proof.signer) {
-            true => Ok(()),
-            false => Err(()),
-        },
+
+    if proof.signature.verify(&*wrapped_signed_payload, &proof.signer) ||
+        proof.signature.verify(signed_payload, &proof.signer)
+    {
+        return Ok(())
     }
+
+    let encoded_signature = proof.signature.encode();
+    if let Ok(ecdsa_signature) = ecdsa::Signature::try_from(&encoded_signature[..]) {
+        let signed_payload_str = String::from_utf8_lossy(signed_payload).to_string();
+
+        if let Ok(ecdsa_pub_key) =
+            recover_public_key_from_ecdsa_signature(&ecdsa_signature, &signed_payload_str)
+        {
+            let hashed_ecdsa_pub_key = keccak_256(ecdsa_pub_key.as_ref());
+            let derived_account = sr25519::Public::from_raw(hashed_ecdsa_pub_key);
+
+            if derived_account.encode() == proof.signer.clone().into().encode() {
+                return Ok(())
+            }
+        }
+    }
+
+    Err(())
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
