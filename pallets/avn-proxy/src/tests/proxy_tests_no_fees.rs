@@ -48,6 +48,23 @@ mod proxy_without_fees {
         }
 
         #[test]
+        fn call_is_proxied_with_good_parameters_ecdsa() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let context: ProxyContext = Default::default();
+                let inner_call = create_signed_mint_single_nft_call_ecdsa(&context);
+
+                assert_eq!(false, single_nft_minted_events_emitted());
+                assert_ok!(AvnProxy::proxy(
+                    RuntimeOrigin::signed(context.relayer.account_id()),
+                    inner_call,
+                    None
+                ));
+                assert_eq!(true, single_nft_minted_events_emitted());
+            })
+        }
+
+        #[test]
         fn inner_call_fails_to_execute() {
             let mut ext = ExtBuilder::build_default().as_externality();
             ext.execute_with(|| {
