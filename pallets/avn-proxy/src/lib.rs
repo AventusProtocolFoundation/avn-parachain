@@ -61,7 +61,7 @@ pub mod pallet {
             + Member
             + Decode
             + Encode
-            + From<sp_core::sr25519::Signature>
+            //+ From<sp_core::sr25519::Signature>
             + TypeInfo;
 
         type ProxyConfig: Parameter

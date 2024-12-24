@@ -556,8 +556,8 @@ mod for_token_transfer_extrinsics {
     ) -> Box<<TestRuntime as Config>::RuntimeCall> {
         return Box::new(crate::mock::RuntimeCall::TokenManager(TokenManagerCall::signed_transfer {
             proof: proof.clone(),
-            from: transfer_data.from,
-            to: transfer_data.to,
+            from: transfer_data.from.clone(),
+            to: transfer_data.to.clone(),
             token_id: transfer_data.token,
             amount: transfer_data.amount,
         }))
@@ -778,7 +778,7 @@ mod for_token_transfer_extrinsics {
                             &NON_AVT_TOKEN_CONTRACT,
                         )
                         .unwrap_or(0_u128.into());
-                        let recipient_avt_balance = Balances::free_balance(transfer_data.to);
+                        let recipient_avt_balance = Balances::free_balance(transfer_data.to.clone());
 
                         <frame_system::Pallet<TestRuntime>>::reset_events();
                         assert_ok!(AvnProxy::proxy(
@@ -844,7 +844,7 @@ mod for_token_transfer_extrinsics {
                         // The receiver's balance goes up by 1 AVT
                         assert_eq!(
                             recipient_avt_balance + ONE_AVT,
-                            Balances::free_balance(transfer_data.to)
+                            Balances::free_balance(transfer_data.to.clone())
                         );
                     })
                 }
