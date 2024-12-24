@@ -35,7 +35,7 @@ pub fn create_payment_authorisation_with_nonce(
         token,
         nonce,
     );
-    let signature = sign(&context.signer.key_pair(), &data_to_sign.encode());
+    let signature = context.signer.sign(&data_to_sign.encode());
 
     let payment_info = PaymentInfo {
         payer: context.signer.account_id(),
@@ -57,7 +57,7 @@ pub fn create_payment_authorisation(
 ) -> PaymentInfo<AccountId, u128, Signature, Token> {
     let data_to_sign =
         (PAYMENT_AUTH_CONTEXT, &proxy_proof, &relayer.account_id(), &GATEWAY_FEE, token, nonce);
-    let signature = sign(&payer.key_pair(), &data_to_sign.encode());
+    let signature = payer.sign(&data_to_sign.encode());
 
     let payment_info = PaymentInfo {
         payer: payer.account_id(),
@@ -556,8 +556,8 @@ mod for_token_transfer_extrinsics {
     ) -> Box<<TestRuntime as Config>::RuntimeCall> {
         return Box::new(crate::mock::RuntimeCall::TokenManager(TokenManagerCall::signed_transfer {
             proof: proof.clone(),
-            from: transfer_data.from,
-            to: transfer_data.to,
+            from: transfer_data.from.clone(),
+            to: transfer_data.to.clone(),
             token_id: transfer_data.token,
             amount: transfer_data.amount,
         }))
@@ -578,7 +578,7 @@ mod for_token_transfer_extrinsics {
             nonce,
         );
 
-        let signature = sign(&context.signer.key_pair(), &data_to_sign.encode());
+        let signature = context.signer.sign(&data_to_sign.encode());
 
         let proof = Proof::<Signature, AccountId> {
             signer: context.signer.account_id(),
@@ -778,7 +778,8 @@ mod for_token_transfer_extrinsics {
                             &NON_AVT_TOKEN_CONTRACT,
                         )
                         .unwrap_or(0_u128.into());
-                        let recipient_avt_balance = Balances::free_balance(transfer_data.to);
+                        let recipient_avt_balance =
+                            Balances::free_balance(transfer_data.to.clone());
 
                         <frame_system::Pallet<TestRuntime>>::reset_events();
                         assert_ok!(AvnProxy::proxy(
@@ -844,7 +845,7 @@ mod for_token_transfer_extrinsics {
                         // The receiver's balance goes up by 1 AVT
                         assert_eq!(
                             recipient_avt_balance + ONE_AVT,
-                            Balances::free_balance(transfer_data.to)
+                            Balances::free_balance(transfer_data.to.clone())
                         );
                     })
                 }

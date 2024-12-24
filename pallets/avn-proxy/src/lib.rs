@@ -57,12 +57,7 @@ pub mod pallet {
         type Public: IdentifyAccount<AccountId = Self::AccountId>;
 
         /// The signature type used by accounts/transactions.
-        type Signature: Verify<Signer = Self::Public>
-            + Member
-            + Decode
-            + Encode
-            + From<sp_core::sr25519::Signature>
-            + TypeInfo;
+        type Signature: Verify<Signer = Self::Public> + Member + Decode + Encode + TypeInfo;
 
         type ProxyConfig: Parameter
             + Member

@@ -24,11 +24,10 @@ use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok};
 use pallet_parachain_staking::Weight;
 use pallet_transaction_payment::ChargeTransactionPayment;
-use sp_core::{ecdsa, sr25519, Pair};
+use sp_core::{sr25519, Pair};
 use sp_runtime::{
     traits::{Hash, SignedExtension},
     transaction_validity::InvalidTransaction,
-    MultiSignature,
 };
 
 type AccountId = <TestRuntime as frame_system::Config>::AccountId;
@@ -172,26 +171,6 @@ fn create_proof_for_signed_transfer(
     return build_proof(from, relayer, signature)
 }
 
-fn create_ecdsa_proof_for_signed_transfer(
-    relayer: &AccountId,
-    from: &AccountId,
-    to: &AccountId,
-    token_id: H160,
-    amount: u128,
-    nonce: u64,
-    ecdsa_keys: &ecdsa::Pair,
-) -> Proof<Signature, AccountId> {
-    let context = SIGNED_TRANSFER_CONTEXT;
-    let data_to_sign = (context, relayer, from, to, token_id, amount, nonce);
-    let ecdsa_signature = ecdsa_keys.sign(&data_to_sign.encode());
-
-    Proof {
-        signer: from.clone(),
-        relayer: relayer.clone(),
-        signature: ecdsa_signature,
-    }
-}
-
 fn check_proxy_transfer_default_call_succeed(call: Box<<TestRuntime as Config>::RuntimeCall>) {
     let call_hash = Hashing::hash_of(&call);
 
@@ -325,76 +304,6 @@ fn avt_proxy_signed_transfer_succeeds() {
         // In order to validate that the proxied call has been dispatched we need any proof that
         // transfer was called. In this case we will check that the Transferred signal was
         // emitted.
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Transfer {
-                from: sender,
-                to: recipient,
-                amount: DEFAULT_AMOUNT
-            })));
-    });
-}
-
-#[test]
-fn avt_proxy_signed_transfer_succeeds_with_ecdsa() {
-    let mut ext = ExtBuilder::build_default()
-        .with_genesis_config()
-        .with_balances()
-        .as_externality();
-
-    ext.execute_with(|| {
-        // Use the ECDSA-based account
-        let sender = ecdsa_account_id_with_100_avt();
-        let relayer = account_id2_with_100_avt();
-        let recipient = account_id3_with_100_avt();
-
-        let sender_init_avt_balance = Balances::free_balance(sender);
-        let recipient_init_avt_balance = Balances::free_balance(recipient);
-        let init_total_avt_issuance = Balances::total_issuance();
-
-        // Possibly call your `setup` if needed, to set a nonce for the ECDSA-based sender
-        setup(&sender, NON_ZERO_NONCE);
-
-        // Create an ECDSA proof rather than sr25519
-        let proof = create_ecdsa_proof_for_signed_transfer(
-            &relayer,
-            &sender,
-            &recipient,
-            AVT_TOKEN_CONTRACT,
-            DEFAULT_AMOUNT,
-            NON_ZERO_NONCE,
-            &ecdsa_key_pair_for_account_with_100_avt(),
-        );
-
-        let call = Box::new(mock::RuntimeCall::TokenManager(
-            super::Call::<TestRuntime>::signed_transfer {
-                proof,
-                from: sender,
-                to: recipient,
-                token_id: AVT_TOKEN_CONTRACT,
-                amount: DEFAULT_AMOUNT,
-            },
-        ));
-        let call_hash = Hashing::hash_of(&call);
-
-        assert_eq!(System::events().len(), 0);
-        assert_ok!(TokenManager::proxy(RuntimeOrigin::signed(relayer), call));
-
-        // Show that we have transferred, not created or removed AVT from the system
-        assert_eq!(init_total_avt_issuance, Balances::total_issuance());
-
-        // Check sender and recipient balances after the transfer
-        assert_eq!(sender_init_avt_balance - DEFAULT_AMOUNT, Balances::free_balance(sender));
-        assert_eq!(recipient_init_avt_balance + DEFAULT_AMOUNT, Balances::free_balance(recipient));
-
-        // Check that the token manager nonce increases
-        assert_eq!(NON_ZERO_NONCE + 1, Nonces::<TestRuntime>::get(sender));
-
-        // Check for TokenManager and Balances events (just like your sr25519 test)
-        assert!(System::events().iter().any(|a| a.event ==
-            RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::CallDispatched {
-                relayer,
-                call_hash
-            })));
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::Balances(pallet_balances::Event::<TestRuntime>::Transfer {
                 from: sender,

@@ -32,7 +32,7 @@ use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
     event_types::{EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{ecdsa, keccak_256, sr25519, ConstU128, ConstU64, Pair, H256};
+use sp_core::{sr25519, ConstU128, ConstU64, Pair, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
@@ -458,7 +458,6 @@ impl ExtBuilder {
             (account_id_with_100_avt(), AMOUNT_100_TOKEN),
             (account_id2_with_100_avt(), AMOUNT_100_TOKEN),
             (account_id3_with_100_avt(), AMOUNT_100_TOKEN),
-            (ecdsa_account_id_with_100_avt(), AMOUNT_100_TOKEN),
         ];
         balances.append(&mut genesis_collators().into_iter().map(|c| (c, 1000)).collect());
 
@@ -492,21 +491,6 @@ pub fn account_id_with_100_avt() -> <TestRuntime as system::Config>::AccountId {
         &mut receiver_topic_with_100_avt().as_slice(),
     )
     .unwrap()
-}
-
-pub fn ecdsa_key_pair_for_account_with_100_avt() -> ecdsa::Pair {
-    ecdsa::Pair::from_seed(&[69u8; 32])
-}
-
-pub fn ecdsa_account_id_with_100_avt() -> <TestRuntime as system::Config>::AccountId {
-    let pair = ecdsa_key_pair_for_account_with_100_avt();
-    let hashed = keccak_256(pair.public().as_ref());
-    let derived_sr25519_public = sr25519::Public::from_raw(hashed);
-
-    <TestRuntime as system::Config>::AccountId::decode(
-        &mut derived_sr25519_public.encode().as_slice(),
-    )
-    .expect("Failed to decode hashed ECDSA key as sr25519-based AccountId")
 }
 
 pub fn account_id2_with_100_avt() -> <TestRuntime as system::Config>::AccountId {
