@@ -18,7 +18,7 @@ use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
-    BuildStorage, Perbill,
+    BuildStorage, Perbill, MultiSignature, MultiSigner,
 };
 pub use std::sync::Arc;
 
@@ -34,9 +34,10 @@ pub const AVT_TOKEN_CONTRACT: H160 = H160(hex!("dB1Cff52f66195f0a5Bd3db91137db98
 pub const NON_AVT_TOKEN_CONTRACT: H160 = H160(hex!("2020202020202020202020202020202020202020"));
 
 /// The signature type used by accounts/transactions.
-pub type Signature = sr25519::Signature;
-/// An identifier for an account on this system.
-pub type AccountId = <Signature as Verify>::Signer;
+pub type Signature = MultiSignature;
+pub type AccountPublic = <Signature as Verify>::Signer;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
 /// A token type
 pub type Token = H160;
 
@@ -73,7 +74,7 @@ impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
-    type Public = AccountId;
+    type Public = AccountPublic;
     type Signature = Signature;
     type ProxyConfig = TestAvnProxyConfig;
     type WeightInfo = ();
@@ -147,7 +148,7 @@ impl pallet_nft_manager::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type ProcessedEventsChecker = ();
-    type Public = AccountId;
+    type Public = AccountPublic;
     type Signature = Signature;
     type WeightInfo = ();
     type BatchBound = ConstU32<10>;
@@ -174,7 +175,7 @@ impl pallet_token_manager::Config for TestRuntime {
     type ProcessedEventsChecker = ();
     type TokenId = sp_core::H160;
     type TokenBalance = u128;
-    type Public = AccountId;
+    type Public = AccountPublic;
     type Signature = Signature;
     type AvnTreasuryPotId = AvnTreasuryPotId;
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
@@ -456,7 +457,7 @@ pub fn proxy_event_emitted(
     return System::events().iter().any(|a| {
         a.event ==
             RuntimeEvent::AvnProxy(crate::Event::<TestRuntime>::CallDispatched {
-                relayer,
+                relayer: relayer.clone(),
                 hash: call_hash,
             })
     })
@@ -466,13 +467,13 @@ pub fn inner_call_failed_event_emitted(
     call_relayer: AccountId,
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
-    return System::events().iter().any(|a| match a.event {
+    return System::events().iter().any(|a| match &a.event {
         RuntimeEvent::AvnProxy(crate::Event::<TestRuntime>::InnerCallFailed {
             relayer,
             hash,
             ..
         }) =>
-            if relayer == call_relayer && call_hash == hash {
+            if relayer == &call_relayer && call_hash == *hash {
                 return true
             } else {
                 return false
@@ -509,6 +510,15 @@ pub fn create_signed_mint_single_nft_call(
     return get_signed_mint_single_nft_call(&single_nft_data, &proof)
 }
 
+pub fn create_signed_mint_single_nft_call_ecdsa(
+    context: &ProxyContext,
+) -> Box<<TestRuntime as Config>::RuntimeCall> {
+    let single_nft_data: SingleNftContext = Default::default();
+    let proof = get_mint_single_nft_proxy_proof_ecdsa(context, &single_nft_data);
+
+    return get_signed_mint_single_nft_call(&single_nft_data, &proof)
+}
+
 pub fn get_signed_mint_single_nft_call(
     single_nft_data: &SingleNftContext,
     proof: &Proof<Signature, AccountId>,
@@ -522,6 +532,29 @@ pub fn get_signed_mint_single_nft_call(
 }
 
 pub fn get_mint_single_nft_proxy_proof(
+    context: &ProxyContext,
+    data: &SingleNftContext,
+) -> Proof<Signature, AccountId> {
+    let data_to_sign = (
+        SIGNED_MINT_SINGLE_NFT_CONTEXT,
+        context.relayer.account_id(),
+        &data.unique_external_ref,
+        &data.royalties,
+        data.t1_authority,
+    );
+
+    let signature = sign(&context.signer.key_pair(), &data_to_sign.encode());
+
+    let proof = Proof::<Signature, AccountId> {
+        signer: context.signer.account_id(),
+        relayer: context.relayer.account_id(),
+        signature,
+    };
+
+    return proof
+}
+
+pub fn get_mint_single_nft_proxy_proof_ecdsa(
     context: &ProxyContext,
     data: &SingleNftContext,
 ) -> Proof<Signature, AccountId> {
