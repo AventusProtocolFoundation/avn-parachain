@@ -272,10 +272,9 @@ where
                         Ok(ecdsa_pub_key) => {
                             println!("Public key (recovered): {:?}", hex::encode(ecdsa_pub_key));
    
-                            let hashed_ecdsa_pub_key = keccak_256(ecdsa_pub_key.as_ref());
+                            let hashed_ecdsa_pub_key = sp_io::hashing::blake2_256(ecdsa_pub_key.as_ref());
                     
-                            println!("Hashed public key (recovered): {:?}", hex::encode(&hashed_ecdsa_pub_key));
-                    
+                            println!("Blake 256 hashed public key (recovered): {:?}", hex::encode(&hashed_ecdsa_pub_key));
                     
                             let derived_account = sr25519::Public::from_raw(hashed_ecdsa_pub_key);
                             println!(
