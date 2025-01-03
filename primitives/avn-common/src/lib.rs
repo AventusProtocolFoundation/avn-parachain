@@ -64,7 +64,6 @@ pub mod bounds {
 
 #[derive(Debug)]
 pub enum ECDSAVerificationError {
-    InvalidPublicKey,
     InvalidSignature,
     InvalidValueForV,
     InvalidValueForRS,
