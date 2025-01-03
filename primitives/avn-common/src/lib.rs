@@ -7,7 +7,7 @@ use alloc::{format, string::String};
 
 use codec::{Codec, Decode, Encode};
 use sp_core::{
-    crypto::{ByteArray, KeyTypeId},
+    crypto::KeyTypeId,
     ecdsa, sr25519, H160, H256,
 };
 use sp_io::{
@@ -278,47 +278,30 @@ where
     <<Signature as Verify>::Signer as IdentifyAccount>::AccountId:
         Into<AccountId> + Clone + codec::Encode,
 {
-    if let Ok(multi_signature) = MultiSignature::decode(&mut &proof.signature.encode()[..]) {
-        match multi_signature {
-            MultiSignature::Sr25519(sr25519_signature) => {
-                let wrapped_signed_payload: Vec<u8> =
-                    [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
+    let wrapped_signed_payload: Vec<u8> =
+        [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
 
-                if let Ok(sr25519_public) =
-                    sp_core::sr25519::Public::from_slice(&proof.signer.encode())
-                {
-                    if sr25519_signature.verify(&*wrapped_signed_payload, &sr25519_public) ||
-                        sr25519_signature.verify(signed_payload, &sr25519_public)
-                    {
-                        return Ok(())
-                    }
+    if proof.signature.verify(&*wrapped_signed_payload, &proof.signer)
+        || proof.signature.verify(signed_payload, &proof.signer)
+    {
+        return Ok(());
+    }
+
+    if let Ok(MultiSignature::Ecdsa(ecdsa_signature)) =
+        MultiSignature::decode(&mut &proof.signature.encode()[..])
+    {
+        if let Ok(ecdsa_signature) =
+            sp_core::ecdsa::Signature::try_from(ecdsa_signature.as_ref())
+        {
+            if let Ok(eth_address) =
+                recover_ethereum_address_from_ecdsa_signature(&ecdsa_signature, signed_payload)
+            {
+                let derived_public_key = sr25519::Public::from_raw(blake2_256(&eth_address));
+                if derived_public_key.encode() == proof.signer.clone().into().encode() {
+                    println!("FISHBURN ROPE CHOWDER");
+                    return Ok(());
                 }
-            },
-
-            MultiSignature::Ecdsa(ecdsa_signature) => {
-                if let Ok(ecdsa_signature) =
-                    sp_core::ecdsa::Signature::try_from(&ecdsa_signature.encode()[..])
-                {
-                    match recover_ethereum_address_from_ecdsa_signature(
-                        &ecdsa_signature,
-                        &signed_payload,
-                    ) {
-                        Ok(eth_address) => {
-                            let hashed_eth_address = blake2_256(&eth_address);
-                            let derived_account_public_key =
-                                sr25519::Public::from_raw(hashed_eth_address);
-                            if derived_account_public_key.encode() ==
-                                proof.signer.clone().into().encode()
-                            {
-                                return Ok(())
-                            }
-                        },
-                        Err(_) => {},
-                    }
-                }
-            },
-
-            _ => {},
+            }
         }
     }
 
