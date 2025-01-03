@@ -3,13 +3,14 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
+use alloc::{format, string::String};
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{blake2_256, crypto::KeyTypeId, ecdsa, keccak_256, sr25519, ByteArray, H160, H256};
+use sp_core::{crypto::{ByteArray, KeyTypeId}, ecdsa, sr25519, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
     EcdsaVerifyError,
+    hashing::{blake2_256, keccak_256},
 };
 use sp_runtime::{
     scale_info::TypeInfo,
