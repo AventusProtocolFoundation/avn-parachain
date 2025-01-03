@@ -1,6 +1,7 @@
 //Copyright 2022 Aventus Network Services (UK) Ltd.
 
 use super::*;
+use codec::Decode;
 use frame_support::{
     pallet_prelude::{DispatchClass, Weight},
     parameter_types,
@@ -13,7 +14,8 @@ use pallet_avn::BridgeInterfaceNotification;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
 use pallet_session as session;
-use sp_core::{ecdsa, keccak_256, sr25519, ConstU32, ConstU64, Pair, H160, H256};
+use sp_avn_common::hash_with_ethereum_prefix;
+use sp_core::{blake2_256, ecdsa, keccak_256, sr25519, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
@@ -384,29 +386,24 @@ impl TestAccount {
     }
 
     pub fn ecdsa_key_pair(&self) -> ecdsa::Pair {
-        ecdsa::Pair::from_seed_slice(&self.seed).expect("Invalid seed")
+        return ecdsa::Pair::from_seed(&self.seed)
     }
 
     pub fn ethereum_ecdsa_sign(&self, message_to_sign: &[u8]) -> Signature {
-        let prefix = format!("\x19Ethereum Signed Message:\n{}", message_to_sign.len());
-        let mut prefixed_message = prefix.as_bytes().to_vec();
-        prefixed_message.extend_from_slice(message_to_sign);
-        let hashed_message = keccak_256(&prefixed_message);
-        println!("Hashed (mock): {:?}", hex::encode(hashed_message));
-        let ecdsa_public = self.ecdsa_key_pair().public();
-        println!("ECDSA Public (mock): {:?}", hex::encode(ecdsa_public));
+        let hashed_message = hash_with_ethereum_prefix(&hex::encode(message_to_sign)).unwrap();
         return Signature::from(self.ecdsa_key_pair().sign(&hashed_message))
     }
-    
-    pub fn derived_account_id(&self) -> AccountId {
-        let ecdsa_public = self.ecdsa_key_pair().public();
-        println!("ECDSA Public (mock): {:?}", hex::encode(ecdsa_public));
 
-        let hashed = keccak_256(ecdsa_public.as_ref());
-        let derived_sr25519_public = sr25519::Public::from_raw(hashed);
-        AccountId::decode(&mut derived_sr25519_public.encode().as_slice()).unwrap()
+    pub fn derived_account_id(&self) -> AccountId {
+        // TODO: Use a library that generates ECDSA public keys in the same way ethers does so we
+        // don't have to do hardcode this:
+        let ecdsa_uncompressed_pubkey = hex!("04930fddd257d2c4e21d22f19e8c5035ca06e9748604397c9b9298041dfc804129fd92a7ed4ed576996015b352d9e586831fd743179dec00b922abc0eaecefa761");
+        let eth_address_hash = keccak_256(&ecdsa_uncompressed_pubkey[1..]); // Remove the first byte (0x04)
+        let eth_address = &eth_address_hash[12..];
+        let hashed_eth_address = blake2_256(eth_address);
+        let derived_account_public_key = sr25519::Public::from_raw(hashed_eth_address);
+        AccountId::decode(&mut derived_account_public_key.encode().as_slice()).unwrap()
     }
-    
 }
 
 #[allow(dead_code)]
@@ -592,8 +589,6 @@ pub fn get_mint_single_nft_proxy_proof_ecdsa(
     );
 
     let signature = context.signer.ethereum_ecdsa_sign(&data_to_sign.encode());
-
-    println!("Signature (mock): {:?}", hex::encode(signature.clone().encode()));
 
     let proof = Proof::<Signature, AccountId> {
         signer: context.signer.derived_account_id(),

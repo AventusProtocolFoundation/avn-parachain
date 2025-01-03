@@ -6,8 +6,11 @@ extern crate alloc;
 use alloc::string::{String, ToString};
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
-use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
+use sp_core::{blake2_256, crypto::KeyTypeId, ecdsa, keccak_256, sr25519, ByteArray, H160, H256};
+use sp_io::{
+    crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
+    EcdsaVerifyError,
+};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify},
@@ -60,6 +63,7 @@ pub mod bounds {
 
 #[derive(Debug)]
 pub enum ECDSAVerificationError {
+    InvalidPublicKey,
     InvalidSignature,
     InvalidValueForV,
     InvalidValueForRS,
@@ -207,6 +211,25 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
     Ok(left.checked_sub(&right).ok_or(())?.into())
 }
 
+pub fn recover_ethereum_address_from_ecdsa_signature(
+    signature: &ecdsa::Signature,
+    message: &[u8],
+) -> Result<[u8; 20], ECDSAVerificationError> {
+    let hashed_message = hash_with_ethereum_prefix(&hex::encode(message)).unwrap();
+
+    match secp256k1_ecdsa_recover(signature.as_ref(), &hashed_message) {
+        Ok(public_key) => {
+            let hash = keccak_256(&public_key);
+            let mut address = [0u8; 20];
+            address.copy_from_slice(&hash[12..]);
+            Ok(address)
+        },
+        Err(EcdsaVerifyError::BadRS) => Err(ECDSAVerificationError::InvalidValueForRS),
+        Err(EcdsaVerifyError::BadV) => Err(ECDSAVerificationError::InvalidValueForV),
+        Err(EcdsaVerifyError::BadSignature) => Err(ECDSAVerificationError::BadSignature),
+    }
+}
+
 pub fn recover_public_key_from_ecdsa_signature(
     signature: &ecdsa::Signature,
     message: &String,
@@ -241,7 +264,6 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     Ok(hash)
 }
 
-
 pub fn verify_signature<Signature, AccountId>(
     proof: &Proof<Signature, <<Signature as Verify>::Signer as IdentifyAccount>::AccountId>,
     signed_payload: &[u8],
@@ -249,63 +271,55 @@ pub fn verify_signature<Signature, AccountId>(
 where
     Signature: Member + Verify + TypeInfo + codec::Encode + codec::Decode,
     AccountId: Member + codec::Encode + PartialEq,
-    <<Signature as Verify>::Signer as IdentifyAccount>::AccountId: Into<AccountId> + Clone,
+    <<Signature as Verify>::Signer as IdentifyAccount>::AccountId:
+        Into<AccountId> + Clone + codec::Encode,
 {
-    let wrapped_signed_payload: Vec<u8> =
-        [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
-
-    if proof.signature.verify(&*wrapped_signed_payload, &proof.signer)
-        || proof.signature.verify(signed_payload, &proof.signer)
-    {
-        return Ok(());
-    }
-
     if let Ok(multi_signature) = MultiSignature::decode(&mut &proof.signature.encode()[..]) {
         match multi_signature {
-            MultiSignature::Ecdsa(ecdsa_signature) => {
-                let raw_signature = ecdsa_signature.encode();
-                println!("signature: {:?}", hex::encode(&raw_signature));
-                if let Ok(ecdsa_signature) = sp_core::ecdsa::Signature::try_from(&raw_signature[..]) {
-                    let signed_payload_str = format!("0x{}", hex::encode(signed_payload));
-   
-                    match recover_public_key_from_ecdsa_signature(&ecdsa_signature, &signed_payload_str) {
-                        Ok(ecdsa_pub_key) => {
-                            println!("Public key (recovered): {:?}", hex::encode(ecdsa_pub_key));
-   
-                            let hashed_ecdsa_pub_key = sp_io::hashing::blake2_256(ecdsa_pub_key.as_ref());
-                    
-                            println!("Blake 256 hashed public key (recovered): {:?}", hex::encode(&hashed_ecdsa_pub_key));
-                    
-                            let derived_account = sr25519::Public::from_raw(hashed_ecdsa_pub_key);
-                            println!(
-                                "Derived (recovered): {:?}",
-                                hex::encode(derived_account.encode())
-                            );
-                    
-                            if derived_account.encode() == proof.signer.clone().into().encode() {
-                                return Ok(());
-                            }
-                        }
-                        Err(err) => {
-                            println!("Error recovering public key: {:?}", err);
-                        }
+            MultiSignature::Sr25519(sr25519_signature) => {
+                let wrapped_signed_payload: Vec<u8> =
+                    [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
+
+                if let Ok(sr25519_public) =
+                    sp_core::sr25519::Public::from_slice(&proof.signer.encode())
+                {
+                    if sr25519_signature.verify(&*wrapped_signed_payload, &sr25519_public) ||
+                        sr25519_signature.verify(signed_payload, &sr25519_public)
+                    {
+                        return Ok(())
                     }
-                    
-                } else {
-                    println!("Failed to parse stripped signature as ECDSA.");
                 }
-            }
-            _ => {
-            }
+            },
+
+            MultiSignature::Ecdsa(ecdsa_signature) => {
+                if let Ok(ecdsa_signature) =
+                    sp_core::ecdsa::Signature::try_from(&ecdsa_signature.encode()[..])
+                {
+                    match recover_ethereum_address_from_ecdsa_signature(
+                        &ecdsa_signature,
+                        &signed_payload,
+                    ) {
+                        Ok(eth_address) => {
+                            let hashed_eth_address = blake2_256(&eth_address);
+                            let derived_account_public_key =
+                                sr25519::Public::from_raw(hashed_eth_address);
+                            if derived_account_public_key.encode() ==
+                                proof.signer.clone().into().encode()
+                            {
+                                return Ok(())
+                            }
+                        },
+                        Err(_) => {},
+                    }
+                }
+            },
+
+            _ => {},
         }
     }
 
     Err(())
 }
-
-
-
-
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub struct EthQueryRequest {
