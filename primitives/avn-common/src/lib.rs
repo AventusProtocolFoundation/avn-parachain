@@ -6,10 +6,7 @@ extern crate alloc;
 use alloc::{format, string::String};
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{
-    crypto::KeyTypeId,
-    ecdsa, sr25519, H160, H256,
-};
+use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
     hashing::{blake2_256, keccak_256},
@@ -281,24 +278,22 @@ where
     let wrapped_signed_payload: Vec<u8> =
         [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
 
-    if proof.signature.verify(&*wrapped_signed_payload, &proof.signer)
-        || proof.signature.verify(signed_payload, &proof.signer)
+    if proof.signature.verify(&*wrapped_signed_payload, &proof.signer) ||
+        proof.signature.verify(signed_payload, &proof.signer)
     {
-        return Ok(());
+        return Ok(())
     }
 
     if let Ok(MultiSignature::Ecdsa(ecdsa_signature)) =
         MultiSignature::decode(&mut &proof.signature.encode()[..])
     {
-        if let Ok(ecdsa_signature) =
-            sp_core::ecdsa::Signature::try_from(ecdsa_signature.as_ref())
-        {
+        if let Ok(ecdsa_signature) = sp_core::ecdsa::Signature::try_from(ecdsa_signature.as_ref()) {
             if let Ok(eth_address) =
                 recover_ethereum_address_from_ecdsa_signature(&ecdsa_signature, signed_payload)
             {
                 let derived_public_key = sr25519::Public::from_raw(blake2_256(&eth_address));
                 if derived_public_key.encode() == proof.signer.clone().into().encode() {
-                    return Ok(());
+                    return Ok(())
                 }
             }
         }
