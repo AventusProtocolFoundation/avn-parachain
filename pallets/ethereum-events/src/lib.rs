@@ -178,12 +178,22 @@ pub mod pallet {
         type Public: IdentifyAccount<AccountId = Self::AccountId>;
 
         /// The signature type used by accounts/transactions.
-        type Signature: Verify<Signer = Self::Public>
+        #[cfg(not(feature = "runtime-benchmarks"))]
+        type Signature:
+            Verify<Signer = Self::Public>
             + Member
             + Decode
             + Encode
-            + From<sp_core::sr25519::Signature>
             + TypeInfo;
+
+        #[cfg(feature = "runtime-benchmarks")]
+        type Signature:
+            Verify<Signer = Self::Public>
+            + Member
+            + Decode
+            + Encode
+            + TypeInfo
+            + From<sp_core::sr25519::Signature>;
 
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;

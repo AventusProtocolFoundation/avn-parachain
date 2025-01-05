@@ -133,12 +133,22 @@ pub mod pallet {
         /// A type that can be used to verify signatures
         type Public: IdentifyAccount<AccountId = Self::AccountId>;
         /// The signature type used by accounts/transactions.
-        type Signature: Verify<Signer = Self::Public>
+        #[cfg(not(feature = "runtime-benchmarks"))]
+        type Signature:
+            Verify<Signer = Self::Public>
             + Member
             + Decode
             + Encode
-            + From<sp_core::sr25519::Signature>
             + TypeInfo;
+
+        #[cfg(feature = "runtime-benchmarks")]
+        type Signature:
+            Verify<Signer = Self::Public>
+            + Member
+            + Decode
+            + Encode
+            + TypeInfo
+            + From<sp_core::sr25519::Signature>;
         /// Id of the account that will hold treasury funds
         type AvnTreasuryPotId: Get<PalletId>;
         /// Percentage of growth to store in the treasury
