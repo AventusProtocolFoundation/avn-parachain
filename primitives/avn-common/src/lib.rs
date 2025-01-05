@@ -275,12 +275,12 @@ where
         Into<AccountId> + Clone + codec::Encode,
 {
     let wrapped_signed_payload: Vec<u8> =
-    [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
+        [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
 
-    if proof.signature.verify(&*wrapped_signed_payload, &proof.signer)
-        || proof.signature.verify(signed_payload, &proof.signer)
+    if proof.signature.verify(&*wrapped_signed_payload, &proof.signer) ||
+        proof.signature.verify(signed_payload, &proof.signer)
     {
-        return Ok(());
+        return Ok(())
     }
 
     Err(())
@@ -308,25 +308,27 @@ where
     // Handly multi signature verification
     if let Ok(multi_signature) = MultiSignature::decode(&mut &proof.signature.encode()[..]) {
         match multi_signature {
-            MultiSignature::Sr25519(_sr_signature) => {
-                return verify_sr_signature(proof, signed_payload)
-            }
-            MultiSignature::Ecdsa(ecdsa_signature) => {
-                match recover_ethereum_address_from_ecdsa_signature(&ecdsa_signature, signed_payload) {
+            MultiSignature::Sr25519(_sr_signature) =>
+                return verify_sr_signature(proof, signed_payload),
+            MultiSignature::Ecdsa(ecdsa_signature) =>
+                match recover_ethereum_address_from_ecdsa_signature(
+                    &ecdsa_signature,
+                    signed_payload,
+                ) {
                     Ok(eth_address) => {
-                        let derived_public_key = sr25519::Public::from_raw(blake2_256(&eth_address));
+                        let derived_public_key =
+                            sr25519::Public::from_raw(blake2_256(&eth_address));
                         if derived_public_key.encode() == proof.signer.clone().into().encode() {
                             return Ok(())
                         }
-                    }
+                    },
                     Err(err) => {
                         log::error!("Error recovering ecdsa address: {:?}", err);
-                    }
-                }
-            }
+                    },
+                },
             _ => {
                 log::error!("MultiSignature is not supported");
-            }
+            },
         }
     }
 
