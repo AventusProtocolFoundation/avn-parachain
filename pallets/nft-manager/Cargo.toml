@@ -36,6 +36,7 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 substrate-test-utils = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
 parking_lot = { version = "0.12.0" }
 sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
+sp-avn-common = { features=["test-utils"], path = "../../primitives/avn-common" }
 
 [features]
 default = ['std']

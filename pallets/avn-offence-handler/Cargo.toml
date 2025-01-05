@@ -31,6 +31,7 @@ serde = { version = "1.0.163", default-features = false}
 parking_lot = { version = "0.12.0" }
 sp-io = {  default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
 sp-state-machine = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
+sp-avn-common = { features=["test-utils"], path = "../../primitives/avn-common" }
 
 [features]
 default = ["std"]

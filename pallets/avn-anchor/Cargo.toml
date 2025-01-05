@@ -44,6 +44,7 @@ pallet-timestamp = { default-features = false, git = "https://github.com/parityt
 pallet-avn-proxy = { path = "../avn-proxy" }
 pallet-token-manager = { path = "../token-manager" }
 pallet-eth-bridge = { path = "../eth-bridge" }
+sp-avn-common = { features=["test-utils"], path = "../../primitives/avn-common" }
 
 [features]
 default = ["std"]
