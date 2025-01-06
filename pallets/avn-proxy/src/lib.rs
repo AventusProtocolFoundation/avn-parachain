@@ -15,9 +15,7 @@ use frame_support::{
     traits::{Currency, IsSubType},
 };
 use frame_system::{self as system, ensure_signed};
-use sp_avn_common::{
-    FeePaymentHandler, InnerCallValidator, Proof, CLOSE_BYTES_TAG, OPEN_BYTES_TAG,
-};
+use sp_avn_common::{verify_multi_signature, FeePaymentHandler, InnerCallValidator, Proof};
 
 use core::convert::TryInto;
 pub use pallet::*;
@@ -220,18 +218,13 @@ impl<T: Config> Pallet<T> {
         )
             .encode();
 
-        // TODO: centralise wrapped payload signature verification logic in primitives if
-        // possible.
-        let wrapped_encoded_payload: Vec<u8> =
-            [OPEN_BYTES_TAG, encoded_payload.as_slice(), CLOSE_BYTES_TAG].concat();
-        match payment_info.signature.verify(&*wrapped_encoded_payload, &payment_info.payer) {
-            true => Ok(()),
-            false =>
-                match payment_info.signature.verify(encoded_payload.as_slice(), &payment_info.payer)
-                {
-                    true => Ok(()),
-                    false => Err(<Error<T>>::UnauthorizedFee.into()),
-                },
+        match verify_multi_signature::<T::Signature, T::AccountId>(
+            &payment_info.payer,
+            &payment_info.signature,
+            &encoded_payload.as_slice(),
+        ) {
+            Ok(()) => Ok(()),
+            Err(()) => Err(<Error<T>>::UnauthorizedFee.into()),
         }
     }
 
