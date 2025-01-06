@@ -3,14 +3,19 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::String;
+use alloc::{format, string::String};
 
 use codec::{Codec, Decode, Encode};
-use sp_core::{crypto::KeyTypeId, ecdsa, H160, H256};
-use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::keccak_256, EcdsaVerifyError};
+use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
+use sp_io::{
+    crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
+    hashing::{blake2_256, keccak_256},
+    EcdsaVerifyError,
+};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify},
+    MultiSignature,
 };
 use sp_std::{boxed::Box, vec::Vec};
 
@@ -32,8 +37,6 @@ pub type IngressCounter = u64;
 pub const AVN_KEY_ID: KeyTypeId = KeyTypeId(*b"avnk");
 /// Key type for signing ethereum compatible signatures, built-in. Identified as `ethk`.
 pub const ETHEREUM_SIGNING_KEY: KeyTypeId = KeyTypeId(*b"ethk");
-/// Ethereum prefix
-pub const ETHEREUM_PREFIX: &'static [u8] = b"\x19Ethereum Signed Message:\n32";
 
 /// Local storage key to access the external service's port number
 pub const EXTERNAL_SERVICE_PORT_NUMBER_KEY: &'static [u8; 15] = b"avn_port_number";
@@ -208,6 +211,25 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
     Ok(left.checked_sub(&right).ok_or(())?.into())
 }
 
+pub fn recover_ethereum_address_from_ecdsa_signature(
+    signature: &ecdsa::Signature,
+    message: &[u8],
+) -> Result<[u8; 20], ECDSAVerificationError> {
+    let hashed_message = hash_with_ethereum_prefix(&hex::encode(message)).unwrap();
+
+    match secp256k1_ecdsa_recover(signature.as_ref(), &hashed_message) {
+        Ok(public_key) => {
+            let hash = keccak_256(&public_key);
+            let mut address = [0u8; 20];
+            address.copy_from_slice(&hash[12..]);
+            Ok(address)
+        },
+        Err(EcdsaVerifyError::BadRS) => Err(ECDSAVerificationError::InvalidValueForRS),
+        Err(EcdsaVerifyError::BadV) => Err(ECDSAVerificationError::InvalidValueForV),
+        Err(EcdsaVerifyError::BadSignature) => Err(ECDSAVerificationError::BadSignature),
+    }
+}
+
 pub fn recover_public_key_from_ecdsa_signature(
     signature: &ecdsa::Signature,
     message: &String,
@@ -227,8 +249,11 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     let message_bytes = hex::decode(hex_message.trim_start_matches("0x"))
         .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
-    let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
-    prefixed_message.append(&mut message_bytes.to_vec());
+    let raw_message_length = (hex_message.len() - 2) / 2;
+    let prefix = format!("\x19Ethereum Signed Message:\n{}", raw_message_length);
+    let mut prefixed_message = prefix.as_bytes().to_vec();
+    prefixed_message.extend_from_slice(&message_bytes);
+
     let hash = keccak_256(&prefixed_message);
     log::debug!(
         "🪲 Data without prefix: {:?},\n data with ethereum prefix: {:?}, \n result hash: {:?}",
@@ -239,19 +264,90 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     Ok(hash)
 }
 
-pub fn verify_signature<Signature: Member + Verify + TypeInfo, AccountId: Member>(
-    proof: &Proof<Signature, <<Signature as Verify>::Signer as IdentifyAccount>::AccountId>,
+pub fn verify_sr_signature<Signature, AccountId>(
+    signer: &<<Signature as Verify>::Signer as IdentifyAccount>::AccountId,
+    signature: &Signature,
     signed_payload: &[u8],
-) -> Result<(), ()> {
+) -> Result<(), ()>
+where
+    Signature: Member + Verify + TypeInfo + codec::Encode + codec::Decode,
+    AccountId: Member + codec::Encode + PartialEq,
+    <<Signature as Verify>::Signer as IdentifyAccount>::AccountId:
+        Into<AccountId> + Clone + codec::Encode,
+{
     let wrapped_signed_payload: Vec<u8> =
         [OPEN_BYTES_TAG, signed_payload, CLOSE_BYTES_TAG].concat();
-    match proof.signature.verify(&*wrapped_signed_payload, &proof.signer) {
-        true => Ok(()),
-        false => match proof.signature.verify(signed_payload, &proof.signer) {
-            true => Ok(()),
-            false => Err(()),
-        },
+
+    if signature.verify(&*wrapped_signed_payload, &signer) ||
+        signature.verify(signed_payload, &signer)
+    {
+        return Ok(())
     }
+
+    Err(())
+}
+
+pub fn verify_multi_signature<Signature, AccountId>(
+    signer: &<<Signature as Verify>::Signer as IdentifyAccount>::AccountId,
+    signature: &Signature,
+    signed_payload: &[u8],
+) -> Result<(), ()>
+where
+    Signature: Member + Verify + TypeInfo + codec::Encode + codec::Decode,
+    AccountId: Member + codec::Encode + PartialEq,
+    <<Signature as Verify>::Signer as IdentifyAccount>::AccountId:
+        Into<AccountId> + Clone + codec::Encode,
+{
+    // Tests are not using Multi signature so assume its an
+    // SR signature and try to verify it first
+    #[cfg(any(feature = "test-utils", feature = "runtime-benchmarks"))]
+    {
+        if verify_sr_signature(signer, signature, signed_payload).is_ok() {
+            return Ok(())
+        }
+    }
+
+    // Handle multi signature verification
+    if let Ok(multi_signature) = MultiSignature::decode(&mut &signature.encode()[..]) {
+        match multi_signature {
+            MultiSignature::Sr25519(_sr_signature) =>
+                return verify_sr_signature(signer, signature, signed_payload),
+            MultiSignature::Ecdsa(ecdsa_signature) =>
+                match recover_ethereum_address_from_ecdsa_signature(
+                    &ecdsa_signature,
+                    signed_payload,
+                ) {
+                    Ok(eth_address) => {
+                        let derived_public_key =
+                            sr25519::Public::from_raw(blake2_256(&eth_address));
+                        if derived_public_key.encode() == signer.clone().into().encode() {
+                            return Ok(())
+                        }
+                    },
+                    Err(err) => {
+                        log::error!("Error recovering ecdsa address: {:?}", err);
+                    },
+                },
+            _ => {
+                log::error!("MultiSignature is not supported");
+            },
+        }
+    }
+
+    Err(())
+}
+
+pub fn verify_signature<Signature, AccountId>(
+    proof: &Proof<Signature, <<Signature as Verify>::Signer as IdentifyAccount>::AccountId>,
+    signed_payload: &[u8],
+) -> Result<(), ()>
+where
+    Signature: Member + Verify + TypeInfo + codec::Encode + codec::Decode,
+    AccountId: Member + codec::Encode + PartialEq,
+    <<Signature as Verify>::Signer as IdentifyAccount>::AccountId:
+        Into<AccountId> + Clone + codec::Encode,
+{
+    verify_multi_signature::<Signature, AccountId>(&proof.signer, &proof.signature, signed_payload)
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]

@@ -50,6 +50,7 @@ pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
 pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
 parking_lot = { version = "0.12.0" }
 assert_matches = "1.3.0"
+sp-avn-common = { features=["test-utils"], path = "../../primitives/avn-common" }
 
 [features]
 default = ["std"]

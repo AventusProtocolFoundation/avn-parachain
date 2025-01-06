@@ -1,6 +1,7 @@
 //Copyright 2022 Aventus Network Services (UK) Ltd.
 
 use super::*;
+use codec::Decode;
 use frame_support::{
     pallet_prelude::{DispatchClass, Weight},
     parameter_types,
@@ -13,12 +14,13 @@ use pallet_avn::BridgeInterfaceNotification;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
 use pallet_session as session;
-use sp_core::{sr25519, ConstU32, ConstU64, Pair, H160, H256};
+use sp_avn_common::hash_with_ethereum_prefix;
+use sp_core::{blake2_256, ecdsa, keccak_256, sr25519, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
-    BuildStorage, Perbill,
+    BuildStorage, MultiSignature, Perbill,
 };
 pub use std::sync::Arc;
 
@@ -34,9 +36,10 @@ pub const AVT_TOKEN_CONTRACT: H160 = H160(hex!("dB1Cff52f66195f0a5Bd3db91137db98
 pub const NON_AVT_TOKEN_CONTRACT: H160 = H160(hex!("2020202020202020202020202020202020202020"));
 
 /// The signature type used by accounts/transactions.
-pub type Signature = sr25519::Signature;
-/// An identifier for an account on this system.
-pub type AccountId = <Signature as Verify>::Signer;
+pub type Signature = MultiSignature;
+pub type AccountPublic = <Signature as Verify>::Signer;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+
 /// A token type
 pub type Token = H160;
 
@@ -73,7 +76,7 @@ impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
-    type Public = AccountId;
+    type Public = AccountPublic;
     type Signature = Signature;
     type ProxyConfig = TestAvnProxyConfig;
     type WeightInfo = ();
@@ -147,7 +150,7 @@ impl pallet_nft_manager::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type ProcessedEventsChecker = ();
-    type Public = AccountId;
+    type Public = AccountPublic;
     type Signature = Signature;
     type WeightInfo = ();
     type BatchBound = ConstU32<10>;
@@ -174,7 +177,7 @@ impl pallet_token_manager::Config for TestRuntime {
     type ProcessedEventsChecker = ();
     type TokenId = sp_core::H160;
     type TokenBalance = u128;
-    type Public = AccountId;
+    type Public = AccountPublic;
     type Signature = Signature;
     type AvnTreasuryPotId = AvnTreasuryPotId;
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
@@ -377,10 +380,30 @@ impl TestAccount {
     pub fn key_pair(&self) -> sr25519::Pair {
         return sr25519::Pair::from_seed(&self.seed)
     }
-}
 
-pub fn sign(signer: &sr25519::Pair, message_to_sign: &[u8]) -> Signature {
-    return Signature::from(signer.sign(message_to_sign))
+    pub fn sign(&self, message_to_sign: &[u8]) -> Signature {
+        Signature::from(self.key_pair().sign(message_to_sign))
+    }
+
+    pub fn ecdsa_key_pair(&self) -> ecdsa::Pair {
+        return ecdsa::Pair::from_seed(&self.seed)
+    }
+
+    pub fn ethereum_ecdsa_sign(&self, message_to_sign: &[u8]) -> Signature {
+        let hashed_message = hash_with_ethereum_prefix(&hex::encode(message_to_sign)).unwrap();
+        return Signature::from(self.ecdsa_key_pair().sign(&hashed_message))
+    }
+
+    pub fn derived_account_id(&self) -> AccountId {
+        // TODO: Use a library that generates ECDSA public keys in the same way ethers does so we
+        // don't have to do hardcode this:
+        let ecdsa_uncompressed_pubkey = hex!("04930fddd257d2c4e21d22f19e8c5035ca06e9748604397c9b9298041dfc804129fd92a7ed4ed576996015b352d9e586831fd743179dec00b922abc0eaecefa761");
+        let eth_address_hash = keccak_256(&ecdsa_uncompressed_pubkey[1..]); // Remove the first byte (0x04)
+        let eth_address = &eth_address_hash[12..];
+        let hashed_eth_address = blake2_256(eth_address);
+        let derived_account_public_key = sr25519::Public::from_raw(hashed_eth_address);
+        AccountId::decode(&mut derived_account_public_key.encode().as_slice()).unwrap()
+    }
 }
 
 #[allow(dead_code)]
@@ -415,7 +438,7 @@ impl Default for ProxyContext {
         ProxyContext {
             signer,
             relayer: TestAccount::new([10u8; 32]),
-            signature: sign(&signer.key_pair(), message),
+            signature: signer.sign(message),
         }
     }
 }
@@ -456,7 +479,7 @@ pub fn proxy_event_emitted(
     return System::events().iter().any(|a| {
         a.event ==
             RuntimeEvent::AvnProxy(crate::Event::<TestRuntime>::CallDispatched {
-                relayer,
+                relayer: relayer.clone(),
                 hash: call_hash,
             })
     })
@@ -466,13 +489,13 @@ pub fn inner_call_failed_event_emitted(
     call_relayer: AccountId,
     call_hash: <TestRuntime as system::Config>::Hash,
 ) -> bool {
-    return System::events().iter().any(|a| match a.event {
+    return System::events().iter().any(|a| match &a.event {
         RuntimeEvent::AvnProxy(crate::Event::<TestRuntime>::InnerCallFailed {
             relayer,
             hash,
             ..
         }) =>
-            if relayer == call_relayer && call_hash == hash {
+            if relayer == &call_relayer && call_hash == *hash {
                 return true
             } else {
                 return false
@@ -509,6 +532,15 @@ pub fn create_signed_mint_single_nft_call(
     return get_signed_mint_single_nft_call(&single_nft_data, &proof)
 }
 
+pub fn create_signed_mint_single_nft_call_ecdsa(
+    context: &ProxyContext,
+) -> Box<<TestRuntime as Config>::RuntimeCall> {
+    let single_nft_data: SingleNftContext = Default::default();
+    let proof = get_mint_single_nft_proxy_proof_ecdsa(context, &single_nft_data);
+
+    return get_signed_mint_single_nft_call(&single_nft_data, &proof)
+}
+
 pub fn get_signed_mint_single_nft_call(
     single_nft_data: &SingleNftContext,
     proof: &Proof<Signature, AccountId>,
@@ -533,10 +565,33 @@ pub fn get_mint_single_nft_proxy_proof(
         data.t1_authority,
     );
 
-    let signature = sign(&context.signer.key_pair(), &data_to_sign.encode());
+    let signature = context.signer.sign(&data_to_sign.encode());
 
     let proof = Proof::<Signature, AccountId> {
         signer: context.signer.account_id(),
+        relayer: context.relayer.account_id(),
+        signature,
+    };
+
+    return proof
+}
+
+pub fn get_mint_single_nft_proxy_proof_ecdsa(
+    context: &ProxyContext,
+    data: &SingleNftContext,
+) -> Proof<Signature, AccountId> {
+    let data_to_sign = (
+        SIGNED_MINT_SINGLE_NFT_CONTEXT,
+        context.relayer.account_id(),
+        &data.unique_external_ref,
+        &data.royalties,
+        data.t1_authority,
+    );
+
+    let signature = context.signer.ethereum_ecdsa_sign(&data_to_sign.encode());
+
+    let proof = Proof::<Signature, AccountId> {
+        signer: context.signer.derived_account_id(),
         relayer: context.relayer.account_id(),
         signature,
     };

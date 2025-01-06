@@ -47,6 +47,7 @@ pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch =
 sp-state-machine = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
 pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
 env_logger = "0.10.0"
+sp-avn-common = { features=["test-utils"], path = "../../primitives/avn-common" }
 
 [features]
 migrate = []

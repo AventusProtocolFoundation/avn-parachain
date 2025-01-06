@@ -46,6 +46,7 @@ pallet-token-manager = { path = "../token-manager" }
 pallet-eth-bridge = { path = "../eth-bridge" }
 pallet-avn = { path = "../avn" }
 parking_lot = { version = "0.12.0" }
+sp-avn-common = { features=["test-utils"], path = "../../primitives/avn-common" }
 
 [features]
 default = ["std"]

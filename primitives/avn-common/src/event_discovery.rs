@@ -100,7 +100,6 @@ impl EthereumEventsPartition {
     }
 
     pub fn id(&self) -> H256 {
-        use sp_io::hashing::blake2_256;
         blake2_256(&(&self).encode()).into()
     }
 

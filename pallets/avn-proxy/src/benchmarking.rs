@@ -83,7 +83,7 @@ benchmarks! {
         let token: H160 = H160(hex!("93ba86eCfDDD9CaAAc29bE83aCE5A3188aC47730"));
 
         #[cfg(test)]
-        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("5c2991619f1c3ae9b3a403b050d1d2dea83e7ae15b43ce632fcbdac32bd8150f0b6790368c0fa51c51ac593f52d48bdfd9f773297a28d5d6a4a13c6c95595989")).unwrap().into();
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("1cbdef33d6deae9ab0890eb2489a4e361065b2b1bd78236169f20e813c2aff0ac541ccb2510f79c68ffb37cd9d0b1555ea07499d86cd5da83f272ae63011ef87")).unwrap().into();
         #[cfg(not(test))]
         let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("bac8dcf41c8603a29d9f50de6b67826ba339306ef5a278bab34a1f334628446844e673fe09043b0e884faa15d2527e8aaa7fb2af6e6c711162678a166534e78a")).unwrap().into();
 
@@ -105,7 +105,7 @@ benchmarks! {
         let token: H160 = H160(hex!("ea5da4fd16cc61ffc4235874d6ff05216e3e038e"));
 
         #[cfg(test)]
-        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("e4996309bafbf4a57ae54bba2979f6d986da72e49318ac6d05e48fe844d2b614c79803c9dabe462bc94f8f3ca50688f88e8ae79fe56179847576c4f8af64cc87")).unwrap().into();
+        let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("26d3dc987724ea57ff01014598bfc4d967e928f93a31a243b2d6fe76c23cf641783e11048b8761b77d5b96c2d9a426960b712459f4d9862465bcf30b73fdd184")).unwrap().into();
         #[cfg(not(test))]
         let signature: sr25519::Signature = sr25519::Signature::from_slice(&hex!("6e59c93ff34689af7286aa2d40e940b403c4db76de7bd972837f4e08119aff46f3ebfc9050e110495991dc92e517ada1b622c2f76902f6701ded81878470e984")).unwrap().into();
 
