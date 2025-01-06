@@ -287,7 +287,6 @@ where
     Err(())
 }
 
-
 pub fn verify_multi_signature<Signature, AccountId>(
     signer: &<<Signature as Verify>::Signer as IdentifyAccount>::AccountId,
     signature: &Signature,
@@ -308,7 +307,7 @@ where
         }
     }
 
-    // Handly multi signature verification
+    // Handle multi signature verification
     if let Ok(multi_signature) = MultiSignature::decode(&mut &signature.encode()[..]) {
         match multi_signature {
             MultiSignature::Sr25519(_sr_signature) =>
