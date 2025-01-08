@@ -39,8 +39,8 @@ pub const AVN_KEY_ID: KeyTypeId = KeyTypeId(*b"avnk");
 pub const ETHEREUM_SIGNING_KEY: KeyTypeId = KeyTypeId(*b"ethk");
 /// Ethereum prefix
 pub const ETHEREUM_PREFIX: &'static [u8] = b"\x19Ethereum Signed Message:\n";
-/// Ethereum prefix
-pub const ETHEREUM_PREFIX_32_BYTES: &'static [u8] = b"32";
+/// Ethereum prefix with a fixed 32 bytes
+pub const ETHEREUM_PREFIX_32_BYTES: &'static [u8] = b"\x19Ethereum Signed Message:\n32";
 /// Local storage key to access the external service's port number
 pub const EXTERNAL_SERVICE_PORT_NUMBER_KEY: &'static [u8; 15] = b"avn_port_number";
 /// Default port number the external service runs on.
@@ -265,8 +265,7 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
         .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
     // TODO: validate the length and log an error
-    let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
-    prefixed_message.append(&mut ETHEREUM_PREFIX_32_BYTES.to_vec());
+    let mut prefixed_message = ETHEREUM_PREFIX_32_BYTES.to_vec();
     prefixed_message.append(&mut message_bytes.to_vec());
 
     let hash = keccak_256(&prefixed_message);
