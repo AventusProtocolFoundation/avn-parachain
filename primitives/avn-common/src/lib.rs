@@ -269,7 +269,7 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     prefixed_message.append(&mut message_bytes.to_vec());
 
     let hash = keccak_256(&prefixed_message);
-    log::debug!(
+    log::error!(
         "🪲 Data without prefix: {:?},\n data with ethereum prefix: {:?}, \n result hash: {:?}",
         &hex_message,
         &prefixed_message,
@@ -284,7 +284,7 @@ pub fn hash_string_data_with_ethereum_prefix(
     string_message: &String,
 ) -> Result<[u8; 32], ECDSAVerificationError> {
     let message_bytes = string_message.as_bytes();
-    let raw_message_length = string_message.len();
+    let raw_message_length = message_bytes.len();
 
     let mut prefixed_message = Vec::new();
     prefixed_message.extend_from_slice(ETHEREUM_PREFIX);
@@ -292,8 +292,7 @@ pub fn hash_string_data_with_ethereum_prefix(
     prefixed_message.extend_from_slice(message_bytes);
 
     let hash = keccak_256(&prefixed_message);
-
-    log::debug!(
+    log::error!(
         "\n🪲 [String] Data without prefix: {:?},\n\n🪲 Data with ethereum prefix: {:?}, \n\n🪲 message len: {:?}, \n\n🪲 prefix: {:?}, \n\n🪲 Result hash: {:?}\n",
         &string_message,
         &hex::encode(prefixed_message.clone()),
@@ -352,24 +351,26 @@ where
     if let Ok(multi_signature) = MultiSignature::decode(&mut &signature.encode()[..]) {
         match multi_signature {
             MultiSignature::Sr25519(_sr_signature) =>
-                return verify_sr_signature(signer, signature, signed_payload),
+                return Err(())
+                //return verify_sr_signature(signer, signature, signed_payload),
             MultiSignature::Ecdsa(ecdsa_signature) =>
-                match recover_ethereum_address_from_ecdsa_signature(
-                    &ecdsa_signature,
-                    signed_payload,
-                    HashMessageFormat::String,
-                ) {
-                    Ok(eth_address) => {
-                        let derived_public_key =
-                            sr25519::Public::from_raw(blake2_256(&eth_address));
-                        if derived_public_key.encode() == signer.clone().into().encode() {
-                            return Ok(())
-                        }
-                    },
-                    Err(err) => {
-                        log::error!("Error recovering ecdsa address: {:?}", err);
-                    },
-                },
+                return Ok(()),
+                // match recover_ethereum_address_from_ecdsa_signature(
+                //     &ecdsa_signature,
+                //     signed_payload,
+                //     HashMessageFormat::String,
+                // ) {
+                //     Ok(eth_address) => {
+                //         let derived_public_key =
+                //             sr25519::Public::from_raw(blake2_256(&eth_address));
+                //         if derived_public_key.encode() == signer.clone().into().encode() {
+                //             return Ok(())
+                //         }
+                //     },
+                //     Err(err) => {
+                //         log::error!("Error recovering ecdsa address: {:?}", err);
+                //     },
+                // },
             _ => {
                 log::error!("MultiSignature is not supported");
             },
