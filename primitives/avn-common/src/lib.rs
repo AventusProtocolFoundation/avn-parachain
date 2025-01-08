@@ -37,7 +37,10 @@ pub type IngressCounter = u64;
 pub const AVN_KEY_ID: KeyTypeId = KeyTypeId(*b"avnk");
 /// Key type for signing ethereum compatible signatures, built-in. Identified as `ethk`.
 pub const ETHEREUM_SIGNING_KEY: KeyTypeId = KeyTypeId(*b"ethk");
-
+/// Ethereum prefix
+pub const ETHEREUM_PREFIX: &'static [u8] = b"\x19Ethereum Signed Message:\n";
+/// Ethereum prefix
+pub const ETHEREUM_PREFIX_32_BYTES: &'static [u8] = b"32";
 /// Local storage key to access the external service's port number
 pub const EXTERNAL_SERVICE_PORT_NUMBER_KEY: &'static [u8; 15] = b"avn_port_number";
 /// Default port number the external service runs on.
@@ -214,8 +217,15 @@ pub fn safe_sub_block_numbers<BlockNumber: Member + Codec + AtLeast32Bit>(
 pub fn recover_ethereum_address_from_ecdsa_signature(
     signature: &ecdsa::Signature,
     message: &[u8],
+    hash_message_format: HashMessageFormat,
 ) -> Result<[u8; 20], ECDSAVerificationError> {
-    let hashed_message = hash_with_ethereum_prefix(&hex::encode(message)).unwrap();
+    let mut hashed_message = hash_string_data_with_ethereum_prefix(&String::from_utf8(message.to_vec()).unwrap())
+        .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
+
+    if let HashMessageFormat::Hex32Bytes = hash_message_format {
+        hashed_message = hash_with_ethereum_prefix(&hex::encode(message))
+            .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
+    }
 
     match secp256k1_ecdsa_recover(signature.as_ref(), &hashed_message) {
         Ok(public_key) => {
@@ -249,10 +259,10 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     let message_bytes = hex::decode(hex_message.trim_start_matches("0x"))
         .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
-    let raw_message_length = (hex_message.len() - 2) / 2;
-    let prefix = format!("\x19Ethereum Signed Message:\n{}", raw_message_length);
-    let mut prefixed_message = prefix.as_bytes().to_vec();
-    prefixed_message.extend_from_slice(&message_bytes);
+    // TODO: validate the length and log an error
+    let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
+    prefixed_message.append(&mut ETHEREUM_PREFIX_32_BYTES.to_vec());
+    prefixed_message.append(&mut message_bytes.to_vec());
 
     let hash = keccak_256(&prefixed_message);
     log::debug!(
@@ -261,6 +271,31 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
         &prefixed_message,
         hex::encode(&hash),
     );
+    Ok(hash)
+}
+
+// Be careful when changing this logic because it needs to be compatible with other Ethereum wallets.
+// The string_message is treated as a string even if it is in Hex format.
+pub fn hash_string_data_with_ethereum_prefix(string_message: &String) -> Result<[u8; 32], ECDSAVerificationError> {
+    let message_bytes = string_message.as_bytes();
+    let raw_message_length = string_message.len();
+
+    let mut prefixed_message = Vec::new();
+    prefixed_message.extend_from_slice(ETHEREUM_PREFIX);
+    prefixed_message.extend_from_slice(raw_message_length.to_string().as_bytes());
+    prefixed_message.extend_from_slice(message_bytes);
+
+    let hash = keccak_256(&prefixed_message);
+
+    log::debug!(
+        "\n🪲 [String] Data without prefix: {:?},\n\n🪲 Data with ethereum prefix: {:?}, \n\n🪲 message len: {:?}, \n\n🪲 prefix: {:?}, \n\n🪲 Result hash: {:?}\n",
+        &string_message,
+        &hex::encode(prefixed_message.clone()),
+        raw_message_length,
+        hex::encode(prefixed_message.clone()),
+        hex::encode(&hash),
+    );
+
     Ok(hash)
 }
 
@@ -316,6 +351,7 @@ where
                 match recover_ethereum_address_from_ecdsa_signature(
                     &ecdsa_signature,
                     signed_payload,
+                    HashMessageFormat::String,
                 ) {
                     Ok(eth_address) => {
                         let derived_public_key =
@@ -366,6 +402,12 @@ impl EthQueryRequest {
 pub enum EthQueryResponseType {
     CallData,
     TransactionReceipt,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub enum HashMessageFormat {
+    Hex32Bytes,
+    String
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
