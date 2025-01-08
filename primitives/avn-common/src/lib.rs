@@ -351,7 +351,7 @@ where
     if let Ok(multi_signature) = MultiSignature::decode(&mut &signature.encode()[..]) {
         match multi_signature {
             MultiSignature::Sr25519(_sr_signature) =>
-                return Err(())
+                return Err(()),
                 //return verify_sr_signature(signer, signature, signed_payload),
             MultiSignature::Ecdsa(ecdsa_signature) =>
                 return Ok(()),
