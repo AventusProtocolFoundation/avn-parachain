@@ -8,7 +8,7 @@ use alloc::{format, string::String};
 use codec::{Codec, Decode, Encode};
 use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{
-    crypto::{secp256k1_ecdsa_recover_compressed},
+    crypto::secp256k1_ecdsa_recover_compressed,
     hashing::{blake2_256, keccak_256},
     EcdsaVerifyError,
 };
@@ -235,9 +235,6 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     let mut prefixed_message = ETHEREUM_PREFIX.to_vec();
     prefixed_message.append(&mut message_bytes.to_vec());
 
-    println!("Hex Message Length: {}", hex_message.len());
-    println!("Message Bytes Length: {}", message_bytes.len());
-
     let hash = keccak_256(&prefixed_message);
     log::debug!(
         "🪲 Data without prefix: {:?},\n data with ethereum prefix: {:?}, \n result hash: {:?}",
@@ -296,11 +293,11 @@ where
         match multi_signature {
             MultiSignature::Sr25519(_sr_signature) =>
                 return verify_sr_signature(signer, signature, signed_payload),
-            MultiSignature::Ecdsa(ecdsa_signature) =>
-                match recover_public_key_from_ecdsa_signature(
-                    &ecdsa_signature,
-                    &String::from_utf8_lossy(signed_payload).to_string(),
-                ) {
+            MultiSignature::Ecdsa(ecdsa_signature) => {
+                let hashed_payload = keccak_256(signed_payload);
+                let hex_hashed_payload = format!("0x{}", hex::encode(hashed_payload));
+                match recover_public_key_from_ecdsa_signature(&ecdsa_signature, &hex_hashed_payload)
+                {
                     Ok(eth_public_key) => {
                         let hash = keccak_256(eth_public_key.as_ref());
                         let mut eth_address = [0u8; 20];
@@ -315,7 +312,8 @@ where
                     Err(err) => {
                         log::error!("Error recovering ecdsa address: {:?}", err);
                     },
-                },
+                }
+            },
             _ => {
                 log::error!("MultiSignature is not supported");
             },
