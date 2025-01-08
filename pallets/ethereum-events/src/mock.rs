@@ -119,7 +119,7 @@ pub type EthBridgeEventsFilter = BoundedBTreeSet<ValidEvents, EventsTypesLimit>;
 pub struct MyEthereumEventsFilter;
 
 impl EthereumEventsFilterTrait for MyEthereumEventsFilter {
-    fn get_filter() -> EthBridgeEventsFilter {
+    fn get() -> EthBridgeEventsFilter {
         let allowed_events: BTreeSet<ValidEvents> =
             vec![ValidEvents::AvtLowerClaimed].into_iter().collect();
 

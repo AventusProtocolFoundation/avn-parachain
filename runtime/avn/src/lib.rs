@@ -654,7 +654,7 @@ use sp_std::collections::btree_set::BTreeSet;
 
 pub struct EthBridgeAvnRuntimeEventsFilter;
 impl EthereumEventsFilterTrait for EthBridgeAvnRuntimeEventsFilter {
-    fn get_filter() -> EthBridgeEventsFilter {
+    fn get() -> EthBridgeEventsFilter {
         let allowed_events: BTreeSet<ValidEvents> =
             vec![ValidEvents::AvtLowerClaimed, ValidEvents::Lifted].into_iter().collect();
 

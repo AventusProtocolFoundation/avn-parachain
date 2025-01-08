@@ -271,7 +271,7 @@ fn setup_active_range<T: Config>(partition_index: u16) -> EthBlockRange {
     ActiveEthereumRange::<T>::put(ActiveEthRange {
         range: range.clone(),
         partition: partition_index,
-        event_types_filter: T::EthereumEventsFilter::get_filter(),
+        event_types_filter: T::EthereumEventsFilter::get(),
     });
 
     range
@@ -513,7 +513,7 @@ benchmarks! {
                 length: eth_block_range_size,
             },
             partition: 0,
-            event_types_filter: T::EthereumEventsFilter::get_filter(),
+            event_types_filter: T::EthereumEventsFilter::get(),
         };
 
         ensure!(ActiveEthereumRange::<T>::get().is_some(), "Active range not set");

@@ -4,6 +4,7 @@ use hex_literal::hex;
 use sp_core::{bounded::BoundedVec, H160, H256, H512, U256};
 use sp_runtime::{scale_info::TypeInfo, traits::Member, DispatchError, DispatchResult};
 use sp_std::{convert::TryInto, vec::Vec};
+use strum::{EnumIter, IntoEnumIterator};
 
 // ================================= Events Types ====================================
 
@@ -67,17 +68,41 @@ pub enum Error {
     LiftedToPredictionMarketEventBadTopicLength,
 }
 
-#[derive(Encode, Decode, Clone, PartialOrd, Ord, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(
+    Encode, Decode, Clone, PartialOrd, Ord, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen, EnumIter,
+)]
+
+/// Represents the set of valid events supported by the AvN.
+///
+/// # Overview
+/// This enumeration defines the types of events that the system recognizes and processes.
+/// The majority of these events are emitted by the bridge contract and are classified as **primary
+/// events**. Events that are associated with the contract but emitted by other contracts are
+/// classified as **secondary events**.
+///
+/// Primary events take precedence and override secondary events if both occur in the same
+/// transaction.
 pub enum ValidEvents {
+    /// A validator was added.
     AddedValidator,
+    /// A lift operation was executed.
     Lifted,
+    /// An NFT was minted.
     NftMint,
+    /// An NFT was transferred.
     NftTransferTo,
+    /// An NFT listing was canceled.
     NftCancelListing,
+    /// End of a batch NFT listing.
     NftEndBatchListing,
+    /// AVT growth was lifted.
     AvtGrowthLifted,
+    /// A claim for lower AVT was executed.
     AvtLowerClaimed,
+    /// A lift operation to the prediction market.
     LiftedToPredictionMarket,
+    /// Secondary event emitted by the ERC-20 token contract.
+    Erc20DirectTransfer,
 }
 
 impl ValidEvents {
@@ -123,6 +148,10 @@ impl ValidEvents {
             // hex string of Keccak-256 for LogLowerClaimed(uint32)
             ValidEvents::AvtLowerClaimed =>
                 H256(hex!("9853e4c075911a10a89a0f7a46bac6f8a246c4e9152480d16d86aa6a2391a4f1")),
+
+            // hex string of Keccak-256 for Transfer(address,address,uint256)
+            ValidEvents::Erc20DirectTransfer =>
+                H256(hex!("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")),
         }
     }
 
@@ -145,6 +174,8 @@ impl ValidEvents {
             return Some(ValidEvents::AvtLowerClaimed)
         } else if signature == &ValidEvents::LiftedToPredictionMarket.signature() {
             return Some(ValidEvents::LiftedToPredictionMarket)
+        } else if signature == &ValidEvents::Erc20DirectTransfer.signature() {
+            return Some(ValidEvents::Erc20DirectTransfer)
         } else {
             return None
         }
@@ -157,6 +188,17 @@ impl ValidEvents {
             ValidEvents::NftCancelListing |
             ValidEvents::NftEndBatchListing => true,
             _ => false,
+        }
+    }
+
+    pub fn values() -> Vec<ValidEvents> {
+        ValidEvents::iter().collect()
+    }
+
+    pub fn is_primary(&self) -> bool {
+        match *self {
+            ValidEvents::Erc20DirectTransfer => false,
+            _ => true,
         }
     }
 }
@@ -303,6 +345,69 @@ impl LiftedData {
             receiver_address,
             amount,
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
+            nonce: U256::zero(),
+        })
+    }
+}
+
+impl LiftedData {
+    const TOPIC_T1_FROM_ADDRESS: usize = 1;
+    const TOPIC_BRIDGE_CONTRACT: usize = 2;
+
+    pub fn from_erc_20_contract_transfer_bytes(
+        data: Option<Vec<u8>>,
+        topics: Vec<Vec<u8>>,
+    ) -> Result<Self, Error> {
+        // Structure of input bytes:
+        // data --> amount (32 bytes) (big endian)
+        // all topics are 32 bytes long
+        // topics[0] --> event signature (can be ignored)
+        // topics[1] --> ethereum sender address
+        // topics[2] --> ethereum receiver address (bridge contract)
+
+        if data.is_none() {
+            return Err(Error::LiftedEventMissingData)
+        }
+        let data = data.expect("Already checked for errors");
+
+        if data.len() != WORD_LENGTH {
+            return Err(Error::LiftedEventBadDataLength)
+        }
+
+        if topics.len() != 3 {
+            return Err(Error::LiftedEventWrongTopicCount)
+        }
+
+        if topics[Self::TOPIC_BRIDGE_CONTRACT].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_T1_FROM_ADDRESS].len() != WORD_LENGTH
+        {
+            return Err(Error::LiftedEventBadTopicLength)
+        }
+
+        let bridge_contract = H160::from_slice(
+            &topics[Self::TOPIC_BRIDGE_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
+        );
+
+        let sender_address = H160::from_slice(
+            &topics[Self::TOPIC_T1_FROM_ADDRESS][DISCARDED_ZERO_BYTES..WORD_LENGTH],
+        );
+
+        if data[0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
+            return Err(Error::LiftedEventDataOverflow)
+        }
+
+        let amount = u128::from_be_bytes(
+            data[HALF_WORD_LENGTH..WORD_LENGTH]
+                .try_into()
+                .expect("Slice is the correct size"),
+        );
+        return Ok(LiftedData {
+            token_contract: H160::zero(),
+            sender_address,
+            // This must be overwritten after the lift reach consensus with the account configured
+            // on the pallet
+            receiver_address: bridge_contract.into(),
+            amount,
             nonce: U256::zero(),
         })
     }
@@ -699,12 +804,14 @@ pub enum EventData {
     LogAvtGrowthLifted(AvtGrowthLiftedData),
     LogLowerClaimed(AvtLowerClaimedData),
     LogLiftedToPredictionMarket(LiftedToPredictionMarketData),
+    LogErc20Transfer(LiftedData),
 }
 
 impl EventData {
     #[allow(unreachable_patterns)]
     pub fn is_valid(&self) -> bool {
         return match self {
+            // LogLowerClaimed missing. TODO add and remove unreachable patterns.
             EventData::LogAddedValidator(d) => d.is_valid(),
             EventData::LogLifted(d) => d.is_valid(),
             EventData::LogNftMinted(d) => d.is_valid(),
@@ -713,6 +820,7 @@ impl EventData {
             EventData::LogNftEndBatchListing(d) => d.is_valid(),
             EventData::LogAvtGrowthLifted(d) => d.is_valid(),
             EventData::LogLiftedToPredictionMarket(d) => d.is_valid(),
+            EventData::LogErc20Transfer(d) => d.is_valid(),
             EventData::EmptyEvent => true,
             _ => false,
         }

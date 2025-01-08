@@ -680,7 +680,7 @@ pub mod pallet {
                 ActiveEthereumRange::<T>::put(ActiveEthRange {
                     range: selected_range,
                     partition: 0,
-                    event_types_filter: T::EthereumEventsFilter::get_filter(),
+                    event_types_filter: T::EthereumEventsFilter::get(),
                 });
 
                 let _ = SubmittedEthBlocks::<T>::clear(
@@ -844,7 +844,7 @@ pub mod pallet {
             ActiveEthRange {
                 range: active_range.range.next_range(),
                 partition: 0,
-                event_types_filter: T::EthereumEventsFilter::get_filter(),
+                event_types_filter: T::EthereumEventsFilter::get(),
             }
         } else {
             ActiveEthRange {

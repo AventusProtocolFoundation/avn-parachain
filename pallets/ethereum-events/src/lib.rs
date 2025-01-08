@@ -1497,8 +1497,9 @@ impl<T: Config> Pallet<T> {
 
     /// Adds an event: tx_hash must be a nonzero hash
     fn add_event(event_type: ValidEvents, tx_hash: H256, sender: T::AccountId) -> DispatchResult {
-        let filter = T::EthereumEventsFilter::get_filter();
+        let filter = T::EthereumEventsFilter::get_primary();
         ensure!(!filter.contains(&event_type), Error::<T>::ErrorAddingEthereumLog);
+        ensure!(event_type.is_primary(), Error::<T>::InvalidEventToProcess);
 
         let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
         ensure!(!Self::event_exists_in_system(&event_id), Error::<T>::DuplicateEvent);
