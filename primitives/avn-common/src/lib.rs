@@ -3,7 +3,7 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::{format, string::String};
+use alloc::string::{String, ToString};
 
 use codec::{Codec, Decode, Encode};
 use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
