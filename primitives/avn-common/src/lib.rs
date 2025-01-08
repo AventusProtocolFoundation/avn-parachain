@@ -219,8 +219,9 @@ pub fn recover_ethereum_address_from_ecdsa_signature(
     message: &[u8],
     hash_message_format: HashMessageFormat,
 ) -> Result<[u8; 20], ECDSAVerificationError> {
-    let mut hashed_message = hash_string_data_with_ethereum_prefix(&String::from_utf8(message.to_vec()).unwrap())
-        .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
+    let mut hashed_message =
+        hash_string_data_with_ethereum_prefix(&String::from_utf8(message.to_vec()).unwrap())
+            .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
 
     if let HashMessageFormat::Hex32Bytes = hash_message_format {
         hashed_message = hash_with_ethereum_prefix(&hex::encode(message))
@@ -274,9 +275,11 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     Ok(hash)
 }
 
-// Be careful when changing this logic because it needs to be compatible with other Ethereum wallets.
-// The string_message is treated as a string even if it is in Hex format.
-pub fn hash_string_data_with_ethereum_prefix(string_message: &String) -> Result<[u8; 32], ECDSAVerificationError> {
+// Be careful when changing this logic because it needs to be compatible with other Ethereum
+// wallets. The string_message is treated as a string even if it is in Hex format.
+pub fn hash_string_data_with_ethereum_prefix(
+    string_message: &String,
+) -> Result<[u8; 32], ECDSAVerificationError> {
     let message_bytes = string_message.as_bytes();
     let raw_message_length = string_message.len();
 
@@ -407,7 +410,7 @@ pub enum EthQueryResponseType {
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum HashMessageFormat {
     Hex32Bytes,
-    String
+    String,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
