@@ -72,6 +72,8 @@ pub enum ECDSAVerificationError {
     InvalidValueForRS,
     InvalidMessageFormat,
     BadSignature,
+    FailedToHashStringData,
+    FailedToHash32BytesHexData,
 }
 
 pub enum BridgeContractMethod {
@@ -219,13 +221,15 @@ pub fn recover_ethereum_address_from_ecdsa_signature(
     message: &[u8],
     hash_message_format: HashMessageFormat,
 ) -> Result<[u8; 20], ECDSAVerificationError> {
-    let mut hashed_message =
-        hash_string_data_with_ethereum_prefix(&String::from_utf8(message.to_vec()).unwrap())
-            .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
+    let string_message = String::from_utf8(message.to_vec())
+        .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
+
+    let mut hashed_message = hash_string_data_with_ethereum_prefix(&string_message)
+        .map_err(|_| ECDSAVerificationError::FailedToHashStringData)?;
 
     if let HashMessageFormat::Hex32Bytes = hash_message_format {
         hashed_message = hash_with_ethereum_prefix(&hex::encode(message))
-            .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
+            .map_err(|_| ECDSAVerificationError::FailedToHash32BytesHexData)?;
     }
 
     match secp256k1_ecdsa_recover(signature.as_ref(), &hashed_message) {

@@ -162,8 +162,10 @@ pub fn abi_encode_function<T: pallet::Config>(
         })
         .collect();
 
+    let function_name_utf8 =
+        core::str::from_utf8(function_name).map_err(|_| Error::<T>::FunctionNameError)?;
     let function = Function {
-        name: core::str::from_utf8(function_name).unwrap().to_string(),
+        name: function_name_utf8.to_string(),
         inputs,
         outputs: Vec::<Param>::new(),
         constant: false,
