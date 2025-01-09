@@ -221,7 +221,7 @@ pub fn recover_ethereum_address_from_ecdsa_signature(
     message: &[u8],
     hash_message_format: HashMessageFormat,
 ) -> Result<[u8; 20], ECDSAVerificationError> {
-    let mut hashed_message = hash_bytes_data_with_ethereum_prefix(&message)
+    let mut hashed_message = hash_string_data_with_ethereum_prefix(&message)
         .map_err(|_| ECDSAVerificationError::FailedToHashStringData)?;
 
     if let HashMessageFormat::Hex32Bytes = hash_message_format {
@@ -277,10 +277,12 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
 
 // Be careful when changing this logic because it needs to be compatible with other Ethereum
 // wallets. The string_message is treated as a string even if it is in Hex format.
-pub fn hash_bytes_data_with_ethereum_prefix(
+pub fn hash_string_data_with_ethereum_prefix(
     message_bytes: &[u8],
 ) -> Result<[u8; 32], ECDSAVerificationError> {
-    let raw_message_length = message_bytes.len();
+    // external wallets sign the actual string
+    // so we convert to hex string to get the real length
+    let raw_message_length = hex::encode(message_bytes).len() + 2; // Include the 0x
 
     let mut prefixed_message = Vec::new();
     prefixed_message.extend_from_slice(ETHEREUM_PREFIX);
@@ -288,6 +290,7 @@ pub fn hash_bytes_data_with_ethereum_prefix(
     prefixed_message.extend_from_slice(message_bytes);
 
     let hash = keccak_256(&prefixed_message);
+
     log::error!(
         "\n🪲 [String] Data without prefix: {:?},\n\n🪲 Data with ethereum prefix: {:?}, \n\n🪲 message len: {:?}, \n\n🪲 prefix: {:?}, \n\n🪲 Result hash: {:?}\n",
         &hex::encode(message_bytes),
@@ -352,7 +355,7 @@ where
                 match recover_ethereum_address_from_ecdsa_signature(
                     &ecdsa_signature,
                     signed_payload,
-                    HashMessageFormat::Bytes,
+                    HashMessageFormat::String,
                 ) {
                     Ok(eth_address) => {
                         let derived_public_key =
@@ -408,7 +411,7 @@ pub enum EthQueryResponseType {
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum HashMessageFormat {
     Hex32Bytes,
-    Bytes,
+    String,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
