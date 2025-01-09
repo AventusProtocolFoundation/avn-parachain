@@ -221,10 +221,7 @@ pub fn recover_ethereum_address_from_ecdsa_signature(
     message: &[u8],
     hash_message_format: HashMessageFormat,
 ) -> Result<[u8; 20], ECDSAVerificationError> {
-    let string_message = String::from_utf8(message.to_vec())
-        .map_err(|_| ECDSAVerificationError::InvalidMessageFormat)?;
-
-    let mut hashed_message = hash_string_data_with_ethereum_prefix(&string_message)
+    let mut hashed_message = hash_bytes_data_with_ethereum_prefix(&message)
         .map_err(|_| ECDSAVerificationError::FailedToHashStringData)?;
 
     if let HashMessageFormat::Hex32Bytes = hash_message_format {
@@ -280,10 +277,9 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
 
 // Be careful when changing this logic because it needs to be compatible with other Ethereum
 // wallets. The string_message is treated as a string even if it is in Hex format.
-pub fn hash_string_data_with_ethereum_prefix(
-    string_message: &String,
+pub fn hash_bytes_data_with_ethereum_prefix(
+    message_bytes: &[u8],
 ) -> Result<[u8; 32], ECDSAVerificationError> {
-    let message_bytes = string_message.as_bytes();
     let raw_message_length = message_bytes.len();
 
     let mut prefixed_message = Vec::new();
@@ -294,7 +290,7 @@ pub fn hash_string_data_with_ethereum_prefix(
     let hash = keccak_256(&prefixed_message);
     log::error!(
         "\n🪲 [String] Data without prefix: {:?},\n\n🪲 Data with ethereum prefix: {:?}, \n\n🪲 message len: {:?}, \n\n🪲 prefix: {:?}, \n\n🪲 Result hash: {:?}\n",
-        &string_message,
+        &hex::encode(message_bytes),
         &hex::encode(prefixed_message.clone()),
         raw_message_length,
         hex::encode(prefixed_message.clone()),
@@ -356,7 +352,7 @@ where
                 match recover_ethereum_address_from_ecdsa_signature(
                     &ecdsa_signature,
                     signed_payload,
-                    HashMessageFormat::String,
+                    HashMessageFormat::Bytes,
                 ) {
                     Ok(eth_address) => {
                         let derived_public_key =
@@ -367,7 +363,6 @@ where
                     },
                     Err(err) => {
                         log::error!("Error recovering ecdsa address: {:?}", err);
-                        return Ok(())
                     },
                 },
             _ => {
@@ -413,7 +408,7 @@ pub enum EthQueryResponseType {
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum HashMessageFormat {
     Hex32Bytes,
-    String,
+    Bytes,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
