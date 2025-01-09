@@ -3,7 +3,10 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::{String, ToString};
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 
 use codec::{Codec, Decode, Encode};
 use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
@@ -280,25 +283,29 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
 pub fn hash_string_data_with_ethereum_prefix(
     message_bytes: &[u8],
 ) -> Result<[u8; 32], ECDSAVerificationError> {
+    let hex_string = format!("0x{}", hex::encode(message_bytes));
+    let message_string_bytes = hex_string.as_bytes();
+
     // external wallets sign the actual string
     // so we convert to hex string to get the real length
-    let raw_message_length = hex::encode(message_bytes).len() + 2; // Include the 0x
+    let raw_message_length = message_string_bytes.len();
 
     let mut prefixed_message = Vec::new();
     prefixed_message.extend_from_slice(ETHEREUM_PREFIX);
     prefixed_message.extend_from_slice(raw_message_length.to_string().as_bytes());
-    prefixed_message.extend_from_slice(message_bytes);
+    prefixed_message.extend_from_slice(message_string_bytes);
 
     let hash = keccak_256(&prefixed_message);
 
     log::error!(
-        "\n🪲 [String] Data without prefix: {:?},\n\n🪲 Data with ethereum prefix: {:?}, \n\n🪲 message len: {:?}, \n\n🪲 prefix: {:?}, \n\n🪲 Result hash: {:?}\n",
-        &hex::encode(message_bytes),
+        "\n🪲 [String] Data without prefix: {:?},\n🪲 Data with ethereum prefix: {:?}, \n🪲 message len: {:?}, \n🪲 prefix: {:?}, \n\n🪲 Result hash: {:?}",
+        &hex::encode(message_string_bytes),
         &hex::encode(prefixed_message.clone()),
         raw_message_length,
         hex::encode(prefixed_message.clone()),
         hex::encode(&hash),
     );
+    log::error!("\n🪲 message_bytes: {:?}", &hex::encode(message_bytes),);
 
     Ok(hash)
 }
