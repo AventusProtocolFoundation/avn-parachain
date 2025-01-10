@@ -122,13 +122,11 @@ pub trait EthereumEventsFilterTrait {
 
     /// Returns only primary events included in the filter.
     fn get_primary() -> EthBridgeEventsFilter {
-        let mut filter = Self::get();
-        let binding = ValidEvents::values();
-        let secondary_events: Vec<_> = binding.iter().filter(|event| !event.is_primary()).collect();
-        for secondary in secondary_events {
-            filter.remove(secondary);
+        let mut events_filter = Self::get();
+        for event in ValidEvents::values().iter().filter(|e| !e.is_primary()) {
+            events_filter.remove(event);
         }
-        filter
+        events_filter
     }
 }
 
