@@ -269,7 +269,7 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
     prefixed_message.append(&mut message_bytes.to_vec());
 
     let hash = keccak_256(&prefixed_message);
-    log::error!(
+    log::debug!(
         "🪲 Data without prefix: {:?},\n data with ethereum prefix: {:?}, \n result hash: {:?}",
         &hex_message,
         &prefixed_message,
@@ -279,7 +279,7 @@ pub fn hash_with_ethereum_prefix(hex_message: &String) -> Result<[u8; 32], ECDSA
 }
 
 // Be careful when changing this logic because it needs to be compatible with other Ethereum
-// wallets. The string_message is treated as a string even if it is in Hex format.
+// wallets. The message_bytes are converted to hex first then to utf8bytes.
 pub fn hash_string_data_with_ethereum_prefix(
     message_bytes: &[u8],
 ) -> Result<[u8; 32], ECDSAVerificationError> {
@@ -297,15 +297,15 @@ pub fn hash_string_data_with_ethereum_prefix(
 
     let hash = keccak_256(&prefixed_message);
 
-    log::error!(
-        "\n🪲 [String] Data without prefix: {:?},\n🪲 Data with ethereum prefix: {:?}, \n🪲 message len: {:?}, \n🪲 prefix: {:?}, \n\n🪲 Result hash: {:?}",
+    log::debug!(
+        "\n🪲 [String] Message bytes: {:?}, \nData without prefix: {:?},\n🪲 Data with ethereum prefix: {:?}, \n🪲 message len: {:?}, \n🪲 prefix: {:?}, \n\n🪲 Result hash: {:?}",
+        &hex::encode(message_bytes),
         &hex::encode(message_string_bytes),
         &hex::encode(prefixed_message.clone()),
         raw_message_length,
         hex::encode(prefixed_message.clone()),
         hex::encode(&hash),
     );
-    log::error!("\n🪲 message_bytes: {:?}", &hex::encode(message_bytes),);
 
     Ok(hash)
 }

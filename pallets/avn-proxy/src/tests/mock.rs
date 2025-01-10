@@ -14,8 +14,7 @@ use pallet_avn::BridgeInterfaceNotification;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
 use pallet_session as session;
-use sp_avn_common::hash_with_ethereum_prefix;
-use sp_core::{blake2_256, ecdsa, keccak_256, sr25519, ConstU32, ConstU64, Pair, H160, H256};
+use sp_core::{blake2_256, ecdsa, sr25519, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
@@ -389,18 +388,18 @@ impl TestAccount {
         return ecdsa::Pair::from_seed(&self.seed)
     }
 
-    pub fn ethereum_ecdsa_sign(&self, message_to_sign: &[u8]) -> Signature {
-        let hashed_message = hash_with_ethereum_prefix(&hex::encode(message_to_sign)).unwrap();
-        return Signature::from(self.ecdsa_key_pair().sign(&hashed_message))
+    pub fn ethereum_ecdsa_sign(&self, _message_to_sign: &[u8]) -> Signature {
+        // TODO: Use a proper library to sign
+        let sig_hex = hex!("c53505a5989014a42709c7572926095d6c9394ab6c543dccacdaaab61c10ddf86ec3860a5649c57456677afced418d01d19705693f2c8f1438ac605c5b96c1041c");
+
+        let sig = sp_core::ecdsa::Signature::from_slice(&sig_hex).unwrap();
+        sp_runtime::MultiSignature::Ecdsa(sig)
     }
 
     pub fn derived_account_id(&self) -> AccountId {
-        // TODO: Use a library that generates ECDSA public keys in the same way ethers does so we
-        // don't have to do hardcode this:
-        let ecdsa_uncompressed_pubkey = hex!("04930fddd257d2c4e21d22f19e8c5035ca06e9748604397c9b9298041dfc804129fd92a7ed4ed576996015b352d9e586831fd743179dec00b922abc0eaecefa761");
-        let eth_address_hash = keccak_256(&ecdsa_uncompressed_pubkey[1..]); // Remove the first byte (0x04)
-        let eth_address = &eth_address_hash[12..];
-        let hashed_eth_address = blake2_256(eth_address);
+        // TODO: Use a library that generates ECDSA public keys in the same way ethers does so we don't have to do hardcode this:
+        let eth_address = H160::from_slice(&hex!("6E43697Ca52437e76743ad0B932189872F9612E6"));
+        let hashed_eth_address = blake2_256(&eth_address[..]);
         let derived_account_public_key = sr25519::Public::from_raw(hashed_eth_address);
         AccountId::decode(&mut derived_account_public_key.encode().as_slice()).unwrap()
     }
