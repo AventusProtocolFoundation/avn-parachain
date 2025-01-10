@@ -4,6 +4,7 @@
 use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
+use sp_avn_common::{recover_ethereum_address_from_ecdsa_signature, HashMessageFormat};
 use sp_runtime::traits::Hash;
 
 mod proxy_without_fees {
@@ -44,6 +45,60 @@ mod proxy_without_fees {
                     None
                 ));
                 assert_eq!(true, single_nft_minted_events_emitted());
+            })
+        }
+
+        #[test]
+        fn ecdsa_hash_works() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                use sp_avn_common::{hash_string_data_with_ethereum_prefix, verify_multi_signature, verify_signature as verify_sig, Proof};
+                use hex_literal::hex;
+                use sp_runtime::MultiSignature;
+
+                let signed_transfer_context: &'static [u8] = b"authorization for transfer operation";
+                let public_key_bytes: [u8; 32] = hex!("e66ebc6f8820f1d27706ae812f208e5dfbf741e9463892471a24abf6a4d4ab4b");
+                let public_key = sp_core::sr25519::Public::from_raw(public_key_bytes);
+                let relayer: AccountId = AccountId::decode(&mut public_key.encode().as_slice()).unwrap();
+
+                let public_key_bytes: [u8; 32] = hex!("6fc436cd5273e4ecfd09079c982e2824825d5903cb2cf6cfd02586fbf6faa9a3");
+                let public_key = sp_core::sr25519::Public::from_raw(public_key_bytes);
+                let from: AccountId = AccountId::decode(&mut public_key.encode().as_slice()).unwrap();
+
+                let public_key_bytes: [u8; 32] = hex!("ea055d6f2e2280ecfd691e28f3062047c3904273ea699ec5d05c43a5b8413e55");
+                let public_key = sp_core::sr25519::Public::from_raw(public_key_bytes);
+                let to: AccountId = AccountId::decode(&mut public_key.encode().as_slice()).unwrap();
+
+                let token_id = H160::from_slice(&hex!("bfaffd8001493dfeb51c26748d2aff53c2984190"));
+                let amount: u128 = 22u128;
+                let sender_nonce: u64 = 2u64;
+
+                let encoded_data = (signed_transfer_context, relayer.clone(), from, to, token_id, amount, sender_nonce, ).encode();
+
+                // make sure we can hash
+                assert_ok!(hash_string_data_with_ethereum_prefix(&encoded_data));
+
+                let sig_hex = hex!("1cd1bd9e23eee5df0d0a7e21d88775a5d9020eb946fb89c8fc649d3a1c1e4c330f9474ece85b49813370dc249c98175337f0aee0108415c6f2988c0e37b554671c");
+                let sig = sp_core::ecdsa::Signature::from_slice(&sig_hex).unwrap();
+                let result = recover_ethereum_address_from_ecdsa_signature(&sig, &encoded_data, HashMessageFormat::String).unwrap();
+
+                let expected_eth_address = H160::from_slice(&hex!("6E43697Ca52437e76743ad0B932189872F9612E6"));
+
+                assert_eq!(result, expected_eth_address[..]);
+
+                let public_key_bytes: [u8; 32] = hex!("6fc436cd5273e4ecfd09079c982e2824825d5903cb2cf6cfd02586fbf6faa9a3");
+                let public_key = sp_core::sr25519::Public::from_raw(public_key_bytes);
+
+                let account_id: AccountId = AccountId::decode(&mut public_key.encode().as_slice()).unwrap();
+                assert_ok!(verify_multi_signature::<Signature, AccountId>(&account_id, &MultiSignature::from(sig.clone()), &encoded_data));
+
+                let proof = Proof::<Signature, AccountId> {
+                    signer: account_id.clone(),
+                    relayer: account_id,
+                    signature: MultiSignature::from(sig),
+                };
+
+                assert_ok!(verify_sig::<Signature, AccountId>(&proof, &encoded_data));
             })
         }
 
