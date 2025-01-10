@@ -397,7 +397,8 @@ impl TestAccount {
     }
 
     pub fn derived_account_id(&self) -> AccountId {
-        // TODO: Use a library that generates ECDSA public keys in the same way ethers does so we don't have to do hardcode this:
+        // TODO: Use a library that generates ECDSA public keys in the same way ethers does so we
+        // don't have to do hardcode this:
         let eth_address = H160::from_slice(&hex!("6E43697Ca52437e76743ad0B932189872F9612E6"));
         let hashed_eth_address = blake2_256(&eth_address[..]);
         let derived_account_public_key = sr25519::Public::from_raw(hashed_eth_address);
