@@ -413,70 +413,6 @@ impl LiftedData {
     }
 }
 
-// T1 Event definition:
-// event LogLiftedToPredictionMarket(address indexed tokenContract, bytes32 indexed t2PubKey,
-// uint256 amount);
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct LiftedToPredictionMarketData {
-    pub token_contract: H160,
-    pub receiver_address: H256,
-    pub amount: u128,
-}
-
-impl LiftedToPredictionMarketData {
-    const TOPIC_CURRENCY_CONTRACT: usize = 1;
-    const TOPIC_INDEX_T2_ADDRESS: usize = 2;
-
-    pub fn is_valid(&self) -> bool {
-        return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
-    }
-
-    pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
-        // Structure of input bytes:
-        // data --> amount (32 bytes) (big endian)
-        // all topics are 32 bytes long
-        // topics[0] --> event signature (can be ignored)
-        // topics[1] --> currency contract address (first 12 bytes are 0 and should be ignored)
-        // topics[2] --> receiver t2 public key (32 bytes)
-
-        if data.is_none() {
-            return Err(Error::LiftedToPredictionMarketEventMissingData)
-        }
-        let data = data.expect("Already checked for errors");
-
-        if data.len() != WORD_LENGTH {
-            return Err(Error::LiftedToPredictionMarketEventBadDataLength)
-        }
-
-        if topics.len() != 3 {
-            return Err(Error::LiftedToPredictionMarketEventWrongTopicCount)
-        }
-
-        if topics[Self::TOPIC_CURRENCY_CONTRACT].len() != WORD_LENGTH ||
-            topics[Self::TOPIC_INDEX_T2_ADDRESS].len() != WORD_LENGTH
-        {
-            return Err(Error::LiftedToPredictionMarketEventBadTopicLength)
-        }
-
-        let token_contract = H160::from_slice(
-            &topics[Self::TOPIC_CURRENCY_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
-        );
-
-        let receiver_address = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
-
-        if data[0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
-            return Err(Error::LiftedToPredictionMarketEventDataOverflow)
-        }
-
-        let amount = u128::from_be_bytes(
-            data[HALF_WORD_LENGTH..WORD_LENGTH]
-                .try_into()
-                .expect("Slice is the correct size"),
-        );
-        return Ok(LiftedToPredictionMarketData { token_contract, receiver_address, amount })
-    }
-}
-
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct NftMintData {
     pub batch_id: U256,
@@ -803,7 +739,7 @@ pub enum EventData {
     LogNftEndBatchListing(NftEndBatchListingData),
     LogAvtGrowthLifted(AvtGrowthLiftedData),
     LogLowerClaimed(AvtLowerClaimedData),
-    LogLiftedToPredictionMarket(LiftedToPredictionMarketData),
+    LogLiftedToPredictionMarket(LiftedData),
     LogErc20Transfer(LiftedData),
 }
 
