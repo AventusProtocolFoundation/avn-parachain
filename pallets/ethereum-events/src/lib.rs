@@ -38,9 +38,9 @@ use sp_avn_common::{
     event_discovery::EthereumEventsFilterTrait,
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Challenge, ChallengeReason,
-        CheckResult, EthEventCheckResult, EthEventId, EventData, LiftedData,
-        LiftedToPredictionMarketData, NftCancelListingData, NftEndBatchListingData, NftMintData,
-        NftTransferToData, ProcessedEventHandler, ValidEvents, Validator,
+        CheckResult, EthEventCheckResult, EthEventId, EventData, LiftedData, NftCancelListingData,
+        NftEndBatchListingData, NftMintData, NftTransferToData, ProcessedEventHandler, ValidEvents,
+        Validator,
     },
     verify_signature, EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
     IngressCounter, InnerCallValidator, Proof,
@@ -1069,11 +1069,10 @@ impl<T: Config> Pallet<T> {
             })?;
             return Ok(EventData::LogLifted(event_data))
         } else if event_id.signature == ValidEvents::LiftedToPredictionMarket.signature() {
-            let event_data =
-                <LiftedToPredictionMarketData>::parse_bytes(data, topics).map_err(|e| {
-                    log::warn!("Error parsing T1 Prediction market lift Event: {:#?}", e);
-                    Error::<T>::EventParsingFailed
-                })?;
+            let event_data = <LiftedData>::parse_bytes(data, topics).map_err(|e| {
+                log::warn!("Error parsing T1 Prediction market lift Event: {:#?}", e);
+                Error::<T>::EventParsingFailed
+            })?;
             return Ok(EventData::LogLiftedToPredictionMarket(event_data))
         } else if event_id.signature == ValidEvents::NftMint.signature() {
             let event_data = <NftMintData>::parse_bytes(data, topics).map_err(|e| {
@@ -1497,8 +1496,9 @@ impl<T: Config> Pallet<T> {
 
     /// Adds an event: tx_hash must be a nonzero hash
     fn add_event(event_type: ValidEvents, tx_hash: H256, sender: T::AccountId) -> DispatchResult {
-        let filter = T::EthereumEventsFilter::get_filter();
+        let filter = T::EthereumEventsFilter::get_primary();
         ensure!(!filter.contains(&event_type), Error::<T>::ErrorAddingEthereumLog);
+        ensure!(event_type.is_primary(), Error::<T>::InvalidEventToProcess);
 
         let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };
         ensure!(!Self::event_exists_in_system(&event_id), Error::<T>::DuplicateEvent);

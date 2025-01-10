@@ -117,11 +117,21 @@ pub type EventsTypesLimit = ConstU32<20>;
 pub type EthBridgeEventsFilter = BoundedBTreeSet<ValidEvents, EventsTypesLimit>;
 
 pub trait EthereumEventsFilterTrait {
-    fn get_filter() -> EthBridgeEventsFilter;
+    /// Returns all events included in the filter.
+    fn get() -> EthBridgeEventsFilter;
+
+    /// Returns only primary events included in the filter.
+    fn get_primary() -> EthBridgeEventsFilter {
+        let mut events_filter = Self::get();
+        for event in ValidEvents::values().iter().filter(|e| !e.is_primary()) {
+            events_filter.remove(event);
+        }
+        events_filter
+    }
 }
 
 impl EthereumEventsFilterTrait for () {
-    fn get_filter() -> EthBridgeEventsFilter {
+    fn get() -> EthBridgeEventsFilter {
         Default::default()
     }
 }

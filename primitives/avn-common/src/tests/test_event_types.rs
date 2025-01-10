@@ -301,7 +301,7 @@ fn test_prediction_market_lifted_avt_parse_bytes_good_case() {
 
     let data = Some(get_lifted_avt_data());
     let topics = get_lifted_avt_topics();
-    let result = LiftedToPredictionMarketData::parse_bytes(data, topics);
+    let result = LiftedData::parse_bytes(data, topics);
 
     assert!(result.is_ok());
     let result = result.unwrap();

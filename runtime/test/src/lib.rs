@@ -120,7 +120,7 @@ where
 
 pub struct EthBridgeTestRuntimeEventsFilter;
 impl EthereumEventsFilterTrait for EthBridgeTestRuntimeEventsFilter {
-    fn get_filter() -> EthBridgeEventsFilter {
+    fn get() -> EthBridgeEventsFilter {
         let allowed_events: BTreeSet<ValidEvents> = vec![
             ValidEvents::AddedValidator,
             ValidEvents::Lifted,
