@@ -20,7 +20,8 @@ use sp_core::{H160, H256};
 use hex_literal::hex;
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
-pub type ChainSpec = sc_service::GenericChainSpec<avn_test_runtime::GenesisConfig, Extensions>;
+// TODO remove this
+pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// Generate the session keys from individual elements.
 ///
