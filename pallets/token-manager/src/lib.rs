@@ -1220,6 +1220,10 @@ impl<T: Config> TokenInterface<T::TokenId, T::AccountId> for Pallet<T> {
                 let lifted_data = LiftedData::new(d.token_contract, d.receiver_address, d.amount);
                 return Self::process_lift(event, &lifted_data)
             },
+            EventData::LogErc20Transfer(d) => {
+                let lifted_data = LiftedData::new(d.token_contract, d.receiver_address, d.amount);
+                return Self::process_lift(event, &lifted_data)
+            },
 
             // Any other event should not be calling this hook, they should use the regular lift
             // pathway
