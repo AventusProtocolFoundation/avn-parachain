@@ -1531,7 +1531,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn is_event_contract_valid(contract_address: &H160, event_id: &EthEventId) -> bool {
-        let event_type = ValidEvents::try_from(&event_id.signature);
+        let event_type = ValidEvents::try_from(&event_id.signature).ok();
         if let Some(event_type) = event_type {
             if event_type.is_nft_event() {
                 return <NftT1Contracts<T>>::contains_key(contract_address)
@@ -1619,8 +1619,10 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
             Self::get_pending_event_index(event_id).is_ok()
     }
 
-    fn add_processed_event(event_id: &EthEventId, accepted: bool) {
+    fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()> {
+        ensure!(!Self::processed_event_exists(event_id), ());
         <ProcessedEvents<T>>::insert(event_id.clone(), accepted);
+        Ok(())
     }
 }
 

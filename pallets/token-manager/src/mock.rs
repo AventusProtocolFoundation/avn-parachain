@@ -382,7 +382,9 @@ impl ProcessedEventsChecker for TestRuntime {
         return PROCESSED_EVENTS.with(|l| l.borrow_mut().iter().any(|event| event == event_id))
     }
 
-    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
+    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) -> Result<(), ()> {
+        Ok(())
+    }
 }
 
 impl TokenManager {

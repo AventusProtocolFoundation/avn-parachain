@@ -725,7 +725,7 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
 
 pub trait ProcessedEventsChecker {
     fn processed_event_exists(event_id: &EthEventId) -> bool;
-    fn add_processed_event(event_id: &EthEventId, accepted: bool);
+    fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()>;
 }
 
 impl ProcessedEventsChecker for () {
@@ -733,7 +733,9 @@ impl ProcessedEventsChecker for () {
         false
     }
 
-    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
+    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) -> Result<(), ()> {
+        Ok(())
+    }
 }
 
 pub trait OnGrowthLiftedHandler<Balance> {

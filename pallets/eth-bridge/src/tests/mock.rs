@@ -115,7 +115,7 @@ impl Config for TestRuntime {
     type AccountToBytesConvert = U64To32BytesConverter;
     type BridgeInterfaceNotification = TestRuntime;
     type ReportCorroborationOffence = OffenceHandler;
-    type ProcessedEventsChecker = Self;
+    type ProcessedEventsChecker = EthBridge;
     type EthereumEventsFilter = ();
 }
 
@@ -498,23 +498,5 @@ impl BridgeInterfaceNotification for TestRuntime {
         }
 
         Ok(())
-    }
-}
-
-thread_local! {
-    static PROCESSED_EVENTS: RefCell<Vec<(EthEventId, bool)>> = RefCell::new(vec![]);
-}
-
-pub fn insert_to_mock_processed_events(event_id: &EthEventId, processed: bool) {
-    PROCESSED_EVENTS.with(|l| l.borrow_mut().push((event_id.clone(), processed)));
-}
-
-impl ProcessedEventsChecker for TestRuntime {
-    fn processed_event_exists(event_id: &EthEventId) -> bool {
-        PROCESSED_EVENTS.with(|l| l.borrow().iter().any(|(event, _processed)| event == event_id))
-    }
-
-    fn add_processed_event(event_id: &EthEventId, accepted: bool) {
-        insert_to_mock_processed_events(event_id, accepted);
     }
 }
