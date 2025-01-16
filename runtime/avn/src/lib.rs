@@ -547,6 +547,7 @@ impl pallet_ethereum_events::Config for Runtime {
     type ReportInvalidEthereumLog = Offences;
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
     type EthereumEventsFilter = EthBridgeAvnRuntimeEventsFilter;
+    type ProcessedEventsChecker = ProcessedEventCustodian;
 }
 
 parameter_types! {
@@ -1129,11 +1130,12 @@ use sp_avn_common::event_types::EthEventId;
 pub struct ProcessedEventCustodian {}
 impl ProcessedEventsChecker for ProcessedEventCustodian {
     fn processed_event_exists(event_id: &EthEventId) -> bool {
-        EthBridge::processed_event_exists(event_id) || EthereumEvents::processed_events(event_id)
+        EthBridge::processed_event_exists(event_id) ||
+            EthereumEvents::processed_event_exists(event_id)
     }
 
     fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()> {
-        ensure!(!Self::processed_event_exists(event_id), ());
+        frame_support::ensure!(!Self::processed_event_exists(event_id), ());
         EthBridge::add_processed_event(event_id, accepted)
     }
 }
