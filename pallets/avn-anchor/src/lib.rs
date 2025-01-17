@@ -10,7 +10,7 @@ use frame_support::{dispatch::DispatchResult, ensure, traits::Currency};
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
-use codec::Encode;
+use codec::{Decode, Encode};
 use sp_avn_common::CallDecoder;
 use sp_core::{ConstU32, Get, H256};
 use sp_runtime::BoundedVec;
@@ -42,7 +42,9 @@ pub(crate) type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType};
+    use frame_support::{
+        dispatch::GetDispatchInfo, pallet_prelude::*, traits::IsSubType, transactional,
+    };
     use frame_system::pallet_prelude::*;
     use sp_avn_common::{verify_signature, FeePaymentHandler, InnerCallValidator, Proof};
     use sp_core::H160;
@@ -56,6 +58,12 @@ pub mod pallet {
         pub name: BoundedVec<u8, ChainNameLimit>,
     }
     pub type CheckpointId = u64;
+
+    #[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+    pub struct CheckpointData {
+        pub hash: H256,
+        pub parent_checkpoint: Option<H256>,
+    }
 
     #[pallet::config]
     pub trait Config: frame_system::Config + pallet_avn::Config {
@@ -140,6 +148,9 @@ pub mod pallet {
         TransactionNotSupported,
         UnauthorizedProxyTransaction,
         NoChainDataAvailable,
+        InvalidCheckpointHeight,
+        InvalidCheckpointSequence,
+        InvalidFirstCheckpoint,
     }
 
     #[pallet::storage]
@@ -164,20 +175,28 @@ pub mod pallet {
     pub type NextChainId<T> = StorageValue<_, ChainId, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn checkpoints)]
     pub type Checkpoints<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         ChainId,
         Blake2_128Concat,
         CheckpointId,
-        H256,
-        ValueQuery,
+        CheckpointData,
+        OptionQuery,
     >;
+
+    #[pallet::storage]
+    pub type LatestCheckpoint<T: Config> =
+        StorageMap<_, Blake2_128Concat, ChainId, CheckpointData, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_checkpoint_id)]
     pub type NextCheckpointId<T> =
+        StorageMap<_, Blake2_128Concat, ChainId, CheckpointId, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn oldest_checkpoint_id)]
+    pub type OldestCheckpointId<T: Config> =
         StorageMap<_, Blake2_128Concat, ChainId, CheckpointId, ValueQuery>;
 
     #[pallet::call]
@@ -221,14 +240,14 @@ pub mod pallet {
         pub fn submit_checkpoint_with_identity(
             origin: OriginFor<T>,
             checkpoint: H256,
+            parent_checkpoint: Option<H256>,
         ) -> DispatchResult {
             let handler = ensure_signed(origin)?;
 
             let chain_id =
                 ChainHandlers::<T>::get(&handler).ok_or(Error::<T>::ChainNotRegistered)?;
 
-            Self::do_submit_checkpoint(&handler, checkpoint, chain_id)?;
-
+            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, parent_checkpoint)?;
             Ok(())
         }
 
@@ -298,6 +317,7 @@ pub mod pallet {
             proof: Proof<T::Signature, T::AccountId>,
             handler: T::AccountId,
             checkpoint: H256,
+            parent_checkpoint: Option<H256>,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == handler, Error::<T>::SenderNotValid);
@@ -312,6 +332,7 @@ pub mod pallet {
                 &checkpoint,
                 chain_id,
                 nonce,
+                &parent_checkpoint,
             );
 
             ensure!(
@@ -320,7 +341,7 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedTransaction
             );
 
-            Self::do_submit_checkpoint(&handler, checkpoint, chain_id)?;
+            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, parent_checkpoint)?;
 
             Ok(())
         }
@@ -425,14 +446,28 @@ pub mod pallet {
             Ok(())
         }
 
+        #[transactional]
         fn do_submit_checkpoint(
             handler: &T::AccountId,
             checkpoint: H256,
             chain_id: ChainId,
+            parent_checkpoint: Option<H256>,
         ) -> DispatchResult {
+            if let Some(latest) = LatestCheckpoint::<T>::get(chain_id) {
+                ensure!(
+                    parent_checkpoint == Some(latest.hash),
+                    Error::<T>::InvalidCheckpointSequence
+                );
+            } else {
+                ensure!(parent_checkpoint.is_none(), Error::<T>::InvalidFirstCheckpoint);
+            }
+
             let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
 
-            Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint);
+            let checkpoint_data = CheckpointData { hash: checkpoint, parent_checkpoint };
+
+            Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint_data.clone());
+            LatestCheckpoint::<T>::insert(chain_id, checkpoint_data);
 
             Self::deposit_event(Event::CheckpointSubmitted(
                 handler.clone(),
@@ -488,6 +523,7 @@ pub mod pallet {
                     ref proof,
                     ref handler,
                     ref checkpoint,
+                    ref parent_checkpoint,
                 } => {
                     let chain_id = ChainHandlers::<T>::get(handler.clone())
                         .ok_or(Error::<T>::ChainNotRegistered)
@@ -500,6 +536,7 @@ pub mod pallet {
                         checkpoint,
                         chain_id,
                         nonce,
+                        parent_checkpoint,
                     );
 
                     Some((proof, encoded_data))
@@ -541,10 +578,10 @@ pub mod pallet {
                     &proof,
                     &signed_payload.as_slice(),
                 )
-                .is_ok()
+                .is_ok();
             }
 
-            return false
+            return false;
         }
     }
 }
@@ -573,8 +610,10 @@ pub fn encode_signed_submit_checkpoint_params<T: Config>(
     checkpoint: &H256,
     chain_id: ChainId,
     nonce: u64,
+    parent_checkpoint: &Option<H256>,
 ) -> Vec<u8> {
-    (SUBMIT_CHECKPOINT, relayer.clone(), handler, checkpoint, chain_id, nonce).encode()
+    (SUBMIT_CHECKPOINT, relayer.clone(), handler, checkpoint, chain_id, nonce, parent_checkpoint)
+        .encode()
 }
 
 pub fn get_chain_data_for_handler<T: Config>(handler: &T::AccountId) -> Option<ChainDataStruct> {
