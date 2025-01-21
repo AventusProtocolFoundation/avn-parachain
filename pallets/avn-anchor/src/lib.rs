@@ -62,7 +62,7 @@ pub mod pallet {
     #[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
     pub struct CheckpointData {
         pub hash: H256,
-        pub parent_checkpoint: Option<H256>,
+        pub checkpoint_origin_id: CheckpointId,
     }
 
     #[pallet::config]
@@ -148,9 +148,6 @@ pub mod pallet {
         TransactionNotSupported,
         UnauthorizedProxyTransaction,
         NoChainDataAvailable,
-        InvalidCheckpointHeight,
-        InvalidCheckpointSequence,
-        InvalidFirstCheckpoint,
     }
 
     #[pallet::storage]
@@ -175,6 +172,7 @@ pub mod pallet {
     pub type NextChainId<T> = StorageValue<_, ChainId, ValueQuery>;
 
     #[pallet::storage]
+    #[pallet::getter(fn checkpoints)]
     pub type Checkpoints<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -240,14 +238,14 @@ pub mod pallet {
         pub fn submit_checkpoint_with_identity(
             origin: OriginFor<T>,
             checkpoint: H256,
-            parent_checkpoint: Option<H256>,
+            checkpoint_origin_id: CheckpointId,
         ) -> DispatchResult {
             let handler = ensure_signed(origin)?;
 
             let chain_id =
                 ChainHandlers::<T>::get(&handler).ok_or(Error::<T>::ChainNotRegistered)?;
 
-            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, parent_checkpoint)?;
+            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, checkpoint_origin_id)?;
             Ok(())
         }
 
@@ -317,7 +315,7 @@ pub mod pallet {
             proof: Proof<T::Signature, T::AccountId>,
             handler: T::AccountId,
             checkpoint: H256,
-            parent_checkpoint: Option<H256>,
+            checkpoint_origin_id: CheckpointId,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == handler, Error::<T>::SenderNotValid);
@@ -332,7 +330,7 @@ pub mod pallet {
                 &checkpoint,
                 chain_id,
                 nonce,
-                &parent_checkpoint,
+                &checkpoint_origin_id,
             );
 
             ensure!(
@@ -341,7 +339,7 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedTransaction
             );
 
-            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, parent_checkpoint)?;
+            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, checkpoint_origin_id)?;
 
             Ok(())
         }
@@ -451,20 +449,11 @@ pub mod pallet {
             handler: &T::AccountId,
             checkpoint: H256,
             chain_id: ChainId,
-            parent_checkpoint: Option<H256>,
+            checkpoint_origin_id: CheckpointId,
         ) -> DispatchResult {
-            if let Some(latest) = LatestCheckpoint::<T>::get(chain_id) {
-                ensure!(
-                    parent_checkpoint == Some(latest.hash),
-                    Error::<T>::InvalidCheckpointSequence
-                );
-            } else {
-                ensure!(parent_checkpoint.is_none(), Error::<T>::InvalidFirstCheckpoint);
-            }
-
             let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
 
-            let checkpoint_data = CheckpointData { hash: checkpoint, parent_checkpoint };
+            let checkpoint_data = CheckpointData { hash: checkpoint, checkpoint_origin_id };
 
             Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint_data.clone());
             LatestCheckpoint::<T>::insert(chain_id, checkpoint_data);
@@ -523,7 +512,7 @@ pub mod pallet {
                     ref proof,
                     ref handler,
                     ref checkpoint,
-                    ref parent_checkpoint,
+                    ref checkpoint_origin_id,
                 } => {
                     let chain_id = ChainHandlers::<T>::get(handler.clone())
                         .ok_or(Error::<T>::ChainNotRegistered)
@@ -536,7 +525,7 @@ pub mod pallet {
                         checkpoint,
                         chain_id,
                         nonce,
-                        parent_checkpoint,
+                        checkpoint_origin_id,
                     );
 
                     Some((proof, encoded_data))
@@ -610,9 +599,17 @@ pub fn encode_signed_submit_checkpoint_params<T: Config>(
     checkpoint: &H256,
     chain_id: ChainId,
     nonce: u64,
-    parent_checkpoint: &Option<H256>,
+    checkpoint_origin_id: &CheckpointId,
 ) -> Vec<u8> {
-    (SUBMIT_CHECKPOINT, relayer.clone(), handler, checkpoint, chain_id, nonce, parent_checkpoint)
+    (
+        SUBMIT_CHECKPOINT,
+        relayer.clone(),
+        handler,
+        checkpoint,
+        chain_id,
+        nonce,
+        *checkpoint_origin_id,
+    )
         .encode()
 }
 

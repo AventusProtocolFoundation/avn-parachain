@@ -26,28 +26,7 @@ type SignerId = app_sr25519::Public;
 
 const SEED: u32 = 0;
 
-fn create_account_id<T: Config>(seed: u32) -> T::AccountId {
-    account("account", seed, SEED)
-}
-
-fn create_proof<T: Config>(
-    signature: sp_core::sr25519::Signature,
-    signer: T::AccountId,
-    relayer: T::AccountId,
-) -> Proof<T::Signature, T::AccountId> {
-    Proof { signer, relayer, signature: signature.into() }
-}
-
-fn setup_chain<T: Config>(
-    handler: &T::AccountId,
-) -> Result<(ChainId, BoundedVec<u8, ConstU32<32>>), &'static str> {
-    let name: BoundedVec<u8, ConstU32<32>> = BoundedVec::try_from(vec![0u8; 32]).unwrap();
-    Pallet::<T>::register_chain_handler(RawOrigin::Signed(handler.clone()).into(), name.clone())?;
-    let chain_id = ChainHandlers::<T>::get(handler).ok_or("Chain not registered")?;
-    Ok((chain_id, name))
-}
-
-fn setup_balance<T: Config>(account: &T::AccountId) {
+pub fn setup_balance<T: Config>(account: &T::AccountId) {
     let min_balance = T::Currency::minimum_balance();
     // Convert default checkpoint fee to the correct balance type
     let default_fee: BalanceOf<T> = T::DefaultCheckpointFee::get();
@@ -71,7 +50,7 @@ fn setup_balance<T: Config>(account: &T::AccountId) {
     );
 }
 
-fn ensure_fee_payment_possible<T: Config>(
+pub fn ensure_fee_payment_possible<T: Config>(
     chain_id: ChainId,
     account: &T::AccountId,
 ) -> Result<(), &'static str> {
@@ -81,6 +60,27 @@ fn ensure_fee_payment_possible<T: Config>(
         return Err("Insufficient balance for fee payment");
     }
     Ok(())
+}
+
+fn create_account_id<T: Config>(seed: u32) -> T::AccountId {
+    account("account", seed, SEED)
+}
+
+fn create_proof<T: Config>(
+    signature: sp_core::sr25519::Signature,
+    signer: T::AccountId,
+    relayer: T::AccountId,
+) -> Proof<T::Signature, T::AccountId> {
+    Proof { signer, relayer, signature: signature.into() }
+}
+
+fn setup_chain<T: Config>(
+    handler: &T::AccountId,
+) -> Result<(ChainId, BoundedVec<u8, ConstU32<32>>), &'static str> {
+    let name: BoundedVec<u8, ConstU32<32>> = BoundedVec::try_from(vec![0u8; 32]).unwrap();
+    Pallet::<T>::register_chain_handler(RawOrigin::Signed(handler.clone()).into(), name.clone())?;
+    let chain_id = ChainHandlers::<T>::get(handler).ok_or("Chain not registered")?;
+    Ok((chain_id, name))
 }
 
 benchmarks! {
@@ -111,24 +111,31 @@ benchmarks! {
 
     submit_checkpoint_with_identity {
         let handler: T::AccountId = create_account_id::<T>(0);
-
+    
         // Setup balances
         setup_balance::<T>(&handler);
-
+    
         // Setup chain and verify initial state
         let (chain_id, _) = setup_chain::<T>(&handler)?;
         ensure_fee_payment_possible::<T>(chain_id, &handler)?;
-
+    
         let checkpoint = H256::from([0u8; 32]);
+        let origin_id = 42u64;
         let initial_checkpoint_id = NextCheckpointId::<T>::get(chain_id);
-
+    
         // Verify initial balance is sufficient
         let fee = Pallet::<T>::checkpoint_fee(chain_id);
         let initial_balance = T::Currency::free_balance(&handler);
         assert!(initial_balance >= fee, "Insufficient initial balance");
-    }: _(RawOrigin::Signed(handler.clone()), checkpoint)
+    }: _(RawOrigin::Signed(handler.clone()), checkpoint, origin_id)
     verify {
-        assert_eq!(Checkpoints::<T>::get(chain_id, initial_checkpoint_id), checkpoint);
+        assert_eq!(
+            Checkpoints::<T>::get(chain_id, initial_checkpoint_id),
+            Some(CheckpointData {
+                hash: checkpoint,
+                checkpoint_origin_id: origin_id
+            })
+        );
         assert_eq!(NextCheckpointId::<T>::get(chain_id), initial_checkpoint_id + 1);
         // Verify fee was paid
         assert!(T::Currency::free_balance(&handler) < initial_balance, "Fee was not deducted");
@@ -184,27 +191,35 @@ benchmarks! {
         let signer_pair = SignerId::generate_pair(None);
         let handler: T::AccountId = T::AccountId::decode(&mut Encode::encode(&signer_pair).as_slice()).expect("valid account id");
         let relayer: T::AccountId = create_account_id::<T>(1);
-
+    
         setup_balance::<T>(&handler);
         setup_balance::<T>(&relayer);
-
+    
         let (chain_id, _) = setup_chain::<T>(&handler)?;
         ensure_fee_payment_possible::<T>(chain_id, &handler)?;
-
+    
         let checkpoint = H256::from([0u8; 32]);
+        let origin_id = 42u64;
         let nonce = Nonces::<T>::get(chain_id);
         let initial_checkpoint_id = NextCheckpointId::<T>::get(chain_id);
-
-        let payload = encode_signed_submit_checkpoint_params::<T>(&relayer, &handler, &checkpoint, chain_id, nonce);
+        let origin_id = 0;
+    
+        let payload = encode_signed_submit_checkpoint_params::<T>(&relayer, &handler, &checkpoint, chain_id, nonce, &origin_id);
         let signature = signer_pair.sign(&payload).ok_or("Error signing proof")?;
         let proof = create_proof::<T>(signature.into(), handler.clone(), relayer);
-
+    
         let initial_balance = T::Currency::free_balance(&handler);
         let fee = Pallet::<T>::checkpoint_fee(chain_id);
         assert!(initial_balance >= fee, "Insufficient initial balance");
-    }: _(RawOrigin::Signed(handler.clone()), proof, handler.clone(), checkpoint)
+    }: _(RawOrigin::Signed(handler.clone()), proof, handler.clone(), checkpoint, origin_id)
     verify {
-        assert_eq!(Checkpoints::<T>::get(chain_id, initial_checkpoint_id), checkpoint);
+        assert_eq!(
+            Checkpoints::<T>::get(chain_id, initial_checkpoint_id),
+            Some(CheckpointData {
+                hash: checkpoint,
+                checkpoint_origin_id: origin_id
+            })
+        );
         assert_eq!(NextCheckpointId::<T>::get(chain_id), initial_checkpoint_id + 1);
         assert!(T::Currency::free_balance(&handler) < initial_balance, "Fee was not deducted");
     }
