@@ -571,8 +571,8 @@ pub mod pallet {
             let event_has_not_been_processed =
                 !T::ProcessedEventsChecker::processed_event_exists(&event_id);
             let event_was_declared_invalid = validated.result == CheckResult::Invalid;
-            let event_can_be_resubmitted =
-                event_was_declared_invalid && successful_challenge && event_has_not_been_processed;
+            let event_can_be_resubmitted = event_was_declared_invalid ||
+                (successful_challenge && event_has_not_been_processed);
             if !event_can_be_resubmitted {
                 if T::ProcessedEventsChecker::add_processed_event(&event_id, true).is_err() {
                     log::error!(
@@ -588,7 +588,7 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::EventProcessed {
                 eth_event_id: event_id.clone(),
                 processor: validator.account_id.clone(),
-                outcome: !successful_challenge,
+                outcome: event_has_not_been_processed && !successful_challenge,
             });
             if successful_challenge {
                 Self::deposit_event(Event::<T>::ChallengeSucceeded {
@@ -603,15 +603,20 @@ pub mod pallet {
                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
                 );
             } else {
-                // SYS-536 report the offence for the people who challenged
-                create_and_report_invalid_log_offence::<T>(
-                    &validator.account_id,
-                    &Challenges::<T>::take(event_id.clone()),
-                    EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                );
+                let offenders_accounts = Challenges::<T>::take(&event_id);
+                if !offenders_accounts.is_empty() {
+                    create_and_report_invalid_log_offence::<T>(
+                        &validator.account_id,
+                        &offenders_accounts,
+                        EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
+                    );
+                }
             }
 
-            if validated.result == CheckResult::Ok && !successful_challenge {
+            if validated.result == CheckResult::Ok &&
+                !successful_challenge &&
+                event_has_not_been_processed
+            {
                 // Let everyone know we have processed an event.
                 let processing_outcome =
                     T::ProcessedEventHandler::on_event_processed(&validated.event);
