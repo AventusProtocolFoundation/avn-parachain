@@ -148,6 +148,7 @@ pub mod pallet {
         TransactionNotSupported,
         UnauthorizedProxyTransaction,
         NoChainDataAvailable,
+        CheckpointOriginAlreadyExists,
     }
 
     #[pallet::storage]
@@ -184,17 +185,25 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
+    #[pallet::getter(fn origin_id_to_checkpoint)]
+    pub type OriginIdToCheckpoint<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        ChainId,
+        Blake2_128Concat,
+        CheckpointId, // This is the origin_id
+        CheckpointId, // This is our checkpoint_id
+        OptionQuery,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn latest_checkpoint)]
     pub type LatestCheckpoint<T: Config> =
         StorageMap<_, Blake2_128Concat, ChainId, CheckpointData, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn next_checkpoint_id)]
     pub type NextCheckpointId<T> =
-        StorageMap<_, Blake2_128Concat, ChainId, CheckpointId, ValueQuery>;
-
-    #[pallet::storage]
-    #[pallet::getter(fn oldest_checkpoint_id)]
-    pub type OldestCheckpointId<T: Config> =
         StorageMap<_, Blake2_128Concat, ChainId, CheckpointId, ValueQuery>;
 
     #[pallet::call]
@@ -451,12 +460,19 @@ pub mod pallet {
             chain_id: ChainId,
             checkpoint_origin_id: CheckpointId,
         ) -> DispatchResult {
+            ensure!(
+                !OriginIdToCheckpoint::<T>::contains_key(chain_id, checkpoint_origin_id),
+                Error::<T>::CheckpointOriginAlreadyExists
+            );
+
             let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
 
             let checkpoint_data = CheckpointData { hash: checkpoint, checkpoint_origin_id };
 
             Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint_data.clone());
             LatestCheckpoint::<T>::insert(chain_id, checkpoint_data);
+
+            OriginIdToCheckpoint::<T>::insert(chain_id, checkpoint_origin_id, checkpoint_id);
 
             Self::deposit_event(Event::CheckpointSubmitted(
                 handler.clone(),
@@ -468,6 +484,17 @@ pub mod pallet {
             <Nonces<T>>::mutate(chain_id, |n| *n += 1);
             Self::charge_fee(handler.clone(), chain_id)?;
             Ok(())
+        }
+
+        pub fn has_checkpoint_origin(chain_id: ChainId, origin_id: CheckpointId) -> bool {
+            OriginIdToCheckpoint::<T>::contains_key(chain_id, origin_id)
+        }
+
+        pub fn get_checkpoint_id_by_origin(
+            chain_id: ChainId,
+            origin_id: CheckpointId,
+        ) -> Option<CheckpointId> {
+            OriginIdToCheckpoint::<T>::get(chain_id, origin_id)
         }
 
         fn get_encoded_call_param(

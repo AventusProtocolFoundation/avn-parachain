@@ -208,9 +208,9 @@ fn submit_checkpoint_with_identity_works() {
         let handler = create_account_id(1);
         let name = bounded_vec(b"Test Chain");
         let checkpoint = H256::random();
+        let origin_id = 42u64;
 
         assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
-        let origin_id = 42u64;
         let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
         let default_fee = DefaultCheckpointFee::get();
 
@@ -221,9 +221,22 @@ fn submit_checkpoint_with_identity_works() {
             origin_id
         ));
 
-        // Verify latest checkpoint is updated
+        let stored_checkpoint_id = AvnAnchor::origin_id_to_checkpoint(chain_id, origin_id)
+            .expect("Origin ID mapping should exist");
+        assert_eq!(stored_checkpoint_id, 0); // First checkpoint should have ID 0
+
+        let stored_checkpoint = AvnAnchor::checkpoints(chain_id, stored_checkpoint_id)
+            .expect("Checkpoint should exist");
+        assert_eq!(stored_checkpoint.hash, checkpoint);
+        assert_eq!(stored_checkpoint.checkpoint_origin_id, origin_id);
+
+        let latest_checkpoint =
+            AvnAnchor::latest_checkpoint(chain_id).expect("Latest checkpoint should exist");
+        assert_eq!(latest_checkpoint.hash, checkpoint);
+        assert_eq!(latest_checkpoint.checkpoint_origin_id, origin_id);
+
         System::assert_has_event(
-            Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint).into(),
+            Event::CheckpointSubmitted(handler, chain_id, stored_checkpoint_id, checkpoint).into(),
         );
         System::assert_has_event(
             Event::CheckpointFeeCharged { handler, chain_id, fee: default_fee }.into(),
@@ -260,6 +273,8 @@ fn submit_multiple_checkpoints_increments_checkpoint_id() {
         let origin_id2 = 43u64;
 
         assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
+        let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
+
         assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
             RuntimeOrigin::signed(handler),
             checkpoint1,
@@ -271,18 +286,29 @@ fn submit_multiple_checkpoints_increments_checkpoint_id() {
             origin_id2
         ));
 
+        assert_eq!(AvnAnchor::origin_id_to_checkpoint(chain_id, origin_id1), Some(0));
+        assert_eq!(AvnAnchor::origin_id_to_checkpoint(chain_id, origin_id2), Some(1));
+
         assert_eq!(
-            AvnAnchor::checkpoints(0, 0),
+            AvnAnchor::checkpoints(chain_id, 0),
             Some(CheckpointData { hash: checkpoint1, checkpoint_origin_id: origin_id1 })
         );
         assert_eq!(
-            AvnAnchor::checkpoints(0, 1),
+            AvnAnchor::checkpoints(chain_id, 1),
             Some(CheckpointData { hash: checkpoint2, checkpoint_origin_id: origin_id2 })
         );
-        assert_eq!(AvnAnchor::next_checkpoint_id(0), 2);
+        assert_eq!(AvnAnchor::next_checkpoint_id(chain_id), 2);
 
-        System::assert_has_event(Event::CheckpointSubmitted(handler, 0, 0, checkpoint1).into());
-        System::assert_has_event(Event::CheckpointSubmitted(handler, 0, 1, checkpoint2).into());
+        let latest_checkpoint = AvnAnchor::latest_checkpoint(chain_id).unwrap();
+        assert_eq!(latest_checkpoint.hash, checkpoint2);
+        assert_eq!(latest_checkpoint.checkpoint_origin_id, origin_id2);
+
+        System::assert_has_event(
+            Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint1).into(),
+        );
+        System::assert_has_event(
+            Event::CheckpointSubmitted(handler, chain_id, 1, checkpoint2).into(),
+        );
     });
 }
 
@@ -481,18 +507,14 @@ fn signed_submit_checkpoint_with_identity_works() {
         let checkpoint = H256::random();
         let origin_id = 42u64;
 
-        // Setup balances
         setup_balance::<TestRuntime>(&handler);
         setup_balance::<TestRuntime>(&relayer);
 
-        // Register handler
         assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
-
         let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
         let nonce = AvnAnchor::nonces(chain_id);
         let initial_balance = Balances::free_balance(&handler);
 
-        // Use the correct encoding function for the payload
         let payload = encode_signed_submit_checkpoint_params::<TestRuntime>(
             &relayer,
             &handler,
@@ -501,7 +523,7 @@ fn signed_submit_checkpoint_with_identity_works() {
             nonce,
             &origin_id,
         );
-        let proof = create_proof(&handler_pair, &relayer, &payload.as_slice());
+        let proof = create_proof(&handler_pair, &relayer, &payload);
 
         let call = Box::new(RuntimeCall::AvnAnchor(
             super::Call::<TestRuntime>::signed_submit_checkpoint_with_identity {
@@ -512,16 +534,13 @@ fn signed_submit_checkpoint_with_identity_works() {
             },
         ));
 
-        // Execute the proxy call
         assert_ok!(AvnProxy::proxy(RuntimeOrigin::signed(relayer.clone()), call.clone(), None));
 
+        assert_eq!(AvnAnchor::origin_id_to_checkpoint(chain_id, origin_id), Some(0));
         let final_balance = Balances::free_balance(&handler);
-        let actual_checkpoint = AvnAnchor::checkpoints(chain_id, 0);
-
-        assert_eq!(
-            actual_checkpoint,
-            Some(CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id })
-        );
+        let actual_checkpoint = AvnAnchor::checkpoints(chain_id, 0).unwrap();
+        assert_eq!(actual_checkpoint.hash, checkpoint);
+        assert_eq!(actual_checkpoint.checkpoint_origin_id, origin_id);
         assert_eq!(AvnAnchor::next_checkpoint_id(chain_id), 1);
 
         System::assert_has_event(
@@ -849,5 +868,74 @@ fn fee_override_works() {
 
         let other_chain_id = chain_id + 1;
         assert_eq!(AvnAnchor::checkpoint_fee(other_chain_id), DefaultCheckpointFee::get());
+    });
+}
+
+#[test]
+fn submit_checkpoint_fails_with_duplicate_origin_id() {
+    new_test_ext().execute_with(|| {
+        let handler = create_account_id(1);
+        let name = bounded_vec(b"Test Chain");
+        let checkpoint1 = H256::random();
+        let checkpoint2 = H256::random();
+        let origin_id = 42u64; // Same origin_id for both submissions
+
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler), name));
+        let chain_id = AvnAnchor::chain_handlers(handler).unwrap();
+
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler),
+            checkpoint1,
+            origin_id
+        ));
+
+        assert_eq!(AvnAnchor::origin_id_to_checkpoint(chain_id, origin_id), Some(0));
+
+        assert_noop!(
+            AvnAnchor::submit_checkpoint_with_identity(
+                RuntimeOrigin::signed(handler),
+                checkpoint2,
+                origin_id
+            ),
+            Error::<TestRuntime>::CheckpointOriginAlreadyExists
+        );
+    });
+}
+
+#[test]
+fn origin_id_uniqueness_is_per_chain() {
+    new_test_ext().execute_with(|| {
+        let handler1 = create_account_id(1);
+        let handler2 = create_account_id(2);
+        let name1 = bounded_vec(b"Chain 1");
+        let name2 = bounded_vec(b"Chain 2");
+        let checkpoint1 = H256::random();
+        let checkpoint2 = H256::random();
+        let origin_id = 42u64;
+
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler1), name1));
+        assert_ok!(AvnAnchor::register_chain_handler(RuntimeOrigin::signed(handler2), name2));
+
+        let chain_id1 = AvnAnchor::chain_handlers(handler1).unwrap();
+        let chain_id2 = AvnAnchor::chain_handlers(handler2).unwrap();
+
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler1),
+            checkpoint1,
+            origin_id
+        ));
+        assert_ok!(AvnAnchor::submit_checkpoint_with_identity(
+            RuntimeOrigin::signed(handler2),
+            checkpoint2,
+            origin_id
+        ));
+
+        assert_eq!(AvnAnchor::origin_id_to_checkpoint(chain_id1, origin_id), Some(0));
+        assert_eq!(AvnAnchor::origin_id_to_checkpoint(chain_id2, origin_id), Some(0));
+
+        let latest1 = AvnAnchor::latest_checkpoint(chain_id1).unwrap();
+        let latest2 = AvnAnchor::latest_checkpoint(chain_id2).unwrap();
+        assert_eq!(latest1.hash, checkpoint1);
+        assert_eq!(latest2.hash, checkpoint2);
     });
 }

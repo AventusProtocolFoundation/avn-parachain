@@ -111,31 +111,32 @@ benchmarks! {
 
     submit_checkpoint_with_identity {
         let handler: T::AccountId = create_account_id::<T>(0);
-    
-        // Setup balances
+        let chain_id = setup_chain::<T>(&handler)?.0;
         setup_balance::<T>(&handler);
-    
-        // Setup chain and verify initial state
-        let (chain_id, _) = setup_chain::<T>(&handler)?;
         ensure_fee_payment_possible::<T>(chain_id, &handler)?;
-    
+
         let checkpoint = H256::from([0u8; 32]);
         let origin_id = 42u64;
         let initial_checkpoint_id = NextCheckpointId::<T>::get(chain_id);
-    
-        // Verify initial balance is sufficient
-        let fee = Pallet::<T>::checkpoint_fee(chain_id);
+
         let initial_balance = T::Currency::free_balance(&handler);
+        let fee = Pallet::<T>::checkpoint_fee(chain_id);
         assert!(initial_balance >= fee, "Insufficient initial balance");
     }: _(RawOrigin::Signed(handler.clone()), checkpoint, origin_id)
     verify {
         assert_eq!(
-            Checkpoints::<T>::get(chain_id, initial_checkpoint_id),
-            Some(CheckpointData {
-                hash: checkpoint,
-                checkpoint_origin_id: origin_id
-            })
+            Checkpoints::<T>::get(chain_id, initial_checkpoint_id).unwrap(),
+            CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id }
         );
+        assert_eq!(
+            OriginIdToCheckpoint::<T>::get(chain_id, origin_id).unwrap(),
+            initial_checkpoint_id
+        );
+        assert_eq!(
+            LatestCheckpoint::<T>::get(chain_id).unwrap(),
+            CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id }
+        );
+        // Verify checkpoint ID increment
         assert_eq!(NextCheckpointId::<T>::get(chain_id), initial_checkpoint_id + 1);
         // Verify fee was paid
         assert!(T::Currency::free_balance(&handler) < initial_balance, "Fee was not deducted");
@@ -189,36 +190,48 @@ benchmarks! {
 
     signed_submit_checkpoint_with_identity {
         let signer_pair = SignerId::generate_pair(None);
-        let handler: T::AccountId = T::AccountId::decode(&mut Encode::encode(&signer_pair).as_slice()).expect("valid account id");
+        let handler: T::AccountId = T::AccountId::decode(&mut Encode::encode(&signer_pair).as_slice())
+            .expect("valid account id");
         let relayer: T::AccountId = create_account_id::<T>(1);
-    
+
         setup_balance::<T>(&handler);
         setup_balance::<T>(&relayer);
-    
+
         let (chain_id, _) = setup_chain::<T>(&handler)?;
         ensure_fee_payment_possible::<T>(chain_id, &handler)?;
-    
+
         let checkpoint = H256::from([0u8; 32]);
         let origin_id = 42u64;
         let nonce = Nonces::<T>::get(chain_id);
         let initial_checkpoint_id = NextCheckpointId::<T>::get(chain_id);
-        let origin_id = 0;
-    
-        let payload = encode_signed_submit_checkpoint_params::<T>(&relayer, &handler, &checkpoint, chain_id, nonce, &origin_id);
+
+        let payload = encode_signed_submit_checkpoint_params::<T>(
+            &relayer,
+            &handler,
+            &checkpoint,
+            chain_id,
+            nonce,
+            &origin_id
+        );
         let signature = signer_pair.sign(&payload).ok_or("Error signing proof")?;
         let proof = create_proof::<T>(signature.into(), handler.clone(), relayer);
-    
+
         let initial_balance = T::Currency::free_balance(&handler);
         let fee = Pallet::<T>::checkpoint_fee(chain_id);
         assert!(initial_balance >= fee, "Insufficient initial balance");
     }: _(RawOrigin::Signed(handler.clone()), proof, handler.clone(), checkpoint, origin_id)
     verify {
         assert_eq!(
-            Checkpoints::<T>::get(chain_id, initial_checkpoint_id),
-            Some(CheckpointData {
-                hash: checkpoint,
-                checkpoint_origin_id: origin_id
-            })
+            Checkpoints::<T>::get(chain_id, initial_checkpoint_id).unwrap(),
+            CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id }
+        );
+        assert_eq!(
+            OriginIdToCheckpoint::<T>::get(chain_id, origin_id).unwrap(),
+            initial_checkpoint_id
+        );
+        assert_eq!(
+            LatestCheckpoint::<T>::get(chain_id).unwrap(),
+            CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id }
         );
         assert_eq!(NextCheckpointId::<T>::get(chain_id), initial_checkpoint_id + 1);
         assert!(T::Currency::free_balance(&handler) < initial_balance, "Fee was not deducted");
