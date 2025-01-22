@@ -1,9 +1,6 @@
 // Add this in migrations.rs
 use super::*;
-use frame_support::{
-    traits::OnRuntimeUpgrade,
-    weights::Weight,
-};
+use frame_support::{traits::OnRuntimeUpgrade, weights::Weight};
 use sp_runtime::DispatchError;
 
 /// Migration to erase old checkpoints and prepare for new checkpoint format
@@ -19,7 +16,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
             "🔄 Starting migration to v2: Old checkpoints exist: {:?}",
             any_old_checkpoint_exists
         );
-        
+
         Ok(Vec::new())
     }
 

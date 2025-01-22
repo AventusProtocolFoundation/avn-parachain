@@ -5,7 +5,11 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-use frame_support::{dispatch::DispatchResult, ensure, traits::{Currency, StorageVersion}};
+use frame_support::{
+    dispatch::DispatchResult,
+    ensure,
+    traits::{Currency, StorageVersion},
+};
 
 pub mod migration;
 
@@ -603,10 +607,10 @@ pub mod pallet {
                     &proof,
                     &signed_payload.as_slice(),
                 )
-                .is_ok();
+                .is_ok()
             }
 
-            return false;
+            return false
         }
     }
 }

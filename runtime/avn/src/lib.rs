@@ -155,7 +155,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (pallet_avn_anchor::migration::MigrateToV2<Runtime>)
+    (pallet_avn_anchor::migration::MigrateToV2<Runtime>),
 >;
 
 impl_opaque_keys! {
