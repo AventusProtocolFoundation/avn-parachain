@@ -5,7 +5,9 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-use frame_support::{dispatch::DispatchResult, ensure, traits::Currency};
+use frame_support::{dispatch::DispatchResult, ensure, traits::{Currency, StorageVersion}};
+
+pub mod migration;
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
@@ -31,6 +33,8 @@ pub type ChainNameLimit = ConstU32<32>;
 pub const REGISTER_CHAIN_HANDLER: &'static [u8] = b"register_chain_handler";
 pub const UPDATE_CHAIN_HANDLER: &'static [u8] = b"update_chain_handler";
 pub const SUBMIT_CHECKPOINT: &'static [u8] = b"submit_checkpoint";
+
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 pub use self::pallet::*;
 pub type ChainId = u32;
@@ -115,6 +119,7 @@ pub mod pallet {
     }
 
     #[pallet::pallet]
+    #[pallet::storage_version(STORAGE_VERSION)]
     pub struct Pallet<T>(_);
 
     #[pallet::event]
@@ -495,6 +500,10 @@ pub mod pallet {
             origin_id: CheckpointId,
         ) -> Option<CheckpointId> {
             OriginIdToCheckpoint::<T>::get(chain_id, origin_id)
+        }
+
+        pub fn current_storage_version() -> StorageVersion {
+            StorageVersion::get::<Pallet<T>>()
         }
 
         fn get_encoded_call_param(
