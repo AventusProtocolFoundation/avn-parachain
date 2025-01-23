@@ -126,7 +126,7 @@ benchmarks! {
     verify {
         assert_eq!(
             Checkpoints::<T>::get(chain_id, initial_checkpoint_id).unwrap(),
-            CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id }
+            CheckpointData { hash: checkpoint, origin_id }
         );
         assert_eq!(
             OriginIdToCheckpoint::<T>::get(chain_id, origin_id).unwrap(),
@@ -220,7 +220,7 @@ benchmarks! {
     verify {
         assert_eq!(
             Checkpoints::<T>::get(chain_id, initial_checkpoint_id).unwrap(),
-            CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id }
+            CheckpointData { hash: checkpoint, origin_id }
         );
         assert_eq!(
             OriginIdToCheckpoint::<T>::get(chain_id, origin_id).unwrap(),

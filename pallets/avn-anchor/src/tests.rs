@@ -228,7 +228,7 @@ fn submit_checkpoint_with_identity_works() {
         let stored_checkpoint = AvnAnchor::checkpoints(chain_id, stored_checkpoint_id)
             .expect("Checkpoint should exist");
         assert_eq!(stored_checkpoint.hash, checkpoint);
-        assert_eq!(stored_checkpoint.checkpoint_origin_id, origin_id);
+        assert_eq!(stored_checkpoint.origin_id, origin_id);
 
         System::assert_has_event(
             Event::CheckpointSubmitted(handler, chain_id, stored_checkpoint_id, checkpoint).into(),
@@ -286,11 +286,11 @@ fn submit_multiple_checkpoints_increments_checkpoint_id() {
 
         assert_eq!(
             AvnAnchor::checkpoints(chain_id, 0),
-            Some(CheckpointData { hash: checkpoint1, checkpoint_origin_id: origin_id1 })
+            Some(CheckpointData { hash: checkpoint1, origin_id: origin_id1 })
         );
         assert_eq!(
             AvnAnchor::checkpoints(chain_id, 1),
-            Some(CheckpointData { hash: checkpoint2, checkpoint_origin_id: origin_id2 })
+            Some(CheckpointData { hash: checkpoint2, origin_id: origin_id2 })
         );
         assert_eq!(AvnAnchor::next_checkpoint_id(chain_id), 2);
 
@@ -338,15 +338,15 @@ fn submit_checkpoints_for_multiple_chains() {
 
         assert_eq!(
             AvnAnchor::checkpoints(0, 0),
-            Some(CheckpointData { hash: checkpoint1, checkpoint_origin_id: origin_id1 })
+            Some(CheckpointData { hash: checkpoint1, origin_id: origin_id1 })
         );
         assert_eq!(
             AvnAnchor::checkpoints(1, 0),
-            Some(CheckpointData { hash: checkpoint2, checkpoint_origin_id: origin_id2 })
+            Some(CheckpointData { hash: checkpoint2, origin_id: origin_id2 })
         );
         assert_eq!(
             AvnAnchor::checkpoints(0, 1),
-            Some(CheckpointData { hash: checkpoint3, checkpoint_origin_id: origin_id3 })
+            Some(CheckpointData { hash: checkpoint3, origin_id: origin_id3 })
         );
 
         assert_eq!(AvnAnchor::next_checkpoint_id(0), 2);
@@ -521,7 +521,7 @@ fn signed_submit_checkpoint_with_identity_works() {
                 proof: proof.clone(),
                 handler: handler.clone(),
                 checkpoint,
-                checkpoint_origin_id: origin_id,
+                origin_id: origin_id,
             },
         ));
 
@@ -531,7 +531,7 @@ fn signed_submit_checkpoint_with_identity_works() {
         let final_balance = Balances::free_balance(&handler);
         let actual_checkpoint = AvnAnchor::checkpoints(chain_id, 0).unwrap();
         assert_eq!(actual_checkpoint.hash, checkpoint);
-        assert_eq!(actual_checkpoint.checkpoint_origin_id, origin_id);
+        assert_eq!(actual_checkpoint.origin_id, origin_id);
         assert_eq!(AvnAnchor::next_checkpoint_id(chain_id), 1);
 
         System::assert_has_event(
@@ -653,7 +653,7 @@ fn proxy_signed_submit_checkpoint_with_identity_fails_with_unregistered_handler(
                 proof,
                 handler: unauthorized_handler.clone(),
                 checkpoint,
-                checkpoint_origin_id: origin_id,
+                origin_id,
             },
         ));
 

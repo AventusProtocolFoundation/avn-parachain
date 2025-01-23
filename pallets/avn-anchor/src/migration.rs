@@ -25,7 +25,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
         let mut writes = 0u64;
 
         // Clear old checkpoints storage
-        Checkpoints::<T>::remove_all(None);
+        Checkpoints::<T>::clear(1000000000, None);
         writes += 1;
 
         // Iterate over ChainData instead of ChainHandlers
@@ -36,7 +36,7 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
         }
 
         // Clear the OriginIdToCheckpoint storage (in case it was somehow populated)
-        OriginIdToCheckpoint::<T>::remove_all(None);
+        OriginIdToCheckpoint::<T>::clear(1000000000,None);
         writes += 1;
 
         log::info!(

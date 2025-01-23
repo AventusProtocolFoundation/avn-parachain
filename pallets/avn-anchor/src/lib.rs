@@ -43,6 +43,7 @@ const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 pub use self::pallet::*;
 pub type ChainId = u32;
 pub type CheckpointId = u64;
+pub type OriginId = u64;
 
 pub(crate) type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -70,7 +71,7 @@ pub mod pallet {
     #[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
     pub struct CheckpointData {
         pub hash: H256,
-        pub checkpoint_origin_id: CheckpointId,
+        pub origin_id: OriginId,
     }
 
     #[pallet::config]
@@ -200,8 +201,8 @@ pub mod pallet {
         Blake2_128Concat,
         ChainId,
         Blake2_128Concat,
-        CheckpointId, // This is the origin_id
-        CheckpointId, // This is our checkpoint_id
+        OriginId,
+        CheckpointId,
         OptionQuery,
     >;
 
@@ -251,14 +252,14 @@ pub mod pallet {
         pub fn submit_checkpoint_with_identity(
             origin: OriginFor<T>,
             checkpoint: H256,
-            checkpoint_origin_id: CheckpointId,
+            origin_id: OriginId,
         ) -> DispatchResult {
             let handler = ensure_signed(origin)?;
 
             let chain_id =
                 ChainHandlers::<T>::get(&handler).ok_or(Error::<T>::ChainNotRegistered)?;
 
-            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, checkpoint_origin_id)?;
+            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, origin_id)?;
             Ok(())
         }
 
@@ -328,7 +329,7 @@ pub mod pallet {
             proof: Proof<T::Signature, T::AccountId>,
             handler: T::AccountId,
             checkpoint: H256,
-            checkpoint_origin_id: CheckpointId,
+            origin_id: OriginId,
         ) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ensure!(sender == handler, Error::<T>::SenderNotValid);
@@ -343,7 +344,7 @@ pub mod pallet {
                 &checkpoint,
                 chain_id,
                 nonce,
-                &checkpoint_origin_id,
+                &origin_id,
             );
 
             ensure!(
@@ -352,7 +353,7 @@ pub mod pallet {
                 Error::<T>::UnauthorizedSignedTransaction
             );
 
-            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, checkpoint_origin_id)?;
+            Self::do_submit_checkpoint(&handler, checkpoint, chain_id, origin_id)?;
 
             Ok(())
         }
@@ -461,20 +462,20 @@ pub mod pallet {
             handler: &T::AccountId,
             checkpoint: H256,
             chain_id: ChainId,
-            checkpoint_origin_id: CheckpointId,
+            origin_id: OriginId,
         ) -> DispatchResult {
             ensure!(
-                !OriginIdToCheckpoint::<T>::contains_key(chain_id, checkpoint_origin_id),
+                !Self::has_checkpoint_origin(chain_id, origin_id),
                 Error::<T>::CheckpointOriginAlreadyExists
             );
 
             let checkpoint_id = Self::get_next_checkpoint_id(chain_id)?;
 
-            let checkpoint_data = CheckpointData { hash: checkpoint, checkpoint_origin_id };
+            let checkpoint_data = CheckpointData { hash: checkpoint, origin_id };
 
             Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint_data.clone());
 
-            OriginIdToCheckpoint::<T>::insert(chain_id, checkpoint_origin_id, checkpoint_id);
+            OriginIdToCheckpoint::<T>::insert(chain_id, origin_id, checkpoint_id);
 
             Self::deposit_event(Event::CheckpointSubmitted(
                 handler.clone(),
@@ -488,13 +489,13 @@ pub mod pallet {
             Ok(())
         }
 
-        pub fn has_checkpoint_origin(chain_id: ChainId, origin_id: CheckpointId) -> bool {
+        pub fn has_checkpoint_origin(chain_id: ChainId, origin_id: OriginId) -> bool {
             OriginIdToCheckpoint::<T>::contains_key(chain_id, origin_id)
         }
 
         pub fn get_checkpoint_id_by_origin(
             chain_id: ChainId,
-            origin_id: CheckpointId,
+            origin_id: OriginId,
         ) -> Option<CheckpointId> {
             OriginIdToCheckpoint::<T>::get(chain_id, origin_id)
         }
@@ -545,7 +546,7 @@ pub mod pallet {
                     ref proof,
                     ref handler,
                     ref checkpoint,
-                    ref checkpoint_origin_id,
+                    ref origin_id,
                 } => {
                     let chain_id = ChainHandlers::<T>::get(handler.clone())
                         .ok_or(Error::<T>::ChainNotRegistered)
@@ -558,7 +559,7 @@ pub mod pallet {
                         checkpoint,
                         chain_id,
                         nonce,
-                        checkpoint_origin_id,
+                        origin_id,
                     );
 
                     Some((proof, encoded_data))
@@ -632,7 +633,7 @@ pub fn encode_signed_submit_checkpoint_params<T: Config>(
     checkpoint: &H256,
     chain_id: ChainId,
     nonce: u64,
-    checkpoint_origin_id: &CheckpointId,
+    origin_id: &CheckpointId,
 ) -> Vec<u8> {
     (
         SUBMIT_CHECKPOINT,
@@ -641,7 +642,7 @@ pub fn encode_signed_submit_checkpoint_params<T: Config>(
         checkpoint,
         chain_id,
         nonce,
-        *checkpoint_origin_id,
+        *origin_id,
     )
         .encode()
 }
