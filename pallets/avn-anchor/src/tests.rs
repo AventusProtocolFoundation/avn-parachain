@@ -521,7 +521,7 @@ fn signed_submit_checkpoint_with_identity_works() {
                 proof: proof.clone(),
                 handler: handler.clone(),
                 checkpoint,
-                origin_id: origin_id,
+                origin_id,
             },
         ));
 

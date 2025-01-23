@@ -635,16 +635,7 @@ pub fn encode_signed_submit_checkpoint_params<T: Config>(
     nonce: u64,
     origin_id: &CheckpointId,
 ) -> Vec<u8> {
-    (
-        SUBMIT_CHECKPOINT,
-        relayer.clone(),
-        handler,
-        checkpoint,
-        chain_id,
-        nonce,
-        *origin_id,
-    )
-        .encode()
+    (SUBMIT_CHECKPOINT, relayer.clone(), handler, checkpoint, chain_id, nonce, *origin_id).encode()
 }
 
 pub fn get_chain_data_for_handler<T: Config>(handler: &T::AccountId) -> Option<ChainDataStruct> {
