@@ -230,11 +230,6 @@ fn submit_checkpoint_with_identity_works() {
         assert_eq!(stored_checkpoint.hash, checkpoint);
         assert_eq!(stored_checkpoint.checkpoint_origin_id, origin_id);
 
-        let latest_checkpoint =
-            AvnAnchor::latest_checkpoint(chain_id).expect("Latest checkpoint should exist");
-        assert_eq!(latest_checkpoint.hash, checkpoint);
-        assert_eq!(latest_checkpoint.checkpoint_origin_id, origin_id);
-
         System::assert_has_event(
             Event::CheckpointSubmitted(handler, chain_id, stored_checkpoint_id, checkpoint).into(),
         );
@@ -298,10 +293,6 @@ fn submit_multiple_checkpoints_increments_checkpoint_id() {
             Some(CheckpointData { hash: checkpoint2, checkpoint_origin_id: origin_id2 })
         );
         assert_eq!(AvnAnchor::next_checkpoint_id(chain_id), 2);
-
-        let latest_checkpoint = AvnAnchor::latest_checkpoint(chain_id).unwrap();
-        assert_eq!(latest_checkpoint.hash, checkpoint2);
-        assert_eq!(latest_checkpoint.checkpoint_origin_id, origin_id2);
 
         System::assert_has_event(
             Event::CheckpointSubmitted(handler, chain_id, 0, checkpoint1).into(),
@@ -932,10 +923,5 @@ fn origin_id_uniqueness_is_per_chain() {
 
         assert_eq!(AvnAnchor::origin_id_to_checkpoint(chain_id1, origin_id), Some(0));
         assert_eq!(AvnAnchor::origin_id_to_checkpoint(chain_id2, origin_id), Some(0));
-
-        let latest1 = AvnAnchor::latest_checkpoint(chain_id1).unwrap();
-        let latest2 = AvnAnchor::latest_checkpoint(chain_id2).unwrap();
-        assert_eq!(latest1.hash, checkpoint1);
-        assert_eq!(latest2.hash, checkpoint2);
     });
 }

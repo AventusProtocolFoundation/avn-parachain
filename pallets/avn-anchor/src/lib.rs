@@ -206,11 +206,6 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    #[pallet::getter(fn latest_checkpoint)]
-    pub type LatestCheckpoint<T: Config> =
-        StorageMap<_, Blake2_128Concat, ChainId, CheckpointData, OptionQuery>;
-
-    #[pallet::storage]
     #[pallet::getter(fn next_checkpoint_id)]
     pub type NextCheckpointId<T> =
         StorageMap<_, Blake2_128Concat, ChainId, CheckpointId, ValueQuery>;
@@ -462,7 +457,6 @@ pub mod pallet {
             Ok(())
         }
 
-        #[transactional]
         fn do_submit_checkpoint(
             handler: &T::AccountId,
             checkpoint: H256,
@@ -479,7 +473,6 @@ pub mod pallet {
             let checkpoint_data = CheckpointData { hash: checkpoint, checkpoint_origin_id };
 
             Checkpoints::<T>::insert(chain_id, checkpoint_id, checkpoint_data.clone());
-            LatestCheckpoint::<T>::insert(chain_id, checkpoint_data);
 
             OriginIdToCheckpoint::<T>::insert(chain_id, checkpoint_origin_id, checkpoint_id);
 

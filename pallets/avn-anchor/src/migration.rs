@@ -28,10 +28,6 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
         Checkpoints::<T>::remove_all(None);
         writes += 1;
 
-        // Clear latest checkpoint storage
-        LatestCheckpoint::<T>::remove_all(None);
-        writes += 1;
-
         // Iterate over ChainData instead of ChainHandlers
         for (chain_id, _) in ChainData::<T>::iter() {
             NextCheckpointId::<T>::insert(chain_id, 0);
@@ -57,10 +53,6 @@ impl<T: Config> OnRuntimeUpgrade for MigrateToV2<T> {
         ensure!(
             Checkpoints::<T>::iter().next().is_none(),
             DispatchError::Other("Checkpoints should be empty")
-        );
-        ensure!(
-            LatestCheckpoint::<T>::iter().next().is_none(),
-            DispatchError::Other("Latest checkpoint should be empty")
         );
         ensure!(
             OriginIdToCheckpoint::<T>::iter().next().is_none(),
