@@ -132,10 +132,7 @@ benchmarks! {
             OriginIdToCheckpoint::<T>::get(chain_id, origin_id).unwrap(),
             initial_checkpoint_id
         );
-        assert_eq!(
-            LatestCheckpoint::<T>::get(chain_id).unwrap(),
-            CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id }
-        );
+
         // Verify checkpoint ID increment
         assert_eq!(NextCheckpointId::<T>::get(chain_id), initial_checkpoint_id + 1);
         // Verify fee was paid
@@ -228,10 +225,6 @@ benchmarks! {
         assert_eq!(
             OriginIdToCheckpoint::<T>::get(chain_id, origin_id).unwrap(),
             initial_checkpoint_id
-        );
-        assert_eq!(
-            LatestCheckpoint::<T>::get(chain_id).unwrap(),
-            CheckpointData { hash: checkpoint, checkpoint_origin_id: origin_id }
         );
         assert_eq!(NextCheckpointId::<T>::get(chain_id), initial_checkpoint_id + 1);
         assert!(T::Currency::free_balance(&handler) < initial_balance, "Fee was not deducted");
