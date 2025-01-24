@@ -1,6 +1,6 @@
 [package]
 name = "pallet-authors-manager"
-description = "Pallet to manages authors of the chain"
+description = "Pallet to manage authors of the chain"
 license = "GPL-3.0"
 
 version = { workspace = true }
