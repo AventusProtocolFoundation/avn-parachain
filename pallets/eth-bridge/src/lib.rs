@@ -59,8 +59,8 @@ use alloc::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use frame_support::{
-    dispatch::DispatchResultWithPostInfo, pallet_prelude::StorageVersion, traits::IsSubType,
-    BoundedBTreeSet, BoundedVec,
+    dispatch::DispatchResultWithPostInfo, ensure, pallet_prelude::StorageVersion,
+    traits::IsSubType, BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{
     ensure_none, ensure_root,
@@ -75,7 +75,11 @@ use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
-use sp_avn_common::{bounds::MaximumValidatorsBound, event_discovery::*, event_types::Validator};
+use sp_avn_common::{
+    bounds::MaximumValidatorsBound,
+    event_discovery::*,
+    event_types::{EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
+};
 use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
@@ -277,6 +281,10 @@ pub mod pallet {
     // The number of blocks that make up a range
     #[pallet::storage]
     pub type EthBlockRangeSize<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    #[pallet::storage]
+    pub type ProcessedEthereumEvents<T: Config> =
+        StorageMap<_, Blake2_128Concat, EthTransactionId, EthProcessedEvent, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -862,7 +870,7 @@ pub mod pallet {
         // Remove entry from storage. Ignore votes.
         let _ = EthereumEvents::<T>::take(partition);
         for discovered_event in partition.events().iter() {
-            match ValidEvents::try_from(&discovered_event.event.event_id.signature) {
+            match ValidEvents::try_from(&discovered_event.event.event_id.signature).ok() {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
                         if let Err(err) = process_ethereum_event::<T>(&discovered_event.event) {
@@ -902,7 +910,8 @@ pub mod pallet {
         );
 
         // Add record of succesful processing via ProcessedEventsChecker
-        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true);
+        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true)
+            .map_err(|_| Error::<T>::EventAlreadyProcessed)?;
 
         match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
             Ok(_) => {
@@ -1146,5 +1155,21 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_bridge_contract() -> H160 {
         AVN::<T>::get_bridge_contract_address()
+    }
+}
+
+impl<T: Config> ProcessedEventsChecker for Pallet<T> {
+    fn processed_event_exists(event_id: &EthEventId) -> bool {
+        <ProcessedEthereumEvents<T>>::contains_key(event_id.transaction_hash)
+    }
+
+    fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()> {
+        ensure!(!Self::processed_event_exists(event_id), ());
+        let id = ValidEvents::try_from(&event_id.signature)?;
+        <ProcessedEthereumEvents<T>>::insert(
+            event_id.transaction_hash.clone(),
+            EthProcessedEvent { id, accepted },
+        );
+        Ok(())
     }
 }

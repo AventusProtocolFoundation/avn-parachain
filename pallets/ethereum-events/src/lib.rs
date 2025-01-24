@@ -191,6 +191,7 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
+        type ProcessedEventsChecker: ProcessedEventsChecker;
         type EthereumEventsFilter: EthereumEventsFilterTrait;
     }
 
@@ -327,8 +328,8 @@ pub mod pallet {
     // Should be a set as requires quick access but Substrate doesn't support sets: they recommend
     // using a bool HashMap. This map holds all events that have been processed, regardless of
     // the outcome of the execution of the events.
+    #[deprecated]
     #[pallet::storage]
-    #[pallet::getter(fn processed_events)]
     pub type ProcessedEvents<T: Config> =
         StorageMap<_, Blake2_128Concat, EthEventId, bool, ValueQuery>;
 
@@ -394,7 +395,11 @@ pub mod pallet {
             EventChallengePeriod::<T>::put(self.event_challenge_period);
 
             for (signature, transaction_hash, value) in self.processed_events.clone().into_iter() {
-                ProcessedEvents::<T>::insert(EthEventId { signature, transaction_hash }, value);
+                T::ProcessedEventsChecker::add_processed_event(
+                    &EthEventId { signature, transaction_hash },
+                    value,
+                )
+                .expect("Failed to create genesis config for processed events");
             }
 
             for (key, value) in self.nft_t1_contracts.iter() {
@@ -563,10 +568,18 @@ pub mod pallet {
             // processed again in the future. TODO [TYPE: security][PRI:
             // medium][CRITICAL][JIRA: 152]: Deal with transaction replay attacks
 
+            let event_has_not_been_processed =
+                !T::ProcessedEventsChecker::processed_event_exists(&event_id);
             let event_was_declared_invalid = validated.result == CheckResult::Invalid;
-            let event_can_be_resubmitted = event_was_declared_invalid && successful_challenge;
+            let event_can_be_resubmitted = event_was_declared_invalid ||
+                (successful_challenge && event_has_not_been_processed);
             if !event_can_be_resubmitted {
-                <ProcessedEvents<T>>::insert(event_id.clone(), true);
+                if T::ProcessedEventsChecker::add_processed_event(&event_id, true).is_err() {
+                    log::error!(
+                        "Unexpected error while registering processing of event {:?}",
+                        &event_id
+                    );
+                }
             }
             <EventsPendingChallenge<T>>::mutate(|pending_events| {
                 pending_events.remove(event_index)
@@ -575,7 +588,7 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::EventProcessed {
                 eth_event_id: event_id.clone(),
                 processor: validator.account_id.clone(),
-                outcome: !successful_challenge,
+                outcome: event_has_not_been_processed && !successful_challenge,
             });
             if successful_challenge {
                 Self::deposit_event(Event::<T>::ChallengeSucceeded {
@@ -590,15 +603,20 @@ pub mod pallet {
                     EthereumLogOffenceType::IncorrectValidationResultSubmitted,
                 );
             } else {
-                // SYS-536 report the offence for the people who challenged
-                create_and_report_invalid_log_offence::<T>(
-                    &validator.account_id,
-                    &Self::challenges(event_id.clone()),
-                    EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
-                );
+                let offenders_accounts = Challenges::<T>::take(&event_id);
+                if !offenders_accounts.is_empty() {
+                    create_and_report_invalid_log_offence::<T>(
+                        &validator.account_id,
+                        &offenders_accounts,
+                        EthereumLogOffenceType::ChallengeAttemptedOnValidResult,
+                    );
+                }
             }
 
-            if validated.result == CheckResult::Ok && !successful_challenge {
+            if validated.result == CheckResult::Ok &&
+                !successful_challenge &&
+                event_has_not_been_processed
+            {
                 // Let everyone know we have processed an event.
                 let processing_outcome =
                     T::ProcessedEventHandler::on_event_processed(&validated.event);
@@ -1487,7 +1505,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn event_exists_in_system(event_id: &EthEventId) -> bool {
-        return <ProcessedEvents<T>>::contains_key(&event_id) ||
+        return T::ProcessedEventsChecker::processed_event_exists(&event_id) ||
             Self::unchecked_events().iter().any(|(event, _, _)| event == event_id) ||
             Self::events_pending_challenge()
                 .iter()
@@ -1531,7 +1549,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn is_event_contract_valid(contract_address: &H160, event_id: &EthEventId) -> bool {
-        let event_type = ValidEvents::try_from(&event_id.signature);
+        let event_type = ValidEvents::try_from(&event_id.signature).ok();
         if let Some(event_type) = event_type {
             if event_type.is_nft_event() {
                 return <NftT1Contracts<T>>::contains_key(contract_address)
@@ -1615,12 +1633,13 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> ProcessedEventsChecker for Pallet<T> {
     fn processed_event_exists(event_id: &EthEventId) -> bool {
-        return <ProcessedEvents<T>>::contains_key(event_id) ||
-            Self::get_pending_event_index(event_id).is_ok()
+        return <ProcessedEvents<T>>::contains_key(event_id)
     }
 
-    fn add_processed_event(event_id: &EthEventId, accepted: bool) {
+    fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()> {
+        ensure!(!Self::processed_event_exists(event_id), ());
         <ProcessedEvents<T>>::insert(event_id.clone(), accepted);
+        Ok(())
     }
 }
 
