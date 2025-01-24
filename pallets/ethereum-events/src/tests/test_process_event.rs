@@ -143,13 +143,13 @@ mod process_event {
                 }
 
                 #[test]
-                fn adds_ethereum_event_to_processed_list() {
+                fn ethereum_event_not_added_to_processed_list() {
                     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
                     ext.execute_with(|| {
                         let context = setup();
                         assert_ok!(call_process_event_result(&context));
 
-                        assert_eq!(true, event_is_in_processed_list(&context));
+                        assert_eq!(false, event_is_in_processed_list(&context));
                     });
                 }
 
@@ -265,14 +265,14 @@ mod process_event {
                 }
 
                 #[test]
-                fn adds_ethereum_event_to_processed_list() {
+                fn ethereum_event_not_present_to_processed_list() {
                     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
                     ext.execute_with(|| {
                         let context = setup();
                         mock_on_event_processed_failing_with_invalid_event_to_process();
 
                         assert_ok!(call_process_event_result(&context));
-                        assert_eq!(true, event_is_in_processed_list(&context));
+                        assert_eq!(false, event_is_in_processed_list(&context));
                     });
                 }
 
@@ -961,13 +961,13 @@ mod process_event {
                 }
 
                 #[test]
-                fn adds_ethereum_event_to_processed_list() {
+                fn ethereum_event_not_added_to_processed_list() {
                     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
                     ext.execute_with(|| {
                         let context = setup();
                         assert_ok!(call_process_event_result(&context));
 
-                        assert_eq!(true, event_is_in_processed_list(&context));
+                        assert_eq!(false, event_is_in_processed_list(&context));
                     });
                 }
 
@@ -1081,14 +1081,14 @@ mod process_event {
                 }
 
                 #[test]
-                fn adds_ethereum_event_to_processed_list() {
+                fn ethereum_event_not_added_to_processed_list() {
                     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
                     ext.execute_with(|| {
                         let context = setup();
                         mock_on_event_processed_failing_with_invalid_event_to_process();
 
                         assert_ok!(call_process_event_result(&context));
-                        assert_eq!(true, event_is_in_processed_list(&context));
+                        assert_eq!(false, event_is_in_processed_list(&context));
                     });
                 }
 
