@@ -13,7 +13,7 @@ fn register_validator(
     author_id: &AccountId,
     author_eth_public_key: &ecdsa::Public,
 ) -> DispatchResult {
-    return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key);
+    return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key)
 }
 
 fn set_session_keys(author_id: &AccountId) {
@@ -100,7 +100,7 @@ mod register_validator {
             action_data.status == status &&
                 action_data.action_type == AuthorsActionType::Activation &&
                 account_id == data.new_validator_id
-        });
+        })
     }
 
     mod succeeds {
