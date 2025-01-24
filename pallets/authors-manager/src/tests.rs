@@ -13,11 +13,7 @@ fn register_validator(
     author_id: &AccountId,
     author_eth_public_key: &ecdsa::Public,
 ) -> DispatchResult {
-    return TnfValidatorsManager::add_author(
-        RawOrigin::Root.into(),
-        *author_id,
-        *author_eth_public_key,
-    );
+    return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key);
 }
 
 fn set_session_keys(author_id: &AccountId) {
@@ -46,7 +42,7 @@ fn test_register_existing_validator() {
     let mut ext = ExtBuilder::build_default().with_authors().as_externality();
     ext.execute_with(|| {
         let mock_data = MockData::setup_valid();
-        TnfValidatorsManager::insert_to_authors(&mock_data.new_validator_id);
+        AuthorsManager::insert_to_authors(&mock_data.new_validator_id);
 
         let current_num_events = System::events().len();
 
@@ -91,12 +87,11 @@ mod register_validator {
     fn run_preconditions(context: &MockData) {
         assert_eq!(0, AuthorActions::<TestRuntime>::iter().count());
         let author_account_ids =
-            TnfValidatorsManager::author_account_ids().expect("Should contain authors");
+            AuthorsManager::author_account_ids().expect("Should contain authors");
         assert_eq!(false, author_account_ids.contains(&context.new_validator_id));
         assert_eq!(
             false,
-            TnfValidatorsManager::get_ethereum_public_key_if_exists(&context.new_validator_id)
-                .is_some()
+            AuthorsManager::get_ethereum_public_key_if_exists(&context.new_validator_id).is_some()
         );
     }
 
@@ -127,7 +122,7 @@ mod register_validator {
                     &context.author_eth_public_key
                 ));
                 // Upon completion author has been added AuthorAccountIds storage
-                assert!(TnfValidatorsManager::author_account_ids()
+                assert!(AuthorsManager::author_account_ids()
                     .unwrap()
                     .iter()
                     .any(|a| a == &context.new_validator_id));
@@ -135,7 +130,7 @@ mod register_validator {
                 assert_eq!(
                     true,
                     System::events().iter().any(|a| a.event ==
-                        mock::RuntimeEvent::TnfValidatorsManager(
+                        mock::RuntimeEvent::AuthorsManager(
                             crate::Event::<TestRuntime>::AuthorRegistered {
                                 author_id: context.new_validator_id,
                                 eth_key: context.author_eth_public_key.clone()
@@ -146,7 +141,7 @@ mod register_validator {
                 assert_eq!(
                     false,
                     System::events().iter().any(|a| a.event ==
-                        mock::RuntimeEvent::TnfValidatorsManager(
+                        mock::RuntimeEvent::AuthorsManager(
                             crate::Event::<TestRuntime>::AuthorActivationStarted {
                                 author_id: context.new_validator_id
                             }
@@ -191,7 +186,7 @@ mod register_validator {
                 assert_eq!(
                     true,
                     System::events().iter().any(|a| a.event ==
-                        mock::RuntimeEvent::TnfValidatorsManager(
+                        mock::RuntimeEvent::AuthorsManager(
                             crate::Event::<TestRuntime>::AuthorActivationStarted {
                                 author_id: context.new_validator_id
                             }
@@ -232,14 +227,14 @@ mod remove_validator_public {
             assert_eq!(AVN::<TestRuntime>::is_validator(&context.new_validator_id), true);
 
             //Remove the author
-            assert_ok!(TnfValidatorsManager::remove_author(
+            assert_ok!(AuthorsManager::remove_author(
                 RawOrigin::Root.into(),
                 context.new_validator_id
             ));
 
             //Event emitted as expected
             assert!(System::events().iter().any(|a| a.event ==
-                mock::RuntimeEvent::TnfValidatorsManager(
+                mock::RuntimeEvent::AuthorsManager(
                     crate::Event::<TestRuntime>::AuthorDeregistered {
                         author_id: context.new_validator_id
                     }
@@ -247,7 +242,7 @@ mod remove_validator_public {
 
             //Author removed from validators manager
             assert_eq!(
-                TnfValidatorsManager::author_account_ids()
+                AuthorsManager::author_account_ids()
                     .unwrap()
                     .iter()
                     .position(|&x| x == context.new_validator_id),
@@ -297,7 +292,7 @@ mod remove_validator_public {
 
             let num_events = System::events().len();
             assert_noop!(
-                TnfValidatorsManager::remove_author(
+                AuthorsManager::remove_author(
                     RuntimeOrigin::signed(validator_id_3()),
                     validator_id_3()
                 ),
@@ -316,10 +311,7 @@ mod remove_validator_public {
 
             let num_events = System::events().len();
             assert_noop!(
-                TnfValidatorsManager::remove_author(
-                    RawOrigin::None.into(),
-                    context.new_validator_id
-                ),
+                AuthorsManager::remove_author(RawOrigin::None.into(), context.new_validator_id),
                 BadOrigin
             );
             assert_eq!(System::events().len(), num_events);
@@ -334,12 +326,12 @@ mod remove_validator_public {
             let context = MockData::setup_valid();
             assert_ok!(force_add_author(&context.new_validator_id, &context.author_eth_public_key));
 
-            let original_authors = TnfValidatorsManager::author_account_ids();
+            let original_authors = AuthorsManager::author_account_ids();
             let num_events = System::events().len();
 
             // Caller of remove function has to emit event if removal is successful.
             assert_eq!(System::events().len(), num_events);
-            assert_eq!(TnfValidatorsManager::author_account_ids(), original_authors);
+            assert_eq!(AuthorsManager::author_account_ids(), original_authors);
         });
     }
 }
@@ -349,7 +341,7 @@ fn test_initial_authors_populated_from_genesis_config() {
     let mut ext = ExtBuilder::build_default().with_authors().as_externality();
     ext.execute_with(|| {
         assert_eq!(
-            TnfValidatorsManager::author_account_ids().unwrap(),
+            AuthorsManager::author_account_ids().unwrap(),
             genesis_config_initial_authors().to_vec()
         );
     });
@@ -388,13 +380,11 @@ mod add_validator {
 
             assert_eq!(
                 true,
-                TnfValidatorsManager::author_account_ids().unwrap().contains(&context.author)
+                AuthorsManager::author_account_ids().unwrap().contains(&context.author)
             );
             assert_eq!(
-                TnfValidatorsManager::get_author_by_eth_public_key(
-                    context.author_eth_public_key.clone()
-                )
-                .unwrap(),
+                AuthorsManager::get_author_by_eth_public_key(context.author_eth_public_key.clone())
+                    .unwrap(),
                 context.author
             );
         });
@@ -411,7 +401,7 @@ mod add_validator {
 
                 set_session_keys(&context.author);
                 assert_noop!(
-                    TnfValidatorsManager::add_author(
+                    AuthorsManager::add_author(
                         RawOrigin::None.into(),
                         context.author,
                         context.author_eth_public_key,

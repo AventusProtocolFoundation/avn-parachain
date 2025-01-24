@@ -1,6 +1,6 @@
 //Copyright 2024 Aventus Network Services (UK) Ltd.
 
-use crate::{self as tnf_authors_manager, *};
+use crate::{self as authors_manager, *};
 use frame_support::{
     parameter_types,
     traits::{Currency, OnFinalize, OnInitialize},
@@ -90,7 +90,7 @@ frame_support::construct_runtime!(
     pub enum TestRuntime
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-        TnfValidatorsManager: tnf_authors_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
+        AuthorsManager: authors_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         AVN: pallet_avn::{Pallet, Storage, Event},
@@ -102,7 +102,7 @@ frame_support::construct_runtime!(
 use frame_system::{self as system};
 use pallet_session as session;
 
-impl TnfValidatorsManager {
+impl AuthorsManager {
     pub fn insert_authors_action_data(action_id: &ActionId<AccountId>) {
         <AuthorActions<TestRuntime>>::insert(
             action_id.action_account_id,
@@ -178,7 +178,7 @@ impl avn::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = Self;
-    type NewSessionHandler = TnfValidatorsManager;
+    type NewSessionHandler = AuthorsManager;
     type DisabledValidatorChecker = ();
     type WeightInfo = ();
 }
@@ -244,7 +244,7 @@ parameter_types! {
 }
 
 impl session::Config for TestRuntime {
-    type SessionManager = TnfValidatorsManager;
+    type SessionManager = AuthorsManager;
     type Keys = UintAuthorityId;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (AVN,);
@@ -405,7 +405,7 @@ impl ExtBuilder {
         });
 
         // Important: the order of the storage setup is important. Do not change it.
-        let _ = tnf_authors_manager::GenesisConfig::<TestRuntime> {
+        let _ = authors_manager::GenesisConfig::<TestRuntime> {
             authors: author_account_ids
                 .iter()
                 .map(|v| v.clone())
@@ -456,7 +456,7 @@ impl MockData {
     }
 }
 
-impl TnfValidatorsManager {
+impl AuthorsManager {
     pub fn insert_to_authors(to_insert: &AccountId) {
         <AuthorAccountIds<TestRuntime>>::try_append(to_insert.clone())
             .expect("Too many author accounts in genesis");

@@ -1,13 +1,13 @@
-//! # Tnf Authors Manager pallet
+//! # Authors Manager pallet
 // Copyright 2024 Aventus Systems (UK) Ltd.
 
-// tnf authors manager pallet benchmarking.
+// authors manager pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
 
-use crate::{Pallet as TnfAuthorsManager, *};
+use crate::{Pallet as AuthorsManager, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::traits::ValidatorSet;
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
@@ -206,14 +206,14 @@ fn generate_author_eth_public_key_from_seed<T: Config>(seed: u64) -> Public {
     let secret_key = SecretKey::random(&mut rng);
     let public_key = PublicKey::from_secret_key(&secret_key);
 
-    return TnfAuthorsManager::<T>::compress_eth_public_key(H512::from_slice(
+    return AuthorsManager::<T>::compress_eth_public_key(H512::from_slice(
         &public_key.serialize()[1..],
     ));
 }
 
 fn force_add_author<T: Config>(author_id: &T::AccountId, index: u64, eth_public_key: &Public) {
     set_session_keys::<T>(author_id, index);
-    TnfAuthorsManager::<T>::add_author(
+    AuthorsManager::<T>::add_author(
         RawOrigin::Root.into(),
         author_id.clone(),
         eth_public_key.clone(),
