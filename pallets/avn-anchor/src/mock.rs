@@ -4,21 +4,23 @@ use core::cell::RefCell;
 use frame_support::{
     pallet_prelude::*,
     parameter_types,
-    traits::{ConstU16, ConstU32, ConstU64, EqualPrivilegeOnly, Everything},
+    traits::{ConstU16, ConstU32, ConstU64, Currency, EqualPrivilegeOnly, Everything},
     PalletId,
 };
+
 use frame_system::{self as system, limits::BlockWeights, EnsureRoot};
 use pallet_avn::BridgeInterfaceNotification;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_session as session;
 use scale_info::TypeInfo;
 use sp_avn_common::{FeePaymentHandler, InnerCallValidator, Proof};
-use sp_core::{sr25519, Pair, H160, H256};
+use sp_core::{sr25519, Pair, H256};
+
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
     traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
-    BuildStorage, Perbill,
+    BuildStorage, Perbill, Saturating,
 };
 use std::sync::Arc;
 
@@ -65,6 +67,42 @@ pub fn validator_id_2() -> AccountId {
 }
 pub fn validator_id_3() -> AccountId {
     TestAccount::new([3u8; 32]).account_id()
+}
+
+pub fn setup_balance<T: Config>(account: &T::AccountId) {
+    let min_balance = T::Currency::minimum_balance();
+    // Convert default checkpoint fee to the correct balance type
+    let default_fee: BalanceOf<T> = T::DefaultCheckpointFee::get();
+
+    // Calculate a large initial balance
+    // Use saturating operations to prevent overflow
+    let large_multiplier: BalanceOf<T> = 1000u32.into();
+    let fee_component = default_fee.saturating_mul(large_multiplier);
+    let existential_component = min_balance.saturating_mul(large_multiplier);
+
+    // Add the components together for total initial balance
+    let initial_balance = fee_component.saturating_add(existential_component);
+
+    // Set the balance
+    T::Currency::make_free_balance_be(account, initial_balance);
+
+    // Ensure the account has enough free balance
+    assert!(
+        T::Currency::free_balance(account) >= initial_balance,
+        "Failed to set up sufficient balance"
+    );
+}
+
+pub fn ensure_fee_payment_possible<T: Config>(
+    chain_id: ChainId,
+    account: &T::AccountId,
+) -> Result<(), &'static str> {
+    let fee = Pallet::<T>::checkpoint_fee(chain_id);
+    let balance = T::Currency::free_balance(account);
+    if balance < fee {
+        return Err("Insufficient balance for fee payment")
+    }
+    Ok(())
 }
 
 thread_local! {
