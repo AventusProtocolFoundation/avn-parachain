@@ -6967,6 +6967,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-authors-manager"
+version = "6.6.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "hex-literal",
+ "libsecp256k1",
+ "log",
+ "pallet-avn",
+ "pallet-balances",
+ "pallet-eth-bridge",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec 3.6.12",
+ "parking_lot 0.12.1",
+ "rand 0.8.5",
+ "scale-info",
+ "serde",
+ "sha3 0.8.2",
+ "sp-application-crypto",
+ "sp-avn-common",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-state-machine",
+ "sp-std",
+ "substrate-test-utils",
+]
+
+[[package]]
 name = "pallet-authorship"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.1.0#65a434a0ed474c14f692dcf9f69f8da66a99d401"
