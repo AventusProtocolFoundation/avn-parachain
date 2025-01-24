@@ -289,7 +289,9 @@ impl ProcessedEventsChecker for TestRuntime {
         })
     }
 
-    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) {}
+    fn add_processed_event(_event_id: &EthEventId, _accepted: bool) -> Result<(), ()> {
+        Ok(())
+    }
 }
 
 // TODO: Do we need to test the ECDSA sig verification logic here? If so, replace this with a call
