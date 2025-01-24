@@ -137,6 +137,7 @@ impl Config for TestRuntime {
     type Signature = Signature;
     type WeightInfo = ();
     type EthereumEventsFilter = MyEthereumEventsFilter;
+    type ProcessedEventsChecker = EthereumEvents;
 }
 
 impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -414,10 +415,6 @@ impl EthereumEvents {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: H256::from([seed; 32]),
         }
-    }
-
-    pub fn insert_to_processed_events(to_insert: &EthEventId) {
-        <ProcessedEvents<TestRuntime>>::insert(to_insert.clone(), true);
     }
 
     pub fn has_events_to_validate() -> bool {

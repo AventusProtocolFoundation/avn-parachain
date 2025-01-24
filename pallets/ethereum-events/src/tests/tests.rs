@@ -232,7 +232,7 @@ fn test_event_exists_in_system_entry_in_processed_queue() {
             signature: ValidEvents::AddedValidator.signature(),
             transaction_hash: H256::random(),
         };
-        EthereumEvents::insert_to_processed_events(&event_id);
+        assert_ok!(EthereumEvents::add_processed_event(&event_id, true));
         // Test with an event that exists in Processed Events only
         assert!(EthereumEvents::event_exists_in_system(&event_id));
         assert!(!EthereumEvents::has_events_to_check());

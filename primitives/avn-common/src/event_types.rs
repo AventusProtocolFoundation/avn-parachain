@@ -155,32 +155,6 @@ impl ValidEvents {
         }
     }
 
-    pub fn try_from(signature: &H256) -> Option<ValidEvents> {
-        if signature == &ValidEvents::AddedValidator.signature() {
-            return Some(ValidEvents::AddedValidator)
-        } else if signature == &ValidEvents::Lifted.signature() {
-            return Some(ValidEvents::Lifted)
-        } else if signature == &ValidEvents::NftMint.signature() {
-            return Some(ValidEvents::NftMint)
-        } else if signature == &ValidEvents::NftTransferTo.signature() {
-            return Some(ValidEvents::NftTransferTo)
-        } else if signature == &ValidEvents::NftCancelListing.signature() {
-            return Some(ValidEvents::NftCancelListing)
-        } else if signature == &ValidEvents::NftEndBatchListing.signature() {
-            return Some(ValidEvents::NftEndBatchListing)
-        } else if signature == &ValidEvents::AvtGrowthLifted.signature() {
-            return Some(ValidEvents::AvtGrowthLifted)
-        } else if signature == &ValidEvents::AvtLowerClaimed.signature() {
-            return Some(ValidEvents::AvtLowerClaimed)
-        } else if signature == &ValidEvents::LiftedToPredictionMarket.signature() {
-            return Some(ValidEvents::LiftedToPredictionMarket)
-        } else if signature == &ValidEvents::Erc20DirectTransfer.signature() {
-            return Some(ValidEvents::Erc20DirectTransfer)
-        } else {
-            return None
-        }
-    }
-
     pub fn is_nft_event(&self) -> bool {
         match *self {
             ValidEvents::NftMint |
@@ -199,6 +173,18 @@ impl ValidEvents {
         match *self {
             ValidEvents::Erc20DirectTransfer => false,
             _ => true,
+        }
+    }
+}
+
+impl TryFrom<&H256> for ValidEvents {
+    type Error = ();
+
+    fn try_from(value: &H256) -> Result<Self, Self::Error> {
+        if let Some(e) = ValidEvents::iter().find(|event| event.signature() == *value) {
+            Ok(e)
+        } else {
+            Err(())
         }
     }
 }
@@ -793,6 +779,14 @@ impl Default for CheckResult {
     }
 }
 
+// Data type for storing an Ethereum transaction ID.
+pub type EthTransactionId = H256;
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+pub struct EthProcessedEvent {
+    pub id: ValidEvents,
+    pub accepted: bool,
+}
 #[derive(Encode, Decode, Default, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 // Note: strictly speaking, different contracts can have events with the same signature, which would
 // suggest that the contract should be part of the EventId.
@@ -803,7 +797,7 @@ impl Default for CheckResult {
 pub struct EthEventId {
     pub signature: H256, /* this is the Event Signature, as in ethereum's Topic0. It is not a
                           * cryptographic signature */
-    pub transaction_hash: H256,
+    pub transaction_hash: EthTransactionId,
 }
 
 impl EthEventId {
