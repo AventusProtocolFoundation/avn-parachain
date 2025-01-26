@@ -35,6 +35,7 @@ use sp_std::{cmp, prelude::*};
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
+    bounds::ProcessingBatchBound,
     event_discovery::EthereumEventsFilterTrait,
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Challenge, ChallengeReason,
@@ -49,7 +50,9 @@ use sp_avn_common::{
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
-use pallet_avn::{self as avn, Error as avn_error, ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS};
+use pallet_avn::{
+    self as avn, Error as avn_error, EventMigration, ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
+};
 pub mod offence;
 use crate::offence::{
     create_and_report_invalid_log_offence, EthereumLogOffenceType, InvalidEthereumLogOffence,
@@ -394,10 +397,10 @@ pub mod pallet {
 
             EventChallengePeriod::<T>::put(self.event_challenge_period);
 
-            for (signature, transaction_hash, value) in self.processed_events.clone().into_iter() {
+            for (signature, transaction_hash, value) in self.processed_events.iter() {
                 T::ProcessedEventsChecker::add_processed_event(
-                    &EthEventId { signature, transaction_hash },
-                    value,
+                    &EthEventId { signature: *signature, transaction_hash: *transaction_hash },
+                    *value,
                 )
                 .expect("Failed to create genesis config for processed events");
             }
@@ -1640,6 +1643,30 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
         ensure!(!Self::processed_event_exists(event_id), ());
         <ProcessedEvents<T>>::insert(event_id.clone(), accepted);
         Ok(())
+    }
+
+    fn migrate_processed_events_batch() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>>
+    {
+        let batch_size: u32 = ProcessingBatchBound::get();
+        let entry_return =
+            |event: &EthEventId, outcome: bool| ProcessedEvents::<T>::insert(event, outcome);
+        let migration_batch: Vec<EventMigration> = ProcessedEvents::<T>::iter()
+            .take(batch_size as usize)
+            .map(|(event_id, outcome)| EventMigration {
+                event_id,
+                outcome,
+                entry_return_impl: entry_return,
+            })
+            .collect();
+
+        migration_batch.iter().for_each(|event_to_migrate| {
+            ProcessedEvents::<T>::remove(&event_to_migrate.event_id);
+        });
+
+        if migration_batch.is_empty() {
+            return None;
+        }
+        Some(BoundedVec::<EventMigration, ProcessingBatchBound>::truncate_from(migration_batch))
     }
 }
 

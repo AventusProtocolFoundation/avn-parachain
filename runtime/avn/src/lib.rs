@@ -18,7 +18,9 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeAppPublic;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use frame_support::BoundedVec;
 use sp_api::impl_runtime_apis;
+use sp_avn_common::bounds::ProcessingBatchBound;
 use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
@@ -1124,7 +1126,7 @@ cumulus_pallet_parachain_system::register_validate_block! {
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
 }
 
-use pallet_avn::ProcessedEventsChecker;
+use pallet_avn::{EventMigration, ProcessedEventsChecker};
 use sp_avn_common::event_types::EthEventId;
 
 pub struct ProcessedEventCustodian {}
@@ -1137,5 +1139,10 @@ impl ProcessedEventsChecker for ProcessedEventCustodian {
     fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()> {
         frame_support::ensure!(!Self::processed_event_exists(event_id), ());
         EthBridge::add_processed_event(event_id, accepted)
+    }
+
+    fn migrate_processed_events_batch() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>>
+    {
+        EthereumEvents::migrate_processed_events_batch()
     }
 }

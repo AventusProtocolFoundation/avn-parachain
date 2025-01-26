@@ -47,6 +47,8 @@ pub trait WeightInfo {
 	fn submit_ethereum_events_and_process_batch(c: u32, e: u32, ) -> Weight;
 	fn submit_latest_ethereum_block(c: u32, ) -> Weight;
 	fn submit_latest_ethereum_block_with_quorum(c: u32, ) -> Weight;
+	fn base_on_idle() -> Weight;
+	fn migrate_events_batch(n: u32, ) -> Weight;
 }
 
 /// Weights for pallet_eth_bridge using the Substrate node and recommended hardware.
@@ -245,6 +247,38 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:5 w:4)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::ProcessedEthereumEvents` (r:4 w:4)
+	/// Proof: `EthBridge::ProcessedEthereumEvents` (`max_values`: None, `max_size`: Some(50), added: 2525, mode: `MaxEncodedLen`)
+	fn base_on_idle() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `689`
+		//  Estimated: `13770`
+		// Minimum execution time: 73_378_000 picoseconds.
+		Weight::from_parts(75_317_000, 13770)
+			.saturating_add(T::DbWeight::get().reads(9_u64))
+			.saturating_add(T::DbWeight::get().writes(8_u64))
+	}
+	/// Storage: `EthBridge::ProcessedEthereumEvents` (r:64 w:60)
+	/// Proof: `EthBridge::ProcessedEthereumEvents` (`max_values`: None, `max_size`: Some(50), added: 2525, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:64 w:0)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 100]`.
+	fn migrate_events_batch(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `578`
+		//  Estimated: `20585 + n * (1808 ±25)`
+		// Minimum execution time: 230_000 picoseconds.
+		Weight::from_parts(10_671_771, 20585)
+			// Standard Error: 86_583
+			.saturating_add(Weight::from_parts(11_027_073, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(14_u64))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 1808).saturating_mul(n.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -441,5 +475,37 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(417_091, 0).saturating_mul(c.into()))
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:5 w:4)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::ProcessedEthereumEvents` (r:4 w:4)
+	/// Proof: `EthBridge::ProcessedEthereumEvents` (`max_values`: None, `max_size`: Some(50), added: 2525, mode: `MaxEncodedLen`)
+	fn base_on_idle() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `689`
+		//  Estimated: `13770`
+		// Minimum execution time: 73_378_000 picoseconds.
+		Weight::from_parts(75_317_000, 13770)
+			.saturating_add(RocksDbWeight::get().reads(9_u64))
+			.saturating_add(RocksDbWeight::get().writes(8_u64))
+	}
+	/// Storage: `EthBridge::ProcessedEthereumEvents` (r:64 w:60)
+	/// Proof: `EthBridge::ProcessedEthereumEvents` (`max_values`: None, `max_size`: Some(50), added: 2525, mode: `MaxEncodedLen`)
+	/// Storage: `EthereumEvents::ProcessedEvents` (r:64 w:0)
+	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[1, 100]`.
+	fn migrate_events_batch(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `578`
+		//  Estimated: `20585 + n * (1808 ±25)`
+		// Minimum execution time: 230_000 picoseconds.
+		Weight::from_parts(10_671_771, 20585)
+			// Standard Error: 86_583
+			.saturating_add(Weight::from_parts(11_027_073, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(14_u64))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 1808).saturating_mul(n.into()))
 	}
 }

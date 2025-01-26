@@ -66,6 +66,8 @@ pub mod bounds {
     pub type VotingSessionIdBound = ConstU32<64>;
     /// Bound used for NFT external references
     pub type NftExternalRefBound = ConstU32<1024>;
+    /// Bound used for batch operations
+    pub type ProcessingBatchBound = ConstU32<64>;
 }
 
 #[derive(Debug)]
