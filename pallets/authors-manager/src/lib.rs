@@ -1,4 +1,4 @@
-//! # Validators manager Pallet
+//! # Authors manager Pallet
 //!
 //! This pallet provides functionality to add/remove authors.
 //!
@@ -27,10 +27,11 @@ use sp_std::prelude::*;
 
 use pallet_avn::{
     self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification,
-    NewSessionHandler, ValidatorRegistrationNotifier,
+    NewSessionHandler, ValidatorRegistrationNotifier as AuthorRegistrationNotifier,
 };
-use sp_avn_common::{
-    eth_key_actions::decompress_eth_public_key, event_types::Validator, IngressCounter,
+pub use sp_avn_common::{
+    bounds::MaximumValidatorsBound as MaximumAuthorsBound,
+    eth_key_actions::decompress_eth_public_key, event_types::Validator as Author, IngressCounter,
 };
 
 pub use pallet::*;
@@ -49,8 +50,7 @@ pub mod pallet {
     use super::*;
     use frame_support::{assert_ok, pallet_prelude::*};
     use frame_system::{offchain::SendTransactionTypes, pallet_prelude::*};
-    use pallet_avn::{EthereumPublicKeyChecker, MAX_VALIDATOR_ACCOUNTS};
-    use sp_avn_common::bounds::MaximumValidatorsBound;
+    pub use pallet_avn::{EthereumPublicKeyChecker, MAX_VALIDATOR_ACCOUNTS as MAX_AUTHOR_ACCOUNTS};
     use sp_core::ecdsa;
 
     #[pallet::pallet]
@@ -71,7 +71,7 @@ pub mod pallet {
 
         type AccountToBytesConvert: AccountToBytesConverter<Self::AccountId>;
 
-        type ValidatorRegistrationNotifier: ValidatorRegistrationNotifier<
+        type ValidatorRegistrationNotifier: AuthorRegistrationNotifier<
             <Self as session::Config>::ValidatorId,
         >;
 
@@ -83,42 +83,66 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
+        /// A new author has been registered. \[author_id, eth_key\]
         AuthorRegistered { author_id: T::AccountId, eth_key: ecdsa::Public },
+        /// An author has been deregistered. \[author_id\]
         AuthorDeregistered { author_id: T::AccountId },
+        /// An author has activation has started. \[author_id\]
         AuthorActivationStarted { author_id: T::AccountId },
+        /// An author action has been confirmed. \[action_id\]
         AuthorActionConfirmed { action_id: ActionId<T::AccountId> },
+        /// Failed to publish author action on Tier1. \[tx_id\]
         PublishingAuthorActionOnEthereumFailed { tx_id: u32 },
+        /// Author action published on Tier1. \[tx_id\]
         PublishingAuthorActionOnEthereumSucceeded { tx_id: u32 },
     }
 
     #[pallet::error]
     pub enum Error<T> {
+        /// There is no Tier1 event for adding authors
         NoTier1EventForAddingAuthor,
+        /// There is no Tier1 event for removing authors
         NoTier1EventForRemovingAuthor,
+        /// There are no authors in the chain
         NoAuthors,
+        /// Author already exists
         AuthorAlreadyExists,
+        /// The ingress counter is not valid
         InvalidIngressCounter,
+        /// The minimum number of authors has been reached
         MinimumAuthorsReached,
+        /// There was an nerror ending the voting period
         ErrorEndingVotingPeriod,
+        /// The voting session is not valid
         VotingSessionIsNotValid,
+        /// There was an error submitting transaction to Tier1
         ErrorSubmitCandidateTxnToTier1,
+        /// There was an error calculating the primary author
         ErrorCalculatingPrimaryAuthor,
+        /// Not action data found for author
         AuthorsActionDataNotFound,
+        /// Removal already requested
         RemovalAlreadyRequested,
+        /// There was an error converting accountId to AuthorId
         ErrorConvertingAccountIdToAuthorId,
+        /// Slashed author is not found
         SlashedAuthorIsNotFound,
+        /// Author not found
         AuthorNotFound,
+        /// Invalid public key
         InvalidPublicKey,
         /// The ethereum public key of this author already exists
         AuthorEthKeyAlreadyExists,
+        /// There was an error removing account from authors
         ErrorRemovingAccountFromAuthors,
+        /// The maximum number of authors has been reached
         MaximumAuthorsReached,
     }
 
     #[pallet::storage]
     #[pallet::getter(fn author_account_ids)]
     pub type AuthorAccountIds<T: Config> =
-        StorageValue<_, BoundedVec<T::AccountId, MaximumValidatorsBound>>;
+        StorageValue<_, BoundedVec<T::AccountId, MaximumAuthorsBound>>;
 
     #[pallet::storage]
     pub type AuthorActions<T: Config> = StorageDoubleMap<
@@ -191,7 +215,7 @@ pub mod pallet {
 
             ensure!(
                 AuthorAccountIds::<T>::get().unwrap_or_default().len() <
-                    (<MaximumValidatorsBound as sp_core::TypedGet>::get() as usize),
+                    (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
                 Error::<T>::MaximumAuthorsReached
             );
 
@@ -201,11 +225,11 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::MaximumAuthorsReached)?;
             <EthereumPublicKeys<T>>::insert(author_eth_public_key, author_account_id);
 
-            return Ok(())
+            return Ok(());
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_author(MAX_VALIDATOR_ACCOUNTS))]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_author(MAX_AUTHOR_ACCOUNTS))]
         #[transactional]
         pub fn remove_author(
             origin: OriginFor<T>,
@@ -217,7 +241,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::<T>::AuthorDeregistered { author_id: author_account_id });
 
-            return Ok(())
+            return Ok(());
         }
     }
 
@@ -287,7 +311,7 @@ impl AuthorsActionData {
         eth_transaction_id: EthereumTransactionId,
         action_type: AuthorsActionType,
     ) -> Self {
-        return AuthorsActionData { status, eth_transaction_id, action_type }
+        return AuthorsActionData { status, eth_transaction_id, action_type };
     }
 }
 
@@ -310,7 +334,7 @@ impl AuthorsActionType {
 
 impl<AccountId: Member + Encode> ActionId<AccountId> {
     fn new(action_account_id: AccountId, ingress_counter: IngressCounter) -> Self {
-        return ActionId::<AccountId> { action_account_id, ingress_counter }
+        return ActionId::<AccountId> { action_account_id, ingress_counter };
     }
 }
 
@@ -370,7 +394,7 @@ impl<T: Config> Pallet<T> {
         return <EthereumPublicKeys<T>>::iter()
             .filter(|(_, acc)| acc == account_id)
             .map(|(pk, _)| pk)
-            .nth(0)
+            .nth(0);
     }
 
     fn remove_ethereum_public_key_if_required(author_id: &T::AccountId) {
@@ -391,7 +415,7 @@ impl<T: Config> Pallet<T> {
         // otherwise prefix with 3
         compressed_public_key[0] = if full_public_key.0[63] % 2 == 0 { 2u8 } else { 3u8 };
 
-        return ecdsa::Public::from_raw(compressed_public_key)
+        return ecdsa::Public::from_raw(compressed_public_key);
     }
 
     fn remove(
@@ -419,7 +443,7 @@ impl<T: Config> Pallet<T> {
         if maybe_author_index.is_none() {
             // Exit early if deregistration is not in the system. As dicussed, we don't want to give
             // any feedback if the author is not found.
-            return Ok(())
+            return Ok(());
         }
 
         let index_of_author_to_remove = maybe_author_index.expect("checked for none already");
@@ -466,18 +490,18 @@ impl<T: Config> Pallet<T> {
             ingress_counter,
             AuthorsActionType::Resignation,
             t1_eth_public_key,
-        )
+        );
     }
 
     fn author_permanently_removed(
-        active_authors: &Vec<Validator<T::AuthorityId, T::AccountId>>,
+        active_authors: &Vec<Author<T::AuthorityId, T::AccountId>>,
         disabled_authors: &Vec<T::AccountId>,
         deregistered_author: &T::AccountId,
     ) -> bool {
         // If the author exists in either vectors then they have not been removed from the
         // session
         return !active_authors.iter().any(|v| &v.account_id == deregistered_author) &&
-            !disabled_authors.iter().any(|v| v == deregistered_author)
+            !disabled_authors.iter().any(|v| v == deregistered_author);
     }
 
     fn clean_up_author_data(action_account_id: T::AccountId, ingress_counter: IngressCounter) {
@@ -499,13 +523,13 @@ impl<T: Config> Pallet<T> {
 }
 
 impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
-    fn on_genesis_session(_authors: &Vec<Validator<T::AuthorityId, T::AccountId>>) {
+    fn on_genesis_session(_authors: &Vec<Author<T::AuthorityId, T::AccountId>>) {
         log::trace!("Authors manager on_genesis_session");
     }
 
     fn on_new_session(
         _changed: bool,
-        active_authors: &Vec<Validator<T::AuthorityId, T::AccountId>>,
+        active_authors: &Vec<Author<T::AuthorityId, T::AccountId>>,
         disabled_authors: &Vec<T::AccountId>,
     ) {
         log::trace!("Authors manager on_new_session");

@@ -13,8 +13,7 @@ use pallet_balances as balances;
 use pallet_timestamp as timestamp;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
-    bounds::MaximumValidatorsBound,
-    event_types::{AddedValidatorData, EthEventId},
+    event_types::{AddedValidatorData as AddedAuthorData, EthEventId},
 };
 use sp_core::{ecdsa::Public, sr25519, ByteArray, ConstU64, Get, Pair, H256};
 use sp_runtime::{
@@ -25,34 +24,34 @@ use sp_runtime::{
 
 use std::cell::RefCell;
 
-pub fn validator_id_1() -> AccountId {
+pub fn author_id_1() -> AccountId {
     TestAccount::new([1u8; 32]).account_id()
 }
 
-pub fn validator_id_2() -> AccountId {
+pub fn author_id_2() -> AccountId {
     TestAccount::new([2u8; 32]).account_id()
 }
 
-pub fn validator_id_3() -> AccountId {
+pub fn author_id_3() -> AccountId {
     TestAccount::new([3u8; 32]).account_id()
 }
 
-pub fn validator_id_4() -> AccountId {
+pub fn author_id_4() -> AccountId {
     TestAccount::new([4u8; 32]).account_id()
 }
 
-pub fn validator_id_5() -> AccountId {
+pub fn author_id_5() -> AccountId {
     TestAccount::new([5u8; 32]).account_id()
 }
 
 pub fn genesis_config_initial_authors() -> [AccountId; 5] {
-    [validator_id_1(), validator_id_2(), validator_id_3(), validator_id_4(), validator_id_5()]
+    [author_id_1(), author_id_2(), author_id_3(), author_id_4(), author_id_5()]
 }
-pub const REGISTERING_VALIDATOR_TIER1_ID: u128 = 200;
+pub const REGISTERING_AUTHOR_TIER1_ID: u128 = 200;
 pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
-pub type ValidatorId = <TestRuntime as session::Config>::ValidatorId;
+pub type AuthorId = <TestRuntime as session::Config>::ValidatorId;
 //pub type FullIdentification = AccountId;
 /// The signature type used by accounts/transactions.
 pub type Signature = sr25519::Signature;
@@ -78,11 +77,11 @@ impl TestAccount {
     }
 
     pub fn account_id(&self) -> AccountId {
-        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap()
+        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap();
     }
 
     pub fn key_pair(&self) -> sr25519::Pair {
-        return sr25519::Pair::from_seed(&self.seed)
+        return sr25519::Pair::from_seed(&self.seed);
     }
 }
 
@@ -116,11 +115,11 @@ impl AuthorsManager {
     }
 
     pub fn event_emitted(event: &RuntimeEvent) -> bool {
-        return System::events().iter().any(|a| a.event == *event)
+        return System::events().iter().any(|a| a.event == *event);
     }
 
     pub fn create_mock_identification_tuple(account_id: AccountId) -> (AccountId, AccountId) {
-        return (account_id, account_id)
+        return (account_id, account_id);
     }
 }
 
@@ -268,12 +267,12 @@ pub const INITIAL_TRANSACTION_ID: EthereumTransactionId = 0;
 thread_local! {
     static PROCESSED_EVENTS: RefCell<Vec<(H256,H256)>> = RefCell::new(vec![]);
 
-    pub static VALIDATORS: RefCell<Option<Vec<AccountId>>> = RefCell::new(Some(vec![
-        validator_id_1(),
-        validator_id_2(),
-        validator_id_3(),
-        validator_id_4(),
-        validator_id_5(),
+    pub static AUTHORS: RefCell<Option<Vec<AccountId>>> = RefCell::new(Some(vec![
+        author_id_1(),
+        author_id_2(),
+        author_id_3(),
+        author_id_4(),
+        author_id_5(),
     ]));
 
     static MOCK_TX_ID: RefCell<EthereumTransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
@@ -286,7 +285,7 @@ impl ProcessedEventsChecker for TestRuntime {
                 &EthEventId { signature: event.0.clone(), transaction_hash: event.1.clone() } ==
                     event_id
             })
-        })
+        });
     }
 
     fn add_processed_event(_event_id: &EthEventId, _accepted: bool) -> Result<(), ()> {
@@ -295,19 +294,19 @@ impl ProcessedEventsChecker for TestRuntime {
 }
 
 // TODO: Do we need to test the ECDSA sig verification logic here? If so, replace this with a call
-// to the pallet's get_validator_for_eth_public_key method and update the tests to use "real"
+// to the pallet's get_author_for_eth_public_key method and update the tests to use "real"
 // signatures
 impl EthereumPublicKeyChecker<AccountId> for TestRuntime {
     fn get_validator_for_eth_public_key(eth_public_key: &ecdsa::Public) -> Option<AccountId> {
         if !EthereumPublicKeys::<TestRuntime>::contains_key(eth_public_key) {
-            return None
+            return None;
         }
-        return Some(EthereumPublicKeys::<TestRuntime>::get(eth_public_key).unwrap())
+        return Some(EthereumPublicKeys::<TestRuntime>::get(eth_public_key).unwrap());
     }
 }
 
-impl ValidatorRegistrationNotifier<ValidatorId> for TestRuntime {
-    fn on_validator_registration(_validator_id: &ValidatorId) {}
+impl AuthorRegistrationNotifier<AuthorId> for TestRuntime {
+    fn on_validator_registration(_author_id: &AuthorId) {}
 }
 
 // Derived from [1u8;32] private key
@@ -336,14 +335,13 @@ fn initial_authors_public_keys() -> Vec<ecdsa::Public> {
         Public::from_slice(&AUTHOR_3_ETHEREUM_PUPLIC_KEY).unwrap(),
         Public::from_slice(&AUTHOR_4_ETHEREUM_PUPLIC_KEY).unwrap(),
         Public::from_slice(&AUTHOR_5_ETHEREUM_PUPLIC_KEY).unwrap(),
-    ]
+    ];
 }
 
 fn initial_maximum_authors_public_keys() -> Vec<ecdsa::Public> {
     let mut public_keys = initial_authors_public_keys();
 
-    for i in public_keys.len() as u32..(<MaximumValidatorsBound as sp_core::TypedGet>::get() as u32)
-    {
+    for i in public_keys.len() as u32..(<MaximumAuthorsBound as sp_core::TypedGet>::get() as u32) {
         public_keys.push(Public::from_raw([i as u8; 33]));
     }
     public_keys
@@ -372,26 +370,26 @@ impl ExtBuilder {
 
     /// Setups a genesis configuration with 5 authors to the genesis state
     pub fn with_authors(self) -> Self {
-        let author_account_ids: &Vec<AccountId> = &VALIDATORS.with(|l| l.borrow().clone().unwrap());
+        let author_account_ids: &Vec<AccountId> = &AUTHORS.with(|l| l.borrow().clone().unwrap());
 
         self.setup_authors(author_account_ids, initial_authors_public_keys)
     }
 
     /// Setups a genesis configuration with maximum authors to the genesis state
     pub fn with_maximum_authors(self) -> Self {
-        let mut validators_account_ids: Vec<AccountId> = vec![];
+        let mut authors_account_ids: Vec<AccountId> = vec![];
         // mock accounts
-        for i in 1..=MaximumValidatorsBound::get() {
+        for i in 1..=MaximumAuthorsBound::get() {
             let mut seed = [i as u8; 32];
             // [0u8;32] is the identity of the author we add in the tests. Change the seed if its
             // the same.
             if seed.eq(&[0u8; 32]) {
                 seed[30] = 1;
             }
-            validators_account_ids.push(TestAccount::new(seed).account_id());
+            authors_account_ids.push(TestAccount::new(seed).account_id());
         }
 
-        self.setup_authors(&validators_account_ids, initial_maximum_authors_public_keys)
+        self.setup_authors(&authors_account_ids, initial_maximum_authors_public_keys)
     }
 
     /// Setups a genesis configuration with N authors to the genesis state
@@ -431,30 +429,30 @@ impl ExtBuilder {
 }
 
 pub struct MockData {
-    pub new_validator_id: AccountId,
+    pub new_author_id: AccountId,
     pub author_eth_public_key: ecdsa::Public,
 }
 
 impl MockData {
     pub fn setup_valid() -> Self {
-        let data = Some(LogDataHelper::get_validator_data(REGISTERING_VALIDATOR_TIER1_ID));
-        let topics = MockData::get_validator_token_topics();
-        let validator_data = AddedValidatorData::parse_bytes(data.clone(), topics.clone()).unwrap();
+        let data = Some(LogDataHelper::get_author_data(REGISTERING_AUTHOR_TIER1_ID));
+        let topics = MockData::get_author_token_topics();
+        let author_data = AddedAuthorData::parse_bytes(data.clone(), topics.clone()).unwrap();
         let author_eth_public_key = ecdsa::Public::from_raw(hex!(
             "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
         ));
-        let new_validator_id =
-            TestAccount::from_bytes(validator_data.t2_address.clone().as_bytes()).account_id();
-        Balances::make_free_balance_be(&new_validator_id, 100000);
-        MockData { new_validator_id, author_eth_public_key }
+        let new_author_id =
+            TestAccount::from_bytes(author_data.t2_address.clone().as_bytes()).account_id();
+        Balances::make_free_balance_be(&new_author_id, 100000);
+        MockData { new_author_id, author_eth_public_key }
     }
 
-    pub fn get_validator_token_topics() -> Vec<Vec<u8>> {
+    pub fn get_author_token_topics() -> Vec<Vec<u8>> {
         let topic_event_signature = LogDataHelper::get_topic_32_bytes(10);
         let topic_sender_lhs = LogDataHelper::get_topic_32_bytes(15);
         let topic_sender_rhs = LogDataHelper::get_topic_32_bytes(25);
         let topic_receiver = LogDataHelper::get_topic_32_bytes(30);
-        return vec![topic_event_signature, topic_sender_lhs, topic_sender_rhs, topic_receiver]
+        return vec![topic_event_signature, topic_sender_lhs, topic_sender_rhs, topic_receiver];
     }
 }
 
@@ -471,12 +469,12 @@ impl AuthorsManager {
 pub struct LogDataHelper {}
 
 impl LogDataHelper {
-    pub fn get_validator_data(deposit: u128) -> Vec<u8> {
-        return into_32_be_bytes(&deposit.to_le_bytes())
+    pub fn get_author_data(deposit: u128) -> Vec<u8> {
+        return into_32_be_bytes(&deposit.to_le_bytes());
     }
 
     pub fn get_topic_32_bytes(n: u8) -> Vec<u8> {
-        return vec![n; 32]
+        return vec![n; 32];
     }
 }
 

@@ -9,11 +9,11 @@ use super::*;
 
 use crate::{Pallet as AuthorsManager, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::traits::ValidatorSet;
+use frame_support::traits::ValidatorSet as AuthorSet;
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use libsecp256k1::{PublicKey, SecretKey};
-use pallet_avn::{self as avn, MAX_VALIDATOR_ACCOUNTS};
+use pallet_avn::{self as avn};
 use pallet_session::Pallet as Session;
 use sp_avn_common::eth_key_actions::decompress_eth_public_key;
 use sp_core::{ecdsa::Public, H512};
@@ -65,7 +65,7 @@ fn generate_sender_author_account_details<T: Config>(
 fn setup_additional_authors<T: Config>(number_of_additional_authors: u32) {
     assert!(number_of_additional_authors >= MINIMUM_ADDITIONAL_BENCHMARKS_AUTHORS as u32);
 
-    let mut avn_authors: Vec<Validator<<T as pallet_avn::Config>::AuthorityId, T::AccountId>> =
+    let mut avn_authors: Vec<Author<<T as pallet_avn::Config>::AuthorityId, T::AccountId>> =
         Vec::new();
 
     let mut authors: Vec<(T::AccountId, Public)> = Vec::new();
@@ -82,7 +82,7 @@ fn setup_additional_authors<T: Config>(number_of_additional_authors: u32) {
             ),
         };
 
-        avn_authors.push(Validator::new(account.clone(), avn_authority_id));
+        avn_authors.push(Author::new(account.clone(), avn_authority_id));
         authors.push((account, eth_key));
     }
 
@@ -126,12 +126,12 @@ fn generate_signature<T: pallet_avn::Config>(
     let encoded_data = 0.encode();
     let authority_id = T::AuthorityId::generate_pair(None);
     let signature = authority_id.sign(&encoded_data).expect("able to make signature");
-    return signature
+    return signature;
 }
 
 fn generate_mock_ecdsa_signature<T: pallet_avn::Config>(msg: u8) -> ecdsa::Signature {
     let signature_bytes: [u8; 65] = [msg; 65];
-    return ecdsa::Signature::from_slice(&signature_bytes).unwrap().into()
+    return ecdsa::Signature::from_slice(&signature_bytes).unwrap().into();
 }
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
@@ -208,7 +208,7 @@ fn generate_author_eth_public_key_from_seed<T: Config>(seed: u64) -> Public {
 
     return AuthorsManager::<T>::compress_eth_public_key(H512::from_slice(
         &public_key.serialize()[1..],
-    ))
+    ));
 }
 
 fn force_add_author<T: Config>(author_id: &T::AccountId, index: u64, eth_public_key: &Public) {
@@ -228,7 +228,7 @@ fn force_add_author<T: Config>(author_id: &T::AccountId, index: u64, eth_public_
 benchmarks! {
     add_author {
         let candidate: T::AccountId = account("author_candidate", 1, 1);
-        let candidate_id = <pallet_session::Pallet<T> as ValidatorSet<T::AccountId>>::ValidatorIdOf::convert(candidate.clone()).unwrap();
+        let candidate_id = <pallet_session::Pallet<T> as AuthorSet<T::AccountId>>::ValidatorIdOf::convert(candidate.clone()).unwrap();
         let eth_public_key: ecdsa::Public = Public::from_raw(NEW_AUTHOR_ETHEREUM_PUBLIC_KEY);
         set_session_keys::<T>(&candidate, 20u64);
         assert_eq!(false, Session::<T>::validators().contains(&candidate_id));
@@ -241,15 +241,15 @@ benchmarks! {
     }
 
     remove_author {
-        let v in (MINIMUM_ADDITIONAL_BENCHMARKS_AUTHORS as u32 + 1) .. MAX_VALIDATOR_ACCOUNTS;
+        let v in (MINIMUM_ADDITIONAL_BENCHMARKS_AUTHORS as u32 + 1) .. MAX_AUTHOR_ACCOUNTS;
 
         setup_additional_authors::<T>(v);
         let (caller_account, caller_id, _) = generate_sender_author_account_details::<T>();
-        let caller = Validator::new(caller_account.clone(), caller_id.clone());
+        let caller = Author::new(caller_account.clone(), caller_id.clone());
 
     }: remove_author(RawOrigin::Root, caller_account.clone())
     verify {
-        assert_eq!(AuthorAccountIds::<T>::get().unwrap().iter().position(|validator_account_id| *validator_account_id == caller_account), None);
+        assert_eq!(AuthorAccountIds::<T>::get().unwrap().iter().position(|author_account_id| *author_account_id == caller_account), None);
         assert_last_event::<T>(Event::<T>::AuthorDeregistered{ author_id: caller_account.clone() }.into());
         assert_eq!(true, AuthorActions::<T>::contains_key(caller_account, <TotalIngresses<T>>::get()));
     }
