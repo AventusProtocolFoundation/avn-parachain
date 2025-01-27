@@ -10,7 +10,7 @@ use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 use substrate_test_utils::assert_eq_uvec;
 
 fn register_author(author_id: &AccountId, author_eth_public_key: &ecdsa::Public) -> DispatchResult {
-    return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key);
+    return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key)
 }
 
 fn set_session_keys(author_id: &AccountId) {
@@ -97,7 +97,7 @@ mod register_author {
             action_data.status == status &&
                 action_data.action_type == AuthorsActionType::Activation &&
                 account_id == data.new_author_id
-        });
+        })
     }
 
     mod succeeds {
