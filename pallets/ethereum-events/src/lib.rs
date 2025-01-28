@@ -1659,13 +1659,13 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
             })
             .collect();
 
-        migration_batch.iter().for_each(|event_to_migrate| {
-            ProcessedEvents::<T>::remove(&event_to_migrate.event_id);
-        });
-
         if migration_batch.is_empty() {
             return None
         }
+
+        migration_batch.iter().for_each(|event_to_migrate| {
+            ProcessedEvents::<T>::remove(&event_to_migrate.event_id);
+        });
         Some(BoundedVec::<EventMigration, ProcessingBatchBound>::truncate_from(migration_batch))
     }
 }
