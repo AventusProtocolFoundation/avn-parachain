@@ -59,8 +59,12 @@ use alloc::{
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::convert::TryInto;
 use frame_support::{
-    dispatch::DispatchResultWithPostInfo, ensure, pallet_prelude::StorageVersion,
-    traits::IsSubType, BoundedBTreeSet, BoundedVec,
+    dispatch::DispatchResultWithPostInfo,
+    ensure,
+    pallet_prelude::{StorageVersion, Weight},
+    traits::IsSubType,
+    weights::WeightMeter,
+    BoundedBTreeSet, BoundedVec,
 };
 use frame_system::{
     ensure_none, ensure_root,
@@ -68,17 +72,17 @@ use frame_system::{
     pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use pallet_avn::{
-    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, LowerParams,
-    ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
+    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, EventMigration,
+    LowerParams, ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
 };
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
-    bounds::MaximumValidatorsBound,
+    bounds::{MaximumValidatorsBound, ProcessingBatchBound},
     event_discovery::*,
-    event_types::{EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
+    event_types::{self, EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
 };
 use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
@@ -229,6 +233,10 @@ pub mod pallet {
         EventRejected {
             eth_event_id: EthEventId,
             reason: DispatchError,
+        },
+        EventMigrated {
+            eth_event_id: EthEventId,
+            accepted: bool,
         },
     }
 
@@ -718,6 +726,30 @@ pub mod pallet {
                 }
             }
         }
+
+        fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+            let base_on_idle = <T as pallet::Config>::WeightInfo::base_on_idle();
+
+            // the maximum cost of a processing unit
+            let processing_unit = base_on_idle.saturating_add(
+                <T as pallet::Config>::WeightInfo::migrate_events_batch(
+                    <ProcessingBatchBound as sp_core::Get<u32>>::get(),
+                ),
+            );
+
+            let mut meter = WeightMeter::with_limit(remaining_weight);
+            if !meter.can_consume(processing_unit) {
+                return Weight::zero()
+            }
+
+            meter.consume(base_on_idle);
+
+            if let Some(events_batch) = T::ProcessedEventsChecker::get_events_to_migrate() {
+                let weight = Self::migrate_events_batch(events_batch);
+                meter.consume(weight);
+            }
+            meter.consumed()
+        }
     }
 
     fn save_active_request_to_storage<T: Config>(mut tx: ActiveRequestData<T>) {
@@ -1156,6 +1188,40 @@ impl<T: Config> Pallet<T> {
     pub fn get_bridge_contract() -> H160 {
         AVN::<T>::get_bridge_contract_address()
     }
+
+    pub fn migrate_events_batch(
+        events_batch: BoundedVec<EventMigration, ProcessingBatchBound>,
+    ) -> Weight {
+        let mut counter = 0;
+        events_batch.into_iter().for_each(|migration| {
+            counter.saturating_inc();
+            match T::ProcessedEventsChecker::add_processed_event(
+                &migration.event_id,
+                migration.outcome,
+            ) {
+                Ok(_) => {
+                    log::debug!(
+                        "Migrated processed event: {:?} to eth-bridge pallet",
+                        &migration.event_id
+                    );
+                    <Pallet<T>>::deposit_event(Event::EventMigrated {
+                        eth_event_id: migration.event_id,
+                        accepted: migration.outcome,
+                    });
+                },
+                Err(error) => {
+                    log::error!(
+                        "Error {:?} while migrating processed event: {:?} to eth-bridge pallet",
+                        error,
+                        &migration.event_id
+                    );
+                    migration.return_entry();
+                },
+            }
+        });
+
+        <T as pallet::Config>::WeightInfo::migrate_events_batch(counter)
+    }
 }
 
 impl<T: Config> ProcessedEventsChecker for Pallet<T> {
@@ -1164,10 +1230,25 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
     }
 
     fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()> {
-        ensure!(!Self::processed_event_exists(event_id), ());
-        let id = ValidEvents::try_from(&event_id.signature)?;
-        <ProcessedEthereumEvents<T>>::insert(
-            event_id.transaction_hash.clone(),
+        let tx_hash = event_id.transaction_hash.to_owned();
+
+        // Data from other pallets may allow multiple entries of the same tx_id. We want to preserve
+        // the one that was accepted.
+        if let Some(processed_event) = ProcessedEthereumEvents::<T>::get(&tx_hash) {
+            if processed_event.accepted {
+                Err(())?
+            }
+        }
+
+        // Handle legacy lifts
+        let id = if event_types::LEGACY_LIFT_SIGNATURE.eq(&event_id.signature) {
+            ValidEvents::Lifted
+        } else {
+            ValidEvents::try_from(&event_id.signature)?
+        };
+
+        ProcessedEthereumEvents::<T>::insert(
+            event_id.transaction_hash.to_owned(),
             EthProcessedEvent { id, accepted },
         );
         Ok(())

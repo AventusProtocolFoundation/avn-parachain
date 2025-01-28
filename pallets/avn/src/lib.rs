@@ -31,7 +31,7 @@ use frame_system::{
 pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
-    bounds::MaximumValidatorsBound,
+    bounds::{MaximumValidatorsBound, ProcessingBatchBound},
     event_types::{EthEvent, EthEventId, Validator},
     ocw_lock::{self as OcwLock, OcwStorageError},
     recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
@@ -46,7 +46,7 @@ use sp_runtime::{
         Duration,
     },
     traits::Member,
-    DispatchError, WeakBoundedVec,
+    BoundedVec, DispatchError, WeakBoundedVec,
 };
 use sp_std::prelude::*;
 
@@ -723,9 +723,24 @@ impl<ValidatorId: Member> Enforcer<ValidatorId> for () {
     }
 }
 
+pub struct EventMigration {
+    pub entry_return_impl: fn(&EthEventId, bool),
+    pub event_id: EthEventId,
+    pub outcome: bool,
+}
+
+impl EventMigration {
+    pub fn return_entry(&self) {
+        (self.entry_return_impl)(&self.event_id, self.outcome);
+    }
+}
+
 pub trait ProcessedEventsChecker {
     fn processed_event_exists(event_id: &EthEventId) -> bool;
     fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()>;
+    fn get_events_to_migrate() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
+        None
+    }
 }
 
 impl ProcessedEventsChecker for () {

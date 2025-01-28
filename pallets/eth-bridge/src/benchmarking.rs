@@ -7,13 +7,13 @@
 use crate::{avn::MAX_VALIDATOR_ACCOUNTS, Pallet, *};
 
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::{ensure, BoundedVec};
+use frame_support::{ensure, traits::Hooks, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
 use sp_avn_common::event_types::{EthEvent, EthEventId, LiftedData, ValidEvents};
-use sp_core::{H256, U256};
-use sp_runtime::WeakBoundedVec;
+use sp_core::{Get, H256, U256};
+use sp_runtime::{traits::One, WeakBoundedVec};
 
 fn setup_authors<T: Config>(number_of_validator_account_ids: u32) -> Vec<crate::Author<T>> {
     let current_authors = avn::Validators::<T>::get();
@@ -521,6 +521,30 @@ benchmarks! {
         ensure!(SubmittedEthBlocks::<T>::iter().next().is_none(), "Block data should be removed");
     }
 
+    // on_idle hook benchmarks
+    base_on_idle {
+        let remaining_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
+    }:
+    { Pallet::<T>::on_idle(BlockNumberFor::<T>::one(), remaining_weight); }
+
+    migrate_events_batch {
+        let n in 1..100;
+
+        let remaining_weight = <T as frame_system::Config>::BlockWeights::get().max_block;
+
+        let events: Vec<_> = (1u8..(n as u8)).map(|nonce|
+            EventMigration {
+                event_id: EthEventId{
+                    signature: ValidEvents::Lifted.signature(),
+                    transaction_hash: H256::from([nonce; 32]),
+                },
+                outcome: true,
+                entry_return_impl: |_,_| {},
+            }
+        ).collect();
+        let events_migration_batch = BoundedVec::<EventMigration, ProcessingBatchBound>::truncate_from(events);
+    }:
+    { Pallet::<T>::migrate_events_batch(events_migration_batch); }
 }
 
 impl_benchmark_test_suite!(
