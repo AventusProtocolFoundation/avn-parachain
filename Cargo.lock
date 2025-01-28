@@ -6968,7 +6968,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-authors-manager"
-version = "6.6.1"
+version = "6.7.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
