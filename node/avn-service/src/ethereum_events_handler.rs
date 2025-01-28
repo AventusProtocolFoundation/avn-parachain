@@ -149,6 +149,27 @@ impl EventRegistry {
                 },
             },
         );
+        m.insert(
+            ValidEvents::Erc20DirectTransfer.signature(),
+            EventInfo {
+                parser: |data, topics| {
+                    LiftedData::from_erc_20_contract_transfer_bytes(data, topics)
+                        .map_err(|err| AppError::ParsingError(err.into()))
+                        .map(|data| EventData::LogErc20Transfer(data))
+                },
+            },
+        );
+        m.insert(
+            ValidEvents::LiftedToPredictionMarket.signature(),
+            EventInfo {
+                parser: |data: Option<Vec<u8>>, topics| {
+                    LiftedData::parse_bytes(data, topics)
+                        .map_err(|err| AppError::ParsingError(err.into()))
+                        .map(|data| EventData::LogLiftedToPredictionMarket(data))
+                },
+            },
+        );
+
         EventRegistry { registry: m }
     }
 
@@ -171,43 +192,134 @@ pub enum AppError {
     GenericError(String),
 }
 
-pub async fn identify_events(
+/// Identifies secondary events associated with the bridge contract
+pub async fn identify_secondary_bridge_events(
     web3: &Web3<web3::transports::Http>,
     start_block: u32,
     end_block: u32,
-    contract_addresses: Vec<H160>,
-    event_signatures: Vec<Web3H256>,
-    events_registry: &EventRegistry,
-) -> Result<Vec<DiscoveredEvent>, AppError> {
+    contract_addresses: &Vec<H160>,
+    event_types: Vec<ValidEvents>,
+) -> Result<Vec<Log>, AppError> {
+    let secondary_events_signatures = event_types
+        .iter()
+        .map(|event| Web3H256::from_slice(&event.signature().to_fixed_bytes()))
+        .collect();
+
+    // Currently only ERC-20 transfer are supported, which is the 3rd topic of a Transfer event.
+    let contracts_topics =
+        contract_addresses.iter().map(|contract| Web3H256::from(*contract)).collect();
     let filter = FilterBuilder::default()
-        .address(contract_addresses)
-        .topics(Some(event_signatures), None, None, None)
+        .topics(Some(secondary_events_signatures), None, Some(contracts_topics), None)
         .from_block(web3::types::BlockNumber::Number(U64::from(start_block)))
         .to_block(web3::types::BlockNumber::Number(U64::from(end_block)))
         .build();
 
     let logs_result = web3.eth().logs(filter).await;
-    let logs = match logs_result {
-        Ok(logs) => logs,
+    log::trace!("Result of secondary bridge events discovery: {:?}", logs_result);
+    match logs_result {
+        Ok(logs) => Ok(logs),
         Err(_) => return Err(AppError::ErrorGettingEventLogs),
+    }
+}
+
+pub async fn identify_primary_bridge_events(
+    web3: &Web3<web3::transports::Http>,
+    start_block: u32,
+    end_block: u32,
+    bridge_contract_addresses: &Vec<H160>,
+    event_types: Vec<ValidEvents>,
+) -> Result<Vec<Log>, AppError> {
+    let primary_events_signatures: Vec<Web3H256> = event_types
+        .iter()
+        .map(|event| Web3H256::from_slice(&event.signature().to_fixed_bytes()))
+        .collect();
+
+    let filter = FilterBuilder::default()
+        .address(bridge_contract_addresses.to_owned())
+        .topics(Some(primary_events_signatures), None, None, None)
+        .from_block(web3::types::BlockNumber::Number(U64::from(start_block)))
+        .to_block(web3::types::BlockNumber::Number(U64::from(end_block)))
+        .build();
+
+    let logs_result = web3.eth().logs(filter).await;
+    log::trace!("Result of primary bridge events discovery: {:?}", logs_result);
+    match logs_result {
+        Ok(logs) => Ok(logs),
+        Err(_) => return Err(AppError::ErrorGettingEventLogs),
+    }
+}
+
+pub async fn identify_events(
+    web3: &Web3<web3::transports::Http>,
+    start_block: u32,
+    end_block: u32,
+    contract_addresses: Vec<H160>,
+    event_signatures_to_find: Vec<SpH256>,
+    events_registry: &EventRegistry,
+) -> Result<Vec<DiscoveredEvent>, AppError> {
+    let (all_primary_events, all_secondary_events): (Vec<_>, Vec<_>) =
+        ValidEvents::values().into_iter().partition(|event| event.is_primary());
+
+    // First identify all possible primary events from the bridge contract, to ensure that if the
+    // primary event isn't a part of the signatures to find, a secondary event will not be
+    // accidentally included to its place.
+    let logs = identify_primary_bridge_events(
+        web3,
+        start_block,
+        end_block,
+        &contract_addresses,
+        all_primary_events,
+    )
+    .await?;
+
+    // If the event signatures we are looking, contain secondary events, conduct a secondary event
+    // discovery.
+    let extend_discovery_to_secondary_events = event_signatures_to_find
+        .iter()
+        .filter_map(|sig| ValidEvents::try_from(sig).ok())
+        .any(|x| all_secondary_events.contains(&x));
+
+    let secondary_logs = if extend_discovery_to_secondary_events {
+        identify_secondary_bridge_events(
+            web3,
+            start_block,
+            end_block,
+            &contract_addresses,
+            all_secondary_events,
+        )
+        .await?
+    } else {
+        Default::default()
     };
 
-    let mut events = Vec::new();
-
-    for log in logs {
-        match parse_log(log, events_registry) {
-            Ok(discovered_event) => events.push(discovered_event),
-            Err(err) => return Err(err),
+    // Combine the discovered primary and secondary events, ensuring that each tx id has a single
+    // entry, with the primary taking precedence over the secondary
+    let mut unique_transactions = HashMap::<Web3H256, DiscoveredEvent>::new();
+    for log in logs.into_iter().chain(secondary_logs.into_iter()) {
+        if let Some(tx_hash) = log.transaction_hash {
+            if unique_transactions.contains_key(&tx_hash) {
+                continue
+            }
+            match parse_log(log, events_registry) {
+                Ok(discovered_event) => {
+                    unique_transactions.insert(tx_hash, discovered_event);
+                },
+                Err(err) => return Err(err),
+            }
         }
     }
-
-    Ok(events)
+    // Finally use the signatures to find, to filter the combined list and report back to the
+    // runtime.
+    unique_transactions
+        .retain(|_, value| event_signatures_to_find.contains(&value.event.event_id.signature));
+    Ok(unique_transactions.into_values().collect())
 }
 
 fn parse_log(log: Log, events_registry: &EventRegistry) -> Result<DiscoveredEvent, AppError> {
     if log.topics.is_empty() {
         return Err(AppError::MissingEventSignature)
     }
+    log::debug!("⛓️ Parsing discovered log: {:?}", &log);
 
     let web3_signature = log.topics[0];
     let signature = SpH256::from(web3_signature.0);
@@ -218,15 +330,21 @@ fn parse_log(log: Log, events_registry: &EventRegistry) -> Result<DiscoveredEven
 
     let topics: Vec<Vec<u8>> = log.topics.iter().map(|t| t.0.to_vec()).collect();
     let data: Option<Vec<u8>> = if log.data.0.is_empty() { None } else { Some(log.data.0) };
+
     log::debug!(
         "⛓️ Parsing discovered event: signature {:?}, data: {:?}, topics: {:?}",
         signature,
         data,
-        topics
+        topics,
     );
-    let event_data = parse_event_data(signature, data, topics, events_registry)?;
+    let mut event_data = parse_event_data(signature, data, topics, events_registry)?;
 
     let block_number = log.block_number.ok_or(AppError::MissingBlockNumber)?;
+    if let EventData::LogErc20Transfer(ref mut data) = event_data {
+        if data.token_contract.is_zero() {
+            data.token_contract = sp_core::H160::from(log.address.as_fixed_bytes());
+        }
+    }
 
     Ok(DiscoveredEvent { event: EthEvent { event_id, event_data }, block: block_number.as_u64() })
 }
@@ -594,11 +712,6 @@ where
         .query_signatures(config.client.info().best_hash)
         .map_err(|err| format!("Failed to query event signatures: {:?}", err))?;
 
-    let event_signatures_web3: Vec<Web3H256> = event_signatures
-        .iter()
-        .map(|h256| Web3H256::from_slice(&h256.to_fixed_bytes()))
-        .collect();
-
     let has_casted_vote = config
         .client
         .runtime_api()
@@ -612,7 +725,7 @@ where
         execute_event_processing(
             web3,
             config,
-            &event_signatures_web3,
+            event_signatures,
             contract_addresses,
             partition_id,
             current_node_author,
@@ -628,7 +741,7 @@ where
 async fn execute_event_processing<Block, ClientT>(
     web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
-    event_signatures_web3: &[Web3H256],
+    event_signatures: Vec<SpH256>,
     contract_addresses: Vec<H160>,
     partition_id: u16,
     current_node_author: &CurrentNodeAuthor,
@@ -650,7 +763,7 @@ where
         range.start_block,
         range.end_block(),
         contract_addresses,
-        event_signatures_web3.to_vec(),
+        event_signatures,
         events_registry,
     )
     .await
