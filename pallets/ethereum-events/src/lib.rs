@@ -1664,7 +1664,7 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
         });
 
         if migration_batch.is_empty() {
-            return None;
+            return None
         }
         Some(BoundedVec::<EventMigration, ProcessingBatchBound>::truncate_from(migration_batch))
     }

@@ -739,7 +739,7 @@ pub mod pallet {
 
             let mut meter = WeightMeter::with_limit(remaining_weight);
             if !meter.can_consume(processing_unit) {
-                return Weight::zero();
+                return Weight::zero()
             }
 
             meter.consume(base_on_idle);
