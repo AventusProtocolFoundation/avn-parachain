@@ -298,7 +298,7 @@ pub async fn identify_events(
     for log in logs.into_iter().chain(secondary_logs.into_iter()) {
         if let Some(tx_hash) = log.transaction_hash {
             if unique_transactions.contains_key(&tx_hash) {
-                continue;
+                continue
             }
             match parse_log(log, events_registry) {
                 Ok(discovered_event) => {
