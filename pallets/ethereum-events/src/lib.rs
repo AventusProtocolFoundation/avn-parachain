@@ -1645,8 +1645,7 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
         Ok(())
     }
 
-    fn migrate_processed_events_batch() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>>
-    {
+    fn get_events_to_migrate() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
         let batch_size: u32 = ProcessingBatchBound::get();
         let entry_return =
             |event: &EthEventId, outcome: bool| ProcessedEvents::<T>::insert(event, outcome);

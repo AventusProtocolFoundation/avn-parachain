@@ -744,8 +744,7 @@ pub mod pallet {
 
             meter.consume(base_on_idle);
 
-            if let Some(events_batch) = T::ProcessedEventsChecker::migrate_processed_events_batch()
-            {
+            if let Some(events_batch) = T::ProcessedEventsChecker::get_events_to_migrate() {
                 let weight = Self::migrate_events_batch(events_batch);
                 meter.consume(weight);
             }

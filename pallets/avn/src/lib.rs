@@ -738,8 +738,7 @@ impl EventMigration {
 pub trait ProcessedEventsChecker {
     fn processed_event_exists(event_id: &EthEventId) -> bool;
     fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()>;
-    fn migrate_processed_events_batch() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>>
-    {
+    fn get_events_to_migrate() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
         None
     }
 }

@@ -1141,8 +1141,7 @@ impl ProcessedEventsChecker for ProcessedEventCustodian {
         EthBridge::add_processed_event(event_id, accepted)
     }
 
-    fn migrate_processed_events_batch() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>>
-    {
-        EthereumEvents::migrate_processed_events_batch()
+    fn get_events_to_migrate() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
+        EthereumEvents::get_events_to_migrate()
     }
 }
