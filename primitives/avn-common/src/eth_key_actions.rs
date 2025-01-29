@@ -18,6 +18,20 @@ pub fn decompress_eth_public_key(
     }
 }
 
+/// We assume the full public key doesn't have the `04` prefix
+#[allow(dead_code)]
+pub fn compress_eth_public_key(full_public_key: H512) -> ecdsa::Public {
+    let mut compressed_public_key = [0u8; 33];
+
+    // Take bytes 0..32 from the full plublic key ()
+    compressed_public_key[1..=32].copy_from_slice(&full_public_key.0[0..32]);
+    // If the last byte of the full public key is even, prefix compresssed public key with 2,
+    // otherwise prefix with 3
+    compressed_public_key[0] = if full_public_key.0[63] % 2 == 0 { 2u8 } else { 3u8 };
+
+    return ecdsa::Public::from_raw(compressed_public_key)
+}
+
 #[cfg(test)]
 #[path = "tests/test_eth_key_actions.rs"]
 mod test_eth_key_actions;
