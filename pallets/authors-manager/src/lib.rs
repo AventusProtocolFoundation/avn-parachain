@@ -17,7 +17,7 @@ pub type EthereumTransactionId = u32;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, transactional};
 use pallet_session::{self as session, Config as SessionConfig};
-use sp_core::{bounded::BoundedVec, ecdsa, H512};
+use sp_core::{bounded::BoundedVec, ecdsa};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Convert, Member},
@@ -227,8 +227,8 @@ pub mod pallet {
             );
 
             ensure!(
-                AuthorAccountIds::<T>::get().unwrap_or_default().len() <
-                    (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
+                AuthorAccountIds::<T>::get().unwrap_or_default().len()
+                    < (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
                 Error::<T>::MaximumAuthorsReached
             );
 
@@ -238,7 +238,7 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::MaximumAuthorsReached)?;
             <EthereumPublicKeys<T>>::insert(author_eth_public_key, author_account_id);
 
-            return Ok(())
+            return Ok(());
         }
 
         #[pallet::call_index(1)]
@@ -254,7 +254,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::<T>::AuthorDeregistered { author_id: author_account_id });
 
-            return Ok(())
+            return Ok(());
         }
     }
 
@@ -324,7 +324,7 @@ impl AuthorsActionData {
         eth_transaction_id: EthereumTransactionId,
         action_type: AuthorsActionType,
     ) -> Self {
-        return AuthorsActionData { status, eth_transaction_id, action_type }
+        return AuthorsActionData { status, eth_transaction_id, action_type };
     }
 }
 
@@ -347,7 +347,22 @@ impl AuthorsActionType {
 
 impl<AccountId: Member + Encode> ActionId<AccountId> {
     fn new(action_account_id: AccountId, ingress_counter: IngressCounter) -> Self {
-        return ActionId::<AccountId> { action_account_id, ingress_counter }
+        return ActionId::<AccountId> { action_account_id, ingress_counter };
+    }
+}
+
+#[derive(Debug)]
+pub enum AuthorOperation {
+    Add,
+    Remove,
+}
+
+impl AuthorOperation {
+    fn function_name(&self) -> & [u8] {
+        match self {
+            AuthorOperation::Add => b"addAuthor",
+            AuthorOperation::Remove => b"removeAuthor",
+        }
     }
 }
 
@@ -374,13 +389,8 @@ impl<T: Config> Pallet<T> {
         author_account_id: &T::AccountId,
         author_eth_public_key: &ecdsa::Public,
     ) -> DispatchResult {
-        let decompressed_eth_public_key = decompress_eth_public_key(*author_eth_public_key)
-            .map_err(|_| Error::<T>::InvalidPublicKey)?;
-        let author_id_bytes =
-            <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
-
         let tx_id =
-            Self::publish_to_bridge(&decompressed_eth_public_key, &author_id_bytes, b"add_author")?;
+            Self::publish_to_bridge(author_eth_public_key, &author_account_id, AuthorOperation::Add)?;
 
         let new_author_id = <T as SessionConfig>::ValidatorIdOf::convert(author_account_id.clone())
             .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
@@ -395,38 +405,35 @@ impl<T: Config> Pallet<T> {
     }
 
     fn publish_to_bridge(
-        decompressed_key: &H512,
-        author_id_bytes: &[u8],
-        function_name: &[u8],
+        eth_public_key: &ecdsa::Public,
+        author_id: &T::AccountId,
+        operation: AuthorOperation,
     ) -> Result<u32, DispatchError> {
-        let params = vec![
-            (b"bytes".to_vec(), decompressed_key.to_fixed_bytes().to_vec()),
-            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
-        ];
+        let decompressed_eth_public_key =
+            decompress_eth_public_key(*eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
 
-        <T as pallet::Config>::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
+        let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_id);
+
+        let params = match operation {
+            AuthorOperation::Remove => vec![
+                (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+                (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+            ],
+            AuthorOperation::Add => vec![
+                (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+                (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+            ],
+        };
+
+        <T as pallet::Config>::BridgeInterface::publish(operation.function_name(), &params, PALLET_ID.to_vec())
             .map_err(|e| DispatchError::Other(e.into()))
     }
-
-    // fn publish_to_bridge(
-    //     decompressed_key: &H512,
-    //     author_id_bytes: &[u8],
-    // ) -> Result<u32, DispatchError> {
-    //     let function_name = b"addAuthor";
-    //     let params = vec![
-    //         (b"bytes".to_vec(), decompressed_key.to_fixed_bytes().to_vec()),
-    //         (b"bytes32".to_vec(), author_id_bytes.to_vec()),
-    //     ];
-
-    //     <T as pallet::Config>::BridgeInterface::publish(function_name, &params,
-    // PALLET_ID.to_vec())         .map_err(|e| DispatchError::Other(e.into()))
-    // }
 
     fn get_ethereum_public_key_if_exists(account_id: &T::AccountId) -> Option<ecdsa::Public> {
         return <EthereumPublicKeys<T>>::iter()
             .filter(|(_, acc)| acc == account_id)
             .map(|(pk, _)| pk)
-            .nth(0)
+            .nth(0);
     }
 
     fn remove_ethereum_public_key_if_required(author_id: &T::AccountId) {
@@ -461,21 +468,12 @@ impl<T: Config> Pallet<T> {
         if maybe_author_index.is_none() {
             // Exit early if deregistration is not in the system. As dicussed, we don't want to give
             // any feedback if the author is not found.
-            return Ok(())
+            return Ok(());
         }
 
         let index_of_author_to_remove = maybe_author_index.expect("checked for none already");
 
-        let decompressed_eth_public_key =
-            decompress_eth_public_key(eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
-
-        let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_id);
-
-        let tx_id = Self::publish_to_bridge(
-            &decompressed_eth_public_key,
-            &author_id_bytes,
-            b"removeAuthor",
-        )?;
+        let tx_id = Self::publish_to_bridge(&eth_public_key, &author_id, AuthorOperation::Remove)?;
 
         TotalIngresses::<T>::put(ingress_counter);
         <AuthorActions<T>>::insert(
@@ -502,7 +500,7 @@ impl<T: Config> Pallet<T> {
             ingress_counter,
             AuthorsActionType::Resignation,
             t1_eth_public_key,
-        )
+        );
     }
 
     fn author_permanently_removed(
@@ -512,8 +510,8 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // If the author exists in either vectors then they have not been removed from the
         // session
-        return !active_authors.iter().any(|v| &v.account_id == deregistered_author) &&
-            !disabled_authors.iter().any(|v| v == deregistered_author)
+        return !active_authors.iter().any(|v| &v.account_id == deregistered_author)
+            && !disabled_authors.iter().any(|v| v == deregistered_author);
     }
 
     fn clean_up_author_data(action_account_id: T::AccountId, ingress_counter: IngressCounter) {
@@ -576,17 +574,17 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
             for (action_account_id, ingress_counter, authors_action_data) in
                 <AuthorActions<T>>::iter()
             {
-                if authors_action_data.status == AuthorsActionStatus::AwaitingConfirmation &&
-                    authors_action_data.action_type.is_deregistration() &&
-                    Self::author_permanently_removed(
+                if authors_action_data.status == AuthorsActionStatus::AwaitingConfirmation
+                    && authors_action_data.action_type.is_deregistration()
+                    && Self::author_permanently_removed(
                         &active_authors,
                         &disabled_authors,
                         &action_account_id,
                     )
                 {
                     Self::clean_up_author_data(action_account_id, ingress_counter);
-                } else if authors_action_data.status == AuthorsActionStatus::AwaitingConfirmation &&
-                    authors_action_data.action_type.is_activation()
+                } else if authors_action_data.status == AuthorsActionStatus::AwaitingConfirmation
+                    && authors_action_data.action_type.is_activation()
                 {
                     <AuthorActions<T>>::mutate(
                         &action_account_id,
