@@ -379,7 +379,8 @@ impl<T: Config> Pallet<T> {
         let author_id_bytes =
             <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
 
-        let tx_id = Self::publish_to_bridge(&decompressed_eth_public_key, &author_id_bytes)?;
+        let tx_id =
+            Self::publish_to_bridge(&decompressed_eth_public_key, &author_id_bytes, b"add_author")?;
 
         let new_author_id = <T as SessionConfig>::ValidatorIdOf::convert(author_account_id.clone())
             .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
@@ -396,8 +397,8 @@ impl<T: Config> Pallet<T> {
     fn publish_to_bridge(
         decompressed_key: &H512,
         author_id_bytes: &[u8],
+        function_name: &[u8],
     ) -> Result<u32, DispatchError> {
-        let function_name = b"addAuthor";
         let params = vec![
             (b"bytes".to_vec(), decompressed_key.to_fixed_bytes().to_vec()),
             (b"bytes32".to_vec(), author_id_bytes.to_vec()),
@@ -406,6 +407,20 @@ impl<T: Config> Pallet<T> {
         <T as pallet::Config>::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
             .map_err(|e| DispatchError::Other(e.into()))
     }
+
+    // fn publish_to_bridge(
+    //     decompressed_key: &H512,
+    //     author_id_bytes: &[u8],
+    // ) -> Result<u32, DispatchError> {
+    //     let function_name = b"addAuthor";
+    //     let params = vec![
+    //         (b"bytes".to_vec(), decompressed_key.to_fixed_bytes().to_vec()),
+    //         (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+    //     ];
+
+    //     <T as pallet::Config>::BridgeInterface::publish(function_name, &params,
+    // PALLET_ID.to_vec())         .map_err(|e| DispatchError::Other(e.into()))
+    // }
 
     fn get_ethereum_public_key_if_exists(account_id: &T::AccountId) -> Option<ecdsa::Public> {
         return <EthereumPublicKeys<T>>::iter()
@@ -456,7 +471,11 @@ impl<T: Config> Pallet<T> {
 
         let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_id);
 
-        let tx_id = Self::publish_to_bridge(&decompressed_eth_public_key, &author_id_bytes)?;
+        let tx_id = Self::publish_to_bridge(
+            &decompressed_eth_public_key,
+            &author_id_bytes,
+            b"removeAuthor",
+        )?;
 
         TotalIngresses::<T>::put(ingress_counter);
         <AuthorActions<T>>::insert(
@@ -532,21 +551,6 @@ impl<T: Config> Pallet<T> {
         if succeeded {
             AuthorActions::<T>::remove(&account_id, ingress_counter);
             TransactionToAction::<T>::remove(tx_id);
-
-            match action_data.action_type {
-                AuthorsActionType::Activation => {
-                    Self::deposit_event(Event::<T>::AuthorActivationStarted {
-                        author_id: account_id.clone(),
-                    });
-                },
-                AuthorsActionType::Resignation | AuthorsActionType::Slashed => {
-                    Self::remove_ethereum_public_key_if_required(&account_id);
-                    Self::deposit_event(Event::<T>::AuthorDeregistered {
-                        author_id: account_id.clone(),
-                    });
-                },
-                _ => {},
-            }
 
             Self::deposit_event(Event::<T>::PublishingAuthorActionOnEthereumSucceeded { tx_id });
         } else {
