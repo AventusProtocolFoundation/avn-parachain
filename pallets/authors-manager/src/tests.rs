@@ -10,7 +10,7 @@ use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 use substrate_test_utils::assert_eq_uvec;
 
 fn register_author(author_id: &AccountId, author_eth_public_key: &ecdsa::Public) -> DispatchResult {
-    return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key);
+    return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key)
 }
 
 fn set_session_keys(author_id: &AccountId) {
@@ -94,10 +94,10 @@ mod register_author {
 
     fn find_author_activation_action(data: &MockData, status: AuthorsActionStatus) -> bool {
         return AuthorActions::<TestRuntime>::iter().any(|(account_id, _ingress, action_data)| {
-            action_data.status == status
-                && action_data.action_type == AuthorsActionType::Activation
-                && account_id == data.new_author_id
-        });
+            action_data.status == status &&
+                action_data.action_type == AuthorsActionType::Activation &&
+                account_id == data.new_author_id
+        })
     }
 
     mod succeeds {
@@ -123,8 +123,8 @@ mod register_author {
                 // AuthorRegistered Event has been deposited
                 assert_eq!(
                     true,
-                    System::events().iter().any(|a| a.event
-                        == mock::RuntimeEvent::AuthorsManager(
+                    System::events().iter().any(|a| a.event ==
+                        mock::RuntimeEvent::AuthorsManager(
                             crate::Event::<TestRuntime>::AuthorRegistered {
                                 author_id: context.new_author_id,
                                 eth_key: context.author_eth_public_key.clone()
@@ -134,8 +134,8 @@ mod register_author {
                 // AuthorActivationStarted Event has not been deposited yet
                 assert_eq!(
                     false,
-                    System::events().iter().any(|a| a.event
-                        == mock::RuntimeEvent::AuthorsManager(
+                    System::events().iter().any(|a| a.event ==
+                        mock::RuntimeEvent::AuthorsManager(
                             crate::Event::<TestRuntime>::AuthorActivationStarted {
                                 author_id: context.new_author_id
                             }
@@ -176,8 +176,8 @@ mod register_author {
                 // AuthorActivationStarted Event has been deposited
                 assert_eq!(
                     true,
-                    System::events().iter().any(|a| a.event
-                        == mock::RuntimeEvent::AuthorsManager(
+                    System::events().iter().any(|a| a.event ==
+                        mock::RuntimeEvent::AuthorsManager(
                             crate::Event::<TestRuntime>::AuthorActivationStarted {
                                 author_id: context.new_author_id
                             }
@@ -224,8 +224,8 @@ mod remove_author_public {
             ));
 
             //Event emitted as expected
-            assert!(System::events().iter().any(|a| a.event
-                == mock::RuntimeEvent::AuthorsManager(
+            assert!(System::events().iter().any(|a| a.event ==
+                mock::RuntimeEvent::AuthorsManager(
                     crate::Event::<TestRuntime>::AuthorDeregistered {
                         author_id: context.new_author_id
                     }
@@ -496,8 +496,8 @@ mod bridge_interface_notification {
 
                 assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true));
 
-                assert!(System::events().iter().any(|a| a.event
-                    == mock::RuntimeEvent::AuthorsManager(
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AuthorsManager(
                         crate::Event::<TestRuntime>::PublishingAuthorActionOnEthereumSucceeded {
                             tx_id
                         }
@@ -520,8 +520,8 @@ mod bridge_interface_notification {
 
                 assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), false));
 
-                assert!(System::events().iter().any(|a| a.event
-                    == mock::RuntimeEvent::AuthorsManager(
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AuthorsManager(
                         crate::Event::<TestRuntime>::PublishingAuthorActionOnEthereumFailed {
                             tx_id
                         }

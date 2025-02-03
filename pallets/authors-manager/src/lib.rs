@@ -227,8 +227,8 @@ pub mod pallet {
             );
 
             ensure!(
-                AuthorAccountIds::<T>::get().unwrap_or_default().len()
-                    < (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
+                AuthorAccountIds::<T>::get().unwrap_or_default().len() <
+                    (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
                 Error::<T>::MaximumAuthorsReached
             );
 
@@ -238,7 +238,7 @@ pub mod pallet {
                 .map_err(|_| Error::<T>::MaximumAuthorsReached)?;
             <EthereumPublicKeys<T>>::insert(author_eth_public_key, author_account_id);
 
-            return Ok(());
+            return Ok(())
         }
 
         #[pallet::call_index(1)]
@@ -254,7 +254,7 @@ pub mod pallet {
 
             Self::deposit_event(Event::<T>::AuthorDeregistered { author_id: author_account_id });
 
-            return Ok(());
+            return Ok(())
         }
     }
 
@@ -324,7 +324,7 @@ impl AuthorsActionData {
         eth_transaction_id: EthereumTransactionId,
         action_type: AuthorsActionType,
     ) -> Self {
-        return AuthorsActionData { status, eth_transaction_id, action_type };
+        return AuthorsActionData { status, eth_transaction_id, action_type }
     }
 }
 
@@ -347,7 +347,7 @@ impl AuthorsActionType {
 
 impl<AccountId: Member + Encode> ActionId<AccountId> {
     fn new(action_account_id: AccountId, ingress_counter: IngressCounter) -> Self {
-        return ActionId::<AccountId> { action_account_id, ingress_counter };
+        return ActionId::<AccountId> { action_account_id, ingress_counter }
     }
 }
 
@@ -440,7 +440,7 @@ impl<T: Config> Pallet<T> {
         return <EthereumPublicKeys<T>>::iter()
             .filter(|(_, acc)| acc == account_id)
             .map(|(pk, _)| pk)
-            .nth(0);
+            .nth(0)
     }
 
     fn remove_ethereum_public_key_if_required(author_id: &T::AccountId) {
@@ -475,7 +475,7 @@ impl<T: Config> Pallet<T> {
         if maybe_author_index.is_none() {
             // Exit early if deregistration is not in the system. As dicussed, we don't want to give
             // any feedback if the author is not found.
-            return Ok(());
+            return Ok(())
         }
 
         let index_of_author_to_remove = maybe_author_index.expect("checked for none already");
@@ -511,7 +511,7 @@ impl<T: Config> Pallet<T> {
             ingress_counter,
             AuthorsActionType::Resignation,
             t1_eth_public_key,
-        );
+        )
     }
 
     fn author_permanently_removed(
@@ -521,8 +521,8 @@ impl<T: Config> Pallet<T> {
     ) -> bool {
         // If the author exists in either vectors then they have not been removed from the
         // session
-        return !active_authors.iter().any(|v| &v.account_id == deregistered_author)
-            && !disabled_authors.iter().any(|v| v == deregistered_author);
+        return !active_authors.iter().any(|v| &v.account_id == deregistered_author) &&
+            !disabled_authors.iter().any(|v| v == deregistered_author)
     }
 
     fn clean_up_author_data(action_account_id: T::AccountId, ingress_counter: IngressCounter) {
@@ -585,17 +585,17 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
             for (action_account_id, ingress_counter, authors_action_data) in
                 <AuthorActions<T>>::iter()
             {
-                if authors_action_data.status == AuthorsActionStatus::AwaitingConfirmation
-                    && authors_action_data.action_type.is_deregistration()
-                    && Self::author_permanently_removed(
+                if authors_action_data.status == AuthorsActionStatus::AwaitingConfirmation &&
+                    authors_action_data.action_type.is_deregistration() &&
+                    Self::author_permanently_removed(
                         &active_authors,
                         &disabled_authors,
                         &action_account_id,
                     )
                 {
                     Self::clean_up_author_data(action_account_id, ingress_counter);
-                } else if authors_action_data.status == AuthorsActionStatus::AwaitingConfirmation
-                    && authors_action_data.action_type.is_activation()
+                } else if authors_action_data.status == AuthorsActionStatus::AwaitingConfirmation &&
+                    authors_action_data.action_type.is_activation()
                 {
                     <AuthorActions<T>>::mutate(
                         &action_account_id,
