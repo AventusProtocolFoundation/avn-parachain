@@ -31,6 +31,7 @@ frame-system = { default-features = false, git = "https://github.com/paritytech/
 frame-benchmarking = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0", optional = true }
 
 [dev-dependencies]
+libsecp256k1 = { version = "0.7.0", default-features = false, features =["hmac","static-context"]}
 hex = "0.4"
 sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
 sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
@@ -60,6 +61,8 @@ std = [
 	"sp-avn-common/std",
 	"frame-support/std",
 	"frame-system/std",
+	"libsecp256k1/std",
+
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

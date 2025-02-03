@@ -7099,6 +7099,7 @@ dependencies = [
  "frame-system",
  "hex",
  "hex-literal",
+ "libsecp256k1",
  "pallet-avn",
  "pallet-balances",
  "pallet-eth-bridge",
