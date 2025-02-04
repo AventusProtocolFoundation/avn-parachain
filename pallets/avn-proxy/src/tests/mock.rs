@@ -10,7 +10,7 @@ use frame_support::{
 };
 use frame_system::{self as system, limits::BlockWeights, EnsureRoot};
 use hex_literal::hex;
-use libsecp256k1::{Message, PublicKey, SecretKey, sign};
+use libsecp256k1::{sign, Message, PublicKey, SecretKey};
 use pallet_avn::BridgeInterfaceNotification;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
@@ -388,7 +388,8 @@ impl TestAccount {
 
     pub fn ethereum_ecdsa_sign(&self, message_to_sign: &[u8]) -> MultiSignature {
         let secret_key = SecretKey::parse_slice(&self.seed).expect("Invalid private key");
-        let message = hash_string_data_with_ethereum_prefix(message_to_sign).expect("Invalid message");
+        let message =
+            hash_string_data_with_ethereum_prefix(message_to_sign).expect("Invalid message");
         let message = Message::parse(&message);
         let (sig, rec_id) = sign(&message, &secret_key);
         let mut sig_bytes = sig.serialize().to_vec();
