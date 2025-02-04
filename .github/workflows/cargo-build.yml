@@ -51,7 +51,7 @@ jobs:
 
       - name: AvN Parachain collator Artifact
         if: ${{ inputs.upload_artifacts }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: avn-parachain-collator
           path: target/release/avn-parachain-collator
@@ -59,7 +59,7 @@ jobs:
 
       - name: AvN Parachain runtime Artifact
         if: ${{ inputs.upload_artifacts }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: avn-parachain-runtime
           path: target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
@@ -67,7 +67,7 @@ jobs:
 
       - name: AvN Parachain Test runtime Artifact
         if: ${{ inputs.upload_artifacts }}
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: avn-parachain-test-runtime
           path: target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm

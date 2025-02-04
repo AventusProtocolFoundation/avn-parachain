@@ -114,7 +114,7 @@ jobs:
     needs:  [ set-up-job, build-code, build-avn-docker, avn-repo-release, upload-avn-assets-internal-tools ]
     if: always()
     steps:
-      - uses: geekyeggo/delete-artifact@v2
+      - uses: geekyeggo/delete-artifact@v5
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         with:
           name: |
