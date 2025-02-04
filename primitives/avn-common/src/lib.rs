@@ -368,7 +368,7 @@ where
                 ) {
                     Ok(eth_address) => {
                         let derived_public_key =
-                            sr25519::Public::from_raw(blake2_256(&eth_address));
+                            sr25519::Public::from_raw(keccak_256(&eth_address));
                         if derived_public_key.encode() == signer.clone().into().encode() {
                             return Ok(())
                         }

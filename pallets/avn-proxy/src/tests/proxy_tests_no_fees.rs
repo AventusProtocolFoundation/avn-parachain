@@ -86,7 +86,7 @@ mod proxy_without_fees {
 
                 assert_eq!(result, expected_eth_address[..]);
 
-                let public_key_bytes: [u8; 32] = hex!("6fc436cd5273e4ecfd09079c982e2824825d5903cb2cf6cfd02586fbf6faa9a3");
+                let public_key_bytes: [u8; 32] = hex!("844da93c328fc981b1c507a926bb64055f01ec6a7b4d1ab9dc79e086655d368d");
                 let public_key = sp_core::sr25519::Public::from_raw(public_key_bytes);
 
                 let account_id: AccountId = AccountId::decode(&mut public_key.encode().as_slice()).unwrap();

@@ -10,11 +10,13 @@ use frame_support::{
 };
 use frame_system::{self as system, limits::BlockWeights, EnsureRoot};
 use hex_literal::hex;
+use libsecp256k1::{sign, Message, PublicKey, SecretKey};
 use pallet_avn::BridgeInterfaceNotification;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
 use pallet_session as session;
-use sp_core::{blake2_256, ecdsa, sr25519, ConstU32, ConstU64, Pair, H160, H256};
+use sp_avn_common::hash_string_data_with_ethereum_prefix;
+use sp_core::{keccak_256, sr25519, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
@@ -384,23 +386,24 @@ impl TestAccount {
         Signature::from(self.key_pair().sign(message_to_sign))
     }
 
-    pub fn ecdsa_key_pair(&self) -> ecdsa::Pair {
-        return ecdsa::Pair::from_seed(&self.seed)
-    }
-
-    pub fn ethereum_ecdsa_sign(&self, _message_to_sign: &[u8]) -> Signature {
-        // TODO: Use a proper library to sign
-        let sig_hex = hex!("c53505a5989014a42709c7572926095d6c9394ab6c543dccacdaaab61c10ddf86ec3860a5649c57456677afced418d01d19705693f2c8f1438ac605c5b96c1041c");
-
-        let sig = sp_core::ecdsa::Signature::from_slice(&sig_hex).unwrap();
+    pub fn ethereum_ecdsa_sign(&self, message_to_sign: &[u8]) -> MultiSignature {
+        let secret_key = SecretKey::parse_slice(&self.seed).expect("Invalid private key");
+        let message =
+            hash_string_data_with_ethereum_prefix(message_to_sign).expect("Invalid message");
+        let message = Message::parse(&message);
+        let (sig, rec_id) = sign(&message, &secret_key);
+        let mut sig_bytes = sig.serialize().to_vec();
+        sig_bytes.push(rec_id.serialize() + 27);
+        let sig = sp_core::ecdsa::Signature::from_slice(&sig_bytes).expect("Invalid signature");
         sp_runtime::MultiSignature::Ecdsa(sig)
     }
 
     pub fn derived_account_id(&self) -> AccountId {
-        // TODO: Use a library that generates ECDSA public keys in the same way ethers does so we
-        // don't have to do hardcode this:
-        let eth_address = H160::from_slice(&hex!("6E43697Ca52437e76743ad0B932189872F9612E6"));
-        let hashed_eth_address = blake2_256(&eth_address[..]);
+        let secret_key = SecretKey::parse_slice(&self.seed).expect("Invalid private key");
+        let public_key = PublicKey::from_secret_key(&secret_key);
+        let public_key_uncompressed = public_key.serialize();
+        let eth_address = H160::from_slice(&keccak_256(&public_key_uncompressed[1..])[12..]);
+        let hashed_eth_address = keccak_256(&eth_address[..]);
         let derived_account_public_key = sr25519::Public::from_raw(hashed_eth_address);
         AccountId::decode(&mut derived_account_public_key.encode().as_slice()).unwrap()
     }
