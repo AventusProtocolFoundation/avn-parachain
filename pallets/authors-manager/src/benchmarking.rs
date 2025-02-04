@@ -15,7 +15,7 @@ use hex_literal::hex;
 use libsecp256k1::{PublicKey, SecretKey};
 use pallet_avn::{self as avn};
 use pallet_session::Pallet as Session;
-use sp_avn_common::eth_key_actions::decompress_eth_public_key;
+use sp_avn_common::eth_key_actions::{compress_eth_public_key, decompress_eth_public_key};
 use sp_core::{ecdsa::Public, H512};
 use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
 
@@ -206,9 +206,7 @@ fn generate_author_eth_public_key_from_seed<T: Config>(seed: u64) -> Public {
     let secret_key = SecretKey::random(&mut rng);
     let public_key = PublicKey::from_secret_key(&secret_key);
 
-    return AuthorsManager::<T>::compress_eth_public_key(H512::from_slice(
-        &public_key.serialize()[1..],
-    ))
+    return compress_eth_public_key(H512::from_slice(&public_key.serialize()[1..]))
 }
 
 fn force_add_author<T: Config>(author_id: &T::AccountId, index: u64, eth_public_key: &Public) {

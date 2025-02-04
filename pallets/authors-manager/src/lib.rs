@@ -17,7 +17,7 @@ pub type EthereumTransactionId = u32;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, transactional};
 use pallet_session::{self as session, Config as SessionConfig};
-use sp_core::{bounded::BoundedVec, ecdsa, H512};
+use sp_core::{bounded::BoundedVec, ecdsa};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Convert, Member},
@@ -137,6 +137,10 @@ pub mod pallet {
         ErrorRemovingAccountFromAuthors,
         /// The maximum number of authors has been reached
         MaximumAuthorsReached,
+        /// Transaction not found
+        TransactionNotFound,
+        /// Invalid action status for transaction
+        InvalidActionStatus,
     }
 
     #[pallet::storage]
@@ -164,6 +168,15 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_ingress_counter)]
     pub type TotalIngresses<T: Config> = StorageValue<_, IngressCounter, ValueQuery>;
+
+    #[pallet::storage]
+    pub type TransactionToAction<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EthereumTransactionId,
+        (T::AccountId, IngressCounter),
+        OptionQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -298,7 +311,7 @@ impl Default for AuthorsActionStatus {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct AuthorsActionData {
     pub status: AuthorsActionStatus,
     pub eth_transaction_id: EthereumTransactionId,
@@ -338,6 +351,21 @@ impl<AccountId: Member + Encode> ActionId<AccountId> {
     }
 }
 
+#[derive(Debug)]
+pub enum AuthorOperationTier1Endpoint {
+    Add,
+    Remove,
+}
+
+impl AuthorOperationTier1Endpoint {
+    fn function_name(&self) -> &[u8] {
+        match self {
+            AuthorOperationTier1Endpoint::Add => b"addAuthor",
+            AuthorOperationTier1Endpoint::Remove => b"removeAuthor",
+        }
+    }
+}
+
 impl<T: Config> Pallet<T> {
     fn start_activation_for_registered_author(
         registered_author: &T::AccountId,
@@ -361,22 +389,11 @@ impl<T: Config> Pallet<T> {
         author_account_id: &T::AccountId,
         author_eth_public_key: &ecdsa::Public,
     ) -> DispatchResult {
-        let decompressed_eth_public_key = decompress_eth_public_key(*author_eth_public_key)
-            .map_err(|_| Error::<T>::InvalidPublicKey)?;
-        let author_id_bytes =
-            <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
-        let function_name = b"addAuthor";
-
-        let params = vec![
-            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
-            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
-        ];
-        let tx_id = <T as pallet::Config>::BridgeInterface::publish(
-            function_name,
-            &params,
-            PALLET_ID.to_vec(),
-        )
-        .map_err(|e| DispatchError::Other(e.into()))?;
+        let tx_id = Self::publish_to_bridge(
+            author_eth_public_key,
+            &author_account_id,
+            AuthorOperationTier1Endpoint::Add,
+        )?;
 
         let new_author_id = <T as SessionConfig>::ValidatorIdOf::convert(author_account_id.clone())
             .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
@@ -388,6 +405,35 @@ impl<T: Config> Pallet<T> {
             eth_key: *author_eth_public_key,
         });
         Ok(())
+    }
+
+    fn publish_to_bridge(
+        eth_public_key: &ecdsa::Public,
+        author_id: &T::AccountId,
+        operation: AuthorOperationTier1Endpoint,
+    ) -> Result<u32, DispatchError> {
+        let decompressed_eth_public_key =
+            decompress_eth_public_key(*eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
+
+        let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_id);
+
+        let params = match operation {
+            AuthorOperationTier1Endpoint::Remove => vec![
+                (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+                (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+            ],
+            AuthorOperationTier1Endpoint::Add => vec![
+                (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+                (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+            ],
+        };
+
+        <T as pallet::Config>::BridgeInterface::publish(
+            operation.function_name(),
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|e| DispatchError::Other(e.into()))
     }
 
     fn get_ethereum_public_key_if_exists(account_id: &T::AccountId) -> Option<ecdsa::Public> {
@@ -402,20 +448,6 @@ impl<T: Config> Pallet<T> {
         if let Some(public_key_to_remove) = public_key_to_remove {
             <EthereumPublicKeys<T>>::remove(public_key_to_remove);
         }
-    }
-
-    /// We assume the full public key doesn't have the `04` prefix
-    #[allow(dead_code)]
-    fn compress_eth_public_key(full_public_key: H512) -> ecdsa::Public {
-        let mut compressed_public_key = [0u8; 33];
-
-        // Take bytes 0..32 from the full plublic key ()
-        compressed_public_key[1..=32].copy_from_slice(&full_public_key.0[0..32]);
-        // If the last byte of the full public key is even, prefix compresssed public key with 2,
-        // otherwise prefix with 3
-        compressed_public_key[0] = if full_public_key.0[63] % 2 == 0 { 2u8 } else { 3u8 };
-
-        return ecdsa::Public::from_raw(compressed_public_key)
     }
 
     fn remove(
@@ -448,22 +480,11 @@ impl<T: Config> Pallet<T> {
 
         let index_of_author_to_remove = maybe_author_index.expect("checked for none already");
 
-        let decompressed_eth_public_key =
-            decompress_eth_public_key(eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
-
-        let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_id);
-
-        let function_name = b"removeAuthor";
-        let params = vec![
-            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
-            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
-        ];
-        let tx_id = <T as pallet::Config>::BridgeInterface::publish(
-            function_name,
-            &params,
-            PALLET_ID.to_vec(),
-        )
-        .map_err(|e| DispatchError::Other(e.into()))?;
+        let tx_id = Self::publish_to_bridge(
+            &eth_public_key,
+            &author_id,
+            AuthorOperationTier1Endpoint::Remove,
+        )?;
 
         TotalIngresses::<T>::put(ingress_counter);
         <AuthorActions<T>>::insert(
@@ -519,6 +540,33 @@ impl<T: Config> Pallet<T> {
         let action_id = ActionId::new(action_account_id, ingress_counter);
 
         Self::deposit_event(Event::<T>::AuthorActionConfirmed { action_id });
+    }
+
+    fn process_transaction(
+        tx_id: EthereumTransactionId,
+        succeeded: bool,
+    ) -> Result<(), DispatchError> {
+        let (account_id, ingress_counter) =
+            TransactionToAction::<T>::get(tx_id).ok_or(Error::<T>::TransactionNotFound)?;
+
+        let action_data = AuthorActions::<T>::get(&account_id, ingress_counter)
+            .ok_or(Error::<T>::AuthorsActionDataNotFound)?;
+
+        ensure!(
+            action_data.status == AuthorsActionStatus::Confirmed,
+            Error::<T>::InvalidActionStatus
+        );
+
+        if succeeded {
+            AuthorActions::<T>::remove(&account_id, ingress_counter);
+            TransactionToAction::<T>::remove(tx_id);
+
+            Self::deposit_event(Event::<T>::PublishingAuthorActionOnEthereumSucceeded { tx_id });
+        } else {
+            Self::deposit_event(Event::<T>::PublishingAuthorActionOnEthereumFailed { tx_id });
+        }
+
+        Ok(())
     }
 }
 
@@ -606,22 +654,9 @@ impl<T: Config> session::SessionManager<T::AccountId> for Pallet<T> {
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
-        // TODO: Update data structure to use tx_id as key
         if caller_id == PALLET_ID.to_vec() {
-            if succeeded {
-                log::info!(
-                    "✅  Transaction with ID {} was successfully published to Ethereum.",
-                    tx_id
-                );
-                Self::deposit_event(Event::<T>::PublishingAuthorActionOnEthereumSucceeded {
-                    tx_id,
-                });
-            } else {
-                log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
-                Self::deposit_event(Event::<T>::PublishingAuthorActionOnEthereumFailed { tx_id });
-            }
+            Pallet::<T>::process_transaction(tx_id, succeeded)?;
         }
-
         Ok(())
     }
 }

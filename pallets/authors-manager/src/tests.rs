@@ -459,3 +459,106 @@ mod add_author {
         }
     }
 }
+
+mod bridge_interface_notification {
+    use super::*;
+
+    fn setup_test_action(context: &MockData) -> (IngressCounter, EthereumTransactionId) {
+        set_session_keys(&context.new_author_id);
+        assert_ok!(register_author(&context.new_author_id, &context.author_eth_public_key));
+
+        let (ingress_counter, action_data) = AuthorActions::<TestRuntime>::iter()
+            .find(|(author, _, _)| author == &context.new_author_id)
+            .map(|(_, ingress, data)| (ingress, data))
+            .expect("Action should exist");
+
+        let tx_id = action_data.eth_transaction_id;
+        TransactionToAction::<TestRuntime>::insert(
+            tx_id,
+            (context.new_author_id.clone(), ingress_counter),
+        );
+
+        (ingress_counter, tx_id)
+    }
+
+    mod succeeds {
+        use super::*;
+
+        #[test]
+        fn when_processing_valid_transaction() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                let context = MockData::setup_valid();
+                let (ingress_counter, tx_id) = setup_test_action(&context);
+
+                advance_session();
+                advance_session();
+
+                assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true));
+
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AuthorsManager(
+                        crate::Event::<TestRuntime>::PublishingAuthorActionOnEthereumSucceeded {
+                            tx_id
+                        }
+                    )));
+
+                assert!(AuthorActions::<TestRuntime>::iter().count() == 0);
+                assert!(TransactionToAction::<TestRuntime>::iter().count() == 0);
+            });
+        }
+
+        #[test]
+        fn when_transaction_fails() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                let context = MockData::setup_valid();
+                let (ingress_counter, tx_id) = setup_test_action(&context);
+
+                advance_session();
+                advance_session();
+
+                assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), false));
+
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AuthorsManager(
+                        crate::Event::<TestRuntime>::PublishingAuthorActionOnEthereumFailed {
+                            tx_id
+                        }
+                    )));
+
+                assert!(AuthorActions::<TestRuntime>::iter().count() == 1);
+                assert!(TransactionToAction::<TestRuntime>::iter().count() == 1);
+            });
+        }
+    }
+
+    mod fails {
+        use super::*;
+
+        #[test]
+        fn with_invalid_state() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                let context = MockData::setup_valid();
+                let (_, tx_id) = setup_test_action(&context);
+
+                assert_noop!(
+                    Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true),
+                    Error::<TestRuntime>::InvalidActionStatus
+                );
+            });
+        }
+
+        #[test]
+        fn with_missing_transaction() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                assert_noop!(
+                    Pallet::<TestRuntime>::process_result(999u32, PALLET_ID.to_vec(), true),
+                    Error::<TestRuntime>::TransactionNotFound
+                );
+            });
+        }
+    }
+}
