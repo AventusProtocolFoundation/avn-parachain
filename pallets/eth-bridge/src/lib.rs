@@ -1241,12 +1241,14 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
         }
 
         // Handle legacy lifts
-        let id = if event_types::LEGACY_LIFT_SIGNATURE.eq(&event_id.signature) {
+        let id = if event_types::LEGACY_LIFT_SIGNATURE
+            .iter()
+            .any(|legacy| legacy.eq(&event_id.signature))
+        {
             ValidEvents::Lifted
         } else {
             ValidEvents::try_from(&event_id.signature)?
         };
-
         ProcessedEthereumEvents::<T>::insert(
             event_id.transaction_hash.to_owned(),
             EthProcessedEvent { id, accepted },
