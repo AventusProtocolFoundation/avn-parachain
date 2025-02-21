@@ -817,14 +817,16 @@ pub mod pallet {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
             let setup_result = AVN::<T>::pre_run_setup(block_number, PALLET_ID.to_vec());
             if let Err(e) = setup_result {
-                match e {
-                    _ if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => {
-                        ();
-                    },
-                    _ => {
-                        log::error!("💔 Unable to run offchain worker: {:?}", e);
-                    },
-                };
+                if sp_io::offchain::is_validator() {
+                    match e {
+                        _ if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => {
+                            ();
+                        },
+                        _ => {
+                            log::error!("💔 Unable to run offchain worker: {:?}", e);
+                        },
+                    };
+                }
 
                 return
             }

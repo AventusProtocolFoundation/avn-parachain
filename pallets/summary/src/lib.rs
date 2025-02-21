@@ -624,25 +624,22 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            log::info!(
-                "🚧 🚧 Instance({}) - Running offchain worker for block: {:?}",
-                T::InstanceId::get(),
-                block_number
-            );
             let setup_result = AVN::<T>::pre_run_setup(block_number, Self::pallet_id());
             if let Err(e) = setup_result {
-                match e {
-                    _ if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => {
-                        ();
-                    },
-                    _ => {
-                        log::error!(
-                            "💔️ Instance({}) Unable to run offchain worker: {:?}",
-                            T::InstanceId::get(),
-                            e
-                        );
-                    },
-                };
+                if sp_io::offchain::is_validator() {
+                    match e {
+                        _ if e == DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) => {
+                            ();
+                        },
+                        _ => {
+                            log::error!(
+                                "💔️ Instance({}) Unable to run offchain worker: {:?}",
+                                T::InstanceId::get(),
+                                e
+                            );
+                        },
+                    };
+                }
 
                 return
             }
