@@ -14,8 +14,10 @@ const TWENTY_FOUR_BYTES: usize = 24; // needed for creating a u64
 const TWENTY_EIGHT_BYTES: usize = 28; // needed for creating a u32
 const DISCARDED_ZERO_BYTES: usize = 12; // Used to ignore the first 12 bytes of a 32-byte value when creating an Ethereum address.
 const BYTE_LENGTH: usize = 1; // the length of 1 byte
-pub const LEGACY_LIFT_SIGNATURE: H256 =
-    H256(hex!("8964776336bc2fa8ecaaf70b6f8e8450807efb1ff78f8b87980707aa821f0ec0"));
+pub const LEGACY_LIFT_SIGNATURE: [H256; 2] = [
+    H256(hex!("8964776336bc2fa8ecaaf70b6f8e8450807efb1ff78f8b87980707aa821f0ec0")),
+    H256(hex!("53dbd0621188344e69521ce5392debdff038d57d0ebd39536df06b20d9142bc0")),
+];
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
