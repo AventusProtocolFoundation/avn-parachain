@@ -1,5 +1,8 @@
 use crate::*;
-use sp_avn_common::{event_discovery::EthBridgeEventsFilter, UINT256, UINT32};
+use sp_avn_common::{
+    event_discovery::{AdditionalEvents, EthBridgeEventsFilter},
+    UINT256, UINT32,
+};
 // The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
@@ -131,6 +134,7 @@ pub struct ActiveEthRange {
     pub range: EthBlockRange,
     pub partition: u16,
     pub event_types_filter: EthBridgeEventsFilter,
+    pub additional_events: AdditionalEvents,
 }
 
 impl ActiveEthRange {

@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::Codec;
 use sp_api::vec::Vec;
-use sp_avn_common::event_discovery::{EthBlockRange, EthereumEventsPartition};
+use sp_avn_common::event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition};
 use sp_core::{H160, H256};
 
 sp_api::decl_runtime_apis! {
@@ -26,6 +26,6 @@ sp_api::decl_runtime_apis! {
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
         ) -> Option<()>;
-
+        fn partition_has_additional_events() -> Option<AdditionalEvents>;
     }
 }
