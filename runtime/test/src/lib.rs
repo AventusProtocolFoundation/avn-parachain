@@ -73,7 +73,8 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 use pallet_avn_proxy::ProvableProxy;
 use sp_avn_common::{
     event_discovery::{
-        EthBlockRange, EthBridgeEventsFilter, EthereumEventsFilterTrait, EthereumEventsPartition,
+        AdditionalEvents, EthBlockRange, EthBridgeEventsFilter, EthereumEventsFilterTrait,
+        EthereumEventsPartition,
     },
     event_types::ValidEvents,
     InnerCallValidator, Proof,
@@ -1072,6 +1073,13 @@ impl_runtime_apis! {
             EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
+        fn partition_has_additional_events() -> Option<AdditionalEvents> {
+            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
+                Some((active_eth_range.additional_events))
+            } else {
+                None
+            }
+        }
     }
 
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {

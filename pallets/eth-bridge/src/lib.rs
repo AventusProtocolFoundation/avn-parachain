@@ -148,7 +148,7 @@ const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 pub const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
 pub const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
 
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -294,6 +294,12 @@ pub mod pallet {
     pub type ProcessedEthereumEvents<T: Config> =
         StorageMap<_, Blake2_128Concat, EthTransactionId, EthProcessedEvent, OptionQuery>;
 
+    /// Simple queue, to store additional events to be added in the next ethereum range.
+    /// Entries must be of previous blocks.
+    #[pallet::storage]
+    pub type AdditionalEthereumEventsQueue<T: Config> =
+        StorageValue<_, AdditionalEvents, ValueQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub _phantom: sp_std::marker::PhantomData<T>,
@@ -379,6 +385,7 @@ pub mod pallet {
         ErrorGettingFinalisedEthereumBlock,
         InvalidResponse,
         ErrorDecodingU32,
+        EthereumEventNotFound,
     }
 
     #[pallet::call]
@@ -697,6 +704,7 @@ pub mod pallet {
                     range: selected_range,
                     partition: 0,
                     event_types_filter: T::EthereumEventsFilter::get(),
+                    additional_events: AdditionalEthereumEventsQueue::<T>::take(),
                 });
 
                 let _ = SubmittedEthBlocks::<T>::clear(
@@ -884,10 +892,12 @@ pub mod pallet {
         approved_partition: &EthereumEventsPartition,
     ) {
         let next_active_range = if approved_partition.is_last() {
+            let additional_events = AdditionalEthereumEventsQueue::<T>::take();
             ActiveEthRange {
                 range: active_range.range.next_range(),
                 partition: 0,
                 event_types_filter: T::EthereumEventsFilter::get(),
+                additional_events,
             }
         } else {
             ActiveEthRange {
@@ -935,6 +945,23 @@ pub mod pallet {
         for (partition, votes) in EthereumEvents::<T>::drain() {
             // TODO raise offences
             log::info!("Collators with invalid votes on ethereum events (range: {:?}, partition: {}): {:?}", partition.range(), partition.partition(), votes);
+        }
+
+        // If this is the final partition of the range, check that all additional events have been
+        // processed
+        if partition.is_last() {
+            for additional_event in active_range.additional_events.iter() {
+                if !T::ProcessedEventsChecker::processed_event_exists(&additional_event.event_id) {
+                    log::error!(
+                        "💔 Additional event was not found {:?}",
+                        additional_event.event_id,
+                    );
+                    <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                        eth_event_id: additional_event.event_id.clone(),
+                        reason: Error::<T>::EthereumEventNotFound.into(),
+                    });
+                }
+            }
         }
     }
 
