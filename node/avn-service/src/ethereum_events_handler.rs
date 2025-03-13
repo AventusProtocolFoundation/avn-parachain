@@ -1,5 +1,5 @@
 use crate::{web3_utils, BlockT, ETH_FINALITY};
-use futures::lock::Mutex;
+use futures::{future::join_all, lock::Mutex};
 use node_primitives::AccountId;
 use pallet_eth_bridge_runtime_api::EthEventHandlerApi;
 use sc_client_api::{BlockBackend, UsageProvider};
@@ -8,7 +8,7 @@ use sp_api::ApiExt;
 use sp_avn_common::{
     event_discovery::{
         encode_eth_event_submission_data, events_helpers::EthereumEventsPartitionFactory,
-        DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
+        AdditionalEvent, DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
     },
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Error, EthEvent, EthEventId,
@@ -253,7 +253,7 @@ pub async fn identify_events(
     web3: &Web3<web3::transports::Http>,
     start_block: u32,
     end_block: u32,
-    contract_addresses: Vec<H160>,
+    contract_addresses: &Vec<H160>,
     event_signatures_to_find: Vec<SpH256>,
     events_registry: &EventRegistry,
 ) -> Result<Vec<DiscoveredEvent>, AppError> {
@@ -292,6 +292,14 @@ pub async fn identify_events(
         Default::default()
     };
 
+    log::debug!(
+        "🔭 Events found on [{},{}]: primary: {:#?} secondary: {:#?}",
+        start_block,
+        end_block,
+        logs,
+        secondary_logs
+    );
+
     // Combine the discovered primary and secondary events, ensuring that each tx id has a single
     // entry, with the primary taking precedence over the secondary
     let mut unique_transactions = HashMap::<Web3H256, DiscoveredEvent>::new();
@@ -313,6 +321,57 @@ pub async fn identify_events(
     unique_transactions
         .retain(|_, value| event_signatures_to_find.contains(&value.event.event_id.signature));
     Ok(unique_transactions.into_values().collect())
+}
+
+pub async fn identify_additional_events(
+    web3: &Web3<web3::transports::Http>,
+    start_block: u32,
+    contract_addresses: &Vec<H160>,
+    event_signatures_to_find: &Vec<SpH256>,
+    events_registry: &EventRegistry,
+    additional_events_to_check: Vec<AdditionalEvent>,
+) -> Result<Vec<DiscoveredEvent>, AppError> {
+    log::debug!("🔭 Additional events to find: {:#?}", &additional_events_to_check);
+    // Create a future for each event
+    let futures = additional_events_to_check
+        .iter()
+        .filter(|event| {
+            event.block < start_block &&
+                event_signatures_to_find.contains(&event.event_id.signature)
+        })
+        .map(|event| {
+            let contract = contract_addresses.clone();
+            async move {
+                let identified_events = identify_events(
+                    web3,
+                    event.block,
+                    event.block,
+                    &contract,
+                    vec![event.event_id.signature.to_owned()],
+                    events_registry,
+                )
+                .await?;
+
+                // Find the matching discovered event based on transaction hash
+                Ok(identified_events.into_iter().find(|new_event| {
+                    new_event.event.event_id.transaction_hash == event.event_id.transaction_hash
+                }))
+            }
+        });
+
+    let results: Vec<Result<Option<DiscoveredEvent>, AppError>> = join_all(futures).await;
+
+    // check results, return early if any error occurred
+    let mut additional_events = Vec::new();
+    for result in results {
+        match result? {
+            Some(event) => additional_events.push(event),
+            None => {},
+        }
+    }
+
+    log::debug!("🔭 Additional events found to report back: {:#?}", &additional_events);
+    Ok(additional_events)
 }
 
 fn parse_log(log: Log, events_registry: &EventRegistry) -> Result<DiscoveredEvent, AppError> {
@@ -721,6 +780,17 @@ where
         )
         .map_err(|err| format!("Failed to check if author has casted event vote: {:?}", err))?;
 
+    let additional_events: Vec<AdditionalEvent> = config
+        .client
+        .runtime_api()
+        .additional_events(config.client.info().best_hash)
+        .map_err(|err| format!("Failed to query event signatures: {:?}", err))?
+        .iter()
+        .map(|events_set| events_set.iter().collect::<Vec<_>>())
+        .flatten()
+        .cloned()
+        .collect();
+
     if !has_casted_vote {
         execute_event_processing(
             web3,
@@ -731,6 +801,7 @@ where
             current_node_author,
             range,
             events_registry,
+            additional_events,
         )
         .await
     } else {
@@ -747,6 +818,7 @@ async fn execute_event_processing<Block, ClientT>(
     current_node_author: &CurrentNodeAuthor,
     range: EthBlockRange,
     events_registry: &EventRegistry,
+    additional_events_to_check: Vec<AdditionalEvent>,
 ) -> Result<(), String>
 where
     Block: BlockT,
@@ -758,19 +830,32 @@ where
         + ApiExt<Block>
         + BlockBuilder<Block>,
 {
-    let events = identify_events(
+    let additional_events = identify_additional_events(
+        web3,
+        range.start_block,
+        &contract_addresses,
+        &event_signatures,
+        events_registry,
+        additional_events_to_check,
+    )
+    .await
+    .map_err(|err| format!("Error retrieving additional events: {:?}", err))?;
+
+    let range_events = identify_events(
         web3,
         range.start_block,
         range.end_block(),
-        contract_addresses,
+        &contract_addresses,
         event_signatures,
         events_registry,
     )
     .await
     .map_err(|err| format!("Error retrieving events: {:?}", err))?;
 
+    let all_events = additional_events.into_iter().chain(range_events.into_iter()).collect();
+
     let ethereum_events_partitions =
-        EthereumEventsPartitionFactory::create_partitions(range, events);
+        EthereumEventsPartitionFactory::create_partitions(range, all_events);
     let partition = ethereum_events_partitions
         .iter()
         .find(|p| p.partition() == partition_id)
