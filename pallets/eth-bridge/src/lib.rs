@@ -746,7 +746,9 @@ pub mod pallet {
                         Error::<T>::InvalidAdditionalEthereumEvent
                     );
                     ensure!(
-                        !Self::ethereum_event_has_been_accepted(&event.event_id.transaction_hash),
+                        !Self::ethereum_event_has_already_been_accepted(
+                            &event.event_id.transaction_hash
+                        ),
                         Error::<T>::EventAlreadyAccepted
                     );
 
@@ -1319,7 +1321,7 @@ impl<T: Config> Pallet<T> {
         Ok(().into())
     }
 
-    fn ethereum_event_has_been_accepted(tx_hash: &H256) -> bool {
+    fn ethereum_event_has_already_been_accepted(tx_hash: &H256) -> bool {
         if let Some(processed_event) = ProcessedEthereumEvents::<T>::get(tx_hash) {
             if processed_event.accepted {
                 return true;
@@ -1339,7 +1341,7 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
 
         // Data from other pallets may allow multiple entries of the same tx_id. We want to preserve
         // the one that was accepted.
-        ensure!(!Self::ethereum_event_has_been_accepted(&tx_hash), ());
+        ensure!(!Self::ethereum_event_has_already_been_accepted(&tx_hash), ());
 
         // Handle legacy lifts
         let id = if event_types::LEGACY_LIFT_SIGNATURE
