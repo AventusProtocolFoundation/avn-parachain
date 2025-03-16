@@ -1,5 +1,5 @@
 use crate::{web3_utils, BlockT, ETH_FINALITY};
-use futures::{future::join_all, lock::Mutex};
+use futures::{future::try_join_all, lock::Mutex};
 use node_primitives::AccountId;
 use pallet_eth_bridge_runtime_api::EthEventHandlerApi;
 use sc_client_api::{BlockBackend, UsageProvider};
@@ -359,12 +359,12 @@ pub async fn identify_additional_events(
             }
         });
 
-    let results: Vec<Result<Option<DiscoveredEvent>, AppError>> = join_all(futures).await;
+    let results = try_join_all(futures).await?;
 
     // check results, return early if any error occurred
     let mut additional_events = Vec::new();
     for result in results {
-        match result? {
+        match result {
             Some(event) => additional_events.push(event),
             None => {},
         }
@@ -786,8 +786,7 @@ where
         .additional_events(config.client.info().best_hash)
         .map_err(|err| format!("Failed to query event signatures: {:?}", err))?
         .iter()
-        .map(|events_set| events_set.iter().collect::<Vec<_>>())
-        .flatten()
+        .flat_map(|events_set| events_set.iter())
         .cloned()
         .collect();
 
