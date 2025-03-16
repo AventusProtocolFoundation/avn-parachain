@@ -84,6 +84,8 @@ pub fn set_block_range_size<T: Config>() -> Weight {
 }
 
 pub fn migrate_to_v3<T: Config>() -> Weight {
+    let mut consumed_weight: Weight = T::DbWeight::get().reads(1);
+
     if let Some(old_range) = v2::ActiveEthereumRange::<T>::take() {
         ActiveEthereumRange::<T>::put(ActiveEthRange {
             range: old_range.range,
@@ -91,8 +93,10 @@ pub fn migrate_to_v3<T: Config>() -> Weight {
             event_types_filter: old_range.event_types_filter,
             additional_events: Default::default(),
         });
-        return T::DbWeight::get().reads_writes(1, 1);
+        consumed_weight += T::DbWeight::get().writes(1);
     }
+    STORAGE_VERSION.put::<Pallet<T>>();
+    consumed_weight += T::DbWeight::get().writes(1);
 
-    T::DbWeight::get().reads(1)
+    consumed_weight
 }
