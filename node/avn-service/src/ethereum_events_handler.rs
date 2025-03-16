@@ -21,13 +21,14 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_core::{sr25519::Public, H256 as SpH256};
 use sp_keystore::Keystore;
+use sp_runtime::SaturatedConversion;
 use std::{collections::HashMap, marker::PhantomData, time::Instant};
 pub use std::{path::PathBuf, sync::Arc};
 use tide::Error as TideError;
 use tokio::time::{sleep, Duration};
 use web3::{
     transports::Http,
-    types::{FilterBuilder, Log, H160, H256 as Web3H256, U64},
+    types::{FilterBuilder, Log, TransactionReceipt, H160, H256 as Web3H256, U64},
     Web3,
 };
 
@@ -323,52 +324,67 @@ pub async fn identify_events(
     Ok(unique_transactions.into_values().collect())
 }
 
+pub async fn identify_additional_event_info(
+    web3: &Web3<web3::transports::Http>,
+    additional_events_to_check: &Vec<AdditionalEvent>,
+) -> Result<Vec<TransactionReceipt>, AppError> {
+    log::debug!("🔭 Additional events to find: {:#?}", additional_events_to_check);
+    // Create a future for each event
+    let futures = additional_events_to_check.iter().map(|event| async move {
+        Ok(web3
+            .eth()
+            .transaction_receipt(Web3H256::from_slice(
+                &event.event_id.transaction_hash.to_fixed_bytes(),
+            ))
+            .await)
+    });
+
+    let results = try_join_all(futures).await?;
+
+    // check results, return early if any error occurred
+    let mut additional_events_receipts = Vec::new();
+    for result in results {
+        match result {
+            Ok(Some(event)) => additional_events_receipts.push(event),
+            Ok(None) => {},
+            Err(_) => return Err(AppError::ErrorGettingEventLogs),
+        }
+    }
+
+    log::debug!("🔭 Additional events found to report back: {:#?}", &additional_events_receipts);
+    Ok(additional_events_receipts)
+}
+
 pub async fn identify_additional_events(
     web3: &Web3<web3::transports::Http>,
-    start_block: u32,
     contract_addresses: &Vec<H160>,
     event_signatures_to_find: &Vec<SpH256>,
     events_registry: &EventRegistry,
     additional_events_to_check: Vec<AdditionalEvent>,
 ) -> Result<Vec<DiscoveredEvent>, AppError> {
+    let additional_events_info =
+        identify_additional_event_info(web3, &additional_events_to_check).await?;
+
     log::debug!("🔭 Additional events to find: {:#?}", &additional_events_to_check);
-    // Create a future for each event
-    let futures = additional_events_to_check
-        .iter()
-        .filter(|event| {
-            event.block < start_block &&
-                event_signatures_to_find.contains(&event.event_id.signature)
-        })
-        .map(|event| {
-            let contract = contract_addresses.clone();
-            async move {
-                let identified_events = identify_events(
-                    web3,
-                    event.block,
-                    event.block,
-                    &contract,
-                    vec![event.event_id.signature.to_owned()],
-                    events_registry,
-                )
-                .await?;
-
-                // Find the matching discovered event based on transaction hash
-                Ok(identified_events.into_iter().find(|new_event| {
-                    new_event.event.event_id.transaction_hash == event.event_id.transaction_hash
-                }))
-            }
-        });
-
-    let results = try_join_all(futures).await?;
-
-    // check results, return early if any error occurred
-    let mut additional_events = Vec::new();
-    for result in results {
-        match result {
-            Some(event) => additional_events.push(event),
-            None => {},
+    // Create a future for each event discovery
+    let futures = additional_events_info.iter().map(|event_receipt| {
+        let contract = contract_addresses.clone();
+        async move {
+            let identified_events = identify_events(
+                web3,
+                event_receipt.block_number.unwrap_or_default().saturated_into(),
+                event_receipt.block_number.unwrap_or_default().saturated_into(),
+                &contract,
+                event_signatures_to_find.clone(),
+                events_registry,
+            )
+            .await?;
+            Ok(identified_events)
         }
-    }
+    });
+
+    let additional_events: Vec<DiscoveredEvent> =
+        try_join_all(futures).await?.into_iter().flatten().collect();
 
     log::debug!("🔭 Additional events found to report back: {:#?}", &additional_events);
     Ok(additional_events)
@@ -831,7 +847,6 @@ where
 {
     let additional_events = identify_additional_events(
         web3,
-        range.start_block,
         &contract_addresses,
         &event_signatures,
         events_registry,
