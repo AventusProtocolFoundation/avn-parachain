@@ -239,7 +239,7 @@ pub mod pallet {
             accepted: bool,
         },
         AdditionalEventQueued {
-            event: AdditionalEvent,
+            transaction_hash: EthTransactionId,
         },
     }
 
@@ -389,7 +389,7 @@ pub mod pallet {
         InvalidResponse,
         ErrorDecodingU32,
         EthereumEventNotFound,
-        InvalidAdditionalEthereumEvent,
+        EventBelongsInFutureRange,
         QuotaReachedForAdditionalEvents,
         EventAlreadyAccepted,
     }
@@ -737,26 +737,17 @@ pub mod pallet {
                 AdminSettings::RemoveActiveRequest => {
                     Self::remove_active_request_impl()?;
                 },
-                AdminSettings::QueueAdditionalEthereumEvent(event) => {
-                    // ensure blocknumber of event is lower than the next start.
-                    let active_range = Self::active_ethereum_range()
-                        .ok_or_else(|| Error::<T>::NonActiveEthereumRange)?;
+                AdminSettings::QueueAdditionalEthereumEvent(transaction_hash) => {
                     ensure!(
-                        active_range.range.start_block > event.block,
-                        Error::<T>::InvalidAdditionalEthereumEvent
-                    );
-                    ensure!(
-                        !Self::ethereum_event_has_already_been_accepted(
-                            &event.event_id.transaction_hash
-                        ),
+                        !Self::ethereum_event_has_already_been_accepted(&transaction_hash),
                         Error::<T>::EventAlreadyAccepted
                     );
 
-                    AdditionalEthereumEventsQueue::<T>::mutate(|events| {
-                        events.try_insert(event.clone())
+                    AdditionalEthereumEventsQueue::<T>::mutate(|transactions| {
+                        transactions.try_insert(transaction_hash.clone())
                     })
                     .map_err(|_| Error::<T>::QuotaReachedForAdditionalEvents)?;
-                    Self::deposit_event(Event::<T>::AdditionalEventQueued { event });
+                    Self::deposit_event(Event::<T>::AdditionalEventQueued { transaction_hash });
                 },
             }
 
@@ -957,6 +948,13 @@ pub mod pallet {
             match ValidEvents::try_from(&discovered_event.event.event_id.signature).ok() {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
+                        if discovered_event.block <= active_range.range.end_block().into() {
+                            <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                                eth_event_id: discovered_event.event.event_id.clone(),
+                                reason: Error::<T>::EventBelongsInFutureRange.into(),
+                            });
+                        }
+
                         if let Err(err) = process_ethereum_event::<T>(&discovered_event.event) {
                             log::error!(
                                 "💔 Invalid event to process: {:?}. Error: {:?}",
@@ -984,23 +982,6 @@ pub mod pallet {
         for (partition, votes) in EthereumEvents::<T>::drain() {
             // TODO raise offences
             log::info!("Collators with invalid votes on ethereum events (range: {:?}, partition: {}): {:?}", partition.range(), partition.partition(), votes);
-        }
-
-        // If this is the final partition of the range, check that all additional events have been
-        // processed
-        if partition.is_last() {
-            for additional_event in active_range.additional_events.iter() {
-                if !T::ProcessedEventsChecker::processed_event_exists(&additional_event.event_id) {
-                    log::error!(
-                        "💔 Additional event was not found {:?}",
-                        additional_event.event_id,
-                    );
-                    <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
-                        eth_event_id: additional_event.event_id.clone(),
-                        reason: Error::<T>::EthereumEventNotFound.into(),
-                    });
-                }
-            }
         }
     }
 

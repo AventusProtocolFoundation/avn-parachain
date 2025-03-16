@@ -1,4 +1,7 @@
-use crate::{event_types::EthEventId, *};
+use crate::{
+    event_types::{EthEventId, EthTransactionId},
+    *,
+};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use event_types::EthEvent;
@@ -148,44 +151,7 @@ pub fn encode_eth_event_submission_data<AccountId: Encode, Data: Encode>(
     (context, &account_id, data).encode()
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct AdditionalEvent {
-    pub event_id: EthEventId,
-    pub block: u32,
-}
-pub type AdditionalEvents = BoundedBTreeSet<AdditionalEvent, ConstU32<16>>;
-
-impl PartialOrd for AdditionalEvent {
-    fn partial_cmp(&self, other: &Self) -> Option<scale_info::prelude::cmp::Ordering> {
-        let ord_sig = self.event_id.signature.partial_cmp(&other.event_id.signature);
-
-        if let Some(core::cmp::Ordering::Equal) = ord_sig {
-            return ord_sig
-        }
-
-        match self.block.partial_cmp(&other.block) {
-            Some(core::cmp::Ordering::Equal) => {},
-            ord => return ord,
-        }
-        ord_sig
-    }
-}
-
-impl Ord for AdditionalEvent {
-    fn cmp(&self, other: &Self) -> scale_info::prelude::cmp::Ordering {
-        let ord_sig = self.event_id.signature.cmp(&other.event_id.signature);
-
-        if let core::cmp::Ordering::Equal = ord_sig {
-            return ord_sig
-        }
-
-        match self.block.cmp(&other.block) {
-            core::cmp::Ordering::Equal => {},
-            ord => return ord,
-        }
-        ord_sig
-    }
-}
+pub type AdditionalEvents = BoundedBTreeSet<EthTransactionId, ConstU32<16>>;
 
 pub mod events_helpers {
     use super::*;

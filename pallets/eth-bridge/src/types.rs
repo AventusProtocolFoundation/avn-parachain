@@ -152,5 +152,5 @@ pub enum AdminSettings {
     /// Remove the active request and allow the next request to be processed
     RemoveActiveRequest,
     /// Queue an additional ethereum event to be included in the next range
-    QueueAdditionalEthereumEvent(AdditionalEvent),
+    QueueAdditionalEthereumEvent(EthTransactionId),
 }
