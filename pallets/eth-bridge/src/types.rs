@@ -134,7 +134,7 @@ pub struct ActiveEthRange {
     pub range: EthBlockRange,
     pub partition: u16,
     pub event_types_filter: EthBridgeEventsFilter,
-    pub additional_events: AdditionalEvents,
+    pub additional_transactions: AdditionalEvents,
 }
 
 impl ActiveEthRange {
@@ -152,5 +152,5 @@ pub enum AdminSettings {
     /// Remove the active request and allow the next request to be processed
     RemoveActiveRequest,
     /// Queue an additional ethereum event to be included in the next range
-    QueueAdditionalEthereumEvent(AdditionalEvent),
+    QueueAdditionalEthereumEvent(EthTransactionId),
 }

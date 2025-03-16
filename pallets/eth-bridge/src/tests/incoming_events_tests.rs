@@ -24,6 +24,7 @@ fn init_active_range() {
             .collect::<BTreeSet<ValidEvents>>(),
         )
         .unwrap(),
+        additional_transactions: Default::default(),
     });
 }
 

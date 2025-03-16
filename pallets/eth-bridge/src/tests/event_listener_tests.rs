@@ -61,7 +61,7 @@ fn init_active_range() {
     ActiveEthereumRange::<TestRuntime>::put(ActiveEthRange {
         range: EthBlockRange { start_block: 1, length: 1000 },
         partition: 0,
-        event_types_filter: Default::default(),
+        ..Default::default()
     });
 }
 
@@ -95,7 +95,7 @@ impl DiscoveredEthContext {
         ActiveEthereumRange::<TestRuntime>::put(ActiveEthRange {
             range: active_range.range.next_range(),
             partition: 0,
-            event_types_filter: Default::default(),
+            ..Default::default()
         });
     }
     fn partitions(&self) -> Vec<EthereumEventsPartition> {

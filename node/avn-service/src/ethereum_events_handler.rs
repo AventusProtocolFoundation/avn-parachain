@@ -8,12 +8,12 @@ use sp_api::ApiExt;
 use sp_avn_common::{
     event_discovery::{
         encode_eth_event_submission_data, events_helpers::EthereumEventsPartitionFactory,
-        AdditionalEvent, DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
+        DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
     },
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Error, EthEvent, EthEventId,
-        EventData, LiftedData, NftCancelListingData, NftEndBatchListingData, NftMintData,
-        NftTransferToData, ValidEvents,
+        EthTransactionId, EventData, LiftedData, NftCancelListingData, NftEndBatchListingData,
+        NftMintData, NftTransferToData, ValidEvents,
     },
     AVN_KEY_ID,
 };
@@ -21,13 +21,14 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_core::{sr25519::Public, H256 as SpH256};
 use sp_keystore::Keystore;
+use sp_runtime::SaturatedConversion;
 use std::{collections::HashMap, marker::PhantomData, time::Instant};
 pub use std::{path::PathBuf, sync::Arc};
 use tide::Error as TideError;
 use tokio::time::{sleep, Duration};
 use web3::{
     transports::Http,
-    types::{FilterBuilder, Log, H160, H256 as Web3H256, U64},
+    types::{FilterBuilder, Log, TransactionReceipt, H160, H256 as Web3H256, U64},
     Web3,
 };
 
@@ -323,52 +324,68 @@ pub async fn identify_events(
     Ok(unique_transactions.into_values().collect())
 }
 
-pub async fn identify_additional_events(
+pub async fn identify_additional_event_info(
     web3: &Web3<web3::transports::Http>,
-    start_block: u32,
-    contract_addresses: &Vec<H160>,
-    event_signatures_to_find: &Vec<SpH256>,
-    events_registry: &EventRegistry,
-    additional_events_to_check: Vec<AdditionalEvent>,
-) -> Result<Vec<DiscoveredEvent>, AppError> {
-    log::debug!("🔭 Additional events to find: {:#?}", &additional_events_to_check);
+    additional_transactions_to_check: &Vec<EthTransactionId>,
+) -> Result<Vec<TransactionReceipt>, AppError> {
+    log::debug!("🔭 Additional events to find: {:#?}", additional_transactions_to_check);
     // Create a future for each event
-    let futures = additional_events_to_check
-        .iter()
-        .filter(|event| {
-            event.block < start_block &&
-                event_signatures_to_find.contains(&event.event_id.signature)
-        })
-        .map(|event| {
-            let contract = contract_addresses.clone();
-            async move {
-                let identified_events = identify_events(
-                    web3,
-                    event.block,
-                    event.block,
-                    &contract,
-                    vec![event.event_id.signature.to_owned()],
-                    events_registry,
-                )
-                .await?;
-
-                // Find the matching discovered event based on transaction hash
-                Ok(identified_events.into_iter().find(|new_event| {
-                    new_event.event.event_id.transaction_hash == event.event_id.transaction_hash
-                }))
-            }
-        });
+    let futures = additional_transactions_to_check.iter().map(|transaction_hash| async move {
+        Ok(web3
+            .eth()
+            .transaction_receipt(Web3H256::from_slice(&transaction_hash.to_fixed_bytes()))
+            .await)
+    });
 
     let results = try_join_all(futures).await?;
 
     // check results, return early if any error occurred
-    let mut additional_events = Vec::new();
+    let mut additional_transactions_receipts = Vec::new();
     for result in results {
         match result {
-            Some(event) => additional_events.push(event),
-            None => {},
+            Ok(Some(event)) => additional_transactions_receipts.push(event),
+            Ok(None) => {},
+            Err(_) => return Err(AppError::ErrorGettingEventLogs),
         }
     }
+
+    log::debug!(
+        "🔭 Additional events found to report back: {:#?}",
+        &additional_transactions_receipts
+    );
+    Ok(additional_transactions_receipts)
+}
+
+pub async fn identify_additional_events(
+    web3: &Web3<web3::transports::Http>,
+    contract_addresses: &Vec<H160>,
+    event_signatures_to_find: &Vec<SpH256>,
+    events_registry: &EventRegistry,
+    additional_transactions_to_check: Vec<EthTransactionId>,
+) -> Result<Vec<DiscoveredEvent>, AppError> {
+    let additional_events_info =
+        identify_additional_event_info(web3, &additional_transactions_to_check).await?;
+
+    log::debug!("🔭 Additional transactions to find: {:#?}", &additional_transactions_to_check);
+    // Create a future for each event discovery
+    let futures = additional_events_info.iter().map(|event_receipt| {
+        let contract = contract_addresses.clone();
+        async move {
+            let identified_events = identify_events(
+                web3,
+                event_receipt.block_number.unwrap_or_default().saturated_into(),
+                event_receipt.block_number.unwrap_or_default().saturated_into(),
+                &contract,
+                event_signatures_to_find.clone(),
+                events_registry,
+            )
+            .await?;
+            Ok(identified_events)
+        }
+    });
+
+    let additional_events: Vec<DiscoveredEvent> =
+        try_join_all(futures).await?.into_iter().flatten().collect();
 
     log::debug!("🔭 Additional events found to report back: {:#?}", &additional_events);
     Ok(additional_events)
@@ -780,11 +797,11 @@ where
         )
         .map_err(|err| format!("Failed to check if author has casted event vote: {:?}", err))?;
 
-    let additional_events: Vec<AdditionalEvent> = config
+    let additional_transactions: Vec<_> = config
         .client
         .runtime_api()
         .additional_events(config.client.info().best_hash)
-        .map_err(|err| format!("Failed to query event signatures: {:?}", err))?
+        .map_err(|err| format!("Failed to query additional transactions: {:?}", err))?
         .iter()
         .flat_map(|events_set| events_set.iter())
         .cloned()
@@ -800,7 +817,7 @@ where
             current_node_author,
             range,
             events_registry,
-            additional_events,
+            additional_transactions,
         )
         .await
     } else {
@@ -817,7 +834,7 @@ async fn execute_event_processing<Block, ClientT>(
     current_node_author: &CurrentNodeAuthor,
     range: EthBlockRange,
     events_registry: &EventRegistry,
-    additional_events_to_check: Vec<AdditionalEvent>,
+    additional_transactions_to_check: Vec<EthTransactionId>,
 ) -> Result<(), String>
 where
     Block: BlockT,
@@ -831,11 +848,10 @@ where
 {
     let additional_events = identify_additional_events(
         web3,
-        range.start_block,
         &contract_addresses,
         &event_signatures,
         events_registry,
-        additional_events_to_check,
+        additional_transactions_to_check,
     )
     .await
     .map_err(|err| format!("Error retrieving additional events: {:?}", err))?;
