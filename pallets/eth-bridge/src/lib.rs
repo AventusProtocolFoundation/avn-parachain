@@ -238,6 +238,9 @@ pub mod pallet {
             eth_event_id: EthEventId,
             accepted: bool,
         },
+        AdditionalEventQueued {
+            event: AdditionalEvent,
+        },
     }
 
     #[pallet::pallet]
@@ -386,12 +389,19 @@ pub mod pallet {
         InvalidResponse,
         ErrorDecodingU32,
         EthereumEventNotFound,
+        InvalidAdditionalEthereumEvent,
+        QuotaReachedForAdditionalEvents,
+        EventAlreadyAccepted,
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_lifetime_secs())]
+        #[deprecated(
+            since = "6.9.0",
+            note = "This method is being deprecated. Use `set_admin_setting` instead."
+        )]
         pub fn set_eth_tx_lifetime_secs(
             origin: OriginFor<T>,
             eth_tx_lifetime_secs: u64,
@@ -404,6 +414,10 @@ pub mod pallet {
 
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_id())]
+        #[deprecated(
+            since = "6.9.0",
+            note = "This method is being deprecated. Use `set_admin_setting` instead."
+        )]
         pub fn set_eth_tx_id(
             origin: OriginFor<T>,
             eth_tx_id: EthereumId,
@@ -559,35 +573,13 @@ pub mod pallet {
 
         #[pallet::call_index(5)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_active_request())]
+        #[deprecated(
+            since = "6.9.0",
+            note = "This method is being deprecated. Use `set_admin_setting` instead."
+        )]
         pub fn remove_active_request(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-
-            let req = ActiveRequest::<T>::get();
-            ensure!(req.is_some(), Error::<T>::NoActiveRequest);
-
-            let request_id;
-            match req.expect("request is not empty").request {
-                Request::Send(send_req) => {
-                    request_id = send_req.tx_id;
-                    let _ = T::BridgeInterfaceNotification::process_result(
-                        send_req.tx_id,
-                        send_req.caller_id.clone().into(),
-                        false,
-                    );
-                },
-                Request::LowerProof(lower_req) => {
-                    request_id = lower_req.lower_id;
-                    let _ = T::BridgeInterfaceNotification::process_lower_proof_result(
-                        lower_req.lower_id,
-                        lower_req.caller_id.clone().into(),
-                        Err(()),
-                    );
-                },
-            };
-
-            request::process_next_request::<T>();
-            Self::deposit_event(Event::<T>::ActiveRequestRemoved { request_id });
-            Ok(().into())
+            Self::remove_active_request_impl()
         }
 
         #[pallet::call_index(6)]
@@ -722,6 +714,53 @@ pub mod pallet {
             };
 
             Ok(Some(final_weight).into())
+        }
+
+        #[pallet::call_index(8)]
+        #[pallet::weight(Weight::zero())]
+
+        pub fn set_admin_setting(
+            origin: OriginFor<T>,
+            value: AdminSettings,
+        ) -> DispatchResultWithPostInfo {
+            frame_system::ensure_root(origin)?;
+
+            match value {
+                AdminSettings::EthereumTransactionLifetimeSeconds(eth_tx_lifetime_secs) => {
+                    EthTxLifetimeSecs::<T>::put(eth_tx_lifetime_secs);
+                    Self::deposit_event(Event::<T>::EthTxLifetimeUpdated { eth_tx_lifetime_secs });
+                },
+                AdminSettings::EthereumTransactionId(eth_tx_id) => {
+                    NextTxId::<T>::put(eth_tx_id);
+                    Self::deposit_event(Event::<T>::EthTxIdUpdated { eth_tx_id });
+                },
+                AdminSettings::RemoveActiveRequest => {
+                    Self::remove_active_request_impl()?;
+                },
+                AdminSettings::QueueAdditionalEthereumEvent(event) => {
+                    // ensure blocknumber of event is lower than the next start.
+                    let active_range = Self::active_ethereum_range()
+                        .ok_or_else(|| Error::<T>::NonActiveEthereumRange)?;
+                    ensure!(
+                        active_range.range.start_block > event.block,
+                        Error::<T>::InvalidAdditionalEthereumEvent
+                    );
+                    ensure!(
+                        !Self::ethereum_event_has_already_been_accepted(
+                            &event.event_id.transaction_hash
+                        ),
+                        Error::<T>::EventAlreadyAccepted
+                    );
+
+                    AdditionalEthereumEventsQueue::<T>::mutate(|events| {
+                        events.try_insert(event.clone())
+                    })
+                    .map_err(|_| Error::<T>::QuotaReachedForAdditionalEvents)?;
+                    Self::deposit_event(Event::<T>::AdditionalEventQueued { event });
+                },
+            }
+
+            Ok(().into())
         }
     }
 
@@ -1252,6 +1291,44 @@ impl<T: Config> Pallet<T> {
 
         <T as pallet::Config>::WeightInfo::migrate_events_batch(counter)
     }
+
+    pub fn remove_active_request_impl() -> DispatchResultWithPostInfo {
+        let req = ActiveRequest::<T>::get();
+        ensure!(req.is_some(), Error::<T>::NoActiveRequest);
+
+        let request_id;
+        match req.expect("request is not empty").request {
+            Request::Send(send_req) => {
+                request_id = send_req.tx_id;
+                let _ = T::BridgeInterfaceNotification::process_result(
+                    send_req.tx_id,
+                    send_req.caller_id.clone().into(),
+                    false,
+                );
+            },
+            Request::LowerProof(lower_req) => {
+                request_id = lower_req.lower_id;
+                let _ = T::BridgeInterfaceNotification::process_lower_proof_result(
+                    lower_req.lower_id,
+                    lower_req.caller_id.clone().into(),
+                    Err(()),
+                );
+            },
+        };
+
+        request::process_next_request::<T>();
+        Self::deposit_event(Event::<T>::ActiveRequestRemoved { request_id });
+        Ok(().into())
+    }
+
+    fn ethereum_event_has_already_been_accepted(tx_hash: &H256) -> bool {
+        if let Some(processed_event) = ProcessedEthereumEvents::<T>::get(tx_hash) {
+            if processed_event.accepted {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl<T: Config> ProcessedEventsChecker for Pallet<T> {
@@ -1264,11 +1341,7 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
 
         // Data from other pallets may allow multiple entries of the same tx_id. We want to preserve
         // the one that was accepted.
-        if let Some(processed_event) = ProcessedEthereumEvents::<T>::get(&tx_hash) {
-            if processed_event.accepted {
-                Err(())?
-            }
-        }
+        ensure!(!Self::ethereum_event_has_already_been_accepted(&tx_hash), ());
 
         // Handle legacy lifts
         let id = if event_types::LEGACY_LIFT_SIGNATURE
@@ -1279,10 +1352,7 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
         } else {
             ValidEvents::try_from(&event_id.signature)?
         };
-        ProcessedEthereumEvents::<T>::insert(
-            event_id.transaction_hash.to_owned(),
-            EthProcessedEvent { id, accepted },
-        );
+        ProcessedEthereumEvents::<T>::insert(tx_hash, EthProcessedEvent { id, accepted });
         Ok(())
     }
 }

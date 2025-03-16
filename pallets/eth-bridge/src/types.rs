@@ -142,3 +142,15 @@ impl ActiveEthRange {
         *self == Default::default()
     }
 }
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
+pub enum AdminSettings {
+    /// The delay, in blocks, for actions to wait before being executed
+    EthereumTransactionLifetimeSeconds(u64),
+    /// Set the EthereumTransactionId
+    EthereumTransactionId(EthereumId),
+    /// Remove the active request and allow the next request to be processed
+    RemoveActiveRequest,
+    /// Queue an additional ethereum event to be included in the next range
+    QueueAdditionalEthereumEvent(AdditionalEvent),
+}
