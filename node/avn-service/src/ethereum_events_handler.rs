@@ -8,12 +8,12 @@ use sp_api::ApiExt;
 use sp_avn_common::{
     event_discovery::{
         encode_eth_event_submission_data, events_helpers::EthereumEventsPartitionFactory,
-        AdditionalEvent, DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
+        DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
     },
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Error, EthEvent, EthEventId,
-        EventData, LiftedData, NftCancelListingData, NftEndBatchListingData, NftMintData,
-        NftTransferToData, ValidEvents,
+        EthTransactionId, EventData, LiftedData, NftCancelListingData, NftEndBatchListingData,
+        NftMintData, NftTransferToData, ValidEvents,
     },
     AVN_KEY_ID,
 };
@@ -326,16 +326,14 @@ pub async fn identify_events(
 
 pub async fn identify_additional_event_info(
     web3: &Web3<web3::transports::Http>,
-    additional_events_to_check: &Vec<AdditionalEvent>,
+    additional_transactions_to_check: &Vec<EthTransactionId>,
 ) -> Result<Vec<TransactionReceipt>, AppError> {
-    log::debug!("🔭 Additional events to find: {:#?}", additional_events_to_check);
+    log::debug!("🔭 Additional events to find: {:#?}", additional_transactions_to_check);
     // Create a future for each event
-    let futures = additional_events_to_check.iter().map(|event| async move {
+    let futures = additional_transactions_to_check.iter().map(|transaction_hash| async move {
         Ok(web3
             .eth()
-            .transaction_receipt(Web3H256::from_slice(
-                &event.event_id.transaction_hash.to_fixed_bytes(),
-            ))
+            .transaction_receipt(Web3H256::from_slice(&transaction_hash.to_fixed_bytes()))
             .await)
     });
 
@@ -360,12 +358,12 @@ pub async fn identify_additional_events(
     contract_addresses: &Vec<H160>,
     event_signatures_to_find: &Vec<SpH256>,
     events_registry: &EventRegistry,
-    additional_events_to_check: Vec<AdditionalEvent>,
+    additional_transactions_to_check: Vec<EthTransactionId>,
 ) -> Result<Vec<DiscoveredEvent>, AppError> {
     let additional_events_info =
-        identify_additional_event_info(web3, &additional_events_to_check).await?;
+        identify_additional_event_info(web3, &additional_transactions_to_check).await?;
 
-    log::debug!("🔭 Additional events to find: {:#?}", &additional_events_to_check);
+    log::debug!("🔭 Additional transactions to find: {:#?}", &additional_transactions_to_check);
     // Create a future for each event discovery
     let futures = additional_events_info.iter().map(|event_receipt| {
         let contract = contract_addresses.clone();
@@ -796,11 +794,11 @@ where
         )
         .map_err(|err| format!("Failed to check if author has casted event vote: {:?}", err))?;
 
-    let additional_events: Vec<AdditionalEvent> = config
+    let additional_transactions: Vec<_> = config
         .client
         .runtime_api()
         .additional_events(config.client.info().best_hash)
-        .map_err(|err| format!("Failed to query event signatures: {:?}", err))?
+        .map_err(|err| format!("Failed to query additional transactions: {:?}", err))?
         .iter()
         .flat_map(|events_set| events_set.iter())
         .cloned()
@@ -816,7 +814,7 @@ where
             current_node_author,
             range,
             events_registry,
-            additional_events,
+            additional_transactions,
         )
         .await
     } else {
@@ -833,7 +831,7 @@ async fn execute_event_processing<Block, ClientT>(
     current_node_author: &CurrentNodeAuthor,
     range: EthBlockRange,
     events_registry: &EventRegistry,
-    additional_events_to_check: Vec<AdditionalEvent>,
+    additional_transactions_to_check: Vec<EthTransactionId>,
 ) -> Result<(), String>
 where
     Block: BlockT,
@@ -850,7 +848,7 @@ where
         &contract_addresses,
         &event_signatures,
         events_registry,
-        additional_events_to_check,
+        additional_transactions_to_check,
     )
     .await
     .map_err(|err| format!("Error retrieving additional events: {:?}", err))?;
