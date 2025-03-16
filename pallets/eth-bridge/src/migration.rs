@@ -91,7 +91,7 @@ pub fn migrate_to_v3<T: Config>() -> Weight {
             range: old_range.range,
             partition: old_range.partition,
             event_types_filter: old_range.event_types_filter,
-            additional_events: Default::default(),
+            additional_transactions: Default::default(),
         });
         consumed_weight += T::DbWeight::get().writes(1);
     }

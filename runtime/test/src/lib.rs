@@ -1073,9 +1073,9 @@ impl_runtime_apis! {
             EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
-        fn additional_events() -> Option<AdditionalEvents> {
+        fn additional_transactions() -> Option<AdditionalEvents> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
-                Some(active_eth_range.additional_events)
+                Some(active_eth_range.additional_transactions)
             } else {
                 None
             }

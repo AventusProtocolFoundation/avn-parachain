@@ -340,17 +340,20 @@ pub async fn identify_additional_event_info(
     let results = try_join_all(futures).await?;
 
     // check results, return early if any error occurred
-    let mut additional_events_receipts = Vec::new();
+    let mut additional_transactions_receipts = Vec::new();
     for result in results {
         match result {
-            Ok(Some(event)) => additional_events_receipts.push(event),
+            Ok(Some(event)) => additional_transactions_receipts.push(event),
             Ok(None) => {},
             Err(_) => return Err(AppError::ErrorGettingEventLogs),
         }
     }
 
-    log::debug!("🔭 Additional events found to report back: {:#?}", &additional_events_receipts);
-    Ok(additional_events_receipts)
+    log::debug!(
+        "🔭 Additional events found to report back: {:#?}",
+        &additional_transactions_receipts
+    );
+    Ok(additional_transactions_receipts)
 }
 
 pub async fn identify_additional_events(

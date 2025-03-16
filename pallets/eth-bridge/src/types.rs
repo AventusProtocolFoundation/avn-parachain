@@ -134,7 +134,7 @@ pub struct ActiveEthRange {
     pub range: EthBlockRange,
     pub partition: u16,
     pub event_types_filter: EthBridgeEventsFilter,
-    pub additional_events: AdditionalEvents,
+    pub additional_transactions: AdditionalEvents,
 }
 
 impl ActiveEthRange {

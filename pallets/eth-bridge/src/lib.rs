@@ -696,7 +696,7 @@ pub mod pallet {
                     range: selected_range,
                     partition: 0,
                     event_types_filter: T::EthereumEventsFilter::get(),
-                    additional_events: AdditionalEthereumEventsQueue::<T>::take(),
+                    additional_transactions: AdditionalEthereumEventsQueue::<T>::take(),
                 });
 
                 let _ = SubmittedEthBlocks::<T>::clear(
@@ -922,12 +922,12 @@ pub mod pallet {
         approved_partition: &EthereumEventsPartition,
     ) {
         let next_active_range = if approved_partition.is_last() {
-            let additional_events = AdditionalEthereumEventsQueue::<T>::take();
+            let additional_transactions = AdditionalEthereumEventsQueue::<T>::take();
             ActiveEthRange {
                 range: active_range.range.next_range(),
                 partition: 0,
                 event_types_filter: T::EthereumEventsFilter::get(),
-                additional_events,
+                additional_transactions,
             }
         } else {
             ActiveEthRange {
