@@ -26,6 +26,6 @@ sp_api::decl_runtime_apis! {
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
         ) -> Option<()>;
-        fn partition_has_additional_events() -> Option<AdditionalEvents>;
+        fn additional_events() -> Option<AdditionalEvents>;
     }
 }
