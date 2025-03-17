@@ -1306,7 +1306,7 @@ impl<T: Config> Pallet<T> {
     fn ethereum_event_has_already_been_accepted(tx_hash: &H256) -> bool {
         if let Some(processed_event) = ProcessedEthereumEvents::<T>::get(tx_hash) {
             if processed_event.accepted {
-                return true;
+                return true
             }
         }
         false
