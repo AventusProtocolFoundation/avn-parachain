@@ -800,7 +800,7 @@ where
     let additional_transactions: Vec<_> = config
         .client
         .runtime_api()
-        .additional_events(config.client.info().best_hash)
+        .additional_transactions(config.client.info().best_hash)
         .map_err(|err| format!("Failed to query additional transactions: {:?}", err))?
         .iter()
         .flat_map(|events_set| events_set.iter())
