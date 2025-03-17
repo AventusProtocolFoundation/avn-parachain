@@ -73,7 +73,7 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
 use sp_avn_common::{
-    event_discovery::{EthBlockRange, EthereumEventsPartition},
+    event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition},
     InnerCallValidator, Proof,
 };
 
@@ -157,7 +157,10 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (pallet_avn_anchor::migration::MigrateToV2<Runtime>),
+    (
+        pallet_avn_anchor::migration::MigrateToV2<Runtime>,
+        pallet_eth_bridge::migration::EthBridgeMigrations<Runtime>,
+    ),
 >;
 
 impl_opaque_keys! {
@@ -174,7 +177,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 85,
+    spec_version: 86,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -1036,6 +1039,13 @@ impl_runtime_apis! {
             EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
+        fn additional_transactions() -> Option<AdditionalEvents> {
+            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
+                Some(active_eth_range.additional_transactions)
+            } else {
+                None
+            }
+        }
     }
 
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {

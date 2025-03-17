@@ -1,5 +1,8 @@
 use crate::*;
-use sp_avn_common::{event_discovery::EthBridgeEventsFilter, UINT256, UINT32};
+use sp_avn_common::{
+    event_discovery::{AdditionalEvents, EthBridgeEventsFilter},
+    UINT256, UINT32,
+};
 // The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {
@@ -131,10 +134,23 @@ pub struct ActiveEthRange {
     pub range: EthBlockRange,
     pub partition: u16,
     pub event_types_filter: EthBridgeEventsFilter,
+    pub additional_transactions: AdditionalEvents,
 }
 
 impl ActiveEthRange {
     pub fn is_initial_range(&self) -> bool {
         *self == Default::default()
     }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo)]
+pub enum AdminSettings {
+    /// The delay, in blocks, for actions to wait before being executed
+    EthereumTransactionLifetimeSeconds(u64),
+    /// Set the EthereumTransactionId
+    EthereumTransactionId(EthereumId),
+    /// Remove the active request and allow the next request to be processed
+    RemoveActiveRequest,
+    /// Queue an additional ethereum event to be included in the next range
+    QueueAdditionalEthereumEvent(EthTransactionId),
 }

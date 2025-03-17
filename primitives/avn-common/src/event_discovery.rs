@@ -1,4 +1,7 @@
-use crate::*;
+use crate::{
+    event_types::{EthEventId, EthTransactionId},
+    *,
+};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use event_types::EthEvent;
@@ -41,7 +44,6 @@ pub struct DiscoveredEvent {
 
 impl PartialOrd for DiscoveredEvent {
     fn partial_cmp(&self, other: &Self) -> Option<scale_info::prelude::cmp::Ordering> {
-        // TODO ensure that the comparison is lowercase.
         let ord_sig = self.event.event_id.signature.partial_cmp(&other.event.event_id.signature);
 
         if let Some(core::cmp::Ordering::Equal) = ord_sig {
@@ -58,7 +60,6 @@ impl PartialOrd for DiscoveredEvent {
 
 impl Ord for DiscoveredEvent {
     fn cmp(&self, other: &Self) -> scale_info::prelude::cmp::Ordering {
-        // TODO ensure that the comparison is lowercase.
         let ord_sig = self.event.event_id.signature.cmp(&other.event.event_id.signature);
 
         if let core::cmp::Ordering::Equal = ord_sig {
@@ -150,6 +151,8 @@ pub fn encode_eth_event_submission_data<AccountId: Encode, Data: Encode>(
     (context, &account_id, data).encode()
 }
 
+pub type AdditionalEvents = BoundedBTreeSet<EthTransactionId, ConstU32<16>>;
+
 pub mod events_helpers {
     use super::*;
     pub extern crate alloc;
@@ -208,4 +211,24 @@ pub mod events_helpers {
         let rem = calculation_block.checked_rem(range_length).ok_or(())?;
         Ok(calculation_block.saturating_sub(rem))
     }
+}
+
+#[test]
+pub fn event_id_comparison_is_case_insensitive() {
+    use hex_literal::hex;
+    let left = EthEventId {
+        signature: H256(hex!("000000000000000000000000000000000000000000000000000000000000dddd")),
+        transaction_hash: H256(hex!(
+            "000000000000000000000000000000000000000000000000000000000000eeee"
+        )),
+    };
+
+    let right = EthEventId {
+        signature: H256(hex!("000000000000000000000000000000000000000000000000000000000000DDDD")),
+        transaction_hash: H256(hex!(
+            "000000000000000000000000000000000000000000000000000000000000EEEE"
+        )),
+    };
+
+    assert_eq!(left, right);
 }
