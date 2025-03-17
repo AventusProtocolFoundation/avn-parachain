@@ -26,8 +26,8 @@ mod v2 {
     pub type ActiveEthereumRange<T: crate::Config> = StorageValue<crate::Pallet<T>, ActiveEthRange>;
 }
 
-pub struct SetBlockRangeSize<T>(PhantomData<T>);
-impl<T: Config> OnRuntimeUpgrade for SetBlockRangeSize<T> {
+pub struct EthBridgeMigrations<T>(PhantomData<T>);
+impl<T: Config> OnRuntimeUpgrade for EthBridgeMigrations<T> {
     fn on_runtime_upgrade() -> Weight {
         let current = Pallet::<T>::current_storage_version();
         let onchain = Pallet::<T>::on_chain_storage_version();
@@ -43,7 +43,7 @@ impl<T: Config> OnRuntimeUpgrade for SetBlockRangeSize<T> {
             consumed_weight.saturating_accrue(set_block_range_size::<T>());
         }
 
-        if onchain == 3 && current == 3 {
+        if onchain < 3 && current == 3 {
             consumed_weight.saturating_accrue(migrate_to_v3::<T>());
         }
 
@@ -93,6 +93,7 @@ pub fn migrate_to_v3<T: Config>() -> Weight {
             event_types_filter: old_range.event_types_filter,
             additional_transactions: Default::default(),
         });
+        log::info!("✅ ActiveEthereumRange set successfully");
         consumed_weight += T::DbWeight::get().writes(1);
     }
     STORAGE_VERSION.put::<Pallet<T>>();
