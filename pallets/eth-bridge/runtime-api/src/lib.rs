@@ -6,7 +6,7 @@ use sp_core::{H160, H256};
 
 sp_api::decl_runtime_apis! {
 
-    #[api_version(1)]
+    #[api_version(2)]
     pub trait EthEventHandlerApi<AccountId>
             where
         AccountId: Codec,
