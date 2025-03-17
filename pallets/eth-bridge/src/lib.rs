@@ -388,7 +388,6 @@ pub mod pallet {
         ErrorGettingFinalisedEthereumBlock,
         InvalidResponse,
         ErrorDecodingU32,
-        EthereumEventNotFound,
         EventBelongsInFutureRange,
         QuotaReachedForAdditionalEvents,
         EventAlreadyAccepted,
@@ -949,11 +948,12 @@ pub mod pallet {
             match ValidEvents::try_from(&discovered_event.event.event_id.signature).ok() {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
-                        if discovered_event.block <= active_range.range.end_block().into() {
+                        if discovered_event.block > active_range.range.end_block().into() {
                             <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
                                 eth_event_id: discovered_event.event.event_id.clone(),
                                 reason: Error::<T>::EventBelongsInFutureRange.into(),
                             });
+                            continue
                         }
 
                         if let Err(err) = process_ethereum_event::<T>(&discovered_event.event) {
