@@ -31,8 +31,8 @@ use sp_staking::{
 use avn::AvnBridgeContractAddress;
 use pallet_avn::{self as avn, Error as avn_error};
 use sp_avn_common::{
-    bounds::MaximumValidatorsBound, event_types::EthEvent, EthQueryRequest, EthQueryResponseType,
-    FeePaymentHandler,
+    bounds::MaximumValidatorsBound, event_discovery::filters::AllEventsFilter,
+    event_types::EthEvent, EthQueryRequest, EthQueryResponseType, FeePaymentHandler,
 };
 use sp_io::TestExternalities;
 
@@ -120,9 +120,8 @@ pub struct MyEthereumEventsFilter;
 
 impl EthereumEventsFilterTrait for MyEthereumEventsFilter {
     fn get() -> EthBridgeEventsFilter {
-        let allowed_events: BTreeSet<ValidEvents> =
-            vec![ValidEvents::AvtLowerClaimed].into_iter().collect();
-
+        let mut allowed_events: BTreeSet<ValidEvents> = AllEventsFilter::get().into_inner();
+        allowed_events.retain(|e| *e != ValidEvents::AvtLowerClaimed);
         EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
     }
 }
@@ -136,7 +135,7 @@ impl Config for TestRuntime {
     type Public = AccountId;
     type Signature = Signature;
     type WeightInfo = ();
-    type EthereumEventsFilter = MyEthereumEventsFilter;
+    type ProcessedEventsHandler = MyEthereumEventsFilter;
     type ProcessedEventsChecker = EthereumEvents;
 }
 

@@ -73,8 +73,8 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 use pallet_avn_proxy::ProvableProxy;
 use sp_avn_common::{
     event_discovery::{
-        AdditionalEvents, EthBlockRange, EthBridgeEventsFilter, EthereumEventsFilterTrait,
-        EthereumEventsPartition,
+        filters::{AllEventsFilter, NoEventsFilter},
+        AdditionalEvents, EthBlockRange, EthBridgeEventsFilter, EthereumEventsPartition,
     },
     event_types::ValidEvents,
     InnerCallValidator, Proof,
@@ -116,26 +116,6 @@ where
             }
             <ToStakingPot<R> as OnUnbalanced<_>>::on_unbalanced(fees);
         }
-    }
-}
-
-pub struct EthBridgeTestRuntimeEventsFilter;
-impl EthereumEventsFilterTrait for EthBridgeTestRuntimeEventsFilter {
-    fn get() -> EthBridgeEventsFilter {
-        let allowed_events: BTreeSet<ValidEvents> = vec![
-            ValidEvents::AddedValidator,
-            ValidEvents::Lifted,
-            ValidEvents::AvtGrowthLifted,
-            ValidEvents::AvtLowerClaimed,
-            ValidEvents::NftMint,
-            ValidEvents::NftTransferTo,
-            ValidEvents::NftCancelListing,
-            ValidEvents::NftEndBatchListing,
-        ]
-        .into_iter()
-        .collect();
-
-        EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
     }
 }
 
@@ -589,7 +569,7 @@ impl pallet_ethereum_events::Config for Runtime {
     type Signature = Signature;
     type ReportInvalidEthereumLog = Offences;
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
-    type EthereumEventsFilter = EthBridgeTestRuntimeEventsFilter;
+    type ProcessedEventsHandler = AllEventsFilter;
     type ProcessedEventsChecker = EthBridge;
 }
 
@@ -711,7 +691,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
-    type EthereumEventsFilter = EthBridgeTestRuntimeEventsFilter;
+    type ProcessedEventsHandler = NoEventsFilter;
 }
 
 // Other pallets

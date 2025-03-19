@@ -20,7 +20,10 @@ use sp_runtime::RuntimeAppPublic;
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::BoundedVec;
 use sp_api::impl_runtime_apis;
-use sp_avn_common::bounds::ProcessingBatchBound;
+use sp_avn_common::{
+    bounds::ProcessingBatchBound,
+    event_discovery::filters::{CorePrimaryEventsFilter, NftEventsFilter},
+};
 use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
@@ -551,7 +554,7 @@ impl pallet_ethereum_events::Config for Runtime {
     type Signature = Signature;
     type ReportInvalidEthereumLog = Offences;
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
-    type EthereumEventsFilter = EthBridgeAvnRuntimeEventsFilter;
+    type ProcessedEventsHandler = NftEventsFilter;
     type ProcessedEventsChecker = ProcessedEventCustodian;
 }
 
@@ -652,21 +655,7 @@ impl pallet_avn_anchor::Config for Runtime {
     type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
-use sp_avn_common::{
-    event_discovery::{EthBridgeEventsFilter, EthereumEventsFilterTrait},
-    event_types::ValidEvents,
-};
-use sp_std::collections::btree_set::BTreeSet;
-
-pub struct EthBridgeAvnRuntimeEventsFilter;
-impl EthereumEventsFilterTrait for EthBridgeAvnRuntimeEventsFilter {
-    fn get() -> EthBridgeEventsFilter {
-        let allowed_events: BTreeSet<ValidEvents> =
-            vec![ValidEvents::AvtLowerClaimed, ValidEvents::Lifted].into_iter().collect();
-
-        EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
-    }
-}
+use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
 
 impl pallet_eth_bridge::Config for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
@@ -679,7 +668,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
-    type EthereumEventsFilter = EthBridgeAvnRuntimeEventsFilter;
+    type ProcessedEventsHandler = CorePrimaryEventsFilter;
 }
 
 // Other pallets
