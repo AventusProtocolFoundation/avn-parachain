@@ -1,5 +1,8 @@
 use super::*;
-use crate::{self as eth_bridge, request::add_new_send_request};
+use crate::{
+    self as eth_bridge, incoming_events_tests::create_mock_event_partition,
+    request::add_new_send_request,
+};
 use avn;
 use frame_support::parameter_types;
 use sp_state_machine::BasicExternalities;
@@ -52,22 +55,12 @@ impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
 #[derive(Clone)]
 pub struct Context {
     pub eth_tx_hash: H256,
-    pub already_set_eth_tx_hash: H256,
-    pub mock_event_partition: EthereumEventsPartition,
-    pub bad_mock_event_partition: EthereumEventsPartition,
-    pub second_mock_event_partition: EthereumEventsPartition,
     pub test_signature: TestSignature,
-    pub test_signature_two: TestSignature,
-    pub test_signature_three: TestSignature,
     pub confirmation_signature: ecdsa::Signature,
-    pub tx_succeeded: bool,
     pub author: Author<TestRuntime>,
-    pub author_two: Author<TestRuntime>,
-    pub author_three: Author<TestRuntime>,
     pub confirming_author: Author<TestRuntime>,
     pub second_confirming_author: Author<TestRuntime>,
     pub third_confirming_author: Author<TestRuntime>,
-    pub fourth_confirming_author: Author<TestRuntime>,
     pub request_function_name: Vec<u8>,
     pub request_params: Vec<(Vec<u8>, Vec<u8>)>,
     pub lower_params: LowerParams,
@@ -75,8 +68,6 @@ pub struct Context {
     pub lower_id: u32,
     pub block_number: BlockNumber,
     pub expected_lower_msg_hash: String,
-    pub eth_event_id: EthEventId,
-    pub bad_eth_event_id: EthEventId,
 }
 
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
@@ -170,7 +161,7 @@ impl EthereumPublicKeyChecker<AccountId> for TestRuntime {
     }
 }
 
-fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignature {
+pub(crate) fn generate_signature(author: Author<TestRuntime>, context: &[u8]) -> TestSignature {
     author.key.sign(&(context).encode()).expect("Signature is signed")
 }
 
@@ -187,20 +178,6 @@ pub fn create_confirming_author(author_id: u64) -> Author<TestRuntime> {
     Author::<TestRuntime> { key: UintAuthorityId(author_id), account_id: author_id }
 }
 
-pub fn create_mock_event_partition(events: EthEvent, part: u16) -> EthereumEventsPartition {
-    let mut partition: BoundedBTreeSet<DiscoveredEvent, IncomingEventsBatchLimit> =
-        BoundedBTreeSet::new();
-    partition
-        .try_insert(DiscoveredEvent { event: events.clone(), block: 2 })
-        .unwrap();
-    EthereumEventsPartition::new(
-        EthBlockRange { start_block: 1, length: 1000 },
-        part,
-        false,
-        partition,
-    )
-}
-
 pub fn lower_is_ready_to_be_claimed(lower_id: &u32) -> bool {
     LOWERSREADYTOCLAIM.with(|lowers| lowers.borrow_mut().iter().any(|l| l == lower_id))
 }
@@ -215,8 +192,6 @@ pub fn setup_context() -> Context {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,
     };
-    let author_two = Author::<TestRuntime> { key: UintAuthorityId(22), account_id: 22 };
-    let author_three = Author::<TestRuntime> { key: UintAuthorityId(23), account_id: 23 };
     let mut confirming_validator_id: u64 = 1;
     if primary_validator_id == confirming_validator_id {
         confirming_validator_id += 1
@@ -224,78 +199,20 @@ pub fn setup_context() -> Context {
     let confirming_author = create_confirming_author(confirming_validator_id);
     let second_confirming_author = create_confirming_author(confirming_validator_id + 1);
     let third_confirming_author = create_confirming_author(confirming_validator_id + 2);
-    let fourth_confirming_author = create_confirming_author(confirming_validator_id + 3);
     let test_signature = generate_signature(author.clone(), b"test context");
-    let test_signature_two = generate_signature(author.clone(), b"test context");
-    let test_signature_three = generate_signature(author.clone(), b"test context");
-    let tx_succeeded = false;
     let eth_tx_hash = H256::from_slice(&[0u8; 32]);
-    let already_set_eth_tx_hash = H256::from_slice(&[1u8; 32]);
     let confirmation_signature = ecdsa::Signature::try_from(&[1; 65][0..65]).unwrap();
     let finalised_block_vec = Some(hex::encode(10u32.encode()).into());
-    let eth_event_id =
-        EthEventId { signature: ValidEvents::Lifted.signature(), transaction_hash: eth_tx_hash };
-    let bad_eth_event_id = EthEventId {
-        signature: ValidEvents::Lifted.signature(),
-        transaction_hash: H256::from_slice(&[6u8; 32]),
-    };
-    let bad_eth_event = EthEvent {
-        event_id: bad_eth_event_id.clone(),
-        event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
-            token_contract: H160::zero(),
-            sender_address: H160::zero(),
-            receiver_address: H256::zero(),
-            amount: 1,
-            nonce: U256::zero(),
-        }),
-    };
-    let mock_event_partition = create_mock_event_partition(
-        EthEvent {
-            event_id: eth_event_id.clone(),
-            event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
-                token_contract: H160::zero(),
-                sender_address: H160::zero(),
-                receiver_address: H256::zero(),
-                amount: 1,
-                nonce: U256::zero(),
-            }),
-        },
-        0,
-    );
-    let bad_mock_event_partition = create_mock_event_partition(bad_eth_event, 0);
-
-    let second_mock_event_partition = create_mock_event_partition(
-        EthEvent {
-            event_id: eth_event_id.clone(),
-            event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
-                token_contract: H160::zero(),
-                sender_address: H160::zero(),
-                receiver_address: H256::zero(),
-                amount: 1,
-                nonce: U256::zero(),
-            }),
-        },
-        1,
-    );
 
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(primary_validator_id)]);
 
     Context {
         eth_tx_hash,
-        mock_event_partition,
-        second_mock_event_partition,
-        already_set_eth_tx_hash,
         test_signature,
-        test_signature_two,
-        test_signature_three,
-        tx_succeeded,
         author: author.clone(),
-        author_two: author_two.clone(),
-        author_three: author_three.clone(),
         confirming_author: confirming_author.clone(),
         second_confirming_author: second_confirming_author.clone(),
         third_confirming_author: third_confirming_author.clone(),
-        fourth_confirming_author: fourth_confirming_author.clone(),
         confirmation_signature,
         request_function_name: BridgeContractMethod::PublishRoot.as_bytes().to_vec(),
         request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
@@ -306,9 +223,6 @@ pub fn setup_context() -> Context {
         // if request_params changes, this should also change
         expected_lower_msg_hash: "5892dee772ffe3d97e9525b62805bbcd91bac29026536cfa09269623128280ca"
             .to_string(),
-        eth_event_id,
-        bad_mock_event_partition,
-        bad_eth_event_id,
     }
 }
 
@@ -499,4 +413,8 @@ impl BridgeInterfaceNotification for TestRuntime {
 
         Ok(())
     }
+}
+
+pub(crate) fn contains_event(event: RuntimeEvent) -> bool {
+    System::events().iter().any(|x| x.event == event)
 }

@@ -306,8 +306,6 @@ mod set_admin_setting {
     fn queue_additional_event() {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
-            let new_eth_tx_id = 123u32;
-
             assert_ok!(EthBridge::set_admin_setting(
                 RawOrigin::Root.into(),
                 AdminSettings::QueueAdditionalEthereumEvent(H256::zero()),
@@ -324,6 +322,7 @@ mod set_admin_setting {
         });
     }
 
+    #[allow(deprecated)]
     mod deprecated_endpoints {
         use super::*;
         mod set_eth_tx_lifetime_secs {
@@ -773,7 +772,6 @@ fn publish_to_ethereum_creates_new_transaction_request() {
 fn read_bridge_contract_with_invalid_account_id() {
     let mut ext = ExtBuilder::build_default().with_validators().as_externality();
     ext.execute_with(|| {
-        let context = setup_context();
         let invalid_account_id_encoded = vec![];
 
         let result = EthBridge::read_bridge_contract(
