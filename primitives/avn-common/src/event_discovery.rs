@@ -1,12 +1,10 @@
-use crate::{
-    event_types::{EthEventId, EthTransactionId},
-    *,
-};
+use crate::{event_types::EthTransactionId, *};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use event_types::EthEvent;
 use sp_core::{bounded::BoundedBTreeSet, ConstU32};
 use sp_runtime::traits::Saturating;
+use sp_std::collections::btree_set::BTreeSet;
 
 use self::event_types::ValidEvents;
 
@@ -129,11 +127,69 @@ pub trait EthereumEventsFilterTrait {
         }
         events_filter
     }
+
+    /// Returns a filter with the event types not included in the filter
+    fn get_remaining() -> EthBridgeEventsFilter {
+        let existing_filter = Self::get();
+
+        let remaining_events: BTreeSet<_> = ValidEvents::values()
+            .into_iter()
+            .filter(|e| !existing_filter.contains(e))
+            .collect();
+        let filter = EthBridgeEventsFilter::try_from(remaining_events).unwrap_or_default();
+
+        return filter
+    }
 }
 
 impl EthereumEventsFilterTrait for () {
     fn get() -> EthBridgeEventsFilter {
-        Default::default()
+        filters::NoEventsFilter::get()
+    }
+}
+
+pub mod filters {
+    use super::*;
+
+    pub struct AllEventsFilter;
+    impl EthereumEventsFilterTrait for AllEventsFilter {
+        fn get() -> EthBridgeEventsFilter {
+            let allowed_events: BTreeSet<ValidEvents> = ValidEvents::values().into_iter().collect();
+
+            EthBridgeEventsFilter::try_from(allowed_events).unwrap_or_default()
+        }
+    }
+
+    pub struct NoEventsFilter;
+    impl EthereumEventsFilterTrait for NoEventsFilter {
+        fn get() -> EthBridgeEventsFilter {
+            Default::default()
+        }
+    }
+
+    pub struct AllPrimaryEventsFilter;
+    impl EthereumEventsFilterTrait for AllPrimaryEventsFilter {
+        fn get() -> EthBridgeEventsFilter {
+            AllEventsFilter::get_primary()
+        }
+    }
+
+    pub struct NftEventsFilter;
+    impl EthereumEventsFilterTrait for NftEventsFilter {
+        fn get() -> EthBridgeEventsFilter {
+            let nft_events: BTreeSet<ValidEvents> =
+                ValidEvents::values().into_iter().filter(|e| e.is_nft_event()).collect();
+            EthBridgeEventsFilter::try_from(nft_events).unwrap_or_default()
+        }
+    }
+
+    pub struct CorePrimaryEventsFilter;
+    impl EthereumEventsFilterTrait for CorePrimaryEventsFilter {
+        fn get() -> EthBridgeEventsFilter {
+            let mut filter = NftEventsFilter::get_remaining().into_inner();
+            filter.retain(|e| e.is_primary());
+            EthBridgeEventsFilter::try_from(filter).unwrap_or_default()
+        }
     }
 }
 
@@ -215,7 +271,9 @@ pub mod events_helpers {
 
 #[test]
 pub fn event_id_comparison_is_case_insensitive() {
+    use event_types::EthEventId;
     use hex_literal::hex;
+
     let left = EthEventId {
         signature: H256(hex!("000000000000000000000000000000000000000000000000000000000000dddd")),
         transaction_hash: H256(hex!(

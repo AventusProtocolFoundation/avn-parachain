@@ -12,6 +12,7 @@ use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{
+    event_discovery::filters::AllPrimaryEventsFilter,
     event_types::{EthEvent, EthEventId, LiftedData, ValidEvents},
     BridgeContractMethod,
 };
@@ -107,7 +108,7 @@ impl Config for TestRuntime {
     type BridgeInterfaceNotification = TestRuntime;
     type ReportCorroborationOffence = OffenceHandler;
     type ProcessedEventsChecker = EthBridge;
-    type EthereumEventsFilter = ();
+    type ProcessedEventsHandler = AllPrimaryEventsFilter;
 }
 
 impl system::Config for TestRuntime {

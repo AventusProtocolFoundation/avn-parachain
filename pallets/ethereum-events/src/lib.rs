@@ -195,7 +195,7 @@ pub mod pallet {
         /// Weight information for the extrinsics in this pallet.
         type WeightInfo: WeightInfo;
         type ProcessedEventsChecker: ProcessedEventsChecker;
-        type EthereumEventsFilter: EthereumEventsFilterTrait;
+        type ProcessedEventsHandler: EthereumEventsFilterTrait;
     }
 
     #[pallet::pallet]
@@ -1519,8 +1519,8 @@ impl<T: Config> Pallet<T> {
 
     /// Adds an event: tx_hash must be a nonzero hash
     fn add_event(event_type: ValidEvents, tx_hash: H256, sender: T::AccountId) -> DispatchResult {
-        let filter = T::EthereumEventsFilter::get_primary();
-        ensure!(!filter.contains(&event_type), Error::<T>::ErrorAddingEthereumLog);
+        let filter = T::ProcessedEventsHandler::get_primary();
+        ensure!(filter.contains(&event_type), Error::<T>::ErrorAddingEthereumLog);
         ensure!(event_type.is_primary(), Error::<T>::InvalidEventToProcess);
 
         let event_id = EthEventId { signature: event_type.signature(), transaction_hash: tx_hash };

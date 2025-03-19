@@ -191,7 +191,7 @@ pub mod pallet {
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
         type ProcessedEventsChecker: ProcessedEventsChecker;
-        type EthereumEventsFilter: EthereumEventsFilterTrait;
+        type ProcessedEventsHandler: EthereumEventsFilterTrait;
     }
 
     #[pallet::event]
@@ -694,7 +694,7 @@ pub mod pallet {
                 ActiveEthereumRange::<T>::put(ActiveEthRange {
                     range: selected_range,
                     partition: 0,
-                    event_types_filter: T::EthereumEventsFilter::get(),
+                    event_types_filter: T::ProcessedEventsHandler::get(),
                     additional_transactions: AdditionalEthereumEventsQueue::<T>::take(),
                 });
 
@@ -926,7 +926,7 @@ pub mod pallet {
             ActiveEthRange {
                 range: active_range.range.next_range(),
                 partition: 0,
-                event_types_filter: T::EthereumEventsFilter::get(),
+                event_types_filter: T::ProcessedEventsHandler::get(),
                 additional_transactions,
             }
         } else {
