@@ -1,9 +1,5 @@
 use super::*;
-use crate::{
-    self as eth_bridge, incoming_events_tests::create_mock_event_partition,
-    request::add_new_send_request,
-};
-use avn;
+use crate::{self as eth_bridge, request::add_new_send_request};
 use frame_support::{derive_impl, parameter_types};
 use sp_state_machine::BasicExternalities;
 
@@ -12,16 +8,14 @@ use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{
-    event_discovery::filters::AllPrimaryEventsFilter,
-    event_types::{EthEvent, EthEventId, LiftedData, ValidEvents},
-    BridgeContractMethod,
+    event_discovery::filters::AllPrimaryEventsFilter, event_types::EthEvent, BridgeContractMethod,
 };
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    ConstU32, ConstU64, H256, U256,
+    ConstU32, ConstU64, H256,
 };
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
