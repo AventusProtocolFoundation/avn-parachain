@@ -3,12 +3,13 @@
 use super::*;
 use codec::Decode;
 use frame_support::{
+    derive_impl,
     pallet_prelude::{DispatchClass, Weight},
     parameter_types,
     traits::EqualPrivilegeOnly,
     PalletId,
 };
-use frame_system::{self as system, limits::BlockWeights, EnsureRoot};
+use frame_system::{self as system, limits::BlockWeights, DefaultConfig, EnsureRoot};
 use hex_literal::hex;
 use libsecp256k1::{sign, Message, PublicKey, SecretKey};
 use pallet_avn::BridgeInterfaceNotification;
@@ -20,7 +21,7 @@ use sp_core::{keccak_256, sr25519, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    traits::{ConvertInto, IdentityLookup, Verify},
     BuildStorage, MultiSignature, Perbill,
 };
 pub use std::sync::Arc;
@@ -101,50 +102,24 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
     type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Block = Block;
+    type AccountData = pallet_balances::AccountData<u128>;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u128>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = EXISTENTIAL_DEPOSIT;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
-    type MaxLocks = frame_support::traits::ConstU32<1024>;
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
     type Balance = u128;
-    type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type WeightInfo = ();
-    type RuntimeHoldReason = ();
-    type FreezeIdentifier = ();
-    type MaxHolds = ();
-    type MaxFreezes = ();
 }
 
 impl pallet_nft_manager::Config for TestRuntime {
