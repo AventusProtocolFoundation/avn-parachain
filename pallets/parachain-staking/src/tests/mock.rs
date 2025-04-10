@@ -22,28 +22,28 @@ use crate::{
 use codec::{Decode, Encode};
 use core::cell::RefCell;
 use frame_support::{
-    assert_ok, construct_runtime,
+    assert_ok, construct_runtime, derive_impl,
     dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
     parameter_types,
     traits::{
-        ConstU8, Currency, Everything, FindAuthor, Imbalance, LockIdentifier, OnFinalize,
-        OnInitialize, OnUnbalanced, ValidatorRegistration,
+        ConstU8, Currency, FindAuthor, Imbalance, LockIdentifier, OnFinalize, OnInitialize,
+        OnUnbalanced, ValidatorRegistration,
     },
     weights::{Weight, WeightToFee as WeightToFeeT},
     PalletId,
 };
-use frame_system::{self as system, limits};
+use frame_system::{self as system, limits, DefaultConfig};
 use pallet_avn::CollatorPayoutDustHandler;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_eth_bridge;
 use pallet_session as session;
 use pallet_transaction_payment::{ChargeTransactionPayment, CurrencyAdapter};
 use sp_avn_common::{FeePaymentHandler, InnerCallValidator};
-use sp_core::{sr25519, ConstU64, Pair, H256};
+use sp_core::{sr25519, ConstU64, Pair};
 use sp_io;
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, SignedExtension, Verify},
+    traits::{ConvertInto, IdentityLookup, SignedExtension, Verify},
     BuildStorage, DispatchError, Perbill, SaturatedConversion,
 };
 
@@ -134,48 +134,24 @@ parameter_types! {
     .avg_block_initialization(Perbill::from_percent(0))
     .build_or_panic();
 }
-impl frame_system::Config for Test {
-    type BaseCallFilter = Everything;
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl system::Config for Test {
     type Nonce = u64;
-    type RuntimeCall = RuntimeCall;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Block = Block;
+    type AccountData = pallet_balances::AccountData<u128>;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type BlockWeights = RuntimeBlockWeights;
-    type BlockLength = BlockLength;
-    type SS58Prefix = SS58Prefix;
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
+
 parameter_types! {
     pub const ExistentialDeposit: u128 = 0;
 }
+
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for Test {
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 4];
-    type MaxLocks = ();
     type Balance = Balance;
-    type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type WeightInfo = ();
-    type FreezeIdentifier = ();
-    type MaxFreezes = ();
-    type MaxHolds = ();
-    type RuntimeHoldReason = ();
 }
 
 pub struct Author4;
@@ -323,13 +299,9 @@ impl WeightToFeeT for TransactionByteFee {
     }
 }
 
-impl pallet_avn::Config for Test {
-    type RuntimeEvent = RuntimeEvent;
-    type AuthorityId = UintAuthorityId;
-    type EthereumPublicKeyChecker = ();
-    type NewSessionHandler = ();
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
+impl avn::Config for Test {
     type DisabledValidatorChecker = ();
-    type WeightInfo = ();
 }
 
 impl session::Config for Test {
