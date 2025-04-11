@@ -3,6 +3,21 @@ name: Docker Build
 on:
   workflow_call:
     inputs:
+      runs_on:
+        required: false
+        type: string
+        description: 'Machine type where the workflow will be run'
+        default: avn-runner
+      parachain-collator-artifact:
+        required: false
+        type: string
+        description: 'Parachain collator artifact name'
+        default: avn-parachain-collator
+      parachain-runtime-artifact:
+        required: false
+        type: string
+        description: 'Parachain runtime artifact name'
+        default: avn-parachain-runtime
       release:
         required: true
         type: string
@@ -20,7 +35,7 @@ env:
 
 jobs:
   docker-build:
-    runs-on: avn-runner
+    runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
@@ -28,13 +43,13 @@ jobs:
       - name: get AvN Parachain collator Artifact
         uses: actions/download-artifact@v4
         with:
-          name: avn-parachain-collator
+          name: ${{ inputs.parachain-collator-artifact }}
           path: target/release/
 
       - name: get AvN Parachain runtime Artifact
         uses: actions/download-artifact@v4
         with:
-          name: avn-parachain-runtime
+          name: ${{ inputs.parachain-runtime-artifact }}
           path: target/release/wbuild/avn-parachain-runtime/
 
       - name: Set 'x' rights

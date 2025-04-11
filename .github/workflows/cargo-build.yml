@@ -6,13 +6,33 @@ on:
       upload_artifacts:
         required: true
         type: boolean
+      runs_on:
+        required: false
+        type: string
+        description: 'Machine type where the workflow will be run'
+        default: avn-runner
+      parachain-collator-artifact:
+        required: false
+        type: string
+        description: 'Parachain collator artifact name'
+        default: avn-parachain-collator
+      parachain-runtime-artifact:
+        required: false
+        type: string
+        description: 'Parachain runtime artifact name'
+        default: avn-parachain-runtime
+      parachain-test-runtime-artifact:
+        required: false
+        type: string
+        description: 'Parachain test runtime artifact name'
+        default: avn-parachain-test-runtime
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   cargo-build:
-    runs-on: avn-runner
+    runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 90
     steps:
       - name: Check out
@@ -36,7 +56,7 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ inputs.runs_on }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Set up cargo cache - build
         uses: actions/cache@v3
@@ -44,7 +64,7 @@ jobs:
         with:
           path: |
             target/
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ inputs.runs_on }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build
         run: cargo build --locked --release
@@ -53,22 +73,25 @@ jobs:
         if: ${{ inputs.upload_artifacts }}
         uses: actions/upload-artifact@v4
         with:
-          name: avn-parachain-collator
+          name: ${{ inputs.parachain-collator-artifact }}
           path: target/release/avn-parachain-collator
           if-no-files-found: error
+          retention-days: 1
 
       - name: AvN Parachain runtime Artifact
         if: ${{ inputs.upload_artifacts }}
         uses: actions/upload-artifact@v4
         with:
-          name: avn-parachain-runtime
+          name: ${{ inputs.parachain-runtime-artifact }}
           path: target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
           if-no-files-found: error
+          retention-days: 1
 
       - name: AvN Parachain Test runtime Artifact
         if: ${{ inputs.upload_artifacts }}
         uses: actions/upload-artifact@v4
         with:
-          name: avn-parachain-test-runtime
+          name: ${{ inputs.parachain-test-runtime-artifact }}
           path: target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm
           if-no-files-found: error
+          retention-days: 1

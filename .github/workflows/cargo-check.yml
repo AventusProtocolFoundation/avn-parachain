@@ -3,6 +3,11 @@ name: Cargo Check
 on:
   workflow_call:
     inputs:
+      runs_on:
+        required: false
+        type: string
+        description: 'Machine type where the workflow will be run'
+        default: avn-runner
       fetch-depth:
         required: false
         type: number
@@ -18,7 +23,7 @@ on:
 
 jobs:
   cargo-check:
-    runs-on: avn-runner
+    runs-on: ${{ inputs.runs_on }}
     timeout-minutes: 90
     steps:
       - name: Check out
@@ -46,14 +51,14 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-          key: ${{ runner.os }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ inputs.runs_on }}-cargo-common-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Restore cargo cache - test
         uses: actions/cache@v3
         with:
           path: |
             target/
-          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ inputs.runs_on }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Check Code
         run: cargo check --locked
