@@ -77,7 +77,6 @@ jobs:
       (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
     uses: ./.github/workflows/docker-build.yml
     with:
-      runs_on: gh-ubuntu-2404-x64
       parachain-collator-artifact: parachain-collator
       parachain-runtime-artifact: parachain-runtime
       release: ${{ needs.set-up-job.outputs.RELEASE }}
