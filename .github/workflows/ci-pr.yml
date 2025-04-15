@@ -87,18 +87,6 @@ jobs:
       ref: ${{ github.event.pull_request.head.ref }}
       repository: ${{ github.event.pull_request.head.repo.full_name }}
 
-  check-code-ubuntu2404:
-    needs: [ set-up-job ]
-    if: |
-      ( !github.event.pull_request.draft ) &&
-      ( needs.set-up-job.outputs.SKIP_TESTS != 'true' )
-    uses: ./.github/workflows/cargo-check.yml
-    with:
-      runs_on: gh-ubuntu-2404-x64
-      fetch-depth: 0
-      ref: ${{ github.event.pull_request.head.ref }}
-      repository: ${{ github.event.pull_request.head.repo.full_name }}
-
   test-code:
     needs: [ set-up-job ]
     if: |
@@ -106,18 +94,6 @@ jobs:
       ( needs.set-up-job.outputs.SKIP_TESTS != 'true' )
     uses: ./.github/workflows/cargo-test.yml
     with:
-      fetch-depth: 0
-      ref: ${{ github.event.pull_request.head.ref }}
-      repository: ${{ github.event.pull_request.head.repo.full_name }}
-
-  test-code-ubuntu2404:
-    needs: [ set-up-job ]
-    if: |
-      ( !github.event.pull_request.draft ) &&
-      ( needs.set-up-job.outputs.SKIP_TESTS != 'true' )
-    uses: ./.github/workflows/cargo-test.yml
-    with:
-      runs_on: gh-ubuntu-2404-x64
       fetch-depth: 0
       ref: ${{ github.event.pull_request.head.ref }}
       repository: ${{ github.event.pull_request.head.repo.full_name }}

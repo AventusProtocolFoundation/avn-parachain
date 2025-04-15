@@ -73,13 +73,6 @@ jobs:
     if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/cargo-test.yml
 
-  test-code-ubuntu2404:
-    needs: [set-up-job]
-    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
-    uses: ./.github/workflows/cargo-test.yml
-    with:
-      runs_on: gh-ubuntu-2404-x64
-
   build-code:
     needs: [ set-up-job ]
     uses: ./.github/workflows/cargo-build.yml
@@ -99,11 +92,11 @@ jobs:
     secrets: inherit
 
   build-docker:
-    needs: [ set-up-job, build-code-ubuntu2404, test-code-ubuntu2404 ]
+    needs: [ set-up-job, build-code-ubuntu2404, test-code ]
     if: |
       always() &&
       (needs.build-code-ubuntu2404.result == 'success') &&
-      (needs.test-code-ubuntu2404.result == 'success' || needs.test-code-ubuntu2404.result == 'skipped')
+      (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
     uses: ./.github/workflows/docker-build.yml
     with:
       runs_on: gh-ubuntu-2404-x64

@@ -9,11 +9,6 @@ jobs:
   test-code:
     uses: ./.github/workflows/cargo-test.yml
 
-  test-code-ubuntu2404:
-    uses: ./.github/workflows/cargo-test.yml
-    with:
-      runs_on: gh-ubuntu-2404-x64
-
   build-code:
     needs: [ test-code ]
     uses: ./.github/workflows/cargo-build.yml
@@ -22,7 +17,7 @@ jobs:
     secrets: inherit
 
   build-code-ubuntu2404:
-    needs: [ test-code-ubuntu2404 ]
+    needs: [ test-code ]
     uses: ./.github/workflows/cargo-build.yml
     with:
       runs_on: gh-ubuntu-2404-x64

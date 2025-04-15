@@ -7,7 +7,7 @@ on:
         required: false
         type: string
         description: 'Machine type where the workflow will be run'
-        default: avn-runner
+        default: gh-ubuntu-2404-x64
       fetch-depth:
         required: false
         type: number
