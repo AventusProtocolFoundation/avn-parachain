@@ -3,6 +3,21 @@ name: GH Release
 on:
   workflow_call:
     inputs:
+      parachain-collator-artifact:
+        required: false
+        type: string
+        description: 'Parachain collator artifact name'
+        default: avn-parachain-collator
+      parachain-runtime-artifact:
+        required: false
+        type: string
+        description: 'Parachain runtime artifact name'
+        default: avn-parachain-runtime
+      parachain-test-runtime-artifact:
+        required: false
+        type: string
+        description: 'Parachain test runtime artifact name'
+        default: avn-parachain-test-runtime
       repo_tag:
         required: true
         type: string
@@ -16,7 +31,7 @@ env:
 
 jobs:
   gh-release:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - name: Check out
         uses: actions/checkout@v3
@@ -26,19 +41,19 @@ jobs:
       - name: get AvN Parachain collator Artifact
         uses: actions/download-artifact@v4
         with:
-          name: avn-parachain-collator
+          name: ${{ inputs.parachain-collator-artifact }}
           path: target/release/
 
       - name: get AvN Parachain runtime Artifact
         uses: actions/download-artifact@v4
         with:
-          name: avn-parachain-runtime
+          name: ${{ inputs.parachain-runtime-artifact }}
           path: target/release/wbuild/avn-parachain-runtime/
 
       - name: get AvN Parachain test runtime Artifact
         uses: actions/download-artifact@v4
         with:
-          name: avn-parachain-test-runtime
+          name: ${{ inputs.parachain-test-runtime-artifact }}
           path: target/release/wbuild/avn-parachain-test-runtime/
 
       - name: add sha256sum to files

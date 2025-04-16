@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 # metadata
 ARG VCS_REF
@@ -20,7 +20,6 @@ ENV RUST_BACKTRACE 1
 # install tools and dependencies
 RUN apt-get update && \
 	DEBIAN_FRONTEND=noninteractive apt-get install -y \
-	libssl1.1 \
 	ca-certificates \
 	curl \
 	jq && \
@@ -29,7 +28,7 @@ RUN apt-get update && \
 	apt-get clean && \
 	find /var/lib/apt/lists/ -type f -not -name lock -delete; \
 	# add user and link ~/.local/share/avn-parachain-collator to /data
-	useradd -m -u 1000 -U -s /bin/sh -d /avn-node avn-node && \
+	useradd --system --no-create-home --shell /usr/sbin/nologin -U avn-node && \
 	mkdir -p /data /avn-node/.local/share && \
 	chown -R avn-node:avn-node /data && \
 	ln -s /data /avn-node/.local/share/avn-parachain-collator && \
