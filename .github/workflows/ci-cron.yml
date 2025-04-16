@@ -15,3 +15,12 @@ jobs:
     with:
       upload_artifacts: false
     secrets: inherit
+
+  build-code-ubuntu2404:
+    needs: [ test-code ]
+    uses: ./.github/workflows/cargo-build.yml
+    with:
+      runs_on: gh-ubuntu-2404-x64
+      upload_artifacts: false
+    secrets: inherit
+
