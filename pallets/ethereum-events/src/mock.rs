@@ -171,7 +171,9 @@ thread_local! {
 }
 
 #[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
-impl avn::Config for TestRuntime {}
+impl avn::Config for TestRuntime {
+    type AuthorityId = UintAuthorityId;
+}
 pub struct TestSessionManager;
 impl session::SessionManager<AccountId> for TestSessionManager {
     fn new_session(_new_index: SessionIndex) -> Option<Vec<AccountId>> {
