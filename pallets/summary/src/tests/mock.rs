@@ -422,7 +422,9 @@ impl system::Config for TestRuntime {
 }
 
 #[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
-impl avn::Config for TestRuntime {}
+impl avn::Config for TestRuntime {
+    type AuthorityId = UintAuthorityId;
+}
 
 impl pallet_eth_bridge::Config for TestRuntime {
     type MaxQueuedTxRequests = frame_support::traits::ConstU32<100>;

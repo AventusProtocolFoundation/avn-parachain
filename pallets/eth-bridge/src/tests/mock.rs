@@ -114,7 +114,9 @@ impl system::Config for TestRuntime {
 #[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
 impl avn::Config for TestRuntime {
     type EthereumPublicKeyChecker = Self;
+    type AuthorityId = UintAuthorityId;
 }
+
 impl pallet_timestamp::Config for TestRuntime {
     type Moment = u64;
     type OnTimestampSet = ();

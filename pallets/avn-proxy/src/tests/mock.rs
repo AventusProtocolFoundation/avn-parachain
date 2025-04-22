@@ -132,13 +132,9 @@ impl pallet_nft_manager::Config for TestRuntime {
     type BatchBound = ConstU32<10>;
 }
 
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
 impl pallet_avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
-    type EthereumPublicKeyChecker = ();
-    type NewSessionHandler = ();
-    type DisabledValidatorChecker = ();
-    type WeightInfo = ();
 }
 
 parameter_types! {

@@ -157,9 +157,9 @@ impl system::Config for TestRuntime {
 
 #[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
 impl avn::Config for TestRuntime {
+    type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = AuthorsManager;
-    type DisabledValidatorChecker = ();
 }
 
 parameter_types! {
