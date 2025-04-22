@@ -28,7 +28,9 @@ frame_support::construct_runtime!(
 pub type ValidatorId = <TestRuntime as session::Config>::ValidatorId;
 
 #[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
-impl pallet_avn::Config for TestRuntime {}
+impl pallet_avn::Config for TestRuntime {
+    type AuthorityId = UintAuthorityId;
+}
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;

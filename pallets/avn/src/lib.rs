@@ -124,7 +124,6 @@ pub mod pallet {
     pub mod config_preludes {
         use super::*;
         use frame_support::derive_impl;
-        use sp_runtime::testing::UintAuthorityId;
         pub struct TestDefaultConfig;
 
         #[derive_impl(frame_system::config_preludes::TestDefaultConfig as frame_system::DefaultConfig, no_aggregated_types)]
@@ -134,7 +133,7 @@ pub mod pallet {
         impl DefaultConfig for TestDefaultConfig {
             #[inject_runtime_type]
             type RuntimeEvent = ();
-            type AuthorityId = UintAuthorityId;
+            type AuthorityId = sp_application_crypto::sr25519::AppPublic;
             type EthereumPublicKeyChecker = ();
             type NewSessionHandler = ();
             type DisabledValidatorChecker = ();

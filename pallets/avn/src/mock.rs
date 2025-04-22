@@ -31,7 +31,9 @@ frame_support::construct_runtime!(
 );
 
 #[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
-impl Config for TestRuntime {}
+impl Config for TestRuntime {
+    type AuthorityId = UintAuthorityId;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
