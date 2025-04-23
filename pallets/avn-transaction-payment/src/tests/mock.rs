@@ -61,6 +61,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
+    type BlockWeights = RuntimeBlockWeights;
     type Nonce = u64;
     type Block = Block;
     type AccountId = AccountId;

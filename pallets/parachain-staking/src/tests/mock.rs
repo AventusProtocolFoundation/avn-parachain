@@ -136,6 +136,7 @@ parameter_types! {
 }
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for Test {
+    type BlockWeights = RuntimeBlockWeights;
     type Nonce = u64;
     type Block = Block;
     type AccountData = pallet_balances::AccountData<u128>;
