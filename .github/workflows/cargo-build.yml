@@ -76,7 +76,7 @@ jobs:
           name: ${{ inputs.parachain-collator-artifact }}
           path: target/release/avn-parachain-collator
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
       - name: AvN Parachain runtime Artifact
         if: ${{ inputs.upload_artifacts }}
@@ -85,7 +85,7 @@ jobs:
           name: ${{ inputs.parachain-runtime-artifact }}
           path: target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
 
       - name: AvN Parachain Test runtime Artifact
         if: ${{ inputs.upload_artifacts }}
@@ -94,4 +94,4 @@ jobs:
           name: ${{ inputs.parachain-test-runtime-artifact }}
           path: target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
