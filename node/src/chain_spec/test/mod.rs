@@ -58,12 +58,6 @@ pub(crate) fn avn_test_runtime_genesis(
             _phantom: Default::default(),
             bridge_contract_address: avn_eth_contract.clone(),
         },
-        system: avn_test_runtime::SystemConfig {
-            code: avn_test_runtime::WASM_BINARY
-                .expect("WASM binary was not build, please build it!")
-                .to_vec(),
-            ..Default::default()
-        },
         balances: avn_test_runtime::BalancesConfig {
             balances: endowed_accounts.iter().cloned().map(|(k, a)| (k, a)).collect(),
         },
@@ -109,11 +103,7 @@ pub(crate) fn avn_test_runtime_genesis(
                 .collect::<Vec<_>>(),
         },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![], ..Default::default() },
-        aura: Default::default(),
-        aura_ext: Default::default(),
         im_online: ImOnlineConfig { keys: vec![] },
-        nft_manager: Default::default(),
-        parachain_system: Default::default(),
         parachain_staking: ParachainStakingConfig {
             candidates: candidates
                 .iter()
@@ -130,7 +120,7 @@ pub(crate) fn avn_test_runtime_genesis(
             ..Default::default()
         },
         sudo: SudoConfig { key: Some(sudo_account) },
-        summary: SummaryConfig { schedule_period, voting_period },
+        summary: SummaryConfig { schedule_period, voting_period, _phantom: Default::default() },
         anchor_summary: AnchorSummaryConfig {
             schedule_period,
             voting_period,
@@ -145,6 +135,8 @@ pub(crate) fn avn_test_runtime_genesis(
             avt_token_contract,
             lower_schedule_period: 10,
             balances: vec![],
+            ..Default::default()
         },
+        ..Default::default()
     }
 }

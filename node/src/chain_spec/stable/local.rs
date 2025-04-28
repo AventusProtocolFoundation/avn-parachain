@@ -2,6 +2,8 @@ use crate::chain_spec::{
     avn_chain_properties, constants::*, ChainSpec, ChainType, EthPublicKey, Extensions,
 };
 
+use avn_parachain_runtime::{self as avn_runtime};
+
 use crate::chain_spec::stable::{
     get_account_id_from_seed, get_account_id_from_seed_no_derivation, get_authority_keys_from_seed,
     testnet_genesis,
@@ -77,6 +79,7 @@ pub fn development_config() -> ChainSpec {
             relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
             para_id: dev_rococo_parachain_id,
         },
+        avn_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
     )
 }
 
@@ -155,6 +158,7 @@ pub fn local_testnet_config() -> ChainSpec {
             relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
             para_id: 2000,
         },
+        avn_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
     )
 }
 

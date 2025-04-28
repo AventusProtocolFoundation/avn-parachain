@@ -59,12 +59,6 @@ pub(crate) fn testnet_genesis(
             _phantom: Default::default(),
             bridge_contract_address: avn_eth_contract.clone(),
         },
-        system: avn_runtime::SystemConfig {
-            code: avn_runtime::WASM_BINARY
-                .expect("WASM binary was not build, please build it!")
-                .to_vec(),
-            ..Default::default()
-        },
         balances: avn_runtime::BalancesConfig {
             balances: endowed_accounts.iter().cloned().map(|(k, a)| (k, a)).collect(),
         },
@@ -85,7 +79,6 @@ pub(crate) fn testnet_genesis(
         },
         // no need to pass anything to aura, in fact it will panic if we do. Session will take care
         // of this.
-        assets: Default::default(),
         eth_bridge: EthBridgeConfig {
             _phantom: Default::default(),
             eth_tx_lifetime_secs: 60 * 30 as u64, // 30 minutes
@@ -107,11 +100,7 @@ pub(crate) fn testnet_genesis(
                 .collect::<Vec<_>>(),
         },
         authority_discovery: AuthorityDiscoveryConfig { keys: vec![], ..Default::default() },
-        aura: Default::default(),
-        aura_ext: Default::default(),
         im_online: ImOnlineConfig { keys: vec![] },
-        nft_manager: Default::default(),
-        parachain_system: Default::default(),
         parachain_staking: ParachainStakingConfig {
             candidates: candidates
                 .iter()
@@ -149,5 +138,6 @@ pub(crate) fn testnet_genesis(
                 }
             },
         },
+        ..Default::default()
     }
 }

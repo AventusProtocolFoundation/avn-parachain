@@ -1,6 +1,7 @@
 use crate::chain_spec::{
     avn_chain_properties, constants::*, helpers::*, ChainType, EthPublicKey, Extensions,
 };
+use avn_test_runtime::{self as avn_test_runtime};
 
 use crate::chain_spec::test::{avn_test_runtime_genesis, get_account_id_from_seed, ChainSpec};
 use hex_literal::hex;
@@ -72,6 +73,7 @@ pub fn avn_garde_local_config() -> ChainSpec {
             relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
             para_id: 2000,
         },
+        avn_test_runtime::WASM_BINARY.expect("WASM binary was not build, please build it!"),
     )
 }
 
