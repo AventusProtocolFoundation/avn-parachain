@@ -162,7 +162,7 @@ impl Extensions {
 }
 
 /// Sets currency to AVT for an AvN chain
-pub(crate) fn avn_chain_properties() -> Option<sc_chain_spec::Properties> {
+pub(crate) fn avn_chain_properties() -> sc_chain_spec::Properties {
     // Give your base currency a unit name and decimal places
     let mut properties = sc_chain_spec::Properties::new();
     properties.insert("tokenSymbol".into(), "AVT".into());
@@ -170,5 +170,5 @@ pub(crate) fn avn_chain_properties() -> Option<sc_chain_spec::Properties> {
     properties.insert("ss58Format".into(), 42.into());
     // TODO: Replace with this when we switch to using custom prefixes
     // properties.insert("ss58Format".into(), 65.into());
-    return Some(properties)
+    return properties
 }

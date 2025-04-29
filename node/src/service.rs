@@ -52,23 +52,23 @@ type ParachainBackend = TFullBackend<Block>;
 type ParachainBlockImport<RuntimeApi> =
     TParachainBlockImport<Block, Arc<ParachainClient<RuntimeApi>>, ParachainBackend>;
 
+/// Assembly of PartialComponents (enough to run chain ops subcommands)
+pub type Service<RuntimeApi> = PartialComponents<
+    ParachainClient<RuntimeApi>,
+    ParachainBackend,
+    (),
+    sc_consensus::DefaultImportQueue<Block>,
+    sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
+    (ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
+>;
+
 /// Starts a `ServiceBuilder` for a full service.
 ///
 /// Use this macro if you don't actually need the full service, but just the builder in order to
 /// be able to perform chain operations.
 pub fn new_partial<RuntimeApi>(
     config: &Configuration,
-) -> Result<
-    PartialComponents<
-        ParachainClient<RuntimeApi>,
-        ParachainBackend,
-        (),
-        sc_consensus::DefaultImportQueue<Block>,
-        sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
-        (ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
-    >,
-    sc_service::Error,
->
+) -> Result<Service<RuntimeApi>, sc_service::Error>
 where
     RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
     RuntimeApi::RuntimeApi: AvnRuntimeApiCollection,
@@ -273,6 +273,8 @@ where
     if let Some(hwbench) = hwbench {
         sc_sysinfo::print_hwbench(&hwbench);
 
+        // TODO: check hw bench.
+
         if let Some(ref mut telemetry) = telemetry {
             let telemetry_handle = telemetry.handle();
             task_manager.spawn_handle().spawn(
@@ -471,6 +473,7 @@ where
         collator_service,
         // Very limited proposal time.
         authoring_duration: Duration::from_millis(500),
+        collation_request_receiver: None,
     };
 
     let fut =
