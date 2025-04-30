@@ -101,8 +101,9 @@ impl InsertAvNKeyCmd {
         let (keystore, public) = match keystore_config {
             KeystoreConfig::Path { path, password } => {
                 let public: Vec<u8> = match self.scheme {
-                    AvNCryptoScheme::EcdsaSeed =>
-                        get_public_key_string_bytes_from_private_key(suri.as_str())?,
+                    AvNCryptoScheme::EcdsaSeed => {
+                        get_public_key_string_bytes_from_private_key(suri.as_str())?
+                    },
                     scheme => with_crypto_scheme!(
                         scheme.to_substrate_crypto_scheme().expect("Already checked"),
                         to_vec(&suri, password.clone())
@@ -148,7 +149,11 @@ fn to_vec<P: sp_core::Pair>(uri: &str, pass: Option<SecretString>) -> Result<Vec
 
 #[cfg(test)]
 mod tests {
+    use std::{any::Any, process::id};
+
     use super::*;
+    use futures::io::Chain;
+    use polkadot_service::chain_spec::Extensions;
     use sc_service::{ChainSpec, ChainType, GenericChainSpec, NoExtension};
     use sp_core::{sr25519::Pair, ByteArray, Pair as _};
     use tempfile::TempDir;
@@ -181,18 +186,16 @@ mod tests {
         }
 
         fn load_spec(&self, _: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
-            Ok(Box::new(GenericChainSpec::from_genesis(
-                "test",
-                "test_id",
-                ChainType::Development,
-                || unimplemented!("Not required in tests"),
-                Vec::new(),
-                None,
-                None,
-                None,
-                None,
-                NoExtension::None,
-            )))
+            Ok(
+                Box::new(GenericChainSpec::<(), Extensions>::builder(
+                    avn_parachain_runtime::WASM_BINARY
+                        .expect("WASM binary was not built, please build it!"),
+                    Extensions {..Default::default()},
+                )
+                .with_name("test")
+                .with_id("test_id")
+                .with_chain_type(ChainType::Development).build()),
+            )
         }
     }
 
