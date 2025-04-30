@@ -131,7 +131,7 @@ fn get_public_key_string_bytes_from_private_key(suri: &str) -> Result<Vec<u8>, E
         web3SecretKey::from_slice(&seed_encoded).map_err(|_| Error::KeyFormatInvalid)?;
     let public_eth_address: H160 = secret_key_address(&secret_key);
 
-    return get_ethereum_public_address_lowercase_string_bytes(public_eth_address);
+    return get_ethereum_public_address_lowercase_string_bytes(public_eth_address)
 }
 
 fn get_ethereum_public_address_lowercase_string_bytes(
