@@ -2,14 +2,13 @@
 
 use crate::{self as authors_manager, *};
 use frame_support::{
-    parameter_types,
+    derive_impl, parameter_types,
     traits::{Currency, OnFinalize, OnInitialize},
 };
 use sp_state_machine::BasicExternalities;
 
 use hex_literal::hex;
 use pallet_avn::{BridgeInterfaceNotification, EthereumPublicKeyChecker, ProcessedEventsChecker};
-use pallet_balances as balances;
 use pallet_timestamp as timestamp;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
@@ -18,9 +17,12 @@ use sp_avn_common::{
 use sp_core::{ecdsa::Public, sr25519, ByteArray, ConstU64, Get, Pair, H256};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, Verify},
+    traits::{ConvertInto, IdentityLookup, Verify},
     BuildStorage,
 };
+
+use frame_system::{self as system, DefaultConfig};
+use pallet_session as session;
 
 use std::cell::RefCell;
 
@@ -98,9 +100,6 @@ frame_support::construct_runtime!(
     }
 );
 
-use frame_system::{self as system};
-use pallet_session as session;
-
 impl AuthorsManager {
     pub fn insert_authors_action_data(action_id: &ActionId<AccountId>) {
         <AuthorActions<TestRuntime>>::insert(
@@ -147,59 +146,31 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
     type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Block = Block;
+    type AccountData = pallet_balances::AccountData<u128>;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = balances::AccountData<u128>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
 impl avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = AuthorsManager;
-    type DisabledValidatorChecker = ();
-    type WeightInfo = ();
 }
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = EXISTENTIAL_DEPOSIT;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
-    type MaxLocks = frame_support::traits::ConstU32<1024>;
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
     type Balance = u128;
-    type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type WeightInfo = ();
-    type RuntimeHoldReason = ();
-    type FreezeIdentifier = ();
-    type MaxHolds = ();
-    type MaxFreezes = ();
 }
 
 parameter_types! {

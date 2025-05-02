@@ -1,31 +1,25 @@
 use super::*;
-use crate::{
-    self as eth_bridge, incoming_events_tests::create_mock_event_partition,
-    request::add_new_send_request,
-};
-use avn;
-use frame_support::parameter_types;
+use crate::{self as eth_bridge, request::add_new_send_request};
+use frame_support::{derive_impl, parameter_types};
 use sp_state_machine::BasicExternalities;
 
-use frame_system as system;
+use frame_system::{self as system, DefaultConfig};
 use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{
-    event_discovery::filters::AllPrimaryEventsFilter,
-    event_types::{EthEvent, EthEventId, LiftedData, ValidEvents},
-    BridgeContractMethod,
+    event_discovery::filters::AllPrimaryEventsFilter, event_types::EthEvent, BridgeContractMethod,
 };
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    ConstU32, ConstU64, H256, U256,
+    ConstU32, ConstU64, H256,
 };
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    traits::ConvertInto,
     BuildStorage, DispatchError, DispatchResult, Perbill,
 };
 use sp_staking::offence::OffenceError;
@@ -111,30 +105,16 @@ impl Config for TestRuntime {
     type ProcessedEventsHandler = AllPrimaryEventsFilter;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
     type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = AccountId;
-    type Lookup = IdentityLookup<Self::AccountId>;
     type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
+}
+
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
+impl avn::Config for TestRuntime {
+    type EthereumPublicKeyChecker = Self;
+    type AuthorityId = UintAuthorityId;
 }
 
 impl pallet_timestamp::Config for TestRuntime {
@@ -142,15 +122,6 @@ impl pallet_timestamp::Config for TestRuntime {
     type OnTimestampSet = ();
     type MinimumPeriod = ConstU64<12000>;
     type WeightInfo = ();
-}
-
-impl avn::Config for TestRuntime {
-    type AuthorityId = UintAuthorityId;
-    type EthereumPublicKeyChecker = Self;
-    type NewSessionHandler = ();
-    type DisabledValidatorChecker = ();
-    type WeightInfo = ();
-    type RuntimeEvent = RuntimeEvent;
 }
 
 impl EthereumPublicKeyChecker<AccountId> for TestRuntime {

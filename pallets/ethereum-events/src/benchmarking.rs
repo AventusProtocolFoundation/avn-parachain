@@ -285,8 +285,7 @@ benchmarks! {
     verify {
         result.ready_for_processing_after_block = <frame_system::Pallet<T>>::block_number()
             .checked_add(&EventChallengePeriod::<T>::get())
-            .ok_or(Error::<T>::Overflow).unwrap()
-            .into();
+            .ok_or(Error::<T>::Overflow).unwrap();
         result.min_challenge_votes = (validators.len() as u32) / <QuorumFactor<T>>::get();
 
         assert_eq!(UncheckedEvents::<T>::get().len(), unchecked_events_length - (1 as usize));

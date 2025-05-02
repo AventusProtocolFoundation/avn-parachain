@@ -3,15 +3,17 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
+    derive_impl,
     pallet_prelude::DispatchClass,
     parameter_types,
-    traits::{ConstU16, ConstU64, ConstU8, Imbalance, OnFinalize, OnInitialize, OnUnbalanced},
+    traits::{ConstU8, Imbalance, OnFinalize, OnInitialize, OnUnbalanced},
     weights::{Weight, WeightToFee as WeightToFeeT},
 };
+use frame_system::{self as system, DefaultConfig};
 use pallet_balances;
-use sp_core::{sr25519, Pair, H256};
+use sp_core::{sr25519, Pair};
 use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup, Verify},
+    traits::{IdentityLookup, Verify},
     BuildStorage, Perbill, SaturatedConversion,
 };
 pub use std::sync::Arc;
@@ -57,30 +59,14 @@ parameter_types! {
     .build_or_panic();
 }
 
-impl frame_system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+impl system::Config for TestRuntime {
     type BlockWeights = RuntimeBlockWeights;
-    type BlockLength = BlockLength;
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
     type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Block = Block;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = ConstU64<250>;
-    type Version = ();
-    type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<u128>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ConstU16<42>;
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 impl pallet_avn_transaction_payment::Config for TestRuntime {
@@ -139,20 +125,11 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = EXISTENTIAL_DEPOSIT;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
-    type MaxLocks = frame_support::traits::ConstU32<1024>;
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
     type Balance = u128;
-    type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type WeightInfo = ();
-    type FreezeIdentifier = ();
-    type MaxFreezes = ();
-    type MaxHolds = ();
-    type RuntimeHoldReason = ();
 }
 
 impl AvnTransactionPayment {

@@ -42,6 +42,11 @@ pub mod currency {
             assert_eq!(PICO_AVT, 1_000_000, "pAVT should be 1_000_000");
         }
     }
+
+    // TODO review this values.
+    pub const fn deposit(items: u32, bytes: u32) -> Balance {
+        items as Balance * AVT + (bytes as Balance) * 100 * MICRO_AVT
+    }
 }
 
 /// Time.

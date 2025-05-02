@@ -16,12 +16,12 @@
 
 #![cfg(test)]
 
-use frame_support::parameter_types;
-use frame_system as system;
-use sp_core::{sr25519, ConstU32, Pair, H256};
+use frame_support::{derive_impl, parameter_types};
+use frame_system::{self as system, DefaultConfig};
+use sp_core::{sr25519, ConstU32, Pair};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
-    traits::{BlakeTwo256, IdentityLookup, Verify},
+    traits::{IdentityLookup, Verify},
     BuildStorage,
 };
 use std::cell::RefCell;
@@ -62,40 +62,16 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
     type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Block = Block;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = ();
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
-impl avn::Config for TestRuntime {
-    type RuntimeEvent = mock::RuntimeEvent;
-    type AuthorityId = avn::sr25519::AuthorityId;
-    type EthereumPublicKeyChecker = ();
-    type NewSessionHandler = ();
-    type DisabledValidatorChecker = ();
-    type WeightInfo = ();
-}
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
+impl avn::Config for TestRuntime {}
 
 pub struct ExtBuilder {
     storage: sp_runtime::Storage,

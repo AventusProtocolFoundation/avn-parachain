@@ -2,13 +2,17 @@ use crate::{self as avn_anchor, *};
 use codec::{Decode, Encode};
 use core::cell::RefCell;
 use frame_support::{
+    derive_impl,
     pallet_prelude::*,
     parameter_types,
-    traits::{ConstU16, ConstU32, ConstU64, Currency, EqualPrivilegeOnly, Everything},
+    traits::{
+        ConstU16, ConstU32, ConstU64, Currency, EqualPrivilegeOnly, Everything,
+        ExistenceRequirement,
+    },
     PalletId,
 };
 
-use frame_system::{self as system, limits::BlockWeights, EnsureRoot};
+use frame_system::{self as system, limits::BlockWeights, DefaultConfig, EnsureRoot};
 use pallet_avn::BridgeInterfaceNotification;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
 use pallet_session as session;
@@ -51,11 +55,11 @@ impl TestAccount {
     }
 
     pub fn account_id(&self) -> AccountId {
-        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap()
+        return AccountId::decode(&mut self.key_pair().public().to_vec().as_slice()).unwrap();
     }
 
     pub fn key_pair(&self) -> sr25519::Pair {
-        return sr25519::Pair::from_seed(&self.seed)
+        return sr25519::Pair::from_seed(&self.seed);
     }
 }
 
@@ -100,7 +104,7 @@ pub fn ensure_fee_payment_possible<T: Config>(
     let fee = Pallet::<T>::checkpoint_fee(chain_id);
     let balance = T::Currency::free_balance(account);
     if balance < fee {
-        return Err("Insufficient balance for fee payment")
+        return Err("Insufficient balance for fee payment");
     }
     Ok(())
 }
@@ -150,30 +154,12 @@ where
     type Extrinsic = Extrinsic;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
-    type BaseCallFilter = Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
-    type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Block = Block;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = ConstU64<250>;
-    type Version = ();
-    type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<Balance>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ConstU16<42>;
-    type OnSetCode = ();
-    type MaxConsumers = ConstU32<16>;
 }
 
 parameter_types! {
@@ -231,29 +217,16 @@ impl pallet_token_manager::Config for TestRuntime {
     type BridgeInterface = EthBridge;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
-    type MaxLocks = ConstU32<50>;
     type Balance = Balance;
-    type RuntimeEvent = RuntimeEvent;
-    type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type WeightInfo = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
-    type FreezeIdentifier = ();
-    type MaxHolds = ();
-    type RuntimeHoldReason = ();
-    type MaxFreezes = ();
 }
 
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
 impl pallet_avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
-    type AuthorityId = sp_runtime::testing::UintAuthorityId;
-    type EthereumPublicKeyChecker = ();
-    type NewSessionHandler = ();
-    type DisabledValidatorChecker = ();
-    type WeightInfo = ();
+    type AuthorityId = UintAuthorityId;
 }
 
 impl avn_proxy::Config for TestRuntime {
@@ -432,7 +405,7 @@ pub fn inner_call_failed_event_emitted(call_dispatch_error: DispatchError) -> bo
 
 fn fake_treasury() -> AccountId {
     let seed: [u8; 32] = [01; 32];
-    return TestAccount::new(seed).account_id()
+    return TestAccount::new(seed).account_id();
 }
 
 impl FeePaymentHandler for TestRuntime {
@@ -455,12 +428,12 @@ impl FeePaymentHandler for TestRuntime {
         payer: &Self::AccountId,
     ) -> Result<(), Self::Error> {
         if MOCK_FEE_HANDLER_SHOULD_FAIL.with(|f| *f.borrow()) {
-            return Err(DispatchError::Other("Test - Error"))
+            return Err(DispatchError::Other("Test - Error"));
         }
 
         let recipient = fake_treasury();
 
-        Balances::transfer(RuntimeOrigin::signed(payer.clone()), recipient, *amount)?;
+        Balances::transfer(&payer, &recipient, *amount, ExistenceRequirement::KeepAlive)?;
 
         Ok(())
     }
