@@ -1,9 +1,6 @@
 use core::cmp::Ordering;
 
-use crate::{
-    event_types::{EthEventId, EthTransactionId},
-    *,
-};
+use crate::{event_types::EthTransactionId, *};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use event_types::EthEvent;

@@ -749,6 +749,9 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::QuotaReachedForAdditionalEvents)?;
                     Self::deposit_event(Event::<T>::AdditionalEventQueued { transaction_hash });
                 },
+                AdminSettings::RestartEventDiscoveryOnRange => {
+                    let _ = EthereumEvents::<T>::clear(10, None);
+                },
             }
 
             Ok(().into())
