@@ -750,7 +750,7 @@ pub mod pallet {
                     Self::deposit_event(Event::<T>::AdditionalEventQueued { transaction_hash });
                 },
                 AdminSettings::RestartEventDiscoveryOnRange => {
-                    let _ = EthereumEvents::<T>::clear(10, None);
+                    let _ = EthereumEvents::<T>::clear(100, None);
                 },
             }
 
