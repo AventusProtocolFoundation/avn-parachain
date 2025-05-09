@@ -130,13 +130,15 @@ fn run_checks(
 
 #[cfg(test)]
 mod set_admin_setting {
+    use crate::incoming_events_tests::{init_active_range, EventProcessContext};
+
     use super::*;
     use frame_support::{
         assert_ok,
         dispatch::{DispatchErrorWithPostInfo, PostDispatchInfo},
     };
     use frame_system::RawOrigin;
-    use sp_runtime::DispatchError;
+    use sp_runtime::{traits::Zero, DispatchError};
 
     #[test]
     fn set_eth_tx_lifetime_secs_success() {
@@ -319,6 +321,30 @@ mod set_admin_setting {
                 if transaction_hash == H256::zero()
             )));
 
+        });
+    }
+
+    #[test]
+    fn resets_ethereum_events() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = EventProcessContext::setup();
+            init_active_range();
+            assert_ok!(EthBridge::submit_ethereum_events(
+                RuntimeOrigin::none(),
+                context.author.clone(),
+                context.mock_event_partition.clone(),
+                context.test_signature.clone()
+            ));
+
+            assert!(!EthereumEvents::<TestRuntime>::iter().count().is_zero());
+
+            assert_ok!(EthBridge::set_admin_setting(
+                RawOrigin::Root.into(),
+                AdminSettings::RestartEventDiscoveryOnRange,
+            ));
+
+            assert!(EthereumEvents::<TestRuntime>::iter().count().is_zero());
         });
     }
 

@@ -115,7 +115,7 @@ pub fn create_mock_event_partition(
 }
 
 // Added this function as in event_listener_tests to initialize the active event range
-fn init_active_range() {
+pub(crate) fn init_active_range() {
     ActiveEthereumRange::<TestRuntime>::put(ActiveEthRange {
         range: EthBlockRange { start_block: 1, length: 1000 },
         partition: 0,

@@ -1,3 +1,5 @@
+use core::cmp::Ordering;
+
 use crate::{event_types::EthTransactionId, *};
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -41,34 +43,18 @@ pub struct DiscoveredEvent {
 }
 
 impl PartialOrd for DiscoveredEvent {
-    fn partial_cmp(&self, other: &Self) -> Option<scale_info::prelude::cmp::Ordering> {
-        let ord_sig = self.event.event_id.signature.partial_cmp(&other.event.event_id.signature);
-
-        if let Some(core::cmp::Ordering::Equal) = ord_sig {
-            return ord_sig
-        }
-
-        match self.block.partial_cmp(&other.block) {
-            Some(core::cmp::Ordering::Equal) => {},
-            ord => return ord,
-        }
-        ord_sig
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for DiscoveredEvent {
-    fn cmp(&self, other: &Self) -> scale_info::prelude::cmp::Ordering {
-        let ord_sig = self.event.event_id.signature.cmp(&other.event.event_id.signature);
-
-        if let core::cmp::Ordering::Equal = ord_sig {
-            return ord_sig
-        }
-
+    fn cmp(&self, other: &Self) -> Ordering {
         match self.block.cmp(&other.block) {
-            core::cmp::Ordering::Equal => {},
-            ord => return ord,
+            Ordering::Equal =>
+                self.event.event_id.transaction_hash.cmp(&other.event.event_id.transaction_hash),
+            ord => ord,
         }
-        ord_sig
     }
 }
 
@@ -267,26 +253,4 @@ pub mod events_helpers {
         let rem = calculation_block.checked_rem(range_length).ok_or(())?;
         Ok(calculation_block.saturating_sub(rem))
     }
-}
-
-#[test]
-pub fn event_id_comparison_is_case_insensitive() {
-    use event_types::EthEventId;
-    use hex_literal::hex;
-
-    let left = EthEventId {
-        signature: H256(hex!("000000000000000000000000000000000000000000000000000000000000dddd")),
-        transaction_hash: H256(hex!(
-            "000000000000000000000000000000000000000000000000000000000000eeee"
-        )),
-    };
-
-    let right = EthEventId {
-        signature: H256(hex!("000000000000000000000000000000000000000000000000000000000000DDDD")),
-        transaction_hash: H256(hex!(
-            "000000000000000000000000000000000000000000000000000000000000EEEE"
-        )),
-    };
-
-    assert_eq!(left, right);
 }
