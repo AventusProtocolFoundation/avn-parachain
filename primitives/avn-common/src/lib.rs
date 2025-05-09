@@ -31,6 +31,9 @@ pub mod eth_key_actions;
 pub mod event_discovery;
 pub mod event_types;
 pub mod ocw_lock;
+#[cfg(test)]
+#[path = "tests/test_event_discovery.rs"]
+pub mod test_event_discovery;
 
 /// Ingress counter type for a counter that can sign the same message with a different signature
 /// each time

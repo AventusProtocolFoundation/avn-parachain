@@ -9,7 +9,7 @@ use alloc::collections::BTreeSet;
 use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
 
 // Added this function as in event_listener_tests to initialize the active event range
-fn init_active_range() {
+pub(crate) fn init_active_range() {
     ActiveEthereumRange::<TestRuntime>::put(ActiveEthRange {
         range: EthBlockRange { start_block: 1, length: 1000 },
         partition: 0,
