@@ -48,6 +48,7 @@ pub trait WeightInfo {
 	fn advance_slot_with_offence(v: u32, ) -> Weight;
 	fn advance_slot_without_offence(v: u32, ) -> Weight;
 	fn add_challenge(v: u32, ) -> Weight;
+	fn publish_summary() -> Weight;
 }
 
 /// Weights for pallet_summary using the Substrate node and recommended hardware.
@@ -391,6 +392,15 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(6_u64))
 			.saturating_add(Weight::from_parts(0, 64).saturating_mul(v.into()))
 	}
+
+	fn publish_summary() -> Weight {
+		Weight::from_parts(95_227_821, 17871)
+			// Standard Error: 9_388
+			.saturating_add(Weight::from_parts(186_520, 0))
+			.saturating_add(T::DbWeight::get().reads(11_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
+			.saturating_add(Weight::from_parts(0, 64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -732,5 +742,14 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(11_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
 			.saturating_add(Weight::from_parts(0, 64).saturating_mul(v.into()))
+	}
+
+	fn publish_summary() -> Weight {
+		Weight::from_parts(95_227_821, 17871)
+			// Standard Error: 9_388
+			.saturating_add(Weight::from_parts(186_520, 0))
+			.saturating_add(RocksDbWeight::get().reads(11_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
+			.saturating_add(Weight::from_parts(0, 64))
 	}
 }

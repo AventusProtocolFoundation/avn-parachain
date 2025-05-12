@@ -47,6 +47,8 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_core::H256;
 use sp_staking::offence::ReportOffence;
 
+use frame_system::pallet_prelude::BlockNumberFor;
+
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
 
@@ -133,6 +135,10 @@ pub mod pallet {
         type AutoSubmitSummaries: Get<bool>;
         /// A unique instance id to differentiate different instances
         type InstanceId: Get<u8>;
+        /// A flag to determine if summaries bypass validation and are accepted automatically.
+        /// If true, summaries are also published automatically via the BridgeInterface.
+        #[pallet::constant] // Make it constant for simplicity unless runtime-upgradable is needed
+        type AutoAcceptSummaries: Get<bool>;
     }
 
     #[pallet::pallet]
@@ -195,6 +201,16 @@ pub mod pallet {
             ingress_counter: IngressCounter,
             block_range: RootRange<BlockNumberFor<T>>,
         },
+
+        /// A new summary is generated and ready for validation.
+        SummaryReadyForValidation { root_id: RootId<BlockNumberFor<T>> }, // New
+        /// The status of a summary has been updated.
+        SummaryStatusUpdated { root_id: RootId<BlockNumberFor<T>>, new_status: SummaryStatus }, /* New */
+        /// An accepted summary has been successfully published via the bridge.
+        SummaryPublishedToBridge {
+            root_id: RootId<BlockNumberFor<T>>,
+            eth_tx_id: EthereumTransactionId,
+        }, // New
     }
 
     #[pallet::error]
@@ -231,6 +247,16 @@ pub mod pallet {
         VotingPeriodIsEqualOrLongerThanSchedulePeriod,
         CurrentSlotValidatorNotFound,
         ErrorPublishingSummary,
+        /// The summary status does not allow this operation.
+        SummaryNotReadyForValidation, // Potentially needed for challenges
+        /// The summary status is not 'Accepted'.
+        SummaryNotAccepted, // New
+        /// Cannot publish a summary with an empty root hash.
+        CannotPublishEmptyRoot, // New
+        /// The summary has already been published or submitted for publishing.
+        SummaryAlreadyPublished, // New
+        /// Attempted an invalid status transition.
+        InvalidStatusTransition, // New
     }
 
     // Note for SYS-152 (see notes in fn end_voting)):
@@ -460,12 +486,10 @@ pub mod pallet {
                 safe_add_block_numbers(current_block_number, Self::voting_period())
                     .map_err(|_| Error::<T, I>::Overflow)?;
 
+            let root_data = RootData::new(root_hash, validator.account_id.clone(), None); // Status defaults to ReadyForValidation
+
             <TotalIngresses<T, I>>::put(ingress_counter);
-            <Roots<T, I>>::insert(
-                &root_id.range,
-                ingress_counter,
-                RootData::new(root_hash, validator.account_id.clone(), None),
-            );
+            <Roots<T, I>>::insert(&root_id.range, ingress_counter, root_data);
             <PendingApproval<T, I>>::insert(root_id.range, ingress_counter);
             <VotesRepository<T, I>>::insert(
                 root_id,
@@ -618,6 +642,16 @@ pub mod pallet {
             });
 
             Ok(())
+        }
+
+        #[pallet::call_index(7)] // Adjust index as needed
+        #[pallet::weight(<T as Config<I>>::WeightInfo::publish_summary())] // Define weight
+        pub fn publish_summary(
+            origin: OriginFor<T>,
+            root_id: RootId<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            ensure_root(origin)?; // Or custom origin check
+            Self::do_publish_summary(root_id)
         }
     }
 
@@ -855,36 +889,35 @@ pub mod pallet {
                 as Box<dyn VotingSessionManager<T::AccountId, BlockNumberFor<T>>>
         }
 
-        // // This can be called by other validators to verify the root hash
+        // compute_root_hash ensures it returns DispatchError
         pub fn compute_root_hash(
             from_block: BlockNumberFor<T>,
             to_block: BlockNumberFor<T>,
         ) -> Result<H256, DispatchError> {
-            let from_block_number: u32 = TryInto::<u32>::try_into(from_block)
-                .map_err(|_| Error::<T, I>::ErrorConvertingBlockNumber)?;
-            let to_block_number: u32 = TryInto::<u32>::try_into(to_block)
-                .map_err(|_| Error::<T, I>::ErrorConvertingBlockNumber)?;
+            let from_block_number: u32 = TryInto::<u32>::try_into(from_block).map_err(|_| {
+                DispatchError::Other(Error::<T, I>::ErrorConvertingBlockNumber.into())
+            })?;
+            let to_block_number: u32 = TryInto::<u32>::try_into(to_block).map_err(|_| {
+                DispatchError::Other(Error::<T, I>::ErrorConvertingBlockNumber.into())
+            })?;
 
             let mut url_path = "roothash/".to_string();
             url_path.push_str(&from_block_number.to_string());
             url_path.push_str(&"/".to_string());
             url_path.push_str(&to_block_number.to_string());
 
-            let response = AVN::<T>::get_data_from_service(url_path);
-
-            if let Err(e) = response {
+            let response = AVN::<T>::get_data_from_service(url_path).map_err(|e| {
                 log::error!(
                     "💔️ Instance({}) Error getting summary data from external service: {:?}",
                     T::InstanceId::get(),
                     e
                 );
-                return Err(Error::<T, I>::ErrorGettingSummaryDataFromService)?
-            }
+                DispatchError::Other(Error::<T, I>::ErrorGettingSummaryDataFromService.into())
+            })?;
 
-            let root_hash = Self::validate_response(response.expect("checked for error"))?;
+            let root_hash = Self::validate_response(response)?;
             log::trace!(target: "avn", "🥽 Instance({}) Calculated root hash {:?} for range [{:?}, {:?}]", T::InstanceId::get(), &root_hash, &from_block_number, &to_block_number);
-
-            return Ok(root_hash)
+            Ok(root_hash)
         }
 
         pub fn create_root_lock_name(block_number: BlockNumberFor<T>) -> Vec<u8> {
@@ -1136,31 +1169,61 @@ pub mod pallet {
                 .map_err(|_| Error::<T, I>::Overflow)?)
         }
 
-        fn validate_response(response: Vec<u8>) -> Result<H256, Error<T, I>> {
+        /// Helper to actually publish the summary via the bridge.
+        /// Called by `publish_summary` extrinsic or internally by auto-accept logic.
+        fn do_publish_summary(root_id: RootId<BlockNumberFor<T>>) -> DispatchResult {
+            <Roots<T, I>>::try_mutate_exists(
+                root_id.range,
+                root_id.ingress_counter,
+                |maybe_root_data| -> DispatchResult {
+                    let root_data = maybe_root_data.as_mut().ok_or(Error::<T, I>::RootDataNotFound)?;
+
+                    ensure!(
+                        root_data.status == SummaryStatus::Accepted,
+                        Error::<T, I>::SummaryNotAccepted
+                    );
+                    ensure!(
+                        root_data.root_hash != Self::empty_root(),
+                        Error::<T, I>::CannotPublishEmptyRoot
+                    );
+                    ensure!(root_data.tx_id.is_none(), Error::<T, I>::SummaryAlreadyPublished);
+
+                    let function_name: &[u8] = BridgeContractMethod::PublishRoot.as_bytes();
+                    let params =
+                        vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
+
+                    let tx_id =
+                        T::BridgeInterface::publish(function_name, &params, Self::pallet_id())
+                            .map_err(|e| DispatchError::Other(e.into()))?; // Map to DispatchError
+
+                    root_data.tx_id = Some(tx_id);
+                    <TxIdToRoot<T, I>>::insert(tx_id, root_id);
+
+                    Self::deposit_event(Event::SummaryPublishedToBridge {
+                        root_id,
+                        eth_tx_id: tx_id,
+                    });
+                    Ok(())
+                },
+            )
+        }
+
+        // Ensure validate_response returns DispatchError
+        pub fn validate_response(response: Vec<u8>) -> Result<H256, DispatchError> {
             if response.len() != 64 {
                 log::error!(
                     "❌ Instance({}) Root hash is not valid: {:?}",
                     T::InstanceId::get(),
                     response
                 );
-                return Err(Error::<T, I>::InvalidRootHashLength)?
+                return Err(DispatchError::Other(Error::<T, I>::InvalidRootHashLength.into()))
             }
-
-            let root_hash = core::str::from_utf8(&response);
-            if let Err(e) = root_hash {
-                log::error!(
-                    "❌ Instance({}) Error converting root hash bytes to string: {:?}",
-                    T::InstanceId::get(),
-                    e
-                );
-                return Err(Error::<T, I>::InvalidUTF8Bytes)?
-            }
-
+            let root_hash_str = core::str::from_utf8(&response)
+                .map_err(|_| DispatchError::Other(Error::<T, I>::InvalidUTF8Bytes.into()))?;
             let mut data: [u8; 32] = [0; 32];
-            hex::decode_to_slice(root_hash.expect("Checked for error"), &mut data[..])
-                .map_err(|_| Error::<T, I>::InvalidHexString)?;
-
-            return Ok(H256::from_slice(&data))
+            hex::decode_to_slice(root_hash_str.trim(), &mut data[..])
+                .map_err(|_| DispatchError::Other(Error::<T, I>::InvalidHexString.into()))?;
+            Ok(H256::from_slice(&data))
         }
 
         fn send_root_to_ethereum(
@@ -1200,61 +1263,69 @@ pub mod pallet {
             root_id: &RootId<BlockNumberFor<T>>,
         ) -> DispatchResult {
             let voting_session = Self::get_root_voting_session(&root_id);
-
             ensure!(voting_session.is_valid(), Error::<T, I>::VotingSessionIsNotValid);
 
             let vote = Self::get_vote(root_id);
             ensure!(Self::can_end_vote(&vote), Error::<T, I>::ErrorEndingVotingPeriod);
 
-            let root_is_approved = vote.is_approved();
+            let root_is_approved_by_validators = vote.is_approved();
+            let original_root_data = Self::try_get_root_data(&root_id)?;
 
-            let root_data = Self::try_get_root_data(&root_id)?;
-            if root_is_approved {
-                if root_data.root_hash != Self::empty_root() {
-                    if T::AutoSubmitSummaries::get() {
-                        Self::send_root_to_ethereum(root_id, &root_data)?;
-                    } else {
-                        // Add root to anchor storage
-                        let approved_root_id = Self::get_next_approved_root_id()?;
-                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
-                    }
-                }
-                // If we get here, then we did not get an error when submitting to T1.
+            if root_is_approved_by_validators {
+                // Validators approved the summary
+                // Set status to ReadyForValidation for non-validator checks
+                Self::set_summary_status(*root_id, SummaryStatus::ReadyForValidation)?;
+                // Emit event to trigger non-validator checks
+                Self::deposit_event(Event::SummaryReadyForValidation { root_id: *root_id });
 
+                // --- Original offence logic for nays ---
                 create_and_report_summary_offence::<T, I>(
                     &reporter,
                     &vote.nays,
                     SummaryOffenceType::RejectedValidRoot,
                 );
-
+                // --- Update chain state for approved summary ---
                 let next_block_to_process = safe_add_block_numbers::<BlockNumberFor<T>>(
                     root_id.range.to_block,
                     1u32.into(),
                 )
                 .map_err(|_| Error::<T, I>::Overflow)?;
-
                 <NextBlockToProcess<T, I>>::put(next_block_to_process);
-                <Roots<T, I>>::mutate(root_id.range, root_id.ingress_counter, |root| {
-                    root.is_validated = true
-                });
                 <SlotOfLastPublishedSummary<T, I>>::put(Self::current_slot());
 
+                // Event for validator approval (might be adjusted or removed if
+                // SummaryStatusUpdated is sufficient)
                 Self::deposit_event(Event::<T, I>::SummaryRootValidated {
-                    root_hash: root_data.root_hash,
+                    root_hash: original_root_data.root_hash,
                     ingress_counter: root_id.ingress_counter,
                     block_range: root_id.range,
                 });
-            } else {
-                // We didn't get enough votes to approve this root
 
-                let root_creator =
-                    root_data.added_by.ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;
+                // Handle AutoAcceptSummaries: if true, means skip non-validator step
+                if T::AutoAcceptSummaries::get() {
+                    log::info!(target: "runtime::summary", "AutoAcceptSummaries true for {:?}, promoting to Accepted and attempting publish.", root_id);
+                    Self::set_summary_status(*root_id, SummaryStatus::Accepted)?;
+                    if original_root_data.root_hash != Self::empty_root() {
+                        // Ensure it's not already submitted if this path can be hit multiple times
+                        let current_root_data = Self::try_get_root_data(&root_id)?;
+                        if current_root_data.tx_id.is_none() {
+                            Self::do_publish_summary(*root_id)?;
+                        }
+                    }
+                }
+            } else {
+                // Validators rejected the summary
+                Self::set_summary_status(*root_id, SummaryStatus::Rejected)?;
+
+                // --- Original offence logic for creator and ayes ---
+                let root_creator = original_root_data
+                    .added_by
+                    .ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;
                 create_and_report_summary_offence::<T, I>(
                     &reporter,
                     &vec![root_creator],
                     SummaryOffenceType::CreatedInvalidRoot,
                 );
-
                 create_and_report_summary_offence::<T, I>(
                     &reporter,
                     &vote.ayes,
@@ -1262,26 +1333,11 @@ pub mod pallet {
                 );
             }
 
-            <PendingApproval<T, I>>::remove(root_id.range);
-
-            // When we get here, the root's voting session has ended and it has been removed from
-            // PendingApproval If the root was approved, it is now marked as validated.
-            // Otherwise, it stays false. If there was an error when submitting to T1, none of
-            // this happened and it is still pending and not validated. In either case, the whole
-            // voting history remains in storage
-
-            // NOTE: when SYS-152 work is added here, root_range could exist several times in the
-            // voting history, since a root_range that is rejected must eventually be
-            // submitted again. But at any given time, there should be a single instance
-            // of root_range in the PendingApproval queue. It is possible to keep
-            // several instances of root_range in the Roots repository. But that should
-            // not change the logic in this area: we should still validate an approved
-            // (root_range, counter) and remove this pair from PendingApproval if no
-            // errors occur.
+            <PendingApproval<T, I>>::remove(root_id.range); // Remove from validator voting queue
 
             Self::deposit_event(Event::<T, I>::VotingEnded {
                 root_id: *root_id,
-                vote_approved: root_is_approved,
+                vote_approved: root_is_approved_by_validators,
             });
 
             Ok(())
@@ -1374,14 +1430,35 @@ pub mod pallet {
             return H256::from_slice(&[0; 32])
         }
 
+        // summary_is_neither_pending_nor_approved needs to be aware of new statuses
         fn summary_is_neither_pending_nor_approved(
             root_range: &RootRange<BlockNumberFor<T>>,
         ) -> bool {
-            let has_been_approved =
-                <Roots<T, I>>::iter_prefix_values(root_range).any(|root| root.is_validated);
-            let is_pending = <PendingApproval<T, I>>::contains_key(root_range);
+            // Check if any root for this range has status Accepted or ReadyForValidation
+            // or is currently pending validator voting (which `PendingApproval` storage tracks)
+            let has_been_processed_or_is_active = <Roots<T, I>>::iter_prefix_values(root_range)
+                .any(|root| {
+                    matches!(
+                        root.status,
+                        SummaryStatus::Accepted |
+                            SummaryStatus::ReadyForValidation |
+                            SummaryStatus::PendingValidatorVote
+                    )
+                });
+            let is_pending_validator_vote_queue = <PendingApproval<T, I>>::contains_key(root_range);
 
-            return !is_pending && !has_been_approved
+            // A new summary can be recorded if:
+            // - No version of this range is currently in the validator voting queue.
+            // - No version of this range has ever reached Accepted status or is ReadyForValidation
+            //   by non-validators.
+            // If a summary was Rejected by validators, it might be re-recordable.
+            // If it was Rejected by non-validators, it might also be re-recordable.
+            // The current logic might prevent re-recording if ANY RootData exists with these
+            // statuses. This might need finer-grained logic if re-submission of a
+            // *specific* (range, ingress_counter) is allowed after rejection. For now,
+            // let's assume any "active" or "final positive" status for the range blocks
+            // new submissions for that same range.
+            return !is_pending_validator_vote_queue && !has_been_processed_or_is_active
         }
 
         pub fn try_get_root_data(
@@ -1438,6 +1515,7 @@ pub struct RootData<AccountId> {
     pub tx_id: Option<EthereumTransactionId>, /* This is the TransacionId that will be used to
                                                * submit
                                                * the tx */
+    pub status: SummaryStatus,
 }
 
 impl<AccountId> RootData<AccountId> {
@@ -1452,6 +1530,7 @@ impl<AccountId> RootData<AccountId> {
             is_validated: false,
             is_finalised: false,
             tx_id: transaction_id,
+            status: SummaryStatus::PendingValidatorVote,
         }
     }
 }
@@ -1464,38 +1543,133 @@ impl<AccountId> Default for RootData<AccountId> {
             is_validated: false,
             is_finalised: false,
             tx_id: None,
+            status: SummaryStatus::PendingValidatorVote,
         }
+    }
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Clone, Debug, Default)]
+pub enum SummaryStatus {
+    /// Summary has been created and is awaiting initial validator voting.
+    #[default]
+    PendingValidatorVote,
+    /// Summary has been generated and is awaiting validation/challenge.
+    ReadyForValidation,
+    /// Summary has been validated and accepted.
+    Accepted,
+    /// Summary has been rejected.
+    Rejected,
+}
+
+/// Allows external pallets (like a challenge/watchtower pallet) to update a summary's status.
+pub trait SummaryStatusUpdater<RootId> {
+    /// Sets the status for a given summary root identifier.
+    ///
+    /// Implementations should ensure valid state transitions.
+    fn set_summary_status(root_id: RootId, status: SummaryStatus) -> DispatchResult;
+}
+
+impl<T: Config<I>, I: 'static> SummaryStatusUpdater<RootId<BlockNumberFor<T>>> for Pallet<T, I> {
+    fn set_summary_status(
+        root_id: RootId<BlockNumberFor<T>>,
+        new_status_param: SummaryStatus,
+    ) -> DispatchResult {
+        // Renamed arg for clarity
+        <Roots<T, I>>::try_mutate(
+            root_id.range,
+            root_id.ingress_counter,
+            |root_data| -> DispatchResult {
+
+                let old_status_val = root_data.status.clone(); // This is SummaryStatus
+
+                // new_status_param is the function argument, also SummaryStatus
+                match (&old_status_val, &new_status_param) {
+                    (SummaryStatus::PendingValidatorVote, SummaryStatus::ReadyForValidation) => {
+                        // Logic specific to this transition if any, otherwise just fall through to
+                        // update
+                    },
+                    (SummaryStatus::PendingValidatorVote, SummaryStatus::Rejected) => {
+                        // Logic specific to this transition if any
+                    },
+                    (SummaryStatus::PendingValidatorVote, SummaryStatus::Accepted)
+                        if T::AutoAcceptSummaries::get() =>
+                    {
+                        // Logic specific to this transition if any
+                    },
+                    (SummaryStatus::ReadyForValidation, SummaryStatus::Accepted) => {
+                        // Logic specific to this transition if any
+                    },
+                    (SummaryStatus::ReadyForValidation, SummaryStatus::Rejected) => {
+                        // Logic specific to this transition if any
+                    },
+                    // MODIFIED ARM to be more explicit with pattern binding:
+                    (s1, s2) if *s1 == *s2 => {
+                        // Status is already the same as new_status_param, idempotent. No actual
+                        // state change. No need to update root_data.status
+                        // or emit event if truly no change. However, if we
+                        // fall through, it will just re-assign the same status and emit event.
+                        // For strict idempotency without event, could return Ok(()) here.
+                        // Let's allow fall-through for simplicity, it's harmless.
+                    },
+                    // All other transitions are considered invalid by falling into this catch-all
+                    _ => {
+                        log::error!(
+                            target: "runtime::summary",
+                            "Invalid status transition for {:?}: from {:?} to {:?}",
+                            root_id,
+                            old_status_val,
+                            new_status_param
+                        );
+                        return Err(Error::<T, I>::InvalidStatusTransition.into())
+                    },
+                }
+
+                // If we haven't returned an error, the transition is valid (or it's an idempotent
+                // set)
+                root_data.status = new_status_param.clone();
+                Self::deposit_event(Event::SummaryStatusUpdated {
+                    root_id,
+                    new_status: new_status_param,
+                });
+                Ok(())
+            },
+        )
     }
 }
 
 impl<T: Config<I>, I: 'static> BridgeInterfaceNotification for Pallet<T, I> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
-        let matches_caller = if T::AutoSubmitSummaries::get() {
-            // This is to enable backwards compatibility since the id of the pallet has changed.
-            // The instance that is auto submitting summaries is allowed to process old results.
-            // So pallet with id "summary-1" that used to be "summary" should handle the old results
-            // as well. This can be removed once this has been rolled out.
+        let matches_caller = if T::AutoAcceptSummaries::get() {
+            // Using AutoAcceptSummaries to gate old behavior
             Self::pallet_id().starts_with(&caller_id)
         } else {
             caller_id == Self::pallet_id()
         };
+
         if matches_caller && <TxIdToRoot<T, I>>::contains_key(tx_id) {
-            if succeeded {
-                let root_id = <TxIdToRoot<T, I>>::get(tx_id);
+            let root_id = <TxIdToRoot<T, I>>::get(tx_id);
+            if <Roots<T, I>>::contains_key(root_id.range, root_id.ingress_counter) {
                 <Roots<T, I>>::mutate(root_id.range, root_id.ingress_counter, |root| {
-                    root.is_finalised = true;
+                    root.is_finalised = succeeded;
                 });
                 log::info!(
-                    "✅  Transaction with ID {} was successfully published to Ethereum.",
-                    tx_id
+                    "Summary {:?} finalization status updated based on EthBridge Tx ID {}: {}",
+                    root_id,
+                    tx_id,
+                    succeeded
                 );
-                // Reclaim storage space
-                <TxIdToRoot<T, I>>::remove(tx_id);
             } else {
-                log::error!("❌ Transaction with ID {} failed to publish to Ethereum.", tx_id);
+                log::warn!(
+                     "RootData for {:?} (EthBridge Tx ID {}) not found during BridgeInterfaceNotification.",
+                     root_id, tx_id
+                 );
+            }
+            <TxIdToRoot<T, I>>::remove(tx_id);
+        } else {
+            if matches_caller {
+                log::warn!("TxIdToRoot mapping not found for EthBridge Tx ID {} during BridgeInterfaceNotification.", tx_id);
             }
         }
-
         Ok(())
     }
 }
