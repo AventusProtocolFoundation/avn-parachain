@@ -28,9 +28,9 @@ jobs:
   set-up-job:
     runs-on: ubuntu-latest
     outputs:
-      RELEASE: ${{ steps.outputs.outputs.RELEASE }}
-      GIT_TAG: ${{ steps.outputs.outputs.GIT_TAG }}
-      TEST_CODE: ${{ steps.outputs.outputs.TEST_CODE }}
+      RELEASE: ${{ steps.outputs.RELEASE }}
+      GIT_TAG: ${{ steps.outputs.GIT_TAG }}
+      TEST_CODE: ${{ steps.outputs.TEST_CODE }}
     steps:
       - name: echo inputs
         id: outputs
@@ -91,25 +91,25 @@ jobs:
 
   release:
     needs: [ set-up-job, build-code, build-docker ]
-    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/gh-release.yml
     with:
-      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
       hotfix: true
     secrets: inherit
 
   upload-assets-internal-tools:
     needs: [ set-up-job, build-code, build-docker ]
-    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
       bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
-      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
 
   upload-assets-internal-tools-ubuntu2404:
     needs: [ set-up-job, build-code-ubuntu2404, build-docker ]
-    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
       runs_on: gh-ubuntu-2404-x64
@@ -117,5 +117,5 @@ jobs:
       parachain-runtime-artifact: parachain-runtime
       parachain-test-runtime-artifact: parachain-test-runtime
       bucket_name: "s3://aventus-internal-artefact/avn-parachain-node-artefacts"
-      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
