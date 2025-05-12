@@ -54,7 +54,7 @@ jobs:
           fi
   test-code:
     needs: [set-up-job]
-    if: ${{ github.event.inputs.TEST_CODE == 'true' }}
+    if: ${{ needs.set-up-job.outputs.TEST_CODE == 'true' }}
     uses: ./.github/workflows/cargo-test.yml
 
   build-code:
@@ -85,31 +85,41 @@ jobs:
     with:
       parachain-collator-artifact: parachain-collator
       parachain-runtime-artifact: parachain-runtime
-      release: ${{ github.event.inputs.RELEASE }}
-      docker_tag: ${{ github.event.inputs.GIT_TAG }}
+      release: ${{ needs.set-up-job.outputs.RELEASE }}
+      docker_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
 
+  test-conditions:
+    needs: [ set-up-job, build-docker ]
+    runs-on: gh-ubuntu-2404-x64
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
+    steps:
+      - name: echo inputs
+        run: |
+          echo "TEST_CODE=${{ needs.set-up-job.outputs.TEST_CODE }}"
+          echo "RELEASE=${{ needs.set-up-job.outputs.RELEASE }}"
+          echo "GIT_TAG=${{ needs.set-up-job.outputs.GIT_TAG }}"
   release:
-    needs: [ build-docker ]
-    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    needs: [ set-up-job, build-docker ]
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/gh-release.yml
     with:
-      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
       hotfix: true
     secrets: inherit
 
   upload-assets-internal-tools:
-    needs: [ build-code, build-docker ]
-    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    needs: [ set-up-job, build-docker ]
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
       bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
-      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
 
   upload-assets-internal-tools-ubuntu2404:
-    needs: [ build-code-ubuntu2404, build-docker ]
-    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    needs: [ set-up-job, build-docker ]
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
       runs_on: gh-ubuntu-2404-x64
@@ -117,5 +127,5 @@ jobs:
       parachain-runtime-artifact: parachain-runtime
       parachain-test-runtime-artifact: parachain-test-runtime
       bucket_name: "s3://aventus-internal-artefact/avn-parachain-node-artefacts"
-      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
