@@ -28,9 +28,9 @@ jobs:
   set-up-job:
     runs-on: ubuntu-latest
     outputs:
-      RELEASE: ${{ steps.outputs.RELEASE }}
-      GIT_TAG: ${{ steps.outputs.GIT_TAG }}
-      TEST_CODE: ${{ steps.outputs.TEST_CODE }}
+      RELEASE: ${{ steps.outputs.outputs.RELEASE }}
+      GIT_TAG: ${{ steps.outputs.outputs.GIT_TAG }}
+      TEST_CODE: ${{ steps.outputs.outputs.TEST_CODE }}
     steps:
       - name: echo inputs
         id: outputs
@@ -52,88 +52,70 @@ jobs:
             echo "version $VERSION matches the semver scheme 'vX.Y.Z' (prod tags). This workflow can only be used without prod tags";
             exit 1
           fi
-
   test-code:
-    runs-on: ubuntu-latest
     needs: [set-up-job]
-    steps:
-      - name: Test code
-        if: ${{ github.event.inputs.TEST_CODE == 'true' }}
-        run: |
-          echo "Test code: ${{ github.event.inputs.TEST_CODE }}"
-      - name: Git tag
-        if: ${{ github.event.inputs.GIT_TAG != '' }}
-        run: |
-          echo "Git tag: ${{ github.event.inputs.GIT_TAG }}"
-      - name: Release
-        if: ${{ github.event.inputs.RELEASE == 'true' }}
-        run: |
-          echo "Release: ${{ github.event.inputs.RELEASE }}"
+    if: ${{ github.event.inputs.TEST_CODE == 'true' }}
+    uses: ./.github/workflows/cargo-test.yml
 
-  # test-code:
-  #   needs: [set-up-job]
-  #   if: ${{ github.event.inputs.TEST_CODE == 'true' }}
-  #   uses: ./.github/workflows/cargo-test.yml
+  build-code:
+    needs: [ set-up-job ]
+    uses: ./.github/workflows/cargo-build.yml
+    with:
+      upload_artifacts: true
+    secrets: inherit
 
-  # build-code:
-  #   needs: [ set-up-job ]
-  #   uses: ./.github/workflows/cargo-build.yml
-  #   with:
-  #     upload_artifacts: true
-  #   secrets: inherit
+  build-code-ubuntu2404:
+    needs: [ set-up-job ]
+    uses: ./.github/workflows/cargo-build.yml
+    with:
+      runs_on: gh-ubuntu-2404-x64
+      parachain-collator-artifact: parachain-collator
+      parachain-runtime-artifact: parachain-runtime
+      parachain-test-runtime-artifact: parachain-test-runtime
+      upload_artifacts: true
+    secrets: inherit
 
-  # build-code-ubuntu2404:
-  #   needs: [ set-up-job ]
-  #   uses: ./.github/workflows/cargo-build.yml
-  #   with:
-  #     runs_on: gh-ubuntu-2404-x64
-  #     parachain-collator-artifact: parachain-collator
-  #     parachain-runtime-artifact: parachain-runtime
-  #     parachain-test-runtime-artifact: parachain-test-runtime
-  #     upload_artifacts: true
-  #   secrets: inherit
+  build-docker:
+    needs: [ set-up-job, build-code-ubuntu2404, test-code ]
+    if: |
+      always() &&
+      (needs.build-code-ubuntu2404.result == 'success') &&
+      (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      parachain-collator-artifact: parachain-collator
+      parachain-runtime-artifact: parachain-runtime
+      release: ${{ github.event.inputs.RELEASE }}
+      docker_tag: ${{ github.event.inputs.GIT_TAG }}
+    secrets: inherit
 
-  # build-docker:
-  #   needs: [ set-up-job, build-code-ubuntu2404, test-code ]
-  #   if: |
-  #     always() &&
-  #     (needs.build-code-ubuntu2404.result == 'success') &&
-  #     (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
-  #   uses: ./.github/workflows/docker-build.yml
-  #   with:
-  #     parachain-collator-artifact: parachain-collator
-  #     parachain-runtime-artifact: parachain-runtime
-  #     release: ${{ github.event.inputs.RELEASE }}
-  #     docker_tag: ${{ github.event.inputs.GIT_TAG }}
-  #   secrets: inherit
+  release:
+    needs: [ set-up-job, build-code, build-docker ]
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/gh-release.yml
+    with:
+      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      hotfix: true
+    secrets: inherit
 
-  # release:
-  #   needs: [ set-up-job, build-code, build-docker ]
-  #   if: ${{ github.event.inputs.RELEASE }}
-  #   uses: ./.github/workflows/gh-release.yml
-  #   with:
-  #     repo_tag: ${{ github.event.inputs.GIT_TAG }}
-  #     hotfix: true
-  #   secrets: inherit
+  upload-assets-internal-tools:
+    needs: [ set-up-job, build-code, build-docker ]
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/s3-upload.yml
+    with:
+      bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
+      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+    secrets: inherit
 
-  # upload-assets-internal-tools:
-  #   needs: [ set-up-job, build-code, build-docker ]
-  #   if: ${{ github.event.inputs.RELEASE }}
-  #   uses: ./.github/workflows/s3-upload.yml
-  #   with:
-  #     bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
-  #     repo_tag: ${{ github.event.inputs.GIT_TAG }}
-  #   secrets: inherit
-
-  # upload-assets-internal-tools-ubuntu2404:
-  #   needs: [ set-up-job, build-code-ubuntu2404, build-docker ]
-  #   if: ${{ github.event.inputs.RELEASE }}
-  #   uses: ./.github/workflows/s3-upload.yml
-  #   with:
-  #     runs_on: gh-ubuntu-2404-x64
-  #     parachain-collator-artifact: parachain-collator
-  #     parachain-runtime-artifact: parachain-runtime
-  #     parachain-test-runtime-artifact: parachain-test-runtime
-  #     bucket_name: "s3://aventus-internal-artefact/avn-parachain-node-artefacts"
-  #     repo_tag: ${{ github.event.inputs.GIT_TAG }}
-  #   secrets: inherit
+  upload-assets-internal-tools-ubuntu2404:
+    needs: [ set-up-job, build-code-ubuntu2404, build-docker ]
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/s3-upload.yml
+    with:
+      runs_on: gh-ubuntu-2404-x64
+      parachain-collator-artifact: parachain-collator
+      parachain-runtime-artifact: parachain-runtime
+      parachain-test-runtime-artifact: parachain-test-runtime
+      bucket_name: "s3://aventus-internal-artefact/avn-parachain-node-artefacts"
+      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+    secrets: inherit
