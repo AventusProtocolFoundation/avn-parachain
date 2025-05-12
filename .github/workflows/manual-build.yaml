@@ -54,7 +54,7 @@ jobs:
           fi
   test-code:
     needs: [set-up-job]
-    if: github.event.inputs.TEST_CODE
+    if: ${{ github.event.inputs.TEST_CODE == 'true' }}
     uses: ./.github/workflows/cargo-test.yml
 
   build-code:
@@ -91,7 +91,7 @@ jobs:
 
   release:
     needs: [ build-docker ]
-    if: github.event.inputs.RELEASE
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
     uses: ./.github/workflows/gh-release.yml
     with:
       repo_tag: ${{ github.event.inputs.GIT_TAG }}
@@ -100,7 +100,7 @@ jobs:
 
   upload-assets-internal-tools:
     needs: [ build-code, build-docker ]
-    if: github.event.inputs.RELEASE
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
       bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
@@ -109,7 +109,7 @@ jobs:
 
   upload-assets-internal-tools-ubuntu2404:
     needs: [ build-code-ubuntu2404, build-docker ]
-    if: github.event.inputs.RELEASE
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
       runs_on: gh-ubuntu-2404-x64
