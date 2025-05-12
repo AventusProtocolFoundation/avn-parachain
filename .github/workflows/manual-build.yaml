@@ -57,10 +57,17 @@ jobs:
     runs-on: ubuntu-latest
     needs: [set-up-job]
     steps:
-      - name: echo inputs
+      - name: Test code
+        if: ${{ github.event.inputs.TEST_CODE == 'true' }}
         run: |
           echo "Test code: ${{ github.event.inputs.TEST_CODE }}"
+      - name: Git tag
+        if: ${{ github.event.inputs.GIT_TAG != '' }}
+        run: |
           echo "Git tag: ${{ github.event.inputs.GIT_TAG }}"
+      - name: Release
+        if: ${{ github.event.inputs.RELEASE == 'true' }}
+        run: |
           echo "Release: ${{ github.event.inputs.RELEASE }}"
 
   # test-code:
