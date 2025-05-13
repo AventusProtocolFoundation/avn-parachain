@@ -28,12 +28,12 @@ jobs:
   set-up-job:
     runs-on: ubuntu-latest
     outputs:
-      RELEASE: ${{ steps.inputs.RELEASE }}
-      GIT_TAG: ${{ steps.inputs.GIT_TAG }}
-      TEST_CODE: ${{ steps.inputs.TEST_CODE }}
+      RELEASE: ${{ steps.set.outputs.RELEASE }}
+      GIT_TAG: ${{ steps.set.outputs.GIT_TAG }}
+      TEST_CODE: ${{ steps.set.outputs.TEST_CODE }}
     steps:
-      - name: echo inputs
-        id: inputs
+      - name: Set outputs from workflow inputs
+        id: set
         run: |
           echo "Release: ${{ github.event.inputs.RELEASE }}"
           echo "Git tag: ${{ github.event.inputs.GIT_TAG }}"
