@@ -171,6 +171,34 @@ jobs:
           echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
           echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
 
+  test-conditions05:
+    needs: [ build-docker ]
+    runs-on: gh-ubuntu-2404-x64
+    steps:
+      - name: Echo needs results and input values
+        run: |
+          echo "### Job Results:"
+          echo "build-docker result: ${{ needs.build-docker.result }}"
+          echo "### Raw Inputs:"
+          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
+
+  test-conditions06:
+    needs: [ build-docker, build-code, build-code-ubuntu2404 ]
+    runs-on: gh-ubuntu-2404-x64
+    steps:
+      - name: Echo needs results and input values
+        run: |
+          echo "### Job Results:"
+          echo "build-code-ubuntu2404 result: ${{ needs.build-code-ubuntu2404.result }}"
+          echo "build-code result: ${{ needs.build-code.result }}"
+          echo "build-docker result: ${{ needs.build-docker.result }}"
+          echo "### Raw Inputs:"
+          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
+
   release:
     needs: [ set-up-job, build-docker ]
     if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
