@@ -27,6 +27,7 @@ concurrency:
 jobs:
   set-up-job:
     runs-on: ubuntu-latest
+
     steps:
       - name: echo inputs
         run: |
@@ -70,7 +71,7 @@ jobs:
     secrets: inherit
 
   build-docker:
-    needs: [ set-up-job, build-code-ubuntu2404 ]
+    needs: [ set-up-job, build-code-ubuntu2404, test-code ]
     if: |
       always() &&
       (needs.build-code-ubuntu2404.result == 'success') &&
