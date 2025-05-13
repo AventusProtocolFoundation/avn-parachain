@@ -89,24 +89,29 @@ jobs:
       docker_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
 
-  test-conditions0:
-    needs: [ set-up-job ]
+  test-conditions00:
+    needs: [ set-up-job, build-docker, build-code-ubuntu2404 ]
     runs-on: gh-ubuntu-2404-x64
     if: ${{ always() }}
     steps:
       - name: echo inputs
         run: |
-          echo "TEST_CODE=${{ needs.set-up-job.outputs.TEST_CODE }}"
-          echo "RELEASE=${{ needs.set-up-job.outputs.RELEASE }}"
-          echo "GIT_TAG=${{ needs.set-up-job.outputs.GIT_TAG }}"
-
+          echo "build-code-ubuntu2404=${{ needs.build-code-ubuntu2404.result }}"
+          echo "build-docker=${{ needs.build-docker.result }}"
+          echo "set-up-job=${{ needs.set-up-job.result }}"
+          
+  test-conditions0:
+    needs: [ build-docker ]
+    runs-on: gh-ubuntu-2404-x64
+    steps:
+      - name: echo inputs
+        run: |
           echo "RELEASE value: ${{ github.event.inputs.RELEASE }}"
           echo "GIT_TAG value: ${{ github.event.inputs.GIT_TAG }}"
           echo "TEST_CODE value: ${{ github.event.inputs.TEST_CODE }}"
   test-conditions1:
     needs: [ set-up-job, build-docker ]
     runs-on: gh-ubuntu-2404-x64
-    if: ${{ always() }}
     steps:
       - name: echo inputs
         run: |
