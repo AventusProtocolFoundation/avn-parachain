@@ -1474,6 +1474,22 @@ pub mod pallet {
         pub(crate) fn pallet_id() -> Vec<u8> {
             [PALLET_ID.to_vec(), vec![T::InstanceId::get()]].concat()
         }
+
+        pub(crate) fn get_summary_details_impl(
+            root_id: &RootId<BlockNumberFor<Self>>
+        ) -> Option<(H256, SummaryStatus)> {
+            if <Roots<T, I>>::contains_key(root_id.range, root_id.ingress_counter) {
+                let root_data = <Roots<T, I>>::get(root_id.range, root_id.ingress_counter);
+                Some((root_data.root_hash, root_data.status))
+            } else {
+                log::warn!(
+                    target: "runtime::summary",
+                    "get_summary_details_impl: RootData not found for RootId: {:?}",
+                    root_id
+                );
+                None
+            }
+        }
     }
 }
 
