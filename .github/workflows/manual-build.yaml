@@ -93,10 +93,11 @@ jobs:
     secrets: inherit
 
   release:
-    needs: [ set-up-job, build-docker ]
+    needs: [ set-up-job, build-code, build-docker ]
     if: |
       always() &&
       (needs.set-up-job.outputs.RELEASE == 'true') &&
+      (needs.build-code.result == 'success') &&
       (needs.build-docker.result == 'success')
     uses: ./.github/workflows/gh-release.yml
     with:
