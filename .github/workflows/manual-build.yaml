@@ -39,9 +39,9 @@ jobs:
           echo "Git tag: ${{ github.event.inputs.GIT_TAG }}"
           echo "Test code: ${{ github.event.inputs.TEST_CODE }}"
 
-          echo "RELEASE=${{ github.event.inputs.RELEASE }}" >> "$GITHUB_OUTPUT"
-          echo "GIT_TAG=${{ github.event.inputs.GIT_TAG }}" >> "$GITHUB_OUTPUT"
-          echo "TEST_CODE=${{ github.event.inputs.TEST_CODE }}" >> "$GITHUB_OUTPUT"
+          echo "RELEASE='${{ github.event.inputs.RELEASE }}'" >> "$GITHUB_OUTPUT"
+          echo "GIT_TAG='${{ github.event.inputs.GIT_TAG }}'" >> "$GITHUB_OUTPUT"
+          echo "TEST_CODE='${{ github.event.inputs.TEST_CODE }}'" >> "$GITHUB_OUTPUT"
 
       - name: verify GIT TAG
         run: |
@@ -89,6 +89,15 @@ jobs:
       docker_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
 
+  test-conditions1:
+    needs: [ set-up-job, build-docker ]
+    runs-on: gh-ubuntu-2404-x64
+    steps:
+      - name: echo inputs
+        run: |
+          echo "TEST_CODE=${{ needs.set-up-job.outputs.TEST_CODE }}"
+          echo "RELEASE=${{ needs.set-up-job.outputs.RELEASE }}"
+          echo "GIT_TAG=${{ needs.set-up-job.outputs.GIT_TAG }}"
   test-conditions:
     needs: [ set-up-job, build-docker ]
     runs-on: gh-ubuntu-2404-x64
