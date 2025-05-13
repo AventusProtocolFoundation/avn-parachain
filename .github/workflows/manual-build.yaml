@@ -89,6 +89,20 @@ jobs:
       docker_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
 
+  test-conditions0:
+    needs: [ set-up-job ]
+    runs-on: gh-ubuntu-2404-x64
+    if: ${{ always() }}
+    steps:
+      - name: echo inputs
+        run: |
+          echo "TEST_CODE=${{ needs.set-up-job.outputs.TEST_CODE }}"
+          echo "RELEASE=${{ needs.set-up-job.outputs.RELEASE }}"
+          echo "GIT_TAG=${{ needs.set-up-job.outputs.GIT_TAG }}"
+
+          echo "RELEASE value: ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG value: ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE value: ${{ github.event.inputs.TEST_CODE }}"
   test-conditions1:
     needs: [ set-up-job, build-docker ]
     runs-on: gh-ubuntu-2404-x64
@@ -99,16 +113,36 @@ jobs:
           echo "TEST_CODE=${{ needs.set-up-job.outputs.TEST_CODE }}"
           echo "RELEASE=${{ needs.set-up-job.outputs.RELEASE }}"
           echo "GIT_TAG=${{ needs.set-up-job.outputs.GIT_TAG }}"
-  test-conditions:
+
+          echo "RELEASE value: ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG value: ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE value: ${{ github.event.inputs.TEST_CODE }}"
+
+  test-conditions2:
+    needs: [ set-up-job, build-docker ]
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - name: echo inputs
+        run: |
+          echo "TEST_CODE=${{ needs.set-up-job.outputs.TEST_CODE }}"
+          echo "RELEASE=${{ needs.set-up-job.outputs.RELEASE }}"
+          echo "GIT_TAG=${{ needs.set-up-job.outputs.GIT_TAG }}"
+
+          echo "RELEASE value: ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG value: ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE value: ${{ github.event.inputs.TEST_CODE }}"
+
+  test-conditions3:
     needs: [ set-up-job, build-docker ]
     runs-on: gh-ubuntu-2404-x64
-    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
+    if: ${{ github.event.inputs.RELEASE == 'true' }}
     steps:
       - name: Check outputs
         run: |
-          echo "RELEASE value: ${{ needs.set-up-job.outputs.RELEASE }}"
-          echo "GIT_TAG value: ${{ needs.set-up-job.outputs.GIT_TAG }}"
-          echo "TEST_CODE value: ${{ needs.set-up-job.outputs.TEST_CODE }}"
+          echo "RELEASE value: ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG value: ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE value: ${{ github.event.inputs.TEST_CODE }}"
   release:
     needs: [ set-up-job, build-docker ]
     if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
