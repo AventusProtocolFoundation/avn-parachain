@@ -79,8 +79,11 @@ jobs:
     needs: [ set-up-job, build-code-ubuntu2404, test-code ]
     if: |
       always() &&
-      (needs.build-code-ubuntu2404.result == 'success') &&
-      (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
+      needs.build-code-ubuntu2404.result == 'success' &&
+      (
+        needs.set-up-job.outputs.TEST_CODE == 'false' ||
+        needs.test-code.result == 'success'
+      )
     uses: ./.github/workflows/docker-build.yml
     with:
       parachain-collator-artifact: parachain-collator
@@ -89,119 +92,12 @@ jobs:
       docker_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
 
-  test-conditions00:
-    needs: [ set-up-job, build-docker, build-code, build-code-ubuntu2404 ]
-    runs-on: gh-ubuntu-2404-x64
-    if: ${{ always() }}
-    steps:
-      - name: Echo needs results and input values
-        run: |
-          echo "### Job Results:"
-          echo "build-code-ubuntu2404 result: ${{ needs.build-code-ubuntu2404.result }}"
-          echo "build-code result: ${{ needs.build-code.result }}"
-          echo "build-docker result: ${{ needs.build-docker.result }}"
-          echo "set-up-job result: ${{ needs.set-up-job.result }}"
-
-          echo "### Output Values:"
-          echo "RELEASE: ${{ needs.set-up-job.outputs.RELEASE }}"
-          echo "GIT_TAG: ${{ needs.set-up-job.outputs.GIT_TAG }}"
-          echo "TEST_CODE: ${{ needs.set-up-job.outputs.TEST_CODE }}"
-
-          echo "### Raw Inputs:"
-          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
-          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
-          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
-          
-  test-conditions01:
-    needs: [ set-up-job]
-    runs-on: gh-ubuntu-2404-x64
-    steps:
-      - name: Echo needs results and input values
-        run: |
-          echo "### Output Values:"
-          echo "RELEASE: ${{ needs.set-up-job.outputs.RELEASE }}"
-          echo "GIT_TAG: ${{ needs.set-up-job.outputs.GIT_TAG }}"
-          echo "TEST_CODE: ${{ needs.set-up-job.outputs.TEST_CODE }}"
-
-          echo "### Raw Inputs:"
-          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
-          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
-          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
-
-  test-conditions02:
-    needs: [ build-code ]
-    runs-on: gh-ubuntu-2404-x64
-    steps:
-      - name: Echo needs results and input values
-        run: |
-          echo "### Job Results:"
-          echo "build-docker result: ${{ needs.build-code.result }}"
-
-          echo "### Raw Inputs:"
-          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
-          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
-          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
-
-  test-conditions03:
-    needs: [ build-code-ubuntu2404 ]
-    runs-on: gh-ubuntu-2404-x64
-    steps:
-      - name: Echo needs results and input values
-        run: |
-          echo "### Job Results:"
-          echo "build-code-ubuntu2404 result: ${{ needs.build-code-ubuntu2404.result }}"
-
-          echo "### Raw Inputs:"
-          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
-          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
-          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
-
-  test-conditions04:
-    needs: [ build-code, build-code-ubuntu2404 ]
-    runs-on: gh-ubuntu-2404-x64
-    steps:
-      - name: Echo needs results and input values
-        run: |
-          echo "### Job Results:"
-          echo "build-code-ubuntu2404 result: ${{ needs.build-code-ubuntu2404.result }}"
-          echo "build-code result: ${{ needs.build-code.result }}"
-
-          echo "### Raw Inputs:"
-          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
-          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
-          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
-
-  test-conditions05:
-    needs: [ build-docker ]
-    runs-on: gh-ubuntu-2404-x64
-    steps:
-      - name: Echo needs results and input values
-        run: |
-          echo "### Job Results:"
-          echo "build-docker result: ${{ needs.build-docker.result }}"
-          echo "### Raw Inputs:"
-          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
-          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
-          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
-
-  test-conditions06:
-    needs: [ build-docker, build-code, build-code-ubuntu2404 ]
-    runs-on: gh-ubuntu-2404-x64
-    steps:
-      - name: Echo needs results and input values
-        run: |
-          echo "### Job Results:"
-          echo "build-code-ubuntu2404 result: ${{ needs.build-code-ubuntu2404.result }}"
-          echo "build-code result: ${{ needs.build-code.result }}"
-          echo "build-docker result: ${{ needs.build-docker.result }}"
-          echo "### Raw Inputs:"
-          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
-          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
-          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
-
   release:
     needs: [ set-up-job, build-docker ]
-    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
+    if: |
+      always() &&
+      (needs.set-up-job.outputs.RELEASE == 'true') &&
+      (needs.build-docker.result == 'success')
     uses: ./.github/workflows/gh-release.yml
     with:
       repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
@@ -209,7 +105,7 @@ jobs:
     secrets: inherit
 
   upload-assets-internal-tools:
-    needs: [ set-up-job, build-docker ]
+    needs: [ set-up-job, build-code ]
     if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
@@ -218,7 +114,7 @@ jobs:
     secrets: inherit
 
   upload-assets-internal-tools-ubuntu2404:
-    needs: [ set-up-job, build-docker ]
+    needs: [ set-up-job, build-code-ubuntu2404 ]
     if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
