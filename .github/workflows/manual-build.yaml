@@ -113,7 +113,51 @@ jobs:
           echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
           
   test-conditions01:
-    needs: [ set-up-job, build-docker, build-code, build-code-ubuntu2404 ]
+    needs: [ set-up-job]
+    runs-on: gh-ubuntu-2404-x64
+    steps:
+      - name: Echo needs results and input values
+        run: |
+          echo "### Output Values:"
+          echo "RELEASE: ${{ needs.set-up-job.outputs.RELEASE }}"
+          echo "GIT_TAG: ${{ needs.set-up-job.outputs.GIT_TAG }}"
+          echo "TEST_CODE: ${{ needs.set-up-job.outputs.TEST_CODE }}"
+
+          echo "### Raw Inputs:"
+          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
+
+  test-conditions02:
+    needs: [ build-code ]
+    runs-on: gh-ubuntu-2404-x64
+    steps:
+      - name: Echo needs results and input values
+        run: |
+          echo "### Job Results:"
+          echo "build-docker result: ${{ needs.build-code.result }}"
+
+          echo "### Raw Inputs:"
+          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
+
+  test-conditions03:
+    needs: [ build-code-ubuntu2404 ]
+    runs-on: gh-ubuntu-2404-x64
+    steps:
+      - name: Echo needs results and input values
+        run: |
+          echo "### Job Results:"
+          echo "build-code-ubuntu2404 result: ${{ needs.build-code-ubuntu2404.result }}"
+
+          echo "### Raw Inputs:"
+          echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
+          echo "GIT_TAG (raw): ${{ github.event.inputs.GIT_TAG }}"
+          echo "TEST_CODE (raw): ${{ github.event.inputs.TEST_CODE }}"
+
+  test-conditions04:
+    needs: [ build-code, build-code-ubuntu2404 ]
     runs-on: gh-ubuntu-2404-x64
     steps:
       - name: Echo needs results and input values
@@ -121,13 +165,6 @@ jobs:
           echo "### Job Results:"
           echo "build-code-ubuntu2404 result: ${{ needs.build-code-ubuntu2404.result }}"
           echo "build-code result: ${{ needs.build-code.result }}"
-          echo "build-docker result: ${{ needs.build-docker.result }}"
-          echo "set-up-job result: ${{ needs.set-up-job.result }}"
-
-          echo "### Output Values:"
-          echo "RELEASE: ${{ needs.set-up-job.outputs.RELEASE }}"
-          echo "GIT_TAG: ${{ needs.set-up-job.outputs.GIT_TAG }}"
-          echo "TEST_CODE: ${{ needs.set-up-job.outputs.TEST_CODE }}"
 
           echo "### Raw Inputs:"
           echo "RELEASE (raw): ${{ github.event.inputs.RELEASE }}"
