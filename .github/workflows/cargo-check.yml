@@ -33,6 +33,9 @@ jobs:
           ref: ${{ inputs.ref }}
           repository: ${{ inputs.repository }}
 
+      - name: Install build target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Restore cargo cache - common
         uses: actions/cache@v3
         with:

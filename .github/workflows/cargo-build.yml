@@ -38,6 +38,9 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
 
+      - name: Install build target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Restore cargo cache - common
         uses: actions/cache@v3
         with:
