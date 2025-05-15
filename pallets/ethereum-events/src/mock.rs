@@ -2,17 +2,17 @@
 
 #![cfg(test)]
 
-use frame_support::{assert_ok, parameter_types, weights::Weight};
+use frame_support::{assert_ok, derive_impl, parameter_types};
 use sp_core::{crypto::KeyTypeId, sr25519, Pair, H256};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    traits::{ConvertInto, IdentityLookup},
     BoundedBTreeSet, BuildStorage, Perbill, WeakBoundedVec,
 };
 use sp_state_machine::BasicExternalities;
 use std::{cell::RefCell, collections::BTreeSet};
 
-use frame_system as system;
+use frame_system::{self as system, DefaultConfig};
 use hex_literal::hex;
 use pallet_avn_proxy::ProvableProxy;
 use pallet_session as session;
@@ -126,15 +126,12 @@ impl EthereumEventsFilterTrait for MyEthereumEventsFilter {
     }
 }
 
+#[derive_impl(pallet_ethereum_events::config_preludes::TestDefaultConfig as pallet_ethereum_events::DefaultConfig)]
 impl Config for TestRuntime {
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
     type ProcessedEventHandler = Self;
-    type MinEthBlockConfirmation = MinEthBlockConfirmation;
     type ReportInvalidEthereumLog = OffenceHandler;
     type Public = AccountId;
     type Signature = Signature;
-    type WeightInfo = ();
     type ProcessedEventsHandler = MyEthereumEventsFilter;
     type ProcessedEventsChecker = EthereumEvents;
 }
@@ -147,38 +144,13 @@ where
     type Extrinsic = Extrinsic;
 }
 
-parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = Weight::from_parts(1024 as u64, 0);
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-    pub const MinEthBlockConfirmation: u64 = 2;
-}
-
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
-    type BaseCallFilter = frame_support::traits::Everything;
-    type BlockWeights = ();
-    type BlockLength = ();
-    type DbWeight = ();
-    type RuntimeOrigin = RuntimeOrigin;
-    type RuntimeCall = RuntimeCall;
     type Nonce = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
+    type Block = Block;
+    type AccountData = pallet_balances::AccountData<u128>;
     type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
-    type Block = Block;
-    type RuntimeEvent = RuntimeEvent;
-    type BlockHashCount = BlockHashCount;
-    type Version = ();
-    type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<u128>;
-    type OnNewAccount = ();
-    type OnKilledAccount = ();
-    type SystemWeightInfo = ();
-    type SS58Prefix = ();
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
 parameter_types! {
@@ -198,15 +170,10 @@ thread_local! {
     pub static PROCESS_EVENT_SUCCESS: RefCell<bool> = RefCell::new(true);
 }
 
+#[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
 impl avn::Config for TestRuntime {
-    type RuntimeEvent = RuntimeEvent;
     type AuthorityId = UintAuthorityId;
-    type EthereumPublicKeyChecker = ();
-    type NewSessionHandler = ();
-    type DisabledValidatorChecker = ();
-    type WeightInfo = ();
 }
-
 pub struct TestSessionManager;
 impl session::SessionManager<AccountId> for TestSessionManager {
     fn new_session(_new_index: SessionIndex) -> Option<Vec<AccountId>> {
@@ -233,20 +200,11 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = EXISTENTIAL_DEPOSIT;
 }
 
+#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
 impl pallet_balances::Config for TestRuntime {
     type Balance = u128;
-    type DustRemoval = ();
-    type RuntimeEvent = RuntimeEvent;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type MaxLocks = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = [u8; 8];
-    type WeightInfo = ();
-    type RuntimeHoldReason = ();
-    type FreezeIdentifier = ();
-    type MaxHolds = ();
-    type MaxFreezes = ();
 }
 
 impl pallet_session::historical::Config for TestRuntime {

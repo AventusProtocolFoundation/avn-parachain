@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::Codec;
-use sp_api::vec::Vec;
 use sp_avn_common::event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition};
 use sp_core::{H160, H256};
+use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 
