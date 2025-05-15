@@ -38,8 +38,15 @@ jobs:
       - name: Check out
         uses: actions/checkout@v3
 
-      - name: Install build target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.81.0
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+          override: true
+          default: true
 
       - name: Restore cargo cache - common
         uses: actions/cache@v3

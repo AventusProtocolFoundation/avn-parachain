@@ -69,8 +69,16 @@ jobs:
           ref: ${{ inputs.ref }}
           repository: ${{ inputs.repository }}
 
-      - name: Install build target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.81.0
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+          override: true
+          default: true
+
 
       - name: Restore cargo cache - common
         uses: actions/cache@v3
@@ -104,8 +112,16 @@ jobs:
           ref: ${{ inputs.ref }}
           repository: ${{ inputs.repository }}
 
-      - name: Install build target
-        run: rustup target add wasm32-unknown-unknown
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.81.0
+          components: rustfmt, clippy
+          target: wasm32-unknown-unknown
+          override: true
+          default: true
+
 
       - name: Restore cargo cache - common
         uses: actions/cache@v3
