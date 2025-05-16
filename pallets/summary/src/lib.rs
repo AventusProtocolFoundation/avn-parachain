@@ -203,7 +203,7 @@ pub mod pallet {
         },
 
         /// A new summary is generated and ready for validation.
-        SummaryReadyForValidation { root_id: RootId<BlockNumberFor<T>> }, // New
+        SummaryReadyForValidation { root_id: RootId<BlockNumberFor<T>>, onchain_root_hash: H256 }, // New
         /// The status of a summary has been updated.
         SummaryStatusUpdated { root_id: RootId<BlockNumberFor<T>>, new_status: SummaryStatus }, /* New */
         /// An accepted summary has been successfully published via the bridge.
