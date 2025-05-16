@@ -470,43 +470,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        // We need to maintain this till SYS-888 is resolved. After that it can be removed.
-        #[deprecated(
-            since = "5.5.0",
-            note = "This extrinsic is being deprecated and will be removed in the near future. Ethereum events will be automatically imported by EthBridge pallet.
-            Alternatively `add_ethereum_log` can be used although it's also deprecated but will be retained for a longer period"
-        )]
-        #[pallet::call_index(0)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_validator_log
-            (MAX_NUMBER_OF_UNCHECKED_EVENTS,
-                MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES))]
-        pub fn add_validator_log(origin: OriginFor<T>, tx_hash: H256) -> DispatchResult {
-            let account_id = ensure_signed(origin)?;
-            ensure!(&tx_hash != &H256::zero(), Error::<T>::MalformedHash);
-
-            // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
-            return Self::add_event(ValidEvents::AddedValidator, tx_hash, account_id)
-        }
-
-        // We need to maintain this till SYS-888 is resolved. After that it can be removed.
-        #[deprecated(
-            since = "5.5.0",
-            note = "This extrinsic is being deprecated and will be removed in the near future. Ethereum events will be automatically imported by EthBridge pallet.
-            Alternatively `add_ethereum_log` can be used although it's also deprecated but will be retained for a longer period"
-        )]
-        #[pallet::call_index(1)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_lift_log(
-            MAX_NUMBER_OF_UNCHECKED_EVENTS,
-            MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES
-        ))]
-        pub fn add_lift_log(origin: OriginFor<T>, tx_hash: H256) -> DispatchResult {
-            let account_id = ensure_signed(origin)?;
-            ensure!(&tx_hash != &H256::zero(), Error::<T>::MalformedHash);
-
-            // TODO [TYPE: weightInfo][PRI: medium]: Return accurate weight
-            return Self::add_event(ValidEvents::Lifted, tx_hash, account_id)
-        }
-
         #[pallet::call_index(2)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_checkevent_result(MAX_VALIDATOR_ACCOUNTS, MAX_NUMBER_OF_UNCHECKED_EVENTS))]
         pub fn submit_checkevent_result(

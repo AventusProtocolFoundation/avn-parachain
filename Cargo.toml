@@ -24,7 +24,6 @@ resolver = "2"
 members = [
     "node",
     "node/avn-service",
-    "node/avn-lower-rpc",
     "pallets/*",
     "pallets/*/runtime-api",
     "primitives/*",
