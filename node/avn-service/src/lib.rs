@@ -109,12 +109,6 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
     }
 }
 
-#[derive(Debug, serde::Serialize)]
-struct Response {
-    pub result: serde_json::Value,
-    pub num_confirmations: u64,
-}
-
 trait TxQueryData {
     fn as_encodable(&self) -> Result<Vec<u8>, TideError>;
 }
