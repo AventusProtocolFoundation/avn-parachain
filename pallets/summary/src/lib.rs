@@ -1276,7 +1276,7 @@ pub mod pallet {
                 // Set status to ReadyForValidation for non-validator checks
                 Self::set_summary_status(*root_id, SummaryStatus::ReadyForValidation)?;
                 // Emit event to trigger non-validator checks
-                Self::deposit_event(Event::SummaryReadyForValidation { root_id: *root_id });
+                Self::deposit_event(Event::SummaryReadyForValidation { root_id: *root_id, onchain_root_hash: original_root_data.root_hash });
 
                 // --- Original offence logic for nays ---
                 create_and_report_summary_offence::<T, I>(
