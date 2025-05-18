@@ -3,6 +3,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
+    ord_parameter_types,
     pallet_prelude::DispatchClass,
     parameter_types,
     traits::{ConstU16, ConstU64, ConstU8, Imbalance, OnFinalize, OnInitialize, OnUnbalanced},
@@ -36,6 +37,14 @@ frame_support::construct_runtime!(
         AvnTransactionPayment: pallet_avn_transaction_payment::{Pallet, Call, Storage, Event<T>}
     }
 );
+
+fn sudo() -> AccountId {
+    return TestAccount::new(101).account_id()
+}
+
+ord_parameter_types! {
+    pub const Sudo: AccountId = sudo();
+}
 
 parameter_types! {
     pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(1024, NORMAL_DISPATCH_RATIO);
@@ -87,6 +96,7 @@ impl pallet_avn_transaction_payment::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
+    type KnownUserOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<TestRuntime>;
 }
 
