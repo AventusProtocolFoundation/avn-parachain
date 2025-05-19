@@ -3,8 +3,9 @@ use crate::mock::{
     event_emitted, new_test_ext, AccountId, AvnTransactionPayment, RuntimeOrigin, TestAccount,
     TestRuntime,
 };
-
 use frame_support::{assert_noop, assert_ok};
+use frame_system::RawOrigin;
+use sp_runtime::DispatchError;
 
 fn to_acc_id(id: u64) -> AccountId {
     return TestAccount::new(id).account_id()
@@ -248,6 +249,49 @@ mod set_known_senders {
                 );
             })
         }
+
+        #[test]
+        fn call_has_bad_origin_signed() {
+            new_test_ext().execute_with(|| {
+                let account_1 = to_acc_id(1u64);
+
+                let config = AdjustmentInput::<TestRuntime> {
+                    fee_type: FeeType::FixedFee(FixedFeeConfig { fee: 1 }),
+                    adjustment_type: AdjustmentType::TimeBased(Duration { duration: 0 }),
+                };
+
+                let bad_signer = to_acc_id(11u64);
+                assert_noop!(
+                    AvnTransactionPayment::set_known_sender(
+                        RuntimeOrigin::signed(bad_signer),
+                        account_1,
+                        config,
+                    ),
+                    DispatchError::BadOrigin
+                );
+            })
+        }
+
+        #[test]
+        fn call_has_bad_origin_unsigned() {
+            new_test_ext().execute_with(|| {
+                let account_1 = to_acc_id(1u64);
+
+                let config = AdjustmentInput::<TestRuntime> {
+                    fee_type: FeeType::FixedFee(FixedFeeConfig { fee: 1 }),
+                    adjustment_type: AdjustmentType::TimeBased(Duration { duration: 0 }),
+                };
+
+                assert_noop!(
+                    AvnTransactionPayment::set_known_sender(
+                        RawOrigin::None.into(),
+                        account_1,
+                        config,
+                    ),
+                    DispatchError::BadOrigin
+                );
+            })
+        }
     }
 }
 
@@ -302,6 +346,32 @@ mod remove_known_senders {
                 assert_noop!(
                     AvnTransactionPayment::remove_known_sender(RuntimeOrigin::root(), account_1),
                     Error::<TestRuntime>::KnownSenderMissing
+                );
+            })
+        }
+
+        #[test]
+        fn call_has_bad_origin_signed() {
+            new_test_ext().execute_with(|| {
+                let account_1 = to_acc_id(1u64);
+                let bad_signer = to_acc_id(11u64);
+                assert_noop!(
+                    AvnTransactionPayment::remove_known_sender(
+                        RuntimeOrigin::signed(bad_signer),
+                        account_1
+                    ),
+                    DispatchError::BadOrigin
+                );
+            })
+        }
+
+        #[test]
+        fn call_has_bad_origin_unsigned() {
+            new_test_ext().execute_with(|| {
+                let account_1 = to_acc_id(1u64);
+                assert_noop!(
+                    AvnTransactionPayment::remove_known_sender(RawOrigin::None.into(), account_1),
+                    DispatchError::BadOrigin
                 );
             })
         }

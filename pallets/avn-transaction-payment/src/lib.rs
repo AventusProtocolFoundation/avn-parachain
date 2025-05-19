@@ -51,6 +51,9 @@ pub mod pallet {
         /// Currency type for processing fee payment
         type Currency: Currency<Self::AccountId>;
 
+        /// The origin that is allowed to set the known senders
+        type KnownUserOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
         type WeightInfo: WeightInfo;
     }
 
@@ -104,7 +107,7 @@ pub mod pallet {
             known_sender: T::AccountId,
             config: AdjustmentInput<T>,
         ) -> DispatchResult {
-            frame_system::ensure_root(origin)?;
+            T::KnownUserOrigin::ensure_origin(origin)?;
 
             let mut fee_adjustment_config: FeeAdjustmentConfig<T> = Default::default();
             if config.adjustment_type != AdjustmentType::None {
@@ -162,7 +165,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             known_sender: T::AccountId,
         ) -> DispatchResult {
-            frame_system::ensure_root(origin)?;
+            T::KnownUserOrigin::ensure_origin(origin)?;
 
             ensure!(
                 <KnownSenders<T>>::contains_key(&known_sender) == true,

@@ -637,6 +637,7 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
+    type KnownUserOrigin = EnsureRoot<AccountId>;
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
 }
 
