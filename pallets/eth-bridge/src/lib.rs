@@ -395,38 +395,6 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        #[pallet::call_index(0)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_lifetime_secs())]
-        #[deprecated(
-            since = "6.9.0",
-            note = "This method is being deprecated. Use `set_admin_setting` instead."
-        )]
-        pub fn set_eth_tx_lifetime_secs(
-            origin: OriginFor<T>,
-            eth_tx_lifetime_secs: u64,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            EthTxLifetimeSecs::<T>::put(eth_tx_lifetime_secs);
-            Self::deposit_event(Event::<T>::EthTxLifetimeUpdated { eth_tx_lifetime_secs });
-            Ok(().into())
-        }
-
-        #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_eth_tx_id())]
-        #[deprecated(
-            since = "6.9.0",
-            note = "This method is being deprecated. Use `set_admin_setting` instead."
-        )]
-        pub fn set_eth_tx_id(
-            origin: OriginFor<T>,
-            eth_tx_id: EthereumId,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            NextTxId::<T>::put(eth_tx_id);
-            Self::deposit_event(Event::<T>::EthTxIdUpdated { eth_tx_id });
-            Ok(().into())
-        }
-
         #[pallet::call_index(2)]
         #[pallet::weight(<T as Config>::WeightInfo::add_confirmation(MAX_CONFIRMATIONS))]
         pub fn add_confirmation(
@@ -570,17 +538,6 @@ pub mod pallet {
             Ok(().into())
         }
 
-        #[pallet::call_index(5)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_active_request())]
-        #[deprecated(
-            since = "6.9.0",
-            note = "This method is being deprecated. Use `set_admin_setting` instead."
-        )]
-        pub fn remove_active_request(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::remove_active_request_impl()
-        }
-
         #[pallet::call_index(6)]
         #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE).max(
             <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE)
@@ -715,9 +672,8 @@ pub mod pallet {
             Ok(Some(final_weight).into())
         }
 
-        // TODO use its own benchmark..
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_active_request())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_admin_setting())]
 
         pub fn set_admin_setting(
             origin: OriginFor<T>,

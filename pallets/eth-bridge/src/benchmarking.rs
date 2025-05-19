@@ -312,20 +312,6 @@ fn submit_latest_block_from_other_authors<T: Config>(
 }
 
 benchmarks! {
-    set_eth_tx_lifetime_secs {
-        let eth_tx_lifetime_secs = 300u64;
-    }: _(RawOrigin::Root, eth_tx_lifetime_secs)
-    verify {
-        assert_eq!(EthTxLifetimeSecs::<T>::get(), eth_tx_lifetime_secs);
-    }
-
-    set_eth_tx_id {
-        let eth_tx_id = 300u32;
-    }: _(RawOrigin::Root, eth_tx_id)
-    verify {
-        assert_eq!(NextTxId::<T>::get(), eth_tx_id);
-    }
-
     add_confirmation {
         let v in 1 .. MAX_CONFIRMATIONS;
         let authors = setup_authors::<T>(v + 4);
@@ -354,6 +340,17 @@ benchmarks! {
     verify {
         let active_tx = ActiveRequest::<T>::get().expect("is active");
         ensure!(active_tx.confirmation.confirmations.contains(&new_confirmation), "Confirmation not added");
+    }
+
+    set_admin_setting {
+        let authors = setup_authors::<T>(2);
+        let tx_id = 1u32;
+        setup_new_active_tx::<T>(tx_id, 1, authors[1].clone());
+        // Make sure there is an active request
+        let _ = ActiveRequest::<T>::get().expect("is active");
+    }: _(RawOrigin::Root, AdminSettings::RemoveActiveRequest)
+    verify {
+        ensure!(ActiveRequest::<T>::get().is_none(), "Active request not removed");
     }
 
     add_eth_tx_hash {
@@ -412,17 +409,6 @@ benchmarks! {
     }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
         ensure!(SettledTransactions::<T>::get(tx_id).is_some(), "Transaction is not settled");
-    }
-
-    remove_active_request {
-        let authors = setup_authors::<T>(2);
-        let tx_id = 1u32;
-        setup_new_active_tx::<T>(tx_id, 1, authors[1].clone());
-        // Make sure there is an active request
-        let _ = ActiveRequest::<T>::get().expect("is active");
-    }: _(RawOrigin::Root)
-    verify {
-        ensure!(ActiveRequest::<T>::get().is_none(), "Active request not removed");
     }
 
     submit_ethereum_events {

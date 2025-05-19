@@ -37,13 +37,11 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_eth_bridge.
 pub trait WeightInfo {
-	fn set_eth_tx_lifetime_secs() -> Weight;
-	fn set_eth_tx_id() -> Weight;
 	fn add_confirmation(v: u32, ) -> Weight;
 	fn add_eth_tx_hash() -> Weight;
 	fn add_corroboration() -> Weight;
 	fn add_corroboration_with_challenge(v: u32, ) -> Weight;
-	fn remove_active_request() -> Weight;
+	fn set_admin_setting() -> Weight;
 	fn submit_ethereum_events(c: u32, e: u32, ) -> Weight;
 	fn submit_ethereum_events_and_process_batch(c: u32, e: u32, ) -> Weight;
 	fn submit_latest_ethereum_block(c: u32, ) -> Weight;
@@ -55,26 +53,6 @@ pub trait WeightInfo {
 /// Weights for pallet_eth_bridge using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `EthBridge::EthTxLifetimeSecs` (r:0 w:1)
-	/// Proof: `EthBridge::EthTxLifetimeSecs` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn set_eth_tx_lifetime_secs() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 8_560_000 picoseconds.
-		Weight::from_parts(8_761_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `EthBridge::NextTxId` (r:0 w:1)
-	/// Proof: `EthBridge::NextTxId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn set_eth_tx_id() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 8_530_000 picoseconds.
-		Weight::from_parts(8_800_000, 0)
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
 	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
 	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
 	/// Storage: `Avn::Validators` (r:1 w:0)
@@ -157,7 +135,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Summary::TxIdToRoot` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// Storage: `EthBridge::RequestQueue` (r:1 w:0)
 	/// Proof: `EthBridge::RequestQueue` (`max_values`: Some(1), `max_size`: Some(79002), added: 79497, mode: `MaxEncodedLen`)
-	fn remove_active_request() -> Weight {
+	fn set_admin_setting() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `586`
 		//  Estimated: `80487`
@@ -283,26 +261,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	/// Storage: `EthBridge::EthTxLifetimeSecs` (r:0 w:1)
-	/// Proof: `EthBridge::EthTxLifetimeSecs` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn set_eth_tx_lifetime_secs() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 8_560_000 picoseconds.
-		Weight::from_parts(8_761_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `EthBridge::NextTxId` (r:0 w:1)
-	/// Proof: `EthBridge::NextTxId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn set_eth_tx_id() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 8_530_000 picoseconds.
-		Weight::from_parts(8_800_000, 0)
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
 	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
 	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
 	/// Storage: `Avn::Validators` (r:1 w:0)
@@ -385,7 +343,7 @@ impl WeightInfo for () {
 	/// Proof: `Summary::TxIdToRoot` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
 	/// Storage: `EthBridge::RequestQueue` (r:1 w:0)
 	/// Proof: `EthBridge::RequestQueue` (`max_values`: Some(1), `max_size`: Some(79002), added: 79497, mode: `MaxEncodedLen`)
-	fn remove_active_request() -> Weight {
+	fn set_admin_setting() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `586`
 		//  Estimated: `80487`

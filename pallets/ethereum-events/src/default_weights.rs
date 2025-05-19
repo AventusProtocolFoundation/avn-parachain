@@ -36,8 +36,6 @@ use core::marker::PhantomData;
 
 /// Weight functions needed for pallet_ethereum_events.
 pub trait WeightInfo {
-	fn add_validator_log(u: u32, e: u32, ) -> Weight;
-	fn add_lift_log(u: u32, e: u32, ) -> Weight;
 	fn add_ethereum_log(u: u32, e: u32, ) -> Weight;
 	fn signed_add_ethereum_log(u: u32, e: u32, ) -> Weight;
 	fn set_nft_contract_map_storage() -> Weight;
@@ -51,56 +49,6 @@ pub trait WeightInfo {
 /// Weights for pallet_ethereum_events using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `EthereumEvents::ProcessedEvents` (r:1 w:0)
-	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::UncheckedEvents` (r:1 w:1)
-	/// Proof: `EthereumEvents::UncheckedEvents` (`max_values`: Some(1), `max_size`: Some(38002), added: 38497, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:0)
-	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(62401), added: 62896, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::TotalIngresses` (r:1 w:1)
-	/// Proof: `EthereumEvents::TotalIngresses` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Avn::AvnBridgeContractAddress` (r:1 w:0)
-	/// Proof: `Avn::AvnBridgeContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
-	/// The range of component `u` is `[1, 499]`.
-	/// The range of component `e` is `[1, 49]`.
-	fn add_validator_log(u: u32, e: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `271 + e * (122 ±0) + u * (76 ±0)`
-		//  Estimated: `63886`
-		// Minimum execution time: 44_321_000 picoseconds.
-		Weight::from_parts(34_523_826, 63886)
-			// Standard Error: 577
-			.saturating_add(Weight::from_parts(93_834, 0).saturating_mul(u.into()))
-			// Standard Error: 5_880
-			.saturating_add(Weight::from_parts(189_326, 0).saturating_mul(e.into()))
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
-	/// Storage: `EthereumEvents::ProcessedEvents` (r:1 w:0)
-	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::UncheckedEvents` (r:1 w:1)
-	/// Proof: `EthereumEvents::UncheckedEvents` (`max_values`: Some(1), `max_size`: Some(38002), added: 38497, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:0)
-	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(62401), added: 62896, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::TotalIngresses` (r:1 w:1)
-	/// Proof: `EthereumEvents::TotalIngresses` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Avn::AvnBridgeContractAddress` (r:1 w:0)
-	/// Proof: `Avn::AvnBridgeContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
-	/// The range of component `u` is `[1, 499]`.
-	/// The range of component `e` is `[1, 49]`.
-	fn add_lift_log(u: u32, e: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `271 + e * (122 ±0) + u * (76 ±0)`
-		//  Estimated: `63886`
-		// Minimum execution time: 44_391_000 picoseconds.
-		Weight::from_parts(34_312_431, 63886)
-			// Standard Error: 599
-			.saturating_add(Weight::from_parts(95_155, 0).saturating_mul(u.into()))
-			// Standard Error: 6_108
-			.saturating_add(Weight::from_parts(186_221, 0).saturating_mul(e.into()))
-			.saturating_add(T::DbWeight::get().reads(5_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
 	/// Storage: `EthereumEvents::ProcessedEvents` (r:1 w:0)
 	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
 	/// Storage: `EthereumEvents::UncheckedEvents` (r:1 w:1)
@@ -298,56 +246,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	/// Storage: `EthereumEvents::ProcessedEvents` (r:1 w:0)
-	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::UncheckedEvents` (r:1 w:1)
-	/// Proof: `EthereumEvents::UncheckedEvents` (`max_values`: Some(1), `max_size`: Some(38002), added: 38497, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:0)
-	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(62401), added: 62896, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::TotalIngresses` (r:1 w:1)
-	/// Proof: `EthereumEvents::TotalIngresses` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Avn::AvnBridgeContractAddress` (r:1 w:0)
-	/// Proof: `Avn::AvnBridgeContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
-	/// The range of component `u` is `[1, 499]`.
-	/// The range of component `e` is `[1, 49]`.
-	fn add_validator_log(u: u32, e: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `271 + e * (122 ±0) + u * (76 ±0)`
-		//  Estimated: `63886`
-		// Minimum execution time: 44_321_000 picoseconds.
-		Weight::from_parts(34_523_826, 63886)
-			// Standard Error: 577
-			.saturating_add(Weight::from_parts(93_834, 0).saturating_mul(u.into()))
-			// Standard Error: 5_880
-			.saturating_add(Weight::from_parts(189_326, 0).saturating_mul(e.into()))
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
-	/// Storage: `EthereumEvents::ProcessedEvents` (r:1 w:0)
-	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::UncheckedEvents` (r:1 w:1)
-	/// Proof: `EthereumEvents::UncheckedEvents` (`max_values`: Some(1), `max_size`: Some(38002), added: 38497, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::EventsPendingChallenge` (r:1 w:0)
-	/// Proof: `EthereumEvents::EventsPendingChallenge` (`max_values`: Some(1), `max_size`: Some(62401), added: 62896, mode: `MaxEncodedLen`)
-	/// Storage: `EthereumEvents::TotalIngresses` (r:1 w:1)
-	/// Proof: `EthereumEvents::TotalIngresses` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// Storage: `Avn::AvnBridgeContractAddress` (r:1 w:0)
-	/// Proof: `Avn::AvnBridgeContractAddress` (`max_values`: Some(1), `max_size`: Some(20), added: 515, mode: `MaxEncodedLen`)
-	/// The range of component `u` is `[1, 499]`.
-	/// The range of component `e` is `[1, 49]`.
-	fn add_lift_log(u: u32, e: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `271 + e * (122 ±0) + u * (76 ±0)`
-		//  Estimated: `63886`
-		// Minimum execution time: 44_391_000 picoseconds.
-		Weight::from_parts(34_312_431, 63886)
-			// Standard Error: 599
-			.saturating_add(Weight::from_parts(95_155, 0).saturating_mul(u.into()))
-			// Standard Error: 6_108
-			.saturating_add(Weight::from_parts(186_221, 0).saturating_mul(e.into()))
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
 	/// Storage: `EthereumEvents::ProcessedEvents` (r:1 w:0)
 	/// Proof: `EthereumEvents::ProcessedEvents` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
 	/// Storage: `EthereumEvents::UncheckedEvents` (r:1 w:1)
