@@ -342,6 +342,17 @@ benchmarks! {
         ensure!(active_tx.confirmation.confirmations.contains(&new_confirmation), "Confirmation not added");
     }
 
+    set_admin_setting {
+        let authors = setup_authors::<T>(2);
+        let tx_id = 1u32;
+        setup_new_active_tx::<T>(tx_id, 1, authors[1].clone());
+        // Make sure there is an active request
+        let _ = ActiveRequest::<T>::get().expect("is active");
+    }: _(RawOrigin::Root, AdminSettings::RemoveActiveRequest)
+    verify {
+        ensure!(ActiveRequest::<T>::get().is_none(), "Active request not removed");
+    }
+
     add_eth_tx_hash {
         let authors = setup_authors::<T>(MAX_VALIDATOR_ACCOUNTS);
         let sender: crate::Author<T> = authors[0].clone();

@@ -41,6 +41,7 @@ pub trait WeightInfo {
 	fn add_eth_tx_hash() -> Weight;
 	fn add_corroboration() -> Weight;
 	fn add_corroboration_with_challenge(v: u32, ) -> Weight;
+	fn set_admin_setting() -> Weight;
 	fn submit_ethereum_events(c: u32, e: u32, ) -> Weight;
 	fn submit_ethereum_events_and_process_batch(c: u32, e: u32, ) -> Weight;
 	fn submit_latest_ethereum_block(c: u32, ) -> Weight;
@@ -127,6 +128,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(v.into())))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 			.saturating_add(Weight::from_parts(0, 139).saturating_mul(v.into()))
+	}
+	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
+	/// Storage: `Summary::TxIdToRoot` (r:1 w:0)
+	/// Proof: `Summary::TxIdToRoot` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::RequestQueue` (r:1 w:0)
+	/// Proof: `EthBridge::RequestQueue` (`max_values`: Some(1), `max_size`: Some(79002), added: 79497, mode: `MaxEncodedLen`)
+	fn set_admin_setting() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `586`
+		//  Estimated: `80487`
+		// Minimum execution time: 25_151_000 picoseconds.
+		Weight::from_parts(25_720_000, 80487)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:0)
 	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(544), added: 1039, mode: `MaxEncodedLen`)
@@ -320,6 +336,21 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(v.into())))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(Weight::from_parts(0, 139).saturating_mul(v.into()))
+	}
+	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
+	/// Storage: `Summary::TxIdToRoot` (r:1 w:0)
+	/// Proof: `Summary::TxIdToRoot` (`max_values`: None, `max_size`: Some(36), added: 2511, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::RequestQueue` (r:1 w:0)
+	/// Proof: `EthBridge::RequestQueue` (`max_values`: Some(1), `max_size`: Some(79002), added: 79497, mode: `MaxEncodedLen`)
+	fn set_admin_setting() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `586`
+		//  Estimated: `80487`
+		// Minimum execution time: 25_151_000 picoseconds.
+		Weight::from_parts(25_720_000, 80487)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `EthBridge::ActiveEthereumRange` (r:1 w:0)
 	/// Proof: `EthBridge::ActiveEthereumRange` (`max_values`: Some(1), `max_size`: Some(544), added: 1039, mode: `MaxEncodedLen`)

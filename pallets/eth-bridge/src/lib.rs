@@ -672,9 +672,8 @@ pub mod pallet {
             Ok(Some(final_weight).into())
         }
 
-        // TODO use its own benchmark..
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_active_request())]
+        #[pallet::weight(<T as Config>::WeightInfo::set_admin_setting())]
 
         pub fn set_admin_setting(
             origin: OriginFor<T>,
