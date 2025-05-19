@@ -148,59 +148,6 @@ fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 }
 
 benchmarks! {
-    add_validator_log {
-        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
-
-        let event_type = ValidEvents::AddedValidator;
-        setup_unchecked_events::<T>(&event_type, u);
-        setup_events_pending_challenge::<T>(&event_type, e);
-
-        let tx_hash = H256::from([1; 32]);
-        let account_id: T::AccountId = whitelisted_caller();
-    }: _(RawOrigin::<T::AccountId>::Signed(account_id.clone()), tx_hash)
-    verify {
-        let eth_event_id = EthEventId {
-            signature: ValidEvents::AddedValidator.signature(),
-            transaction_hash: tx_hash,
-        };
-        let ingress_counter = <TotalIngresses<T>>::get();
-
-        assert_eq!(true, UncheckedEvents::<T>::get().contains(&(eth_event_id.clone(), ingress_counter, 1u32.into())));
-        assert_last_event::<T>(Event::<T>::EthereumEventAdded {
-            eth_event_id: eth_event_id,
-            added_by: account_id,
-            t1_contract_address: AVN::<T>::get_bridge_contract_address()
-            }.into()
-        );
-    }
-
-    add_lift_log {
-        let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
-        let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
-
-        let event_type = ValidEvents::Lifted;
-        setup_unchecked_events::<T>(&event_type, u);
-        setup_events_pending_challenge::<T>(&event_type, e);
-
-        let tx_hash = H256::from([1; 32]);
-        let account_id: T::AccountId = whitelisted_caller();
-    }: _(RawOrigin::<T::AccountId>::Signed(account_id.clone()), tx_hash)
-    verify {
-        let eth_event_id = EthEventId {
-            signature: ValidEvents::Lifted.signature(),
-            transaction_hash: tx_hash,
-        };
-        let ingress_counter = <TotalIngresses<T>>::get();
-
-        assert_eq!(true, UncheckedEvents::<T>::get().contains(&(eth_event_id.clone(), ingress_counter, 1u32.into())));
-        assert_last_event::<T>(Event::<T>::EthereumEventAdded{
-            eth_event_id: eth_event_id,
-            added_by: account_id,
-            t1_contract_address: AVN::<T>::get_bridge_contract_address()
-        }.into());
-    }
-
     add_ethereum_log {
         let u in 1 .. MAX_NUMBER_OF_UNCHECKED_EVENTS_BENCH;
         let e in 1 .. MAX_NUMBER_OF_EVENTS_PENDING_CHALLENGES_BENCH;
