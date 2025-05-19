@@ -38,14 +38,6 @@ frame_support::construct_runtime!(
     }
 );
 
-fn sudo() -> AccountId {
-    return TestAccount::new(101).account_id()
-}
-
-ord_parameter_types! {
-    pub const Sudo: AccountId = sudo();
-}
-
 parameter_types! {
     pub BlockLength: limits::BlockLength = limits::BlockLength::max_with_normal_ratio(1024, NORMAL_DISPATCH_RATIO);
     pub RuntimeBlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
