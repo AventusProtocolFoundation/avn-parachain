@@ -720,6 +720,21 @@ impl Default for ValidatorsActionType {
 
 impl<T: Config> EthereumPublicKeyChecker<T::AccountId> for Pallet<T> {
     fn get_validator_for_eth_public_key(eth_public_key: &ecdsa::Public) -> Option<T::AccountId> {
+
+        // Log the incoming public key
+        let key_hex = HexDisplay::from(eth_public_key.as_ref());
+        log::info!("Received eth_public_key: 0x{}", key_hex);
+
+        // Log the specific value for this key
+        let stored = EthereumPublicKeys::<T>::get(eth_public_key);
+        log::info!("Storage lookup result: {:?}", stored);
+
+        // Log all entries in EthereumPublicKeys
+        for (key, value) in EthereumPublicKeys::<T>::iter() {
+            let key_hex = HexDisplay::from(key.as_ref());
+            log::info!("Stored entry => Key: 0x{}, Value: {:?}", key_hex, value);
+        }
+
         Self::get_validator_by_eth_public_key(eth_public_key)
     }
 }
