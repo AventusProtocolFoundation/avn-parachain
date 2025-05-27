@@ -135,8 +135,6 @@ jobs:
             This release contains the latest version of AvN Node Parachain.
             ## sha256sum (Ubuntu 20.04)
             avn-parachain-collator: `${{ steps.sha256-ubuntu-2004.outputs.COLLATOR_SHA }}`
-            avn_parachain_runtime.compact.compressed.wasm: `${{ steps.sha256-ubuntu-2004.outputs.WASM_SHA_RUNTIME }}`
-            avn_parachain_test_runtime.compact.compressed.wasm: `${{ steps.sha256-ubuntu-2004.outputs.WASM_SHA_TEST }}`
             ## sha256sum (Ubuntu 24.04)
             avn-parachain-collator: `${{ steps.sha256-ubuntu-2404.outputs.COLLATOR_SHA }}`
             avn_parachain_runtime.compact.compressed.wasm: `${{ steps.sha256-ubuntu-2404.outputs.WASM_SHA_RUNTIME }}`
@@ -144,10 +142,6 @@ jobs:
           files: |
             target/release/avn-parachain-collator
             target/release/avn-parachain-collator.sha256
-            target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
-            target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm.sha256
-            target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm
-            target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm.sha256
             ubuntu-2404/target/release/avn-parachain-collator
             ubuntu-2404/target/release/avn-parachain-collator.sha256
             ubuntu-2404/target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
@@ -170,8 +164,6 @@ jobs:
             This is a hotfix release of AvN Node Parachain.
             ## sha256sum (Ubuntu 20.04)
             avn-parachain-collator: `${{ steps.sha256-ubuntu-2004.outputs.COLLATOR_SHA }}`
-            avn_parachain_runtime.compact.compressed.wasm: `${{ steps.sha256-ubuntu-2004.outputs.WASM_SHA_RUNTIME }}`
-            avn_parachain_test_runtime.compact.compressed.wasm: `${{ steps.sha256-ubuntu-2004.outputs.WASM_SHA_TEST }}`
             ## sha256sum (Ubuntu 24.04)
             avn-parachain-collator: `${{ steps.sha256-ubuntu-2404.outputs.COLLATOR_SHA }}`
             avn_parachain_runtime.compact.compressed.wasm: `${{ steps.sha256-ubuntu-2404.outputs.WASM_SHA_RUNTIME }}`
@@ -179,10 +171,6 @@ jobs:
           files: |
             target/release/avn-parachain-collator
             target/release/avn-parachain-collator.sha256
-            target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
-            target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm.sha256
-            target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm
-            target/release/wbuild/avn-parachain-test-runtime/avn_parachain_test_runtime.compact.compressed.wasm.sha256
             ubuntu-2404/target/release/avn-parachain-collator
             ubuntu-2404/target/release/avn-parachain-collator.sha256
             ubuntu-2404/target/release/wbuild/avn-parachain-runtime/avn_parachain_runtime.compact.compressed.wasm
