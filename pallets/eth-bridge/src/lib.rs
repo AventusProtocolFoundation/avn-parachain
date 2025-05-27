@@ -1022,6 +1022,8 @@ pub mod pallet {
         type Call = Call<T>;
         // Confirm that the call comes from an author before it can enter the pool:
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            let reduce_priority: TransactionPriority = TransactionPriority::from(1000u64);
+
             match call {
                 Call::add_confirmation { request_id, confirmation, author, signature } =>
                     if AVN::<T>::signature_is_valid(
@@ -1031,7 +1033,9 @@ pub mod pallet {
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeAddConfirmation")
                             .and_provides((call, request_id))
-                            .priority(TransactionPriority::max_value())
+                            .priority(TransactionPriority::max_value() - reduce_priority)
+                            .longevity(64_u64)
+                            .propagate(true)
                             .build()
                     } else {
                         InvalidTransaction::Custom(1u8).into()
@@ -1044,7 +1048,9 @@ pub mod pallet {
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeAddReceipt")
                             .and_provides((call, tx_id))
-                            .priority(TransactionPriority::max_value())
+                            .priority(TransactionPriority::max_value() - reduce_priority)
+                            .longevity(64_u64)
+                            .propagate(true)
                             .build()
                     } else {
                         InvalidTransaction::Custom(2u8).into()
@@ -1069,33 +1075,42 @@ pub mod pallet {
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeAddCorroboration")
                             .and_provides((call, tx_id))
-                            .priority(TransactionPriority::max_value())
+                            .priority(TransactionPriority::max_value() - reduce_priority)
+                            .longevity(64_u64)
+                            .propagate(true)
                             .build()
                     } else {
                         InvalidTransaction::Custom(3u8).into()
                     },
                 Call::submit_ethereum_events { author, events_partition, signature } =>
-                    if AVN::<T>::signature_is_valid(
-                        &(
-                            &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
-                            &author.account_id,
-                            events_partition,
-                        ),
-                        &author,
-                        signature,
-                    ) {
+                    if Self::does_range_matches_active(&events_partition) &&
+                        AVN::<T>::signature_is_valid(
+                            &(
+                                &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
+                                &author.account_id,
+                                events_partition,
+                            ),
+                            &author,
+                            signature,
+                        )
+                    {
                         ValidTransaction::with_tag_prefix("EthBridgeAddEventRange")
                             .and_provides((
                                 call,
                                 events_partition.range(),
                                 events_partition.partition(),
                             ))
-                            .priority(TransactionPriority::max_value())
+                            .priority(TransactionPriority::max_value() - reduce_priority)
+                            .longevity(64_u64)
+                            .propagate(true)
                             .build()
                     } else {
                         InvalidTransaction::Custom(4u8).into()
                     },
-                Call::submit_latest_ethereum_block { author, latest_seen_block, signature } =>
+                Call::submit_latest_ethereum_block { author, latest_seen_block, signature } => {
+                    if Self::active_ethereum_range().is_some() {
+                        return InvalidTransaction::Custom(5u8).into()
+                    }
                     if AVN::<T>::signature_is_valid(
                         &(&SUBMIT_LATEST_ETH_BLOCK_CONTEXT, &author.account_id, *latest_seen_block),
                         &author,
@@ -1103,11 +1118,14 @@ pub mod pallet {
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeAddLatestEthBlock")
                             .and_provides((call, latest_seen_block))
-                            .priority(TransactionPriority::max_value())
+                            .priority(TransactionPriority::max_value() - reduce_priority)
+                            .longevity(64_u64)
+                            .propagate(true)
                             .build()
                     } else {
                         InvalidTransaction::Custom(5u8).into()
-                    },
+                    }
+                },
                 _ => InvalidTransaction::Call.into(),
             }
         }
@@ -1309,6 +1327,17 @@ impl<T: Config> Pallet<T> {
     fn ethereum_event_has_already_been_accepted(tx_hash: &H256) -> bool {
         if let Some(processed_event) = ProcessedEthereumEvents::<T>::get(tx_hash) {
             if processed_event.accepted {
+                return true
+            }
+        }
+        false
+    }
+
+    fn does_range_matches_active(events_partition: &EthereumEventsPartition) -> bool {
+        if let Some(active_range) = Self::active_ethereum_range() {
+            if *events_partition.range() == active_range.range &&
+                events_partition.partition() == active_range.partition
+            {
                 return true
             }
         }
