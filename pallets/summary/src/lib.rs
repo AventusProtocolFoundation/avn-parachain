@@ -50,7 +50,7 @@ use sp_staking::offence::ReportOffence;
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum SummaryStatus {
     PendingValidatorVote,
     ReadyForValidation,
