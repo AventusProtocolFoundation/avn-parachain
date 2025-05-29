@@ -50,6 +50,18 @@ use sp_staking::offence::ReportOffence;
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
 
+#[derive(Encode, Decode, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+pub enum SummaryStatus {
+    PendingValidatorVote,
+    ReadyForValidation,
+    Accepted,
+    Rejected,
+}
+impl Default for SummaryStatus {
+    fn default() -> Self {
+        SummaryStatus::PendingValidatorVote
+    }
+} 
 pub type EthereumTransactionId = u32;
 
 const PALLET_ID: &'static [u8; 8] = b"summary-";
@@ -131,6 +143,9 @@ pub mod pallet {
         type BridgeInterface: avn::BridgeInterface;
         /// A flag to determine if summaries will be automatically sent to Ethereum
         type AutoSubmitSummaries: Get<bool>;
+        /// A flag to determine if watchtower validation is required before submitting/anchoring summaries
+        #[pallet::constant]
+        type RequireWatchtowerValidation: Get<bool>;
         /// A unique instance id to differentiate different instances
         type InstanceId: Get<u8>;
     }
@@ -194,6 +209,11 @@ pub mod pallet {
             root_hash: H256,
             ingress_counter: IngressCounter,
             block_range: RootRange<BlockNumberFor<T>>,
+        },
+        /// A summary is ready for watchtower validation
+        SummaryReadyForValidation {
+            root_id: RootId<BlockNumberFor<T>>,
+            root_hash: H256,
         },
     }
 
@@ -331,6 +351,17 @@ pub mod pallet {
     #[pallet::getter(fn anchor_roots)]
     pub type AnchorRoots<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Blake2_128Concat, u32, H256, ValueQuery>;
+
+    #[pallet::storage]
+    pub type RootStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        RootRange<BlockNumberFor<T>>,
+        Blake2_128Concat,
+        IngressCounter,
+        SummaryStatus,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -728,6 +759,32 @@ pub mod pallet {
         }
     }
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        pub fn set_summary_status(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: SummaryStatus,
+        ) -> DispatchResult {
+            // Update the status
+            <RootStatus<T, I>>::insert(
+                root_id.range,
+                root_id.ingress_counter,
+                status.clone()
+            );
+    
+            // If accepted, process the summary
+            if status == SummaryStatus::Accepted {
+                let root_data = Self::try_get_root_data(&root_id)?;
+                if root_data.root_hash != Self::empty_root() {
+                    if T::AutoSubmitSummaries::get() {
+                        Self::send_root_to_ethereum(&root_id, &root_data)?;
+                    } else {
+                        let approved_root_id = Self::get_next_approved_root_id()?;
+                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                    }
+                }
+            }
+            Ok(())
+        }
+        
         pub fn update_block_number_context() -> Vec<u8> {
             let mut context = Vec::with_capacity(1 + UPDATE_BLOCK_NUMBER_CONTEXT.len());
             context.push(T::InstanceId::get());
@@ -1211,12 +1268,24 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    if T::AutoSubmitSummaries::get() {
-                        Self::send_root_to_ethereum(root_id, &root_data)?;
+                    if T::RequireWatchtowerValidation::get() {
+                        // Mark as ReadyForValidation for watchtower validation
+                        <RootStatus<T, I>>::insert(root_id.range, root_id.ingress_counter, SummaryStatus::ReadyForValidation);
+                        
+                        // Emit event for watchtower
+                        Self::deposit_event(Event::<T, I>::SummaryReadyForValidation {
+                            root_id: *root_id,
+                            root_hash: root_data.root_hash,
+                        });
                     } else {
-                        // Add root to anchor storage
-                        let approved_root_id = Self::get_next_approved_root_id()?;
-                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                        // If watchtower not required, proceed with submission/anchoring
+                        if T::AutoSubmitSummaries::get() {
+                            Self::send_root_to_ethereum(root_id, &root_data)?;
+                        } else {
+                            // Add root to anchor storage
+                            let approved_root_id = Self::get_next_approved_root_id()?;
+                            <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                        }
                     }
                 }
                 // If we get here, then we did not get an error when submitting to T1.
@@ -1245,7 +1314,10 @@ pub mod pallet {
                     block_range: root_id.range,
                 });
             } else {
-                // We didn't get enough votes to approve this root
+                if T::RequireWatchtowerValidation::get() {
+                    // Mark as Invalid for watchtower
+                    <RootStatus<T, I>>::insert(root_id.range, root_id.ingress_counter, SummaryStatus::Rejected);
+                }
 
                 let root_creator =
                     root_data.added_by.ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;
@@ -1536,4 +1608,4 @@ mod test_ocw_locks;
 #[path = "tests/anchor_tests.rs"]
 mod anchor_tests;
 
-// TODO: Add unit tests for setting schedule period and voting period
+

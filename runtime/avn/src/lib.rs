@@ -576,6 +576,7 @@ parameter_types! {
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
     pub const EthAutoSubmitSummaries: bool = true;
     pub const EthereumInstanceId: u8 = 1u8;
+    pub const RequireWatchtowerValidation: bool = false;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -588,6 +589,7 @@ impl pallet_summary::Config for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type RequireWatchtowerValidation = RequireWatchtowerValidation;
 }
 
 pub type EthAddress = H160;

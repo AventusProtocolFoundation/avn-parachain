@@ -617,6 +617,7 @@ parameter_types! {
     pub const EthAutoSubmitSummaries: bool = true;
     pub const AvnAutoSubmitSummaries: bool = false;
     pub const AvnInstanceId: u8 = 2u8;
+    pub const RequireWatchtowerValidation: bool = false;
 }
 
 pub type EthSummary = pallet_summary::Instance1;
@@ -630,6 +631,7 @@ impl pallet_summary::Config<EthSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type RequireWatchtowerValidation = RequireWatchtowerValidation;
 }
 
 pub type AvnAnchorSummary = pallet_summary::Instance2;
@@ -643,6 +645,7 @@ impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AvnAutoSubmitSummaries;
     type InstanceId = AvnInstanceId;
+    type RequireWatchtowerValidation = RequireWatchtowerValidation;
 }
 
 impl pallet_avn_anchor::Config for Runtime {
