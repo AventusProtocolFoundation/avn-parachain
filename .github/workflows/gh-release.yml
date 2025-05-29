@@ -60,7 +60,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: parachain-collator
-          path: ubuntu-2404target/release/
+          path: ubuntu-2404/target/release/
 
       - name: get AvN Parachain runtime Artifact (Ubuntu 24.04)
         uses: actions/download-artifact@v4
