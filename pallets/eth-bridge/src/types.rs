@@ -35,12 +35,12 @@ pub struct SendRequestData {
 }
 
 impl SendRequestData {
-    pub fn extend_params<T: Config>(
+    pub fn extend_params<T: Config<I>, I: 'static>(
         &self,
         expiry: u64,
     ) -> Result<
         BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-        Error<T>,
+        Error<T, I>,
     > {
         let mut extended_params = util::unbound_params(&self.params);
         extended_params.push((UINT256.to_vec(), expiry.to_string().into_bytes()));
@@ -77,7 +77,6 @@ pub struct TransactionData<AccountId> {
 
 // Storage item for the active request being processed
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-
 pub struct ActiveRequestData<BlockNumber, AccountId> {
     pub request: Request,
     pub confirmation: ActiveConfirmation,
@@ -87,9 +86,9 @@ pub struct ActiveRequestData<BlockNumber, AccountId> {
 
 impl<BlockNumber, AccountId> ActiveRequestData<BlockNumber, AccountId> {
     // Function to convert an active request into an active transaction request.
-    pub fn as_active_tx<T>(self) -> Result<ActiveTransactionData<AccountId>, Error<T>> {
+    pub fn as_active_tx<T, I>(self) -> Result<ActiveTransactionData<AccountId>, Error<T, I>> {
         if self.tx_data.is_none() {
-            return Err(Error::<T>::InvalidSendRequest)
+            return Err(Error::<T, I>::InvalidSendRequest)
         }
 
         match self.request {
@@ -101,7 +100,7 @@ impl<BlockNumber, AccountId> ActiveRequestData<BlockNumber, AccountId> {
                     data: tx_data,
                 })
             },
-            _ => return Err(Error::<T>::InvalidSendRequest),
+            _ => return Err(Error::<T, I>::InvalidSendRequest),
         }
     }
 }
