@@ -84,7 +84,7 @@ fn complete_send_request(context: &Context) {
 
     EthBridge::add_corroboration(
         RuntimeOrigin::none(),
-        active_request.as_active_tx().unwrap().request.tx_id,
+        active_request.as_active_tx::<TestRuntime>().unwrap().request.tx_id,
         true,
         true,
         context.confirming_author.clone(),

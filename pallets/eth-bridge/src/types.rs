@@ -67,26 +67,27 @@ pub struct ActiveConfirmation {
 
 // Persistent storage struct to hold transactions sent to Ethereum
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct TransactionData<T: Config> {
+pub struct TransactionData<AccountId> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    pub sender: T::AccountId,
+    pub sender: AccountId,
     pub eth_tx_hash: H256,
     pub tx_succeeded: bool,
 }
 
 // Storage item for the active request being processed
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ActiveRequestData<T: Config> {
+
+pub struct ActiveRequestData<BlockNumber, AccountId> {
     pub request: Request,
     pub confirmation: ActiveConfirmation,
-    pub tx_data: Option<ActiveEthTransaction<T>>,
-    pub last_updated: BlockNumberFor<T>,
+    pub tx_data: Option<ActiveEthTransaction<AccountId>>,
+    pub last_updated: BlockNumber,
 }
 
-impl<T: Config> ActiveRequestData<T> {
+impl<BlockNumber, AccountId> ActiveRequestData<BlockNumber, AccountId> {
     // Function to convert an active request into an active transaction request.
-    pub fn as_active_tx(self) -> Result<ActiveTransactionData<T>, Error<T>> {
+    pub fn as_active_tx<T>(self) -> Result<ActiveTransactionData<AccountId>, Error<T>> {
         if self.tx_data.is_none() {
             return Err(Error::<T>::InvalidSendRequest)
         }
@@ -107,25 +108,25 @@ impl<T: Config> ActiveRequestData<T> {
 
 // Active request data specific for a transaction. 'data' is not optional.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct ActiveTransactionData<T: Config> {
+pub struct ActiveTransactionData<AccountId> {
     pub request: SendRequestData,
     pub confirmation: ActiveConfirmation,
-    pub data: ActiveEthTransaction<T>,
+    pub data: ActiveEthTransaction<AccountId>,
 }
 
 // Transient data used for an active send transaction request
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
-pub struct ActiveEthTransaction<T: Config> {
+pub struct ActiveEthTransaction<AccountId> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub eth_tx_params:
         BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    pub sender: T::AccountId,
+    pub sender: AccountId,
     pub expiry: u64,
     pub eth_tx_hash: H256,
-    pub success_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub failure_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub valid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
-    pub invalid_tx_hash_corroborations: BoundedVec<T::AccountId, ConfirmationsLimit>,
+    pub success_corroborations: BoundedVec<AccountId, ConfirmationsLimit>,
+    pub failure_corroborations: BoundedVec<AccountId, ConfirmationsLimit>,
+    pub valid_tx_hash_corroborations: BoundedVec<AccountId, ConfirmationsLimit>,
+    pub invalid_tx_hash_corroborations: BoundedVec<AccountId, ConfirmationsLimit>,
     pub tx_succeeded: bool,
 }
 
