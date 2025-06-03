@@ -31,7 +31,7 @@ pub fn verify_signature<T: Config>(
     }
 }
 
-pub fn send_tx<T: Config>(tx: &ActiveTransactionData<T>) -> Result<H256, DispatchError> {
+pub fn send_tx<T: Config>(tx: &ActiveTransactionData<T::AccountId>) -> Result<H256, DispatchError> {
     match generate_send_calldata::<T>(tx) {
         Ok(calldata) => match send_transaction::<T>(calldata, &tx.data.sender) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
@@ -42,7 +42,7 @@ pub fn send_tx<T: Config>(tx: &ActiveTransactionData<T>) -> Result<H256, Dispatc
 }
 
 pub fn corroborate<T: Config>(
-    tx: &ActiveTransactionData<T>,
+    tx: &ActiveTransactionData<T::AccountId>,
     author: &Author<T>,
 ) -> Result<(Option<bool>, Option<bool>), DispatchError> {
     let status = check_tx_status::<T>(tx, author)?;
@@ -63,7 +63,7 @@ pub fn corroborate<T: Config>(
 }
 
 fn check_tx_status<T: Config>(
-    tx: &ActiveTransactionData<T>,
+    tx: &ActiveTransactionData<T::AccountId>,
     author: &Author<T>,
 ) -> Result<Option<bool>, DispatchError> {
     if let Ok(calldata) = generate_corroborate_calldata::<T>(tx.request.tx_id, tx.data.expiry) {
@@ -82,14 +82,14 @@ fn check_tx_status<T: Config>(
 }
 
 fn check_tx_hash<T: Config>(
-    tx: &ActiveTransactionData<T>,
+    tx: &ActiveTransactionData<T::AccountId>,
     author: &Author<T>,
 ) -> Result<(bool, Option<u64>), DispatchError> {
     if tx.data.eth_tx_hash != H256::zero() {
         if let Ok((call_data, num_confirmations)) =
             get_transaction_call_data::<T>(tx.data.eth_tx_hash, &author.account_id)
         {
-            let expected_call_data = generate_send_calldata(&tx)?;
+            let expected_call_data = generate_send_calldata::<T>(&tx)?;
             return Ok((hex::encode(expected_call_data) == call_data, Some(num_confirmations)))
         } else {
             return Err(Error::<T>::ErrorGettingEthereumCallData.into())
@@ -109,7 +109,7 @@ pub fn encode_confirmations(
 }
 
 pub fn generate_send_calldata<T: Config>(
-    tx: &ActiveTransactionData<T>,
+    tx: &ActiveTransactionData<T::AccountId>,
 ) -> Result<Vec<u8>, Error<T>> {
     let concatenated_confirmations = encode_confirmations(&tx.confirmation.confirmations);
     let mut full_params = unbound_params(&tx.data.eth_tx_params);

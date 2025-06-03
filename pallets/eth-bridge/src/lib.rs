@@ -262,10 +262,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]
     pub type SettledTransactions<T: Config> =
-        StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T>, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T::AccountId>, OptionQuery>;
 
     #[pallet::storage]
-    pub type ActiveRequest<T: Config> = StorageValue<_, ActiveRequestData<T>, OptionQuery>;
+    pub type ActiveRequest<T: Config> =
+        StorageValue<_, ActiveRequestData<BlockNumberFor<T>, T::AccountId>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn active_ethereum_range)]
@@ -409,7 +410,7 @@ pub mod pallet {
             if tx::is_active_request::<T>(request_id) {
                 let mut req = ActiveRequest::<T>::get().expect("is active");
 
-                if request::has_enough_confirmations(&req) {
+                if request::has_enough_confirmations::<T>(&req) {
                     return Ok(().into())
                 }
 
@@ -433,13 +434,14 @@ pub mod pallet {
                     .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
 
                 match req.request {
-                    Request::LowerProof(lower_req) if request::has_enough_confirmations(&req) =>
+                    Request::LowerProof(lower_req)
+                        if request::has_enough_confirmations::<T>(&req) =>
                         request::complete_lower_proof_request::<T>(
                             &lower_req,
                             req.confirmation.confirmations,
                         )?,
                     _ => {
-                        save_active_request_to_storage(req);
+                        save_active_request_to_storage::<T>(req);
                     },
                 }
             }
@@ -473,7 +475,7 @@ pub mod pallet {
                     data.eth_tx_hash = eth_tx_hash;
                     tx.tx_data = Some(data);
 
-                    save_active_request_to_storage(tx);
+                    save_active_request_to_storage::<T>(tx);
                 }
             }
 
@@ -503,7 +505,7 @@ pub mod pallet {
                     let author_is_sender = author.account_id == data.sender;
                     ensure!(!author_is_sender, Error::<T>::CannotCorroborateOwnTransaction);
 
-                    if !util::requires_corroboration(&data, &author) {
+                    if !util::requires_corroboration::<T>(&data, &author) {
                         return Ok(().into())
                     }
 
@@ -528,9 +530,9 @@ pub mod pallet {
                         .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
 
                     if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
-                        tx::finalize_state::<T>(tx.as_active_tx()?, tx_succeeded)?;
+                        tx::finalize_state::<T>(tx.as_active_tx::<T>()?, tx_succeeded)?;
                     } else {
-                        save_active_request_to_storage(tx);
+                        save_active_request_to_storage::<T>(tx);
                     }
                 }
             }
@@ -749,7 +751,9 @@ pub mod pallet {
         }
     }
 
-    fn save_active_request_to_storage<T: Config>(mut tx: ActiveRequestData<T>) {
+    fn save_active_request_to_storage<T: Config>(
+        mut tx: ActiveRequestData<BlockNumberFor<T>, T::AccountId>,
+    ) {
         tx.last_updated = <frame_system::Pallet<T>>::block_number();
         ActiveRequest::<T>::put(tx);
     }
@@ -793,7 +797,7 @@ pub mod pallet {
                         }
                     },
                 Request::Send(_) => {
-                    let tx = req.as_active_tx()?;
+                    let tx = req.as_active_tx::<T>()?;
                     let self_is_sender = author.account_id == tx.data.sender;
                     // Plus 1 for sender
                     if !self_is_sender && !has_enough_confirmations {
@@ -818,7 +822,7 @@ pub mod pallet {
 
     fn process_active_tx_request<T: Config>(
         author: Author<T>,
-        tx: ActiveTransactionData<T>,
+        tx: ActiveTransactionData<T::AccountId>,
         self_is_sender: bool,
         tx_has_enough_confirmations: bool,
     ) -> Result<(), DispatchError> {
