@@ -89,7 +89,9 @@ pub fn process_next_request<T: Config>() {
     };
 }
 
-pub fn has_enough_confirmations<T: Config>(req: &ActiveRequestData<T>) -> bool {
+pub fn has_enough_confirmations<T: Config>(
+    req: &ActiveRequestData<BlockNumberFor<T>, T::AccountId>,
+) -> bool {
     let confirmations = req.confirmation.confirmations.len() as u32;
     match req.request {
         // The sender's confirmation is implicit so we only collect them from other authors:
@@ -122,7 +124,7 @@ pub fn complete_lower_proof_request<T: Config>(
 fn set_up_active_lower_proof<T: Config>(req: LowerProofRequestData) -> Result<(), Error<T>> {
     let msg_hash = H256::from(keccak_256(&req.params));
 
-    ActiveRequest::<T>::put(ActiveRequestData {
+    ActiveRequest::<T>::put(ActiveRequestData::<BlockNumberFor<T>, T::AccountId> {
         request: Request::LowerProof(req),
         confirmation: ActiveConfirmation { msg_hash, confirmations: BoundedVec::default() },
         tx_data: None,
