@@ -84,7 +84,7 @@ fn complete_send_request(context: &Context) {
 
     EthBridge::add_corroboration(
         RuntimeOrigin::none(),
-        active_request.as_active_tx::<TestRuntime>().unwrap().request.tx_id,
+        active_request.as_active_tx::<TestRuntime, ()>().unwrap().request.tx_id,
         true,
         true,
         context.confirming_author.clone(),
@@ -162,7 +162,7 @@ mod lower_proofs {
         ext.execute_with(|| {
             let context = setup_context();
 
-            add_new_lower_proof_request::<TestRuntime>(
+            add_new_lower_proof_request::<TestRuntime, ()>(
                 context.lower_id,
                 &context.lower_params,
                 &vec![],
@@ -207,7 +207,7 @@ mod lower_proofs {
         ext.execute_with(|| {
             let context = setup_context();
 
-            add_new_lower_proof_request::<TestRuntime>(
+            add_new_lower_proof_request::<TestRuntime, ()>(
                 context.lower_id,
                 &context.lower_params,
                 &vec![],
@@ -249,7 +249,7 @@ mod lower_proofs {
         ext.execute_with(|| {
             let context = setup_context();
 
-            add_new_lower_proof_request::<TestRuntime>(
+            add_new_lower_proof_request::<TestRuntime, ()>(
                 context.lower_id,
                 &context.lower_params,
                 &vec![],
@@ -257,7 +257,7 @@ mod lower_proofs {
             .unwrap();
 
             let new_lower_id = context.lower_id + 1;
-            add_new_lower_proof_request::<TestRuntime>(
+            add_new_lower_proof_request::<TestRuntime, ()>(
                 new_lower_id,
                 &context.lower_params,
                 &vec![],
@@ -299,7 +299,7 @@ mod lower_proofs {
             let mut context = setup_context();
 
             // add a lower request as Active
-            add_new_lower_proof_request::<TestRuntime>(
+            add_new_lower_proof_request::<TestRuntime, ()>(
                 context.lower_id,
                 &context.lower_params,
                 &vec![],
@@ -307,7 +307,7 @@ mod lower_proofs {
             .unwrap();
 
             // Queue a send tx request
-            let tx_id = add_new_send_request::<TestRuntime>(
+            let tx_id = add_new_send_request::<TestRuntime, ()>(
                 &BridgeContractMethod::RemoveAuthor.as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
@@ -317,7 +317,7 @@ mod lower_proofs {
 
             // Re-use the same Id and queue another lower request
             let duplicate_lower_id = tx_id;
-            add_new_lower_proof_request::<TestRuntime>(
+            add_new_lower_proof_request::<TestRuntime, ()>(
                 duplicate_lower_id,
                 &context.lower_params,
                 &vec![],
@@ -410,7 +410,7 @@ mod lower_proof_encoding {
             let expected_msg_hash =
                 "03c73bbc2756811e3d48189657f4b6e63447a7115eced7e172731cc8c7768e09";
 
-            add_new_lower_proof_request::<TestRuntime>(lower_id, &params, &vec![]).unwrap();
+            add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
             assert_eq!(true, active_req.request.id_matches(&lower_id));
 
@@ -434,12 +434,12 @@ mod lower_proof_encoding {
             let t1_recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
             let params = concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
 
-            add_new_lower_proof_request::<TestRuntime>(lower_id, &params, &vec![]).unwrap();
+            add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
 
             let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b2200000000";
             if let Request::LowerProof(lower_req) = active_req.request {
-                let encoded_proof = generate_encoded_lower_proof::<TestRuntime>(&lower_req, active_req.confirmation.confirmations);
+                let encoded_proof = generate_encoded_lower_proof::<TestRuntime, ()>(&lower_req, active_req.confirmation.confirmations);
                 assert_eq!(expected_encoded_proof, hex::encode(encoded_proof));
             } else {
                 assert!(false, "active request is not a lower proof");
