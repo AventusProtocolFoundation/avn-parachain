@@ -111,8 +111,10 @@ fn run_checks(
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
 
         let tx_id = add_new_send_request::<TestRuntime>(&function_name, &params, &vec![]).unwrap();
-        let active_tx =
-            ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+        let active_tx = ActiveRequest::<TestRuntime>::get()
+            .expect("is active")
+            .as_active_tx::<TestRuntime>()
+            .unwrap();
         assert_eq!(tx_id, active_tx.request.tx_id);
 
         let eth_tx_lifetime_secs = EthBridge::get_eth_tx_lifetime_secs();
@@ -246,7 +248,10 @@ mod set_admin_setting {
             )
             .unwrap();
             // Show that we have an active request
-            let _ = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+            let _ = ActiveRequest::<TestRuntime>::get()
+                .expect("is active")
+                .as_active_tx::<TestRuntime>()
+                .unwrap();
 
             assert_ok!(EthBridge::set_admin_setting(
                 RawOrigin::Root.into(),
@@ -275,7 +280,10 @@ mod set_admin_setting {
             )
             .unwrap();
             // Show that we have an active request
-            let _ = ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+            let _ = ActiveRequest::<TestRuntime>::get()
+                .expect("is active")
+                .as_active_tx::<TestRuntime>()
+                .unwrap();
 
             assert_noop!(
                 EthBridge::set_admin_setting(
@@ -356,7 +364,7 @@ mod add_confirmation {
     use frame_support::assert_ok;
     use frame_system::RawOrigin;
 
-    fn setup_confirmation_test(context: &Context) -> (u32, ActiveTransactionData<TestRuntime>) {
+    fn setup_confirmation_test(context: &Context) -> (u32, ActiveTransactionData<AccountId>) {
         let tx_id = setup_eth_tx_request(&context);
 
         assert_ok!(EthBridge::add_confirmation(
@@ -369,7 +377,7 @@ mod add_confirmation {
 
         let active_request =
             ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present");
-        (tx_id, active_request.as_active_tx().unwrap())
+        (tx_id, active_request.as_active_tx::<TestRuntime>().unwrap())
     }
 
     #[test]
@@ -418,12 +426,12 @@ mod add_eth_tx_hash {
     use super::*;
     use frame_system::RawOrigin;
 
-    fn setup_active_transaction_data(
-        setup_fn: Option<fn(&mut ActiveTransactionData<TestRuntime>)>,
-    ) {
+    fn setup_active_transaction_data(setup_fn: Option<fn(&mut ActiveTransactionData<AccountId>)>) {
         if let Some(setup_fn) = setup_fn {
-            let mut active_tx =
-                ActiveRequest::<TestRuntime>::get().expect("is active").as_active_tx().unwrap();
+            let mut active_tx = ActiveRequest::<TestRuntime>::get()
+                .expect("is active")
+                .as_active_tx::<TestRuntime>()
+                .unwrap();
             setup_fn(&mut active_tx);
             ActiveRequest::<TestRuntime>::put(ActiveRequestData {
                 request: types::Request::Send(active_tx.request),
@@ -508,7 +516,7 @@ mod add_corroboration {
         context: &Context,
         is_tx_successful: bool,
         is_hash_valid: bool,
-    ) -> ActiveTransactionData<TestRuntime> {
+    ) -> ActiveTransactionData<AccountId> {
         let tx_id = setup_eth_tx_request(&context);
 
         assert_ok!(EthBridge::add_corroboration(
@@ -522,7 +530,7 @@ mod add_corroboration {
 
         ActiveRequest::<TestRuntime>::get()
             .expect("Active transaction should be present")
-            .as_active_tx()
+            .as_active_tx::<TestRuntime>()
             .unwrap()
     }
 
@@ -548,7 +556,7 @@ mod add_corroboration {
 
             let active_tx = ActiveRequest::<TestRuntime>::get()
                 .expect("Active transaction should be present")
-                .as_active_tx()
+                .as_active_tx::<TestRuntime>()
                 .unwrap();
 
             assert_eq!(true, active_tx.data.valid_tx_hash_corroborations.is_empty());
@@ -607,7 +615,7 @@ fn publish_to_ethereum_creates_new_transaction_request() {
             let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
             let transaction_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
-            let active_tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
+            let active_tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx::<TestRuntime>().unwrap();
             assert_eq!(active_tx.request.tx_id, transaction_id);
             assert_eq!(active_tx.data.function_name, function_name);
 
@@ -735,7 +743,10 @@ fn publish_and_send_transaction() {
 
         assert_ok!(result);
 
-        let tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
+        let tx = ActiveRequest::<TestRuntime>::get()
+            .unwrap()
+            .as_active_tx::<TestRuntime>()
+            .unwrap();
         assert_eq!(tx.data.eth_tx_hash, context.eth_tx_hash);
     });
 }
@@ -808,7 +819,10 @@ fn unsent_transactions_are_replayed() {
         corroborate_bad_transactions(tx_id, &context.second_confirming_author, &context);
 
         // the active request is retried with a new id
-        let tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx().unwrap();
+        let tx = ActiveRequest::<TestRuntime>::get()
+            .unwrap()
+            .as_active_tx::<TestRuntime>()
+            .unwrap();
         assert_eq!(tx_id + 1, tx.request.tx_id);
 
         assert!(System::events().iter().any(|record| record.event ==

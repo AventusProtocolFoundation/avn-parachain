@@ -7,7 +7,7 @@ pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
 }
 
 fn complete_transaction<T: Config>(
-    mut tx: ActiveTransactionData<T>,
+    mut tx: ActiveTransactionData<T::AccountId>,
     success: bool,
 ) -> Result<(), Error<T>> {
     // Alert the originating pallet:
@@ -63,7 +63,7 @@ fn complete_transaction<T: Config>(
 }
 
 pub fn finalize_state<T: Config>(
-    tx: ActiveTransactionData<T>,
+    tx: ActiveTransactionData<T::AccountId>,
     success: bool,
 ) -> Result<(), Error<T>> {
     // if the transaction failed and the tx hash is missing or pointing to a different transaction,
@@ -104,7 +104,9 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
     return Ok(())
 }
 
-pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Result<(), Error<T>> {
+pub fn replay_send_request<T: Config>(
+    mut tx: ActiveTransactionData<T::AccountId>,
+) -> Result<(), Error<T>> {
     <crate::Pallet<T>>::deposit_event(Event::<T>::ActiveRequestRetried {
         function_name: tx.request.function_name.clone(),
         params: tx.request.params.clone(),

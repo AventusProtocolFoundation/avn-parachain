@@ -24,7 +24,7 @@ pub fn has_supermajority_confirmations<T: Config>(confirmations: u32) -> bool {
 }
 
 pub fn requires_corroboration<T: Config>(
-    eth_tx: &ActiveEthTransaction<T>,
+    eth_tx: &ActiveEthTransaction<T::AccountId>,
     author: &Author<T>,
 ) -> bool {
     !eth_tx.success_corroborations.contains(&author.account_id) &&
