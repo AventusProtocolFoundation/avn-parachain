@@ -138,7 +138,7 @@ pub(crate) fn generate_signature(author: Author<TestRuntime>, context: &[u8]) ->
 }
 
 pub fn setup_eth_tx_request(context: &Context) -> EthereumId {
-    add_new_send_request::<TestRuntime>(
+    add_new_send_request::<TestRuntime, ()>(
         &context.request_function_name,
         &context.request_params,
         &vec![],

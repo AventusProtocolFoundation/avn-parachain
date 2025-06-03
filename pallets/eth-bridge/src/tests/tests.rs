@@ -109,11 +109,11 @@ fn run_checks(
     ext.execute_with(|| {
         let current_time = 1_695_809_729_000;
         pallet_timestamp::Pallet::<TestRuntime>::set_timestamp(current_time);
-
-        let tx_id = add_new_send_request::<TestRuntime>(&function_name, &params, &vec![]).unwrap();
+        let tx_id =
+            add_new_send_request::<TestRuntime, ()>(&function_name, &params, &vec![]).unwrap();
         let active_tx = ActiveRequest::<TestRuntime>::get()
             .expect("is active")
-            .as_active_tx::<TestRuntime>()
+            .as_active_tx::<TestRuntime, ()>()
             .unwrap();
         assert_eq!(tx_id, active_tx.request.tx_id);
 
@@ -124,7 +124,7 @@ fn run_checks(
         let msg_hash = hex::encode(active_tx.confirmation.msg_hash);
         assert_eq!(msg_hash, expected_msg_hash);
 
-        let calldata = generate_send_calldata::<TestRuntime>(&active_tx).unwrap();
+        let calldata = generate_send_calldata::<TestRuntime, ()>(&active_tx).unwrap();
         let calldata = hex::encode(calldata);
         assert_eq!(calldata, expected_calldata);
     })
@@ -241,7 +241,7 @@ mod set_admin_setting {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup_context();
-            let tx_id = add_new_send_request::<TestRuntime>(
+            let tx_id = add_new_send_request::<TestRuntime, ()>(
                 &BridgeContractMethod::RemoveAuthor.as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
@@ -250,7 +250,7 @@ mod set_admin_setting {
             // Show that we have an active request
             let _ = ActiveRequest::<TestRuntime>::get()
                 .expect("is active")
-                .as_active_tx::<TestRuntime>()
+                .as_active_tx::<TestRuntime, ()>()
                 .unwrap();
 
             assert_ok!(EthBridge::set_admin_setting(
@@ -273,7 +273,7 @@ mod set_admin_setting {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup_context();
-            let _ = add_new_send_request::<TestRuntime>(
+            let _ = add_new_send_request::<TestRuntime, ()>(
                 &BridgeContractMethod::RemoveAuthor.as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
@@ -282,7 +282,7 @@ mod set_admin_setting {
             // Show that we have an active request
             let _ = ActiveRequest::<TestRuntime>::get()
                 .expect("is active")
-                .as_active_tx::<TestRuntime>()
+                .as_active_tx::<TestRuntime, ()>()
                 .unwrap();
 
             assert_noop!(
@@ -377,7 +377,7 @@ mod add_confirmation {
 
         let active_request =
             ActiveRequest::<TestRuntime>::get().expect("Active transaction should be present");
-        (tx_id, active_request.as_active_tx::<TestRuntime>().unwrap())
+        (tx_id, active_request.as_active_tx::<TestRuntime, ()>().unwrap())
     }
 
     #[test]
@@ -430,7 +430,7 @@ mod add_eth_tx_hash {
         if let Some(setup_fn) = setup_fn {
             let mut active_tx = ActiveRequest::<TestRuntime>::get()
                 .expect("is active")
-                .as_active_tx::<TestRuntime>()
+                .as_active_tx::<TestRuntime, ()>()
                 .unwrap();
             setup_fn(&mut active_tx);
             ActiveRequest::<TestRuntime>::put(ActiveRequestData {
@@ -530,7 +530,7 @@ mod add_corroboration {
 
         ActiveRequest::<TestRuntime>::get()
             .expect("Active transaction should be present")
-            .as_active_tx::<TestRuntime>()
+            .as_active_tx::<TestRuntime, ()>()
             .unwrap()
     }
 
@@ -556,7 +556,7 @@ mod add_corroboration {
 
             let active_tx = ActiveRequest::<TestRuntime>::get()
                 .expect("Active transaction should be present")
-                .as_active_tx::<TestRuntime>()
+                .as_active_tx::<TestRuntime, ()>()
                 .unwrap();
 
             assert_eq!(true, active_tx.data.valid_tx_hash_corroborations.is_empty());
@@ -615,7 +615,7 @@ fn publish_to_ethereum_creates_new_transaction_request() {
             let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
             let transaction_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
-            let active_tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx::<TestRuntime>().unwrap();
+            let active_tx = ActiveRequest::<TestRuntime>::get().unwrap().as_active_tx::<TestRuntime, ()>().unwrap();
             assert_eq!(active_tx.request.tx_id, transaction_id);
             assert_eq!(active_tx.data.function_name, function_name);
 
@@ -745,7 +745,7 @@ fn publish_and_send_transaction() {
 
         let tx = ActiveRequest::<TestRuntime>::get()
             .unwrap()
-            .as_active_tx::<TestRuntime>()
+            .as_active_tx::<TestRuntime, ()>()
             .unwrap();
         assert_eq!(tx.data.eth_tx_hash, context.eth_tx_hash);
     });
@@ -821,7 +821,7 @@ fn unsent_transactions_are_replayed() {
         // the active request is retried with a new id
         let tx = ActiveRequest::<TestRuntime>::get()
             .unwrap()
-            .as_active_tx::<TestRuntime>()
+            .as_active_tx::<TestRuntime, ()>()
             .unwrap();
         assert_eq!(tx_id + 1, tx.request.tx_id);
 

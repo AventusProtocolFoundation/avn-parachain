@@ -48,7 +48,7 @@ impl<Offender: Clone> Offence<Offender> for CorroborationOffence<Offender> {
     }
 }
 
-pub fn create_offenders_identification<T: crate::Config>(
+pub fn create_offenders_identification<T: crate::Config<I>, I: 'static>(
     offenders_accounts: &Vec<T::AccountId>,
 ) -> Vec<IdentificationTuple<T>> {
     let offenders = offenders_accounts
@@ -59,12 +59,12 @@ pub fn create_offenders_identification<T: crate::Config>(
     return offenders
 }
 
-pub fn create_and_report_corroboration_offence<T: crate::Config>(
+pub fn create_and_report_corroboration_offence<T: crate::Config<I>, I: 'static>(
     reporter: &T::AccountId,
     offenders_accounts: &Vec<T::AccountId>,
     offence_type: CorroborationOffenceType,
 ) {
-    let offenders = create_offenders_identification::<T>(offenders_accounts);
+    let offenders = create_offenders_identification::<T, I>(offenders_accounts);
 
     if !offenders.is_empty() {
         let invalid_event_offence = CorroborationOffence {
@@ -85,7 +85,7 @@ pub fn create_and_report_corroboration_offence<T: crate::Config>(
                 log::info!(target: "pallet-eth-bridge", "ℹ️ Error while reporting offence: {:?}. Stored in deferred",e);
             }
 
-            <crate::Pallet<T>>::deposit_event(Event::<T>::CorroborationOffenceReported {
+            <crate::Pallet<T, I>>::deposit_event(Event::<T, I>::CorroborationOffenceReported {
                 offence_type,
                 offenders,
             });

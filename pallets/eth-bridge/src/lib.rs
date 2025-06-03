@@ -163,22 +163,22 @@ pub mod pallet {
     use sp_avn_common::event_types::{EthEvent, EthEventId, ValidEvents};
 
     #[pallet::config]
-    pub trait Config:
+    pub trait Config<I: 'static = ()>:
         frame_system::Config
         + avn::Config
         + scale_info::TypeInfo
-        + SendTransactionTypes<Call<Self>>
+        + SendTransactionTypes<Call<Self, I>>
         + pallet_session::historical::Config
     {
-        type RuntimeEvent: From<Event<Self>>
+        type RuntimeEvent: From<Event<Self, I>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
             + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         type TimeProvider: UnixTime;
         type WeightInfo: WeightInfo;
         type RuntimeCall: Parameter
             + Dispatchable<RuntimeOrigin = <Self as frame_system::Config>::RuntimeOrigin>
-            + IsSubType<Call<Self>>
-            + From<Call<Self>>;
+            + IsSubType<Call<Self, I>>
+            + From<Call<Self, I>>;
         #[pallet::constant]
         type MaxQueuedTxRequests: Get<u32>;
         #[pallet::constant]
@@ -196,7 +196,7 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    pub enum Event<T: Config> {
+    pub enum Event<T: Config<I>, I: 'static = ()> {
         PublishToEthereum {
             tx_id: EthereumId,
             function_name: Vec<u8>,
@@ -245,35 +245,36 @@ pub mod pallet {
 
     #[pallet::pallet]
     #[pallet::storage_version(STORAGE_VERSION)]
-    pub struct Pallet<T>(_);
+    pub struct Pallet<T, I = ()>(_);
 
     #[pallet::storage]
     #[pallet::getter(fn get_next_tx_id)]
-    pub type NextTxId<T: Config> = StorageValue<_, EthereumId, ValueQuery>;
+    pub type NextTxId<T: Config<I>, I: 'static = ()> = StorageValue<_, EthereumId, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_eth_tx_lifetime_secs)]
-    pub type EthTxLifetimeSecs<T: Config> = StorageValue<_, u64, ValueQuery>;
+    pub type EthTxLifetimeSecs<T: Config<I>, I: 'static = ()> = StorageValue<_, u64, ValueQuery>;
 
     #[pallet::storage]
-    pub type RequestQueue<T: Config> =
+    pub type RequestQueue<T: Config<I>, I: 'static = ()> =
         StorageValue<_, BoundedVec<Request, T::MaxQueuedTxRequests>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn get_transaction_data)]
-    pub type SettledTransactions<T: Config> =
+    pub type SettledTransactions<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Blake2_128Concat, EthereumId, TransactionData<T::AccountId>, OptionQuery>;
 
     #[pallet::storage]
-    pub type ActiveRequest<T: Config> =
+    pub type ActiveRequest<T: Config<I>, I: 'static = ()> =
         StorageValue<_, ActiveRequestData<BlockNumberFor<T>, T::AccountId>, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn active_ethereum_range)]
-    pub type ActiveEthereumRange<T: Config> = StorageValue<_, ActiveEthRange, OptionQuery>;
+    pub type ActiveEthereumRange<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, ActiveEthRange, OptionQuery>;
 
     #[pallet::storage]
-    pub type EthereumEvents<T: Config> = StorageMap<
+    pub type EthereumEvents<T: Config<I>, I: 'static = ()> = StorageMap<
         _,
         Blake2_128Concat,
         EthereumEventsPartition,
@@ -282,7 +283,7 @@ pub mod pallet {
     >;
 
     #[pallet::storage]
-    pub type SubmittedEthBlocks<T: Config> = StorageMap<
+    pub type SubmittedEthBlocks<T: Config<I>, I: 'static = ()> = StorageMap<
         _,
         Blake2_128Concat,
         u32,
@@ -292,27 +293,27 @@ pub mod pallet {
 
     // The number of blocks that make up a range
     #[pallet::storage]
-    pub type EthBlockRangeSize<T: Config> = StorageValue<_, u32, ValueQuery>;
+    pub type EthBlockRangeSize<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::storage]
-    pub type ProcessedEthereumEvents<T: Config> =
+    pub type ProcessedEthereumEvents<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Blake2_128Concat, EthTransactionId, EthProcessedEvent, OptionQuery>;
 
     /// Simple queue, to store additional events to be added in the next ethereum range.
     /// Entries must be of previous blocks.
     #[pallet::storage]
-    pub type AdditionalEthereumEventsQueue<T: Config> =
+    pub type AdditionalEthereumEventsQueue<T: Config<I>, I: 'static = ()> =
         StorageValue<_, AdditionalEvents, ValueQuery>;
 
     #[pallet::genesis_config]
-    pub struct GenesisConfig<T: Config> {
-        pub _phantom: sp_std::marker::PhantomData<T>,
+    pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
+        pub _phantom: sp_std::marker::PhantomData<(T, I)>,
         pub eth_tx_lifetime_secs: u64,
         pub next_tx_id: EthereumId,
         pub eth_block_range_size: u32,
     }
 
-    impl<T: Config> Default for GenesisConfig<T> {
+    impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
         fn default() -> Self {
             Self {
                 _phantom: Default::default(),
@@ -324,20 +325,20 @@ pub mod pallet {
     }
 
     #[pallet::genesis_build]
-    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+    impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
             assert!(self.eth_block_range_size > 0, "`EthBlockRangeSize` should be greater than 0");
 
-            EthTxLifetimeSecs::<T>::put(self.eth_tx_lifetime_secs);
-            NextTxId::<T>::put(self.next_tx_id);
-            EthBlockRangeSize::<T>::put(self.eth_block_range_size);
+            EthTxLifetimeSecs::<T, I>::put(self.eth_tx_lifetime_secs);
+            NextTxId::<T, I>::put(self.next_tx_id);
+            EthBlockRangeSize::<T, I>::put(self.eth_block_range_size);
 
-            STORAGE_VERSION.put::<Pallet<T>>();
+            STORAGE_VERSION.put::<Pallet<T, I>>();
         }
     }
 
     #[pallet::error]
-    pub enum Error<T> {
+    pub enum Error<T, I = ()> {
         CorroborateCallFailed,
         DuplicateConfirmation,
         DuplicateEventSubmission,
@@ -394,10 +395,11 @@ pub mod pallet {
         EventAlreadyAccepted,
     }
 
-    #[pallet::call]
-    impl<T: Config> Pallet<T> {
+    #[pallet::call(weight(<T as Config<I>>::WeightInfo))]
+    impl<T: Config<I>, I: 'static> Pallet<T, I> {
         #[pallet::call_index(2)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_confirmation(MAX_CONFIRMATIONS))]
+        #[pallet::weight(<T as Config<I>>::WeightInfo::add_confirmation(MAX_CONFIRMATIONS))]
+
         pub fn add_confirmation(
             origin: OriginFor<T>,
             request_id: u32,
@@ -407,10 +409,10 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active_request::<T>(request_id) {
-                let mut req = ActiveRequest::<T>::get().expect("is active");
+            if tx::is_active_request::<T, I>(request_id) {
+                let mut req = ActiveRequest::<T, I>::get().expect("is active");
 
-                if request::has_enough_confirmations::<T>(&req) {
+                if request::has_enough_confirmations::<T, I>(&req) {
                     return Ok(().into())
                 }
 
@@ -421,27 +423,27 @@ pub mod pallet {
                     }
                 }
 
-                eth::verify_signature::<T>(req.confirmation.msg_hash, &author, &confirmation)?;
+                eth::verify_signature::<T, I>(req.confirmation.msg_hash, &author, &confirmation)?;
 
                 ensure!(
                     !req.confirmation.confirmations.contains(&confirmation),
-                    Error::<T>::DuplicateConfirmation
+                    Error::<T, I>::DuplicateConfirmation
                 );
 
                 req.confirmation
                     .confirmations
                     .try_push(confirmation)
-                    .map_err(|_| Error::<T>::ExceedsConfirmationLimit)?;
+                    .map_err(|_| Error::<T, I>::ExceedsConfirmationLimit)?;
 
                 match req.request {
                     Request::LowerProof(lower_req)
-                        if request::has_enough_confirmations::<T>(&req) =>
-                        request::complete_lower_proof_request::<T>(
+                        if request::has_enough_confirmations::<T, I>(&req) =>
+                        request::complete_lower_proof_request::<T, I>(
                             &lower_req,
                             req.confirmation.confirmations,
                         )?,
                     _ => {
-                        save_active_request_to_storage::<T>(req);
+                        save_active_request_to_storage::<T, I>(req);
                     },
                 }
             }
@@ -450,7 +452,8 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::add_eth_tx_hash())]
+        #[pallet::weight(<T as Config<I>>::WeightInfo::add_eth_tx_hash())]
+
         pub fn add_eth_tx_hash(
             origin: OriginFor<T>,
             tx_id: EthereumId,
@@ -460,22 +463,22 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active_request::<T>(tx_id) {
-                let mut tx = ActiveRequest::<T>::get().expect("is active");
+            if tx::is_active_request::<T, I>(tx_id) {
+                let mut tx = ActiveRequest::<T, I>::get().expect("is active");
 
                 if tx.tx_data.is_some() {
                     let mut data = tx.tx_data.expect("has data");
 
-                    ensure!(data.eth_tx_hash == H256::zero(), Error::<T>::EthTxHashAlreadySet);
+                    ensure!(data.eth_tx_hash == H256::zero(), Error::<T, I>::EthTxHashAlreadySet);
                     ensure!(
                         data.sender == author.account_id,
-                        Error::<T>::EthTxHashMustBeSetBySender
+                        Error::<T, I>::EthTxHashMustBeSetBySender
                     );
 
                     data.eth_tx_hash = eth_tx_hash;
                     tx.tx_data = Some(data);
 
-                    save_active_request_to_storage::<T>(tx);
+                    save_active_request_to_storage::<T, I>(tx);
                 }
             }
 
@@ -483,8 +486,8 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::add_corroboration().max(
-            <T as Config>::WeightInfo::add_corroboration_with_challenge(MAX_VALIDATOR_ACCOUNTS)
+        #[pallet::weight( <T as pallet::Config<I>>::WeightInfo::add_corroboration().max(
+        <T as Config<I>>::WeightInfo::add_corroboration_with_challenge(MAX_VALIDATOR_ACCOUNTS)
         ))]
         pub fn add_corroboration(
             origin: OriginFor<T>,
@@ -496,16 +499,16 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            if tx::is_active_request::<T>(tx_id) {
-                let mut tx = ActiveRequest::<T>::get().expect("is active");
+            if tx::is_active_request::<T, I>(tx_id) {
+                let mut tx = ActiveRequest::<T, I>::get().expect("is active");
 
                 if tx.tx_data.is_some() {
                     let data = tx.tx_data.as_mut().expect("has data");
 
                     let author_is_sender = author.account_id == data.sender;
-                    ensure!(!author_is_sender, Error::<T>::CannotCorroborateOwnTransaction);
+                    ensure!(!author_is_sender, Error::<T, I>::CannotCorroborateOwnTransaction);
 
-                    if !util::requires_corroboration::<T>(&data, &author) {
+                    if !util::requires_corroboration::<T, I>(&data, &author) {
                         return Ok(().into())
                     }
 
@@ -517,7 +520,7 @@ pub mod pallet {
 
                     tx_hash_corroborations
                         .try_push(author.account_id.clone())
-                        .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+                        .map_err(|_| Error::<T, I>::ExceedsCorroborationLimit)?;
 
                     let matching_corroborations = if tx_succeeded {
                         &mut data.success_corroborations
@@ -527,12 +530,12 @@ pub mod pallet {
 
                     matching_corroborations
                         .try_push(author.account_id)
-                        .map_err(|_| Error::<T>::ExceedsCorroborationLimit)?;
+                        .map_err(|_| Error::<T, I>::ExceedsCorroborationLimit)?;
 
-                    if util::has_enough_corroborations::<T>(matching_corroborations.len()) {
-                        tx::finalize_state::<T>(tx.as_active_tx::<T>()?, tx_succeeded)?;
+                    if util::has_enough_corroborations::<T, I>(matching_corroborations.len()) {
+                        tx::finalize_state::<T, I>(tx.as_active_tx::<T, I>()?, tx_succeeded)?;
                     } else {
-                        save_active_request_to_storage::<T>(tx);
+                        save_active_request_to_storage::<T, I>(tx);
                     }
                 }
             }
@@ -541,8 +544,10 @@ pub mod pallet {
         }
 
         #[pallet::call_index(6)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE).max(
-            <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE)
+        #[pallet::weight( <T as
+        pallet::Config<I>>::WeightInfo::submit_ethereum_events(MAX_VALIDATOR_ACCOUNTS,
+        MAX_INCOMING_EVENTS_BATCH_SIZE).max(
+            <T as Config<I>>::WeightInfo::submit_ethereum_events_and_process_batch(MAX_VALIDATOR_ACCOUNTS, MAX_INCOMING_EVENTS_BATCH_SIZE)
         ))]
         pub fn submit_ethereum_events(
             origin: OriginFor<T>,
@@ -552,37 +557,37 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            let active_range =
-                Self::active_ethereum_range().ok_or_else(|| Error::<T>::NonActiveEthereumRange)?;
+            let active_range = Self::active_ethereum_range()
+                .ok_or_else(|| Error::<T, I>::NonActiveEthereumRange)?;
             ensure!(
                 *events_partition.range() == active_range.range &&
                     events_partition.partition() == active_range.partition,
-                Error::<T>::NonActiveEthereumRange
+                Error::<T, I>::NonActiveEthereumRange
             );
             ensure!(
-                author_has_cast_event_vote::<T>(&author.account_id) == false,
-                Error::<T>::EventVoteExists
+                Self::author_has_cast_event_vote(&author.account_id) == false,
+                Error::<T, I>::EventVoteExists
             );
 
             let mut threshold_met = false;
-            let mut votes = EthereumEvents::<T>::get(&events_partition);
-            votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
+            let mut votes = EthereumEvents::<T, I>::get(&events_partition);
+            votes.try_insert(author.account_id).map_err(|_| Error::<T, I>::EventVotesFull)?;
 
             if votes.len() < AVN::<T>::quorum() as usize {
-                EthereumEvents::<T>::insert(&events_partition, votes);
+                EthereumEvents::<T, I>::insert(&events_partition, votes);
             } else {
                 threshold_met = true;
-                process_ethereum_events_partition::<T>(&active_range, &events_partition);
-                advance_partition::<T>(&active_range, &events_partition);
+                process_ethereum_events_partition::<T, I>(&active_range, &events_partition);
+                advance_partition::<T, I>(&active_range, &events_partition);
             }
 
             let final_weight = if threshold_met {
-                <T as Config>::WeightInfo::submit_ethereum_events(
+                <T as Config<I>>::WeightInfo::submit_ethereum_events(
                     MAX_VALIDATOR_ACCOUNTS,
                     MAX_INCOMING_EVENTS_BATCH_SIZE,
                 )
             } else {
-                <T as Config>::WeightInfo::submit_ethereum_events_and_process_batch(
+                <T as Config<I>>::WeightInfo::submit_ethereum_events_and_process_batch(
                     MAX_VALIDATOR_ACCOUNTS,
                     MAX_INCOMING_EVENTS_BATCH_SIZE,
                 )
@@ -592,8 +597,9 @@ pub mod pallet {
         }
 
         #[pallet::call_index(7)]
-        #[pallet::weight( <T as pallet::Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS).max(
-            <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(MAX_VALIDATOR_ACCOUNTS)
+        #[pallet::weight( <T as
+        pallet::Config<I>>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS).max(
+            <T as Config<I>>::WeightInfo::submit_latest_ethereum_block_with_quorum(MAX_VALIDATOR_ACCOUNTS)
         ))]
         pub fn submit_latest_ethereum_block(
             origin: OriginFor<T>,
@@ -602,28 +608,28 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            ensure!(Self::active_ethereum_range().is_none(), Error::<T>::VotingEnded);
+            ensure!(Self::active_ethereum_range().is_none(), Error::<T, I>::VotingEnded);
             ensure!(
-                author_has_submitted_latest_block::<T>(&author.account_id) == false,
-                Error::<T>::EventVoteExists
+                Self::author_has_submitted_latest_block(&author.account_id) == false,
+                Error::<T, I>::EventVoteExists
             );
 
-            let eth_block_range_size = EthBlockRangeSize::<T>::get();
+            let eth_block_range_size = EthBlockRangeSize::<T, I>::get();
             let latest_finalised_block =
                 events_helpers::compute_start_block_from_finalised_block_number(
                     latest_seen_block,
                     eth_block_range_size,
                 )
-                .map_err(|_| Error::<T>::InvalidEthereumBlockRange)?;
-            let mut votes = SubmittedEthBlocks::<T>::get(&latest_finalised_block);
-            votes.try_insert(author.account_id).map_err(|_| Error::<T>::EventVotesFull)?;
+                .map_err(|_| Error::<T, I>::InvalidEthereumBlockRange)?;
+            let mut votes = SubmittedEthBlocks::<T, I>::get(&latest_finalised_block);
+            votes.try_insert(author.account_id).map_err(|_| Error::<T, I>::EventVotesFull)?;
 
-            SubmittedEthBlocks::<T>::insert(&latest_finalised_block, votes);
+            SubmittedEthBlocks::<T, I>::insert(&latest_finalised_block, votes);
 
             let mut total_votes_count = 0;
             let mut submitted_blocks = Vec::new();
 
-            for (eth_block_num, votes) in SubmittedEthBlocks::<T>::iter() {
+            for (eth_block_num, votes) in SubmittedEthBlocks::<T, I>::iter() {
                 let vote_count = votes.len();
                 total_votes_count += vote_count;
                 submitted_blocks.push((eth_block_num, vote_count));
@@ -650,47 +656,49 @@ pub mod pallet {
                     }
                 }
 
-                ActiveEthereumRange::<T>::put(ActiveEthRange {
+                ActiveEthereumRange::<T, I>::put(ActiveEthRange {
                     range: selected_range,
                     partition: 0,
                     event_types_filter: T::ProcessedEventsHandler::get(),
-                    additional_transactions: AdditionalEthereumEventsQueue::<T>::take(),
+                    additional_transactions: AdditionalEthereumEventsQueue::<T, I>::take(),
                 });
 
-                let _ = SubmittedEthBlocks::<T>::clear(
+                let _ = SubmittedEthBlocks::<T, I>::clear(
                     <MaximumValidatorsBound as sp_core::TypedGet>::get(),
                     None,
                 );
             }
 
             let final_weight = if threshold_met {
-                <T as Config>::WeightInfo::submit_latest_ethereum_block_with_quorum(
+                <T as Config<I>>::WeightInfo::submit_latest_ethereum_block_with_quorum(
                     MAX_VALIDATOR_ACCOUNTS,
                 )
             } else {
-                <T as Config>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS)
+                <T as Config<I>>::WeightInfo::submit_latest_ethereum_block(MAX_VALIDATOR_ACCOUNTS)
             };
 
             Ok(Some(final_weight).into())
         }
 
         #[pallet::call_index(8)]
-        #[pallet::weight(<T as Config>::WeightInfo::set_admin_setting())]
+        #[pallet::weight(<T as Config<I>>::WeightInfo::set_admin_setting())]
 
         pub fn set_admin_setting(
             origin: OriginFor<T>,
             value: AdminSettings,
         ) -> DispatchResultWithPostInfo {
-            frame_system::ensure_root(origin)?;
+            ensure_root(origin)?;
 
             match value {
                 AdminSettings::EthereumTransactionLifetimeSeconds(eth_tx_lifetime_secs) => {
-                    EthTxLifetimeSecs::<T>::put(eth_tx_lifetime_secs);
-                    Self::deposit_event(Event::<T>::EthTxLifetimeUpdated { eth_tx_lifetime_secs });
+                    EthTxLifetimeSecs::<T, I>::put(eth_tx_lifetime_secs);
+                    Self::deposit_event(Event::<T, I>::EthTxLifetimeUpdated {
+                        eth_tx_lifetime_secs,
+                    });
                 },
                 AdminSettings::EthereumTransactionId(eth_tx_id) => {
-                    NextTxId::<T>::put(eth_tx_id);
-                    Self::deposit_event(Event::<T>::EthTxIdUpdated { eth_tx_id });
+                    NextTxId::<T, I>::put(eth_tx_id);
+                    Self::deposit_event(Event::<T, I>::EthTxIdUpdated { eth_tx_id });
                 },
                 AdminSettings::RemoveActiveRequest => {
                     Self::remove_active_request_impl()?;
@@ -698,17 +706,17 @@ pub mod pallet {
                 AdminSettings::QueueAdditionalEthereumEvent(transaction_hash) => {
                     ensure!(
                         !Self::ethereum_event_has_already_been_accepted(&transaction_hash),
-                        Error::<T>::EventAlreadyAccepted
+                        Error::<T, I>::EventAlreadyAccepted
                     );
 
-                    AdditionalEthereumEventsQueue::<T>::mutate(|transactions| {
+                    AdditionalEthereumEventsQueue::<T, I>::mutate(|transactions| {
                         transactions.try_insert(transaction_hash.clone())
                     })
-                    .map_err(|_| Error::<T>::QuotaReachedForAdditionalEvents)?;
-                    Self::deposit_event(Event::<T>::AdditionalEventQueued { transaction_hash });
+                    .map_err(|_| Error::<T, I>::QuotaReachedForAdditionalEvents)?;
+                    Self::deposit_event(Event::<T, I>::AdditionalEventQueued { transaction_hash });
                 },
                 AdminSettings::RestartEventDiscoveryOnRange => {
-                    let _ = EthereumEvents::<T>::clear(100, None);
+                    let _ = EthereumEvents::<T, I>::clear(100, None);
                 },
             }
 
@@ -717,21 +725,21 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+    impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            if let Ok((author, finalised_block_number)) = setup_ocw::<T>(block_number) {
-                if let Err(e) = process_active_request::<T>(author, finalised_block_number) {
+            if let Ok((author, finalised_block_number)) = setup_ocw::<T, I>(block_number) {
+                if let Err(e) = process_active_request::<T, I>(author, finalised_block_number) {
                     log::error!("❌ Error processing currently active request: {:?}", e);
                 }
             }
         }
 
         fn on_idle(_n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-            let base_on_idle = <T as pallet::Config>::WeightInfo::base_on_idle();
+            let base_on_idle = <T as pallet::Config<I>>::WeightInfo::base_on_idle();
 
             // the maximum cost of a processing unit
             let processing_unit = base_on_idle.saturating_add(
-                <T as pallet::Config>::WeightInfo::migrate_events_batch(
+                <T as pallet::Config<I>>::WeightInfo::migrate_events_batch(
                     <ProcessingBatchBound as sp_core::Get<u32>>::get(),
                 ),
             );
@@ -751,14 +759,14 @@ pub mod pallet {
         }
     }
 
-    fn save_active_request_to_storage<T: Config>(
+    fn save_active_request_to_storage<T: Config<I>, I: 'static>(
         mut tx: ActiveRequestData<BlockNumberFor<T>, T::AccountId>,
     ) {
         tx.last_updated = <frame_system::Pallet<T>>::block_number();
-        ActiveRequest::<T>::put(tx);
+        ActiveRequest::<T, I>::put(tx);
     }
 
-    fn setup_ocw<T: Config>(
+    fn setup_ocw<T: Config<I>, I: 'static>(
         block_number: BlockNumberFor<T>,
     ) -> Result<(Author<T>, BlockNumberFor<T>), DispatchError> {
         AVN::<T>::pre_run_setup(block_number, PALLET_NAME.to_vec()).map_err(|e| {
@@ -773,11 +781,11 @@ pub mod pallet {
     }
 
     // The core logic the OCW employs to fully resolve any currently active transaction:
-    fn process_active_request<T: Config>(
+    fn process_active_request<T: Config<I>, I: 'static>(
         author: Author<T>,
         finalised_block_number: BlockNumberFor<T>,
     ) -> Result<(), DispatchError> {
-        if let Some(req) = ActiveRequest::<T>::get() {
+        if let Some(req) = ActiveRequest::<T, I>::get() {
             if finalised_block_number < req.last_updated {
                 log::info!(
                     "👷 Last updated block: {:?} is not finalised, skipping confirmation. Request: {:?}, finalised block: {:?}",
@@ -786,27 +794,31 @@ pub mod pallet {
                 return Ok(())
             }
 
-            let has_enough_confirmations = request::has_enough_confirmations::<T>(&req);
+            let has_enough_confirmations = request::has_enough_confirmations::<T, I>(&req);
 
             match req.request {
                 Request::LowerProof(lower_req) =>
                     if !has_enough_confirmations {
-                        let confirmation = eth::sign_msg_hash::<T>(&req.confirmation.msg_hash)?;
+                        let confirmation = eth::sign_msg_hash::<T, I>(&req.confirmation.msg_hash)?;
                         if !req.confirmation.confirmations.contains(&confirmation) {
-                            call::add_confirmation::<T>(lower_req.lower_id, confirmation, author);
+                            call::add_confirmation::<T, I>(
+                                lower_req.lower_id,
+                                confirmation,
+                                author,
+                            );
                         }
                     },
                 Request::Send(_) => {
-                    let tx = req.as_active_tx::<T>()?;
+                    let tx = req.as_active_tx::<T, I>()?;
                     let self_is_sender = author.account_id == tx.data.sender;
                     // Plus 1 for sender
                     if !self_is_sender && !has_enough_confirmations {
-                        let confirmation = eth::sign_msg_hash::<T>(&tx.confirmation.msg_hash)?;
+                        let confirmation = eth::sign_msg_hash::<T, I>(&tx.confirmation.msg_hash)?;
                         if !tx.confirmation.confirmations.contains(&confirmation) {
-                            call::add_confirmation::<T>(tx.request.tx_id, confirmation, author);
+                            call::add_confirmation::<T, I>(tx.request.tx_id, confirmation, author);
                         }
                     } else {
-                        process_active_tx_request::<T>(
+                        process_active_tx_request::<T, I>(
                             author,
                             tx,
                             self_is_sender,
@@ -820,14 +832,14 @@ pub mod pallet {
         Ok(())
     }
 
-    fn process_active_tx_request<T: Config>(
+    fn process_active_tx_request<T: Config<I>, I: 'static>(
         author: Author<T>,
         tx: ActiveTransactionData<T::AccountId>,
         self_is_sender: bool,
         tx_has_enough_confirmations: bool,
     ) -> Result<(), DispatchError> {
         let tx_is_sent = tx.data.eth_tx_hash != H256::zero();
-        let tx_is_past_expiry = util::time_now::<T>() > tx.data.expiry;
+        let tx_is_past_expiry = util::time_now::<T, I>() > tx.data.expiry;
 
         if self_is_sender && tx_has_enough_confirmations && !tx_is_sent {
             let lock_name =
@@ -836,8 +848,8 @@ pub mod pallet {
 
             // Protect against sending more than once
             if let Ok(guard) = lock.try_lock() {
-                let eth_tx_hash = eth::send_tx::<T>(&tx)?;
-                call::add_eth_tx_hash::<T>(tx.request.tx_id, eth_tx_hash, author);
+                let eth_tx_hash = eth::send_tx::<T, I>(&tx)?;
+                call::add_eth_tx_hash::<T, I>(tx.request.tx_id, eth_tx_hash, author);
                 guard.forget(); // keep the lock so we don't send again
             } else {
                 log::info!(
@@ -846,9 +858,9 @@ pub mod pallet {
                 );
             };
         } else if !self_is_sender && (tx_is_sent || tx_is_past_expiry) {
-            if util::requires_corroboration::<T>(&tx.data, &author) {
-                match eth::corroborate::<T>(&tx, &author)? {
-                    (Some(status), tx_hash_is_valid) => call::add_corroboration::<T>(
+            if util::requires_corroboration::<T, I>(&tx.data, &author) {
+                match eth::corroborate::<T, I>(&tx, &author)? {
+                    (Some(status), tx_hash_is_valid) => call::add_corroboration::<T, I>(
                         tx.request.tx_id,
                         status,
                         tx_hash_is_valid.unwrap_or_default(),
@@ -862,30 +874,12 @@ pub mod pallet {
         Ok(())
     }
 
-    pub fn author_has_cast_event_vote<T: Config>(author: &T::AccountId) -> bool {
-        for (_partition, votes) in EthereumEvents::<T>::iter() {
-            if votes.contains(&author) {
-                return true
-            }
-        }
-        false
-    }
-
-    pub fn author_has_submitted_latest_block<T: Config>(author: &T::AccountId) -> bool {
-        for (_block_num, votes) in SubmittedEthBlocks::<T>::iter() {
-            if votes.contains(&author) {
-                return true
-            }
-        }
-        false
-    }
-
-    fn advance_partition<T: Config>(
+    fn advance_partition<T: Config<I>, I: 'static>(
         active_range: &ActiveEthRange,
         approved_partition: &EthereumEventsPartition,
     ) {
         let next_active_range = if approved_partition.is_last() {
-            let additional_transactions = AdditionalEthereumEventsQueue::<T>::take();
+            let additional_transactions = AdditionalEthereumEventsQueue::<T, I>::take();
             ActiveEthRange {
                 range: active_range.range.next_range(),
                 partition: 0,
@@ -898,34 +892,34 @@ pub mod pallet {
                 ..active_range.clone()
             }
         };
-        ActiveEthereumRange::<T>::put(next_active_range);
+        ActiveEthereumRange::<T, I>::put(next_active_range);
     }
 
-    fn process_ethereum_events_partition<T: Config>(
+    fn process_ethereum_events_partition<T: Config<I>, I: 'static>(
         active_range: &ActiveEthRange,
         partition: &EthereumEventsPartition,
     ) {
         // Remove entry from storage. Ignore votes.
-        let _ = EthereumEvents::<T>::take(partition);
+        let _ = EthereumEvents::<T, I>::take(partition);
         for discovered_event in partition.events().iter() {
             match ValidEvents::try_from(&discovered_event.event.event_id.signature).ok() {
                 Some(valid_event) =>
                     if active_range.event_types_filter.contains(&valid_event) {
                         if discovered_event.block > active_range.range.end_block().into() {
-                            <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                            <Pallet<T, I>>::deposit_event(Event::<T, I>::EventRejected {
                                 eth_event_id: discovered_event.event.event_id.clone(),
-                                reason: Error::<T>::EventBelongsInFutureRange.into(),
+                                reason: Error::<T, I>::EventBelongsInFutureRange.into(),
                             });
                             continue
                         }
 
-                        if let Err(err) = process_ethereum_event::<T>(&discovered_event.event) {
+                        if let Err(err) = process_ethereum_event::<T, I>(&discovered_event.event) {
                             log::error!(
                                 "💔 Invalid event to process: {:?}. Error: {:?}",
                                 discovered_event.event,
                                 err
                             );
-                            <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                            <Pallet<T, I>>::deposit_event(Event::<T, I>::EventRejected {
                                 eth_event_id: discovered_event.event.event_id.clone(),
                                 reason: err,
                             });
@@ -943,31 +937,33 @@ pub mod pallet {
         }
 
         // Cleanup
-        for (partition, votes) in EthereumEvents::<T>::drain() {
+        for (partition, votes) in EthereumEvents::<T, I>::drain() {
             // TODO raise offences
             log::info!("Collators with invalid votes on ethereum events (range: {:?}, partition: {}): {:?}", partition.range(), partition.partition(), votes);
         }
     }
 
-    fn process_ethereum_event<T: Config>(event: &EthEvent) -> Result<(), DispatchError> {
+    fn process_ethereum_event<T: Config<I>, I: 'static>(
+        event: &EthEvent,
+    ) -> Result<(), DispatchError> {
         ensure!(
             false == T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()),
-            Error::<T>::EventAlreadyProcessed
+            Error::<T, I>::EventAlreadyProcessed
         );
 
         // Add record of succesful processing via ProcessedEventsChecker
         T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true)
-            .map_err(|_| Error::<T>::EventAlreadyProcessed)?;
+            .map_err(|_| Error::<T, I>::EventAlreadyProcessed)?;
 
         match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
             Ok(_) => {
-                <Pallet<T>>::deposit_event(Event::<T>::EventAccepted {
+                <Pallet<T, I>>::deposit_event(Event::<T, I>::EventAccepted {
                     eth_event_id: event.event_id.clone(),
                 });
             },
             Err(err) => {
                 log::error!("💔 Processing ethereum event failed: {:?}", err);
-                <Pallet<T>>::deposit_event(Event::<T>::EventRejected {
+                <Pallet<T, I>>::deposit_event(Event::<T, I>::EventRejected {
                     eth_event_id: event.event_id.clone(),
                     reason: err,
                 });
@@ -978,8 +974,8 @@ pub mod pallet {
     }
 
     #[pallet::validate_unsigned]
-    impl<T: Config> ValidateUnsigned for Pallet<T> {
-        type Call = Call<T>;
+    impl<T: Config<I>, I: 'static> ValidateUnsigned for Pallet<T, I> {
+        type Call = Call<T, I>;
         // Confirm that the call comes from an author before it can enter the pool:
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             let reduce_priority: TransactionPriority = TransactionPriority::from(1000u64);
@@ -1091,16 +1087,16 @@ pub mod pallet {
         }
     }
 
-    impl<T: Config> BridgeInterface for Pallet<T> {
+    impl<T: Config<I>, I: 'static> BridgeInterface for Pallet<T, I> {
         fn publish(
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
             caller_id: Vec<u8>,
         ) -> Result<EthereumId, DispatchError> {
-            let tx_id = request::add_new_send_request::<T>(function_name, params, &caller_id)
+            let tx_id = request::add_new_send_request::<T, I>(function_name, params, &caller_id)
                 .map_err(|e| DispatchError::Other(e.into()))?;
 
-            Self::deposit_event(Event::<T>::PublishToEthereum {
+            Self::deposit_event(Event::<T, I>::PublishToEthereum {
                 tx_id,
                 function_name: function_name.to_vec(),
                 params: params.to_vec(),
@@ -1117,9 +1113,9 @@ pub mod pallet {
         ) -> Result<(), DispatchError> {
             // Note: we are not checking the queue for duplicates because we trust the calling
             // pallet
-            request::add_new_lower_proof_request::<T>(lower_id, params, &caller_id)?;
+            request::add_new_lower_proof_request::<T, I>(lower_id, params, &caller_id)?;
 
-            Self::deposit_event(Event::<T>::LowerProofRequested {
+            Self::deposit_event(Event::<T, I>::LowerProofRequested {
                 lower_id,
                 params: *params,
                 caller_id,
@@ -1135,10 +1131,10 @@ pub mod pallet {
             eth_block: Option<u32>,
         ) -> Result<Vec<u8>, DispatchError> {
             let account_id = T::AccountId::decode(&mut &account_id_bytes[..])
-                .map_err(|_| Error::<T>::InvalidAccountId)?;
-            let calldata = eth::abi_encode_function::<T>(function_name, params)?;
+                .map_err(|_| Error::<T, I>::InvalidAccountId)?;
+            let calldata = eth::abi_encode_function::<T, I>(function_name, params)?;
 
-            eth::make_ethereum_call::<Vec<u8>, T>(
+            eth::make_ethereum_call::<Vec<u8>, T, I>(
                 &account_id,
                 "view",
                 calldata,
@@ -1151,17 +1147,17 @@ pub mod pallet {
             let response = AVN::<T>::get_data_from_service(String::from("/eth/latest_block"))
                 .map_err(|e| {
                     log::error!("❌ Error getting finalised ethereum block: {:?}", e);
-                    Error::<T>::ErrorGettingFinalisedEthereumBlock
+                    Error::<T, I>::ErrorGettingFinalisedEthereumBlock
                 })?;
 
             let latest_block_bytes = hex::decode(&response).map_err(|e| {
                 log::error!("❌ Error decoding finalised eth block data {:?}", e);
-                Error::<T>::InvalidResponse
+                Error::<T, I>::InvalidResponse
             })?;
 
             let latest_block = u32::decode(&mut &latest_block_bytes[..]).map_err(|e| {
                 log::error!("❌ Finalised block is not a valid u32: {:?}", e);
-                Error::<T>::ErrorDecodingU32
+                Error::<T, I>::ErrorDecodingU32
             })?;
 
             Ok(latest_block)
@@ -1169,7 +1165,7 @@ pub mod pallet {
     }
 }
 
-impl<T: Config> Pallet<T> {
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
     pub fn signatures() -> Vec<H256> {
         match Self::active_ethereum_range() {
             Some(active_range) => active_range
@@ -1194,7 +1190,7 @@ impl<T: Config> Pallet<T> {
                 ()
             })?;
 
-        submit_ethereum_events::<T>(validator, events_partition, signature)
+        submit_ethereum_events::<T, I>(validator, events_partition, signature)
     }
 
     pub fn submit_latest_ethereum_block_vote(
@@ -1214,7 +1210,7 @@ impl<T: Config> Pallet<T> {
                 ()
             })?;
 
-        submit_latest_ethereum_block::<T>(validator, latest_seen_block, signature)
+        submit_latest_ethereum_block::<T, I>(validator, latest_seen_block, signature)
     }
 
     pub fn get_bridge_contract() -> H160 {
@@ -1236,7 +1232,7 @@ impl<T: Config> Pallet<T> {
                         "Migrated processed event: {:?} to eth-bridge pallet",
                         &migration.event_id
                     );
-                    <Pallet<T>>::deposit_event(Event::EventMigrated {
+                    <Pallet<T, I>>::deposit_event(Event::EventMigrated {
                         eth_event_id: migration.event_id,
                         accepted: migration.outcome,
                     });
@@ -1252,12 +1248,12 @@ impl<T: Config> Pallet<T> {
             }
         });
 
-        <T as pallet::Config>::WeightInfo::migrate_events_batch(counter)
+        <T as pallet::Config<I>>::WeightInfo::migrate_events_batch(counter)
     }
 
     pub fn remove_active_request_impl() -> DispatchResultWithPostInfo {
-        let req = ActiveRequest::<T>::get();
-        ensure!(req.is_some(), Error::<T>::NoActiveRequest);
+        let req = ActiveRequest::<T, I>::get();
+        ensure!(req.is_some(), Error::<T, I>::NoActiveRequest);
 
         let request_id;
         match req.expect("request is not empty").request {
@@ -1279,13 +1275,13 @@ impl<T: Config> Pallet<T> {
             },
         };
 
-        request::process_next_request::<T>();
-        Self::deposit_event(Event::<T>::ActiveRequestRemoved { request_id });
+        request::process_next_request::<T, I>();
+        Self::deposit_event(Event::<T, I>::ActiveRequestRemoved { request_id });
         Ok(().into())
     }
 
     fn ethereum_event_has_already_been_accepted(tx_hash: &H256) -> bool {
-        if let Some(processed_event) = ProcessedEthereumEvents::<T>::get(tx_hash) {
+        if let Some(processed_event) = ProcessedEthereumEvents::<T, I>::get(tx_hash) {
             if processed_event.accepted {
                 return true
             }
@@ -1303,11 +1299,29 @@ impl<T: Config> Pallet<T> {
         }
         false
     }
+
+    pub fn author_has_cast_event_vote(author: &T::AccountId) -> bool {
+        for (_partition, votes) in EthereumEvents::<T, I>::iter() {
+            if votes.contains(&author) {
+                return true
+            }
+        }
+        false
+    }
+
+    pub fn author_has_submitted_latest_block(author: &T::AccountId) -> bool {
+        for (_block_num, votes) in SubmittedEthBlocks::<T, I>::iter() {
+            if votes.contains(&author) {
+                return true
+            }
+        }
+        false
+    }
 }
 
-impl<T: Config> ProcessedEventsChecker for Pallet<T> {
+impl<T: Config<I>, I: 'static> ProcessedEventsChecker for Pallet<T, I> {
     fn processed_event_exists(event_id: &EthEventId) -> bool {
-        <ProcessedEthereumEvents<T>>::contains_key(event_id.transaction_hash)
+        <ProcessedEthereumEvents<T, I>>::contains_key(event_id.transaction_hash)
     }
 
     fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()> {
@@ -1326,7 +1340,7 @@ impl<T: Config> ProcessedEventsChecker for Pallet<T> {
         } else {
             ValidEvents::try_from(&event_id.signature)?
         };
-        ProcessedEthereumEvents::<T>::insert(tx_hash, EthProcessedEvent { id, accepted });
+        ProcessedEthereumEvents::<T, I>::insert(tx_hash, EthProcessedEvent { id, accepted });
         Ok(())
     }
 }
