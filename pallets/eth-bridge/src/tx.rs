@@ -2,28 +2,28 @@ use super::*;
 use crate::{offence::create_and_report_corroboration_offence, util::unbound_params, Config};
 use frame_support::BoundedVec;
 
-pub fn is_active_request<T: Config>(id: EthereumId) -> bool {
-    ActiveRequest::<T>::get().map_or(false, |r| r.request.id_matches(&id))
+pub fn is_active_request<T: Config<I>, I: 'static>(id: EthereumId) -> bool {
+    ActiveRequest::<T, I>::get().map_or(false, |r| r.request.id_matches(&id))
 }
 
-fn complete_transaction<T: Config>(
+fn complete_transaction<T: Config<I>, I: 'static>(
     mut tx: ActiveTransactionData<T::AccountId>,
     success: bool,
-) -> Result<(), Error<T>> {
+) -> Result<(), Error<T, I>> {
     // Alert the originating pallet:
     T::BridgeInterfaceNotification::process_result(
         tx.request.tx_id,
         tx.request.caller_id.into(),
         success,
     )
-    .map_err(|_| Error::<T>::HandlePublishingResultFailed)?;
+    .map_err(|_| Error::<T, I>::HandlePublishingResultFailed)?;
 
     tx.data.tx_succeeded = success;
 
     // Check for offences:
     if success {
         if !tx.data.failure_corroborations.is_empty() {
-            create_and_report_corroboration_offence::<T>(
+            create_and_report_corroboration_offence::<T, I>(
                 &tx.data.sender,
                 &tx.data.failure_corroborations,
                 offence::CorroborationOffenceType::ChallengeAttemptedOnSuccessfulTransaction,
@@ -31,12 +31,12 @@ fn complete_transaction<T: Config>(
         }
 
         // if the transaction is a success but the eth tx hash is wrong remove it
-        if util::has_enough_corroborations::<T>(tx.data.invalid_tx_hash_corroborations.len()) {
+        if util::has_enough_corroborations::<T, I>(tx.data.invalid_tx_hash_corroborations.len()) {
             tx.data.eth_tx_hash = H256::zero();
         }
     } else {
         if !tx.data.success_corroborations.is_empty() {
-            create_and_report_corroboration_offence::<T>(
+            create_and_report_corroboration_offence::<T, I>(
                 &tx.data.sender,
                 &tx.data.success_corroborations,
                 offence::CorroborationOffenceType::ChallengeAttemptedOnUnsuccessfulTransaction,
@@ -45,7 +45,7 @@ fn complete_transaction<T: Config>(
     }
 
     // Write the tx data to permanent storage:
-    SettledTransactions::<T>::insert(
+    SettledTransactions::<T, I>::insert(
         tx.request.tx_id,
         TransactionData {
             function_name: tx.request.function_name,
@@ -57,33 +57,33 @@ fn complete_transaction<T: Config>(
     );
 
     // Process any new request from the queue
-    request::process_next_request::<T>();
+    request::process_next_request::<T, I>();
 
     Ok(())
 }
 
-pub fn finalize_state<T: Config>(
+pub fn finalize_state<T: Config<I>, I: 'static>(
     tx: ActiveTransactionData<T::AccountId>,
     success: bool,
-) -> Result<(), Error<T>> {
+) -> Result<(), Error<T, I>> {
     // if the transaction failed and the tx hash is missing or pointing to a different transaction,
     // replay transaction
     if !success &&
-        util::has_enough_corroborations::<T>(tx.data.invalid_tx_hash_corroborations.len())
+        util::has_enough_corroborations::<T, I>(tx.data.invalid_tx_hash_corroborations.len())
     {
         // raise an offence on the "sender" because the tx_hash they provided was invalid
         return Ok(replay_send_request(tx)?)
     }
 
-    Ok(complete_transaction::<T>(tx, success)?)
+    Ok(complete_transaction::<T, I>(tx, success)?)
 }
 
-pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>> {
-    let expiry = util::time_now::<T>() + EthTxLifetimeSecs::<T>::get();
+pub fn set_up_active_tx<T: Config<I>, I: 'static>(req: SendRequestData) -> Result<(), Error<T, I>> {
+    let expiry = util::time_now::<T, I>() + EthTxLifetimeSecs::<T, I>::get();
     let extended_params = req.extend_params(expiry)?;
-    let msg_hash = generate_msg_hash::<T>(&extended_params)?;
+    let msg_hash = generate_msg_hash::<T, I>(&extended_params)?;
 
-    ActiveRequest::<T>::put(ActiveRequestData {
+    ActiveRequest::<T, I>::put(ActiveRequestData {
         request: Request::Send(req.clone()),
         confirmation: ActiveConfirmation { msg_hash, confirmations: BoundedVec::default() },
         tx_data: Some(ActiveEthTransaction {
@@ -104,34 +104,34 @@ pub fn set_up_active_tx<T: Config>(req: SendRequestData) -> Result<(), Error<T>>
     return Ok(())
 }
 
-pub fn replay_send_request<T: Config>(
+pub fn replay_send_request<T: Config<I>, I: 'static>(
     mut tx: ActiveTransactionData<T::AccountId>,
-) -> Result<(), Error<T>> {
-    <crate::Pallet<T>>::deposit_event(Event::<T>::ActiveRequestRetried {
+) -> Result<(), Error<T, I>> {
+    <crate::Pallet<T, I>>::deposit_event(Event::<T, I>::ActiveRequestRetried {
         function_name: tx.request.function_name.clone(),
         params: tx.request.params.clone(),
         caller_id: tx.request.caller_id.clone(),
     });
 
-    tx.request.tx_id = use_next_tx_id::<T>();
+    tx.request.tx_id = use_next_tx_id::<T, I>();
     return Ok(set_up_active_tx(tx.request)?)
 }
 
-pub fn use_next_tx_id<T: Config>() -> u32 {
-    let tx_id = NextTxId::<T>::get();
-    NextTxId::<T>::put(tx_id + 1);
+pub fn use_next_tx_id<T: Config<I>, I: 'static>() -> u32 {
+    let tx_id = NextTxId::<T, I>::get();
+    NextTxId::<T, I>::put(tx_id + 1);
     tx_id
 }
 
-fn generate_msg_hash<T: pallet::Config>(
+fn generate_msg_hash<T: Config<I>, I: 'static>(
     params: &BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-) -> Result<H256, Error<T>> {
+) -> Result<H256, Error<T, I>> {
     let params = unbound_params(params);
     let tokens: Result<Vec<_>, _> = params
         .iter()
         .map(|(type_bytes, value_bytes)| {
             let param_type =
-                eth::to_param_type(type_bytes).ok_or_else(|| Error::<T>::MsgHashError)?;
+                eth::to_param_type(type_bytes).ok_or_else(|| Error::<T, I>::MsgHashError)?;
             eth::to_token_type(&param_type, value_bytes)
         })
         .collect();
@@ -142,12 +142,12 @@ fn generate_msg_hash<T: pallet::Config>(
     Ok(H256::from(msg_hash))
 }
 
-fn assign_sender<T: Config>() -> Result<T::AccountId, Error<T>> {
+fn assign_sender<T: Config<I>, I: 'static>() -> Result<T::AccountId, Error<T, I>> {
     match AVN::<T>::advance_primary_validator_for_sending() {
         Ok(primary_validator) => {
             let sender = primary_validator;
             Ok(sender)
         },
-        Err(_) => Err(Error::<T>::ErrorAssigningSender),
+        Err(_) => Err(Error::<T, I>::ErrorAssigningSender),
     }
 }
