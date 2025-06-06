@@ -1,5 +1,6 @@
 // Copyright 2019-2022 PureStake Inc.
-// This file is part of Moonbeam.
+// Copyright 2025 Aventus Network Services Ltd.
+// This file is part of Moonbeam and Aventus.
 
 // Moonbeam is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -41,10 +42,93 @@
 //!
 //! To join the set of nominators, call `nominate` and pass in an account that is
 //! already a collator candidate and `bond >= MinTotalNominatorStake`. Each nominator can nominate
-//! up to `T::MaxNominationsPerNominator` collator candidates by calling `nominate`.
+//! up to `T::MaxNominationsPerNominator` collator candidates by calling `nominate`. Nominations
+//! increase the `total stake` the collator has in the system.
+//!
+//! The `T::MinNominationPerCollator` constant defines the minimum amount of stake that a nominator
+//! must contribute to a specific collator in order for the nomination to be valid.
 //!
 //! To revoke a nomination, call `revoke_nomination` with the collator candidate's account.
 //! To leave the set of nominators and revoke all nominations, call `leave_nominators`.
+//!
+//! ## Reward Distribution
+//! Rewards are distributed to collators and their nominators based on their contributions to the
+//! network.
+//!
+//! ### How Rewards Are Calculated
+//! 1. Candidates earn points for authoring blocks via the `note_author` callback.
+//! 2. Each Candidate's reward share is proportional to the points they earned relative to the total
+//! points in the era. That fraction is then multiplied with the allocated `total_staking_reward`
+//! for the Era. 3. The Candidate's reward shared is further divided proportionally based on their
+//! **total stake**, which includes:
+//!    - **Candidate Stake**: The amount staked by the collator themselves.
+//!    - **Nominators' Stake**: The total amount staked by nominators backing the collator.
+//! 4. **Candidate Rewards**: Candidate' rewards are proportional to their individual stake relative
+//! to the total stake backing the collator.
+//! 5. **Nominator Rewards**: Nominators' rewards are
+//! proportional to their individual stake relative to the total stake backing the collator. This is
+//! repeated for each nomination an account has on different candidates.
+//!
+//! ### Reward Formulas
+//! total_reward_for_candidate = (collator_points / total_points) * total_staking_reward
+//! candidate_reward = (candidate_stake / candidate_total_stake) * total_reward_for_candidate
+//! nomination_reward = (nomination_stake / candidate_total_stake) * total_reward_for_candidate
+//!
+//! - `collator_points`: Total points the collator earned in the era.
+//! - `total_points`: Total points earned by all collators in the era.
+//! - `total_staking_reward`: Total reward available in the reward pot for the era.
+//! - `candidate_stake`: The amount staked by the collator themselves.
+//! - `candidate_total_stake`: Total stake backing the collator (self-bond + nominations stake).
+//! - `nomination_stake`: Stake contributed by the nominator.
+//!
+//! ### Delayed Payouts
+//! - Rewards are paid after a delay of `T::RewardPaymentDelay` eras.
+//! - During each block, one collator and their nominators are paid until all rewards for the era
+//!   are distributed.
+//!
+//! ## Growth Mechanism
+//! The growth mechanism is an inflation mechanism that allows the network to increase its total
+//! supply of a token across the two tiers. The process gets initiated by the `trigger_growth_on_t1`
+//! function a the beggining of a new era function which will send to the bridge contract a request
+//! to growth the token supply. Once the Bridge contract has handled the request, the newly minted
+//! tokens will be lifted to the parachain via a AvtGrowthLiftedData event. The pallet expects for
+//! the event to be processed by the parachain and be notified via the
+//! `OnGrowthLiftedHandler::on_growth_lifted` callback function which then triggers the payout.
+//! Growth payments are complimentatry to the regular staking rewards, with the performance of the
+//! collators being the main factor in determining the amount of growth they receive. The growth
+//! mechanism is only enabled if the `T::GrowthEnabled` constant is set to true.
+//!
+//! ## Growth Mechanism
+//!
+//! The growth mechanism is an inflationary process that increases the total token supply
+//! across two tiers. A growth period spans multiple eras, defined by `T::ErasPerGrowthPeriod`.
+//! It rewards collators based on their performance over multiple eras.
+//!
+//! ### How It Works
+//! 1. **Triggering Growth**:
+//!    - At the beginning of a new era, the `trigger_growth_on_t1` function sends a request to the
+//!      bridge contract to mint new tokens alongside the total staked amount.
+//!    - The bridge contract processes the request and emits an `AvtGrowthLiftedData` event once the
+//!      tokens are minted and lifted to the parachain.
+//!
+//! 2. **Processing Growth**:
+//!    - The parachain listens for the `AvtGrowthLiftedData` event.
+//!    - Once the event is processed, the `OnGrowthLiftedHandler::on_growth_lifted` callback is
+//!      triggered to distribute the newly minted tokens to collators.
+//!    - Token manager that typically handles the token minting and lifting process can be
+//!      configured to reserve a portion for the treasury.
+//!
+//! 3. **Reward Distribution**:
+//!    - Growth payments are distributed in addition to regular staking rewards.
+//!    - The performance of collators (measured by their points) determines the amount of growth
+//!      rewards they receive.
+//!
+//! ### Conditions
+//! - **Activation**: The growth mechanism is enabled only if the `T::GrowthEnabled` constant is set
+//!   to `true`.
+//! - **Deactivation**: Growth is skipped if:
+//!    - The number of accumulations is zero.
+//!    - The total stake or total rewards for the growth period is zero.
 
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -217,8 +301,10 @@ pub mod pallet {
         #[pallet::constant]
         type MinNominationPerCollator: Get<BalanceOf<Self>>;
         /// Number of eras to MinNominationPerCollator before we process a new growth period
+        #[pallet::constant]
         type ErasPerGrowthPeriod: Get<GrowthPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
+        #[pallet::constant]
         type RewardPotId: Get<PalletId>;
         /// A way to check if an event has been processed by Ethereum events
         type ProcessedEventsChecker: ProcessedEventsChecker;
