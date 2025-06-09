@@ -153,4 +153,6 @@ pub enum AdminSettings {
     RemoveActiveRequest,
     /// Queue an additional ethereum event to be included in the next range
     QueueAdditionalEthereumEvent(EthTransactionId),
+    /// Removes all votes on Ethereum Events partitions for the active range.
+    RestartEventDiscoveryOnRange,
 }

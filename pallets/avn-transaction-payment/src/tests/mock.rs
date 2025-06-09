@@ -3,6 +3,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use frame_support::{
+    ord_parameter_types,
     pallet_prelude::DispatchClass,
     parameter_types,
     traits::{ConstU16, ConstU64, ConstU8, Imbalance, OnFinalize, OnInitialize, OnUnbalanced},
@@ -87,6 +88,7 @@ impl pallet_avn_transaction_payment::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
+    type KnownUserOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<TestRuntime>;
 }
 

@@ -26,15 +26,22 @@ concurrency:
 
 jobs:
   set-up-job:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    outputs:
+      RELEASE: ${{ steps.set.outputs.RELEASE }}
+      GIT_TAG: ${{ steps.set.outputs.GIT_TAG }}
+      TEST_CODE: ${{ steps.set.outputs.TEST_CODE }}
     steps:
-      - name: echo inputs
+      - name: Set outputs from workflow inputs
+        id: set
         run: |
           echo "Release: ${{ github.event.inputs.RELEASE }}"
           echo "Git tag: ${{ github.event.inputs.GIT_TAG }}"
           echo "Test code: ${{ github.event.inputs.TEST_CODE }}"
 
-          echo "RELEASE=${{ github.event.inputs.RELEASE }}">> "$GITHUB_OUTPUT"
+          echo "RELEASE=${{ github.event.inputs.RELEASE }}" >> "$GITHUB_OUTPUT"
+          echo "GIT_TAG=${{ github.event.inputs.GIT_TAG }}" >> "$GITHUB_OUTPUT"
+          echo "TEST_CODE=${{ github.event.inputs.TEST_CODE }}" >> "$GITHUB_OUTPUT"
 
       - name: verify GIT TAG
         run: |
@@ -45,10 +52,9 @@ jobs:
             echo "version $VERSION matches the semver scheme 'vX.Y.Z' (prod tags). This workflow can only be used without prod tags";
             exit 1
           fi
-
   test-code:
     needs: [set-up-job]
-    if: ${{ github.event.inputs.TEST_CODE == 'true' }}
+    if: ${{ needs.set-up-job.outputs.TEST_CODE == 'true' }}
     uses: ./.github/workflows/cargo-test.yml
 
   build-code:
@@ -58,46 +64,65 @@ jobs:
       upload_artifacts: true
     secrets: inherit
 
-  build-avn-docker:
-    needs: [ set-up-job, build-code, test-code ]
-    if: |
-      always() &&
-      (needs.build-code.result == 'success') &&
-      (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
-    uses: ./.github/workflows/docker-build.yml
+  build-code-ubuntu2404:
+    needs: [ set-up-job ]
+    uses: ./.github/workflows/cargo-build.yml
     with:
-      release: ${{ needs.set-up-job.outputs.RELEASE }}
-      docker_tag: ${{ github.event.inputs.GIT_TAG }}
-      build_latest: false
+      runs_on: gh-ubuntu-2404-x64
+      parachain-collator-artifact: parachain-collator
+      parachain-runtime-artifact: parachain-runtime
+      parachain-test-runtime-artifact: parachain-test-runtime
+      upload_artifacts: true
     secrets: inherit
 
-  avn-repo-release:
-    needs: [ set-up-job, build-avn-docker ]
-    if: ${{ github.event.inputs.RELEASE == 'true' }}
+  build-docker:
+    needs: [ set-up-job, build-code-ubuntu2404, test-code ]
+    if: |
+      always() &&
+      needs.build-code-ubuntu2404.result == 'success' &&
+      (
+        needs.set-up-job.outputs.TEST_CODE == 'false' ||
+        needs.test-code.result == 'success'
+      )
+    uses: ./.github/workflows/docker-build.yml
+    with:
+      parachain-collator-artifact: parachain-collator
+      parachain-runtime-artifact: parachain-runtime
+      release: ${{ needs.set-up-job.outputs.RELEASE }}
+      docker_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
+    secrets: inherit
+
+  release:
+    needs: [ set-up-job, build-code, build-docker ]
+    if: |
+      always() &&
+      (needs.set-up-job.outputs.RELEASE == 'true') &&
+      (needs.build-code.result == 'success') &&
+      (needs.build-docker.result == 'success')
     uses: ./.github/workflows/gh-release.yml
     with:
-      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
       hotfix: true
     secrets: inherit
 
-  upload-avn-assets-internal-tools:
-    needs: [ set-up-job, build-avn-docker ]
-    if: ${{ github.event.inputs.RELEASE == 'true' }}
+  upload-assets-internal-tools:
+    needs: [ set-up-job, build-code ]
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
       bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
-      repo_tag: ${{ github.event.inputs.GIT_TAG }}
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
     secrets: inherit
 
-  cleanup-artifacts:
-    runs-on: ubuntu-20.04
-    needs:  [ set-up-job, build-code, build-avn-docker, avn-repo-release, upload-avn-assets-internal-tools ]
-    if: always()
-    steps:
-      - uses: geekyeggo/delete-artifact@v5
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
-        with:
-          name: |
-            avn-parachain-collator
-            avn-parachain-runtime
-          failOnError: false
+  upload-assets-internal-tools-ubuntu2404:
+    needs: [ set-up-job, build-code-ubuntu2404 ]
+    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
+    uses: ./.github/workflows/s3-upload.yml
+    with:
+      runs_on: gh-ubuntu-2404-x64
+      parachain-collator-artifact: parachain-collator
+      parachain-runtime-artifact: parachain-runtime
+      parachain-test-runtime-artifact: parachain-test-runtime
+      bucket_name: "s3://aventus-internal-artefact/avn-parachain-node-artefacts"
+      repo_tag: ${{ needs.set-up-job.outputs.GIT_TAG }}
+    secrets: inherit
