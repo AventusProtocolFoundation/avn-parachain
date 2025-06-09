@@ -87,29 +87,21 @@
 //!   are distributed.
 //!
 //! ## Growth Mechanism
-//! The growth mechanism is an inflation mechanism that allows the network to increase its total
-//! supply of a token across the two tiers. The process gets initiated by the `trigger_growth_on_t1`
-//! function a the beggining of a new era function which will send to the bridge contract a request
-//! to growth the token supply. Once the Bridge contract has handled the request, the newly minted
-//! tokens will be lifted to the parachain via a AvtGrowthLiftedData event. The pallet expects for
-//! the event to be processed by the parachain and be notified via the
-//! `OnGrowthLiftedHandler::on_growth_lifted` callback function which then triggers the payout.
-//! Growth payments are complimentatry to the regular staking rewards, with the performance of the
-//! collators being the main factor in determining the amount of growth they receive. The growth
-//! mechanism is only enabled if the `T::GrowthEnabled` constant is set to true.
 //!
-//! ## Growth Mechanism
-//!
-//! The growth mechanism is an inflationary process that increases the total token supply
+//! The growth mechanism is an process that increases the total token supply
 //! across two tiers. A growth period spans multiple eras, defined by `T::ErasPerGrowthPeriod`.
 //! It rewards collators based on their performance over multiple eras.
 //!
 //! ### How It Works
 //! 1. **Triggering Growth**:
-//!    - At the beginning of a new era, the `trigger_growth_on_t1` function sends a request to the
-//!      bridge contract to mint new tokens alongside the total staked amount.
+//!    - If `T::GrowthEnabled` is set to `true`, growth events are triggered every
+//!      `T::ErasPerGrowthPeriod` eras. These values are configured as part of the pallet setup.
+//!    - At the beginning of a new era, the system checks whether the conditions for initiating a
+//!      new growth event are met. If the conditions are satisfied, the `trigger_growth_on_t1`
+//!      function is invoked. This function sends a request to the bridge contract to mint new
+//!      tokens proportional to the total staked amount.
 //!    - The bridge contract processes the request and emits an `AvtGrowthLiftedData` event once the
-//!      tokens are minted and lifted to the parachain.
+//!      tokens are successfully minted and transferred to the parachain.
 //!
 //! 2. **Processing Growth**:
 //!    - The parachain listens for the `AvtGrowthLiftedData` event.
