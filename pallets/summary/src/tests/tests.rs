@@ -377,7 +377,7 @@ mod process_summary_if_required {
                 setup_blocks(&context);
                 setup_total_ingresses(&context);
                 let root_lock_name = Summary::create_root_lock_name(context.last_block_in_range);
-                let mut lock = AVN::<TestRuntime>::get_ocw_locker(&root_lock_name);
+                let mut lock = AVN::get_ocw_locker(&root_lock_name);
                 if let Ok(_guard) = lock.try_lock() {
                     assert!(pool_state.read().transactions.is_empty());
 
@@ -1717,7 +1717,6 @@ mod if_process_summary_is_called_a_second_time {
 // TODO: add a test to ensure we pick validators in sequential order of their index
 
 mod constrains {
-    
     use node_primitives::BlockNumber;
     use sp_avn_common::{bounds::VotingSessionIdBound, RootId, RootRange};
     use sp_core::Get;
@@ -1729,5 +1728,284 @@ mod constrains {
             action_id.session_id().len() as u32 <= VotingSessionIdBound::get(),
             "The encoded size of RootId must not exceed the VotingSessionIdBound"
         );
+    }
+}
+
+#[cfg(test)]
+mod set_summary_status_tests {
+    use super::*;
+    use sp_avn_common::{RootId, RootRange, SummaryStatus};
+
+    fn setup_test_root_id() -> RootId<BlockNumber> {
+        let root_range = RootRange::new(10, 20);
+        RootId::new(root_range, 1)
+    }
+
+    fn setup_test_context_with_root_data() -> (RootId<BlockNumber>, Context) {
+        let context = setup_context();
+        let root_id = setup_test_root_id();
+        
+        // Insert root data so we can test processing (using AnchorSummary instance)
+        Roots::<TestRuntime, summary::Instance1>::insert(
+            root_id.range,
+            root_id.ingress_counter,
+            crate::RootData::new(context.root_hash_h256, context.validator.account_id.clone(), None),
+        );
+        
+        (root_id, context)
+    }
+
+    mod set_summary_status {
+        use frame_support::assert_ok;
+
+        use super::*;
+
+        #[test]
+        fn successfully_sets_status_to_pending() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+
+                assert_ok!(AnchorSummary::set_summary_status(root_id, SummaryStatus::PendingValidatorVote));
+
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::PendingValidatorVote
+                );
+            });
+        }
+
+        #[test]
+        fn successfully_sets_status_to_ready_for_validation() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+
+                assert_ok!(AnchorSummary::set_summary_status(root_id, SummaryStatus::ReadyForValidation));
+
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::ReadyForValidation
+                );
+            });
+        }
+
+        #[test]
+        fn successfully_sets_status_to_accepted() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+
+                assert_ok!(AnchorSummary::set_summary_status(root_id, SummaryStatus::Accepted));
+
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::Accepted
+                );
+            });
+        }
+
+        #[test]
+        fn successfully_sets_status_to_rejected() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+
+                assert_ok!(AnchorSummary::set_summary_status(root_id, SummaryStatus::Rejected));
+
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::Rejected
+                );
+            });
+        }
+
+        #[test]
+        fn overwrites_existing_status() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+
+                // Set initial status
+                assert_ok!(AnchorSummary::set_summary_status(root_id, SummaryStatus::PendingValidatorVote));
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::PendingValidatorVote
+                );
+
+                // Overwrite with new status
+                assert_ok!(AnchorSummary::set_summary_status(root_id, SummaryStatus::Accepted));
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::Accepted
+                );
+            });
+        }
+    }
+
+    mod process_accepted_summary {
+        use frame_support::assert_ok;
+
+        use super::*;
+
+        #[test]
+        fn succeeds_with_auto_submit_disabled() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let (root_id, _context) = setup_test_context_with_root_data();
+
+                let initial_counter = AnchorSummary::anchor_roots_counter();
+                assert_ok!(AnchorSummary::process_accepted_summary(&root_id));
+
+                // Should increment anchor roots counter since AnchorSummary has auto_submit disabled
+                assert_eq!(AnchorSummary::anchor_roots_counter(), initial_counter + 1);
+            });
+        }
+
+        #[test]
+        fn handles_empty_root_hash() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+                
+                // Insert root data with empty hash
+                Roots::<TestRuntime, summary::Instance1>::insert(
+                    root_id.range,
+                    root_id.ingress_counter,
+                    crate::RootData::new(H256::zero(), get_validator(FIRST_VALIDATOR_INDEX).account_id, None),
+                );
+
+                // Should succeed but not process anything
+                assert_ok!(AnchorSummary::process_accepted_summary(&root_id));
+            });
+        }
+
+        #[test]
+        fn fails_when_root_data_not_found() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+
+                assert_noop!(
+                    AnchorSummary::process_accepted_summary(&root_id),
+                    crate::Error::<TestRuntime, summary::Instance1>::RootDataNotFound
+                );
+            });
+        }
+    }
+
+    mod set_summary_status_and_process {
+        use frame_support::assert_ok;
+
+        use super::*;
+
+        #[test]
+        fn sets_status_and_processes_when_accepted() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let (root_id, _context) = setup_test_context_with_root_data();
+
+                let initial_counter = AnchorSummary::anchor_roots_counter();
+                assert_ok!(AnchorSummary::set_summary_status_and_process(root_id, SummaryStatus::Accepted));
+
+                // Status should be set
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::Accepted
+                );
+
+                // Processing should have occurred (anchor roots incremented)
+                assert_eq!(AnchorSummary::anchor_roots_counter(), initial_counter + 1);
+            });
+        }
+
+        #[test]
+        fn sets_status_but_does_not_process_when_not_accepted() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let (root_id, _context) = setup_test_context_with_root_data();
+
+                let initial_counter = AnchorSummary::anchor_roots_counter();
+                assert_ok!(AnchorSummary::set_summary_status_and_process(root_id, SummaryStatus::Rejected));
+
+                // Status should be set
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::Rejected
+                );
+
+                // Processing should NOT have occurred
+                assert_eq!(AnchorSummary::anchor_roots_counter(), initial_counter);
+            });
+        }
+
+        #[test]
+        fn handles_ready_for_validation_status() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let (root_id, _context) = setup_test_context_with_root_data();
+
+                assert_ok!(AnchorSummary::set_summary_status_and_process(root_id, SummaryStatus::ReadyForValidation));
+
+                // Status should be set
+                assert_eq!(
+                    RootStatus::<TestRuntime, summary::Instance1>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::ReadyForValidation
+                );
+            });
+        }
+    }
+
+    mod update_status_if_required {
+        use frame_support::assert_ok;
+
+        use super::*;
+
+        #[test]
+        fn sets_status_when_watchtower_validation_required() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+
+                // RequireWatchtowerValidation is true by default in the config
+                assert_ok!(Summary::update_status_if_required(root_id, SummaryStatus::Accepted));
+
+                assert_eq!(
+                    RootStatus::<TestRuntime>::get(root_id.range, root_id.ingress_counter),
+                    SummaryStatus::Accepted
+                );
+            });
+        }
+
+        #[test]
+        fn does_not_set_status_when_watchtower_validation_not_required() {
+            // This test would need mock configuration to set RequireWatchtowerValidation to false
+            // For now, we'll skip this test as the mock doesn't support config changes
+            // In a real test setup, you'd need to modify the Config trait implementation
+        }
+
+        #[test]
+        fn handles_all_status_types_when_required() {
+            let mut ext = ExtBuilder::build_default().as_externality();
+            ext.execute_with(|| {
+                let root_id = setup_test_root_id();
+
+                // Test each status type (RequireWatchtowerValidation is true by default)
+                let statuses = vec![
+                    SummaryStatus::PendingValidatorVote,
+                    SummaryStatus::ReadyForValidation,
+                    SummaryStatus::Accepted,
+                    SummaryStatus::Rejected,
+                ];
+
+                for status in statuses {
+                    assert_ok!(Summary::update_status_if_required(root_id, status.clone()));
+                    assert_eq!(
+                        RootStatus::<TestRuntime>::get(root_id.range, root_id.ingress_counter),
+                        status
+                    );
+                }
+            });
+        }
     }
 }

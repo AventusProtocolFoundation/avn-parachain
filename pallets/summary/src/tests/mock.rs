@@ -416,7 +416,7 @@ parameter_types! {
     pub const InstanceId: u8 = 1u8;
     pub const DoNotSubmit: bool = false;
     pub const AnchorInstanceId: u8 = 2u8;
-    pub const RequireWatchtowerValidation: bool = false;
+    pub const RequireWatchtowerValidation: bool = true;
 }
 
 impl system::Config for TestRuntime {
