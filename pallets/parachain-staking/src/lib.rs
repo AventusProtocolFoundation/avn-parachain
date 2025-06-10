@@ -15,8 +15,6 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
-
-
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
