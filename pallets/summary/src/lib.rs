@@ -750,24 +750,47 @@ pub mod pallet {
             root_id: RootId<BlockNumberFor<T>>,
             status: SummaryStatus,
         ) -> DispatchResult {
-            // Update the status
             <RootStatus<T, I>>::insert(
                 root_id.range,
                 root_id.ingress_counter,
-                status.clone()
+                status
             );
-    
-            // If accepted, process the summary
-            if status == SummaryStatus::Accepted {
-                let root_data = Self::try_get_root_data(&root_id)?;
-                if root_data.root_hash != Self::empty_root() {
-                    if T::AutoSubmitSummaries::get() {
-                        Self::send_root_to_ethereum(&root_id, &root_data)?;
-                    } else {
-                        let approved_root_id = Self::get_next_approved_root_id()?;
-                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
-                    }
+            Ok(())
+        }
+
+        pub fn process_accepted_summary(
+            root_id: &RootId<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            let root_data = Self::try_get_root_data(root_id)?;
+            if root_data.root_hash != Self::empty_root() {
+                if T::AutoSubmitSummaries::get() {
+                    Self::send_root_to_ethereum(root_id, &root_data)?;
+                } else {
+                    let approved_root_id = Self::get_next_approved_root_id()?;
+                    <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
                 }
+            }
+            Ok(())
+        }
+
+        pub fn set_summary_status_and_process(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: SummaryStatus,
+        ) -> DispatchResult {
+            Self::set_summary_status(root_id, status.clone())?;
+            
+            if status == SummaryStatus::Accepted {
+                Self::process_accepted_summary(&root_id)?;
+            }
+            Ok(())
+        }
+
+        pub fn update_status_if_required(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: SummaryStatus,
+        ) -> DispatchResult {
+            if T::RequireWatchtowerValidation::get() {
+                Self::set_summary_status(root_id, status)?;
             }
             Ok(())
         }
@@ -1256,16 +1279,13 @@ pub mod pallet {
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
                     if T::RequireWatchtowerValidation::get() {
-                        // Mark as ReadyForValidation for watchtower validation
-                        <RootStatus<T, I>>::insert(root_id.range, root_id.ingress_counter, SummaryStatus::ReadyForValidation);
+                        Self::update_status_if_required(*root_id, SummaryStatus::ReadyForValidation)?;
                         
-                        // Emit event for watchtower
                         Self::deposit_event(Event::<T, I>::SummaryReadyForValidation {
                             root_id: *root_id,
                             root_hash: root_data.root_hash,
                         });
                     } else {
-                        // If watchtower not required, proceed with submission/anchoring
                         if T::AutoSubmitSummaries::get() {
                             Self::send_root_to_ethereum(root_id, &root_data)?;
                         } else {
@@ -1301,10 +1321,7 @@ pub mod pallet {
                     block_range: root_id.range,
                 });
             } else {
-                if T::RequireWatchtowerValidation::get() {
-                    // Mark as Invalid for watchtower
-                    <RootStatus<T, I>>::insert(root_id.range, root_id.ingress_counter, SummaryStatus::Rejected);
-                }
+                Self::update_status_if_required(*root_id, SummaryStatus::Rejected)?;
 
                 let root_creator =
                     root_data.added_by.ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;

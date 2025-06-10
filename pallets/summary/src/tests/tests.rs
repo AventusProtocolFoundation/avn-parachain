@@ -1303,6 +1303,8 @@ fn assert_end_voting_period_is_ok(context: &Context) {
 // TODO [TYPE: tests][PRI: low]: Increase the scheduled period and test at least 3 summaries have
 // been processed successfully here.
 mod if_process_summary_is_called_a_second_time {
+    use sp_avn_common::{RootId, RootRange};
+
     use super::*;
 
     const SECOND_ROOT_HASH_HEX_STRING: &'static [u8; 64] =
@@ -1715,9 +1717,9 @@ mod if_process_summary_is_called_a_second_time {
 // TODO: add a test to ensure we pick validators in sequential order of their index
 
 mod constrains {
-    use crate::{RootId, RootRange};
+    
     use node_primitives::BlockNumber;
-    use sp_avn_common::bounds::VotingSessionIdBound;
+    use sp_avn_common::{bounds::VotingSessionIdBound, RootId, RootRange};
     use sp_core::Get;
 
     #[test]

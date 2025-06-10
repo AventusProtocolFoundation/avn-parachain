@@ -727,6 +727,7 @@ mod signature_in {
 mod cases_for_no_summary_created_offences {
     use super::*;
     use advance_slot::{call_advance_slot, create_signature, LocalContext};
+    use sp_avn_common::RootId;
     use sp_core::H256;
 
     pub struct RootContext {
@@ -1028,6 +1029,8 @@ mod cases_for_no_summary_created_offences {
         }
 
         mod one_summary_is_created {
+            use sp_avn_common::{RootId, RootRange};
+
             use super::*;
 
             #[test]
@@ -1106,6 +1109,8 @@ mod cases_for_no_summary_created_offences {
             }
         }
         mod multiple_summaries_are_created {
+            use sp_avn_common::{RootId, RootRange};
+
             use super::*;
 
             #[test]
