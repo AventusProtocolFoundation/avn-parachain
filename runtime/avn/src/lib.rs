@@ -78,6 +78,7 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
 use sp_avn_common::{
+    eth::EthBridgeInstance,
     event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition},
     InnerCallValidator, Proof,
 };
@@ -665,8 +666,6 @@ impl pallet_avn_anchor::Config for Runtime {
     type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
-use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
-
 impl pallet_eth_bridge::Config for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
@@ -1000,7 +999,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
+    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId, ()> for Runtime {
         fn query_authors() -> Vec<([u8; 32], [u8; 32])> {
             let validators = Avn::validators().to_vec();
             let res = validators.iter().map(|validator| {
@@ -1034,6 +1033,10 @@ impl_runtime_apis! {
 
         fn query_bridge_contract() -> H160 {
             Avn::get_bridge_contract_address()
+        }
+
+        fn query_bridge_instance() -> EthBridgeInstance {
+            EthBridge::instance()
         }
 
         fn submit_vote(author: AccountId,

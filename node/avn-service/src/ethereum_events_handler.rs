@@ -6,6 +6,7 @@ use sc_client_api::{BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_api::ApiExt;
 use sp_avn_common::{
+    eth::EthBridgeInstance,
     event_discovery::{
         encode_eth_event_submission_data, events_helpers::EthereumEventsPartitionFactory,
         DiscoveredEvent, EthBlockRange, EthereumEventsPartition,
@@ -636,6 +637,26 @@ where
         + ApiExt<Block>
         + BlockBuilder<Block>,
 {
+    let instance = if config
+        .client
+        .runtime_api()
+        .has_api_with::<dyn EthEventHandlerApi<Block, AccountId>, _>(
+            config.client.info().best_hash,
+            |v| v == 3,
+        )
+        .unwrap_or(false)
+    {
+        Some(
+            config
+                .client
+                .runtime_api()
+                .query_bridge_instance(config.client.info().best_hash)
+                .map_err(|err| format!("Failed to get the instance: {:?}", err))?,
+        )
+    } else {
+        None
+    };
+
     let result = &config
         .client
         .runtime_api()
@@ -659,6 +680,7 @@ where
                 process_events(
                     &web3_ref,
                     &config,
+                    &instance,
                     range.clone(),
                     *partition_id,
                     &current_node_author,
@@ -670,7 +692,8 @@ where
         // There is no active range, attempt initial range voting.
         None => {
             log::info!("Active range setup - Submitting latest block");
-            submit_latest_ethereum_block(&web3_ref, &config, &current_node_author).await?;
+            submit_latest_ethereum_block(&web3_ref, &config, &instance, &current_node_author)
+                .await?;
         },
     };
 
@@ -680,6 +703,7 @@ where
 async fn submit_latest_ethereum_block<Block, ClientT>(
     web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
+    instance: &Option<EthBridgeInstance>,
     current_node_author: &CurrentNodeAuthor,
 ) -> Result<(), String>
 where
@@ -712,6 +736,7 @@ where
 
         log::debug!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let proof = encode_eth_event_submission_data::<AccountId, u32>(
+            instance,
             &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
             &((*current_node_author).address).into(),
             latest_seen_ethereum_block,
@@ -759,6 +784,7 @@ where
 async fn process_events<Block, ClientT>(
     web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
+    instance: &Option<EthBridgeInstance>,
     range: EthBlockRange,
     partition_id: u16,
     current_node_author: &CurrentNodeAuthor,
@@ -824,6 +850,7 @@ where
             web3,
             config,
             event_signatures,
+            instance,
             contract_addresses,
             partition_id,
             current_node_author,
@@ -841,6 +868,7 @@ async fn execute_event_processing<Block, ClientT>(
     web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
     event_signatures: Vec<SpH256>,
+    instance: &Option<EthBridgeInstance>,
     contract_addresses: Vec<H160>,
     partition_id: u16,
     current_node_author: &CurrentNodeAuthor,
@@ -889,6 +917,7 @@ where
         .ok_or_else(|| format!("Partition with ID {} not found", partition_id))?;
 
     let proof = encode_eth_event_submission_data::<AccountId, &EthereumEventsPartition>(
+        instance,
         &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
         &((*current_node_author).address).into(),
         &partition.clone(),
