@@ -16,7 +16,7 @@ use sp_io::{
     EcdsaVerifyError,
 };
 use sp_runtime::{
-    scale_info::TypeInfo, traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify}, BoundedVec, MultiSignature
+    scale_info::TypeInfo, traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify}, BoundedVec, MultiSignature, DispatchResult
 };
 use sp_std::{boxed::Box, vec::Vec};
 
@@ -471,4 +471,20 @@ impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
     pub fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
         BoundedVec::truncate_from(self.encode())
     }
+}
+
+/// Trait for direct notification when summaries are ready for watchtower validation
+/// This allows summary pallets to notify watchtower pallets directly without events
+pub trait WatchtowerNotification<BlockNumber: AtLeast32Bit> {
+    /// Called when a summary is ready for watchtower validation
+    /// 
+    /// # Parameters
+    /// - `instance`: Instance ID to identify which summary pallet instance (e.g., 1 for Ethereum, 2 for Anchor)
+    /// - `root_id`: The root identifier containing block range and ingress counter
+    /// - `root_hash`: The submitted root hash that needs validation
+    fn notify_summary_ready_for_validation(
+        instance: u8,
+        root_id: RootId<BlockNumber>,
+        root_hash: H256,
+    ) -> DispatchResult;
 }

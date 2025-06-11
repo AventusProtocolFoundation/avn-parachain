@@ -84,6 +84,8 @@ pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
 
+use sp_avn_common::WatchtowerNotification;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -135,6 +137,10 @@ pub mod pallet {
         type RequireWatchtowerValidation: Get<bool>;
         /// A unique instance id to differentiate different instances
         type InstanceId: Get<u8>;
+        /// Watchtower notification handler for direct communication
+        #[pallet::no_default_bounds]
+         type WatchtowerNotifier: sp_avn_common::WatchtowerNotification<BlockNumberFor<Self>>;
+
     }
 
     #[pallet::pallet]
@@ -1280,6 +1286,12 @@ pub mod pallet {
                 if root_data.root_hash != Self::empty_root() {
                     if T::RequireWatchtowerValidation::get() {
                         Self::update_status_if_required(*root_id, SummaryStatus::ReadyForValidation)?;
+
+                        T::WatchtowerNotifier::notify_summary_ready_for_validation(
+                            T::InstanceId::get(),
+                            *root_id,
+                            root_data.root_hash,
+                        )?;
                         
                         Self::deposit_event(Event::<T, I>::SummaryReadyForValidation {
                             root_id: *root_id,

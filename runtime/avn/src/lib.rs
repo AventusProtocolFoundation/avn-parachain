@@ -116,6 +116,18 @@ where
     }
 }
 
+pub struct MockWatchtowerNotifier;
+impl sp_avn_common::WatchtowerNotification<BlockNumber> for MockWatchtowerNotifier {
+    fn notify_summary_ready_for_validation(
+        _instance_id: u8,
+        _root_id: sp_avn_common::RootId<BlockNumber>,
+        _root_hash: sp_core::H256,
+    ) -> sp_runtime::DispatchResult {
+        // No-op for tests
+        Ok(())
+    }
+}
+
 pub use node_primitives::{AccountId, Hash, Signature};
 use node_primitives::{Balance, BlockNumber, Nonce};
 
@@ -590,6 +602,7 @@ impl pallet_summary::Config for Runtime {
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
     type RequireWatchtowerValidation = RequireWatchtowerValidation;
+    type WatchtowerNotifier = MockWatchtowerNotifier;
 }
 
 pub type EthAddress = H160;
