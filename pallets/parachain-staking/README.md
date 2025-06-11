@@ -91,7 +91,7 @@ nomination_reward = (nomination_stake / candidate_total_stake) * total_reward_fo
 
 ### Growth Mechanism
 
-The growth mechanism is an process that increases the total token supply
+The growth mechanism is a process that increases the total token supply
 across two tiers. A growth period spans multiple eras, defined by `T::ErasPerGrowthPeriod`.
 It rewards collators based on their performance over multiple eras.
 
