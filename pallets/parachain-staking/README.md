@@ -112,7 +112,7 @@ It rewards collators based on their performance over multiple eras.
      tokens. The pallet is not opinionated on how the growth is implemented or how the
      information provided is used by the formula in tier 1. It simply provides the following
      data:
-     - `total_stake`: The total average stake in the system at the start of the growth period.
+     - `total_stake`: The mean total stake per era over the growth period.
      - `total_rewards`: The total rewards distributed to collators and nominators during the
      growth period.
    - The bridge contract processes the request and emits an `AvtGrowthLiftedData` event once the
