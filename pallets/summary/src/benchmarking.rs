@@ -13,6 +13,7 @@ use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System
 use hex_literal::hex;
 use pallet_avn::{self as avn};
 use sp_runtime::WeakBoundedVec;
+use sp_avn_common::{RootId, RootRange};
 
 pub type AVN<T> = avn::Pallet<T>;
 pub const ROOT_HASH_BYTES: [u8; 32] = [

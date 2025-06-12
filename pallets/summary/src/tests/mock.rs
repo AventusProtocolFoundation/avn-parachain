@@ -12,7 +12,7 @@ use pallet_avn::{
 use pallet_eth_bridge::offence::CorroborationOffence;
 use pallet_session as session;
 use parking_lot::RwLock;
-use sp_avn_common::{safe_add_block_numbers, safe_sub_block_numbers};
+use sp_avn_common::{safe_add_block_numbers, safe_sub_block_numbers, RootId, RootRange};
 use sp_core::{
     ecdsa,
     offchain::{
@@ -385,6 +385,8 @@ impl Config for TestRuntime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AutoSubmitSummaries;
     type InstanceId = InstanceId;
+    type RequireWatchtowerValidation = RequireWatchtowerValidation;
+    type WatchtowerNotifier = MockWatchtowerNotifier;
 }
 
 type AvnAnchorSummary = summary::Instance1;
@@ -398,6 +400,8 @@ impl Config<AvnAnchorSummary> for TestRuntime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = DoNotSubmit;
     type InstanceId = AnchorInstanceId;
+    type RequireWatchtowerValidation = RequireWatchtowerValidation;
+    type WatchtowerNotifier = MockWatchtowerNotifier;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -414,6 +418,19 @@ parameter_types! {
     pub const InstanceId: u8 = 1u8;
     pub const DoNotSubmit: bool = false;
     pub const AnchorInstanceId: u8 = 2u8;
+    pub const RequireWatchtowerValidation: bool = true;
+}
+
+pub struct MockWatchtowerNotifier;
+impl sp_avn_common::WatchtowerNotification<BlockNumber> for MockWatchtowerNotifier {
+    fn notify_summary_ready_for_validation(
+        _instance_id: u8,
+        _root_id: sp_avn_common::RootId<BlockNumber>,
+        _root_hash: sp_core::H256,
+    ) -> sp_runtime::DispatchResult {
+        // No-op for tests
+        Ok(())
+    }
 }
 
 impl system::Config for TestRuntime {

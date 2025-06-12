@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::string::String;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use sp_avn_common::event_types::Validator;
+use sp_avn_common::{event_types::Validator, RootId};
 use sp_std::prelude::*;
 
 use frame_system::{offchain::SubmitTransaction, pallet_prelude::BlockNumberFor};
@@ -16,7 +16,7 @@ use sp_runtime::{scale_info::TypeInfo, DispatchError, DispatchResult};
 use sp_std::fmt::Debug;
 
 use super::{Call, Config};
-use crate::{OcwLock, Pallet as Summary, PendingApproval, RootId, VotesRepository, AVN};
+use crate::{OcwLock, Pallet as Summary, PendingApproval, VotesRepository, AVN};
 
 pub const CAST_VOTE_CONTEXT: &'static [u8] = b"root_casting_vote";
 pub const END_VOTING_PERIOD_CONTEXT: &'static [u8] = b"root_end_voting_period";

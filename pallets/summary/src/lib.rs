@@ -7,19 +7,17 @@ use alloc::string::ToString;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::{
-    bounds::VotingSessionIdBound,
     event_types::Validator,
     ocw_lock::{self as OcwLock},
     safe_add_block_numbers, safe_sub_block_numbers, BridgeContractMethod, IngressCounter,
 };
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::AtLeast32Bit,
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    BoundedVec, DispatchError,
+    DispatchError,
 };
 use sp_std::prelude::*;
 
@@ -86,11 +84,14 @@ pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
 
+use sp_avn_common::WatchtowerNotification;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
+    use sp_avn_common::{RootId, RootRange, SummaryStatus};
 
     // Public interface of this pallet
     #[pallet::config(with_default)]
@@ -131,8 +132,15 @@ pub mod pallet {
         type BridgeInterface: avn::BridgeInterface;
         /// A flag to determine if summaries will be automatically sent to Ethereum
         type AutoSubmitSummaries: Get<bool>;
+        /// A flag to determine if watchtower validation is required before submitting/anchoring summaries
+        #[pallet::constant]
+        type RequireWatchtowerValidation: Get<bool>;
         /// A unique instance id to differentiate different instances
         type InstanceId: Get<u8>;
+        /// Watchtower notification handler for direct communication
+        #[pallet::no_default_bounds]
+         type WatchtowerNotifier: sp_avn_common::WatchtowerNotification<BlockNumberFor<Self>>;
+
     }
 
     #[pallet::pallet]
@@ -194,6 +202,11 @@ pub mod pallet {
             root_hash: H256,
             ingress_counter: IngressCounter,
             block_range: RootRange<BlockNumberFor<T>>,
+        },
+        /// A summary is ready for watchtower validation
+        SummaryReadyForValidation {
+            root_id: RootId<BlockNumberFor<T>>,
+            root_hash: H256,
         },
     }
 
@@ -331,6 +344,17 @@ pub mod pallet {
     #[pallet::getter(fn anchor_roots)]
     pub type AnchorRoots<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Blake2_128Concat, u32, H256, ValueQuery>;
+
+    #[pallet::storage]
+    pub type RootStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        RootRange<BlockNumberFor<T>>,
+        Blake2_128Concat,
+        IngressCounter,
+        SummaryStatus,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -728,6 +752,55 @@ pub mod pallet {
         }
     }
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        pub fn set_summary_status(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: SummaryStatus,
+        ) -> DispatchResult {
+            <RootStatus<T, I>>::insert(
+                root_id.range,
+                root_id.ingress_counter,
+                status
+            );
+            Ok(())
+        }
+
+        pub fn process_accepted_summary(
+            root_id: &RootId<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            let root_data = Self::try_get_root_data(root_id)?;
+            if root_data.root_hash != Self::empty_root() {
+                if T::AutoSubmitSummaries::get() {
+                    Self::send_root_to_ethereum(root_id, &root_data)?;
+                } else {
+                    let approved_root_id = Self::get_next_approved_root_id()?;
+                    <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                }
+            }
+            Ok(())
+        }
+
+        pub fn set_summary_status_and_process(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: SummaryStatus,
+        ) -> DispatchResult {
+            Self::set_summary_status(root_id, status.clone())?;
+            
+            if status == SummaryStatus::Accepted {
+                Self::process_accepted_summary(&root_id)?;
+            }
+            Ok(())
+        }
+
+        pub fn update_status_if_required(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: SummaryStatus,
+        ) -> DispatchResult {
+            if T::RequireWatchtowerValidation::get() {
+                Self::set_summary_status(root_id, status)?;
+            }
+            Ok(())
+        }
+        
         pub fn update_block_number_context() -> Vec<u8> {
             let mut context = Vec::with_capacity(1 + UPDATE_BLOCK_NUMBER_CONTEXT.len());
             context.push(T::InstanceId::get());
@@ -1211,12 +1284,27 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    if T::AutoSubmitSummaries::get() {
-                        Self::send_root_to_ethereum(root_id, &root_data)?;
+                    if T::RequireWatchtowerValidation::get() {
+                        Self::update_status_if_required(*root_id, SummaryStatus::ReadyForValidation)?;
+
+                        T::WatchtowerNotifier::notify_summary_ready_for_validation(
+                            T::InstanceId::get(),
+                            *root_id,
+                            root_data.root_hash,
+                        )?;
+                        
+                        Self::deposit_event(Event::<T, I>::SummaryReadyForValidation {
+                            root_id: *root_id,
+                            root_hash: root_data.root_hash,
+                        });
                     } else {
-                        // Add root to anchor storage
-                        let approved_root_id = Self::get_next_approved_root_id()?;
-                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                        if T::AutoSubmitSummaries::get() {
+                            Self::send_root_to_ethereum(root_id, &root_data)?;
+                        } else {
+                            // Add root to anchor storage
+                            let approved_root_id = Self::get_next_approved_root_id()?;
+                            <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                        }
                     }
                 }
                 // If we get here, then we did not get an error when submitting to T1.
@@ -1245,7 +1333,7 @@ pub mod pallet {
                     block_range: root_id.range,
                 });
             } else {
-                // We didn't get enough votes to approve this root
+                Self::update_status_if_required(*root_id, SummaryStatus::Rejected)?;
 
                 let root_creator =
                     root_data.added_by.ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;
@@ -1400,33 +1488,6 @@ pub mod pallet {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootId<BlockNumber: AtLeast32Bit> {
-    pub range: RootRange<BlockNumber>,
-    pub ingress_counter: IngressCounter,
-}
-
-impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
-    fn new(range: RootRange<BlockNumber>, ingress_counter: IngressCounter) -> Self {
-        return RootId::<BlockNumber> { range, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootRange<BlockNumber: AtLeast32Bit> {
-    pub from_block: BlockNumber,
-    pub to_block: BlockNumber,
-}
-
-impl<BlockNumber: AtLeast32Bit> RootRange<BlockNumber> {
-    fn new(from_block: BlockNumber, to_block: BlockNumber) -> Self {
-        return RootRange::<BlockNumber> { from_block, to_block }
-    }
-}
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct RootData<AccountId> {

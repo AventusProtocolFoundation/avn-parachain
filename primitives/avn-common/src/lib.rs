@@ -8,7 +8,7 @@ use alloc::{
     string::{String, ToString},
 };
 
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
@@ -16,11 +16,11 @@ use sp_io::{
     EcdsaVerifyError,
 };
 use sp_runtime::{
-    scale_info::TypeInfo,
-    traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify},
-    MultiSignature,
+    scale_info::TypeInfo, traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify}, BoundedVec, MultiSignature, DispatchResult
 };
 use sp_std::{boxed::Box, vec::Vec};
+
+use crate::bounds::VotingSessionIdBound;
 
 pub const OPEN_BYTES_TAG: &'static [u8] = b"<Bytes>";
 pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
@@ -430,4 +430,61 @@ pub enum HashMessageFormat {
 pub struct EthQueryResponse {
     pub data: Vec<u8>,
     pub num_confirmations: u64,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+pub enum SummaryStatus {
+    PendingValidatorVote,
+    ReadyForValidation,
+    Accepted,
+    Rejected,
+}
+impl Default for SummaryStatus {
+    fn default() -> Self {
+        SummaryStatus::PendingValidatorVote
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct RootRange<BlockNumber: AtLeast32Bit> {
+    pub from_block: BlockNumber,
+    pub to_block: BlockNumber,
+}
+
+impl<BlockNumber: AtLeast32Bit> RootRange<BlockNumber> {
+    pub fn new(from_block: BlockNumber, to_block: BlockNumber) -> Self {
+        return RootRange::<BlockNumber> { from_block, to_block }
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct RootId<BlockNumber: AtLeast32Bit> {
+    pub range: RootRange<BlockNumber>,
+    pub ingress_counter: IngressCounter,
+}
+
+impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
+    pub fn new(range: RootRange<BlockNumber>, ingress_counter: IngressCounter) -> Self {
+        return RootId::<BlockNumber> { range, ingress_counter }
+    }
+
+    pub fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
+    }
+}
+
+/// Trait for direct notification when summaries are ready for watchtower validation
+/// This allows summary pallets to notify watchtower pallets directly without events
+pub trait WatchtowerNotification<BlockNumber: AtLeast32Bit> {
+    /// Called when a summary is ready for watchtower validation
+    /// 
+    /// # Parameters
+    /// - `instance`: Instance ID to identify which summary pallet instance (e.g., 1 for Ethereum, 2 for Anchor)
+    /// - `root_id`: The root identifier containing block range and ingress counter
+    /// - `root_hash`: The submitted root hash that needs validation
+    fn notify_summary_ready_for_validation(
+        instance: u8,
+        root_id: RootId<BlockNumber>,
+        root_hash: H256,
+    ) -> DispatchResult;
 }
