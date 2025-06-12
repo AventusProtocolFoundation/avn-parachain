@@ -1,6 +1,9 @@
-use alloy_sol_types::Eip712Domain;
+use alloy_sol_types::{sol_data::String, Eip712Domain};
 use codec::{Decode, Encode, MaxEncodedLen};
-use sp_core::{hashing::blake2_256, ConstU32, H160, U256};
+use sp_core::{ConstU32, H160, U256};
+use sp_io::hashing::blake2_256;
+use sp_std::vec::Vec;
+
 use sp_runtime::{scale_info::TypeInfo, BoundedVec};
 
 use alloy_primitives::{Address, FixedBytes, U256 as AlloyU256};

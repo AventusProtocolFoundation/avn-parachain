@@ -1471,7 +1471,6 @@ name = "avn-runtime-common"
 version = "6.10.1"
 dependencies = [
  "frame-support",
- "hex-literal",
  "log",
  "node-primitives",
  "parity-scale-codec 3.6.11",

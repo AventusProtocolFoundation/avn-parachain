@@ -642,10 +642,12 @@ where
         .runtime_api()
         .has_api_with::<dyn EthEventHandlerApi<Block, AccountId>, _>(
             config.client.info().best_hash,
-            |v| v == 3,
+            |v| v >= 3,
         )
         .unwrap_or(false)
     {
+        log::debug!("Querying eth-bridge instance...");
+
         Some(
             config
                 .client
@@ -656,6 +658,7 @@ where
     } else {
         None
     };
+    log::debug!("Eth-bridge instance used: {:?}", &instance);
 
     let result = &config
         .client
@@ -742,7 +745,6 @@ where
             latest_seen_ethereum_block,
         );
 
-        log::debug!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let signature = config
             .keystore
             .sr25519_sign(
@@ -828,7 +830,7 @@ where
         .runtime_api()
         .has_api_with::<dyn EthEventHandlerApi<Block, AccountId>, _>(
             config.client.info().best_hash,
-            |v| v == 2,
+            |v| v >= 2,
         )
         .unwrap_or(false)
     {
