@@ -1,5 +1,7 @@
+#![doc = include_str!("../README.md")]
 // Copyright 2019-2022 PureStake Inc.
-// This file is part of Moonbeam.
+// Copyright 2025 Aventus Network Services Ltd.
+// This file is part of Moonbeam and Aventus.
 
 // Moonbeam is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -13,39 +15,6 @@
 
 // You should have received a copy of the GNU General Public License
 // along with Moonbeam.  If not, see <http://www.gnu.org/licenses/>.
-
-//! # Parachain Staking
-//! Minimal staking pallet that implements collator selection by total backed stake.
-//! The main difference between this pallet and `frame/pallet-staking` is that this pallet
-//! uses direct nomination. Nominators choose exactly who they nominate and with what stake.
-//! This is different from `frame/pallet-staking` where nominators approval vote and run Phragmen.
-//!
-//! ### Rules
-//! There is a new era every `<Era<T>>::get().length` blocks.
-//!
-//! At the start of every era,
-//! * issuance is calculated for collators (and their nominators) for block authoring
-//! `T::RewardPaymentDelay::get()` eras ago
-//! * a new set of collators is chosen from the candidates
-//!
-//! Immediately following a era change, payments are made once-per-block until all payments have
-//! been made. In each such block, one collator is chosen for a rewards payment and is paid along
-//! with each of its top `T::MaxTopNominationsPerCandidate` nominators.
-//!
-//! To join the set of candidates, call `join_candidates` with `bond >= MinCollatorStake`.
-//! To leave the set of candidates, call `schedule_leave_candidates`. If the call succeeds,
-//! the collator is removed from the pool of candidates so they cannot be selected for future
-//! collator sets, but they are not unbonded until their exit request is executed. Any signed
-//! account may trigger the exit `<Delay<T>>::get()` eras after the era in which the
-//! original request was made.
-//!
-//! To join the set of nominators, call `nominate` and pass in an account that is
-//! already a collator candidate and `bond >= MinTotalNominatorStake`. Each nominator can nominate
-//! up to `T::MaxNominationsPerNominator` collator candidates by calling `nominate`.
-//!
-//! To revoke a nomination, call `revoke_nomination` with the collator candidate's account.
-//! To leave the set of nominators and revoke all nominations, call `leave_nominators`.
-
 #![recursion_limit = "256"]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -217,8 +186,10 @@ pub mod pallet {
         #[pallet::constant]
         type MinNominationPerCollator: Get<BalanceOf<Self>>;
         /// Number of eras to MinNominationPerCollator before we process a new growth period
+        #[pallet::constant]
         type ErasPerGrowthPeriod: Get<GrowthPeriodIndex>;
         /// Id of the account that will hold funds to be paid as staking reward
+        #[pallet::constant]
         type RewardPotId: Get<PalletId>;
         /// A way to check if an event has been processed by Ethereum events
         type ProcessedEventsChecker: ProcessedEventsChecker;
