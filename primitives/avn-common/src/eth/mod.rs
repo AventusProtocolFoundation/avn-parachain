@@ -1,12 +1,20 @@
-use alloy_sol_types::{sol_data::String, Eip712Domain};
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+#[cfg(not(feature = "std"))]
+use alloc::{string::String, vec::Vec};
+
 use codec::{Decode, Encode, MaxEncodedLen};
-use sp_core::{ConstU32, H160, U256};
+use core::str;
+use sp_core::{ConstU32, H160};
 use sp_io::hashing::blake2_256;
-use sp_std::vec::Vec;
-
 use sp_runtime::{scale_info::TypeInfo, BoundedVec};
-
-use alloy_primitives::{Address, FixedBytes, U256 as AlloyU256};
+use sp_std::vec::Vec;
+use alloy_primitives::Address;
+use alloy_sol_types::{eip712_domain, Eip712Domain};
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum EthereumNetwork {
@@ -16,17 +24,17 @@ pub enum EthereumNetwork {
     Sepolia,
     Holesky,
     Volta,
-    Custom(U256),
+    Custom(u64),
 }
 
 impl EthereumNetwork {
-    pub fn chain_id(&self) -> U256 {
+    pub fn chain_id(&self) -> u64 {
         match self {
-            EthereumNetwork::Ethereum => U256::from(1),
-            EthereumNetwork::EWC => U256::from(246),
-            EthereumNetwork::Sepolia => U256::from(11155111),
-            EthereumNetwork::Holesky => U256::from(17000),
-            EthereumNetwork::Volta => U256::from(73799),
+            EthereumNetwork::Ethereum => 1_u64,
+            EthereumNetwork::EWC => 246_u64,
+            EthereumNetwork::Sepolia => 11155111_u64,
+            EthereumNetwork::Holesky => 17000_u64,
+            EthereumNetwork::Volta => 73799_u64,
             EthereumNetwork::Custom(value) => *value,
         }
     }
@@ -50,17 +58,15 @@ impl EthBridgeInstance {
 
 impl Into<Eip712Domain> for EthBridgeInstance {
     fn into(self) -> Eip712Domain {
-        let mut buffer = [0u8; 32];
-        self.network.chain_id().to_little_endian(&mut buffer);
         let name_vec: Vec<u8> = self.name.into_inner();
         let version_vec: Vec<u8> = self.version.into_inner();
 
-        Eip712Domain {
-            name: Some(String::from_utf8_lossy(&name_vec).into_owned().into()),
-            version: Some(String::from_utf8_lossy(&version_vec).into_owned().into()),
-            chain_id: Some(AlloyU256::from_le_bytes(buffer)),
-            verifying_contract: Some(Address::from_slice(&self.bridge_contract.as_bytes())),
-            salt: self.salt.map(|s| FixedBytes::from(&s)),
-        }
+        // Ignore salt for now
+        eip712_domain!(
+            name: String::from_utf8_lossy(&name_vec).into_owned(),
+            version: String::from_utf8_lossy(&version_vec).into_owned(),
+            chain_id: self.network.chain_id(),
+            verifying_contract: Address::from_slice(&self.bridge_contract.as_bytes()),
+        )
     }
 }
