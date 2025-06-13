@@ -66,7 +66,7 @@ fn add_confirmation_proof<T: Config<I>, I: 'static>(
     confirmation: &ecdsa::Signature,
     account_id: &T::AccountId,
 ) -> Vec<u8> {
-    (ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, &account_id).encode()
+    (Instance::<T, I>::get(), ADD_CONFIRMATION_CONTEXT, tx_id, confirmation, &account_id).encode()
 }
 
 fn add_eth_tx_hash_proof<T: Config<I>, I: 'static>(
@@ -74,7 +74,7 @@ fn add_eth_tx_hash_proof<T: Config<I>, I: 'static>(
     eth_tx_hash: &H256,
     account_id: &T::AccountId,
 ) -> Vec<u8> {
-    (ADD_ETH_TX_HASH_CONTEXT, tx_id, *eth_tx_hash, &account_id).encode()
+    (Instance::<T, I>::get(), ADD_ETH_TX_HASH_CONTEXT, tx_id, *eth_tx_hash, &account_id).encode()
 }
 
 fn add_corroboration_proof<T: Config<I>, I: 'static>(
@@ -83,5 +83,13 @@ fn add_corroboration_proof<T: Config<I>, I: 'static>(
     tx_hash_is_valid: bool,
     account_id: &T::AccountId,
 ) -> Vec<u8> {
-    (ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, tx_hash_is_valid, &account_id).encode()
+    (
+        Instance::<T, I>::get(),
+        ADD_CORROBORATION_CONTEXT,
+        tx_id,
+        tx_succeeded,
+        tx_hash_is_valid,
+        &account_id,
+    )
+        .encode()
 }

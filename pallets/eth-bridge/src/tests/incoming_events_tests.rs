@@ -3,7 +3,7 @@
 #![cfg(test)]
 use crate::{mock::*, *};
 use frame_support::assert_ok;
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_runtime::{
     testing::{TestSignature, UintAuthorityId},
     DispatchError,

@@ -81,10 +81,11 @@ use sp_staking::offence::ReportOffence;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
+    eth::EthBridgeInstance,
     event_discovery::*,
     event_types::{self, EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
 };
-use sp_core::{ecdsa, ConstU32, H160, H256};
+use sp_core::{ecdsa, ConstU32, H256};
 use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
@@ -304,6 +305,12 @@ pub mod pallet {
     #[pallet::storage]
     pub type AdditionalEthereumEventsQueue<T: Config<I>, I: 'static = ()> =
         StorageValue<_, AdditionalEvents, ValueQuery>;
+
+    /// The instance of the EthBridge contract that this pallet is configured to interact with.
+    #[pallet::storage]
+    #[pallet::getter(fn instance)]
+    pub type Instance<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, EthBridgeInstance, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -983,7 +990,13 @@ pub mod pallet {
             match call {
                 Call::add_confirmation { request_id, confirmation, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_CONFIRMATION_CONTEXT, request_id, confirmation, &author.account_id),
+                        &(
+                            Instance::<T, I>::get().hash(),
+                            ADD_CONFIRMATION_CONTEXT,
+                            request_id,
+                            confirmation,
+                            &author.account_id,
+                        ),
                         &author,
                         signature,
                     ) {
@@ -998,7 +1011,13 @@ pub mod pallet {
                     },
                 Call::add_eth_tx_hash { tx_id, eth_tx_hash, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(ADD_ETH_TX_HASH_CONTEXT, tx_id, eth_tx_hash, &author.account_id),
+                        &(
+                            Instance::<T, I>::get().hash(),
+                            ADD_ETH_TX_HASH_CONTEXT,
+                            tx_id,
+                            eth_tx_hash,
+                            &author.account_id,
+                        ),
                         &author,
                         signature,
                     ) {
@@ -1020,6 +1039,7 @@ pub mod pallet {
                 } =>
                     if AVN::<T>::signature_is_valid(
                         &(
+                            Instance::<T, I>::get().hash(),
                             ADD_CORROBORATION_CONTEXT,
                             tx_id,
                             tx_succeeded,
@@ -1042,6 +1062,7 @@ pub mod pallet {
                     if Self::does_range_matches_active(&events_partition) &&
                         AVN::<T>::signature_is_valid(
                             &(
+                                Instance::<T, I>::get().hash(),
                                 &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                                 &author.account_id,
                                 events_partition,
@@ -1068,7 +1089,12 @@ pub mod pallet {
                         return InvalidTransaction::Custom(5u8).into()
                     }
                     if AVN::<T>::signature_is_valid(
-                        &(&SUBMIT_LATEST_ETH_BLOCK_CONTEXT, &author.account_id, *latest_seen_block),
+                        &(
+                            Instance::<T, I>::get().hash(),
+                            &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
+                            &author.account_id,
+                            *latest_seen_block,
+                        ),
                         &author,
                         signature,
                     ) {
@@ -1211,10 +1237,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             })?;
 
         submit_latest_ethereum_block::<T, I>(validator, latest_seen_block, signature)
-    }
-
-    pub fn get_bridge_contract() -> H160 {
-        AVN::<T>::get_bridge_contract_address()
     }
 
     pub fn migrate_events_batch(
