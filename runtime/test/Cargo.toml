@@ -138,7 +138,6 @@ std = [
 	"pallet-utility/std",
 	"pallet-xcm/std",
 	"pallet-authority-discovery/std",
-	"parachains-common/std",
 	"parachain-info/std",
 	"polkadot-parachain-primitives/std",
 	"polkadot-runtime-common/std",

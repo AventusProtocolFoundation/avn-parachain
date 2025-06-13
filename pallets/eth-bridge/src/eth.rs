@@ -267,9 +267,9 @@ pub fn make_ethereum_call<R, T: Config<I>, I: 'static>(
     eth_block: Option<u32>,
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
-    let contract_address = AVN::<T>::get_bridge_contract_address();
+    let eth_instance = Instance::<T, I>::get();
     let ethereum_call =
-        EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
+        EthTransaction::new(sender, eth_instance.bridge_contract, calldata).set_block(eth_block);
     let url_path = format!("eth/{}", endpoint);
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
     process_result(result)
