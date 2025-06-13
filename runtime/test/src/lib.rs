@@ -75,11 +75,11 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 use pallet_avn_proxy::ProvableProxy;
 use sp_avn_common::{
+    eth::EthBridgeInstance,
     event_discovery::{
         filters::{AllEventsFilter, NoEventsFilter},
-        AdditionalEvents, EthBlockRange, EthBridgeEventsFilter, EthereumEventsPartition,
+        AdditionalEvents, EthBlockRange, EthereumEventsPartition,
     },
-    event_types::ValidEvents,
     InnerCallValidator, Proof,
 };
 
@@ -1026,7 +1026,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
+    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId, ()> for Runtime {
         fn query_authors() -> Vec<([u8; 32], [u8; 32])> {
             let validators = Avn::validators().to_vec();
             let res = validators.iter().map(|validator| {
@@ -1059,6 +1059,10 @@ impl_runtime_apis! {
 
         fn query_bridge_contract() -> H160 {
             Avn::get_bridge_contract_address()
+        }
+
+        fn query_bridge_instance() -> EthBridgeInstance {
+            EthBridge::instance()
         }
 
         fn submit_vote(author: AccountId,

@@ -120,6 +120,7 @@ impl DiscoveredEthContext {
         self.author
             .key
             .sign(&encode_eth_event_submission_data(
+                &Some(Instance::<TestRuntime, ()>::get()),
                 &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
                 &self.author.account_id,
                 self.partitions().get(index).expect("Index should exist"),
@@ -313,6 +314,7 @@ impl LatestEthBlockContext {
         self.author
             .key
             .sign(&encode_eth_event_submission_data(
+                &Some(Instance::<TestRuntime, ()>::get()),
                 &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
                 &self.author.account_id,
                 self.discovered_block,

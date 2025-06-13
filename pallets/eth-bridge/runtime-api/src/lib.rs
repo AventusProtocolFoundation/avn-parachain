@@ -1,21 +1,27 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 use codec::Codec;
-use sp_avn_common::event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition};
+use sp_avn_common::{
+    eth::EthBridgeInstance,
+    event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition},
+};
 use sp_core::{H160, H256};
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
 
-    #[api_version(2)]
-    pub trait EthEventHandlerApi<AccountId>
+    #[api_version(3)]
+    pub trait EthEventHandlerApi<AccountId, I = ()>
             where
         AccountId: Codec,
+        I: 'static,
     {
         fn query_authors() -> Vec<([u8; 32], [u8; 32])>;
         fn query_active_block_range()-> Option<(EthBlockRange, u16)>;
         fn query_has_author_casted_vote(account_id: AccountId) -> bool;
         fn query_signatures() -> Vec<H256>;
+        #[deprecated]
         fn query_bridge_contract() -> H160;
+        fn query_bridge_instance() -> EthBridgeInstance;
         fn submit_vote(
             author: AccountId,
             events_partition: EthereumEventsPartition,
