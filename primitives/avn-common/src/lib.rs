@@ -438,6 +438,7 @@ pub enum SummaryStatus {
     ReadyForValidation,
     Accepted,
     Rejected,
+    PendingChallengeResolution,
 }
 impl Default for SummaryStatus {
     fn default() -> Self {
