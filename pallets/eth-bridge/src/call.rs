@@ -1,5 +1,6 @@
 use super::*;
 use crate::{Author, Config};
+use sp_avn_common::eth::EthereumId;
 use sp_core::{ecdsa, H256};
 
 pub fn add_confirmation<T: Config<I>, I: 'static>(

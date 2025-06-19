@@ -1,6 +1,7 @@
 use super::*;
 use crate::{util::bound_params, Config};
 use frame_support::BoundedVec;
+use sp_avn_common::eth::EthereumId;
 use sp_core::Get;
 
 pub fn add_new_send_request<T: Config<I>, I: 'static>(
