@@ -429,7 +429,7 @@ impl<T: Config> Pallet<T> {
             .map_err(|_| Error::<T>::InvalidPublicKey)?;
         let validator_id_bytes =
             <T as pallet::Config>::AccountToBytesConvert::into_bytes(collator_account_id);
-        let function_name = BridgeContractMethod::AddAuthor.as_bytes();
+        let function_name = BridgeContractMethod::AddAuthor.name_as_bytes();
 
         let params = vec![
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
@@ -507,7 +507,7 @@ impl<T: Config> Pallet<T> {
         let validator_id_bytes =
             <T as pallet::Config>::AccountToBytesConvert::into_bytes(validator_id);
 
-        let function_name = BridgeContractMethod::RemoveAuthor.as_bytes();
+        let function_name = BridgeContractMethod::RemoveAuthor.name_as_bytes();
         let params = vec![
             (b"bytes32".to_vec(), validator_id_bytes.to_vec()),
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
