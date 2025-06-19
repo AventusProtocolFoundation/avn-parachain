@@ -1,8 +1,10 @@
 use crate::*;
 use sp_avn_common::{
+    eth::EthereumId,
     event_discovery::{AdditionalEvents, EthBridgeEventsFilter},
     UINT256, UINT32,
 };
+
 // The different types of request this pallet can handle.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub enum Request {

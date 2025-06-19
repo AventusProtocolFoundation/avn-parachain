@@ -4,10 +4,10 @@ use crate::{
     Author, Config, AVN,
 };
 use ethabi::{Address, Function, Int, Param, ParamType, Token};
-use pallet_avn::AccountToBytesConverter;
+use pallet_avn::{AccountToBytesConverter, EthereumPublicKeyChecker};
 use sp_avn_common::{
-    EthQueryRequest, EthQueryResponseType, EthTransaction, ADDRESS, BYTES, BYTES32, UINT128,
-    UINT256, UINT32,
+    eth::EthereumId, recover_public_key_from_ecdsa_signature, EthQueryRequest,
+    EthQueryResponseType, EthTransaction, ADDRESS, BYTES, BYTES32, UINT128, UINT256, UINT32,
 };
 use sp_core::{ecdsa, Get, H256};
 use sp_runtime::DispatchError;
@@ -26,10 +26,46 @@ pub fn verify_signature<T: Config<I>, I: 'static>(
     author: &Author<T>,
     confirmation: &ecdsa::Signature,
 ) -> Result<(), Error<T, I>> {
-    if !AVN::<T>::eth_signature_is_valid(hex::encode(msg_hash), author, confirmation) {
-        Err(Error::<T, I>::InvalidECDSASignature)
-    } else {
+    if eth_signature_is_valid::<T, I>(hex::encode(msg_hash), author, confirmation) {
         Ok(())
+    } else {
+        Err(Error::<T, I>::InvalidECDSASignature)
+    }
+}
+
+fn eth_signature_is_valid<T: Config<I>, I: 'static>(
+    data: String,
+    validator: &Validator<T::AuthorityId, T::AccountId>,
+    signature: &ecdsa::Signature,
+) -> bool {
+    // verify that the incoming (unverified) pubkey is actually a validator
+    if !AVN::<T>::is_validator(&validator.account_id) {
+        log::warn!("✋ Account: {:?} is not an authority.", &validator.account_id);
+        return false
+    }
+    let recovered_public_key = recover_public_key_from_ecdsa_signature(signature, &data);
+    if recovered_public_key.is_err() {
+        log::error!(
+            "❌ Recovery of public key from ECDSA Signature: {:?} and data: {:?} failed",
+            &signature,
+            data
+        );
+        return false
+    }
+
+    match <T as pallet_avn::Config>::EthereumPublicKeyChecker::get_validator_for_eth_public_key(
+        &recovered_public_key.expect("Checked for error"),
+    ) {
+        Some(maybe_validator) => maybe_validator == validator.account_id,
+        _ => {
+            log::error!(
+                "❌ ECDSA signature validation failed on data {:?} validator: {:?} signature {:?}.",
+                &data,
+                validator,
+                signature
+            );
+            false
+        },
     }
 }
 
