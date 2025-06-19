@@ -7,14 +7,15 @@ use alloc::string::String;
 #[cfg(not(feature = "std"))]
 use alloc::{string::String, vec::Vec};
 
+use alloy_primitives::Address;
+use alloy_sol_types::{eip712_domain, Eip712Domain};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::str;
 use sp_core::{ConstU32, H160};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{scale_info::TypeInfo, BoundedVec};
 use sp_std::vec::Vec;
-use alloy_primitives::Address;
-use alloy_sol_types::{eip712_domain, Eip712Domain};
+pub type EthereumId = u32;
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum EthereumNetwork {
@@ -68,5 +69,57 @@ impl Into<Eip712Domain> for EthBridgeInstance {
             chain_id: self.network.chain_id(),
             verifying_contract: Address::from_slice(&self.bridge_contract.as_bytes()),
         )
+    }
+}
+
+#[derive(Debug)]
+pub enum ECDSAVerificationError {
+    InvalidSignature,
+    InvalidValueForV,
+    InvalidValueForRS,
+    InvalidMessageFormat,
+    BadSignature,
+    FailedToHashStringData,
+    FailedToHash32BytesHexData,
+}
+
+pub enum BridgeContractMethod {
+    ReferenceRateUpdatedAt,
+    CheckReferenceRate,
+    UpdateReferenceRate,
+    PublishRoot,
+    TriggerGrowth,
+    AddAuthor,
+    RemoveAuthor,
+}
+
+impl BridgeContractMethod {
+    pub fn name_as_bytes(&self) -> &[u8] {
+        match self {
+            BridgeContractMethod::ReferenceRateUpdatedAt => b"referenceRateUpdatedAt",
+            BridgeContractMethod::CheckReferenceRate => b"checkReferenceRate",
+            BridgeContractMethod::UpdateReferenceRate => b"updateReferenceRate",
+            BridgeContractMethod::PublishRoot => b"publishRoot",
+            BridgeContractMethod::TriggerGrowth => b"triggerGrowth",
+            BridgeContractMethod::AddAuthor => b"addAuthor",
+            BridgeContractMethod::RemoveAuthor => b"removeAuthor",
+        }
+    }
+}
+
+impl TryFrom<&[u8]> for BridgeContractMethod {
+    type Error = ();
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        match value {
+            b"referenceRateUpdatedAt" => Ok(BridgeContractMethod::ReferenceRateUpdatedAt),
+            b"checkReferenceRate" => Ok(BridgeContractMethod::CheckReferenceRate),
+            b"updateReferenceRate" => Ok(BridgeContractMethod::UpdateReferenceRate),
+            b"publishRoot" => Ok(BridgeContractMethod::PublishRoot),
+            b"triggerGrowth" => Ok(BridgeContractMethod::TriggerGrowth),
+            b"addAuthor" => Ok(BridgeContractMethod::AddAuthor),
+            b"removeAuthor" => Ok(BridgeContractMethod::RemoveAuthor),
+            _ => Err(()),
+        }
     }
 }

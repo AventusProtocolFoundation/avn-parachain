@@ -1173,7 +1173,7 @@ pub mod pallet {
             // submitting it to T1, the tier2 session hasn't changed and with it
             // the quorum, making ethereum-transactions reject it
             // In either case, we should not slash anyone.
-            let function_name: &[u8] = BridgeContractMethod::PublishRoot.as_bytes();
+            let function_name: &[u8] = BridgeContractMethod::PublishRoot.name_as_bytes();
             let params = vec![(b"bytes32".to_vec(), root_data.root_hash.as_fixed_bytes().to_vec())];
             let tx_id = T::BridgeInterface::publish(function_name, &params, Self::pallet_id())
                 .map_err(|e| DispatchError::Other(e.into()))?;

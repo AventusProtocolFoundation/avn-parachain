@@ -9,6 +9,7 @@ use alloc::{
 };
 
 use codec::{Codec, Decode, Encode};
+pub use eth::{BridgeContractMethod, ECDSAVerificationError};
 use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
@@ -72,41 +73,6 @@ pub mod bounds {
     pub type NftExternalRefBound = ConstU32<1024>;
     /// Bound used for batch operations
     pub type ProcessingBatchBound = ConstU32<64>;
-}
-
-#[derive(Debug)]
-pub enum ECDSAVerificationError {
-    InvalidSignature,
-    InvalidValueForV,
-    InvalidValueForRS,
-    InvalidMessageFormat,
-    BadSignature,
-    FailedToHashStringData,
-    FailedToHash32BytesHexData,
-}
-
-pub enum BridgeContractMethod {
-    ReferenceRateUpdatedAt,
-    CheckReferenceRate,
-    UpdateReferenceRate,
-    PublishRoot,
-    TriggerGrowth,
-    AddAuthor,
-    RemoveAuthor,
-}
-
-impl BridgeContractMethod {
-    pub fn as_bytes(&self) -> &[u8] {
-        match self {
-            BridgeContractMethod::ReferenceRateUpdatedAt => b"referenceRateUpdatedAt",
-            BridgeContractMethod::CheckReferenceRate => b"checkReferenceRate",
-            BridgeContractMethod::UpdateReferenceRate => b"updateReferenceRate",
-            BridgeContractMethod::PublishRoot => b"publishRoot",
-            BridgeContractMethod::TriggerGrowth => b"triggerGrowth",
-            BridgeContractMethod::AddAuthor => b"addAuthor",
-            BridgeContractMethod::RemoveAuthor => b"removeAuthor",
-        }
-    }
 }
 
 // Struct that holds the information about an Ethereum transaction

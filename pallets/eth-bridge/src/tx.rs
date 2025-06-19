@@ -1,6 +1,7 @@
 use super::*;
 use crate::{offence::create_and_report_corroboration_offence, util::unbound_params, Config};
 use frame_support::BoundedVec;
+use sp_avn_common::eth::EthereumId;
 
 pub fn is_active_request<T: Config<I>, I: 'static>(id: EthereumId) -> bool {
     ActiveRequest::<T, I>::get().map_or(false, |r| r.request.id_matches(&id))
