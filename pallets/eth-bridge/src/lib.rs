@@ -138,7 +138,6 @@ pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
 
 pub const TX_HASH_INVALID: bool = false;
-pub type EthereumId = u32;
 pub type LowerId = u32;
 
 pub const MAX_CONFIRMATIONS: u32 = 100u32;
@@ -161,7 +160,10 @@ pub mod pallet {
         traits::UnixTime,
         Blake2_128Concat,
     };
-    use sp_avn_common::event_types::{EthEvent, EthEventId, ValidEvents};
+    use sp_avn_common::{
+        eth::EthereumId,
+        event_types::{EthEvent, EthEventId, ValidEvents},
+    };
 
     #[pallet::config]
     pub trait Config<I: 'static = ()>:
