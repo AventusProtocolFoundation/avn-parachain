@@ -317,10 +317,12 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
-        pub _phantom: sp_std::marker::PhantomData<(T, I)>,
         pub eth_tx_lifetime_secs: u64,
         pub next_tx_id: EthereumId,
         pub eth_block_range_size: u32,
+        pub instance: EthBridgeInstance,
+        #[serde(skip)]
+        pub _phantom: sp_std::marker::PhantomData<(T, I)>,
     }
 
     impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
@@ -330,6 +332,7 @@ pub mod pallet {
                 eth_tx_lifetime_secs: 60 * 30,
                 next_tx_id: 0,
                 eth_block_range_size: 20,
+                instance: Default::default(),
             }
         }
     }
@@ -344,6 +347,11 @@ pub mod pallet {
             EthBlockRangeSize::<T, I>::put(self.eth_block_range_size);
 
             STORAGE_VERSION.put::<Pallet<T, I>>();
+            assert!(
+                self.instance.is_valid(),
+                "Invalid EthBridgeInstance provided in genesis config",
+            );
+            Instance::<T, I>::put(self.instance.clone());
         }
     }
 
@@ -403,6 +411,7 @@ pub mod pallet {
         EventBelongsInFutureRange,
         QuotaReachedForAdditionalEvents,
         EventAlreadyAccepted,
+        InvalidSetting,
     }
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -727,6 +736,10 @@ pub mod pallet {
                 },
                 AdminSettings::RestartEventDiscoveryOnRange => {
                     let _ = EthereumEvents::<T, I>::clear(100, None);
+                },
+                AdminSettings::SetEthBridgeInstance(instance) => {
+                    ensure!(instance.is_valid(), Error::<T, I>::InvalidSetting);
+                    Instance::<T, I>::put(instance);
                 },
             }
 
