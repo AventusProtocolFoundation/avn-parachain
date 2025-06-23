@@ -84,7 +84,7 @@ pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
 
-use sp_avn_common::WatchtowerNotification;
+use sp_avn_common::ExternalNotification;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -132,15 +132,15 @@ pub mod pallet {
         type BridgeInterface: avn::BridgeInterface;
         /// A flag to determine if summaries will be automatically sent to Ethereum
         type AutoSubmitSummaries: Get<bool>;
-        /// A flag to determine if watchtower validation is required before submitting/anchoring summaries
+        /// A flag to determine if watchtower validation is required before submitting/anchoring
+        /// summaries
         #[pallet::constant]
-        type RequireWatchtowerValidation: Get<bool>;
+        type RequireExternalValidation: Get<bool>;
         /// A unique instance id to differentiate different instances
         type InstanceId: Get<u8>;
         /// Watchtower notification handler for direct communication
         #[pallet::no_default_bounds]
-         type WatchtowerNotifier: sp_avn_common::WatchtowerNotification<BlockNumberFor<Self>>;
-
+        type ExternalNotifier: sp_avn_common::ExternalNotification<BlockNumberFor<Self>>;
     }
 
     #[pallet::pallet]
@@ -204,10 +204,7 @@ pub mod pallet {
             block_range: RootRange<BlockNumberFor<T>>,
         },
         /// A summary is ready for watchtower validation
-        SummaryReadyForValidation {
-            root_id: RootId<BlockNumberFor<T>>,
-            root_hash: H256,
-        },
+        SummaryReadyForValidation { root_id: RootId<BlockNumberFor<T>>, root_hash: H256 },
     }
 
     #[pallet::error]
@@ -756,17 +753,11 @@ pub mod pallet {
             root_id: RootId<BlockNumberFor<T>>,
             status: SummaryStatus,
         ) -> DispatchResult {
-            <RootStatus<T, I>>::insert(
-                root_id.range,
-                root_id.ingress_counter,
-                status
-            );
+            <RootStatus<T, I>>::insert(root_id.range, root_id.ingress_counter, status);
             Ok(())
         }
 
-        pub fn process_accepted_summary(
-            root_id: &RootId<BlockNumberFor<T>>,
-        ) -> DispatchResult {
+        pub fn process_accepted_summary(root_id: &RootId<BlockNumberFor<T>>) -> DispatchResult {
             let root_data = Self::try_get_root_data(root_id)?;
             if root_data.root_hash != Self::empty_root() {
                 if T::AutoSubmitSummaries::get() {
@@ -784,23 +775,13 @@ pub mod pallet {
             status: SummaryStatus,
         ) -> DispatchResult {
             Self::set_summary_status(root_id, status.clone())?;
-            
+
             if status == SummaryStatus::Accepted {
                 Self::process_accepted_summary(&root_id)?;
             }
             Ok(())
         }
 
-        pub fn update_status_if_required(
-            root_id: RootId<BlockNumberFor<T>>,
-            status: SummaryStatus,
-        ) -> DispatchResult {
-            if T::RequireWatchtowerValidation::get() {
-                Self::set_summary_status(root_id, status)?;
-            }
-            Ok(())
-        }
-        
         pub fn update_block_number_context() -> Vec<u8> {
             let mut context = Vec::with_capacity(1 + UPDATE_BLOCK_NUMBER_CONTEXT.len());
             context.push(T::InstanceId::get());
@@ -1284,27 +1265,21 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    if T::RequireWatchtowerValidation::get() {
-                        Self::update_status_if_required(*root_id, SummaryStatus::ReadyForValidation)?;
+                    if T::RequireExternalValidation::get() {
+                        Self::set_summary_status(*root_id, SummaryStatus::ReadyForValidation)?;
 
-                        T::WatchtowerNotifier::notify_summary_ready_for_validation(
+                        T::ExternalNotifier::notify_summary_ready_for_validation(
                             T::InstanceId::get(),
                             *root_id,
                             root_data.root_hash,
                         )?;
-                        
+
                         Self::deposit_event(Event::<T, I>::SummaryReadyForValidation {
                             root_id: *root_id,
                             root_hash: root_data.root_hash,
                         });
                     } else {
-                        if T::AutoSubmitSummaries::get() {
-                            Self::send_root_to_ethereum(root_id, &root_data)?;
-                        } else {
-                            // Add root to anchor storage
-                            let approved_root_id = Self::get_next_approved_root_id()?;
-                            <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
-                        }
+                        Self::process_accepted_summary(root_id)?;
                     }
                 }
                 // If we get here, then we did not get an error when submitting to T1.
@@ -1333,7 +1308,7 @@ pub mod pallet {
                     block_range: root_id.range,
                 });
             } else {
-                Self::update_status_if_required(*root_id, SummaryStatus::Rejected)?;
+                Self::set_summary_status(*root_id, SummaryStatus::Rejected)?;
 
                 let root_creator =
                     root_data.added_by.ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;
@@ -1487,7 +1462,6 @@ pub mod pallet {
         }
     }
 }
-
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct RootData<AccountId> {

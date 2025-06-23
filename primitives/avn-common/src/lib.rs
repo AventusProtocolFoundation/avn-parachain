@@ -475,7 +475,7 @@ impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
 
 /// Trait for direct notification when summaries are ready for watchtower validation
 /// This allows summary pallets to notify watchtower pallets directly without events
-pub trait WatchtowerNotification<BlockNumber: AtLeast32Bit> {
+pub trait ExternalNotification<BlockNumber: AtLeast32Bit> {
     /// Called when a summary is ready for watchtower validation
     /// 
     /// # Parameters

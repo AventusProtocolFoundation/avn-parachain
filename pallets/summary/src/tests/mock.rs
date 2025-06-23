@@ -385,8 +385,8 @@ impl Config for TestRuntime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AutoSubmitSummaries;
     type InstanceId = InstanceId;
-    type RequireWatchtowerValidation = RequireWatchtowerValidation;
-    type WatchtowerNotifier = MockWatchtowerNotifier;
+    type RequireExternalValidation = RequireExternalValidation;
+    type ExternalNotifier = MockExternalNotifier;
 }
 
 type AvnAnchorSummary = summary::Instance1;
@@ -400,8 +400,8 @@ impl Config<AvnAnchorSummary> for TestRuntime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = DoNotSubmit;
     type InstanceId = AnchorInstanceId;
-    type RequireWatchtowerValidation = RequireWatchtowerValidation;
-    type WatchtowerNotifier = MockWatchtowerNotifier;
+    type RequireExternalValidation = RequireExternalValidation;
+    type ExternalNotifier = MockExternalNotifier;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -418,11 +418,11 @@ parameter_types! {
     pub const InstanceId: u8 = 1u8;
     pub const DoNotSubmit: bool = false;
     pub const AnchorInstanceId: u8 = 2u8;
-    pub const RequireWatchtowerValidation: bool = true;
+    pub const RequireExternalValidation: bool = true;
 }
 
-pub struct MockWatchtowerNotifier;
-impl sp_avn_common::WatchtowerNotification<BlockNumber> for MockWatchtowerNotifier {
+pub struct MockExternalNotifier;
+impl sp_avn_common::ExternalNotification<BlockNumber> for MockExternalNotifier {
     fn notify_summary_ready_for_validation(
         _instance_id: u8,
         _root_id: sp_avn_common::RootId<BlockNumber>,

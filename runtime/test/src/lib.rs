@@ -617,11 +617,11 @@ parameter_types! {
     pub const EthAutoSubmitSummaries: bool = true;
     pub const AvnAutoSubmitSummaries: bool = false;
     pub const AvnInstanceId: u8 = 2u8;
-    pub const RequireWatchtowerValidation: bool = false;
+    pub const RequireExternalValidation: bool = false;
 }
 
-pub struct MockWatchtowerNotifier;
-impl sp_avn_common::WatchtowerNotification<BlockNumber> for MockWatchtowerNotifier {
+pub struct ExternalNotifier;
+impl sp_avn_common::ExternalNotification<BlockNumber> for ExternalNotifier {
     fn notify_summary_ready_for_validation(
         _instance_id: u8,
         _root_id: sp_avn_common::RootId<BlockNumber>,
@@ -643,8 +643,8 @@ impl pallet_summary::Config<EthSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
-    type RequireWatchtowerValidation = RequireWatchtowerValidation;
-    type WatchtowerNotifier = MockWatchtowerNotifier;
+    type RequireExternalValidation = RequireExternalValidation;
+    type ExternalNotifier = ExternalNotifier;
 }
 
 pub type AvnAnchorSummary = pallet_summary::Instance2;
@@ -658,8 +658,8 @@ impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AvnAutoSubmitSummaries;
     type InstanceId = AvnInstanceId;
-    type RequireWatchtowerValidation = RequireWatchtowerValidation;
-    type WatchtowerNotifier = MockWatchtowerNotifier;
+    type RequireExternalValidation = RequireExternalValidation;
+    type ExternalNotifier = ExternalNotifier;
 }
 
 impl pallet_avn_anchor::Config for Runtime {
