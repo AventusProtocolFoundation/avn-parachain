@@ -162,10 +162,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        pallet_avn_anchor::migration::MigrateToV2<Runtime>,
-        pallet_eth_bridge::migration::EthBridgeMigrations<Runtime>,
-    ),
+    (pallet_eth_bridge::migration::EthBridgeMigrations<Runtime>,),
 >;
 
 impl_opaque_keys! {
@@ -182,7 +179,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 101,
+    spec_version: 102,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
