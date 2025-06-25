@@ -9,8 +9,9 @@ pub fn add_new_send_request<T: Config<I>, I: 'static>(
     params: &[(Vec<u8>, Vec<u8>)],
     caller_id: &Vec<u8>,
 ) -> Result<EthereumId, Error<T, I>> {
+    let name_bytes = function_name.to_vec();
     let function_name_string =
-        String::from_utf8(function_name.to_vec()).map_err(|_| Error::<T, I>::FunctionNameError)?;
+        String::from_utf8(name_bytes.clone()).map_err(|_| Error::<T, I>::FunctionNameError)?;
     if function_name_string.is_empty() {
         return Err(Error::<T, I>::EmptyFunctionName)
     }
@@ -19,7 +20,7 @@ pub fn add_new_send_request<T: Config<I>, I: 'static>(
 
     let send_req = SendRequestData {
         tx_id,
-        function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
+        function_name: BoundedVec::<u8, FunctionLimit>::try_from(name_bytes)
             .map_err(|_| Error::<T, I>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
         caller_id: BoundedVec::<_, CallerIdLimit>::try_from(caller_id.clone())
