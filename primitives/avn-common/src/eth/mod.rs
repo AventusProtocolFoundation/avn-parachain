@@ -94,7 +94,7 @@ pub enum BridgeContractMethod {
 }
 
 sol! {
-    struct PublishRootConfirmationData {
+    struct PublishRoot {
         bytes32 root;
         uint64 expiry;
         uint32 tx_id;
@@ -102,7 +102,7 @@ sol! {
 }
 
 sol! {
-    struct TriggerGrowthConfirmationData {
+    struct TriggerGrowth {
         uint128 rewards;
         uint128 avg_staked;
         uint32 period;
@@ -112,7 +112,7 @@ sol! {
 }
 
 sol! {
-    struct AddAuthorConfirmationData {
+    struct AddAuthor {
         bytes calldata t1_pub_key;
         bytes32 t2_pub_key;
         uint64 expiry;
@@ -121,7 +121,7 @@ sol! {
 }
 
 sol! {
-    struct RemoveAuthorConfirmationData {
+    struct RemoveAuthor {
         bytes32 t2_pub_key;
         bytes calldata t1_pub_key;
         uint64 expiry;
@@ -192,7 +192,7 @@ pub fn create_function_confirmation_hash(
             }
             let root_data = H256::from_slice(&params[0].1);
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
-            let data = PublishRootConfirmationData {
+            let data = PublishRoot {
                 root: FixedBytes::from_slice(root_data.as_fixed_bytes()),
                 expiry,
                 tx_id,
@@ -209,7 +209,7 @@ pub fn create_function_confirmation_hash(
             let period = parse_from_utf8::<u32>(&params[2].1)?;
 
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
-            let data = TriggerGrowthConfirmationData { rewards, avg_staked, period, expiry, tx_id };
+            let data = TriggerGrowth { rewards, avg_staked, period, expiry, tx_id };
             return Ok(eip712_hash(&data, &domain))
         },
 
@@ -222,7 +222,7 @@ pub fn create_function_confirmation_hash(
             let t2_pub_key: B256 = B256::from_slice(&params[1].1);
 
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
-            let data = AddAuthorConfirmationData { t1_pub_key, t2_pub_key, expiry, tx_id };
+            let data = AddAuthor { t1_pub_key, t2_pub_key, expiry, tx_id };
             return Ok(eip712_hash(&data, &domain))
         },
 
@@ -235,7 +235,7 @@ pub fn create_function_confirmation_hash(
             let t1_pub_key: Bytes = Bytes::from(params[1].1.clone());
 
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
-            let data = RemoveAuthorConfirmationData { t2_pub_key, t1_pub_key, expiry, tx_id };
+            let data = RemoveAuthor { t2_pub_key, t1_pub_key, expiry, tx_id };
             return Ok(eip712_hash(&data, &domain))
         },
 
