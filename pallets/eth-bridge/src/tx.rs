@@ -1,7 +1,7 @@
 use super::*;
-use crate::{offence::create_and_report_corroboration_offence, util::unbound_params, Config};
+use crate::{offence::create_and_report_corroboration_offence, Config};
 use frame_support::BoundedVec;
-use sp_avn_common::eth::EthereumId;
+use sp_avn_common::eth::{create_function_confirmation_hash, EthereumId};
 
 pub fn is_active_request<T: Config<I>, I: 'static>(id: EthereumId) -> bool {
     ActiveRequest::<T, I>::get().map_or(false, |r| r.request.id_matches(&id))
@@ -81,8 +81,21 @@ pub fn finalize_state<T: Config<I>, I: 'static>(
 
 pub fn set_up_active_tx<T: Config<I>, I: 'static>(req: SendRequestData) -> Result<(), Error<T, I>> {
     let expiry = util::time_now::<T, I>() + EthTxLifetimeSecs::<T, I>::get();
-    let extended_params = req.extend_params(expiry)?;
-    let msg_hash = generate_msg_hash::<T, I>(&extended_params)?;
+    let extended_params: BoundedVec<
+        (BoundedVec<u8, ConstU32<7>>, BoundedVec<u8, ConstU32<130>>),
+        ConstU32<5>,
+    > = req.extend_params(expiry)?;
+    let params_vec: Vec<(Vec<u8>, Vec<u8>)> = extended_params
+        .iter()
+        .map(|(t, v)| (t.clone().into_inner(), v.clone().into_inner()))
+        .collect();
+
+    let msg_hash = create_function_confirmation_hash(
+        req.function_name.clone().into_inner(),
+        params_vec,
+        Instance::<T, I>::get().into(),
+    )
+    .map_err(|_| Error::<T, I>::MsgHashError)?;
 
     ActiveRequest::<T, I>::put(ActiveRequestData {
         request: Request::Send(req.clone()),
@@ -122,25 +135,6 @@ pub fn use_next_tx_id<T: Config<I>, I: 'static>() -> u32 {
     let tx_id = NextTxId::<T, I>::get();
     NextTxId::<T, I>::put(tx_id + 1);
     tx_id
-}
-
-fn generate_msg_hash<T: Config<I>, I: 'static>(
-    params: &BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-) -> Result<H256, Error<T, I>> {
-    let params = unbound_params(params);
-    let tokens: Result<Vec<_>, _> = params
-        .iter()
-        .map(|(type_bytes, value_bytes)| {
-            let param_type =
-                eth::to_param_type(type_bytes).ok_or_else(|| Error::<T, I>::MsgHashError)?;
-            eth::to_token_type(&param_type, value_bytes)
-        })
-        .collect();
-
-    let encoded = ethabi::encode(&tokens?);
-    let msg_hash = keccak_256(&encoded);
-
-    Ok(H256::from(msg_hash))
 }
 
 fn assign_sender<T: Config<I>, I: 'static>() -> Result<T::AccountId, Error<T, I>> {
