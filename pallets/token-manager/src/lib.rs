@@ -41,8 +41,10 @@ use frame_system::ensure_signed;
 pub use pallet::*;
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
-    LowerParams, OnGrowthLiftedHandler, ProcessedEventsChecker, PACKED_LOWER_PARAM_SIZE,
+    OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
+use sp_avn_common::eth::{LowerParams, PACKED_LOWER_PARAM_SIZE};
+
 use sp_avn_common::{
     event_types::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,

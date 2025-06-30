@@ -73,20 +73,21 @@ use frame_system::{
 };
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, EventMigration,
-    LowerParams, ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
+    ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
 };
+
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
-    eth::EthBridgeInstance,
+    eth::{EthBridgeInstance, LowerParams},
     event_discovery::*,
     event_types::{self, EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
 };
+
 use sp_core::{ecdsa, ConstU32, H256};
-use sp_io::hashing::keccak_256;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
 
