@@ -164,7 +164,7 @@ sol! {
 }
 
 sol! {
-    struct LowerProof {
+    struct LowerData {
         address token;
         uint256 amount;
         address recipient;
@@ -172,7 +172,7 @@ sol! {
     }
 }
 
-impl TryFrom<LowerParams> for LowerProof {
+impl TryFrom<LowerParams> for LowerData {
     type Error = ();
 
     fn try_from(lower_params: LowerParams) -> Result<Self, Self::Error> {
@@ -185,7 +185,7 @@ impl TryFrom<LowerParams> for LowerProof {
         let recipient = Address::from_slice(&lower_params[52..72]);
         let lower_id = u32::from_be_bytes(lower_params[72..76].try_into().map_err(|_| ())?);
 
-        Ok(LowerProof { token, amount, recipient, lowerId: lower_id })
+        Ok(LowerData { token, amount, recipient, lowerId: lower_id })
     }
 }
 
@@ -193,7 +193,7 @@ pub fn create_lower_proof_hash(
     lower_params: LowerParams,
     domain: Eip712Domain,
 ) -> Result<H256, ()> {
-    let claim_lower = LowerProof::try_from(lower_params)?;
+    let claim_lower = LowerData::try_from(lower_params)?;
     let hash = eip712_hash(&claim_lower, &domain);
 
     Ok(hash)
