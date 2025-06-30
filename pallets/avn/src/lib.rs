@@ -32,6 +32,7 @@ pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
+    eth::LowerParams,
     event_types::{EthEvent, EthEventId, Validator},
     ocw_lock::{self as OcwLock, OcwStorageError},
     DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
@@ -79,9 +80,6 @@ const AVN_SERVICE_CALL_EXPIRY: u32 = 300_000;
 // used in benchmarks and weights calculation only
 // TODO: centralise this with MaximumValidatorsBound
 pub const MAX_VALIDATOR_ACCOUNTS: u32 = 10;
-
-pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
-pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
 #[frame_support::pallet]
 pub mod pallet {
