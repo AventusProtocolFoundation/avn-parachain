@@ -1,7 +1,7 @@
 use super::*;
 use crate::{util::bound_params, Config};
 use frame_support::BoundedVec;
-use sp_avn_common::eth::EthereumId;
+use sp_avn_common::eth::{create_lower_proof_hash, EthereumId};
 use sp_core::Get;
 
 pub fn add_new_send_request<T: Config<I>, I: 'static>(
@@ -126,7 +126,8 @@ pub fn complete_lower_proof_request<T: Config<I>, I: 'static>(
 fn set_up_active_lower_proof<T: Config<I>, I: 'static>(
     req: LowerProofRequestData,
 ) -> Result<(), Error<T, I>> {
-    let msg_hash = H256::from(keccak_256(&req.params));
+    let msg_hash = create_lower_proof_hash(req.params.clone(), Instance::<T, I>::get().into())
+        .map_err(|_| Error::<T, I>::LowerParamsError)?;
 
     ActiveRequest::<T, I>::put(ActiveRequestData::<BlockNumberFor<T>, T::AccountId> {
         request: Request::LowerProof(req),
