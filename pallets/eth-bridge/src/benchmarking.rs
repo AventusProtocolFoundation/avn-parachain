@@ -367,7 +367,7 @@ benchmarks_instance_pallet! {
         let tx_id = 2u32;
         setup_new_active_tx::<T, I>(tx_id, 1, sender.clone());
         let eth_tx_hash = H256::repeat_byte(1);
-        let proof = (Instance::<T, I>::get(), crate::ADD_ETH_TX_HASH_CONTEXT, tx_id, eth_tx_hash.clone(), sender.account_id.clone()).encode();
+        let proof = (Instance::<T, I>::get().hash(), crate::ADD_ETH_TX_HASH_CONTEXT, tx_id, eth_tx_hash.clone(), sender.account_id.clone()).encode();
         let signature = sender.key.sign(&proof).expect("Error signing proof");
     }: _(RawOrigin::None, tx_id, eth_tx_hash.clone(), sender.clone(), signature)
     verify {
@@ -387,7 +387,7 @@ benchmarks_instance_pallet! {
         setup_new_active_tx::<T, I>(tx_id, 1, sender.clone());
         let tx_succeeded = true;
         let tx_hash_valid = true;
-        let proof = (Instance::<T, I>::get(), crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
+        let proof = (Instance::<T, I>::get().hash(), crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
@@ -409,7 +409,7 @@ benchmarks_instance_pallet! {
         setup_active_tx_with_failure_corroborations::<T, I>(tx_id, 1, sender.clone(), authors.clone(), &author);
         let tx_succeeded = true;
         let tx_hash_valid = true;
-        let proof = (Instance::<T, I>::get(), crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
+        let proof = (Instance::<T, I>::get().hash(), crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
     }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
     verify {
