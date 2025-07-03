@@ -4,16 +4,14 @@
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
-#[cfg(not(feature = "std"))]
-use alloc::{string::String, vec::Vec};
 
 use alloy_primitives::{Address, Bytes, FixedBytes, B256 as AlloyB256, U256 as AlloyU256};
 use alloy_sol_types::{eip712_domain, sol, Eip712Domain, SolStruct};
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::str;
+use core::str::{self, FromStr};
 use sp_core::{ConstU32, H160, H256};
 use sp_io::hashing::blake2_256;
-use sp_runtime::{scale_info::TypeInfo, BoundedVec};
+use sp_runtime::{scale_info::TypeInfo, BoundedVec, Deserialize, Serialize};
 use sp_std::vec::Vec;
 pub type EthereumId = u32;
 
@@ -21,6 +19,7 @@ pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum EthereumNetwork {
     #[default]
     Ethereum,
@@ -45,6 +44,7 @@ impl EthereumNetwork {
 }
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EthBridgeInstance {
     pub network: EthereumNetwork,
     pub bridge_contract: H160,
@@ -57,6 +57,10 @@ impl EthBridgeInstance {
     pub fn hash(&self) -> [u8; 32] {
         let encoded = self.encode();
         blake2_256(&encoded)
+    }
+
+    pub fn is_valid(&self) -> bool {
+        !self.bridge_contract.is_zero() && !self.name.is_empty() && !self.version.is_empty()
     }
 }
 
@@ -204,7 +208,7 @@ pub fn eip712_hash<T: SolStruct>(data: &T, domain: &Eip712Domain) -> H256 {
     H256::from_slice(&hash.0)
 }
 
-fn parse_from_utf8<T: std::str::FromStr>(bytes: &[u8]) -> Result<T, ()> {
+fn parse_from_utf8<T: FromStr>(bytes: &[u8]) -> Result<T, ()> {
     str::from_utf8(bytes).map_err(|_| ())?.parse::<T>().map_err(|_| ())
 }
 
