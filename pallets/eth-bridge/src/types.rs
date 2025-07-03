@@ -157,4 +157,6 @@ pub enum AdminSettings {
     QueueAdditionalEthereumEvent(EthTransactionId),
     /// Removes all votes on Ethereum Events partitions for the active range.
     RestartEventDiscoveryOnRange,
+    /// Set the Ethereum Bridge Instance
+    SetEthBridgeInstance(EthBridgeInstance),
 }

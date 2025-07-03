@@ -16,7 +16,7 @@ use sp_core::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    ConstU32, ConstU64, H256,
+    ConstU32, ConstU64, H160, H256,
 };
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
@@ -301,6 +301,12 @@ impl ExtBuilder {
             eth_tx_lifetime_secs: 60 * 30,
             next_tx_id: 1,
             eth_block_range_size: 20u32,
+            instance: sp_avn_common::eth::EthBridgeInstance {
+                network: sp_avn_common::eth::EthereumNetwork::Sepolia,
+                bridge_contract: H160::from_slice(&[1u8; 20]),
+                name: b"Test Bridge".to_vec().try_into().unwrap(),
+                ..Default::default()
+            },
         }
         .assimilate_storage(&mut self.storage);
         self
