@@ -223,8 +223,8 @@ pub fn create_function_confirmation_hash(
                 return Err(()) // Ensure there are at least 2 elements in params
             }
             let last_two_elements = &params[params.len() - 2..];
-            let tx_id = parse_from_utf8::<u32>(&last_two_elements[0].1)?;
-            let expiry = AlloyU256::from(parse_from_utf8::<u64>(&last_two_elements[1].1)?);
+            let expiry = AlloyU256::from(parse_from_utf8::<u64>(&last_two_elements[0].1)?);
+            let tx_id = parse_from_utf8::<u32>(&last_two_elements[1].1)?;
 
             Ok((tx_id, expiry))
         };
