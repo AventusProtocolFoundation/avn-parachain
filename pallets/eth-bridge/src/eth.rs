@@ -215,7 +215,7 @@ pub fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Resul
         // },
         // ✅ FULL SUPPORT for tuple[] decoding
         ParamType::Array(_) | ParamType::Tuple(_) => {
-            let decoded_tokens = decode(&[kind.clone()], value)
+            let decoded_tokens = ethabi::decode(&[kind.clone()], value)
                 .map_err(|_| Error::<T>::InvalidParamData)?;
 
             decoded_tokens
@@ -223,7 +223,7 @@ pub fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Resul
                 .next()
                 .ok_or(Error::<T>::InvalidParamData)
         },
-        
+
         _ => Err(Error::<T>::InvalidParamData),
     }
 }
