@@ -209,10 +209,21 @@ pub fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Resul
         },
         ParamType::Address => Ok(Token::Address(Address::from_slice(value))),
         // ✅ Allow already-encoded token blobs for unsupported complex types
+        // ParamType::Array(_) | ParamType::Tuple(_) => {
+        //     // We're assuming the value is already ABI-encoded
+        //     Ok(Token::Bytes(value.to_vec()))
+        // },
+        // ✅ FULL SUPPORT for tuple[] decoding
         ParamType::Array(_) | ParamType::Tuple(_) => {
-            // We're assuming the value is already ABI-encoded
-            Ok(Token::Bytes(value.to_vec()))
+            let decoded_tokens = decode(&[kind.clone()], value)
+                .map_err(|_| Error::<T>::InvalidParamData)?;
+
+            decoded_tokens
+                .into_iter()
+                .next()
+                .ok_or(Error::<T>::InvalidParamData)
         },
+        
         _ => Err(Error::<T>::InvalidParamData),
     }
 }
