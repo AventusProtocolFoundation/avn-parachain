@@ -216,25 +216,42 @@ pub fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Resul
         //     Ok(Token::Bytes(value.to_vec()))
         // },
         // ✅ FULL SUPPORT for tuple[] decoding
-        ParamType::Array(_) | ParamType::Tuple(_) => {
-            let hardcoded = Token::Array(vec![
-                Token::Tuple(vec![
-                    Token::Address(Address::from_slice(
-                        &hex_literal::hex!("0000000000000000000000000000000000000001"),
-                    )),
-                    Token::Uint(Uint::from(10846558331681u64)),
-                ])
-            ]);
+        // ParamType::Array(_) | ParamType::Tuple(_) => {
+        //     // let hardcoded = Token::Array(vec![
+        //     //     Token::Tuple(vec![
+        //     //         Token::Address(Address::from_slice(
+        //     //             &hex_literal::hex!("0000000000000000000000000000000000000001"),
+        //     //         )),
+        //     //         Token::Uint(Uint::from(10846558331681u64)),
+        //     //     ])
+        //     // ]);
         
-            Ok(hardcoded)
+        //     // Ok(hardcoded)
 
-            // let decoded_tokens = ethabi::decode(&[kind.clone()], value)
-            //     .map_err(|_| Error::<T>::InvalidParamData)?;
+        //     let decoded_tokens = ethabi::decode(&[kind.clone()], value)
+        //         .map_err(|_| Error::<T>::InvalidParamData)?;
 
-            // decoded_tokens
-            //     .into_iter()
-            //     .next()
-            //     .ok_or(Error::<T>::InvalidParamData)
+        //     decoded_tokens
+        //         .into_iter()
+        //         .next()
+        //         .ok_or(Error::<T>::InvalidParamData)
+        // },
+        ParamType::Array(inner) => {
+            // Build array of tuples assuming the input is already a valid ABI-encoded blob
+            let decoded_tokens = ethabi::decode(&[ParamType::Array(inner.clone())], value)
+                .map_err(|_| Error::<T>::InvalidParamData)?;
+            decoded_tokens
+                .into_iter()
+                .next()
+                .ok_or(Error::<T>::InvalidParamData)
+        },
+        ParamType::Tuple(_) => {
+            let decoded_tokens = ethabi::decode(&[kind.clone()], value)
+                .map_err(|_| Error::<T>::InvalidParamData)?;
+            decoded_tokens
+                .into_iter()
+                .next()
+                .ok_or(Error::<T>::InvalidParamData)
         },
 
         _ => Err(Error::<T>::InvalidParamData),

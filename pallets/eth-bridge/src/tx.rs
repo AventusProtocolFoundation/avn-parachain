@@ -117,7 +117,7 @@ pub fn replay_send_request<T: Config>(mut tx: ActiveTransactionData<T>) -> Resul
 
 pub fn use_next_tx_id<T: Config>() -> u32 {
     let tx_id = NextTxId::<T>::get();
-    NextTxId::<T>::put(tx_id + 10);
+    NextTxId::<T>::put(tx_id + 1);
     tx_id
 }
 
