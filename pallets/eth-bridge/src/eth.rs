@@ -6,7 +6,7 @@ use crate::{
 use ethabi::{Address, Function, Int, Param, ParamType, Token};
 use pallet_avn::AccountToBytesConverter;
 use sp_avn_common::{
-    EthQueryRequest, EthQueryResponseType, EthTransaction, ADDRESS, BYTES, BYTES32, UINT128,
+    EthQueryRequest, EthQueryResponseType, EthTransaction, ADDRESS, TUPLE_ADDRESS_UINT256_ARRAY, BYTES, BYTES32, UINT128,
     UINT256, UINT32,
 };
 use sp_core::{ecdsa, Get, H256};
@@ -182,7 +182,10 @@ pub fn to_param_type(key: &Vec<u8>) -> Option<ParamType> {
         UINT128 => Some(ParamType::Uint(128)),
         UINT256 => Some(ParamType::Uint(256)),
         ADDRESS => Some(ParamType::Address),
-
+        TUPLE_ADDRESS_UINT256_ARRAY => Some(ParamType::Array(Box::new(ParamType::Tuple(vec![
+            ParamType::Address,
+            ParamType::Uint(256),
+        ])))),
         _ => None,
     }
 }
@@ -205,6 +208,11 @@ pub fn to_token_type<T: pallet::Config>(kind: &ParamType, value: &[u8]) -> Resul
             Ok(Token::FixedBytes(value.to_vec()))
         },
         ParamType::Address => Ok(Token::Address(Address::from_slice(value))),
+        // ✅ Allow already-encoded token blobs for unsupported complex types
+        ParamType::Array(_) | ParamType::Tuple(_) => {
+            // We're assuming the value is already ABI-encoded
+            Ok(Token::Bytes(value.to_vec()))
+        },
         _ => Err(Error::<T>::InvalidParamData),
     }
 }

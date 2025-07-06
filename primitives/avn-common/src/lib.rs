@@ -59,6 +59,7 @@ pub const UINT32: &[u8] = b"uint32";
 pub const BYTES: &[u8] = b"bytes";
 pub const BYTES32: &[u8] = b"bytes32";
 pub const ADDRESS: &[u8] = b"address";
+pub const TUPLE_ADDRESS_UINT256_ARRAY: &[u8] = b"tuple(address,uint256)[]";
 
 pub mod bounds {
     use sp_core::ConstU32;
