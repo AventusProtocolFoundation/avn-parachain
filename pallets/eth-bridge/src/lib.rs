@@ -133,7 +133,7 @@ pub type FunctionLimit = ConstU32<32>; // Max chars allowed in T1 function name
 pub type CallerIdLimit = ConstU32<50>; // Max chars in caller id value
                                        // TODO: make these config constants
 pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
-pub type TypeLimit = ConstU32<100>; // Max chars in a param's type
+pub type TypeLimit = ConstU32<30>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<1000>; // Max chars in a param's value
 
 pub const TX_HASH_INVALID: bool = false;
