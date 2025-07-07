@@ -80,27 +80,14 @@ jobs:
       upload_artifacts: true
     secrets: inherit
 
-  build-code-ubuntu2404:
-    needs: [ set-up-job ]
-    uses: ./.github/workflows/cargo-build.yml
-    with:
-      runs_on: gh-ubuntu-2404-x64
-      parachain-collator-artifact: parachain-collator
-      parachain-runtime-artifact: parachain-runtime
-      parachain-test-runtime-artifact: parachain-test-runtime
-      upload_artifacts: true
-    secrets: inherit
-
   build-docker:
-    needs: [ set-up-job, build-code-ubuntu2404, test-code ]
+    needs: [ set-up-job, build-code, test-code ]
     if: |
       always() &&
-      (needs.build-code-ubuntu2404.result == 'success') &&
+      (needs.build-code.result == 'success') &&
       (needs.test-code.result == 'success' || needs.test-code.result == 'skipped')
     uses: ./.github/workflows/docker-build.yml
     with:
-      parachain-collator-artifact: parachain-collator
-      parachain-runtime-artifact: parachain-runtime
       release: ${{ needs.set-up-job.outputs.RELEASE }}
       docker_tag: ${{ needs.set-up-job.outputs.NEW_PACKAGE_TAG }}
     secrets: inherit
@@ -118,19 +105,6 @@ jobs:
     if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
     uses: ./.github/workflows/s3-upload.yml
     with:
-      bucket_name: "s3://aventus-internal-artefact/avn-node-parachain-artefacts"
-      repo_tag: ${{ needs.set-up-job.outputs.NEW_PACKAGE_TAG }}
-    secrets: inherit
-
-  upload-assets-internal-tools-ubuntu2404:
-    needs: [ set-up-job, build-code-ubuntu2404, build-docker ]
-    if: ${{ needs.set-up-job.outputs.RELEASE == 'true' }}
-    uses: ./.github/workflows/s3-upload.yml
-    with:
-      runs_on: gh-ubuntu-2404-x64
-      parachain-collator-artifact: parachain-collator
-      parachain-runtime-artifact: parachain-runtime
-      parachain-test-runtime-artifact: parachain-test-runtime
       bucket_name: "s3://aventus-internal-artefact/avn-parachain-node-artefacts"
       repo_tag: ${{ needs.set-up-job.outputs.NEW_PACKAGE_TAG }}
     secrets: inherit

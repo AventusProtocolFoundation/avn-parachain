@@ -12,12 +12,12 @@ on:
         required: false
         type: string
         description: 'Parachain collator artifact name'
-        default: avn-parachain-collator
+        default: parachain-collator
       parachain-runtime-artifact:
         required: false
         type: string
         description: 'Parachain runtime artifact name'
-        default: avn-parachain-runtime
+        default: parachain-runtime
       release:
         required: true
         type: string
