@@ -389,7 +389,7 @@ impl<T: Config> Pallet<T> {
     pub fn request_ecdsa_signature_from_external_service(
         data_to_sign: &str,
     ) -> Result<ecdsa::Signature, DispatchError> {
-        let mut url = String::from("eth/sign/");
+        let mut url = String::from("eth/sign_hashed_data/");
         url.push_str(data_to_sign);
 
         log::info!(target: "avn-service", "avn-service sign request (ecdsa) for hex-encoded data {:?}", data_to_sign);
