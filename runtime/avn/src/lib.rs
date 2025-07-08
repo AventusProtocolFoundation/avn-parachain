@@ -179,7 +179,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 102,
+    spec_version: 103,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -334,8 +334,8 @@ impl pallet_balances::Config for Runtime {
     type RuntimeHoldReason = RuntimeHoldReason;
     type RuntimeFreezeReason = RuntimeFreezeReason;
     type FreezeIdentifier = ();
-    type MaxHolds = ConstU32<0>;
-    type MaxFreezes = ConstU32<0>;
+    type MaxHolds = ConstU32<2>;
+    type MaxFreezes = ConstU32<1>;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
