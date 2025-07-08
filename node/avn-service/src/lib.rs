@@ -440,7 +440,7 @@ where
 
     app.at("/eth/sign_hashed_data/:hashed_data_to_sign").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            log::info!("⛓️  avn-service: sign Request");
+            log::info!("⛓️  avn-service: pre-hashed sign Request");
             let secp = Secp256k1::new();
             let keystore_path = &req.state().keystore_path;
             let hash_str: &str = req.param("hashed_data_to_sign")?;
