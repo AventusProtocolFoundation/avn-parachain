@@ -33,7 +33,7 @@ pub fn mock_get_finalised_block(state: &mut OffchainState, response: &Option<Vec
 }
 
 pub fn mock_ecdsa_sign(state: &mut OffchainState, url_param: &String, response: Option<Vec<u8>>) {
-    let mut url = "http://127.0.0.1:2020/eth/sign/".to_string();
+    let mut url = "http://127.0.0.1:2020/eth/sign_hashed_data/".to_string();
     url.push_str(url_param);
 
     state.expect_request(PendingRequest {

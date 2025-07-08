@@ -219,12 +219,9 @@ pub fn recover_ethereum_address_from_ecdsa_signature(
 
 pub fn recover_public_key_from_ecdsa_signature(
     signature: &ecdsa::Signature,
-    message: &String,
+    hashed_message: &H256,
 ) -> Result<ecdsa::Public, ECDSAVerificationError> {
-    match secp256k1_ecdsa_recover_compressed(
-        signature.as_ref(),
-        &hash_with_ethereum_prefix(message)?,
-    ) {
+    match secp256k1_ecdsa_recover_compressed(signature.as_ref(), &hashed_message.to_fixed_bytes()) {
         Ok(pubkey) => return Ok(ecdsa::Public::from_raw(pubkey)),
         Err(EcdsaVerifyError::BadRS) => return Err(ECDSAVerificationError::InvalidValueForRS),
         Err(EcdsaVerifyError::BadV) => return Err(ECDSAVerificationError::InvalidValueForV),

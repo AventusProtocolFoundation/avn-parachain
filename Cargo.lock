@@ -1486,6 +1486,7 @@ dependencies = [
  "frame-system",
  "futures",
  "hex",
+ "hex-literal",
  "jsonrpc-core",
  "jsonrpsee",
  "log",

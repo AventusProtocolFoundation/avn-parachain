@@ -1,6 +1,7 @@
 use codec::{Decode, Encode};
 use futures::lock::Mutex;
 use hex::FromHex;
+use hex_literal::hex;
 use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
@@ -431,6 +432,33 @@ where
 
             let secret = SecretKey::from_slice(&my_priv_key)?;
             let message = secp256k1::Message::from_digest_slice(&hashed_message)?;
+            let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
+
+            Ok(hex::encode(signature.encode()))
+        },
+    );
+
+    app.at("/eth/sign_hashed_data/:hashed_data").get(
+        |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
+            log::info!("⛓️  avn-service: pre-hashed sign Request");
+            let secp = Secp256k1::new();
+            let keystore_path = &req.state().keystore_path;
+            let hash_str: &str = req.param("hashed_data")?;
+
+            let hashed_data: H256 = H256::from_slice(&hex::decode(hash_str).map_err(|e| {
+                server_error(format!("Error decoding hex string {:?}: {:?}", hash_str, e))
+            })?);
+
+            log::info!(
+                "⛓️  avn-service: data to sign: {:?},\n hashed data to sign: {:?}",
+                hashed_data,
+                hex::encode(hashed_data)
+            );
+            let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
+            let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
+
+            let secret = SecretKey::from_slice(&my_priv_key)?;
+            let message = secp256k1::Message::from_digest_slice(&hashed_data[..])?;
             let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
 
             Ok(hex::encode(signature.encode()))

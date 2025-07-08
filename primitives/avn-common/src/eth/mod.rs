@@ -133,37 +133,37 @@ impl TryFrom<&[u8]> for BridgeContractMethod {
 
 sol! {
     struct PublishRoot {
-        bytes32 root;
-        uint64 expiry;
-        uint32 tx_id;
+        bytes32 rootHash;
+        uint256 expiry;
+        uint32 t2TxId;
     }
 }
 
 sol! {
     struct TriggerGrowth {
-        uint128 rewards;
-        uint128 avg_staked;
+        uint256 rewards;
+        uint256 avgStaked;
         uint32 period;
-        uint64 expiry;
-        uint32 tx_id;
+        uint256 expiry;
+        uint32 t2TxId;
     }
 }
 
 sol! {
     struct AddAuthor {
-        bytes calldata t1_pub_key;
-        bytes32 t2_pub_key;
-        uint64 expiry;
-        uint32 tx_id;
+        bytes t1PubKey;
+        bytes32 t2PubKey;
+        uint256 expiry;
+        uint32 t2TxId;
     }
 }
 
 sol! {
     struct RemoveAuthor {
-        bytes32 t2_pub_key;
-        bytes calldata t1_pub_key;
-        uint64 expiry;
-        uint32 tx_id;
+        bytes32 t2PubKey;
+        bytes t1PubKey;
+        uint256 expiry;
+        uint32 t2TxId;
     }
 }
 
@@ -217,16 +217,17 @@ pub fn create_function_confirmation_hash(
     params: Vec<(Vec<u8>, Vec<u8>)>,
     domain: Eip712Domain,
 ) -> Result<H256, ()> {
-    let extract_tx_id_and_expiry = |params: &Vec<(Vec<u8>, Vec<u8>)>| -> Result<(u32, u64), ()> {
-        if params.len() < 2 {
-            return Err(()) // Ensure there are at least 2 elements in params
-        }
-        let last_two_elements = &params[params.len() - 2..];
-        let tx_id = parse_from_utf8::<u32>(&last_two_elements[0].1)?;
-        let expiry = parse_from_utf8::<u64>(&last_two_elements[1].1)?;
+    let extract_tx_id_and_expiry =
+        |params: &Vec<(Vec<u8>, Vec<u8>)>| -> Result<(u32, AlloyU256), ()> {
+            if params.len() < 2 {
+                return Err(()) // Ensure there are at least 2 elements in params
+            }
+            let last_two_elements = &params[params.len() - 2..];
+            let expiry = AlloyU256::from(parse_from_utf8::<u64>(&last_two_elements[0].1)?);
+            let tx_id = parse_from_utf8::<u32>(&last_two_elements[1].1)?;
 
-        Ok((tx_id, expiry))
-    };
+            Ok((tx_id, expiry))
+        };
 
     match BridgeContractMethod::try_from(&function_name[..])? {
         BridgeContractMethod::PublishRoot => {
@@ -236,9 +237,9 @@ pub fn create_function_confirmation_hash(
             let root_data = H256::from_slice(&params[0].1);
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
             let data = PublishRoot {
-                root: FixedBytes::from_slice(root_data.as_fixed_bytes()),
+                rootHash: FixedBytes::from_slice(root_data.as_fixed_bytes()),
                 expiry,
-                tx_id,
+                t2TxId: tx_id,
             };
             return Ok(eip712_hash(&data, &domain))
         },
@@ -247,12 +248,13 @@ pub fn create_function_confirmation_hash(
                 return Err(()) // Ensure there are at least 5 elements in params
             }
 
-            let rewards = parse_from_utf8::<u128>(&params[0].1)?;
-            let avg_staked = parse_from_utf8::<u128>(&params[1].1)?;
+            let rewards = AlloyU256::from(parse_from_utf8::<u128>(&params[0].1)?);
+            let avg_staked = AlloyU256::from(parse_from_utf8::<u128>(&params[1].1)?);
             let period = parse_from_utf8::<u32>(&params[2].1)?;
 
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
-            let data = TriggerGrowth { rewards, avg_staked, period, expiry, tx_id };
+            let data =
+                TriggerGrowth { rewards, avgStaked: avg_staked, period, expiry, t2TxId: tx_id };
             return Ok(eip712_hash(&data, &domain))
         },
 
@@ -265,7 +267,8 @@ pub fn create_function_confirmation_hash(
             let t2_pub_key: AlloyB256 = AlloyB256::from_slice(&params[1].1);
 
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
-            let data = AddAuthor { t1_pub_key, t2_pub_key, expiry, tx_id };
+            let data =
+                AddAuthor { t1PubKey: t1_pub_key, t2PubKey: t2_pub_key, expiry, t2TxId: tx_id };
             return Ok(eip712_hash(&data, &domain))
         },
 
@@ -278,7 +281,8 @@ pub fn create_function_confirmation_hash(
             let t1_pub_key: Bytes = Bytes::from(params[1].1.clone());
 
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
-            let data = RemoveAuthor { t2_pub_key, t1_pub_key, expiry, tx_id };
+            let data =
+                RemoveAuthor { t2PubKey: t2_pub_key, t1PubKey: t1_pub_key, expiry, t2TxId: tx_id };
             return Ok(eip712_hash(&data, &domain))
         },
 
@@ -304,4 +308,33 @@ fn test_conversion_endianess() {
     assert!(restored_u32 == value_in_u32, "Restored value does not match original");
     assert!(restored_u64 == value_in_u64, "Restored value does not match original");
     assert!(restored_u128 == value_in_u128, "Restored value does not match original");
+}
+
+#[test]
+fn publish_root_eip_712_hash() {
+    use hex_literal::hex;
+
+    let root_hash: H256 =
+        H256(hex!("df21ce83ba19b6350f8a4dca44c50ab953563d53706bfe91a341401275de70b3"));
+    let root = PublishRoot {
+        rootHash: FixedBytes::from_slice(root_hash.as_fixed_bytes()),
+        expiry: AlloyU256::from(1751494356),
+        t2TxId: 1,
+    };
+
+    let domain = EthBridgeInstance {
+        network: EthereumNetwork::Sepolia,
+        bridge_contract: H160::from_slice(&hex!("5b9e84617b3fd6dd02dbc8db742d02e0b12f593c")),
+        name: BoundedVec::try_from(b"EnergyBridge".to_vec()).unwrap(),
+        version: BoundedVec::try_from(b"1".to_vec()).unwrap(),
+        salt: None,
+    };
+
+    let eip712_domain: Eip712Domain = domain.into();
+    let hash = eip712_hash(&root, &eip712_domain);
+
+    assert_eq!(
+        hash,
+        H256(hex!("01a716f9c1aece4cef9676b05ba10a8abb698471087d251d5891446c23a16e1a")) /* Generated via the EnergyBridge contract */
+    );
 }
