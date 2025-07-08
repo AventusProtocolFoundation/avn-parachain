@@ -8,9 +8,12 @@ use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{
-    eth::EthereumId, event_discovery::filters::AllPrimaryEventsFilter, event_types::EthEvent,
+    eth::{EthereumId, LowerParams},
+    event_discovery::filters::AllPrimaryEventsFilter,
+    event_types::EthEvent,
     BridgeContractMethod,
 };
+
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
@@ -194,7 +197,7 @@ pub fn setup_context() -> Context {
         lower_id: 10u32,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "5892dee772ffe3d97e9525b62805bbcd91bac29026536cfa09269623128280ca"
+        expected_lower_msg_hash: "5e3b5c3e75a6102ad55b13b20433658c8885394fe599b4ba859d34449315169c"
             .to_string(),
     }
 }
@@ -294,7 +297,6 @@ impl ExtBuilder {
         ext
     }
 
-    #[allow(dead_code)]
     pub fn with_genesis_config(mut self) -> Self {
         let _ = eth_bridge::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
@@ -302,9 +304,10 @@ impl ExtBuilder {
             next_tx_id: 1,
             eth_block_range_size: 20u32,
             instance: sp_avn_common::eth::EthBridgeInstance {
-                network: sp_avn_common::eth::EthereumNetwork::Sepolia,
+                network: sp_avn_common::eth::EthereumNetwork::Ethereum,
                 bridge_contract: H160::from_slice(&[1u8; 20]),
-                name: b"Test Bridge".to_vec().try_into().unwrap(),
+                name: b"TestBridge".to_vec().try_into().unwrap(),
+                version: b"1".to_vec().try_into().unwrap(),
                 ..Default::default()
             },
         }

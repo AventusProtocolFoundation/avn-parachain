@@ -50,7 +50,7 @@ fn corroborate_bad_transactions(
 fn check_publish_root_encoding() {
     let function_name = BridgeContractMethod::PublishRoot.name_as_bytes().to_vec();
     let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
-    let expected_msg_hash = "778a3de5c54e9f2d1c0249cc5c15edf56e205daca24349cc6a71ee0ab04b6300";
+    let expected_msg_hash = "65e90b5781ed7e612651c0e2078742884c5fcb795479b2fcadcd91a0c9847942";
     let expected_calldata = "0664c0ba30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a000000000000000000000000000000000000000000000000000000000651407c9000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000";
 
     run_checks(function_name, params, expected_msg_hash, expected_calldata);

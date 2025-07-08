@@ -26,7 +26,7 @@ pub fn verify_signature<T: Config<I>, I: 'static>(
     author: &Author<T>,
     confirmation: &ecdsa::Signature,
 ) -> Result<(), Error<T, I>> {
-    if eth_signature_is_valid::<T, I>(hex::encode(msg_hash), author, confirmation) {
+    if eth_signature_is_valid::<T, I>(msg_hash, author, confirmation) {
         Ok(())
     } else {
         Err(Error::<T, I>::InvalidECDSASignature)
@@ -34,7 +34,7 @@ pub fn verify_signature<T: Config<I>, I: 'static>(
 }
 
 fn eth_signature_is_valid<T: Config<I>, I: 'static>(
-    data: String,
+    msg_hash: H256,
     validator: &Validator<T::AuthorityId, T::AccountId>,
     signature: &ecdsa::Signature,
 ) -> bool {
@@ -43,12 +43,13 @@ fn eth_signature_is_valid<T: Config<I>, I: 'static>(
         log::warn!("✋ Account: {:?} is not an authority.", &validator.account_id);
         return false
     }
-    let recovered_public_key = recover_public_key_from_ecdsa_signature(signature, &data);
+
+    let recovered_public_key = recover_public_key_from_ecdsa_signature(signature, &msg_hash);
     if recovered_public_key.is_err() {
         log::error!(
             "❌ Recovery of public key from ECDSA Signature: {:?} and data: {:?} failed",
             &signature,
-            data
+            &msg_hash
         );
         return false
     }
@@ -60,7 +61,7 @@ fn eth_signature_is_valid<T: Config<I>, I: 'static>(
         _ => {
             log::error!(
                 "❌ ECDSA signature validation failed on data {:?} validator: {:?} signature {:?}.",
-                &data,
+                &msg_hash,
                 validator,
                 signature
             );
