@@ -8,9 +8,12 @@ use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{
-    eth::EthereumId, event_discovery::filters::AllPrimaryEventsFilter, event_types::EthEvent,
+    eth::{EthereumId, LowerParams},
+    event_discovery::filters::AllPrimaryEventsFilter,
+    event_types::EthEvent,
     BridgeContractMethod,
 };
+
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
@@ -194,7 +197,7 @@ pub fn setup_context() -> Context {
         lower_id: 10u32,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "5892dee772ffe3d97e9525b62805bbcd91bac29026536cfa09269623128280ca"
+        expected_lower_msg_hash: "5e3b5c3e75a6102ad55b13b20433658c8885394fe599b4ba859d34449315169c"
             .to_string(),
     }
 }
