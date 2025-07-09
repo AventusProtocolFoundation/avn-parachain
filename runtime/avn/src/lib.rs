@@ -158,7 +158,6 @@ pub type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
     (
-        pallet_avn_anchor::migration::MigrateToV2<Runtime>,
         pallet_eth_bridge::migration::EthBridgeMigrations<Runtime>,
     ),
 >;
