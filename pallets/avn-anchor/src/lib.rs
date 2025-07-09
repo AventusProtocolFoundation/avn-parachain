@@ -11,8 +11,6 @@ use frame_support::{
     traits::{Currency, StorageVersion},
 };
 
-
-
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
