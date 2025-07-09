@@ -1,7 +1,7 @@
 use super::*;
 use crate::mock::{
     event_emitted, new_test_ext, roll_one_block, AccountId, AvnTransactionPayment, Balances,
-    RuntimeCall, RuntimeEvent, RuntimeOrigin, System, TestAccount, TestRuntime,
+    RuntimeCall, RuntimeEvent, RuntimeOrigin, System, TestAccount, TestRuntime, BASE_FEE,
 };
 
 use frame_support::{dispatch::DispatchInfo, pallet_prelude::Weight};
@@ -12,7 +12,7 @@ use frame_support::assert_ok;
 
 pub const TX_LEN: usize = 1;
 pub const INITIAL_SENDER_BALANCE: u128 = 200;
-pub const BASE_FEE: u128 = 14;
+pub const WEIGHT_FEE: u64 = 100;
 pub const FIXED_FEE: u128 = 10;
 pub const PERCENTAGE_FEE: u32 = 25;
 pub const NO_TIP: u128 = 0u128;
@@ -27,12 +27,16 @@ pub fn info_from_weight(w: Weight) -> DispatchInfo {
     DispatchInfo { weight: w, ..Default::default() }
 }
 
-fn pay_gas_and_call_remark(sender: &AccountId, tip: u128) {
+fn pay_gas_and_call_remark_post_info(
+    sender: &AccountId,
+    tip: u128,
+    post_dispatch_weight: Option<Weight>,
+) {
     let pre = <ChargeTransactionPayment<TestRuntime> as SignedExtension>::pre_dispatch(
         ChargeTransactionPayment::from(tip),
         sender,
         &RuntimeCall::System(frame_system::Call::remark { remark: vec![] }),
-        &info_from_weight(Weight::from_parts(1 as u64, 0)),
+        &info_from_weight(Weight::from_parts(WEIGHT_FEE, 0)),
         TX_LEN,
     );
 
@@ -45,11 +49,19 @@ fn pay_gas_and_call_remark(sender: &AccountId, tip: u128) {
 
     assert_ok!(ChargeTransactionPayment::<TestRuntime>::post_dispatch(
         Some(pre.expect("Checked for error")),
-        &DispatchInfo { weight: Weight::from_parts(1 as u64, 0), ..Default::default() },
-        &PostDispatchInfo { actual_weight: None, pays_fee: Default::default() },
+        &DispatchInfo { weight: Weight::from_parts(WEIGHT_FEE, 0), ..Default::default() },
+        &PostDispatchInfo { actual_weight: post_dispatch_weight, pays_fee: Default::default() },
         TX_LEN,
         &Ok(())
     ));
+}
+
+fn expected_fee() -> u128 {
+    BASE_FEE.saturating_add(WEIGHT_FEE as u128).saturating_add(TX_LEN as u128)
+}
+
+fn pay_gas_and_call_remark(sender: &AccountId, tip: u128) {
+    pay_gas_and_call_remark_post_info(sender, tip, None);
 }
 
 fn set_initial_sender_balance(sender: &AccountId) {
@@ -58,7 +70,8 @@ fn set_initial_sender_balance(sender: &AccountId) {
 }
 
 fn get_percentage_fee_paid(percentage_fee: u32) -> u128 {
-    BASE_FEE.saturating_sub((BASE_FEE * u128::from(percentage_fee)) / 100)
+    let expected_fee = expected_fee();
+    expected_fee.saturating_sub((expected_fee * u128::from(percentage_fee)) / 100)
 }
 
 fn check_sender_paid_fee(sender: &AccountId, paid_fee: u128) {
@@ -145,7 +158,7 @@ mod adjustment_fee_tests {
                     let sender = to_acc_id(1u64);
                     set_initial_sender_balance(&sender);
 
-                    let higher_fixed_fee = BASE_FEE + 1;
+                    let higher_fixed_fee = BASE_FEE + WEIGHT_FEE as u128 + TX_LEN as u128 + 1;
                     let config = AdjustmentInput::<TestRuntime> {
                         fee_type: FeeType::FixedFee(FixedFeeConfig { fee: higher_fixed_fee }),
                         adjustment_type: AdjustmentType::None,
@@ -154,9 +167,9 @@ mod adjustment_fee_tests {
                     set_known_sender(&sender, config);
 
                     pay_gas_and_call_remark(&sender, NO_TIP);
-                    check_sender_paid_fee(&sender, BASE_FEE);
+                    check_sender_paid_fee(&sender, expected_fee());
 
-                    pay_gas_with_tip_and_check(&sender, ONE_ATTO_TIP, BASE_FEE);
+                    pay_gas_with_tip_and_check(&sender, ONE_ATTO_TIP, expected_fee());
                 })
             }
 
@@ -238,7 +251,7 @@ mod adjustment_fee_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender, NO_TIP);
 
-                    check_sender_fee_and_event_emitted(&sender, BASE_FEE);
+                    check_sender_fee_and_event_emitted(&sender, expected_fee());
                 })
             }
 
@@ -274,7 +287,7 @@ mod adjustment_fee_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender, NO_TIP);
 
-                    check_sender_fee_and_event_emitted(&sender, BASE_FEE);
+                    check_sender_fee_and_event_emitted(&sender, expected_fee());
                 })
             }
 
@@ -310,7 +323,7 @@ mod adjustment_fee_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender, NO_TIP);
 
-                    check_sender_fee_and_event_emitted(&sender, BASE_FEE);
+                    check_sender_fee_and_event_emitted(&sender, expected_fee());
                 })
             }
         }
@@ -345,7 +358,7 @@ mod adjustment_fee_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender, NO_TIP);
 
-                    check_sender_fee_and_event_emitted(&sender, BASE_FEE);
+                    check_sender_fee_and_event_emitted(&sender, expected_fee());
                 })
             }
 
@@ -377,7 +390,7 @@ mod adjustment_fee_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender, NO_TIP);
 
-                    check_sender_fee_and_event_emitted(&sender, BASE_FEE);
+                    check_sender_fee_and_event_emitted(&sender, expected_fee());
                 })
             }
 
@@ -410,7 +423,7 @@ mod adjustment_fee_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender, NO_TIP);
 
-                    check_sender_fee_and_event_emitted(&sender, BASE_FEE);
+                    check_sender_fee_and_event_emitted(&sender, expected_fee());
                 })
             }
 
@@ -444,7 +457,7 @@ mod adjustment_fee_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender, NO_TIP);
 
-                    check_sender_fee_and_event_emitted(&sender, BASE_FEE);
+                    check_sender_fee_and_event_emitted(&sender, expected_fee());
                 })
             }
 
@@ -477,9 +490,84 @@ mod adjustment_fee_tests {
                     set_initial_sender_balance(&sender);
                     pay_gas_and_call_remark(&sender, NO_TIP);
 
-                    check_sender_fee_and_event_emitted(&sender, BASE_FEE);
+                    check_sender_fee_and_event_emitted(&sender, expected_fee());
                 })
             }
         }
+    }
+}
+
+mod refunds {
+    use super::*;
+
+    #[test]
+    fn work() {
+        new_test_ext().execute_with(|| {
+            let sender = to_acc_id(1u64);
+            let refund = 50u64;
+            set_initial_sender_balance(&sender);
+
+            pay_gas_and_call_remark_post_info(&sender, NO_TIP, Some(Weight::from_parts(refund, 0)));
+            let expected_fee =
+                BASE_FEE.saturating_add(refund as u128).saturating_add(TX_LEN as u128);
+            assert_eq!(
+                INITIAL_SENDER_BALANCE.saturating_sub(expected_fee),
+                Balances::free_balance(sender)
+            );
+        })
+    }
+
+    #[test]
+    fn work_with_fixed_fee() {
+        new_test_ext().execute_with(|| {
+            let sender = to_acc_id(1u64);
+            let refund = 50u64;
+            set_initial_sender_balance(&sender);
+
+            let config = AdjustmentInput::<TestRuntime> {
+                fee_type: FeeType::FixedFee(FixedFeeConfig { fee: FIXED_FEE }),
+                adjustment_type: AdjustmentType::None,
+            };
+
+            set_known_sender(&sender, config);
+
+            pay_gas_and_call_remark_post_info(&sender, NO_TIP, Some(Weight::from_parts(refund, 0)));
+            assert_eq!(
+                INITIAL_SENDER_BALANCE.saturating_sub(FIXED_FEE),
+                Balances::free_balance(sender)
+            );
+        })
+    }
+
+    #[test]
+    fn work_with_percentage() {
+        new_test_ext().execute_with(|| {
+            let sender = to_acc_id(1u64);
+            let refund = 50u64;
+            set_initial_sender_balance(&sender);
+
+            let config = AdjustmentInput::<TestRuntime> {
+                fee_type: FeeType::PercentageFee(PercentageFeeConfig {
+                    percentage: PERCENTAGE_FEE,
+                    _marker: sp_std::marker::PhantomData::<TestRuntime>,
+                }),
+                adjustment_type: AdjustmentType::None,
+            };
+
+            set_known_sender(&sender, config);
+
+            pay_gas_and_call_remark_post_info(&sender, NO_TIP, Some(Weight::from_parts(refund, 0)));
+
+            let expected_fee =
+                BASE_FEE.saturating_add(refund as u128).saturating_add(TX_LEN as u128);
+            let percentage = u128::from(PERCENTAGE_FEE);
+            let percentage_fee = (expected_fee * percentage + 99) / 100; // round up
+            let total_fee = expected_fee.saturating_sub(percentage_fee);
+
+            assert_eq!(
+                INITIAL_SENDER_BALANCE.saturating_sub(total_fee),
+                Balances::free_balance(sender)
+            );
+        })
     }
 }

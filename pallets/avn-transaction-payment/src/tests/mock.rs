@@ -16,7 +16,6 @@ use sp_runtime::{
     traits::{IdentityLookup, Verify},
     BuildStorage, Perbill, SaturatedConversion,
 };
-pub use std::sync::Arc;
 
 pub type AccountId = <Signature as Verify>::Signer;
 pub type Signature = sr25519::Signature;
@@ -26,7 +25,8 @@ type Block = frame_system::mocking::MockBlock<TestRuntime>;
 pub const EXISTENTIAL_DEPOSIT: u64 = 0;
 pub const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 pub const MAX_BLOCK_WEIGHT: Weight = Weight::from_parts(1024 as u64, u64::MAX);
-pub const BASE_FEE: u64 = 12;
+pub const BASE_FEE_U64: u64 = 12;
+pub const BASE_FEE: u128 = BASE_FEE_U64 as u128;
 
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
@@ -44,7 +44,7 @@ parameter_types! {
     pub RuntimeBlockWeights: limits::BlockWeights = limits::BlockWeights::builder()
         .base_block(Weight::from_parts(10 as u64,0))
         .for_class(DispatchClass::all(), |weights| {
-            weights.base_extrinsic = Weight::from_parts(BASE_FEE, 0);
+            weights.base_extrinsic = Weight::from_parts(BASE_FEE_U64, 0);
         })
         .for_class(DispatchClass::Normal, |weights| {
             weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAX_BLOCK_WEIGHT);
