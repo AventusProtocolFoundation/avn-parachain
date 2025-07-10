@@ -198,17 +198,19 @@ impl<T: Config> Pallet<T> {
         // calling is_active does some computation so cache it here
         let has_active_config = fee_adjustment_config.is_active();
 
-        let mut fee_to_pay = amount_paid.clone();
+        let mut fee_to_pay = corrected_fee.clone();
         if has_active_config {
             let network_fee_only = corrected_fee.saturating_sub(tip);
-            if let Ok(fee) = fee_adjustment_config.get_fee(network_fee_only) {
-                fee_to_pay = fee.saturating_add(tip)
-            } else {
-                log::error!(
-                    "💔 Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}",
-                    fee_payer,
-                    fee_adjustment_config
-                );
+            match fee_adjustment_config.get_fee(network_fee_only) {
+                Ok(fee) => fee_to_pay = fee.saturating_add(tip),
+                Err(e) => {
+                    log::error!(
+                        "💔 Failed to apply an adjustment for known sender: {:?}, adjustment config: {:?}, error: {:?}",
+                        fee_payer,
+                        fee_adjustment_config,
+                        e
+                    );
+                },
             }
         }
 
