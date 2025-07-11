@@ -411,7 +411,7 @@ pub mod pallet {
         EventBelongsInFutureRange,
         QuotaReachedForAdditionalEvents,
         EventAlreadyAccepted,
-        InvalidSetting,
+        InvalidInstance,
     }
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -575,6 +575,7 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
+            ensure!(Instance::<T, I>::get().is_valid(), Error::<T, I>::InvalidInstance);
 
             let active_range = Self::active_ethereum_range()
                 .ok_or_else(|| Error::<T, I>::NonActiveEthereumRange)?;
@@ -627,6 +628,7 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
+            ensure!(Instance::<T, I>::get().is_valid(), Error::<T, I>::InvalidInstance);
             ensure!(Self::active_ethereum_range().is_none(), Error::<T, I>::VotingEnded);
             ensure!(
                 Self::author_has_submitted_latest_block(&author.account_id) == false,
@@ -738,7 +740,9 @@ pub mod pallet {
                     let _ = EthereumEvents::<T, I>::clear(100, None);
                 },
                 AdminSettings::SetEthBridgeInstance(instance) => {
-                    ensure!(instance.is_valid(), Error::<T, I>::InvalidSetting);
+                    ensure!(instance.is_valid(), Error::<T, I>::InvalidInstance);
+                    let _ = EthereumEvents::<T, I>::clear(100, None);
+                    let _ = EthereumEvents::<T, I>::clear(1, None);
                     Instance::<T, I>::put(instance);
                 },
             }
