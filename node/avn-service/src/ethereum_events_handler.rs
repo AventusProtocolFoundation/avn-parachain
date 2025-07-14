@@ -654,13 +654,13 @@ where
             .client
             .runtime_api()
             .instances(config.client.info().best_hash)
-            .map_err(|err| format!("Failed to get the instance: {:?}", err))?
+            .map_err(|err| format!("Failed to get instances: {:?}", err))?
     } else {
         Default::default()
     };
     log::debug!("Eth-bridge instances found: {:?}", &instances);
     for (instance_id, instance) in instances {
-        // TODO check if there is a web3 connection for the instance chain_id. If not, skip the
+        // TODO check if there is a web3 connection for the instance chain_id. If not, skip the instance
 
         let result = &config
             .client
@@ -742,7 +742,7 @@ where
             instance_id,
             current_node_author.address.0.into(),
         )
-        .map_err(|err| format!("Failed to check if author has casted latest  vote: {:?}", err))?;
+        .map_err(|err| format!("Failed to check if author has cast latest vote: {:?}", err))?;
 
     log::debug!("Checking if vote has been cast already. Result: {:?}", has_casted_vote);
 
