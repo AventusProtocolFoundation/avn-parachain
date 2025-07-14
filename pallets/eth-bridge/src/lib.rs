@@ -347,6 +347,7 @@ pub mod pallet {
             EthBlockRangeSize::<T, I>::put(self.eth_block_range_size);
 
             STORAGE_VERSION.put::<Pallet<T, I>>();
+            log::debug!("Setting EthBridgeInstance: {:?}", &self.instance);
             assert!(
                 self.instance.is_valid(),
                 "Invalid EthBridgeInstance provided in genesis config",
