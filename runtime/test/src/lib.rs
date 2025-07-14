@@ -28,9 +28,8 @@ use sp_runtime::{
     ApplyExtrinsicResult,
 };
 pub extern crate alloc;
-use alloc::collections::BTreeSet;
 
-use sp_std::prelude::*;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -74,6 +73,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use pallet_avn::sr25519::AuthorityId as AvnId;
 
 use pallet_avn_proxy::ProvableProxy;
+use pallet_eth_bridge_runtime_api::InstanceId;
 use sp_avn_common::{
     eth::EthBridgeInstance,
     event_discovery::{
@@ -690,7 +690,21 @@ impl pallet_avn_proxy::Config for Runtime {
     type Token = EthAddress;
 }
 
-impl pallet_eth_bridge::Config for Runtime {
+impl pallet_eth_bridge::Config<MainEthBridge> for Runtime {
+    type MaxQueuedTxRequests = ConstU32<100>;
+    type RuntimeEvent = RuntimeEvent;
+    type RuntimeCall = RuntimeCall;
+    type MinEthBlockConfirmation = MinEthBlockConfirmation;
+    type ProcessedEventsChecker = EthBridge;
+    type AccountToBytesConvert = Avn;
+    type ReportCorroborationOffence = Offences;
+    type TimeProvider = pallet_timestamp::Pallet<Runtime>;
+    type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
+    type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
+    type ProcessedEventsHandler = NoEventsFilter;
+}
+
+impl pallet_eth_bridge::Config<SecondaryEthBridge> for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -795,6 +809,11 @@ impl pallet_preimage::Config for Runtime {
     >;
 }
 
+pub type MainEthBridge = pallet_eth_bridge::Instance1;
+pub type SecondaryEthBridge = pallet_eth_bridge::Instance2;
+const MAIN_ETH_BRIDGE_ID: u8 = 1u8;
+const SECONDARY_ETH_BRIDGE_ID: u8 = 2u8;
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     pub struct Runtime
@@ -842,9 +861,10 @@ construct_runtime!(
         TokenManager: pallet_token_manager = 87,
         Summary: pallet_summary::<Instance1> = 88,
         AvnProxy: pallet_avn_proxy = 89,
-        EthBridge: pallet_eth_bridge = 91,
+        EthBridge: pallet_eth_bridge::<Instance1> = 91,
         AvnAnchor: pallet_avn_anchor = 92,
         AnchorSummary: pallet_summary::<Instance2> = 110,
+        EthSecondBridge: pallet_eth_bridge::<Instance2> = 111,
 
          // OpenGov pallets
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 97,
@@ -1026,7 +1046,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId, ()> for Runtime {
+    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
         fn query_authors() -> Vec<([u8; 32], [u8; 32])> {
             let validators = Avn::validators().to_vec();
             let res = validators.iter().map(|validator| {
@@ -1041,50 +1061,113 @@ impl_runtime_apis! {
             return res
         }
 
-        fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
-            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
-                Some((active_eth_range.range, active_eth_range.partition))
-            } else {
-                None
+        fn query_active_block_range(instance_id: InstanceId)-> Option<(EthBlockRange, u16)> {
+            match instance_id {
+                MAIN_ETH_BRIDGE_ID => {
+                    EthBridge::active_ethereum_range().map(|active_eth_range| {
+                        (active_eth_range.range, active_eth_range.partition)
+                    })
+                },
+                SECONDARY_ETH_BRIDGE_ID => {
+                    EthSecondBridge::active_ethereum_range().map(|active_eth_range| {
+                        (active_eth_range.range, active_eth_range.partition)
+                    })
+                }
+                _ => {
+                    None
+                }
             }
         }
-        fn query_has_author_casted_vote(account_id: AccountId) -> bool{
-            EthBridge::author_has_cast_event_vote(&account_id) ||
-            EthBridge::author_has_submitted_latest_block(&account_id)
-         }
 
-        fn query_signatures() -> Vec<sp_core::H256> {
-            EthBridge::signatures()
+        fn query_has_author_casted_vote(instance_id: InstanceId, account_id: AccountId) -> bool{
+            match instance_id {
+                MAIN_ETH_BRIDGE_ID => {
+                    EthBridge::author_has_cast_event_vote(&account_id) ||
+                    EthBridge::author_has_submitted_latest_block(&account_id)
+                         },
+                SECONDARY_ETH_BRIDGE_ID => {
+                    EthSecondBridge::author_has_cast_event_vote(&account_id) ||
+                    EthSecondBridge::author_has_submitted_latest_block(&account_id)
+                         }
+                _ => false
+            }
         }
 
-        fn query_bridge_contract() -> H160 {
-            Avn::get_bridge_contract_address()
+        fn query_signatures(instance_id: InstanceId) -> Vec<sp_core::H256> {
+            match instance_id {
+                MAIN_ETH_BRIDGE_ID => {
+                    EthBridge::signatures()
+                },
+                SECONDARY_ETH_BRIDGE_ID => {
+                    EthSecondBridge::signatures()
+                }
+                _ => Default::default()
+            }
         }
 
-        fn query_bridge_instance() -> EthBridgeInstance {
-            EthBridge::instance()
-        }
-
-        fn submit_vote(author: AccountId,
+        fn submit_vote(
+            instance_id: InstanceId,
+            author: AccountId,
             events_partition: EthereumEventsPartition,
             signature: sp_core::sr25519::Signature,
         ) -> Option<()>{
-            EthBridge::submit_vote(author, events_partition, signature.into()).ok()
+            match instance_id {
+                MAIN_ETH_BRIDGE_ID => {
+                    EthBridge::submit_vote(author, events_partition, signature.into()).ok()
+                },
+                SECONDARY_ETH_BRIDGE_ID => {
+                    EthSecondBridge::submit_vote(author, events_partition, signature.into()).ok()
+                }
+                _ => None
+            }
         }
 
         fn submit_latest_ethereum_block(
+            instance_id: InstanceId,
             author: AccountId,
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
         ) -> Option<()>{
-            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
+            match instance_id {
+                MAIN_ETH_BRIDGE_ID => {
+                    EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
+                },
+                SECONDARY_ETH_BRIDGE_ID => {
+                    EthSecondBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
+                }
+                _ => None
+            }
         }
 
-        fn additional_transactions() -> Option<AdditionalEvents> {
-            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
-                Some(active_eth_range.additional_transactions)
+        fn additional_transactions(instance_id: InstanceId) -> Option<AdditionalEvents> {
+            match instance_id {
+                MAIN_ETH_BRIDGE_ID => {
+                    EthBridge::active_ethereum_range().map(|active_eth_range| {
+                        active_eth_range.additional_transactions
+                    })
+                },
+                SECONDARY_ETH_BRIDGE_ID => {
+                    EthSecondBridge::active_ethereum_range().map(|active_eth_range| {
+                        active_eth_range.additional_transactions
+                    })
+                }
+                _ => {
+                    None
+                }
+            }
+        }
+
+        fn instances() -> BTreeMap<InstanceId, EthBridgeInstance> {
+            let main_instance = EthBridge::instance();
+            let secondary_instance = EthSecondBridge::instance();
+
+            if main_instance == secondary_instance {
+                return BTreeMap::from([(MAIN_ETH_BRIDGE_ID, main_instance)]);
             } else {
-                None
+                return BTreeMap::from([
+                    (MAIN_ETH_BRIDGE_ID, main_instance),
+                    (SECONDARY_ETH_BRIDGE_ID, secondary_instance),
+                ]);
             }
         }
     }
