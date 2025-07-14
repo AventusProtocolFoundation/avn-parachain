@@ -33,7 +33,8 @@ use sp_runtime::{
     ApplyExtrinsicResult,
 };
 
-use sp_std::prelude::*;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*, vec::Vec};
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -77,6 +78,7 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
+use pallet_eth_bridge_runtime_api::InstanceId;
 use sp_avn_common::{
     eth::EthBridgeInstance,
     event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition},
@@ -999,7 +1001,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId, ()> for Runtime {
+    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
         fn query_authors() -> Vec<([u8; 32], [u8; 32])> {
             let validators = Avn::validators().to_vec();
             let res = validators.iter().map(|validator| {
@@ -1014,7 +1016,7 @@ impl_runtime_apis! {
             return res
         }
 
-        fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
+        fn query_active_block_range(_instance_id: InstanceId)-> Option<(EthBlockRange, u16)> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
                 Some((active_eth_range.range, active_eth_range.partition))
             } else {
@@ -1022,24 +1024,18 @@ impl_runtime_apis! {
             }
         }
 
-        fn query_has_author_casted_vote(account_id: AccountId) -> bool{
+        fn query_has_author_casted_vote(_instance_id: InstanceId, account_id: AccountId) -> bool{
            EthBridge::author_has_cast_event_vote(&account_id) ||
            EthBridge::author_has_submitted_latest_block(&account_id)
         }
 
-        fn query_signatures() -> Vec<sp_core::H256> {
+        fn query_signatures(_instance_id: InstanceId) -> Vec<sp_core::H256> {
             EthBridge::signatures()
         }
 
-        fn query_bridge_contract() -> H160 {
-            Avn::get_bridge_contract_address()
-        }
-
-        fn query_bridge_instance() -> EthBridgeInstance {
-            EthBridge::instance()
-        }
-
-        fn submit_vote(author: AccountId,
+        fn submit_vote(
+            _instance_id: InstanceId,
+            author: AccountId,
             events_partition: EthereumEventsPartition,
             signature: sp_core::sr25519::Signature,
         ) -> Option<()>{
@@ -1047,6 +1043,7 @@ impl_runtime_apis! {
         }
 
         fn submit_latest_ethereum_block(
+            _instance_id: InstanceId,
             author: AccountId,
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
@@ -1054,12 +1051,18 @@ impl_runtime_apis! {
             EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
-        fn additional_transactions() -> Option<AdditionalEvents> {
+        fn additional_transactions(_instance_id: InstanceId) -> Option<AdditionalEvents> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
                 Some(active_eth_range.additional_transactions)
             } else {
                 None
             }
+        }
+
+        fn instances() -> BTreeMap<InstanceId, EthBridgeInstance> {
+            BTreeMap::from([
+                (MAIN_ETH_BRIDGE_ID, EthBridge::instance()),
+            ])
         }
     }
 
