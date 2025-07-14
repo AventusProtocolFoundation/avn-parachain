@@ -1158,10 +1158,17 @@ impl_runtime_apis! {
         }
 
         fn instances() -> BTreeMap<InstanceId, EthBridgeInstance> {
-            BTreeMap::from([
-                (MAIN_ETH_BRIDGE_ID, EthBridge::instance()),
-                (SECONDARY_ETH_BRIDGE_ID, EthSecondBridge::instance()),
-            ])
+            let main_instance = EthBridge::instance();
+            let secondary_instance = EthSecondBridge::instance();
+
+            if main_instance == secondary_instance {
+                return BTreeMap::from([(MAIN_ETH_BRIDGE_ID, main_instance)]);
+            } else {
+                return BTreeMap::from([
+                    (MAIN_ETH_BRIDGE_ID, main_instance),
+                    (SECONDARY_ETH_BRIDGE_ID, secondary_instance),
+                ]);
+            }
         }
     }
 
@@ -1286,18 +1293,3 @@ cumulus_pallet_parachain_system::register_validate_block! {
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
     CheckInherents = CheckInherents,
 }
-
-fn get_unique_eth_bridge_instances() -> Vec<EthBridgeInstance> {
-    let all_instances = vec![EthBridge::instance(), EthSecondBridge::instance()];
-
-    let mut unique = Vec::new();
-
-    for instance in all_instances {
-        if !unique.contains(&instance) {
-            unique.push(instance);
-        }
-    }
-
-    unique
-}
-
