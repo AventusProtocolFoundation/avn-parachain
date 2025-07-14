@@ -180,7 +180,7 @@ pub mod filters {
 }
 
 pub fn encode_eth_event_submission_data<AccountId: Encode, Data: Encode>(
-    instance: &Option<EthBridgeInstance>,
+    instance: Option<&EthBridgeInstance>,
     context: &[u8],
     account_id: &AccountId,
     data: Data,
