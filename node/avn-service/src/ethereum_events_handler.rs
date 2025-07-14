@@ -453,7 +453,7 @@ where
     pub keystore: Arc<LocalKeystore>,
     pub keystore_path: PathBuf,
     pub avn_port: Option<String>,
-    pub eth_node_url: String,
+    pub eth_node_urls: Vec<String>,
     // TODO add support for multiple web3 instances on different chains
     pub web3_data_mutex: Arc<Mutex<Web3Data>>,
     pub client: Arc<ClientT>,
@@ -485,11 +485,14 @@ where
             let web3_init_time = Instant::now();
             log::info!("⛓️  avn-service: web3 initialisation start");
 
-            let web3 = setup_web3_connection(&self.eth_node_url);
+            // TODO fixme
+            let eth_web3_url =
+                self.eth_node_urls.first().cloned().unwrap_or_else(|| "".to_string());
+            let web3 = setup_web3_connection(&eth_web3_url);
             if web3.is_none() {
                 log::error!(
                     "💔 Error creating a web3 connection. URL is not valid {:?}",
-                    &self.eth_node_url
+                    &self.eth_node_urls
                 );
                 return Err(server_error("Error creating a web3 connection".to_string()))
             }

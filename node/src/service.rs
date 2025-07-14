@@ -186,7 +186,6 @@ where
     let import_queue_service = params.import_queue.service();
 
     let avn_port = avn_cli_config.avn_port.clone();
-    let eth_node_url: String = avn_cli_config.ethereum_node_url.clone().unwrap_or_default();
 
     let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
         cumulus_client_service::build_network(cumulus_client_service::BuildNetworkParams {
@@ -323,7 +322,7 @@ where
             keystore: params.keystore_container.local_keystore(),
             keystore_path: keystore_path.clone(),
             avn_port: avn_port.clone(),
-            eth_node_url: eth_node_url.clone(),
+            eth_node_urls: avn_cli_config.ethereum_node_urls.clone(),
             web3_data_mutex: Arc::new(Mutex::new(Web3Data::new())),
             client: client.clone(),
             _block: Default::default(),
@@ -334,7 +333,7 @@ where
                 keystore: params.keystore_container.local_keystore(),
                 keystore_path: keystore_path.clone(),
                 avn_port: avn_port.clone(),
-                eth_node_url: eth_node_url.clone(),
+                eth_node_urls: avn_cli_config.ethereum_node_urls.clone(),
                 web3_data_mutex: Arc::new(Mutex::new(Web3Data::new())),
                 client: client.clone(),
                 _block: Default::default(),
