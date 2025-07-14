@@ -660,7 +660,8 @@ where
     };
     log::debug!("Eth-bridge instances found: {:?}", &instances);
     for (instance_id, instance) in instances {
-        // TODO check if there is a web3 connection for the instance chain_id. If not, skip the instance
+        // TODO check if there is a web3 connection for the instance chain_id. If not, skip the
+        // instance
 
         let result = &config
             .client
