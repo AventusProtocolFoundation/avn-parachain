@@ -29,7 +29,7 @@ use sp_runtime::{
 };
 pub extern crate alloc;
 
-use sp_std::{collections::btree_map::BTreeMap, prelude::*, vec::Vec};
+use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -1301,10 +1301,3 @@ fn get_unique_eth_bridge_instances() -> Vec<EthBridgeInstance> {
     unique
 }
 
-// fn get_pallet(a: bool) -> pallet_eth_bridge::Instance<T> {
-//     if a {
-//         return EthBridge
-//     } else {
-//         return EthSecondBridge
-//     }
-// }

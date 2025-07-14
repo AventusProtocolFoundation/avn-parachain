@@ -1061,7 +1061,7 @@ impl_runtime_apis! {
 
         fn instances() -> BTreeMap<InstanceId, EthBridgeInstance> {
             BTreeMap::from([
-                (1, EthBridge::instance()),
+                (MAIN_ETH_BRIDGE_ID, EthBridge::instance()),
             ])
         }
     }
