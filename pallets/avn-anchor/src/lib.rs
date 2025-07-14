@@ -20,7 +20,7 @@ use sp_core::{ConstU32, Get, H256};
 use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
 
-#[cfg(test)] 
+#[cfg(test)]
 mod mock;
 
 #[cfg(test)]
