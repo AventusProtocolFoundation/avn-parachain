@@ -722,7 +722,7 @@ async fn submit_latest_ethereum_block<Block, ClientT>(
     web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
     instance_id: InstanceId,
-    instance: &EthBridgeInstance,
+    eth_bridge_instance: &EthBridgeInstance,
     current_node_author: &CurrentNodeAuthor,
 ) -> Result<(), String>
 where
@@ -756,7 +756,7 @@ where
 
         log::debug!("Encoding proof for latest block: {:?}", latest_seen_ethereum_block);
         let proof = encode_eth_event_submission_data::<AccountId, u32>(
-            Some(instance),
+            Some(eth_bridge_instance),
             &SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
             &((*current_node_author).address).into(),
             latest_seen_ethereum_block,
@@ -805,7 +805,7 @@ async fn process_events<Block, ClientT>(
     web3: &Web3<Http>,
     config: &EthEventHandlerConfig<Block, ClientT>,
     instance_id: InstanceId,
-    instance: &EthBridgeInstance,
+    eth_bridge_instance: &EthBridgeInstance,
     range: EthBlockRange,
     partition_id: u16,
     current_node_author: &CurrentNodeAuthor,
@@ -822,7 +822,7 @@ where
         + BlockBuilder<Block>,
 {
     let contract_address_web3 =
-        web3::types::H160::from_slice(&instance.bridge_contract.to_fixed_bytes());
+        web3::types::H160::from_slice(&eth_bridge_instance.bridge_contract.to_fixed_bytes());
     let contract_addresses = vec![contract_address_web3];
 
     let event_signatures = config
@@ -869,7 +869,7 @@ where
             config,
             event_signatures,
             instance_id,
-            instance,
+            eth_bridge_instance,
             contract_addresses,
             partition_id,
             current_node_author,
@@ -888,7 +888,7 @@ async fn execute_event_processing<Block, ClientT>(
     config: &EthEventHandlerConfig<Block, ClientT>,
     event_signatures: Vec<SpH256>,
     instance_id: InstanceId,
-    instance: &EthBridgeInstance,
+    eth_bridge_instance: &EthBridgeInstance,
     contract_addresses: Vec<H160>,
     partition_id: u16,
     current_node_author: &CurrentNodeAuthor,
@@ -937,7 +937,7 @@ where
         .ok_or_else(|| format!("Partition with ID {} not found", partition_id))?;
 
     let proof = encode_eth_event_submission_data::<AccountId, &EthereumEventsPartition>(
-        Some(instance),
+        Some(eth_bridge_instance),
         &SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT,
         &((*current_node_author).address).into(),
         &partition.clone(),
