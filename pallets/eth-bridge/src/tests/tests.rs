@@ -270,7 +270,10 @@ mod set_admin_setting {
 
     #[test]
     fn remove_active_request_non_root_fails() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .as_externality();
         ext.execute_with(|| {
             let context = setup_context();
             let _ = add_new_send_request::<TestRuntime, ()>(
@@ -334,7 +337,10 @@ mod set_admin_setting {
 
     #[test]
     fn resets_ethereum_events() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .as_externality();
         ext.execute_with(|| {
             let context = EventProcessContext::setup();
             init_active_range();
