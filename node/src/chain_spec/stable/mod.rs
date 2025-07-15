@@ -86,15 +86,15 @@ pub(crate) fn testnet_genesis(
         },
         "sudo": { "key": Some(sudo_account) },
         "avn":  {
-            "bridgeContractAddress": avn_eth_contract,
+            "bridgeContractAddress": avn_eth_contract.clone(),
         },
         "ethBridge": {
             "ethTxLifetimeSecs": 60 * 30 as u64, // 30 minutes
             "nextTxId": 1u32,
             "ethBlockRangeSize": 20u32,
             "instance": {
-                "network": EthereumNetwork::Sepolia.chain_id(),
-                "bridgeContract": avn_eth_contract,
+                "network": EthereumNetwork::Sepolia,
+                "bridge_contract": avn_eth_contract,
                 "name": BoundedVec::<u8, ConstU32<256>>::truncate_from("AVN Bridge".as_bytes().to_vec()),
                 "version": BoundedVec::<u8, ConstU32<256>>::truncate_from("1".as_bytes().to_vec().into()),
             },

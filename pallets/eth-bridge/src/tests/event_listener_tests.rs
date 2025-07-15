@@ -147,7 +147,10 @@ mod submit_discovered_events {
 
     #[test]
     fn adds_vote_correctly() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .as_externality();
         ext.execute_with(|| {
             init_active_range();
             let context: Context = Default::default();
@@ -164,7 +167,10 @@ mod submit_discovered_events {
 
     #[test]
     fn adds_empty_vote_correctly() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .as_externality();
         ext.execute_with(|| {
             init_active_range();
             let context =
@@ -182,7 +188,10 @@ mod submit_discovered_events {
 
     #[test]
     fn finalises_vote() {
-        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        let mut ext = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .as_externality();
         ext.execute_with(|| {
             // given
             init_active_range();
@@ -222,7 +231,10 @@ mod submit_discovered_events {
 
         #[test]
         fn another_range_is_active() {
-            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_validators()
+                .with_genesis_config()
+                .as_externality();
             ext.execute_with(|| {
                 init_active_range();
                 let context: Context = Default::default();
@@ -237,7 +249,10 @@ mod submit_discovered_events {
 
         #[test]
         fn author_has_voted_the_partition() {
-            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_validators()
+                .with_genesis_config()
+                .as_externality();
             ext.execute_with(|| {
                 init_active_range();
                 let context: Context = Default::default();
@@ -254,7 +269,10 @@ mod submit_discovered_events {
 
         #[test]
         fn author_has_voted_another_partition() {
-            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_validators()
+                .with_genesis_config()
+                .as_externality();
             ext.execute_with(|| {
                 let context: Context = Default::default();
                 init_active_range();
