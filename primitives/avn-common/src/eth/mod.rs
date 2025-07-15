@@ -43,6 +43,19 @@ impl EthereumNetwork {
     }
 }
 
+impl From<u64> for EthereumNetwork {
+    fn from(value: u64) -> Self {
+        match value {
+            1 => EthereumNetwork::Ethereum,
+            246 => EthereumNetwork::EWC,
+            11155111 => EthereumNetwork::Sepolia,
+            17000 => EthereumNetwork::Holesky,
+            73799 => EthereumNetwork::Volta,
+            _ => EthereumNetwork::Custom(value),
+        }
+    }
+}
+
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct EthBridgeInstance {
