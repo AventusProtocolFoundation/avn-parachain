@@ -23,7 +23,7 @@ use sp_blockchain::HeaderBackend;
 use sp_core::{sr25519::Public, H256 as SpH256};
 use sp_keystore::Keystore;
 use sp_runtime::SaturatedConversion;
-use std::{collections::HashMap, marker::PhantomData, time::Instant};
+use std::{collections::HashMap, time::Instant};
 pub use std::{path::PathBuf, sync::Arc};
 use tide::Error as TideError;
 use tokio::time::{sleep, Duration};
@@ -36,7 +36,7 @@ use web3::{
 use pallet_eth_bridge::{SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, SUBMIT_LATEST_ETH_BLOCK_CONTEXT};
 use pallet_eth_bridge_runtime_api::InstanceId;
 
-use crate::{server_error, setup_web3_connection, Web3Data};
+use crate::{get_chain_id_from_provider, server_error, setup_web3_connection, Web3Data};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
 pub struct EventInfo {
@@ -454,10 +454,8 @@ where
     pub keystore_path: PathBuf,
     pub avn_port: Option<String>,
     pub eth_node_urls: Vec<String>,
-    // TODO add support for multiple web3 instances on different chains
-    pub web3_data_mutex: Arc<Mutex<Web3Data>>,
+    pub web3_data_mutexes: HashMap<u64, Arc<Mutex<Web3Data>>>,
     pub client: Arc<ClientT>,
-    pub _block: PhantomData<Block>,
     pub offchain_transaction_pool_factory: OffchainTransactionPoolFactory<Block>,
 }
 
@@ -473,35 +471,75 @@ where
         + ApiExt<Block>
         + BlockBuilder<Block>,
 {
-    pub async fn initialise_web3(&self) -> Result<(), TideError> {
-        if let Some(mut web3_data_mutex) = self.web3_data_mutex.try_lock() {
-            if web3_data_mutex.web3.is_some() {
+    pub async fn initialise_web3(
+        &mut self,
+        chain_id: u64,
+    ) -> Result<Arc<Mutex<Web3Data>>, TideError> {
+        let web3_init_time = Instant::now();
+        log::info!("⛓️  avn-events-handler: web3 initialisation start");
+
+        // See if we have an existing web3 data mutex for the chain_id
+        match self.web3_data_mutexes.get(&chain_id) {
+            Some(web3_data_pointer) => {
+                log::debug!("⛓️  Found existing web3 connection for network: {}", chain_id);
+                return Ok(Arc::clone(&web3_data_pointer))
+            },
+            None => log::debug!(
+                "⛓️  No existing web3 connection found for network: {}. Initialising new...",
+                chain_id
+            ),
+        }
+
+        // No web3 connection found for network_id, try the rest of the URLs
+        let web3_connection_locks = Mutex::new(());
+        for eth_node_url in self.eth_node_urls.iter() {
+            log::debug!("⛓️  Attempting to connect to Ethereum node: {}", eth_node_url);
+            let web3 = setup_web3_connection(&(eth_node_url.clone()).into());
+            if let Some(web3) = web3 {
+                // If we have a valid web3 connection, check the chain_id
+                let web3_chain_id = get_chain_id_from_provider(&web3).await.map_err(|e| {
+                    log::error!("Error getting chain ID from web3: {:?}", e);
+                    server_error("Error getting chain ID from web3".to_string())
+                })?;
+
                 log::info!(
-                    "⛓️  avn-service: web3 connection has already been initialised, skipping"
+                    "⛓️  Successfully connected to node: {} with chain ID: {}",
+                    eth_node_url,
+                    web3_chain_id
                 );
-                return Ok(())
+
+                {
+                    // Lock the mutex to ensure only one thread can alter the web3 connection
+                    let _ = web3_connection_locks.lock();
+
+                    if self.web3_data_mutexes.get(&web3_chain_id).is_some() {
+                        log::debug!(
+                            "⛓️  Web3 connection for chain ID {} already exists, skipping creation.",
+                            web3_chain_id
+                        );
+                        continue
+                    }
+
+                    // Create a new mutex for the web3 data and store it in the map
+                    let mut web3_data = Web3Data::new();
+                    web3_data.web3 = Some(web3);
+                    let web3_data_mutex = Arc::new(Mutex::new(web3_data));
+                    self.web3_data_mutexes.insert(web3_chain_id, Arc::clone(&web3_data_mutex));
+                }
+            } else {
+                log::error!("💔 Error creating a web3 connection for URL: {}", eth_node_url);
             }
+        }
 
-            let web3_init_time = Instant::now();
-            log::info!("⛓️  avn-service: web3 initialisation start");
-
-            // TODO fixme
-            let eth_web3_url =
-                self.eth_node_urls.first().cloned().unwrap_or_else(|| "".to_string());
-            let web3 = setup_web3_connection(&eth_web3_url);
-            if web3.is_none() {
-                log::error!(
-                    "💔 Error creating a web3 connection. URL is not valid {:?}",
-                    &self.eth_node_urls
-                );
-                return Err(server_error("Error creating a web3 connection".to_string()))
-            }
-
-            log::info!("⏲️  web3 init task completed in: {:?}", web3_init_time.elapsed());
-            web3_data_mutex.web3 = web3;
-            Ok(())
-        } else {
-            Err(server_error("Failed to acquire web3 data mutex.".to_string()))
+        log::info!("⏲️  web3 init task completed in: {:?}", web3_init_time.elapsed());
+        match self.web3_data_mutexes.get(&chain_id) {
+            Some(web3_data_pointer) => {
+                log::debug!("⛓️  Found existing web3 connection for network: {}", chain_id);
+                Ok(Arc::clone(web3_data_pointer))
+            },
+            None => Err(server_error(
+                "Failed to acquire a valid web3 connection for the instance.".to_string(),
+            )),
         }
     }
 }
@@ -510,9 +548,10 @@ pub const SLEEP_TIME: u64 = 60;
 pub const RETRY_LIMIT: usize = 3;
 pub const RETRY_DELAY: u64 = 5;
 
-async fn initialize_web3_with_retries<Block, ClientT>(
-    config: &EthEventHandlerConfig<Block, ClientT>,
-) -> Result<(), AppError>
+async fn initialize_web3_connection_for_instance<Block, ClientT>(
+    config: &mut EthEventHandlerConfig<Block, ClientT>,
+    instance: &EthBridgeInstance,
+) -> Result<Arc<Mutex<Web3Data>>, AppError>
 where
     Block: BlockT,
     ClientT: BlockBackend<Block>
@@ -526,10 +565,10 @@ where
     let mut attempts = 0;
 
     while attempts < RETRY_LIMIT {
-        match config.initialise_web3().await {
-            Ok(_) => {
+        match config.initialise_web3(instance.network.chain_id()).await {
+            Ok(web3_lock) => {
                 log::info!("Successfully initialized web3 connection.");
-                return Ok(())
+                return Ok(web3_lock)
             },
             Err(e) => {
                 attempts += 1;
@@ -579,10 +618,7 @@ where
         + ApiExt<Block>
         + BlockBuilder<Block>,
 {
-    if let Err(e) = initialize_web3_with_retries(&config).await {
-        log::error!("Web3 initialization ultimately failed: {:?}", e);
-        return
-    }
+    let mut config = config;
 
     let events_registry = EventRegistry::new();
 
@@ -617,7 +653,7 @@ where
     log::info!("Current node author address set: {:?}", current_node_author);
 
     loop {
-        match query_runtime_and_process(&config, &current_node_author, &events_registry).await {
+        match query_runtime_and_process(&mut config, &current_node_author, &events_registry).await {
             Ok(_) => (),
             Err(e) => log::error!("{}", e),
         }
@@ -628,7 +664,7 @@ where
 }
 
 async fn query_runtime_and_process<Block, ClientT>(
-    config: &EthEventHandlerConfig<Block, ClientT>,
+    config: &mut EthEventHandlerConfig<Block, ClientT>,
     current_node_author: &CurrentNodeAuthor,
     events_registry: &EventRegistry,
 ) -> Result<(), String>
@@ -663,16 +699,22 @@ where
     };
     log::debug!("Eth-bridge instances found: {:?}", &instances);
     for (instance_id, instance) in instances {
-        // TODO check if there is a web3 connection for the instance chain_id. If not, skip the
-        // instance
-
         let result = &config
             .client
             .runtime_api()
             .query_active_block_range(config.client.info().best_hash, instance_id)
             .map_err(|err| format!("Failed to query bridge contract: {:?}", err))?;
 
-        let web3_data_mutex = config.web3_data_mutex.lock().await;
+        let web3_data_lock = match initialize_web3_connection_for_instance(config, &instance).await
+        {
+            Ok(web3_data) => web3_data,
+            Err(e) => {
+                log::error!("Failed to initialize web3 connection for instance: {:?}", e);
+                continue
+            },
+        };
+
+        let web3_data_mutex = web3_data_lock.lock().await;
         let web3_ref = match web3_data_mutex.web3.as_ref() {
             Some(web3) => web3,
             None => return Err("Web3 connection not set up".into()),

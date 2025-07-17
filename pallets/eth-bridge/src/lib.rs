@@ -148,6 +148,7 @@ const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
 const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
 pub const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
 pub const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
+pub const DEFAULT_ETH_RANGE: u32 = 20u32;
 
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
@@ -297,7 +298,7 @@ pub mod pallet {
 
     // The number of blocks that make up a range
     #[pallet::storage]
-    pub type EthBlockRangeSize<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery>;
+    pub type EthBlockRangeSize<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery, ConstU32<DEFAULT_ETH_RANGE>>;
 
     #[pallet::storage]
     pub type ProcessedEthereumEvents<T: Config<I>, I: 'static = ()> =

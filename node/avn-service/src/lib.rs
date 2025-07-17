@@ -91,7 +91,7 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
             let web3_init_time = Instant::now();
             log::info!("⛓️  avn-service: web3 initialisation start");
 
-            // TODO fixme
+            // Use the first rpc node for web3 operations
             let eth_web3_url =
                 self.eth_node_urls.first().cloned().unwrap_or_else(|| "".to_string());
 

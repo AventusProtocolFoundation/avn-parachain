@@ -334,9 +334,8 @@ where
                 keystore_path: keystore_path.clone(),
                 avn_port: avn_port.clone(),
                 eth_node_urls: avn_cli_config.ethereum_node_urls.clone(),
-                web3_data_mutex: Arc::new(Mutex::new(Web3Data::new())),
+                web3_data_mutexes: Default::default(),
                 client: client.clone(),
-                _block: Default::default(),
                 offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
                     transaction_pool.clone(),
                 ),
