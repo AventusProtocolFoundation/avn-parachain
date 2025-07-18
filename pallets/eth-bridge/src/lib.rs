@@ -298,7 +298,8 @@ pub mod pallet {
 
     // The number of blocks that make up a range
     #[pallet::storage]
-    pub type EthBlockRangeSize<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, ValueQuery, ConstU32<DEFAULT_ETH_RANGE>>;
+    pub type EthBlockRangeSize<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, u32, ValueQuery, ConstU32<DEFAULT_ETH_RANGE>>;
 
     #[pallet::storage]
     pub type ProcessedEthereumEvents<T: Config<I>, I: 'static = ()> =

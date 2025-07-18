@@ -62,7 +62,7 @@ pub struct AvnRunCmd {
     pub avn_port: Option<String>,
 
     /// URL for connecting with an ethereum node
-    #[arg(long = "ethereum-node-url", value_name = "ETH URL", num_args = 0..=5)]
+    #[arg(long = "ethereum-node-url", value_name = "ETH URL", num_args = 0..=32)]
     pub eth_node_urls: Vec<String>,
 }
 

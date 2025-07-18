@@ -58,7 +58,10 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for EthBridgeMigrations<T, I> {
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_input: Vec<u8>) -> Result<(), TryRuntimeError> {
-        frame_support::ensure!(EthBlockRangeSize::<T, I>::get() == DEFAULT_ETH_RANGE, "Block range not set");
+        frame_support::ensure!(
+            EthBlockRangeSize::<T, I>::get() == DEFAULT_ETH_RANGE,
+            "Block range not set"
+        );
 
         Ok(())
     }
