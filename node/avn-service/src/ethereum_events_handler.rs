@@ -494,7 +494,7 @@ where
         let web3_connection_locks = Mutex::new(());
         for eth_node_url in self.eth_node_urls.iter() {
             log::debug!("⛓️  Attempting to connect to Ethereum node: {}", eth_node_url);
-            let web3 = setup_web3_connection(&(eth_node_url.clone()).into());
+            let web3 = setup_web3_connection(eth_node_url);
             if let Some(web3) = web3 {
                 // If we have a valid web3 connection, check the chain_id
                 let web3_chain_id = get_chain_id_from_provider(&web3).await.map_err(|e| {
@@ -510,7 +510,7 @@ where
 
                 {
                     // Lock the mutex to ensure only one thread can alter the web3 connection
-                    let _ = web3_connection_locks.lock();
+                    let _lock = web3_connection_locks.lock();
 
                     if self.web3_data_mutexes.get(&web3_chain_id).is_some() {
                         log::debug!(
