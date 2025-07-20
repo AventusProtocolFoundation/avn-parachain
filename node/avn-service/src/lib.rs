@@ -25,10 +25,12 @@ pub mod extrinsic_utils;
 pub mod keystore_utils;
 pub mod merkle_tree_utils;
 pub mod summary_utils;
+pub mod timer;
 pub mod web3_utils;
 
 use crate::{
-    extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*, web3_utils::*,
+    extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*,
+    timer::Web3Timer, web3_utils::*,
 };
 
 pub use crate::web3_utils::{public_key_address, secret_key_address};
@@ -88,7 +90,7 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
                 return Ok(())
             }
 
-            let web3_init_time = Instant::now();
+            let _web3_init_time = Web3Timer::new("avn-service Web3 initialisation");
             log::info!("⛓️  avn-service: web3 initialisation start");
 
             let web3 = setup_web3_connection(&self.eth_node_url);
@@ -101,7 +103,6 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
                 return Err(server_error("Error creating a web3 connection".to_string()))
             }
 
-            log::info!("⏲️  web3 init task completed in: {:?}", web3_init_time.elapsed());
             web3_data_mutex.web3 = web3;
             Ok(())
         } else {

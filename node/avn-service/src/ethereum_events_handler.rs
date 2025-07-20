@@ -1,4 +1,4 @@
-use crate::{web3_utils, BlockT, ETH_FINALITY};
+use crate::{timer::Web3Timer, web3_utils, BlockT, ETH_FINALITY};
 use futures::{future::try_join_all, lock::Mutex};
 use node_primitives::AccountId;
 use pallet_eth_bridge_runtime_api::EthEventHandlerApi;
@@ -23,7 +23,7 @@ use sp_blockchain::HeaderBackend;
 use sp_core::{sr25519::Public, H256 as SpH256};
 use sp_keystore::Keystore;
 use sp_runtime::SaturatedConversion;
-use std::{collections::HashMap, time::Instant};
+use std::collections::HashMap;
 pub use std::{path::PathBuf, sync::Arc};
 use tide::Error as TideError;
 use tokio::time::{sleep, Duration};
@@ -439,23 +439,6 @@ fn parse_event_data(
         .parser)(data, topics)
 }
 
-pub struct Timer<'a> {
-    label: &'a str,
-    start: Instant,
-}
-
-impl<'a> Timer<'a> {
-    pub fn new(label: &'a str) -> Self {
-        Self { label, start: Instant::now() }
-    }
-}
-
-impl<'a> Drop for Timer<'a> {
-    fn drop(&mut self) {
-        println!("⏲️ {} took {:?}", self.label, self.start.elapsed());
-    }
-}
-
 pub struct EthEventHandlerConfig<Block: BlockT, ClientT>
 where
     Block: BlockT,
@@ -492,7 +475,7 @@ where
         &mut self,
         chain_id: u64,
     ) -> Result<Arc<Mutex<Web3Data>>, TideError> {
-        let _web3_init_time = Timer::new("Web3 Initialization");
+        let _web3_init_time = Web3Timer::new("ethereum-event-handler Web3 Initialization");
         log::info!("⛓️  avn-events-handler: web3 initialisation start");
 
         // No web3 connection found for network_id, try the rest of the URLs
