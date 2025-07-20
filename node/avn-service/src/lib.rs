@@ -414,7 +414,6 @@ where
     app.at("/eth/sign/:data_to_sign").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             log::info!("⛓️  avn-service: sign Request");
-            let secp = Secp256k1::new();
             let keystore_path = &req.state().keystore_path;
 
             let data_to_sign = req.param("data_to_sign")?;
@@ -428,21 +427,14 @@ where
                 data_to_sign,
                 hex::encode(hashed_message)
             );
-            let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
-            let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
 
-            let secret = SecretKey::from_slice(&my_priv_key)?;
-            let message = secp256k1::Message::from_digest_slice(&hashed_message)?;
-            let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
-
-            Ok(hex::encode(signature.encode()))
+            sign_digest_from_keystore(keystore_path, &hashed_message)
         },
     );
 
     app.at("/eth/sign_hashed_data/:hashed_data").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             log::info!("⛓️  avn-service: pre-hashed sign Request");
-            let secp = Secp256k1::new();
             let keystore_path = &req.state().keystore_path;
             let hash_str: &str = req.param("hashed_data")?;
 
@@ -450,19 +442,7 @@ where
                 server_error(format!("Error decoding hex string {:?}: {:?}", hash_str, e))
             })?);
 
-            log::info!(
-                "⛓️  avn-service: data to sign: {:?},\n hashed data to sign: {:?}",
-                hashed_data,
-                hex::encode(hashed_data)
-            );
-            let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
-            let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
-
-            let secret = SecretKey::from_slice(&my_priv_key)?;
-            let message = secp256k1::Message::from_digest_slice(&hashed_data[..])?;
-            let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
-
-            Ok(hex::encode(signature.encode()))
+            sign_digest_from_keystore(keystore_path, &hashed_data[..])
         },
     );
 
@@ -536,4 +516,18 @@ where
         .await
         .map_err(|e| log::error!("avn-service error: {}", e))
         .unwrap_or(());
+}
+
+fn sign_digest_from_keystore(keystore_path: &PathBuf, digest: &[u8]) -> Result<String, TideError> {
+    let secp = Secp256k1::new();
+    let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
+    let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
+
+    log::info!("⛓️  avn-service: digest to sign: {:?}", hex::encode(digest));
+
+    let secret = SecretKey::from_slice(&my_priv_key)?;
+    let message = secp256k1::Message::from_digest_slice(digest)?;
+    let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
+
+    Ok(hex::encode(signature.encode()))
 }
