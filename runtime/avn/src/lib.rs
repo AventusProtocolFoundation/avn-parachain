@@ -771,7 +771,6 @@ impl pallet_preimage::Config for Runtime {
 }
 const MAIN_ETH_BRIDGE_ID: u8 = 0u8;
 
-
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
     // TODO is there any effect in making this a struct?
