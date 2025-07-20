@@ -40,7 +40,7 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for EthBridgeMigrations<T, I> {
         );
         let mut consumed_weight = Weight::zero();
 
-        if onchain < 2 {
+        if EthBlockRangeSize::<T, I>::get() == 0 {
             consumed_weight.saturating_accrue(set_block_range_size::<T, I>());
         }
 
@@ -58,7 +58,10 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for EthBridgeMigrations<T, I> {
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_input: Vec<u8>) -> Result<(), TryRuntimeError> {
-        frame_support::ensure!(EthBlockRangeSize::<T, I>::get() == 20u32, "Block range not set");
+        frame_support::ensure!(
+            EthBlockRangeSize::<T, I>::get() == DEFAULT_ETH_RANGE,
+            "Block range not set"
+        );
 
         Ok(())
     }
@@ -71,16 +74,12 @@ pub fn set_block_range_size<T: Config<I>, I: 'static>() -> Weight {
         consumed_weight += weight;
     };
 
-    EthBlockRangeSize::<T, I>::put(20u32);
-    let v2_storage: StorageVersion = StorageVersion::new(2);
-
-    v2_storage.put::<Pallet<T, I>>();
+    EthBlockRangeSize::<T, I>::put(DEFAULT_ETH_RANGE);
 
     // 2 Storage writes
     add_weight(0, 2, Weight::from_parts(0 as u64, 0));
 
     log::info!("✅ BlockRangeSize set successfully");
-
     return consumed_weight + Weight::from_parts(25_000 as u64, 0)
 }
 

@@ -1,7 +1,6 @@
 use codec::{Decode, Encode};
 use futures::lock::Mutex;
 use hex::FromHex;
-use hex_literal::hex;
 use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
@@ -93,6 +92,7 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
             log::info!("⛓️  avn-service: web3 initialisation start");
 
             let web3 = setup_web3_connection(&self.eth_node_url);
+
             if web3.is_none() {
                 log::error!(
                     "💔 Error creating a web3 connection. URL is not valid {:?}",
