@@ -622,7 +622,7 @@ parameter_types! {
 
 pub struct ExternalNotifier;
 impl sp_avn_common::ExternalNotification<BlockNumber> for ExternalNotifier {
-    fn notify_summary_ready_for_validation(
+    fn on_summary_ready_for_validation(
         _instance_id: u8,
         _root_id: sp_avn_common::RootId<BlockNumber>,
         _root_hash: sp_core::H256,

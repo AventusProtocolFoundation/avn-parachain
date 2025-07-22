@@ -423,7 +423,7 @@ parameter_types! {
 
 pub struct MockExternalNotifier;
 impl sp_avn_common::ExternalNotification<BlockNumber> for MockExternalNotifier {
-    fn notify_summary_ready_for_validation(
+    fn on_summary_ready_for_validation(
         _instance_id: u8,
         _root_id: sp_avn_common::RootId<BlockNumber>,
         _root_hash: sp_core::H256,

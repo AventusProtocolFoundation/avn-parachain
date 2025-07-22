@@ -1266,7 +1266,7 @@ pub mod pallet {
                     if T::RequireExternalValidation::get() {
                         Self::set_summary_status(*root_id, SummaryStatus::ReadyForValidation)?;
 
-                        T::ExternalNotifier::notify_summary_ready_for_validation(
+                        T::ExternalNotifier::on_summary_ready_for_validation(
                             T::InstanceId::get(),
                             *root_id,
                             root_data.root_hash,
