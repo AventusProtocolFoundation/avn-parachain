@@ -9,7 +9,7 @@ use alloc::{
 };
 
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
+use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, RuntimeDebug, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
     hashing::{blake2_256, keccak_256},
@@ -486,5 +486,29 @@ pub trait ExternalNotification<BlockNumber: AtLeast32Bit> {
         instance: u8,
         root_id: RootId<BlockNumber>,
         root_hash: H256,
+    ) -> DispatchResult;
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Clone, Copy, RuntimeDebug)]
+pub enum SummarySourceInstance {
+    EthereumBridge,
+    AnchorStorage,
+}
+
+/// Generic voting status that can be used by any pallet requiring voting functionality.
+/// This provides a standard set of voting outcomes without coupling to specific pallet types.
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Clone, Copy, RuntimeDebug)]
+pub enum VotingStatus {
+    /// The vote/proposal was accepted by consensus
+    Accepted,
+    /// The vote/proposal was rejected by consensus  
+    Rejected,
+}
+
+
+pub trait VoteStatusNotifier<BlockNumber: AtLeast32Bit> {
+    fn on_voting_completed(
+        root_id: RootId<BlockNumber>,
+        status: VotingStatus,
     ) -> DispatchResult;
 }
