@@ -498,3 +498,19 @@ pub trait VoteStatusNotifier<BlockNumber: AtLeast32Bit> {
         status: VotingStatus,
     ) -> DispatchResult;
 }
+
+/// Trait for direct notification when summaries are ready for watchtower validation
+/// This allows summary pallets to notify watchtower pallets directly without events
+pub trait ExternalNotification<BlockNumber: AtLeast32Bit> {
+    /// Called when a summary is ready for watchtower validation
+    /// 
+    /// # Parameters
+    /// - `instance`: Instance ID to identify which summary pallet instance (e.g., 1 for Ethereum, 2 for Anchor)
+    /// - `root_id`: The root identifier containing block range and ingress counter
+    /// - `root_hash`: The submitted root hash that needs validation
+    fn on_summary_ready_for_validation(
+        instance: SummarySource,
+        root_id: RootId<BlockNumber>,
+        root_hash: H256,
+    ) -> DispatchResult;
+}
