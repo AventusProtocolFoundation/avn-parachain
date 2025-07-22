@@ -473,21 +473,7 @@ impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
     }
 }
 
-/// Trait for direct notification when summaries are ready for watchtower validation
-/// This allows summary pallets to notify watchtower pallets directly without events
-pub trait ExternalNotification<BlockNumber: AtLeast32Bit> {
-    /// Called when a summary is ready for watchtower validation
-    /// 
-    /// # Parameters
-    /// - `instance`: Instance ID to identify which summary pallet instance (e.g., 1 for Ethereum, 2 for Anchor)
-    /// - `root_id`: The root identifier containing block range and ingress counter
-    /// - `root_hash`: The submitted root hash that needs validation
-    fn notify_summary_ready_for_validation(
-        instance: u8,
-        root_id: RootId<BlockNumber>,
-        root_hash: H256,
-    ) -> DispatchResult;
-}
+pub type SummarySource = u8;
 
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Clone, Copy, RuntimeDebug)]
 pub enum SummarySourceInstance {
