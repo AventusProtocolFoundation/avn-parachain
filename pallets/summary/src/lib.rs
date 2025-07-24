@@ -1549,6 +1549,8 @@ where
                 sp_avn_common::SummaryStatus::Accepted,
             sp_avn_common::VotingStatus::Rejected =>
                 sp_avn_common::SummaryStatus::Rejected,
+            sp_avn_common::VotingStatus::PendingChallengeResolution =>
+                sp_avn_common::SummaryStatus::PendingChallengeResolution
         };
 
         if <Roots<T, pallet::Instance1>>::contains_key(root_id.range, root_id.ingress_counter) {
