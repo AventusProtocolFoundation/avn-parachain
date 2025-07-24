@@ -490,6 +490,8 @@ pub enum VotingStatus {
     Accepted,
     /// The vote/proposal was rejected by consensus  
     Rejected,
+
+    PendingChallengeResolution,
 }
 
 
