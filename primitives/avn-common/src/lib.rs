@@ -434,6 +434,7 @@ pub struct EthQueryResponse {
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum SummaryStatus {
+    PendingChallengeResolution,
     PendingValidatorVote,
     ReadyForValidation,
     Accepted,
