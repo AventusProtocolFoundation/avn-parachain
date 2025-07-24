@@ -1532,23 +1532,6 @@ impl<T: Config<I>, I: 'static> BridgeInterfaceNotification for Pallet<T, I> {
         Ok(())
     }
 }
-
-// impl<T: Config<I>, I: 'static> sp_avn_common::VoteStatusNotifier<BlockNumberFor<T>> for Pallet<T, I> {
-//     fn on_voting_completed(
-//         root_id: sp_avn_common::RootId<BlockNumberFor<T>>,
-//         status: sp_avn_common::VotingStatus,
-//     ) -> DispatchResult {
-//         let summary_status = match status {
-//             sp_avn_common::VotingStatus::Accepted =>
-//                 sp_avn_common::SummaryStatus::Accepted,
-//             sp_avn_common::VotingStatus::Rejected =>
-//                 sp_avn_common::SummaryStatus::Rejected,
-//         };
-        
-//         Self::set_summary_status_and_process(root_id, summary_status)        
-//     }
-// }
-
 pub struct RuntimeVoteStatusNotifier<T>(sp_std::marker::PhantomData<T>);
 
 impl<T> sp_avn_common::VoteStatusNotifier<BlockNumberFor<T>> for RuntimeVoteStatusNotifier<T>
