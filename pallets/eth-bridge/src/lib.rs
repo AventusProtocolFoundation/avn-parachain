@@ -87,6 +87,7 @@ use sp_avn_common::{
     event_types::{self, EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
 };
 
+use crate::tx::set_up_active_tx;
 use sp_core::{ecdsa, ConstU32, H256};
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
@@ -747,6 +748,14 @@ pub mod pallet {
                     let _ = EthereumEvents::<T, I>::clear(100, None);
                     let _ = EthereumEvents::<T, I>::clear(1, None);
                     Instance::<T, I>::put(instance);
+                    if let Some(tx) = ActiveRequest::<T, I>::get() {
+                        match tx.request {
+                            Request::Send(tx_data) => {
+                                set_up_active_tx::<T, I>(tx_data)?;
+                            },
+                            _ => {},
+                        }
+                    }
                 },
             }
 
