@@ -242,7 +242,7 @@ mod set_admin_setting {
         ext.execute_with(|| {
             let context = setup_context();
             let tx_id = add_new_send_request::<TestRuntime, ()>(
-                &BridgeContractMethod::RemoveAuthor.name_as_bytes().to_vec(),
+                &BridgeContractMethod::PublishRoot.name_as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
             )
@@ -277,7 +277,7 @@ mod set_admin_setting {
         ext.execute_with(|| {
             let context = setup_context();
             let _ = add_new_send_request::<TestRuntime, ()>(
-                &BridgeContractMethod::RemoveAuthor.name_as_bytes().to_vec(),
+                &BridgeContractMethod::PublishRoot.name_as_bytes().to_vec(),
                 &context.request_params,
                 &vec![],
             )
