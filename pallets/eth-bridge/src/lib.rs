@@ -351,10 +351,6 @@ pub mod pallet {
 
             STORAGE_VERSION.put::<Pallet<T, I>>();
             log::debug!("Setting EthBridgeInstance: {:?}", &self.instance);
-            assert!(
-                self.instance.is_valid(),
-                "Invalid EthBridgeInstance provided in genesis config",
-            );
             Instance::<T, I>::put(self.instance.clone());
         }
     }
