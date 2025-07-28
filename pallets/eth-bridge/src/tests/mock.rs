@@ -304,7 +304,7 @@ impl ExtBuilder {
             next_tx_id: 1,
             eth_block_range_size: 20u32,
             instance: sp_avn_common::eth::EthBridgeInstance {
-                network: sp_avn_common::eth::EthereumNetwork::Ethereum,
+                network: sp_avn_common::eth::EthereumNetwork::Sepolia,
                 bridge_contract: H160::from_slice(&[1u8; 20]),
                 name: b"TestBridge".to_vec().try_into().unwrap(),
                 version: b"1".to_vec().try_into().unwrap(),
