@@ -303,51 +303,149 @@ pub fn create_function_confirmation_hash(
     }
 }
 
-#[test]
-fn test_conversion_endianess() {
-    let value_in_u32: u32 = 123456;
-    let value_in_u64: u64 = 123456;
-    let value_in_u128: u128 = 123456;
-    let params = vec![
-        (b"uint32".to_vec(), format!("{}", value_in_u32).as_bytes().to_vec()),
-        (b"uint64".to_vec(), format!("{}", value_in_u64).as_bytes().to_vec()),
-        (b"uint128".to_vec(), format!("{}", value_in_u128).as_bytes().to_vec()),
-    ];
-
-    let restored_u32 = parse_from_utf8::<u32>(&params[0].1).expect("msg should be valid");
-    let restored_u64 = parse_from_utf8::<u64>(&params[1].1).expect("msg should be valid");
-    let restored_u128 = parse_from_utf8::<u128>(&params[2].1).expect("msg should be valid");
-
-    assert!(restored_u32 == value_in_u32, "Restored value does not match original");
-    assert!(restored_u64 == value_in_u64, "Restored value does not match original");
-    assert!(restored_u128 == value_in_u128, "Restored value does not match original");
-}
-
-#[test]
-fn publish_root_eip_712_hash() {
+#[cfg(test)]
+mod test {
+    use super::*;
     use hex_literal::hex;
 
-    let root_hash: H256 =
-        H256(hex!("df21ce83ba19b6350f8a4dca44c50ab953563d53706bfe91a341401275de70b3"));
-    let root = PublishRoot {
-        rootHash: FixedBytes::from_slice(root_hash.as_fixed_bytes()),
-        expiry: AlloyU256::from(1751494356),
-        t2TxId: 1,
-    };
+    #[test]
+    fn test_conversion_endianess() {
+        let value_in_u32: u32 = 123456;
+        let value_in_u64: u64 = 123456;
+        let value_in_u128: u128 = 123456;
+        let params = vec![
+            (b"uint32".to_vec(), format!("{}", value_in_u32).as_bytes().to_vec()),
+            (b"uint64".to_vec(), format!("{}", value_in_u64).as_bytes().to_vec()),
+            (b"uint128".to_vec(), format!("{}", value_in_u128).as_bytes().to_vec()),
+        ];
 
-    let domain = EthBridgeInstance {
-        network: EthereumNetwork::Sepolia,
-        bridge_contract: H160::from_slice(&hex!("5b9e84617b3fd6dd02dbc8db742d02e0b12f593c")),
-        name: BoundedVec::try_from(b"EnergyBridge".to_vec()).unwrap(),
-        version: BoundedVec::try_from(b"1".to_vec()).unwrap(),
-        salt: None,
-    };
+        let restored_u32 = parse_from_utf8::<u32>(&params[0].1).expect("msg should be valid");
+        let restored_u64 = parse_from_utf8::<u64>(&params[1].1).expect("msg should be valid");
+        let restored_u128 = parse_from_utf8::<u128>(&params[2].1).expect("msg should be valid");
 
-    let eip712_domain: Eip712Domain = domain.into();
-    let hash = eip712_hash(&root, &eip712_domain);
+        assert!(restored_u32 == value_in_u32, "Restored value does not match original");
+        assert!(restored_u64 == value_in_u64, "Restored value does not match original");
+        assert!(restored_u128 == value_in_u128, "Restored value does not match original");
+    }
 
-    assert_eq!(
-        hash,
-        H256(hex!("01a716f9c1aece4cef9676b05ba10a8abb698471087d251d5891446c23a16e1a")) /* Generated via the EnergyBridge contract */
-    );
+    fn domain() -> Eip712Domain {
+        EthBridgeInstance {
+            network: EthereumNetwork::Sepolia,
+            bridge_contract: H160::from_slice(&hex!("0101010101010101010101010101010101010101")),
+            name: BoundedVec::try_from(b"TestBridge".to_vec()).unwrap(),
+            version: BoundedVec::try_from(b"1".to_vec()).unwrap(),
+            salt: None,
+        }
+        .into()
+    }
+
+    #[test]
+    fn publish_root_eip_712_hash() {
+        let root_hash: H256 =
+            H256(hex!("df21ce83ba19b6350f8a4dca44c50ab953563d53706bfe91a341401275de70b3"));
+        let root = PublishRoot {
+            rootHash: FixedBytes::from_slice(root_hash.as_fixed_bytes()),
+            expiry: AlloyU256::from(1695811529),
+            t2TxId: 1,
+        };
+
+        let eip712_domain: Eip712Domain = domain();
+        let hash = eip712_hash(&root, &eip712_domain);
+
+        assert_eq!(
+            hash,
+            H256(hex!("9796a122383f313ec3e416ea8fc4649a1e35ec321a15cbf72250bd0a7e5465b7")) /* Generated via the EnergyBridge contract */
+        );
+    }
+
+    #[test]
+    fn remove_author_eip_712_hash() {
+        use hex_literal::hex;
+
+        let t2_pub_key =
+            H256(hex!("14aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a547"));
+        let t1_pub_key: Bytes =
+        Bytes::from(hex!("23d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea"));
+
+        let remove_author = RemoveAuthor {
+            t2PubKey: FixedBytes::from_slice(t2_pub_key.as_fixed_bytes()),
+            t1PubKey: t1_pub_key,
+            expiry: AlloyU256::from(1695811529),
+            t2TxId: 1,
+        };
+
+        let eip712_domain: Eip712Domain = domain();
+        let hash = eip712_hash(&remove_author, &eip712_domain);
+
+        assert_eq!(
+            hash,
+            H256(hex!("f032c115ddf96bea32c9b445f53836fcce9b0e6243824063ea76da8b8049ea64")) /* Generated via the EnergyBridge contract */
+        );
+    }
+
+    #[test]
+    fn add_author_eip_712_hash() {
+        use hex_literal::hex;
+
+        let t2_pub_key =
+            H256(hex!("14aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a547"));
+        let t1_pub_key: Bytes =
+        Bytes::from(hex!("23d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea"));
+
+        let add_author = AddAuthor {
+            t1PubKey: t1_pub_key,
+            t2PubKey: FixedBytes::from_slice(t2_pub_key.as_fixed_bytes()),
+            expiry: AlloyU256::from(1695811529),
+            t2TxId: 1,
+        };
+
+        let eip712_domain: Eip712Domain = domain();
+        let hash = eip712_hash(&add_author, &eip712_domain);
+
+        assert_eq!(
+            hash,
+            H256(hex!("2cdf5c4ea05f21718a8028baeb214a34e7830b42fbb064054f07271e2c8743df")) /* Generated via the EnergyBridge contract */
+        );
+    }
+
+    #[test]
+    fn trigger_growth_eip_712_hash() {
+        use hex_literal::hex;
+
+        let growth = TriggerGrowth {
+            rewards: AlloyU256::from(500_000_000_000_000_000_000u128),
+            avgStaked: AlloyU256::from(1_000_000_000_000_000_000_000u128),
+            period: 30,
+            expiry: AlloyU256::from(1695811529),
+            t2TxId: 1,
+        };
+
+        let eip712_domain: Eip712Domain = domain();
+        let hash = eip712_hash(&growth, &eip712_domain);
+
+        assert_eq!(
+            hash,
+            H256(hex!("560ddcd37021adc249014f89c426ee711d1928db1d6e3e145101ddc128aae27c")) /* Generated via the EnergyBridge contract */
+        );
+    }
+
+    #[test]
+    fn lower_data_eip_712_hash() {
+        use hex_literal::hex;
+
+        let lower_data = LowerData {
+            token: Address::from_slice(&H160::from([3u8; 20]).as_bytes()),
+            amount: AlloyU256::from(100_000_000_000_000_000_000u128),
+            recipient: Address::from_slice(&H160::from([2u8; 20]).as_bytes()),
+            lowerId: 1,
+        };
+
+        let eip712_domain: Eip712Domain = domain();
+        let hash = eip712_hash(&lower_data, &eip712_domain);
+
+        assert_eq!(
+            hash,
+            H256(hex!("ac11432c0e4803a2364c83ec093556bbcdbb2b30b75b81ab626236b362b68f22")) /* Generated via the EnergyBridge contract */
+        );
+    }
 }

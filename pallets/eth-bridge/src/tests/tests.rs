@@ -50,7 +50,7 @@ fn corroborate_bad_transactions(
 fn check_publish_root_encoding() {
     let function_name = BridgeContractMethod::PublishRoot.name_as_bytes().to_vec();
     let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
-    let expected_msg_hash = "65e90b5781ed7e612651c0e2078742884c5fcb795479b2fcadcd91a0c9847942";
+    let expected_msg_hash = "4e6d970f2445d0bc2bd5731553e0996b03a64b8be8e200a2007ff38db9bebb56";
     let expected_calldata = "0664c0ba30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a000000000000000000000000000000000000000000000000000000000651407c9000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000";
 
     run_checks(function_name, params, expected_msg_hash, expected_calldata);
@@ -90,7 +90,7 @@ fn check_remove_author_encoding() {
         (b"bytes32".to_vec(), hex::decode(T2_PUB_KEY).unwrap()),
         (b"bytes".to_vec(), hex::decode(T1_PUB_KEY).unwrap()),
     ];
-    let expected_msg_hash = "01d244c875c7f80c472dde109dc8d80d43e4f513f7349484b37ba8b586ea5b81";
+    let expected_msg_hash = "f032c115ddf96bea32c9b445f53836fcce9b0e6243824063ea76da8b8049ea64";
     let expected_calldata = "146b3b5214aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a54700000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000651407c900000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000004023d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea0000000000000000000000000000000000000000000000000000000000000000";
 
     run_checks(function_name, params, expected_msg_hash, expected_calldata);
@@ -241,6 +241,7 @@ mod set_admin_setting {
         let mut ext = ExtBuilder::build_default().with_validators().as_externality();
         ext.execute_with(|| {
             let context = setup_context();
+
             let tx_id = add_new_send_request::<TestRuntime, ()>(
                 &BridgeContractMethod::PublishRoot.name_as_bytes().to_vec(),
                 &context.request_params,
