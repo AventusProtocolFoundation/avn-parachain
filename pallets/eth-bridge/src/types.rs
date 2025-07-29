@@ -1,3 +1,5 @@
+use core::fmt;
+
 use crate::*;
 use sp_avn_common::{
     eth::EthereumId,
@@ -28,12 +30,40 @@ impl Request {
 }
 
 // Request data for a transaction we are sending to Ethereum
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, TypeInfo, MaxEncodedLen)]
 pub struct SendRequestData {
     pub tx_id: EthereumId,
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
     pub caller_id: BoundedVec<u8, CallerIdLimit>,
+}
+
+impl fmt::Debug for SendRequestData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let function_name = String::from_utf8_lossy(&self.function_name).to_string();
+
+        let formatted_params: Vec<(String, String)> = self
+            .params
+            .iter()
+            .map(|(ty, val)| {
+                let param_type = String::from_utf8_lossy(&ty);
+                match param_type.as_ref() {
+                    "address" | "bytes" | "bytes32" => {
+                        let hex_val = hex::encode(val);
+                        (param_type.to_string(), hex_val)
+                    },
+                    _ => (param_type.to_string(), String::from_utf8_lossy(val).to_string()),
+                }
+            })
+            .collect();
+
+        f.debug_struct("SendRequestData")
+            .field("tx_id", &self.tx_id)
+            .field("function_name (hex)", &function_name) // Custom output
+            .field("params (hex)", &formatted_params) // Custom output
+            .field("caller_id", &String::from_utf8_lossy(&self.caller_id).to_string())
+            .finish()
+    }
 }
 
 impl SendRequestData {
@@ -116,7 +146,7 @@ pub struct ActiveTransactionData<AccountId> {
 }
 
 // Transient data used for an active send transaction request
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Default, TypeInfo, MaxEncodedLen)]
 pub struct ActiveEthTransaction<AccountId> {
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub eth_tx_params:
@@ -129,6 +159,40 @@ pub struct ActiveEthTransaction<AccountId> {
     pub valid_tx_hash_corroborations: BoundedVec<AccountId, ConfirmationsLimit>,
     pub invalid_tx_hash_corroborations: BoundedVec<AccountId, ConfirmationsLimit>,
     pub tx_succeeded: bool,
+}
+
+impl<AccountId: fmt::Debug> fmt::Debug for ActiveEthTransaction<AccountId> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let function_name = String::from_utf8_lossy(&self.function_name).to_string();
+
+        let formatted_tx_params: Vec<(String, String)> = self
+            .eth_tx_params
+            .iter()
+            .map(|(ty, val)| {
+                let param_type = String::from_utf8_lossy(&ty);
+                match param_type.as_ref() {
+                    "address" | "bytes" | "bytes32" => {
+                        let hex_val = hex::encode(val);
+                        (param_type.to_string(), hex_val)
+                    },
+                    _ => (param_type.to_string(), String::from_utf8_lossy(val).to_string()),
+                }
+            })
+            .collect();
+
+        f.debug_struct("ActiveEthTransaction")
+            .field("function_name (hex)", &function_name)
+            .field("eth_tx_params (hex)", &formatted_tx_params)
+            .field("sender", &self.sender)
+            .field("expiry", &self.expiry)
+            .field("eth_tx_hash", &self.eth_tx_hash)
+            .field("success_corroborations", &self.success_corroborations.len())
+            .field("failure_corroborations", &self.failure_corroborations.len())
+            .field("valid_tx_hash_corroborations", &self.valid_tx_hash_corroborations.len())
+            .field("invalid_tx_hash_corroborations", &self.invalid_tx_hash_corroborations.len())
+            .field("tx_succeeded", &self.tx_succeeded)
+            .finish()
+    }
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
