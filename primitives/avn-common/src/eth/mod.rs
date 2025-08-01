@@ -294,6 +294,10 @@ pub fn create_function_confirmation_hash(
             let t1_pub_key: Bytes = Bytes::from(params[1].1.clone());
 
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
+            println!("t2_pub_key: {:?}", t2_pub_key);
+            println!("t1_pub_key: {:?}", t1_pub_key);
+            println!("expiry: {:?}", expiry);
+            println!("tx_id: {:?}", tx_id);
             let data =
                 RemoveAuthor { t2PubKey: t2_pub_key, t1PubKey: t1_pub_key, expiry, t2TxId: tx_id };
             return Ok(eip712_hash(&data, &domain))
@@ -437,7 +441,7 @@ mod test {
             token: Address::from_slice(&H160::from([3u8; 20]).as_bytes()),
             amount: AlloyU256::from(100_000_000_000_000_000_000u128),
             recipient: Address::from_slice(&H160::from([2u8; 20]).as_bytes()),
-            lowerId: 1,
+            lowerId: 10,
         };
 
         let eip712_domain: Eip712Domain = domain();
@@ -445,7 +449,27 @@ mod test {
 
         assert_eq!(
             hash,
-            H256(hex!("ac11432c0e4803a2364c83ec093556bbcdbb2b30b75b81ab626236b362b68f22")) /* Generated via the EnergyBridge contract */
+            H256(hex!("3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba")) /* Generated via the EnergyBridge contract */
         );
     }
+}
+
+pub fn concat_lower_data(
+    lower_id: u32,
+    token_id: H160,
+    amount: &u128,
+    t1_recipient: &H160,
+) -> LowerParams {
+    let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
+
+    // TokenId = 20 bytes
+    lower_params[0..20].copy_from_slice(&token_id.as_fixed_bytes()[0..20]);
+    // TokenBalance = 32 bytes
+    lower_params[36..52].copy_from_slice(&amount.to_be_bytes()[0..16]);
+    // T1Recipient = 20 bytes
+    lower_params[52..72].copy_from_slice(&t1_recipient.as_fixed_bytes()[0..20]);
+    // LowerId = 4 bytes
+    lower_params[72..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
+
+    return lower_params
 }

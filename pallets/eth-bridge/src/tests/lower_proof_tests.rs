@@ -3,16 +3,13 @@
 #![cfg(test)]
 
 use crate::{
-    eth::generate_encoded_lower_proof, mock::*, request::*, ActiveRequest, LowerId, Request,
-    RequestQueue, SettledTransactions, AVN,
+    eth::generate_encoded_lower_proof, mock::*, request::*, ActiveRequest, Request, RequestQueue,
+    SettledTransactions, AVN,
 };
 use codec::{alloc::sync::Arc, Decode, Encode};
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
-use sp_avn_common::{
-    eth::{LowerParams, PACKED_LOWER_PARAM_SIZE},
-    BridgeContractMethod,
-};
+use sp_avn_common::BridgeContractMethod;
 use sp_core::{
     ecdsa,
     offchain::testing::{OffchainState, PendingRequest, PoolState},
@@ -128,26 +125,6 @@ fn call_ocw_and_dispatch(
     let tx = pool_state.write().transactions.pop().unwrap();
     let tx = Extrinsic::decode(&mut &*tx).unwrap();
     tx.call.dispatch(frame_system::RawOrigin::None.into()).map(|_| ()).unwrap();
-}
-
-pub fn concat_lower_data(
-    lower_id: LowerId,
-    token_id: H160,
-    amount: &u128,
-    t1_recipient: &H160,
-) -> LowerParams {
-    let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
-
-    // TokenId = 20 bytes
-    lower_params[0..20].copy_from_slice(&token_id.as_fixed_bytes()[0..20]);
-    // TokenBalance = 32 bytes
-    lower_params[36..52].copy_from_slice(&amount.to_be_bytes()[0..16]);
-    // T1Recipient = 20 bytes
-    lower_params[52..72].copy_from_slice(&t1_recipient.as_fixed_bytes()[0..20]);
-    // LowerId = 4 bytes
-    lower_params[72..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
-
-    return lower_params
 }
 
 mod lower_proofs {
@@ -392,6 +369,8 @@ mod lower_proofs {
 }
 
 mod lower_proof_encoding {
+    use sp_avn_common::eth::concat_lower_data;
+
     use super::*;
 
     #[test]
@@ -403,14 +382,14 @@ mod lower_proof_encoding {
             .as_externality_with_state();
 
         ext.execute_with(|| {
-            let lower_id = 0u32;
-            let token_id = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
-            let amount = 10u128;
-            let t1_recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
+            let lower_id = 10u32;
+            let token_id = H160::from([3u8; 20]);
+            let amount = 100_000_000_000_000_000_000u128;
+            let t1_recipient = H160::from([2u8; 20]);
 
             let params = concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
             let expected_msg_hash =
-                "03c73bbc2756811e3d48189657f4b6e63447a7115eced7e172731cc8c7768e09";
+                "3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba";
 
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");

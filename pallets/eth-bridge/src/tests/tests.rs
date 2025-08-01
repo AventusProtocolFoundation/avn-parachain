@@ -1,6 +1,9 @@
 // Copyright 2023 Aventus Network Systems (UK) Ltd.
 
 #![cfg(test)]
+use alloy_primitives::{Bytes, B256, U256};
+use alloy_sol_types::{sol, SolCall};
+
 use crate::{eth::generate_send_calldata, mock::*, request::*, *};
 use frame_support::{
     assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo, error::BadOrigin,
@@ -9,11 +12,45 @@ use sp_avn_common::{eth::EthereumId, BridgeContractMethod};
 use sp_runtime::{testing::UintAuthorityId, DispatchError};
 
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
-const REWARDS: &[u8] = b"15043665996000000000";
-const AVG_STAKED: &[u8] = b"9034532443555111110000";
-const PERIOD: &[u8] = b"3";
+const REWARDS: u128 = 500_000_000_000_000_000_000;
+const AVG_STAKED: u128 = 1_000_000_000_000_000_000_000;
+const PERIOD: u32 = 3;
 const T2_PUB_KEY: &str = "14aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a547";
 const T1_PUB_KEY: &str = "23d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea";
+
+sol! {
+    function addAuthor(
+        bytes calldata t1PubKey,
+        bytes32 t2PubKey,
+        uint256 expiry,
+        uint32 t2TxId,
+        bytes calldata confirmations
+    ) external;
+
+    function removeAuthor(
+        bytes32 t2PubKey,
+        bytes t1PubKey,
+        uint256 expiry,
+        uint32 t2TxId,
+        bytes confirmations
+    ) external;
+
+    function publishRoot(
+        bytes32 rootHash,
+        uint256 expiry,
+        uint32 t2TxId,
+        bytes calldata confirmations
+    ) external;
+
+    function triggerGrowth(
+        uint256 rewards,
+        uint256 avgStaked,
+        uint32 period,
+        uint256 expiry,
+        uint32 t2TxId,
+        bytes calldata confirmations
+    );
+}
 
 fn corroborate_good_transactions(
     tx_id: EthereumId,
@@ -51,23 +88,50 @@ fn check_publish_root_encoding() {
     let function_name = BridgeContractMethod::PublishRoot.name_as_bytes().to_vec();
     let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
     let expected_msg_hash = "4e6d970f2445d0bc2bd5731553e0996b03a64b8be8e200a2007ff38db9bebb56";
-    let expected_calldata = "0664c0ba30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a000000000000000000000000000000000000000000000000000000000651407c9000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000000";
+    let expected_calldata = |expected_expiry: u64| -> String {
+        let confirmations = vec![];
+        hex::encode(
+            publishRootCall {
+                rootHash: B256::from_slice(&hex::decode(ROOT_HASH).unwrap()[..]),
+                expiry: U256::from(expected_expiry),
+                t2TxId: 1,
+                confirmations: confirmations.into(),
+            }
+            .abi_encode(),
+        )
+        .to_ascii_lowercase()
+    };
 
-    run_checks(function_name, params, expected_msg_hash, expected_calldata);
+    run_checks(function_name, params, expected_msg_hash, &expected_calldata);
 }
 
 #[test]
 fn check_trigger_growth_encoding() {
     let function_name = BridgeContractMethod::TriggerGrowth.name_as_bytes().to_vec();
     let params = vec![
-        (b"uint128".to_vec(), REWARDS.to_vec()),
-        (b"uint128".to_vec(), AVG_STAKED.to_vec()),
-        (b"uint32".to_vec(), PERIOD.to_vec()),
+        (b"uint256".to_vec(), format!("{}", REWARDS).as_bytes().to_vec()),
+        (b"uint256".to_vec(), format!("{}", AVG_STAKED).as_bytes().to_vec()),
+        (b"uint32".to_vec(), format!("{}", PERIOD).as_bytes().to_vec()),
     ];
-    let expected_msg_hash = "1b45b1eed67d67a0bb55ea988e7a386fc0cfe2e6a7b391485dec22cbd08e5d67";
-    let expected_calldata = "59ef631d000000000000000000000000000000000000000000000000d0c5d684c333f8000000000000000000000000000000000000000000000001e9c352fe68b4400570000000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000651407c9000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000000";
+    let expected_msg_hash = "0ab8ebf8d3d8b7e38643e6eab2e47f065be1c0c583c1190af7c36e425029d484";
 
-    run_checks(function_name, params, expected_msg_hash, expected_calldata);
+    let expected_calldata = |expected_expiry: u64| -> String {
+        let confirmations = vec![];
+        hex::encode(
+            triggerGrowthCall {
+                rewards: U256::from(REWARDS),
+                avgStaked: U256::from(AVG_STAKED),
+                period: PERIOD,
+                expiry: U256::from(expected_expiry),
+                t2TxId: 1,
+                confirmations: confirmations.into(),
+            }
+            .abi_encode(),
+        )
+        .to_ascii_lowercase()
+    };
+
+    run_checks(function_name, params, expected_msg_hash, &expected_calldata);
 }
 
 #[test]
@@ -77,10 +141,24 @@ fn check_add_author_encoding() {
         (b"bytes".to_vec(), hex::decode(T1_PUB_KEY).unwrap()),
         (b"bytes32".to_vec(), hex::decode(T2_PUB_KEY).unwrap()),
     ];
-    let expected_msg_hash = "bad82d9066614ce5ee4c86a8858c6adebbff57f81200ca2ad0a7f400ff388ad4";
-    let expected_calldata = "b685115200000000000000000000000000000000000000000000000000000000000000a014aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a54700000000000000000000000000000000000000000000000000000000651407c900000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000004023d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea0000000000000000000000000000000000000000000000000000000000000000";
+    let expected_msg_hash = "2cdf5c4ea05f21718a8028baeb214a34e7830b42fbb064054f07271e2c8743df";
 
-    run_checks(function_name, params, expected_msg_hash, expected_calldata);
+    let expected_calldata = |expected_expiry: u64| -> String {
+        let confirmations = vec![];
+        hex::encode(
+            addAuthorCall {
+                t1PubKey: Bytes::from(hex::decode(T1_PUB_KEY).unwrap()),
+                t2PubKey: B256::from_slice(&hex::decode(T2_PUB_KEY).unwrap()[..]),
+                expiry: U256::from(expected_expiry),
+                t2TxId: 1,
+                confirmations: confirmations.into(),
+            }
+            .abi_encode(),
+        )
+        .to_ascii_lowercase()
+    };
+
+    run_checks(function_name, params, expected_msg_hash, &expected_calldata);
 }
 
 #[test]
@@ -90,17 +168,32 @@ fn check_remove_author_encoding() {
         (b"bytes32".to_vec(), hex::decode(T2_PUB_KEY).unwrap()),
         (b"bytes".to_vec(), hex::decode(T1_PUB_KEY).unwrap()),
     ];
-    let expected_msg_hash = "f032c115ddf96bea32c9b445f53836fcce9b0e6243824063ea76da8b8049ea64";
-    let expected_calldata = "146b3b5214aeac90dbd3573458f9e029eb2de122ee94f2f0bc5ee4b6c6c5839894f1a54700000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000651407c900000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000004023d79f6492dddecb436333a5e7a4cfcc969f568e01283fa2964aae15327fb8a3b685a4d0f3ef9b3c2adb20f681dbc74b7f82c1cf8438d37f2c10e9c79591e9ea0000000000000000000000000000000000000000000000000000000000000000";
 
-    run_checks(function_name, params, expected_msg_hash, expected_calldata);
+    let expected_calldata = |expected_expiry: u64| -> String {
+        let confirmations = vec![];
+        hex::encode(
+            removeAuthorCall {
+                t2PubKey: B256::from_slice(&hex::decode(T2_PUB_KEY).unwrap()[..]),
+                t1PubKey: Bytes::from(hex::decode(T1_PUB_KEY).unwrap()),
+                expiry: U256::from(expected_expiry),
+                t2TxId: 1,
+                confirmations: confirmations.into(),
+            }
+            .abi_encode(),
+        )
+        .to_ascii_lowercase()
+    };
+
+    let expected_msg_hash = "f032c115ddf96bea32c9b445f53836fcce9b0e6243824063ea76da8b8049ea64";
+
+    run_checks(function_name, params, expected_msg_hash, &expected_calldata);
 }
 
 fn run_checks(
     function_name: Vec<u8>,
     params: Vec<(Vec<u8>, Vec<u8>)>,
     expected_msg_hash: &str,
-    expected_calldata: &str,
+    expected_calldata: &dyn Fn(u64) -> String,
 ) {
     let mut ext = ExtBuilder::build_default()
         .with_validators()
@@ -124,9 +217,11 @@ fn run_checks(
         let msg_hash = hex::encode(active_tx.confirmation.msg_hash);
         assert_eq!(msg_hash, expected_msg_hash);
 
+        println!("--- active_tx: {:#?}", active_tx);
+
         let calldata = generate_send_calldata::<TestRuntime, ()>(&active_tx).unwrap();
         let calldata = hex::encode(calldata);
-        assert_eq!(calldata, expected_calldata);
+        assert_eq!(calldata, expected_calldata(expected_expiry));
     })
 }
 
