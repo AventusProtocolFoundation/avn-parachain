@@ -727,7 +727,7 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        let lower_params = concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
+        let lower_params = concat_lower_data(lower_id, token_id.into(), &amount, &t1_recipient);
 
         <LowersPendingProof<T>>::insert(lower_id, &lower_params);
         T::BridgeInterface::generate_lower_proof(lower_id, &lower_params, PALLET_ID.to_vec())?;
