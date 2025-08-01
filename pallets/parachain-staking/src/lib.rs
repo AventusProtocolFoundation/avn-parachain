@@ -2419,9 +2419,9 @@ pub mod pallet {
 
             let function_name: &[u8] = BridgeContractMethod::TriggerGrowth.name_as_bytes();
             let params = vec![
-                (b"uint128".to_vec(), format!("{}", rewards_in_period_128).as_bytes().to_vec()),
+                (b"uint256".to_vec(), format!("{}", rewards_in_period_128).as_bytes().to_vec()),
                 (
-                    b"uint128".to_vec(),
+                    b"uint256".to_vec(),
                     format!("{}", average_staked_in_period_128).as_bytes().to_vec(),
                 ),
                 (b"uint32".to_vec(), format!("{}", growth_period).as_bytes().to_vec()),

@@ -7973,6 +7973,8 @@ dependencies = [
 name = "pallet-eth-bridge"
 version = "6.11.1"
 dependencies = [
+ "alloy-primitives",
+ "alloy-sol-types",
  "ethabi 13.0.0",
  "frame-benchmarking",
  "frame-support",

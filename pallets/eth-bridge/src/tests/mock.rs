@@ -8,7 +8,7 @@ use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{
-    eth::{EthereumId, LowerParams},
+    eth::{concat_lower_data, EthereumId, LowerParams},
     event_discovery::filters::AllPrimaryEventsFilter,
     event_types::EthEvent,
     BridgeContractMethod,
@@ -182,6 +182,9 @@ pub fn setup_context() -> Context {
 
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(primary_validator_id)]);
 
+    let lower_id = 10u32;
+    let lower_params = create_lower_params(lower_id);
+
     Context {
         eth_tx_hash,
         test_signature,
@@ -192,14 +195,22 @@ pub fn setup_context() -> Context {
         confirmation_signature,
         request_function_name: BridgeContractMethod::PublishRoot.name_as_bytes().to_vec(),
         request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
-        lower_params: [1u8; 76],
+        lower_params,
         finalised_block_vec,
-        lower_id: 10u32,
+        lower_id,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "5e3b5c3e75a6102ad55b13b20433658c8885394fe599b4ba859d34449315169c"
+        expected_lower_msg_hash: "3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba"
             .to_string(),
     }
+}
+
+fn create_lower_params(lower_id: u32) -> LowerParams {
+    let token_id = H160::from([3u8; 20]);
+    let amount = 100_000_000_000_000_000_000u128;
+    let t1_recipient = H160::from([2u8; 20]);
+
+    concat_lower_data(lower_id, token_id, &amount, &t1_recipient)
 }
 
 pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 8]) {
