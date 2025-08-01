@@ -290,6 +290,30 @@ pub mod pallet {
             )
             .into())
         }
+
+        #[pallet::call_index(2)]
+        #[pallet::weight(Weight::zero())]
+        #[transactional]
+        pub fn rotate_validator_ethereum_key(
+            origin: OriginFor<T>,
+            author_account_id: T::AccountId,
+            author_old_eth_public_key: ecdsa::Public,
+            author_new_eth_public_key: ecdsa::Public,
+        ) -> DispatchResult {
+            let _ = ensure_root(origin)?;
+
+            ensure!(
+                !<EthereumPublicKeys<T>>::contains_key(&author_new_eth_public_key),
+                Error::<T>::ValidatorEthKeyAlreadyExists
+            );
+
+            let author_id = EthereumPublicKeys::<T>::take(&author_old_eth_public_key)
+                .ok_or(Error::<T>::ValidatorNotFound)?;
+            ensure!(author_id == author_account_id, Error::<T>::ValidatorNotFound);
+
+            EthereumPublicKeys::<T>::insert(author_new_eth_public_key, author_id);
+            return Ok(())
+        }
     }
 }
 
