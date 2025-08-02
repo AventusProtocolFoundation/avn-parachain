@@ -603,3 +603,156 @@ mod add_validator {
         }
     }
 }
+
+mod rotate_validator_ethereum_key {
+    use sp_core::ByteArray;
+
+    use super::*;
+
+    struct RotateValidatorEthKeyContext {
+        validator: AccountId,
+        validator_eth_old_public_key: ecdsa::Public,
+        validator_eth_new_public_key: ecdsa::Public,
+    }
+
+    impl Default for RotateValidatorEthKeyContext {
+        fn default() -> Self {
+            let validator = validator_id_1();
+            Balances::make_free_balance_be(&validator, 100000);
+
+            RotateValidatorEthKeyContext {
+                validator,
+                validator_eth_old_public_key: ecdsa::Public::from_slice(
+                    &COLLATOR_1_ETHEREUM_PUPLIC_KEY,
+                )
+                .unwrap(),
+                validator_eth_new_public_key: ecdsa::Public::from_raw(hex!(
+                    "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
+                )),
+            }
+        }
+    }
+
+    #[test]
+    fn succeeds_with_good_parameters() {
+        let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+        ext.execute_with(|| {
+            let context = &RotateValidatorEthKeyContext::default();
+
+            assert_ok!(ValidatorManager::rotate_validator_ethereum_key(
+                RuntimeOrigin::root(),
+                context.validator.clone(),
+                context.validator_eth_old_public_key.clone(),
+                context.validator_eth_new_public_key.clone()
+            ));
+
+            assert_eq!(
+                true,
+                ValidatorManager::validator_account_ids().unwrap().contains(&context.validator)
+            );
+            assert_eq!(
+                ValidatorManager::get_validator_by_eth_public_key(
+                    context.validator_eth_new_public_key.clone()
+                )
+                .unwrap(),
+                context.validator
+            );
+        });
+    }
+
+    mod fails_when {
+        use super::*;
+
+        #[test]
+        fn extrinsic_is_unsigned() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateValidatorEthKeyContext::default();
+
+                assert_noop!(
+                    ValidatorManager::rotate_validator_ethereum_key(
+                        RuntimeOrigin::none(),
+                        context.validator.clone(),
+                        context.validator_eth_old_public_key.clone(),
+                        context.validator_eth_new_public_key.clone()
+                    ),
+                    BadOrigin
+                );
+            });
+        }
+
+        #[test]
+        fn validator_eth_key_already_exists() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateValidatorEthKeyContext::default();
+
+                assert_noop!(
+                    ValidatorManager::rotate_validator_ethereum_key(
+                        RuntimeOrigin::root(),
+                        context.validator.clone(),
+                        context.validator_eth_old_public_key.clone(),
+                        ecdsa::Public::from_slice(&COLLATOR_2_ETHEREUM_PUPLIC_KEY).unwrap()
+                    ),
+                    Error::<TestRuntime>::ValidatorEthKeyAlreadyExists
+                );
+            });
+        }
+
+        #[test]
+        fn validator_eth_key_unchanged() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateValidatorEthKeyContext::default();
+
+                assert_noop!(
+                    ValidatorManager::rotate_validator_ethereum_key(
+                        RuntimeOrigin::root(),
+                        context.validator.clone(),
+                        context.validator_eth_old_public_key.clone(),
+                        context.validator_eth_old_public_key.clone(),
+                    ),
+                    Error::<TestRuntime>::ValidatorEthKeyAlreadyExists
+                );
+            });
+        }
+
+        #[test]
+        fn validator_not_found() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateValidatorEthKeyContext::default();
+
+                let no_validator = TestAccount::new([6u8; 32]).account_id();
+
+                assert_noop!(
+                    ValidatorManager::rotate_validator_ethereum_key(
+                        RuntimeOrigin::root(),
+                        no_validator,
+                        context.validator_eth_old_public_key.clone(),
+                        context.validator_eth_new_public_key.clone()
+                    ),
+                    Error::<TestRuntime>::ValidatorNotFound
+                );
+            });
+        }
+
+        #[test]
+        fn validator_keys_missmatch() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateValidatorEthKeyContext::default();
+
+                assert_noop!(
+                    ValidatorManager::rotate_validator_ethereum_key(
+                        RuntimeOrigin::root(),
+                        validator_id_5(),
+                        context.validator_eth_old_public_key.clone(),
+                        context.validator_eth_new_public_key.clone()
+                    ),
+                    Error::<TestRuntime>::ValidatorNotFound
+                );
+            });
+        }
+    }
+}

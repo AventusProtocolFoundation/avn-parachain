@@ -306,6 +306,10 @@ pub mod pallet {
                 !<EthereumPublicKeys<T>>::contains_key(&author_new_eth_public_key),
                 Error::<T>::ValidatorEthKeyAlreadyExists
             );
+            ensure!(
+                author_old_eth_public_key != author_new_eth_public_key,
+                Error::<T>::ValidatorEthKeyAlreadyExists
+            );
 
             let author_id = EthereumPublicKeys::<T>::take(&author_old_eth_public_key)
                 .ok_or(Error::<T>::ValidatorNotFound)?;

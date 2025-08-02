@@ -562,3 +562,154 @@ mod bridge_interface_notification {
         }
     }
 }
+
+mod rotate_author_ethereum_key {
+    use sp_core::ByteArray;
+
+    use super::*;
+
+    struct RotateAuthorEthKeyContext {
+        author: AccountId,
+        author_eth_old_public_key: ecdsa::Public,
+        author_eth_new_public_key: ecdsa::Public,
+    }
+
+    impl Default for RotateAuthorEthKeyContext {
+        fn default() -> Self {
+            let author = author_id_1();
+            Balances::make_free_balance_be(&author, 100000);
+
+            RotateAuthorEthKeyContext {
+                author,
+                author_eth_old_public_key: ecdsa::Public::from_slice(&AUTHOR_1_ETHEREUM_PUPLIC_KEY)
+                    .unwrap(),
+                author_eth_new_public_key: ecdsa::Public::from_raw(hex!(
+                    "02407b0d9f41148bbe3b6c7d4a62585ae66cc32a707441197fa5453abfebd31d57"
+                )),
+            }
+        }
+    }
+
+    #[test]
+    fn succeeds_with_good_parameters() {
+        let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+        ext.execute_with(|| {
+            let context = &RotateAuthorEthKeyContext::default();
+
+            assert_ok!(AuthorsManager::rotate_author_ethereum_key(
+                RuntimeOrigin::root(),
+                context.author.clone(),
+                context.author_eth_old_public_key.clone(),
+                context.author_eth_new_public_key.clone()
+            ));
+
+            assert_eq!(
+                true,
+                AuthorsManager::author_account_ids().unwrap().contains(&context.author)
+            );
+            assert_eq!(
+                AuthorsManager::get_author_by_eth_public_key(
+                    context.author_eth_new_public_key.clone()
+                )
+                .unwrap(),
+                context.author
+            );
+        });
+    }
+
+    mod fails_when {
+        use super::*;
+
+        #[test]
+        fn extrinsic_is_unsigned() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateAuthorEthKeyContext::default();
+
+                assert_noop!(
+                    AuthorsManager::rotate_author_ethereum_key(
+                        RuntimeOrigin::none(),
+                        context.author.clone(),
+                        context.author_eth_old_public_key.clone(),
+                        context.author_eth_new_public_key.clone()
+                    ),
+                    BadOrigin
+                );
+            });
+        }
+
+        #[test]
+        fn author_eth_key_already_exists() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateAuthorEthKeyContext::default();
+
+                assert_noop!(
+                    AuthorsManager::rotate_author_ethereum_key(
+                        RuntimeOrigin::root(),
+                        context.author.clone(),
+                        context.author_eth_old_public_key.clone(),
+                        ecdsa::Public::from_slice(&AUTHOR_2_ETHEREUM_PUPLIC_KEY).unwrap()
+                    ),
+                    Error::<TestRuntime>::AuthorEthKeyAlreadyExists
+                );
+            });
+        }
+
+        #[test]
+        fn author_eth_key_unchanged() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateAuthorEthKeyContext::default();
+
+                assert_noop!(
+                    AuthorsManager::rotate_author_ethereum_key(
+                        RuntimeOrigin::root(),
+                        context.author.clone(),
+                        context.author_eth_old_public_key.clone(),
+                        context.author_eth_old_public_key.clone(),
+                    ),
+                    Error::<TestRuntime>::AuthorEthKeyAlreadyExists
+                );
+            });
+        }
+
+        #[test]
+        fn author_not_found() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateAuthorEthKeyContext::default();
+
+                let no_author = TestAccount::new([6u8; 32]).account_id();
+
+                assert_noop!(
+                    AuthorsManager::rotate_author_ethereum_key(
+                        RuntimeOrigin::root(),
+                        no_author,
+                        context.author_eth_old_public_key.clone(),
+                        context.author_eth_new_public_key.clone()
+                    ),
+                    Error::<TestRuntime>::AuthorNotFound
+                );
+            });
+        }
+
+        #[test]
+        fn author_keys_missmatch() {
+            let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+            ext.execute_with(|| {
+                let context = &RotateAuthorEthKeyContext::default();
+
+                assert_noop!(
+                    AuthorsManager::rotate_author_ethereum_key(
+                        RuntimeOrigin::root(),
+                        author_id_5(),
+                        context.author_eth_old_public_key.clone(),
+                        context.author_eth_new_public_key.clone()
+                    ),
+                    Error::<TestRuntime>::AuthorNotFound
+                );
+            });
+        }
+    }
+}
