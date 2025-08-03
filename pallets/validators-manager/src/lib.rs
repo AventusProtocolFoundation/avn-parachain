@@ -292,7 +292,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::rotate_validator_ethereum_key())]
         #[transactional]
         pub fn rotate_validator_ethereum_key(
             origin: OriginFor<T>,

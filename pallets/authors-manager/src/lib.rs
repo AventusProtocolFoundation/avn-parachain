@@ -258,7 +258,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::zero())]
+        #[pallet::weight(<T as Config>::WeightInfo::rotate_author_ethereum_key())]
         #[transactional]
         pub fn rotate_author_ethereum_key(
             origin: OriginFor<T>,
