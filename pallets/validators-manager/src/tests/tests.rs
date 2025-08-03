@@ -663,7 +663,6 @@ mod rotate_validator_ethereum_key {
                 ),
                 None
             );
-
         });
     }
 
