@@ -251,6 +251,23 @@ benchmarks! {
         assert_last_event::<T>(Event::<T>::AuthorDeregistered{ author_id: caller_account.clone() }.into());
         assert_eq!(true, AuthorActions::<T>::contains_key(caller_account, <TotalIngresses<T>>::get()));
     }
+
+    rotate_author_ethereum_key {
+    setup_additional_authors::<T>(2);
+    let (account_id, _, rotating_eth_key) = generate_resigning_author_account_details::<T>();
+    advance_session::<T>();
+    advance_session::<T>();
+
+    let eth_new_public_key: ecdsa::Public = Public::from_raw(NEW_AUTHOR_ETHEREUM_PUBLIC_KEY);
+
+    assert!(EthereumPublicKeys::<T>::get(&rotating_eth_key).is_some());
+    assert!(EthereumPublicKeys::<T>::get(&eth_new_public_key).is_none());
+
+    }: _(RawOrigin::Root, account_id, rotating_eth_key.clone(), eth_new_public_key.clone())
+    verify {
+        assert!(EthereumPublicKeys::<T>::get(&eth_new_public_key).is_some());
+        assert!(EthereumPublicKeys::<T>::get(&rotating_eth_key).is_none());
+    }
 }
 
 impl_benchmark_test_suite!(
