@@ -657,6 +657,13 @@ mod rotate_validator_ethereum_key {
                 .unwrap(),
                 context.validator
             );
+            assert_eq!(
+                ValidatorManager::get_validator_by_eth_public_key(
+                    context.validator_eth_old_public_key.clone()
+                ),
+                None
+            );
+
         });
     }
 

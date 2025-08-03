@@ -614,6 +614,13 @@ mod rotate_author_ethereum_key {
                 .unwrap(),
                 context.author
             );
+
+            assert_eq!(
+                AuthorsManager::get_author_by_eth_public_key(
+                    context.author_eth_old_public_key.clone()
+                ),
+                None
+            );
         });
     }
 
