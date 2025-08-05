@@ -1295,8 +1295,7 @@ impl<
     }
     /// Check if the era should be updated
     pub fn should_update(&self, now: B) -> bool {
-        // now - self.first >= self.length.into()
-        false
+        now - self.first >= self.length.into()
     }
     /// New era
     pub fn update(&mut self, now: B) {

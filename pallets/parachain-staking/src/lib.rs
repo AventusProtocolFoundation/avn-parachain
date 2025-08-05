@@ -1670,7 +1670,7 @@ pub mod pallet {
             era.update(block_number);
 
             // pay all stakers for T::RewardPaymentDelay eras ago
-            Self::prepare_staking_payouts(era.current);
+            // Self::prepare_staking_payouts(era.current); // Rewards will stop being paid
 
             // select top collator candidates for next era
             let (collator_count, nomination_count, total_staked) =
