@@ -22,7 +22,7 @@ use crate::{
 };
 use codec::Encode;
 use frame_support::{assert_err, assert_noop, assert_ok};
-use pallet_parachain_staking::Weight;
+use frame_support::pallet_prelude::Weight;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use sp_core::{sr25519, Pair};
 use sp_runtime::{

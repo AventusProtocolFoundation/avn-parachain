@@ -38,7 +38,7 @@ substrate-test-utils = { git = "https://github.com/paritytech/polkadot-sdk", bra
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0", features=["insecure_zero_ed"] }
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
-pallet-parachain-staking = { path = "../parachain-staking" }
+# pallet-parachain-staking = { path = "../parachain-staking" }
 pallet-session = { features = [
 	"historical",
 ], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0", default-features = false }

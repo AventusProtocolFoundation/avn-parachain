@@ -44,7 +44,6 @@ use sp_runtime::{
 };
 
 use hex_literal::hex;
-use pallet_parachain_staking::{self as parachain_staking};
 use pallet_session as session;
 use std::{cell::RefCell, sync::Arc};
 
@@ -75,7 +74,6 @@ frame_support::construct_runtime!(
         TokenManager: token_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-        ParachainStaking: parachain_staking::{Pallet, Call, Storage, Config<T>, Event<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
@@ -100,7 +98,6 @@ impl token_manager::Config for TestRuntime {
     type Signature = Signature;
     type AvnTreasuryPotId = AvnTreasuryPotId;
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
-    type OnGrowthLiftedHandler = ParachainStaking;
     type WeightInfo = ();
     type Scheduler = Scheduler;
     type Preimages = Preimage;
@@ -224,45 +221,46 @@ impl session::Config for TestRuntime {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const MinBlocksPerEra: u32 = 2;
-    pub const DefaultBlocksPerEra: u32 = 2;
-    pub const MinSelectedCandidates: u32 = 10;
-    pub const MaxTopNominationsPerCandidate: u32 = 4;
-    pub const MaxBottomNominationsPerCandidate: u32 = 4;
-    pub const MaxNominationsPerNominator: u32 = 4;
-    pub const MinNominationPerCollator: u128 = 3;
-    pub const ErasPerGrowthPeriod: u32 = 2;
-    pub const RewardPaymentDelay: u32 = 2;
-    pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
-    pub const MaxCandidates: u32 = 100;
-    pub const GrowthEnabled: bool = true;
-}
+// pub struct TestSessionManager;
+// impl session::SessionManager<u64> for TestSessionManager {
+//     fn new_session(_new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
+//         VALIDATORS.with(|l| l.borrow_mut().take())
+//     }
+//     fn end_session(_: SessionIndex) {}
+//     fn start_session(_: SessionIndex) {}
+// }
 
-impl parachain_staking::Config for TestRuntime {
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    type MinBlocksPerEra = MinBlocksPerEra;
-    type RewardPaymentDelay = RewardPaymentDelay;
-    type MinSelectedCandidates = MinSelectedCandidates;
-    type MaxTopNominationsPerCandidate = MaxTopNominationsPerCandidate;
-    type MaxBottomNominationsPerCandidate = MaxBottomNominationsPerCandidate;
-    type MaxNominationsPerNominator = MaxNominationsPerNominator;
-    type MinNominationPerCollator = MinNominationPerCollator;
-    type RewardPotId = RewardPotId;
-    type ErasPerGrowthPeriod = ErasPerGrowthPeriod;
-    type Public = AccountId;
-    type Signature = Signature;
-    type CollatorSessionRegistration = Session;
-    type CollatorPayoutDustHandler = TokenManager;
-    type ProcessedEventsChecker = ();
-    type WeightInfo = ();
-    type MaxCandidates = MaxCandidates;
-    type AccountToBytesConvert = AVN;
-    type BridgeInterface = EthBridge;
-    type GrowthEnabled = GrowthEnabled;
-}
+// impl pallet_session::historical::Config for TestRuntime {
+//     type FullIdentification = u64;
+//     type FullIdentificationOf = ConvertInto;
+// }
+
+// impl pallet_session::historical::SessionManager<ValidatorId, FullIdentification>
+//     for TestSessionManager
+// {
+//     fn new_session(_new_index: SessionIndex) -> Option<Vec<(ValidatorId, FullIdentification)>> {
+//         VALIDATORS.with(|l| {
+//             l.borrow_mut()
+//                 .take()
+//                 .map(|validators| validators.iter().map(|v| (*v, *v)).collect())
+//         })
+//     }
+//     fn end_session(_: SessionIndex) {}
+//     fn start_session(_: SessionIndex) {}
+// }
+
+// impl session::Config for TestRuntime {
+//     type SessionManager =
+//         pallet_session::historical::NoteHistoricalRoot<TestRuntime, TestSessionManager>;
+//     type Keys = UintAuthorityId;
+//     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
+//     type SessionHandler = (AVN,);
+//     type RuntimeEvent = RuntimeEvent;
+//     type ValidatorId = u64;
+//     type ValidatorIdOf = ConvertInto;
+//     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
+//     type WeightInfo = ();
+// }
 
 impl pallet_session::historical::Config for TestRuntime {
     type FullIdentification = AccountId;
@@ -413,15 +411,6 @@ impl ExtBuilder {
                 .enumerate()
                 .map(|(i, v)| (v, v, UintAuthorityId((i as u32).into())))
                 .collect(),
-        }
-        .assimilate_storage(&mut self.storage);
-
-        let _ = parachain_staking::GenesisConfig::<TestRuntime> {
-            candidates: genesis_accounts_ids.into_iter().map(|c| (c, 1000)).collect(),
-            nominations: vec![],
-            delay: 2,
-            min_collator_stake: 10,
-            min_total_nominator_stake: 5,
         }
         .assimilate_storage(&mut self.storage);
 
