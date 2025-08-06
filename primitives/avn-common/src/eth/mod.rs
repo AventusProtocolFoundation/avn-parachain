@@ -294,10 +294,6 @@ pub fn create_function_confirmation_hash(
             let t1_pub_key: Bytes = Bytes::from(params[1].1.clone());
 
             let (tx_id, expiry) = extract_tx_id_and_expiry(&params)?;
-            println!("t2_pub_key: {:?}", t2_pub_key);
-            println!("t1_pub_key: {:?}", t1_pub_key);
-            println!("expiry: {:?}", expiry);
-            println!("tx_id: {:?}", tx_id);
             let data =
                 RemoveAuthor { t2PubKey: t2_pub_key, t1PubKey: t1_pub_key, expiry, t2TxId: tx_id };
             return Ok(eip712_hash(&data, &domain))
