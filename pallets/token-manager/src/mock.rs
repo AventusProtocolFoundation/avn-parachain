@@ -43,6 +43,10 @@ use sp_runtime::{
     BuildStorage, Perbill, SaturatedConversion,
 };
 
+use sp_staking::{
+    SessionIndex,
+};
+
 use hex_literal::hex;
 use pallet_session as session;
 use std::{cell::RefCell, sync::Arc};
@@ -81,6 +85,16 @@ frame_support::construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
     }
 );
+
+pub fn validator_id_1() -> AccountId {
+    TestAccount::new([1u8; 32]).account_id()
+}
+pub fn validator_id_2() -> AccountId {
+    TestAccount::new([2u8; 32]).account_id()
+}
+pub fn validator_id_3() -> AccountId {
+    TestAccount::new([3u8; 32]).account_id()
+}
 
 parameter_types! {
     pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
@@ -199,7 +213,19 @@ impl pallet_balances::Config for TestRuntime {
 parameter_types! {
     pub static WeightToFee: u128 = 1u128;
     pub static TransactionByteFee: u128 = 0u128;
+    pub const Offset: u64 = 0;
+    pub const Period: u64 = 1;
 }
+
+thread_local! {
+    // validator accounts (aka public addresses, public keys-ish)
+    pub static VALIDATORS: RefCell<Option<Vec<AccountId>>> = RefCell::new(Some(vec![
+        validator_id_1(),
+        validator_id_2(),
+        validator_id_3(),
+    ]));
+}
+
 impl pallet_transaction_payment::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type OnChargeTransaction = CurrencyAdapter<Balances, ()>;
@@ -209,62 +235,43 @@ impl pallet_transaction_payment::Config for TestRuntime {
     type OperationalFeeMultiplier = ConstU8<5>;
 }
 
+pub struct TestSessionManager;
+impl session::SessionManager<AccountId> for TestSessionManager {
+    fn new_session(_new_index: SessionIndex) -> Option<Vec<AccountId>> {
+        VALIDATORS.with(|l| l.borrow_mut().take())
+    }
+    fn end_session(_: SessionIndex) {}
+    fn start_session(_: SessionIndex) {}
+}
+
 impl session::Config for TestRuntime {
-    type SessionManager = ParachainStaking;
+    type SessionManager =
+        pallet_session::historical::NoteHistoricalRoot<TestRuntime, TestSessionManager>;
     type Keys = UintAuthorityId;
-    type ShouldEndSession = ParachainStaking;
+    type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
     type SessionHandler = (AVN,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
-    type NextSessionRotation = ParachainStaking;
+    type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
     type WeightInfo = ();
 }
-
-// pub struct TestSessionManager;
-// impl session::SessionManager<u64> for TestSessionManager {
-//     fn new_session(_new_index: SessionIndex) -> Option<Vec<ValidatorId>> {
-//         VALIDATORS.with(|l| l.borrow_mut().take())
-//     }
-//     fn end_session(_: SessionIndex) {}
-//     fn start_session(_: SessionIndex) {}
-// }
-
-// impl pallet_session::historical::Config for TestRuntime {
-//     type FullIdentification = u64;
-//     type FullIdentificationOf = ConvertInto;
-// }
-
-// impl pallet_session::historical::SessionManager<ValidatorId, FullIdentification>
-//     for TestSessionManager
-// {
-//     fn new_session(_new_index: SessionIndex) -> Option<Vec<(ValidatorId, FullIdentification)>> {
-//         VALIDATORS.with(|l| {
-//             l.borrow_mut()
-//                 .take()
-//                 .map(|validators| validators.iter().map(|v| (*v, *v)).collect())
-//         })
-//     }
-//     fn end_session(_: SessionIndex) {}
-//     fn start_session(_: SessionIndex) {}
-// }
-
-// impl session::Config for TestRuntime {
-//     type SessionManager =
-//         pallet_session::historical::NoteHistoricalRoot<TestRuntime, TestSessionManager>;
-//     type Keys = UintAuthorityId;
-//     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
-//     type SessionHandler = (AVN,);
-//     type RuntimeEvent = RuntimeEvent;
-//     type ValidatorId = u64;
-//     type ValidatorIdOf = ConvertInto;
-//     type NextSessionRotation = session::PeriodicSessions<Period, Offset>;
-//     type WeightInfo = ();
-// }
 
 impl pallet_session::historical::Config for TestRuntime {
     type FullIdentification = AccountId;
     type FullIdentificationOf = ConvertInto;
+}
+
+impl pallet_session::historical::SessionManager<AccountId, AccountId> for TestSessionManager {
+    fn new_session(_new_index: SessionIndex) -> Option<Vec<(AccountId, AccountId)>> {
+        VALIDATORS.with(|l| {
+            l.borrow_mut()
+                .take()
+                .map(|validators| validators.iter().map(|v| (*v, *v)).collect())
+        })
+    }
+    fn end_session(_: SessionIndex) {}
+    fn start_session(_: SessionIndex) {}
 }
 
 impl pallet_eth_bridge::Config for TestRuntime {

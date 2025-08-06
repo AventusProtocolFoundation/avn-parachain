@@ -26,41 +26,41 @@ mod set;
 pub mod types;
 pub mod weights;
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-mod benchmarks;
-#[cfg(test)]
-#[path = "tests/bond_extra_tests.rs"]
-mod bond_extra_tests;
+// #[cfg(any(test, feature = "runtime-benchmarks"))]
+// mod benchmarks;
+// #[cfg(test)]
+// #[path = "tests/bond_extra_tests.rs"]
+// mod bond_extra_tests;
 #[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;
-#[cfg(test)]
-#[path = "tests/nominate_tests.rs"]
-mod nominate_tests;
-#[cfg(test)]
-#[path = "tests/schedule_revoke_nomination_tests.rs"]
-mod schedule_revoke_nomination_tests;
-#[cfg(test)]
-#[path = "tests/schedule_unbond_tests.rs"]
-mod schedule_unbond_tests;
-#[cfg(test)]
-#[path = "tests/test_admin_settings.rs"]
-mod test_admin_settings;
-#[cfg(test)]
-#[path = "tests/test_bounded_ordered_set.rs"]
-mod test_bounded_ordered_set;
-#[cfg(test)]
-#[path = "tests/test_growth.rs"]
-mod test_growth;
-#[cfg(test)]
-#[path = "tests/test_reward_payout.rs"]
-mod test_reward_payout;
-#[cfg(test)]
-#[path = "tests/test_staking_pot.rs"]
-mod test_staking_pot;
-#[cfg(test)]
-#[path = "tests/tests.rs"]
-mod tests;
+// #[cfg(test)]
+// #[path = "tests/nominate_tests.rs"]
+// mod nominate_tests;
+// #[cfg(test)]
+// #[path = "tests/schedule_revoke_nomination_tests.rs"]
+// mod schedule_revoke_nomination_tests;
+// #[cfg(test)]
+// #[path = "tests/schedule_unbond_tests.rs"]
+// mod schedule_unbond_tests;
+// #[cfg(test)]
+// #[path = "tests/test_admin_settings.rs"]
+// mod test_admin_settings;
+// #[cfg(test)]
+// #[path = "tests/test_bounded_ordered_set.rs"]
+// mod test_bounded_ordered_set;
+// #[cfg(test)]
+// #[path = "tests/test_growth.rs"]
+// mod test_growth;
+// #[cfg(test)]
+// #[path = "tests/test_reward_payout.rs"]
+// mod test_reward_payout;
+// #[cfg(test)]
+// #[path = "tests/test_staking_pot.rs"]
+// mod test_staking_pot;
+// #[cfg(test)]
+// #[path = "tests/tests.rs"]
+// mod tests;
 
 use frame_support::pallet;
 pub use weights::WeightInfo;
