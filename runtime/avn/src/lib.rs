@@ -116,6 +116,18 @@ where
     }
 }
 
+pub struct ExternalNotifier;
+impl sp_avn_common::ExternalNotification<BlockNumber> for ExternalNotifier {
+    fn on_summary_ready_for_validation(
+        _instance_id: u8,
+        _root_id: sp_avn_common::RootId<BlockNumber>,
+        _root_hash: sp_core::H256,
+    ) -> sp_runtime::DispatchResult {
+        // No-op for tests
+        Ok(())
+    }
+}
+
 pub use node_primitives::{AccountId, Hash, Signature};
 use node_primitives::{Balance, BlockNumber, Nonce};
 
@@ -573,6 +585,7 @@ parameter_types! {
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
     pub const EthAutoSubmitSummaries: bool = true;
     pub const EthereumInstanceId: u8 = 1u8;
+    pub const RequireExternalValidation: bool = false;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -585,6 +598,8 @@ impl pallet_summary::Config for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type RequireExternalValidation = RequireExternalValidation;
+    type ExternalNotifier = ExternalNotifier;
 }
 
 pub type EthAddress = H160;

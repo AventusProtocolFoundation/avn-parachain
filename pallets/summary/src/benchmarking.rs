@@ -12,6 +12,7 @@ use frame_benchmarking::{account, benchmarks_instance_pallet, impl_benchmark_tes
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, Pallet as System, RawOrigin};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
+use sp_avn_common::{RootId, RootRange};
 use sp_runtime::WeakBoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;

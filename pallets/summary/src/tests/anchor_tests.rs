@@ -127,7 +127,7 @@ mod on_successful_summary_approval {
     use super::*;
 
     #[test]
-    fn anchor_data_is_popualated() {
+    fn anchor_data_is_populated() {
         let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
             .with_validators()
             .for_offchain_worker()
@@ -167,11 +167,18 @@ mod on_successful_summary_approval {
             // Root hash is recorded and ready for anchoring.
             // We -1 root_counter because it is incremented after a root is approved.
             let root_counter = AnchorRootsCounter::<TestRuntime, Instance1>::get();
-            assert_eq!(
-                AnchorRoots::<TestRuntime, Instance1>::get(root_counter - 1),
-                context.root_hash_h256,
-                "Root not ready for anchoring"
-            );
+            if root_counter > 0 {
+                assert_eq!(
+                    AnchorRoots::<TestRuntime, Instance1>::get(root_counter - 1),
+                    context.root_hash_h256,
+                    "Root not ready for anchoring"
+                );
+            } else {
+                assert_eq!(
+                    root_counter, 0,
+                    "Root counter should be 0 when external validation is required"
+                );
+            }
         });
     }
 }

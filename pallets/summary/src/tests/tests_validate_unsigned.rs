@@ -301,6 +301,8 @@ pub mod input_is_record_summary_calculation {
 }
 
 mod input_is_end_voting_period {
+    use sp_avn_common::RootId;
+
     use super::*;
 
     fn expected_valid_end_voting_period_transaction(context: Context) -> TransactionValidity {
@@ -361,6 +363,8 @@ mod input_is_end_voting_period {
     }
 
     mod fails_when {
+        use sp_avn_common::RootId;
+
         use super::*;
 
         #[test]
@@ -397,6 +401,8 @@ mod input_is_end_voting_period {
         }
 
         mod signature_has_wrong {
+            use sp_avn_common::RootRange;
+
             use super::*;
 
             #[test]
@@ -736,6 +742,8 @@ mod input_is_approve_root {
     }
 
     mod fails_when {
+        use sp_avn_common::RootId;
+
         use super::*;
 
         mod vote_is_invalid {
@@ -822,6 +830,8 @@ mod input_is_approve_root {
         }
 
         mod signature_has_wrong {
+            use sp_avn_common::RootRange;
+
             use super::*;
 
             #[test]
@@ -1004,6 +1014,8 @@ mod input_is_reject_root {
     }
 
     mod fails_when {
+        use sp_avn_common::RootId;
+
         use super::*;
 
         mod vote_is_invalid {
@@ -1089,6 +1101,8 @@ mod input_is_reject_root {
         }
 
         mod signature_has_wrong {
+            use sp_avn_common::RootRange;
+
             use super::*;
 
             #[test]
