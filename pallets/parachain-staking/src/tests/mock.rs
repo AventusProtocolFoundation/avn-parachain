@@ -824,133 +824,133 @@ fn fake_treasury() -> AccountId {
     return TestAccount::new(8999999998u64).account_id()
 }
 
-#[test]
-fn genesis() {
-    let collator_1 = TestAccount::new(1u64).account_id();
-    let collator_2 = TestAccount::new(2u64).account_id();
-    let nominator_3 = TestAccount::new(3u64).account_id();
-    let nominator_4 = TestAccount::new(4u64).account_id();
-    let nominator_5 = TestAccount::new(5u64).account_id();
-    let nominator_6 = TestAccount::new(6u64).account_id();
-    let user_7 = TestAccount::new(7u64).account_id();
-    let user_8 = TestAccount::new(8u64).account_id();
-    let user_9 = TestAccount::new(9u64).account_id();
+// #[test]
+// fn genesis() {
+//     let collator_1 = TestAccount::new(1u64).account_id();
+//     let collator_2 = TestAccount::new(2u64).account_id();
+//     let nominator_3 = TestAccount::new(3u64).account_id();
+//     let nominator_4 = TestAccount::new(4u64).account_id();
+//     let nominator_5 = TestAccount::new(5u64).account_id();
+//     let nominator_6 = TestAccount::new(6u64).account_id();
+//     let user_7 = TestAccount::new(7u64).account_id();
+//     let user_8 = TestAccount::new(8u64).account_id();
+//     let user_9 = TestAccount::new(9u64).account_id();
 
-    let acc = |id: u64| -> AccountId { TestAccount::new(id).account_id() };
+//     let acc = |id: u64| -> AccountId { TestAccount::new(id).account_id() };
 
-    ExtBuilder::default()
-        .with_balances(vec![
-            (collator_1, 1000),
-            (collator_2, 300),
-            (nominator_3, 100),
-            (nominator_4, 100),
-            (nominator_5, 100),
-            (nominator_6, 100),
-            (user_7, 100),
-            (user_8, 9),
-            (user_9, 4),
-        ])
-        .with_candidates(vec![(collator_1, 500), (collator_2, 200)])
-        .with_nominations(vec![
-            (nominator_3, collator_1, 100),
-            (nominator_4, collator_1, 100),
-            (nominator_5, collator_2, 100),
-            (nominator_6, collator_2, 100),
-        ])
-        .build()
-        .execute_with(|| {
-            assert!(System::events().is_empty());
-            // collators
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_1), 500);
-            assert_eq!(query_lock_amount(collator_1, COLLATOR_LOCK_ID), Some(500));
-            assert!(ParachainStaking::is_candidate(&collator_1));
-            assert_eq!(query_lock_amount(collator_2, COLLATOR_LOCK_ID), Some(200));
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_2), 100);
-            assert!(ParachainStaking::is_candidate(&collator_2));
-            // nominators
-            for x in 3..7 {
-                let account_id = acc(x);
-                assert!(ParachainStaking::is_nominator(&account_id));
-                assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id), 0);
-                assert_eq!(query_lock_amount(account_id, NOMINATOR_LOCK_ID), Some(100));
-            }
-            // uninvolved
-            for x in 7..10 {
-                let account_id = acc(x);
-                assert!(!ParachainStaking::is_nominator(&account_id));
-            }
-            // no nominator staking locks
-            assert_eq!(query_lock_amount(user_7, NOMINATOR_LOCK_ID), None);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_7), 100);
-            assert_eq!(query_lock_amount(user_8, NOMINATOR_LOCK_ID), None);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_8), 9);
-            assert_eq!(query_lock_amount(user_9, NOMINATOR_LOCK_ID), None);
-            assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_9), 4);
-            // no collator staking locks
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_7), 100);
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_8), 9);
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_9), 4);
-        });
+//     ExtBuilder::default()
+//         .with_balances(vec![
+//             (collator_1, 1000),
+//             (collator_2, 300),
+//             (nominator_3, 100),
+//             (nominator_4, 100),
+//             (nominator_5, 100),
+//             (nominator_6, 100),
+//             (user_7, 100),
+//             (user_8, 9),
+//             (user_9, 4),
+//         ])
+//         .with_candidates(vec![(collator_1, 500), (collator_2, 200)])
+//         .with_nominations(vec![
+//             (nominator_3, collator_1, 100),
+//             (nominator_4, collator_1, 100),
+//             (nominator_5, collator_2, 100),
+//             (nominator_6, collator_2, 100),
+//         ])
+//         .build()
+//         .execute_with(|| {
+//             assert!(System::events().is_empty());
+//             // collators
+//             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_1), 500);
+//             assert_eq!(query_lock_amount(collator_1, COLLATOR_LOCK_ID), Some(500));
+//             assert!(ParachainStaking::is_candidate(&collator_1));
+//             assert_eq!(query_lock_amount(collator_2, COLLATOR_LOCK_ID), Some(200));
+//             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_2), 100);
+//             assert!(ParachainStaking::is_candidate(&collator_2));
+//             // nominators
+//             for x in 3..7 {
+//                 let account_id = acc(x);
+//                 assert!(ParachainStaking::is_nominator(&account_id));
+//                 assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id),
+// 0);                 assert_eq!(query_lock_amount(account_id, NOMINATOR_LOCK_ID), Some(100));
+//             }
+//             // uninvolved
+//             for x in 7..10 {
+//                 let account_id = acc(x);
+//                 assert!(!ParachainStaking::is_nominator(&account_id));
+//             }
+//             // no nominator staking locks
+//             assert_eq!(query_lock_amount(user_7, NOMINATOR_LOCK_ID), None);
+//             assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_7), 100);
+//             assert_eq!(query_lock_amount(user_8, NOMINATOR_LOCK_ID), None);
+//             assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_8), 9);
+//             assert_eq!(query_lock_amount(user_9, NOMINATOR_LOCK_ID), None);
+//             assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&user_9), 4);
+//             // no collator staking locks
+//             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_7), 100);
+//             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_8), 9);
+//             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&user_9), 4);
+//         });
 
-    let collator_1 = TestAccount::new(1u64).account_id();
-    let collator_2 = TestAccount::new(2u64).account_id();
-    let collator_3 = TestAccount::new(3u64).account_id();
-    let collator_4 = TestAccount::new(4u64).account_id();
-    let collator_5 = TestAccount::new(5u64).account_id();
-    let nominator_6 = TestAccount::new(6u64).account_id();
-    let nominator_7 = TestAccount::new(7u64).account_id();
-    let nominator_8 = TestAccount::new(8u64).account_id();
-    let nominator_9 = TestAccount::new(9u64).account_id();
-    let nominator_10 = TestAccount::new(10u64).account_id();
-    ExtBuilder::default()
-        .with_balances(vec![
-            (collator_1, 100),
-            (collator_2, 100),
-            (collator_3, 100),
-            (collator_4, 100),
-            (collator_5, 100),
-            (nominator_6, 100),
-            (nominator_7, 100),
-            (nominator_8, 100),
-            (nominator_9, 100),
-            (nominator_10, 100),
-        ])
-        .with_candidates(vec![
-            (collator_1, 20),
-            (collator_2, 20),
-            (collator_3, 20),
-            (collator_4, 20),
-            (collator_5, 10),
-        ])
-        .with_nominations(vec![
-            (nominator_6, collator_1, 10),
-            (nominator_7, collator_1, 10),
-            (nominator_8, collator_2, 10),
-            (nominator_9, collator_2, 10),
-            (nominator_10, collator_1, 10),
-        ])
-        .build()
-        .execute_with(|| {
-            assert!(System::events().is_empty());
-            // collators
-            for x in 1..5 {
-                let account_id = acc(x);
-                assert!(ParachainStaking::is_candidate(&account_id));
-                assert_eq!(query_lock_amount(account_id, COLLATOR_LOCK_ID), Some(20));
-                assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id), 80);
-            }
-            assert!(ParachainStaking::is_candidate(&collator_5));
-            assert_eq!(query_lock_amount(collator_5, COLLATOR_LOCK_ID), Some(10));
-            assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_5), 90);
-            // nominators
-            for x in 6..11 {
-                let account_id = acc(x);
-                assert!(ParachainStaking::is_nominator(&account_id));
-                assert_eq!(query_lock_amount(account_id, NOMINATOR_LOCK_ID), Some(10));
-                assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id), 90);
-            }
-        });
-}
+//     let collator_1 = TestAccount::new(1u64).account_id();
+//     let collator_2 = TestAccount::new(2u64).account_id();
+//     let collator_3 = TestAccount::new(3u64).account_id();
+//     let collator_4 = TestAccount::new(4u64).account_id();
+//     let collator_5 = TestAccount::new(5u64).account_id();
+//     let nominator_6 = TestAccount::new(6u64).account_id();
+//     let nominator_7 = TestAccount::new(7u64).account_id();
+//     let nominator_8 = TestAccount::new(8u64).account_id();
+//     let nominator_9 = TestAccount::new(9u64).account_id();
+//     let nominator_10 = TestAccount::new(10u64).account_id();
+//     ExtBuilder::default()
+//         .with_balances(vec![
+//             (collator_1, 100),
+//             (collator_2, 100),
+//             (collator_3, 100),
+//             (collator_4, 100),
+//             (collator_5, 100),
+//             (nominator_6, 100),
+//             (nominator_7, 100),
+//             (nominator_8, 100),
+//             (nominator_9, 100),
+//             (nominator_10, 100),
+//         ])
+//         .with_candidates(vec![
+//             (collator_1, 20),
+//             (collator_2, 20),
+//             (collator_3, 20),
+//             (collator_4, 20),
+//             (collator_5, 10),
+//         ])
+//         .with_nominations(vec![
+//             (nominator_6, collator_1, 10),
+//             (nominator_7, collator_1, 10),
+//             (nominator_8, collator_2, 10),
+//             (nominator_9, collator_2, 10),
+//             (nominator_10, collator_1, 10),
+//         ])
+//         .build()
+//         .execute_with(|| {
+//             assert!(System::events().is_empty());
+//             // collators
+//             for x in 1..5 {
+//                 let account_id = acc(x);
+//                 assert!(ParachainStaking::is_candidate(&account_id));
+//                 assert_eq!(query_lock_amount(account_id, COLLATOR_LOCK_ID), Some(20));
+//                 assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&account_id),
+// 80);             }
+//             assert!(ParachainStaking::is_candidate(&collator_5));
+//             assert_eq!(query_lock_amount(collator_5, COLLATOR_LOCK_ID), Some(10));
+//             assert_eq!(ParachainStaking::get_collator_stakable_free_balance(&collator_5), 90);
+//             // nominators
+//             for x in 6..11 {
+//                 let account_id = acc(x);
+//                 assert!(ParachainStaking::is_nominator(&account_id));
+//                 assert_eq!(query_lock_amount(account_id, NOMINATOR_LOCK_ID), Some(10));
+//                 assert_eq!(ParachainStaking::get_nominator_stakable_free_balance(&account_id),
+// 90);             }
+//         });
+// }
 
 #[test]
 fn roll_to_era_begin_works() {

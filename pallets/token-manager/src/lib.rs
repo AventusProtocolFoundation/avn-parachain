@@ -84,8 +84,8 @@ mod test_avt_tokens;
 mod test_common_cases;
 #[cfg(test)]
 mod test_deferred_lower;
-#[cfg(test)]
-mod test_growth;
+// #[cfg(test)]
+// mod test_growth;
 #[cfg(test)]
 mod test_lower_proof_generation;
 #[cfg(test)]

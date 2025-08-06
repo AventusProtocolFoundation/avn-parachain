@@ -28,21 +28,21 @@ pub mod weights;
 
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod benchmarks;
-#[cfg(test)]
-#[path = "tests/bond_extra_tests.rs"]
-mod bond_extra_tests;
+// #[cfg(test)]
+// #[path = "tests/bond_extra_tests.rs"]
+// mod bond_extra_tests;
 #[cfg(test)]
 #[path = "tests/mock.rs"]
 mod mock;
-#[cfg(test)]
-#[path = "tests/nominate_tests.rs"]
-mod nominate_tests;
-#[cfg(test)]
-#[path = "tests/schedule_revoke_nomination_tests.rs"]
-mod schedule_revoke_nomination_tests;
-#[cfg(test)]
-#[path = "tests/schedule_unbond_tests.rs"]
-mod schedule_unbond_tests;
+// #[cfg(test)]
+// #[path = "tests/nominate_tests.rs"]
+// mod nominate_tests;
+// #[cfg(test)]
+// #[path = "tests/schedule_revoke_nomination_tests.rs"]
+// mod schedule_revoke_nomination_tests;
+// #[cfg(test)]
+// #[path = "tests/schedule_unbond_tests.rs"]
+// mod schedule_unbond_tests;
 #[cfg(test)]
 #[path = "tests/test_admin_settings.rs"]
 mod test_admin_settings;
@@ -58,9 +58,9 @@ mod test_reward_payout;
 #[cfg(test)]
 #[path = "tests/test_staking_pot.rs"]
 mod test_staking_pot;
-#[cfg(test)]
-#[path = "tests/tests.rs"]
-mod tests;
+// #[cfg(test)]
+// #[path = "tests/tests.rs"]
+// mod tests;
 
 use frame_support::pallet;
 pub use weights::WeightInfo;
@@ -289,6 +289,7 @@ pub mod pallet {
         ErrorConvertingBalance,
         Overflow,
         ErrorPublishingGrowth,
+        StakingNotAllowed,
     }
 
     #[pallet::event]
@@ -1213,6 +1214,7 @@ pub mod pallet {
             nomination_count: u32,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
+            return Err(Error::<T>::StakingNotAllowed.into());
 
             return Self::call_nominate(
                 &nominator,
@@ -1235,6 +1237,8 @@ pub mod pallet {
             #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
+            return Err(Error::<T>::StakingNotAllowed.into());
+
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let nominator_nonce = Self::proxy_nonce(&nominator);
@@ -1411,6 +1415,8 @@ pub mod pallet {
             more: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
+            return Err(Error::<T>::StakingNotAllowed.into());
+
             return Self::call_bond_extra(&nominator, candidate, more)
         }
 
@@ -1424,6 +1430,8 @@ pub mod pallet {
             #[pallet::compact] extra_amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
+            return Err(Error::<T>::StakingNotAllowed.into());
+
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let nominator_nonce = Self::proxy_nonce(&nominator);

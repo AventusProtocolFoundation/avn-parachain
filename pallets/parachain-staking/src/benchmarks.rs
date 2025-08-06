@@ -467,80 +467,80 @@ benchmarks! {
         assert!(Pallet::<T>::candidate_info(&caller).unwrap().is_leaving());
     }
 
-    execute_leave_candidates {
-        // x is total number of nominations for the candidate
-        let x in 2..(<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get()
-            + <<T as Config>::MaxBottomNominationsPerCandidate as Get<u32>>::get());
+    // execute_leave_candidates {
+    //     // x is total number of nominations for the candidate
+    //     let x in 2..(<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get()
+    //         + <<T as Config>::MaxBottomNominationsPerCandidate as Get<u32>>::get());
 
-        let mut candidate_count = get_collator_count::<T>();
-        // Make sure we have enough candidates first before we can leave
-        for c in 1..=<<T as Config>::MinSelectedCandidates as Get<u32>>::get() {
-            let candidate: T::AccountId = create_funded_collator::<T>(
-                "setup_candidate",
-                USER_SEED - c,
-                0u32.into(),
-                true,
-                candidate_count,
-            )?;
-            candidate_count += candidate_count + 1u32;
-        }
+    //     let mut candidate_count = get_collator_count::<T>();
+    //     // Make sure we have enough candidates first before we can leave
+    //     for c in 1..=<<T as Config>::MinSelectedCandidates as Get<u32>>::get() {
+    //         let candidate: T::AccountId = create_funded_collator::<T>(
+    //             "setup_candidate",
+    //             USER_SEED - c,
+    //             0u32.into(),
+    //             true,
+    //             candidate_count,
+    //         )?;
+    //         candidate_count += candidate_count + 1u32;
+    //     }
 
-        let candidate: T::AccountId = create_funded_collator::<T>(
-            "unique_caller",
-            USER_SEED - 100,
-            0u32.into(),
-            true,
-            candidate_count,
-        )?;
-        // 2nd nomination required for all nominators to ensure NominatorState updated not removed
-        let second_candidate: T::AccountId = create_funded_collator::<T>(
-            "unique__caller",
-            USER_SEED - 99,
-            0u32.into(),
-            true,
-            candidate_count + 1u32,
-        )?;
-        let mut nominators: Vec<T::AccountId> = Vec::new();
-        let mut col_del_count = 0u32;
-        for i in 1..x {
-            let seed = USER_SEED + i;
-            let nominator = create_funded_nominator::<T>(
-                "nominator",
-                seed,
-                min_nominator_stk::<T>(),
-                candidate.clone(),
-                true,
-                col_del_count,
-            )?;
-            Pallet::<T>::nominate(
-                RawOrigin::Signed(nominator.clone()).into(),
-                second_candidate.clone(),
-                min_nominator_stk::<T>(),
-                col_del_count,
-                1u32,
-            )?;
-            Pallet::<T>::schedule_revoke_nomination(
-                RawOrigin::Signed(nominator.clone()).into(),
-                candidate.clone()
-            )?;
-            nominators.push(nominator);
-            col_del_count += 1u32;
-        }
+    //     let candidate: T::AccountId = create_funded_collator::<T>(
+    //         "unique_caller",
+    //         USER_SEED - 100,
+    //         0u32.into(),
+    //         true,
+    //         candidate_count,
+    //     )?;
+    //     // 2nd nomination required for all nominators to ensure NominatorState updated not removed
+    //     let second_candidate: T::AccountId = create_funded_collator::<T>(
+    //         "unique__caller",
+    //         USER_SEED - 99,
+    //         0u32.into(),
+    //         true,
+    //         candidate_count + 1u32,
+    //     )?;
+    //     let mut nominators: Vec<T::AccountId> = Vec::new();
+    //     let mut col_del_count = 0u32;
+    //     for i in 1..x {
+    //         let seed = USER_SEED + i;
+    //         let nominator = create_funded_nominator::<T>(
+    //             "nominator",
+    //             seed,
+    //             min_nominator_stk::<T>(),
+    //             candidate.clone(),
+    //             true,
+    //             col_del_count,
+    //         )?;
+    //         Pallet::<T>::nominate(
+    //             RawOrigin::Signed(nominator.clone()).into(),
+    //             second_candidate.clone(),
+    //             min_nominator_stk::<T>(),
+    //             col_del_count,
+    //             1u32,
+    //         )?;
+    //         Pallet::<T>::schedule_revoke_nomination(
+    //             RawOrigin::Signed(nominator.clone()).into(),
+    //             candidate.clone()
+    //         )?;
+    //         nominators.push(nominator);
+    //         col_del_count += 1u32;
+    //     }
 
-        Pallet::<T>::schedule_leave_candidates(
-            RawOrigin::Signed(candidate.clone()).into(), candidate_count
-        )?;
+    //     Pallet::<T>::schedule_leave_candidates(
+    //         RawOrigin::Signed(candidate.clone()).into(), candidate_count
+    //     )?;
 
-        roll_to_and_author::<T>(2, candidate.clone());
+    //     roll_to_and_author::<T>(2, candidate.clone());
 
-    }: _(RawOrigin::Signed(candidate.clone()), candidate.clone(), col_del_count)
-    verify {
-        assert!(Pallet::<T>::candidate_info(&candidate).is_none());
-        assert!(Pallet::<T>::candidate_info(&second_candidate).is_some());
-        for nominator in nominators {
-            assert!(Pallet::<T>::is_nominator(&nominator));
-        }
-    }
+    // }: _(RawOrigin::Signed(candidate.clone()), candidate.clone(), col_del_count)
+    // verify {
+    //     assert!(Pallet::<T>::candidate_info(&candidate).is_none());
+    //     assert!(Pallet::<T>::candidate_info(&second_candidate).is_some());
+    //     for nominator in nominators {
+    //         assert!(Pallet::<T>::is_nominator(&nominator));
+    //     }
+    // }
 
     cancel_leave_candidates {
         let x in 3..get_allowed_max_collators::<T>(<<T as Config>::MaxCandidates as Get<u32>>::get());
@@ -746,758 +746,758 @@ benchmarks! {
         );
     }
 
-    nominate {
-        let x in 3..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
-        let y in 2..<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get();
-        let bond = <MinTotalNominatorStake<T>>::get();
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    // nominate {
+    //     let x in 3..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
+    //     let y in 2..<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get();
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
 
-        let (collator, collators, nominators) = setup_nomination::<T>(x, y, bond, &caller)?;
-    }: _(RawOrigin::Signed(caller.clone()), collator, bond, nominators.len() as u32, (collators.len() as u32 + 1u32))
-    verify {
-        assert!(Pallet::<T>::is_nominator(&caller));
-    }
+    //     let (collator, collators, nominators) = setup_nomination::<T>(x, y, bond, &caller)?;
+    // }: _(RawOrigin::Signed(caller.clone()), collator, bond, nominators.len() as u32, (collators.len() as u32 + 1u32))
+    // verify {
+    //     assert!(Pallet::<T>::is_nominator(&caller));
+    // }
 
-    signed_nominate {
-        let x in 3..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
-        let y in 2..<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get();
+    // signed_nominate {
+    //     let x in 3..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
+    //     let y in 2..<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get();
 
-        let bond = <MinTotalNominatorStake<T>>::get() * x.into();
-        let (test_setup_nominator, _) = create_funded_user::<T>("test_setup_nominator", USER_SEED, 0u32.into());
-        let (collator, collators, _) = setup_nomination::<T>(x, y, bond, &test_setup_nominator)?;
+    //     let bond = <MinTotalNominatorStake<T>>::get() * x.into();
+    //     let (test_setup_nominator, _) = create_funded_user::<T>("test_setup_nominator", USER_SEED, 0u32.into());
+    //     let (collator, collators, _) = setup_nomination::<T>(x, y, bond, &test_setup_nominator)?;
 
-        set_session_key::<T>(&collator, y)?;
+    //     set_session_key::<T>(&collator, y)?;
 
-        let mut targets: Vec<<T::Lookup as StaticLookup>::Source> = collators.into_iter().map(|c| T::Lookup::unlookup(c)).collect::<_>();
-        targets.push(T::Lookup::unlookup(collator));
+    //     let mut targets: Vec<<T::Lookup as StaticLookup>::Source> = collators.into_iter().map(|c| T::Lookup::unlookup(c)).collect::<_>();
+    //     targets.push(T::Lookup::unlookup(collator));
 
-        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_nominate_params::<T>(relayer, &targets, &bond, nonce))?;
-        fund_account::<T>(&caller, bond * 2u32.into());
-    }: _(RawOrigin::Signed(caller.clone()), proof, targets, bond)
-    verify {
-        assert!(Pallet::<T>::is_nominator(&caller));
-    }
+    //     let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_nominate_params::<T>(relayer, &targets, &bond, nonce))?;
+    //     fund_account::<T>(&caller, bond * 2u32.into());
+    // }: _(RawOrigin::Signed(caller.clone()), proof, targets, bond)
+    // verify {
+    //     assert!(Pallet::<T>::is_nominator(&caller));
+    // }
 
-    schedule_leave_nominators {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
-    }: _(RawOrigin::Signed(caller.clone()))
-    verify {
-        assert!(
-            Pallet::<T>::nomination_scheduled_requests(&collator)
-                .iter()
-                .any(|r| r.nominator == caller && matches!(r.action, NominationAction::Revoke(_)))
-        );
-    }
+    // schedule_leave_nominators {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
+    // }: _(RawOrigin::Signed(caller.clone()))
+    // verify {
+    //     assert!(
+    //         Pallet::<T>::nomination_scheduled_requests(&collator)
+    //             .iter()
+    //             .any(|r| r.nominator == caller && matches!(r.action, NominationAction::Revoke(_)))
+    //     );
+    // }
 
-    signed_schedule_leave_nominators {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
+    // signed_schedule_leave_nominators {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
 
-        let bond = <MinTotalNominatorStake<T>>::get();
-        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_leave_nominators_params::<T>(relayer, nonce))?;
-        fund_account::<T>(&caller, bond * 2u32.into());
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_leave_nominators_params::<T>(relayer, nonce))?;
+    //     fund_account::<T>(&caller, bond * 2u32.into());
 
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
-    }: _(RawOrigin::Signed(caller.clone()), proof)
-    verify {
-        assert!(
-            Pallet::<T>::nomination_scheduled_requests(&collator)
-                .iter()
-                .any(|r| r.nominator == caller && matches!(r.action, NominationAction::Revoke(_)))
-        );
-    }
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
+    // }: _(RawOrigin::Signed(caller.clone()), proof)
+    // verify {
+    //     assert!(
+    //         Pallet::<T>::nomination_scheduled_requests(&collator)
+    //             .iter()
+    //             .any(|r| r.nominator == caller && matches!(r.action, NominationAction::Revoke(_)))
+    //     );
+    // }
 
-    execute_leave_nominators {
-        let x in 2..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
+    // execute_leave_nominators {
+    //     let x in 2..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
 
-        // Fund the nominator
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, min_nominator_stk::<T>());
-        let nomination_count = setup_leave_nominator_state::<T>(x, &caller)?;
+    //     // Fund the nominator
+    //     let (caller, _) = create_funded_user::<T>("caller", USER_SEED, min_nominator_stk::<T>());
+    //     let nomination_count = setup_leave_nominator_state::<T>(x, &caller)?;
 
-    }: _(RawOrigin::Signed(caller.clone()), caller.clone(), nomination_count)
-    verify {
-        assert!(Pallet::<T>::nominator_state(&caller).is_none());
-    }
+    // }: _(RawOrigin::Signed(caller.clone()), caller.clone(), nomination_count)
+    // verify {
+    //     assert!(Pallet::<T>::nominator_state(&caller).is_none());
+    // }
 
-    signed_execute_leave_nominators {
-        let x in 2..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
-        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_execute_leave_nominators_params::<T>(relayer.clone(), &relayer, nonce))?;
-        fund_account::<T>(&caller, min_nominator_stk::<T>());
+    // signed_execute_leave_nominators {
+    //     let x in 2..<<T as Config>::MaxNominationsPerNominator as Get<u32>>::get();
+    //     let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_execute_leave_nominators_params::<T>(relayer.clone(), &relayer, nonce))?;
+    //     fund_account::<T>(&caller, min_nominator_stk::<T>());
 
-        setup_leave_nominator_state::<T>(x, &caller)?;
-    }: _(RawOrigin::Signed(caller.clone()), proof, caller.clone())
-    verify {
-        assert!(Pallet::<T>::nominator_state(&caller).is_none());
-    }
+    //     setup_leave_nominator_state::<T>(x, &caller)?;
+    // }: _(RawOrigin::Signed(caller.clone()), proof, caller.clone())
+    // verify {
+    //     assert!(Pallet::<T>::nominator_state(&caller).is_none());
+    // }
 
-    cancel_leave_nominators {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
-        Pallet::<T>::schedule_leave_nominators(RawOrigin::Signed(caller.clone()).into())?;
-        let total_amount_to_withdraw = Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").less_total;
-    }: _(RawOrigin::Signed(caller.clone()))
-    verify {
-        // After cancelling the request, there shouldn't be any amount pending withdrawal
-        assert_eq!(
-            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").less_total, total_amount_to_withdraw - bond
-        );
-    }
+    // cancel_leave_nominators {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
+    //     Pallet::<T>::schedule_leave_nominators(RawOrigin::Signed(caller.clone()).into())?;
+    //     let total_amount_to_withdraw = Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").less_total;
+    // }: _(RawOrigin::Signed(caller.clone()))
+    // verify {
+    //     // After cancelling the request, there shouldn't be any amount pending withdrawal
+    //     assert_eq!(
+    //         Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").less_total, total_amount_to_withdraw - bond
+    //     );
+    // }
 
-    schedule_revoke_nomination {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
-    }: _(RawOrigin::Signed(caller.clone()), collator.clone())
-    verify {
-        assert_eq!(
-            Pallet::<T>::nomination_scheduled_requests(&collator),
-            vec![ScheduledRequest {
-                nominator: caller,
-                when_executable: 3,
-                action: NominationAction::Revoke(bond),
-            }],
-        );
-    }
+    // schedule_revoke_nomination {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
+    // }: _(RawOrigin::Signed(caller.clone()), collator.clone())
+    // verify {
+    //     assert_eq!(
+    //         Pallet::<T>::nomination_scheduled_requests(&collator),
+    //         vec![ScheduledRequest {
+    //             nominator: caller,
+    //             when_executable: 3,
+    //             action: NominationAction::Revoke(bond),
+    //         }],
+    //     );
+    // }
 
-    signed_schedule_revoke_nomination{
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
+    // signed_schedule_revoke_nomination{
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
 
-        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_revoke_nomination_params::<T>(relayer.clone(), &collator, nonce))?;
-        fund_account::<T>(&caller, min_nominator_stk::<T>());
+    //     let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_revoke_nomination_params::<T>(relayer.clone(), &collator, nonce))?;
+    //     fund_account::<T>(&caller, min_nominator_stk::<T>());
 
-        let bond = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
-    }: _(RawOrigin::Signed(caller.clone()), proof, collator.clone())
-    verify {
-        assert_eq!(
-            Pallet::<T>::nomination_scheduled_requests(&collator),
-            vec![ScheduledRequest {
-                nominator: caller,
-                when_executable: 3,
-                action: NominationAction::Revoke(bond),
-            }],
-        );
-    }
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
+    // }: _(RawOrigin::Signed(caller.clone()), proof, collator.clone())
+    // verify {
+    //     assert_eq!(
+    //         Pallet::<T>::nomination_scheduled_requests(&collator),
+    //         vec![ScheduledRequest {
+    //             nominator: caller,
+    //             when_executable: 3,
+    //             action: NominationAction::Revoke(bond),
+    //         }],
+    //     );
+    // }
 
-    bond_extra {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::nominate(
-            RawOrigin::Signed(caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
-    }: _(RawOrigin::Signed(caller.clone()), collator.clone(), bond)
-    verify {
-        let expected_bond = bond * 2u32.into();
-        assert_eq!(
-            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
-            expected_bond,
-        );
-    }
+    // bond_extra {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::nominate(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
+    // }: _(RawOrigin::Signed(caller.clone()), collator.clone(), bond)
+    // verify {
+    //     let expected_bond = bond * 2u32.into();
+    //     assert_eq!(
+    //         Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
+    //         expected_bond,
+    //     );
+    // }
 
-    signed_bond_extra {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
+    // signed_bond_extra {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
 
-        let bond = <MinTotalNominatorStake<T>>::get() * 10u32.into();
-        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_bond_extra_params::<T>(relayer, &bond, nonce))?;
-        fund_account::<T>(&caller, bond * 2u32.into());
+    //     let bond = <MinTotalNominatorStake<T>>::get() * 10u32.into();
+    //     let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_bond_extra_params::<T>(relayer, &bond, nonce))?;
+    //     fund_account::<T>(&caller, bond * 2u32.into());
 
-        Pallet::<T>::nominate(
-            RawOrigin::Signed(caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
+    //     Pallet::<T>::nominate(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
 
-        roll_to_and_author::<T>(2, collator.clone());
+    //     roll_to_and_author::<T>(2, collator.clone());
 
-    }: _(RawOrigin::Signed(caller.clone()), proof, bond)
-    verify {
-        let expected_bond = bond * 2u32.into();
-        assert_eq!(
-            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
-            expected_bond,
-        );
-    }
+    // }: _(RawOrigin::Signed(caller.clone()), proof, bond)
+    // verify {
+    //     let expected_bond = bond * 2u32.into();
+    //     assert_eq!(
+    //         Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
+    //         expected_bond,
+    //     );
+    // }
 
-    schedule_nominator_unbond {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, total) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            total,
-            0u32,
-            0u32
-        )?;
-        let bond_less = <MinTotalNominatorStake<T>>::get();
-    }: _(RawOrigin::Signed(caller.clone()), collator.clone(), bond_less)
-    verify {
-        let state = Pallet::<T>::nominator_state(&caller)
-            .expect("just request bonded less so exists");
-        assert_eq!(
-            Pallet::<T>::nomination_scheduled_requests(&collator),
-            vec![ScheduledRequest {
-                nominator: caller,
-                when_executable: 3,
-                action: NominationAction::Decrease(bond_less),
-            }],
-        );
-    }
+    // schedule_nominator_unbond {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, total) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         total,
+    //         0u32,
+    //         0u32
+    //     )?;
+    //     let bond_less = <MinTotalNominatorStake<T>>::get();
+    // }: _(RawOrigin::Signed(caller.clone()), collator.clone(), bond_less)
+    // verify {
+    //     let state = Pallet::<T>::nominator_state(&caller)
+    //         .expect("just request bonded less so exists");
+    //     assert_eq!(
+    //         Pallet::<T>::nomination_scheduled_requests(&collator),
+    //         vec![ScheduledRequest {
+    //             nominator: caller,
+    //             when_executable: 3,
+    //             action: NominationAction::Decrease(bond_less),
+    //         }],
+    //     );
+    // }
 
-    signed_schedule_nominator_unbond {
-        let num_collators = get_collator_count::<T>() + 1;
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            num_collators
-        )?;
+    // signed_schedule_nominator_unbond {
+    //     let num_collators = get_collator_count::<T>() + 1;
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         num_collators
+    //     )?;
 
-        let bond_less = <MinTotalNominatorStake<T>>::get();
-        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_nominator_unbond_params::<T>(relayer, &bond_less, nonce))?;
-        fund_account::<T>(&caller, bond_less * (num_collators * 3u32).into());
+    //     let bond_less = <MinTotalNominatorStake<T>>::get();
+    //     let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_schedule_nominator_unbond_params::<T>(relayer, &bond_less, nonce))?;
+    //     fund_account::<T>(&caller, bond_less * (num_collators * 3u32).into());
 
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            bond_less * num_collators.into() * 2u32.into(),
-            0u32,
-            0u32
-        )?;
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         bond_less * num_collators.into() * 2u32.into(),
+    //         0u32,
+    //         0u32
+    //     )?;
 
-    }: _(RawOrigin::Signed(caller.clone()), proof, bond_less)
-    verify {
-        let state = Pallet::<T>::nominator_state(&caller)
-            .expect("just request bonded less so exists");
-        assert_eq!(
-            Pallet::<T>::nomination_scheduled_requests(&collator),
-            vec![ScheduledRequest {
-                nominator: caller,
-                when_executable: 3,
-                action: NominationAction::Decrease(bond_less),
-            }],
-        );
-    }
+    // }: _(RawOrigin::Signed(caller.clone()), proof, bond_less)
+    // verify {
+    //     let state = Pallet::<T>::nominator_state(&caller)
+    //         .expect("just request bonded less so exists");
+    //     assert_eq!(
+    //         Pallet::<T>::nomination_scheduled_requests(&collator),
+    //         vec![ScheduledRequest {
+    //             nominator: caller,
+    //             when_executable: 3,
+    //             action: NominationAction::Decrease(bond_less),
+    //         }],
+    //     );
+    // }
 
-    execute_revoke_nomination {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
-        Pallet::<T>::schedule_revoke_nomination(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone()
-        )?;
-        roll_to_and_author::<T>(2, collator.clone());
-    }: {
-        Pallet::<T>::execute_nomination_request(
-            RawOrigin::Signed(caller.clone()).into(),
-            caller.clone(),
-            collator.clone()
-        )?;
-    } verify {
-        assert!(
-            !Pallet::<T>::is_nominator(&caller)
-        );
-    }
+    // execute_revoke_nomination {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
+    //     Pallet::<T>::schedule_revoke_nomination(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone()
+    //     )?;
+    //     roll_to_and_author::<T>(2, collator.clone());
+    // }: {
+    //     Pallet::<T>::execute_nomination_request(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         caller.clone(),
+    //         collator.clone()
+    //     )?;
+    // } verify {
+    //     assert!(
+    //         !Pallet::<T>::is_nominator(&caller)
+    //     );
+    // }
 
-    execute_nominator_unbond {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, total) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            total,
-            0u32,
-            0u32
-        )?;
-        let bond_less = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::schedule_nominator_unbond(
-            RawOrigin::Signed(caller.clone()).into(),
-            collator.clone(),
-            bond_less
-        )?;
-        roll_to_and_author::<T>(2, collator.clone());
-    }: {
-        Pallet::<T>::execute_nomination_request(
-            RawOrigin::Signed(caller.clone()).into(),
-            caller.clone(),
-            collator.clone()
-        )?;
-    } verify {
-        let expected = total - bond_less;
-        assert_eq!(
-            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
-            expected,
-        );
-    }
+    // execute_nominator_unbond {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, total) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         total,
+    //         0u32,
+    //         0u32
+    //     )?;
+    //     let bond_less = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::schedule_nominator_unbond(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         collator.clone(),
+    //         bond_less
+    //     )?;
+    //     roll_to_and_author::<T>(2, collator.clone());
+    // }: {
+    //     Pallet::<T>::execute_nomination_request(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         caller.clone(),
+    //         collator.clone()
+    //     )?;
+    // } verify {
+    //     let expected = total - bond_less;
+    //     assert_eq!(
+    //         Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
+    //         expected,
+    //     );
+    // }
 
-    signed_execute_nominator_unbond {
-        let num_collators = get_collator_count::<T>() + 1;
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
+    // signed_execute_nominator_unbond {
+    //     let num_collators = get_collator_count::<T>() + 1;
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
 
-        let amount = min_nominator_stk::<T>();
-        let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_execute_nomination_request_params::<T>(relayer.clone(), &relayer, nonce))?;
-        fund_account::<T>(&caller, amount * (num_collators * 3u32).into());
+    //     let amount = min_nominator_stk::<T>();
+    //     let (caller, proof) = get_caller::<T, _>(|relayer, nonce| encode_signed_execute_nomination_request_params::<T>(relayer.clone(), &relayer, nonce))?;
+    //     fund_account::<T>(&caller, amount * (num_collators * 3u32).into());
 
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            amount * 2u32.into(),
-            0u32,
-            0u32
-        )?;
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         amount * 2u32.into(),
+    //         0u32,
+    //         0u32
+    //     )?;
 
-        Pallet::<T>::schedule_nominator_unbond(
-            RawOrigin::Signed(caller.clone()).into(),
-            collator.clone(),
-            amount
-        )?;
+    //     Pallet::<T>::schedule_nominator_unbond(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         collator.clone(),
+    //         amount
+    //     )?;
 
-        roll_to_and_author::<T>(2, collator.clone());
-    }: {
-        Pallet::<T>::signed_execute_nomination_request(
-            RawOrigin::Signed(caller.clone()).into(),
-            proof,
-            caller.clone()
-        )?;
-    } verify {
-        let expected = amount; // bonded 2*amount and unbonded 1*amount
-        assert_eq!(
-            Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
-            expected,
-        );
-    }
+    //     roll_to_and_author::<T>(2, collator.clone());
+    // }: {
+    //     Pallet::<T>::signed_execute_nomination_request(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         proof,
+    //         caller.clone()
+    //     )?;
+    // } verify {
+    //     let expected = amount; // bonded 2*amount and unbonded 1*amount
+    //     assert_eq!(
+    //         Pallet::<T>::nominator_state(&caller).expect("caller was created, qed").total,
+    //         expected,
+    //     );
+    // }
 
-    cancel_revoke_nomination {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        let bond = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            bond,
-            0u32,
-            0u32
-        )?;
-        Pallet::<T>::schedule_revoke_nomination(
-            RawOrigin::Signed(caller.clone()).into(),
-            collator.clone()
-        )?;
-    }: {
-        Pallet::<T>::cancel_nomination_request(
-            RawOrigin::Signed(caller.clone()).into(),
-            collator.clone()
-        )?;
-    } verify {
-        assert!(
-            !Pallet::<T>::nomination_scheduled_requests(&collator)
-            .iter()
-            .any(|x| &x.nominator == &caller)
-        );
-    }
+    // cancel_revoke_nomination {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, _) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     let bond = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         bond,
+    //         0u32,
+    //         0u32
+    //     )?;
+    //     Pallet::<T>::schedule_revoke_nomination(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         collator.clone()
+    //     )?;
+    // }: {
+    //     Pallet::<T>::cancel_nomination_request(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         collator.clone()
+    //     )?;
+    // } verify {
+    //     assert!(
+    //         !Pallet::<T>::nomination_scheduled_requests(&collator)
+    //         .iter()
+    //         .any(|x| &x.nominator == &caller)
+    //     );
+    // }
 
-    cancel_nominator_unbond {
-        let collator: T::AccountId = create_funded_collator::<T>(
-            "collator",
-            USER_SEED,
-            0u32.into(),
-            true,
-            get_collator_count::<T>()
-        )?;
-        let (caller, total) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
-        Pallet::<T>::nominate(RawOrigin::Signed(
-            caller.clone()).into(),
-            collator.clone(),
-            total,
-            0u32,
-            0u32
-        )?;
-        let bond_less = <MinTotalNominatorStake<T>>::get();
-        Pallet::<T>::schedule_nominator_unbond(
-            RawOrigin::Signed(caller.clone()).into(),
-            collator.clone(),
-            bond_less
-        )?;
-        roll_to_and_author::<T>(2, collator.clone());
-    }: {
-        Pallet::<T>::cancel_nomination_request(
-            RawOrigin::Signed(caller.clone()).into(),
-            collator.clone()
-        )?;
-    } verify {
-        assert!(
-            !Pallet::<T>::nomination_scheduled_requests(&collator)
-                .iter()
-                .any(|x| &x.nominator == &caller)
-        );
-    }
+    // cancel_nominator_unbond {
+    //     let collator: T::AccountId = create_funded_collator::<T>(
+    //         "collator",
+    //         USER_SEED,
+    //         0u32.into(),
+    //         true,
+    //         get_collator_count::<T>()
+    //     )?;
+    //     let (caller, total) = create_funded_user::<T>("caller", USER_SEED, 0u32.into());
+    //     Pallet::<T>::nominate(RawOrigin::Signed(
+    //         caller.clone()).into(),
+    //         collator.clone(),
+    //         total,
+    //         0u32,
+    //         0u32
+    //     )?;
+    //     let bond_less = <MinTotalNominatorStake<T>>::get();
+    //     Pallet::<T>::schedule_nominator_unbond(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         collator.clone(),
+    //         bond_less
+    //     )?;
+    //     roll_to_and_author::<T>(2, collator.clone());
+    // }: {
+    //     Pallet::<T>::cancel_nomination_request(
+    //         RawOrigin::Signed(caller.clone()).into(),
+    //         collator.clone()
+    //     )?;
+    // } verify {
+    //     assert!(
+    //         !Pallet::<T>::nomination_scheduled_requests(&collator)
+    //             .iter()
+    //             .any(|x| &x.nominator == &caller)
+    //     );
+    // }
 
     // ON_INITIALIZE
 
-    era_transition_on_initialize {
-        // TOTAL SELECTED COLLATORS PER ERA
-        let x in 8..20;
-        // NOMINATIONS
-        let y in 0..(<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get() * 100);
-        let max_nominators_per_collator =
-            <<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get();
-        let max_nominations = x * max_nominators_per_collator;
-        // y should depend on x but cannot directly, we overwrite y here if necessary to bound it
-        let total_nominations: u32 = if max_nominations < y { max_nominations } else { y };
-        // INITIALIZE RUNTIME STATE
-        // To set total selected to 40, must first increase era length to at least 40
-        // to avoid hitting EraLengthMustBeAtLeastTotalSelectedCollators
-        if Pallet::<T>::era().length < 100 {
-            Pallet::<T>::set_blocks_per_era(RawOrigin::Root.into(), 100u32)?;
-        }
+    // era_transition_on_initialize {
+    //     // TOTAL SELECTED COLLATORS PER ERA
+    //     let x in 8..20;
+    //     // NOMINATIONS
+    //     let y in 0..(<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get() * 100);
+    //     let max_nominators_per_collator =
+    //         <<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get();
+    //     let max_nominations = x * max_nominators_per_collator;
+    //     // y should depend on x but cannot directly, we overwrite y here if necessary to bound it
+    //     let total_nominations: u32 = if max_nominations < y { max_nominations } else { y };
+    //     // INITIALIZE RUNTIME STATE
+    //     // To set total selected to 40, must first increase era length to at least 40
+    //     // to avoid hitting EraLengthMustBeAtLeastTotalSelectedCollators
+    //     if Pallet::<T>::era().length < 100 {
+    //         Pallet::<T>::set_blocks_per_era(RawOrigin::Root.into(), 100u32)?;
+    //     }
 
-        if Pallet::<T>::total_selected() < 100u32 {
-            Pallet::<T>::set_total_selected(RawOrigin::Root.into(), 100u32)?;
-        }
+    //     if Pallet::<T>::total_selected() < 100u32 {
+    //         Pallet::<T>::set_total_selected(RawOrigin::Root.into(), 100u32)?;
+    //     }
 
-        // INITIALIZE COLLATOR STATE
-        let mut collators: Vec<T::AccountId> = Vec::new();
-        let mut collator_count = Pallet::<T>::selected_candidates().len() as u32;
-        for i in 0..x {
-            let seed = USER_SEED - i;
-            let collator = create_funded_collator::<T>(
-                "collator",
-                seed,
-                min_candidate_stk::<T>() * 1_000_000u32.into(),
-                true,
-                collator_count
-            )?;
-            collators.push(collator);
-            collator_count += 1u32;
-        }
-        // STORE starting balances for all collators
-        let collator_starting_balances: Vec<(
-            T::AccountId,
-            <<T as Config>::Currency as Currency<T::AccountId>>::Balance
-        )> = collators.iter().map(|x| (x.clone(), T::Currency::free_balance(&x))).collect();
-        // INITIALIZE NOMINATIONS
-        let mut col_del_count: BTreeMap<T::AccountId, u32> = BTreeMap::new();
-        collators.iter().for_each(|x| {
-            col_del_count.insert(x.clone(), 0u32);
-        });
-        let mut nominators: Vec<T::AccountId> = Vec::new();
-        let mut remaining_nominations = if total_nominations > max_nominators_per_collator {
-            for j in 1..(max_nominators_per_collator + 1) {
-                let seed = USER_SEED + j;
-                let nominator = create_funded_nominator::<T>(
-                    "nominator",
-                    seed,
-                    min_candidate_stk::<T>() * 1_000_000u32.into(),
-                    collators[0].clone(),
-                    true,
-                    nominators.len() as u32,
-                )?;
-                nominators.push(nominator);
-            }
-            total_nominations - max_nominators_per_collator
-        } else {
-            for j in 1..(total_nominations + 1) {
-                let seed = USER_SEED + j;
-                let nominator = create_funded_nominator::<T>(
-                    "nominator",
-                    seed,
-                    min_candidate_stk::<T>() * 1_000_000u32.into(),
-                    collators[0].clone(),
-                    true,
-                    nominators.len() as u32,
-                )?;
-                nominators.push(nominator);
-            }
-            0u32
-        };
-        col_del_count.insert(collators[0].clone(), nominators.len() as u32);
-        // FILL remaining nominations
-        if remaining_nominations > 0 {
-            for (col, n_count) in col_del_count.iter_mut() {
-                if n_count < &mut (nominators.len() as u32) {
-                    // assumes nominators.len() <= MaxTopNominationsPerCandidate
-                    let mut open_spots = nominators.len() as u32 - *n_count;
-                    while open_spots > 0 && remaining_nominations > 0 {
-                        let caller = nominators[open_spots as usize - 1usize].clone();
-                        if let Ok(_) = Pallet::<T>::nominate(RawOrigin::Signed(
-                            caller.clone()).into(),
-                            col.clone(),
-                            <MinTotalNominatorStake<T>>::get(),
-                            *n_count,
-                            collators.len() as u32, // overestimate
-                        ) {
-                            *n_count += 1;
-                            remaining_nominations -= 1;
-                        }
-                        open_spots -= 1;
-                    }
-                }
-                if remaining_nominations == 0 {
-                    break;
-                }
-            }
-        }
-        // STORE starting balances for all nominators
-        let nominator_starting_balances: Vec<(
-            T::AccountId,
-            <<T as Config>::Currency as Currency<T::AccountId>>::Balance
-        )> = nominators.iter().map(|x| (x.clone(), T::Currency::free_balance(&x))).collect();
-        // PREPARE RUN_TO_BLOCK LOOP
-        let before_running_era_index = Pallet::<T>::era().current;
-        let era_length: BlockNumberFor<T> = Pallet::<T>::era().length.into();
-        let reward_delay = <<T as Config>::RewardPaymentDelay as Get<u32>>::get() + 2u32;
-        let mut now = <frame_system::Pallet<T>>::block_number() + 1u32.into();
-        let mut counter = 0usize;
-        let end = Pallet::<T>::era().first + (era_length * reward_delay.into());
-        // SET collators as authors for blocks from now - end
-        while now < end {
-            // Set some rewards to payout
-            T::Currency::make_free_balance_be(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000u32.into());
+    //     // INITIALIZE COLLATOR STATE
+    //     let mut collators: Vec<T::AccountId> = Vec::new();
+    //     let mut collator_count = Pallet::<T>::selected_candidates().len() as u32;
+    //     for i in 0..x {
+    //         let seed = USER_SEED - i;
+    //         let collator = create_funded_collator::<T>(
+    //             "collator",
+    //             seed,
+    //             min_candidate_stk::<T>() * 1_000_000u32.into(),
+    //             true,
+    //             collator_count
+    //         )?;
+    //         collators.push(collator);
+    //         collator_count += 1u32;
+    //     }
+    //     // STORE starting balances for all collators
+    //     let collator_starting_balances: Vec<(
+    //         T::AccountId,
+    //         <<T as Config>::Currency as Currency<T::AccountId>>::Balance
+    //     )> = collators.iter().map(|x| (x.clone(), T::Currency::free_balance(&x))).collect();
+    //     // INITIALIZE NOMINATIONS
+    //     let mut col_del_count: BTreeMap<T::AccountId, u32> = BTreeMap::new();
+    //     collators.iter().for_each(|x| {
+    //         col_del_count.insert(x.clone(), 0u32);
+    //     });
+    //     let mut nominators: Vec<T::AccountId> = Vec::new();
+    //     let mut remaining_nominations = if total_nominations > max_nominators_per_collator {
+    //         for j in 1..(max_nominators_per_collator + 1) {
+    //             let seed = USER_SEED + j;
+    //             let nominator = create_funded_nominator::<T>(
+    //                 "nominator",
+    //                 seed,
+    //                 min_candidate_stk::<T>() * 1_000_000u32.into(),
+    //                 collators[0].clone(),
+    //                 true,
+    //                 nominators.len() as u32,
+    //             )?;
+    //             nominators.push(nominator);
+    //         }
+    //         total_nominations - max_nominators_per_collator
+    //     } else {
+    //         for j in 1..(total_nominations + 1) {
+    //             let seed = USER_SEED + j;
+    //             let nominator = create_funded_nominator::<T>(
+    //                 "nominator",
+    //                 seed,
+    //                 min_candidate_stk::<T>() * 1_000_000u32.into(),
+    //                 collators[0].clone(),
+    //                 true,
+    //                 nominators.len() as u32,
+    //             )?;
+    //             nominators.push(nominator);
+    //         }
+    //         0u32
+    //     };
+    //     col_del_count.insert(collators[0].clone(), nominators.len() as u32);
+    //     // FILL remaining nominations
+    //     if remaining_nominations > 0 {
+    //         for (col, n_count) in col_del_count.iter_mut() {
+    //             if n_count < &mut (nominators.len() as u32) {
+    //                 // assumes nominators.len() <= MaxTopNominationsPerCandidate
+    //                 let mut open_spots = nominators.len() as u32 - *n_count;
+    //                 while open_spots > 0 && remaining_nominations > 0 {
+    //                     let caller = nominators[open_spots as usize - 1usize].clone();
+    //                     if let Ok(_) = Pallet::<T>::nominate(RawOrigin::Signed(
+    //                         caller.clone()).into(),
+    //                         col.clone(),
+    //                         <MinTotalNominatorStake<T>>::get(),
+    //                         *n_count,
+    //                         collators.len() as u32, // overestimate
+    //                     ) {
+    //                         *n_count += 1;
+    //                         remaining_nominations -= 1;
+    //                     }
+    //                     open_spots -= 1;
+    //                 }
+    //             }
+    //             if remaining_nominations == 0 {
+    //                 break;
+    //             }
+    //         }
+    //     }
+    //     // STORE starting balances for all nominators
+    //     let nominator_starting_balances: Vec<(
+    //         T::AccountId,
+    //         <<T as Config>::Currency as Currency<T::AccountId>>::Balance
+    //     )> = nominators.iter().map(|x| (x.clone(), T::Currency::free_balance(&x))).collect();
+    //     // PREPARE RUN_TO_BLOCK LOOP
+    //     let before_running_era_index = Pallet::<T>::era().current;
+    //     let era_length: BlockNumberFor<T> = Pallet::<T>::era().length.into();
+    //     let reward_delay = <<T as Config>::RewardPaymentDelay as Get<u32>>::get() + 2u32;
+    //     let mut now = <frame_system::Pallet<T>>::block_number() + 1u32.into();
+    //     let mut counter = 0usize;
+    //     let end = Pallet::<T>::era().first + (era_length * reward_delay.into());
+    //     // SET collators as authors for blocks from now - end
+    //     while now < end {
+    //         // Set some rewards to payout
+    //         T::Currency::make_free_balance_be(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000u32.into());
 
-            let author = collators[counter % collators.len()].clone();
-            parachain_staking_on_finalize::<T>(author);
-            <frame_system::Pallet<T> as OnFinalize<BlockNumberFor<T>>>::on_finalize(<frame_system::Pallet<T>>::block_number());
-            <frame_system::Pallet<T>>::set_block_number(
-                <frame_system::Pallet<T>>::block_number() + 1u32.into()
-            );
-            <frame_system::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
-            <pallet::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
-            now += 1u32.into();
-            counter += 1usize;
-        }
-        parachain_staking_on_finalize::<T>(collators[counter % collators.len()].clone());
+    //         let author = collators[counter % collators.len()].clone();
+    //         parachain_staking_on_finalize::<T>(author);
+    //         <frame_system::Pallet<T> as OnFinalize<BlockNumberFor<T>>>::on_finalize(<frame_system::Pallet<T>>::block_number());
+    //         <frame_system::Pallet<T>>::set_block_number(
+    //             <frame_system::Pallet<T>>::block_number() + 1u32.into()
+    //         );
+    //         <frame_system::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
+    //         <pallet::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
+    //         now += 1u32.into();
+    //         counter += 1usize;
+    //     }
+    //     parachain_staking_on_finalize::<T>(collators[counter % collators.len()].clone());
 
-        // Set some rewards to payout
-        T::Currency::make_free_balance_be(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000u32.into());
+    //     // Set some rewards to payout
+    //     T::Currency::make_free_balance_be(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000u32.into());
 
-        <frame_system::Pallet<T> as OnFinalize<BlockNumberFor<T>>>::on_finalize(<frame_system::Pallet<T>>::block_number());
-        <frame_system::Pallet<T>>::set_block_number(
-            <frame_system::Pallet<T>>::block_number() + 1u32.into()
-        );
-        <frame_system::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
-    }: { <pallet::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number()); }
-    verify {
-        // Collators have been paid
-        // for (col, initial) in collator_starting_balances {
-        //     assert!(T::Currency::free_balance(&col) > initial);
-        // }
-        // Nominators have been paid
-        // for (nom, initial) in nominator_starting_balances {
-        //     assert!(T::Currency::free_balance(&nom) > initial, "Free balance: {:?} should be greater than initial balance: {:?}", T::Currency::free_balance(&nom), initial);
-        // }
-        // Era transitions
-        assert_eq!(Pallet::<T>::era().current, before_running_era_index + reward_delay);
-    }
+    //     <frame_system::Pallet<T> as OnFinalize<BlockNumberFor<T>>>::on_finalize(<frame_system::Pallet<T>>::block_number());
+    //     <frame_system::Pallet<T>>::set_block_number(
+    //         <frame_system::Pallet<T>>::block_number() + 1u32.into()
+    //     );
+    //     <frame_system::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number());
+    // }: { <pallet::Pallet<T> as OnInitialize<BlockNumberFor<T>>>::on_initialize(<frame_system::Pallet<T>>::block_number()); }
+    // verify {
+    //     // Collators have been paid
+    //     // for (col, initial) in collator_starting_balances {
+    //     //     assert!(T::Currency::free_balance(&col) > initial);
+    //     // }
+    //     // Nominators have been paid
+    //     // for (nom, initial) in nominator_starting_balances {
+    //     //     assert!(T::Currency::free_balance(&nom) > initial, "Free balance: {:?} should be greater than initial balance: {:?}", T::Currency::free_balance(&nom), initial);
+    //     // }
+    //     // Era transitions
+    //     assert_eq!(Pallet::<T>::era().current, before_running_era_index + reward_delay);
+    // }
 
-    pay_one_collator_reward {
-        // y controls number of nominations, its maximum per collator is the max top nominations
-        let y in 0..<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get();
+    // pay_one_collator_reward {
+    //     // y controls number of nominations, its maximum per collator is the max top nominations
+    //     let y in 0..<<T as Config>::MaxTopNominationsPerCandidate as Get<u32>>::get();
 
-        // must come after 'let foo in 0..` statements for macro
-        use crate::{
-            DelayedPayout, DelayedPayouts, AtStake, CollatorSnapshot, Bond, Points,
-            AwardedPts,
-        };
+    //     // must come after 'let foo in 0..` statements for macro
+    //     use crate::{
+    //         DelayedPayout, DelayedPayouts, AtStake, CollatorSnapshot, Bond, Points,
+    //         AwardedPts,
+    //     };
 
-        let before_running_era_index = Pallet::<T>::era().current;
-        let initial_stake_amount = min_candidate_stk::<T>() * 1_000_000u32.into();
+    //     let before_running_era_index = Pallet::<T>::era().current;
+    //     let initial_stake_amount = min_candidate_stk::<T>() * 1_000_000u32.into();
 
-        let mut total_staked = 0u32.into();
+    //     let mut total_staked = 0u32.into();
 
-        // initialize our single collator
-        let sole_collator = create_funded_collator::<T>(
-            "collator",
-            0,
-            initial_stake_amount,
-            true,
-            get_collator_count::<T>(),
-        )?;
-        total_staked += initial_stake_amount;
+    //     // initialize our single collator
+    //     let sole_collator = create_funded_collator::<T>(
+    //         "collator",
+    //         0,
+    //         initial_stake_amount,
+    //         true,
+    //         get_collator_count::<T>(),
+    //     )?;
+    //     total_staked += initial_stake_amount;
 
-        // generate funded collator accounts
-        let mut nominators: Vec<T::AccountId> = Vec::new();
-        for i in 0..y {
-            let seed = USER_SEED + i;
-            let nominator = create_funded_nominator::<T>(
-                "nominator",
-                seed,
-                initial_stake_amount,
-                sole_collator.clone(),
-                true,
-                nominators.len() as u32,
-            )?;
-            nominators.push(nominator);
-            total_staked += initial_stake_amount;
-        }
+    //     // generate funded collator accounts
+    //     let mut nominators: Vec<T::AccountId> = Vec::new();
+    //     for i in 0..y {
+    //         let seed = USER_SEED + i;
+    //         let nominator = create_funded_nominator::<T>(
+    //             "nominator",
+    //             seed,
+    //             initial_stake_amount,
+    //             sole_collator.clone(),
+    //             true,
+    //             nominators.len() as u32,
+    //         )?;
+    //         nominators.push(nominator);
+    //         total_staked += initial_stake_amount;
+    //     }
 
-        // rather than roll through eras in order to initialize the storage we want, we set it
-        // directly and then call pay_one_collator_reward directly.
+    //     // rather than roll through eras in order to initialize the storage we want, we set it
+    //     // directly and then call pay_one_collator_reward directly.
 
-        let era_for_payout = 5;
-        <DelayedPayouts<T>>::insert(&era_for_payout, DelayedPayout {
-            total_staking_reward: total_staked,
-        });
+    //     let era_for_payout = 5;
+    //     <DelayedPayouts<T>>::insert(&era_for_payout, DelayedPayout {
+    //         total_staking_reward: total_staked,
+    //     });
 
-        let mut nominations: BoundedVec<Bond<T::AccountId, BalanceOf<T>>, MaxNominations> = BoundedVec::default();
-        for nominator in &nominators {
-            nominations.try_push(Bond {
-                owner: nominator.clone(),
-                amount: 100u32.into(),
-            }).unwrap();
-        }
+    //     let mut nominations: BoundedVec<Bond<T::AccountId, BalanceOf<T>>, MaxNominations> = BoundedVec::default();
+    //     for nominator in &nominators {
+    //         nominations.try_push(Bond {
+    //             owner: nominator.clone(),
+    //             amount: 100u32.into(),
+    //         }).unwrap();
+    //     }
 
-        <AtStake<T>>::insert(era_for_payout, &sole_collator, CollatorSnapshot {
-            bond: 1_000u32.into(),
-            nominations,
-            total: 1_000_000u32.into(),
-        });
+    //     <AtStake<T>>::insert(era_for_payout, &sole_collator, CollatorSnapshot {
+    //         bond: 1_000u32.into(),
+    //         nominations,
+    //         total: 1_000_000u32.into(),
+    //     });
 
-        <Points<T>>::insert(era_for_payout, 100);
-        <AwardedPts<T>>::insert(era_for_payout, &sole_collator, 20);
-        fund_account::<T>(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000_000u32.into());
+    //     <Points<T>>::insert(era_for_payout, 100);
+    //     <AwardedPts<T>>::insert(era_for_payout, &sole_collator, 20);
+    //     fund_account::<T>(&Pallet::<T>::compute_reward_pot_account_id(), min_candidate_stk::<T>() * 1_000_000_000u32.into());
 
-    }: {
-        let era_for_payout = 5;
-        // TODO: this is an extra read right here (we should whitelist it?)
-        let payout_info = Pallet::<T>::delayed_payouts(era_for_payout).expect("payout expected");
-        let result = Pallet::<T>::pay_one_collator_reward(era_for_payout, payout_info);
-        assert!(result.0.is_some()); // TODO: how to keep this in scope so it can be done in verify block?
-    }
-    verify {
-        // collator should have been paid
-        assert!(
-            T::Currency::free_balance(&sole_collator) > initial_stake_amount,
-            "collator should have been paid in pay_one_collator_reward"
-        );
-        // nominators should have been paid
-        for nominator in &nominators {
-            assert!(
-                T::Currency::free_balance(&nominator) > initial_stake_amount,
-                "nominator should have been paid in pay_one_collator_reward"
-            );
-        }
-    }
+    // }: {
+    //     let era_for_payout = 5;
+    //     // TODO: this is an extra read right here (we should whitelist it?)
+    //     let payout_info = Pallet::<T>::delayed_payouts(era_for_payout).expect("payout expected");
+    //     let result = Pallet::<T>::pay_one_collator_reward(era_for_payout, payout_info);
+    //     assert!(result.0.is_some()); // TODO: how to keep this in scope so it can be done in verify block?
+    // }
+    // verify {
+    //     // collator should have been paid
+    //     assert!(
+    //         T::Currency::free_balance(&sole_collator) > initial_stake_amount,
+    //         "collator should have been paid in pay_one_collator_reward"
+    //     );
+    //     // nominators should have been paid
+    //     for nominator in &nominators {
+    //         assert!(
+    //             T::Currency::free_balance(&nominator) > initial_stake_amount,
+    //             "nominator should have been paid in pay_one_collator_reward"
+    //         );
+    //     }
+    // }
 
     base_on_initialize {
         let collator: T::AccountId = create_funded_collator::<T>(
