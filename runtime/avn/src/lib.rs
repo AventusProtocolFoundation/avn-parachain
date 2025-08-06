@@ -610,7 +610,6 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type ProcessedEventsChecker = ProcessedEventCustodian;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
-    type OnGrowthLiftedHandler = ParachainStaking;
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
     type AvnTreasuryPotId = AvnTreasuryPotId;
     type WeightInfo = pallet_token_manager::default_weights::SubstrateWeight<Runtime>;
