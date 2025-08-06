@@ -43,9 +43,7 @@ use sp_runtime::{
     BuildStorage, Perbill, SaturatedConversion,
 };
 
-use sp_staking::{
-    SessionIndex,
-};
+use sp_staking::SessionIndex;
 
 use hex_literal::hex;
 use pallet_session as session;
