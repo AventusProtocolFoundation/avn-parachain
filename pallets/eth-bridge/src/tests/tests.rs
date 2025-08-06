@@ -217,8 +217,6 @@ fn run_checks(
         let msg_hash = hex::encode(active_tx.confirmation.msg_hash);
         assert_eq!(msg_hash, expected_msg_hash);
 
-        println!("--- active_tx: {:#?}", active_tx);
-
         let calldata = generate_send_calldata::<TestRuntime, ()>(&active_tx).unwrap();
         let calldata = hex::encode(calldata);
         assert_eq!(calldata, expected_calldata(expected_expiry));
