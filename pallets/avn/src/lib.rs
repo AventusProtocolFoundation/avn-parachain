@@ -178,6 +178,7 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[deprecated]
     #[pallet::storage]
     #[pallet::getter(fn get_bridge_contract_address)]
     pub type AvnBridgeContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
@@ -207,6 +208,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[deprecated]
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_bridge_contract())]
         pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
