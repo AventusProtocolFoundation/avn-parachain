@@ -153,7 +153,6 @@ impl pallet_token_manager::Config for TestRuntime {
     type Signature = Signature;
     type AvnTreasuryPotId = AvnTreasuryPotId;
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
-    type OnGrowthLiftedHandler = ();
     type WeightInfo = ();
     type Scheduler = Scheduler;
     type Preimages = ();

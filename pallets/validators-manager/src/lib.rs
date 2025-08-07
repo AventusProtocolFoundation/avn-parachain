@@ -39,8 +39,6 @@ use sp_avn_common::{
 };
 use sp_core::{bounded::BoundedVec, ecdsa, H512};
 
-pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, PositiveImbalanceOf};
-
 use pallet_avn::BridgeInterface;
 
 pub use pallet::*;
@@ -63,7 +61,6 @@ pub mod pallet {
         + frame_system::Config
         + session::Config
         + avn::Config
-        + parachain_staking::Config
         + pallet_session::historical::Config
     {
         /// Overarching event type
@@ -187,7 +184,6 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Sudo function to add a collator.
-        /// This will call the `join_candidates` method in the parachain_staking pallet.
         /// [transactional]: this makes `add_validator` behave like an ethereum transaction (atomic tx). No need to use VFWL.
         /// see here for more info: https://github.com/paritytech/substrate/issues/10806
         #[pallet::call_index(0)]
@@ -197,7 +193,6 @@ pub mod pallet {
             origin: OriginFor<T>,
             collator_account_id: T::AccountId,
             collator_eth_public_key: ecdsa::Public,
-            deposit: Option<BalanceOf<T>>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let validator_account_ids =
@@ -222,34 +217,13 @@ pub mod pallet {
                 Error::<T>::MaximumValidatorsReached
             );
 
-            let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
-            let bond = deposit
-                .or_else(|| Some(parachain_staking::Pallet::<T>::min_collator_stake()))
-                .expect("has default value");
-            let register_as_candidate_weight = parachain_staking::Pallet::<T>::join_candidates(
-                <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
-                    collator_account_id.clone(),
-                )),
-                bond,
-                candidate_count,
-            )?;
-
             Self::register_author(&collator_account_id, &collator_eth_public_key)?;
 
             <ValidatorAccountIds<T>>::try_append(collator_account_id.clone())
                 .map_err(|_| Error::<T>::MaximumValidatorsReached)?;
             <EthereumPublicKeys<T>>::insert(collator_eth_public_key, collator_account_id);
 
-            // TODO: benchmark `register_validator` and add to the weight
-            return Ok(Some(
-                register_as_candidate_weight
-                    .actual_weight
-                    .or_else(|| Some(Weight::zero()))
-                    .expect("Has default value")
-                    .saturating_add(T::DbWeight::get().reads_writes(0, 2))
-                    .saturating_add(Weight::from_parts(40_000_000 as u64, 0)),
-            )
-            .into())
+            Ok(().into())
         }
 
         #[pallet::call_index(1)]
@@ -261,34 +235,13 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let _ = ensure_root(origin)?;
 
-            // remove collator from parachain_staking pallet
-            let candidate_count = parachain_staking::Pallet::<T>::candidate_pool().0.len() as u32;
-            let resign_as_candidate_weight =
-                parachain_staking::Pallet::<T>::schedule_leave_candidates(
-                    <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
-                        collator_account_id.clone(),
-                    )),
-                    candidate_count,
-                )?;
-
-            // TODO [TYPE: security][PRI: low][CRITICAL][JIRA: 66]: ensure that we have
-            // authorization from the whole of T2? This is part of the package to
-            // implement validator removals, slashing and the economics around that
             Self::remove_deregistered_validator(&collator_account_id)?;
 
             Self::deposit_event(Event::<T>::ValidatorDeregistered {
                 validator_id: collator_account_id,
             });
 
-            // TODO: benchmark `remove_deregistered_validator` and add to the weight
-            return Ok(Some(
-                resign_as_candidate_weight
-                    .actual_weight
-                    .or_else(|| Some(Weight::zero()))
-                    .expect("Has default value")
-                    .saturating_add(Weight::from_parts(40_000_000 as u64, 0)),
-            )
-            .into())
+            Ok(().into())
         }
 
         #[pallet::call_index(2)]
@@ -589,56 +542,22 @@ impl<T: Config> Pallet<T> {
             },
         )
     }
-    fn clean_up_staking_data(action_account_id: T::AccountId) -> Result<(), ()> {
-        // Cleanup staking state for the collator we are removing
-        let staking_state = parachain_staking::Pallet::<T>::candidate_info(&action_account_id);
-        if staking_state.is_none() {
-            log::error!(
-                "💔 Unable to find staking candidate info for collator: {:?}",
-                action_account_id
-            );
-            return Err(())
-        }
-
-        let staking_state = staking_state.expect("Checked for none already");
-
-        let result = parachain_staking::Pallet::<T>::execute_leave_candidates(
-            <T as frame_system::Config>::RuntimeOrigin::from(RawOrigin::Signed(
-                action_account_id.clone(),
-            )),
-            action_account_id.clone(),
-            staking_state.nomination_count,
-        );
-
-        if result.is_err() {
-            log::error!(
-                "💔 Error removing staking data for collator {:?}: {:?}",
-                action_account_id,
-                result
-            );
-            return Err(())
-        }
-
-        Ok(())
-    }
 
     fn clean_up_collator_data(action_account_id: T::AccountId, ingress_counter: IngressCounter) {
-        if let Ok(()) = Self::clean_up_staking_data(action_account_id.clone()) {
-            <ValidatorActions<T>>::mutate(
-                &action_account_id,
-                ingress_counter,
-                |validators_action_data_maybe| {
-                    if let Some(validators_action_data) = validators_action_data_maybe {
-                        validators_action_data.status = ValidatorsActionStatus::Confirmed
-                    }
-                },
-            );
-            Self::remove_ethereum_public_key_if_required(&action_account_id);
+        <ValidatorActions<T>>::mutate(
+            &action_account_id,
+            ingress_counter,
+            |validators_action_data_maybe| {
+                if let Some(validators_action_data) = validators_action_data_maybe {
+                    validators_action_data.status = ValidatorsActionStatus::Confirmed
+                }
+            },
+        );
+        Self::remove_ethereum_public_key_if_required(&action_account_id);
 
-            let action_id = ActionId::new(action_account_id, ingress_counter);
+        let action_id = ActionId::new(action_account_id, ingress_counter);
 
-            Self::deposit_event(Event::<T>::ValidatorActionConfirmed { action_id });
-        }
+        Self::deposit_event(Event::<T>::ValidatorActionConfirmed { action_id });
     }
 }
 
@@ -722,6 +641,42 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
                 }
             }
         }
+    }
+}
+
+impl<T: Config> session::SessionManager<T::AccountId> for Pallet<T> {
+    fn new_session(new_index: u32) -> Option<Vec<T::AccountId>> {
+        // Retrieve the authors from storage
+        let authors_option = ValidatorAccountIds::<T>::get();
+
+        if let Some(authors) = authors_option {
+            if authors.is_empty() {
+                // We never want to pass an empty set of collators. This would brick the chain.
+                log::error!("💥 keeping old session because of empty collator set!");
+                None
+            } else {
+                log::debug!(
+                    "[AUTH-MGR] assembling new authors for new session {} with these authors {:#?} at #{:?}",
+                    new_index,
+                    authors,
+                    <frame_system::Pallet<T>>::block_number(),
+                );
+
+                Some(authors.into())
+            }
+        } else {
+            // Handle the case where no authors are present in storage
+            log::error!("💥 keeping old session because no authors found in storage!");
+            None
+        }
+    }
+
+    fn end_session(_end_index: u32) {
+        // nothing to do here
+    }
+
+    fn start_session(_start_index: u32) {
+        // nothing to do here
     }
 }
 

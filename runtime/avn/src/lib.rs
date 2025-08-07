@@ -82,31 +82,28 @@ use sp_avn_common::{
     InnerCallValidator, Proof,
 };
 
-use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
-/// Logic for the staking pot to get all the fees, including tips.
-pub struct ToStakingPot<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for ToStakingPot<R>
+pub struct Treasury<R>(sp_std::marker::PhantomData<R>);
+impl<R> OnUnbalanced<NegativeImbalance<R>> for Treasury<R>
 where
-    R: pallet_balances::Config + pallet_parachain_staking::Config,
+    R: pallet_balances::Config + pallet_token_manager::Config,
     <R as frame_system::Config>::AccountId: From<AccountId>,
     <R as frame_system::Config>::AccountId: Into<AccountId>,
     <R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
     fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
-        let staking_pot_address =
-            <pallet_parachain_staking::Pallet<R>>::compute_reward_pot_account_id();
-        <pallet_balances::Pallet<R>>::resolve_creating(&staking_pot_address, amount);
+        let treasury_address = <pallet_token_manager::Pallet<R>>::compute_treasury_account_id();
+        <pallet_balances::Pallet<R>>::resolve_creating(&treasury_address, amount);
     }
 }
 
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
 where
-    R: pallet_balances::Config + pallet_parachain_staking::Config,
+    R: pallet_balances::Config + pallet_token_manager::Config,
     <R as frame_system::Config>::AccountId: From<AccountId>,
     <R as frame_system::Config>::AccountId: Into<AccountId>,
     <R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
@@ -116,7 +113,9 @@ where
             if let Some(tips) = fees_then_tips.next() {
                 tips.merge_into(&mut fees);
             }
-            <ToStakingPot<R> as OnUnbalanced<_>>::on_unbalanced(fees);
+
+            // 100% of fees + tips goes to the treasury
+            <Treasury<R> as OnUnbalanced<_>>::on_unbalanced(fees);
         }
     }
 }
@@ -248,26 +247,6 @@ parameter_types! {
     pub const SS58Prefix: u16 = 42;
 }
 
-/// Use this filter to block users from calling extrinsics listed here.
-pub struct RestrictedEndpointFilter;
-impl Contains<RuntimeCall> for RestrictedEndpointFilter {
-    fn contains(c: &RuntimeCall) -> bool {
-        !matches!(
-            c,
-            RuntimeCall::ParachainStaking(pallet_parachain_staking::Call::join_candidates { .. }) |
-                RuntimeCall::ParachainStaking(
-                    pallet_parachain_staking::Call::schedule_leave_candidates { .. }
-                ) |
-                RuntimeCall::ParachainStaking(
-                    pallet_parachain_staking::Call::execute_leave_candidates { .. }
-                ) |
-                RuntimeCall::ParachainStaking(
-                    pallet_parachain_staking::Call::cancel_leave_candidates { .. }
-                )
-        )
-    }
-}
-
 /// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
 /// [`ParaChainDefaultConfig`](`struct@frame_system::config_preludes::ParaChainDefaultConfig`),
 /// but overridden as needed.
@@ -290,7 +269,7 @@ impl frame_system::Config for Runtime {
     /// The weight of database operations that the runtime can invoke.
     type DbWeight = RocksDbWeight;
     /// The basic call filter to use in dispatchable.
-    type BaseCallFilter = RestrictedEndpointFilter;
+    type BaseCallFilter = frame_support::traits::Everything;
     /// Block & extrinsics weights: base values and limits.
     type BlockWeights = RuntimeBlockWeights;
     /// The maximum length of a block (in bytes).
@@ -312,7 +291,7 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
-    type EventHandler = (ParachainStaking,);
+    type EventHandler = ();
 }
 
 parameter_types! {
@@ -419,10 +398,9 @@ impl pallet_session::Config for Runtime {
     type ValidatorId = <Self as frame_system::Config>::AccountId;
     // we don't have stash and controller, thus we don't need the convert as well.
     type ValidatorIdOf = ConvertInto;
-    type ShouldEndSession = ParachainStaking;
-    type NextSessionRotation = ParachainStaking;
-    type SessionManager = ParachainStaking;
-    // Essentially just Aura, but let's be pedantic.
+    type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+    type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+    type SessionManager = ValidatorsManager;
     type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
     type Keys = SessionKeys;
     type WeightInfo = ();
@@ -435,42 +413,6 @@ impl pallet_aura::Config for Runtime {
     type AllowMultipleBlocksPerSlot = ConstBool<false>;
     #[cfg(feature = "experimental")]
     type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
-}
-
-parameter_types! {
-    // The accountId that will hold the reward for the staking pallet
-    pub const RewardPotId: PalletId = PalletId(*b"av/vamgr");
-}
-impl pallet_parachain_staking::Config for Runtime {
-    type RuntimeCall = RuntimeCall;
-    type RuntimeEvent = RuntimeEvent;
-    type Currency = Balances;
-    /// Minimum era length is 4 minutes (20 * 12 second block times)
-    type MinBlocksPerEra = ConstU32<20>;
-    /// Eras before the reward is paid
-    type RewardPaymentDelay = ConstU32<2>;
-    /// Minimum collators selected per era, default at genesis and minimum forever after
-    type MinSelectedCandidates = ConstU32<20>;
-    /// Maximum top nominations per candidate
-    type MaxTopNominationsPerCandidate = ConstU32<300>;
-    /// Maximum bottom nominations per candidate
-    type MaxBottomNominationsPerCandidate = ConstU32<50>;
-    /// Maximum nominations per nominator
-    type MaxNominationsPerNominator = ConstU32<100>;
-    /// Minimum stake required to be reserved to be a nominator
-    type MinNominationPerCollator = ConstU128<1>;
-    type RewardPotId = RewardPotId;
-    type ErasPerGrowthPeriod = ConstU32<30>; // 30 eras (~ 1 month if era = 1 day)
-    type ProcessedEventsChecker = ProcessedEventCustodian;
-    type Public = <Signature as sp_runtime::traits::Verify>::Signer;
-    type Signature = Signature;
-    type CollatorSessionRegistration = Session;
-    type CollatorPayoutDustHandler = TokenManager;
-    type WeightInfo = pallet_parachain_staking::weights::SubstrateWeight<Runtime>;
-    type MaxCandidates = ConstU32<100>;
-    type AccountToBytesConvert = Avn;
-    type BridgeInterface = EthBridge;
-    type GrowthEnabled = ConstBool<true>;
 }
 
 // Substrate pallets that AvN has dependency
@@ -508,7 +450,7 @@ parameter_types! {
 impl pallet_im_online::Config for Runtime {
     type AuthorityId = ImOnlineId;
     type RuntimeEvent = RuntimeEvent;
-    type NextSessionRotation = ParachainStaking;
+    type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
     type ValidatorSet = Historical;
     type ReportUnresponsiveness = Offences;
     type UnsignedPriority = ImOnlineUnsignedPriority;
@@ -610,7 +552,6 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type ProcessedEventsChecker = ProcessedEventCustodian;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
-    type OnGrowthLiftedHandler = ParachainStaking;
     type TreasuryGrowthPercentage = TreasuryGrowthPercentage;
     type AvnTreasuryPotId = AvnTreasuryPotId;
     type WeightInfo = pallet_token_manager::default_weights::SubstrateWeight<Runtime>;
@@ -674,7 +615,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
+    type BridgeInterfaceNotification = (Summary, TokenManager);
     type ProcessedEventsHandler = CorePrimaryEventsFilter;
 }
 
@@ -788,7 +729,6 @@ construct_runtime!(
         Session: pallet_session = 22,
         Aura: pallet_aura = 23,
         AuraExt: cumulus_pallet_aura_ext = 24,
-        ParachainStaking: pallet_parachain_staking = 96,
 
         // Since the ValidatorsManager integrates with the ParachainStaking pallet, we want to initialise after it.
         ValidatorsManager: pallet_validators_manager = 18,
@@ -850,7 +790,6 @@ mod benches {
         [pallet_timestamp, Timestamp]
         [pallet_message_queue, MessageQueue]
         [pallet_utility, Utility]
-        [pallet_parachain_staking, ParachainStaking]
         [pallet_avn_anchor, AvnAnchor]
         [cumulus_pallet_parachain_system, ParachainSystem]
         [cumulus_pallet_xcmp_queue, XcmpQueue]

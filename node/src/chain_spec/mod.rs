@@ -36,7 +36,6 @@ pub(crate) mod constants {
     pub(crate) const EIGHT_HOURS_SCHEDULE_PERIOD: BlockNumber = 8 * HOURS;
 
     pub(crate) const AVT_ENDOWMENT: Balance = 10_000 * AVT;
-    pub(crate) const COLLATOR_DEPOSIT: Balance = 2_000 * AVT;
 
     pub const QUORUM_FACTOR: u32 = 3;
 }

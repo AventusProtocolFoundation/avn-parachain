@@ -115,17 +115,6 @@ pub(crate) fn avn_test_runtime_genesis(
         im_online: ImOnlineConfig { keys: vec![] },
         nft_manager: Default::default(),
         parachain_system: Default::default(),
-        parachain_staking: ParachainStakingConfig {
-            candidates: candidates
-                .iter()
-                .cloned()
-                .map(|(acc, _, _, _, _)| (acc, COLLATOR_DEPOSIT))
-                .collect(),
-            nominations: vec![],
-            min_collator_stake: COLLATOR_DEPOSIT,
-            min_total_nominator_stake: 10 * AVT,
-            delay: 2,
-        },
         polkadot_xcm: avn_test_runtime::PolkadotXcmConfig {
             safe_xcm_version: Some(SAFE_XCM_VERSION),
             ..Default::default()

@@ -7,11 +7,9 @@ use frame_support::{
     assert_noop, assert_ok, pallet_prelude::DispatchResultWithPostInfo, traits::Currency,
 };
 use hex_literal::hex;
-use pallet_parachain_staking::Error as ParachainStakingError;
 use sp_io::crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed};
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 use substrate_test_utils::assert_eq_uvec;
-// use frame_system::*;
 
 fn register_validator(
     collator_id: &AccountId,
@@ -21,7 +19,6 @@ fn register_validator(
         RawOrigin::Root.into(),
         *collator_id,
         *collator_eth_public_key,
-        None,
     )
 }
 
@@ -357,7 +354,7 @@ mod remove_validator_public {
 
             assert_noop!(
                 ValidatorManager::remove_validator(RawOrigin::Root.into(), validator_account_id),
-                ParachainStakingError::<TestRuntime>::CandidateDNE
+                Error::<TestRuntime>::ValidatorNotFound // ValidatorNotFound
             );
 
             // Caller of remove function has to emit event if removal is successful.
@@ -530,7 +527,6 @@ mod add_validator {
                         RawOrigin::None.into(),
                         context.collator,
                         context.collator_eth_public_key,
-                        None
                     ),
                     BadOrigin
                 );
