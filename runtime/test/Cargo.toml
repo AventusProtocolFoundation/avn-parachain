@@ -98,7 +98,6 @@ pallet-avn-proxy = { path = "../../pallets/avn-proxy", default-features = false 
 pallet-avn-transaction-payment = { path = "../../pallets/avn-transaction-payment", default-features = false }
 pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = false }
 pallet-eth-bridge-runtime-api = { path = "../../pallets/eth-bridge/runtime-api", default-features = false }
-pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
 pallet-avn-anchor = { path = "../../pallets/avn-anchor", default-features = false }
 
 # Common Runtime
@@ -173,7 +172,6 @@ std = [
 	"pallet-token-manager/std",
 	"pallet-validators-manager/std",
 	"pallet-avn-transaction-payment/std",
-	"pallet-parachain-staking/std",
 	# Avn Common Runtime
 	"runtime-common/std",
 	# OpenGov
@@ -218,8 +216,6 @@ runtime-benchmarks = [
 	"pallet-token-manager/runtime-benchmarks",
 	"pallet-validators-manager/runtime-benchmarks",
 	"pallet-avn-transaction-payment/runtime-benchmarks",
-	# Staking
-	"pallet-parachain-staking/runtime-benchmarks",
 	# Avn Common Runtime
 	"runtime-common/runtime-benchmarks",
 	# OpenGov
@@ -259,7 +255,6 @@ try-runtime = [
 	"pallet-nft-manager/try-runtime",
 	"pallet-avn-proxy/try-runtime",
 	"pallet-avn-transaction-payment/try-runtime",
-	"pallet-parachain-staking/try-runtime",
 	"pallet-eth-bridge/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-authority-discovery/try-runtime",

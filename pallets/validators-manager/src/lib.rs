@@ -184,7 +184,6 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Sudo function to add a collator.
-        /// This will call the `join_candidates` method in the parachain_staking pallet.
         /// [transactional]: this makes `add_validator` behave like an ethereum transaction (atomic tx). No need to use VFWL.
         /// see here for more info: https://github.com/paritytech/substrate/issues/10806
         #[pallet::call_index(0)]
