@@ -1216,7 +1216,7 @@ pub mod pallet {
             let nominator = ensure_signed(origin)?;
             #[cfg(not(test))]
             {
-                return Err(Error::<T>::StakingNotAllowed.into());
+                return Err(Error::<T>::StakingNotAllowed.into())
             }
             return Self::call_nominate(
                 &nominator,
@@ -1241,7 +1241,7 @@ pub mod pallet {
             let nominator = ensure_signed(origin)?;
             #[cfg(not(test))]
             {
-                return Err(Error::<T>::StakingNotAllowed.into());
+                return Err(Error::<T>::StakingNotAllowed.into())
             }
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
@@ -1421,7 +1421,7 @@ pub mod pallet {
             let nominator = ensure_signed(origin)?;
             #[cfg(not(test))]
             {
-                return Err(Error::<T>::StakingNotAllowed.into());
+                return Err(Error::<T>::StakingNotAllowed.into())
             }
             return Self::call_bond_extra(&nominator, candidate, more)
         }
@@ -1438,7 +1438,7 @@ pub mod pallet {
             let nominator = ensure_signed(origin)?;
             #[cfg(not(test))]
             {
-                return Err(Error::<T>::StakingNotAllowed.into());
+                return Err(Error::<T>::StakingNotAllowed.into())
             }
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
