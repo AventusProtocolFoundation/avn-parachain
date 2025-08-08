@@ -1215,7 +1215,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             #[cfg(not(test))]
-            return Err(Error::<T>::StakingNotAllowed.into());
+            {
+                return Err(Error::<T>::StakingNotAllowed.into());
+            }
             return Self::call_nominate(
                 &nominator,
                 candidate,
@@ -1238,7 +1240,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             #[cfg(not(test))]
-            return Err(Error::<T>::StakingNotAllowed.into());
+            {
+                return Err(Error::<T>::StakingNotAllowed.into());
+            }
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let nominator_nonce = Self::proxy_nonce(&nominator);
@@ -1416,7 +1420,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             #[cfg(not(test))]
-            return Err(Error::<T>::StakingNotAllowed.into());
+            {
+                return Err(Error::<T>::StakingNotAllowed.into());
+            }
             return Self::call_bond_extra(&nominator, candidate, more)
         }
 
@@ -1431,7 +1437,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
             #[cfg(not(test))]
-            return Err(Error::<T>::StakingNotAllowed.into());
+            {
+                return Err(Error::<T>::StakingNotAllowed.into());
+            }
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let nominator_nonce = Self::proxy_nonce(&nominator);
