@@ -32,10 +32,10 @@ pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
+    eth::LowerParams,
     event_types::{EthEvent, EthEventId, Validator},
     ocw_lock::{self as OcwLock, OcwStorageError},
-    recover_public_key_from_ecdsa_signature, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
-    EXTERNAL_SERVICE_PORT_NUMBER_KEY,
+    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
 use sp_core::{ecdsa, H160};
 use sp_runtime::{
@@ -80,9 +80,6 @@ const AVN_SERVICE_CALL_EXPIRY: u32 = 300_000;
 // used in benchmarks and weights calculation only
 // TODO: centralise this with MaximumValidatorsBound
 pub const MAX_VALIDATOR_ACCOUNTS: u32 = 10;
-
-pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
-pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -181,6 +178,7 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    #[deprecated]
     #[pallet::storage]
     #[pallet::getter(fn get_bridge_contract_address)]
     pub type AvnBridgeContractAddress<T: Config> = StorageValue<_, H160, ValueQuery>;
@@ -210,6 +208,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        #[deprecated]
         #[pallet::call_index(0)]
         #[pallet::weight(<T as pallet::Config>::WeightInfo::set_bridge_contract())]
         pub fn set_bridge_contract(origin: OriginFor<T>, contract_address: H160) -> DispatchResult {
@@ -245,22 +244,22 @@ impl<T: Config> Pallet<T> {
 
         // Offchain workers could run multiple times for the same block number (re-orgs...)
         // so we need to make sure we only run this once per block
-        OcwLock::record_block_run(block_number, caller_id).map_err(|e| match e {
-            OcwStorageError::OffchainWorkerAlreadyRun => {
-                log::info!(
-                    "❌ Offchain worker has already run for block number: {:?}",
-                    block_number
-                );
-                Error::<T>::OffchainWorkerAlreadyRun
-            },
-            OcwStorageError::ErrorRecordingOffchainWorkerRun => {
-                log::error!(
-                    "❌ Unable to record offchain worker run for block {:?}, skipping",
-                    block_number
-                );
-                Error::<T>::ErrorRecordingOffchainWorkerRun
-            },
-        })?;
+        // OcwLock::record_block_run(block_number, caller_id).map_err(|e| match e {
+        //     OcwStorageError::OffchainWorkerAlreadyRun => {
+        //         log::info!(
+        //             "❌ Offchain worker has already run for block number: {:?}",
+        //             block_number
+        //         );
+        //         Error::<T>::OffchainWorkerAlreadyRun
+        //     },
+        //     OcwStorageError::ErrorRecordingOffchainWorkerRun => {
+        //         log::error!(
+        //             "❌ Unable to record offchain worker run for block {:?}, skipping",
+        //             block_number
+        //         );
+        //         Error::<T>::ErrorRecordingOffchainWorkerRun
+        //     },
+        // })?;
 
         return Ok((maybe_validator.expect("Already checked"), finalised_block))
     }
@@ -392,7 +391,7 @@ impl<T: Config> Pallet<T> {
     pub fn request_ecdsa_signature_from_external_service(
         data_to_sign: &str,
     ) -> Result<ecdsa::Signature, DispatchError> {
-        let mut url = String::from("eth/sign/");
+        let mut url = String::from("eth/sign_hashed_data/");
         url.push_str(data_to_sign);
 
         log::info!(target: "avn-service", "avn-service sign request (ecdsa) for hex-encoded data {:?}", data_to_sign);
@@ -430,42 +429,6 @@ impl<T: Config> Pallet<T> {
             signature_valid
         );
         return signature_valid
-    }
-
-    pub fn eth_signature_is_valid(
-        data: String,
-        validator: &Validator<T::AuthorityId, T::AccountId>,
-        signature: &ecdsa::Signature,
-    ) -> bool {
-        // verify that the incoming (unverified) pubkey is actually a validator
-        if !Self::is_validator(&validator.account_id) {
-            log::warn!("✋ Account: {:?} is not an authority.", &validator.account_id);
-            return false
-        }
-        let recovered_public_key = recover_public_key_from_ecdsa_signature(signature, &data);
-        if recovered_public_key.is_err() {
-            log::error!(
-                "❌ Recovery of public key from ECDSA Signature: {:?} and data: {:?} failed",
-                &signature,
-                data
-            );
-            return false
-        }
-
-        match T::EthereumPublicKeyChecker::get_validator_for_eth_public_key(
-            &recovered_public_key.expect("Checked for error"),
-        ) {
-            Some(maybe_validator) => maybe_validator == validator.account_id,
-            _ => {
-                log::error!(
-                    "❌ ECDSA signature validation failed on data {:?} validator: {:?} signature {:?}.",
-                    &data,
-                    validator,
-                    signature
-                );
-                false
-            },
-        }
     }
 
     pub fn convert_block_number_to_u32(block_number: BlockNumberFor<T>) -> Result<u32, Error<T>> {

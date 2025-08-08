@@ -9,6 +9,7 @@ use alloc::{
 };
 
 use codec::{Codec, Decode, Encode};
+pub use eth::{BridgeContractMethod, ECDSAVerificationError};
 use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
@@ -27,6 +28,7 @@ pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
 
 #[path = "tests/helpers.rs"]
 pub mod avn_tests_helpers;
+pub mod eth;
 pub mod eth_key_actions;
 pub mod event_discovery;
 pub mod event_types;
@@ -71,41 +73,6 @@ pub mod bounds {
     pub type NftExternalRefBound = ConstU32<1024>;
     /// Bound used for batch operations
     pub type ProcessingBatchBound = ConstU32<64>;
-}
-
-#[derive(Debug)]
-pub enum ECDSAVerificationError {
-    InvalidSignature,
-    InvalidValueForV,
-    InvalidValueForRS,
-    InvalidMessageFormat,
-    BadSignature,
-    FailedToHashStringData,
-    FailedToHash32BytesHexData,
-}
-
-pub enum BridgeContractMethod {
-    ReferenceRateUpdatedAt,
-    CheckReferenceRate,
-    UpdateReferenceRate,
-    PublishRoot,
-    TriggerGrowth,
-    AddAuthor,
-    RemoveAuthor,
-}
-
-impl BridgeContractMethod {
-    pub fn as_bytes(&self) -> &[u8] {
-        match self {
-            BridgeContractMethod::ReferenceRateUpdatedAt => b"referenceRateUpdatedAt",
-            BridgeContractMethod::CheckReferenceRate => b"checkReferenceRate",
-            BridgeContractMethod::UpdateReferenceRate => b"updateReferenceRate",
-            BridgeContractMethod::PublishRoot => b"publishRoot",
-            BridgeContractMethod::TriggerGrowth => b"triggerGrowth",
-            BridgeContractMethod::AddAuthor => b"addAuthor",
-            BridgeContractMethod::RemoveAuthor => b"removeAuthor",
-        }
-    }
 }
 
 // Struct that holds the information about an Ethereum transaction
@@ -252,12 +219,9 @@ pub fn recover_ethereum_address_from_ecdsa_signature(
 
 pub fn recover_public_key_from_ecdsa_signature(
     signature: &ecdsa::Signature,
-    message: &String,
+    hashed_message: &H256,
 ) -> Result<ecdsa::Public, ECDSAVerificationError> {
-    match secp256k1_ecdsa_recover_compressed(
-        signature.as_ref(),
-        &hash_with_ethereum_prefix(message)?,
-    ) {
+    match secp256k1_ecdsa_recover_compressed(signature.as_ref(), &hashed_message.to_fixed_bytes()) {
         Ok(pubkey) => return Ok(ecdsa::Public::from_raw(pubkey)),
         Err(EcdsaVerifyError::BadRS) => return Err(ECDSAVerificationError::InvalidValueForRS),
         Err(EcdsaVerifyError::BadV) => return Err(ECDSAVerificationError::InvalidValueForV),
