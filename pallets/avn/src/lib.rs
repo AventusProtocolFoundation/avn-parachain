@@ -244,22 +244,22 @@ impl<T: Config> Pallet<T> {
 
         // Offchain workers could run multiple times for the same block number (re-orgs...)
         // so we need to make sure we only run this once per block
-        OcwLock::record_block_run(block_number, caller_id).map_err(|e| match e {
-            OcwStorageError::OffchainWorkerAlreadyRun => {
-                log::info!(
-                    "❌ Offchain worker has already run for block number: {:?}",
-                    block_number
-                );
-                Error::<T>::OffchainWorkerAlreadyRun
-            },
-            OcwStorageError::ErrorRecordingOffchainWorkerRun => {
-                log::error!(
-                    "❌ Unable to record offchain worker run for block {:?}, skipping",
-                    block_number
-                );
-                Error::<T>::ErrorRecordingOffchainWorkerRun
-            },
-        })?;
+        // OcwLock::record_block_run(block_number, caller_id).map_err(|e| match e {
+        //     OcwStorageError::OffchainWorkerAlreadyRun => {
+        //         log::info!(
+        //             "❌ Offchain worker has already run for block number: {:?}",
+        //             block_number
+        //         );
+        //         Error::<T>::OffchainWorkerAlreadyRun
+        //     },
+        //     OcwStorageError::ErrorRecordingOffchainWorkerRun => {
+        //         log::error!(
+        //             "❌ Unable to record offchain worker run for block {:?}, skipping",
+        //             block_number
+        //         );
+        //         Error::<T>::ErrorRecordingOffchainWorkerRun
+        //     },
+        // })?;
 
         return Ok((maybe_validator.expect("Already checked"), finalised_block))
     }
