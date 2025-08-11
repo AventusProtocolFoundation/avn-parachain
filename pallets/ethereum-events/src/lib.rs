@@ -810,8 +810,7 @@ pub mod pallet {
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         /// Offchain Worker entry point.
         fn offchain_worker(block_number: BlockNumberFor<T>) {
-            let setup_result =
-                AVN::<T>::pre_run_setup(block_number, Self::instance().encode().to_vec());
+            let setup_result = AVN::<T>::pre_run_setup(block_number, PALLET_ID.to_vec());
             if let Err(e) = setup_result {
                 if sp_io::offchain::is_validator() {
                     match e {
