@@ -1,6 +1,7 @@
 use anyhow::{ensure, Context};
 use ethereum_types;
 use sp_avn_common::EthTransaction;
+use std::error::Error;
 pub use std::{
     error::Error as StdError,
     path::PathBuf,
@@ -225,4 +226,11 @@ pub fn secret_key_address(key: &SecretKey) -> Address {
     let secp: Secp256k1<All> = Secp256k1::new();
     let public_key = PublicKey::from_secret_key(&secp, key);
     public_key_address(&public_key)
+}
+
+pub async fn get_chain_id_from_provider(web3: &Web3<Http>) -> Result<u64, Box<dyn Error>> {
+    // Call eth_chainId
+    let chain_id = web3.eth().chain_id().await?;
+    log::trace!("Web3 connection has chain ID: {}", chain_id);
+    Ok(chain_id.as_u64())
 }

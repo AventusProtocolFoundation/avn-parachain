@@ -33,7 +33,8 @@ use sp_runtime::{
     ApplyExtrinsicResult,
 };
 
-use sp_std::prelude::*;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*, vec::Vec};
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -77,7 +78,9 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
+use pallet_eth_bridge_runtime_api::InstanceId;
 use sp_avn_common::{
+    eth::EthBridgeInstance,
     event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition},
     InnerCallValidator, Proof,
 };
@@ -179,7 +182,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 105,
+    spec_version: 110,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -662,8 +665,6 @@ impl pallet_avn_anchor::Config for Runtime {
     type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
-use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
-
 impl pallet_eth_bridge::Config for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
@@ -768,6 +769,7 @@ impl pallet_preimage::Config for Runtime {
         LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
     >;
 }
+const MAIN_ETH_BRIDGE_ID: u8 = 0u8;
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1012,7 +1014,7 @@ impl_runtime_apis! {
             return res
         }
 
-        fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
+        fn query_active_block_range(_instance_id: InstanceId)-> Option<(EthBlockRange, u16)> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
                 Some((active_eth_range.range, active_eth_range.partition))
             } else {
@@ -1020,20 +1022,18 @@ impl_runtime_apis! {
             }
         }
 
-        fn query_has_author_casted_vote(account_id: AccountId) -> bool{
-           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id) ||
-           pallet_eth_bridge::author_has_submitted_latest_block::<Runtime>(&account_id)
+        fn query_has_author_casted_vote(_instance_id: InstanceId, account_id: AccountId) -> bool{
+           EthBridge::author_has_cast_event_vote(&account_id) ||
+           EthBridge::author_has_submitted_latest_block(&account_id)
         }
 
-        fn query_signatures() -> Vec<sp_core::H256> {
+        fn query_signatures(_instance_id: InstanceId) -> Vec<sp_core::H256> {
             EthBridge::signatures()
         }
 
-        fn query_bridge_contract() -> H160 {
-            Avn::get_bridge_contract_address()
-        }
-
-        fn submit_vote(author: AccountId,
+        fn submit_vote(
+            _instance_id: InstanceId,
+            author: AccountId,
             events_partition: EthereumEventsPartition,
             signature: sp_core::sr25519::Signature,
         ) -> Option<()>{
@@ -1041,6 +1041,7 @@ impl_runtime_apis! {
         }
 
         fn submit_latest_ethereum_block(
+            _instance_id: InstanceId,
             author: AccountId,
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
@@ -1048,12 +1049,18 @@ impl_runtime_apis! {
             EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
-        fn additional_transactions() -> Option<AdditionalEvents> {
+        fn additional_transactions(_instance_id: InstanceId) -> Option<AdditionalEvents> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
                 Some(active_eth_range.additional_transactions)
             } else {
                 None
             }
+        }
+
+        fn instances() -> BTreeMap<InstanceId, EthBridgeInstance> {
+            BTreeMap::from([
+                (MAIN_ETH_BRIDGE_ID, EthBridge::instance()),
+            ])
         }
     }
 

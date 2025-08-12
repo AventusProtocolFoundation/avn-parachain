@@ -467,7 +467,7 @@ impl BridgeInterface for TestRuntime {
         _params: &[(Vec<u8>, Vec<u8>)],
         _caller_id: Vec<u8>,
     ) -> Result<u32, DispatchError> {
-        if function_name == BridgeContractMethod::PublishRoot.as_bytes() {
+        if function_name == BridgeContractMethod::PublishRoot.name_as_bytes() {
             return Ok(INITIAL_TRANSACTION_ID)
         }
         Err(Error::<TestRuntime>::ErrorPublishingSummary.into())

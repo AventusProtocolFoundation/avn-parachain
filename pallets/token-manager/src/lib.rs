@@ -41,8 +41,10 @@ use frame_system::ensure_signed;
 pub use pallet::*;
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
-    LowerParams, OnGrowthLiftedHandler, ProcessedEventsChecker, PACKED_LOWER_PARAM_SIZE,
+    OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
+use sp_avn_common::eth::{concat_lower_data, LowerParams, PACKED_LOWER_PARAM_SIZE};
+
 use sp_avn_common::{
     event_types::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
@@ -725,7 +727,7 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        let lower_params = Self::concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
+        let lower_params = concat_lower_data(lower_id, token_id.into(), &amount, &t1_recipient);
 
         <LowersPendingProof<T>>::insert(lower_id, &lower_params);
         T::BridgeInterface::generate_lower_proof(lower_id, &lower_params, PALLET_ID.to_vec())?;
@@ -828,26 +830,6 @@ impl<T: Config> Pallet<T> {
         T::BridgeInterface::generate_lower_proof(lower_id, &params, PALLET_ID.to_vec())?;
 
         Ok(())
-    }
-
-    pub fn concat_lower_data(
-        lower_id: LowerId,
-        token_id: T::TokenId,
-        amount: &u128,
-        t1_recipient: &H160,
-    ) -> LowerParams {
-        let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
-
-        // TokenId = 20 bytes
-        lower_params[0..20].copy_from_slice(&token_id.into().as_fixed_bytes()[0..20]);
-        // TokenBalance = 32 bytes
-        lower_params[36..52].copy_from_slice(&amount.to_be_bytes()[0..16]);
-        // T1Recipient = 20 bytes
-        lower_params[52..72].copy_from_slice(&t1_recipient.as_fixed_bytes()[0..20]);
-        // LowerId = 4 bytes
-        lower_params[72..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
-
-        return lower_params
     }
 
     fn encode_signed_transfer_params(
