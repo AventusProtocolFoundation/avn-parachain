@@ -8,16 +8,13 @@ use crate::chain_spec::{
     constants::*, helpers::*, AuraId, AuthorityDiscoveryId, AvnId, EthPublicKey, Extensions,
     ImOnlineId, ParaId,
 };
-use avn_test_runtime::{
-    self as avn_test_runtime, AnchorSummaryConfig, AuthorityDiscoveryConfig, EthBridgeConfig,
-    EthereumEventsConfig, ImOnlineConfig, ParachainStakingConfig, SudoConfig, SummaryConfig,
-    TokenManagerConfig, ValidatorsManagerConfig,
-};
+use avn_test_runtime::{self as avn_test_runtime};
 use node_primitives::AccountId;
 
 use sp_core::{H160, H256};
 
 use hex_literal::hex;
+use sp_runtime::{traits::ConstU32, BoundedVec};
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
 // TODO remove this
@@ -53,27 +50,25 @@ pub(crate) fn avn_test_runtime_genesis(
     event_challenge_period: BlockNumber,
     schedule_period: BlockNumber,
     voting_period: BlockNumber,
-) -> avn_test_runtime::RuntimeGenesisConfig {
-    avn_test_runtime::RuntimeGenesisConfig {
-        avn: pallet_avn::GenesisConfig {
-            _phantom: Default::default(),
-            bridge_contract_address: avn_eth_contract.clone(),
+    default_non_avt_token: Option<H160>,
+) -> serde_json::Value {
+    let token_balances = if let Some(token) = default_non_avt_token {
+        endowed_accounts
+            .iter()
+            .cloned()
+            .map(|(k, a)| (token.clone(), k, a))
+            .collect::<Vec<_>>()
+    } else {
+        vec![]
+    };
+
+    serde_json::json!({
+        "balances": {
+            "balances": endowed_accounts.iter().cloned().map(|(account, amount)| (account, amount)).collect::<Vec<_>>(),
         },
-        system: avn_test_runtime::SystemConfig {
-            code: avn_test_runtime::WASM_BINARY
-                .expect("WASM binary was not build, please build it!")
-                .to_vec(),
-            ..Default::default()
-        },
-        balances: avn_test_runtime::BalancesConfig {
-            balances: endowed_accounts.iter().cloned().map(|(k, a)| (k, a)).collect(),
-        },
-        parachain_info: avn_test_runtime::ParachainInfoConfig {
-            parachain_id: id,
-            ..Default::default()
-        },
-        session: avn_test_runtime::SessionConfig {
-            keys: candidates
+        "parachainInfo":{ "parachainId": id },
+        "session": {
+            "keys": candidates
                 .iter()
                 .cloned()
                 .map(|(acc, aura, audi, imon, avn)| {
@@ -83,69 +78,52 @@ pub(crate) fn avn_test_runtime_genesis(
                         avn_session_keys(aura, audi, imon, avn), // session keys
                     )
                 })
-                .collect(),
-            ..Default::default()
+                .collect::<Vec<_>>(),
         },
-        // no need to pass anything to aura, in fact it will panic if we do. Session will take care
-        // of this.
-        assets: Default::default(),
-        eth_bridge: EthBridgeConfig {
-            _phantom: Default::default(),
-            eth_tx_lifetime_secs: 60 * 30 as u64, // 30 minutes
-            next_tx_id: 1 as u32,
-            eth_block_range_size: 20u32,
+        "polkadotXcm": {
+            "safeXcmVersion": Some(SAFE_XCM_VERSION),
         },
-        ethereum_events: EthereumEventsConfig {
-            nft_t1_contracts: nft_eth_contracts,
-            processed_events: vec![],
-            lift_tx_hashes,
-            quorum_factor: QUORUM_FACTOR,
-            event_challenge_period,
+        "sudo": { "key": Some(sudo_account) },
+        "avn":  {
+            "bridgeContractAddress": avn_eth_contract.clone(),
         },
-        validators_manager: ValidatorsManagerConfig {
-            validators: candidates
+        "ethBridge": {
+            "ethTxLifetimeSecs": 60 * 30 as u64, // 30 minutes
+            "nextTxId": 1u32,
+            "ethBlockRangeSize": 20u32,
+        },
+        "ethereumEvents": {
+            "nftT1Contracts": nft_eth_contracts,
+            "liftTxHashes": lift_tx_hashes,
+            "quorumFactor": QUORUM_FACTOR,
+            "eventChallengePeriod": event_challenge_period,
+        },
+        "validatorsManager": {
+            "validators": candidates
                 .iter()
                 .map(|x| x.0.clone())
                 .zip(eth_public_keys.iter().map(|pk| pk.clone()))
                 .collect::<Vec<_>>(),
         },
-        authority_discovery: AuthorityDiscoveryConfig { keys: vec![], ..Default::default() },
-        aura: Default::default(),
-        aura_ext: Default::default(),
-        im_online: ImOnlineConfig { keys: vec![] },
-        nft_manager: Default::default(),
-        parachain_system: Default::default(),
-        parachain_staking: ParachainStakingConfig {
-            candidates: candidates
+        "parachainStaking": {
+            "candidates": candidates
                 .iter()
                 .cloned()
                 .map(|(acc, _, _, _, _)| (acc, COLLATOR_DEPOSIT))
-                .collect(),
-            nominations: vec![],
-            min_collator_stake: COLLATOR_DEPOSIT,
-            min_total_nominator_stake: 10 * AVT,
-            delay: 2,
+                .collect::<Vec<_>>(),
+            "minCollatorStake": COLLATOR_DEPOSIT,
+            "minTotalNominatorStake": 10 * AVT,
+            "delay": 2,
         },
-        polkadot_xcm: avn_test_runtime::PolkadotXcmConfig {
-            safe_xcm_version: Some(SAFE_XCM_VERSION),
-            ..Default::default()
-        },
-        sudo: SudoConfig { key: Some(sudo_account) },
-        summary: SummaryConfig { schedule_period, voting_period },
-        anchor_summary: AnchorSummaryConfig {
-            schedule_period,
-            voting_period,
-            _phantom: Default::default(),
-        },
-        token_manager: TokenManagerConfig {
-            _phantom: Default::default(),
-            lower_account_id: H256(hex!(
+        "summary": { "schedulePeriod": schedule_period, "votingPeriod": voting_period },
+        "tokenManager": {
+            "lowerAccountId": H256(hex!(
                 "000000000000000000000000000000000000000000000000000000000000dead"
             )),
             // Address of AVT contract
-            avt_token_contract,
-            lower_schedule_period: 10,
-            balances: vec![],
-        },
-    }
+            "avtTokenContract": avt_token_contract,
+            "lowerSchedulePeriod": 10,
+            "balances": token_balances,
+        }
+    })
 }

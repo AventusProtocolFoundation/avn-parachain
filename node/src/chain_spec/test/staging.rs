@@ -1,78 +1,69 @@
 use crate::chain_spec::{
-    avn_chain_properties, constants::*, helpers::*, ChainType, EthPublicKey, Extensions,
+    avn_chain_properties, constants::*, ChainSpec, ChainType, EthPublicKey, Extensions,
 };
 
-use crate::chain_spec::test::{avn_test_runtime_genesis, get_account_id_from_seed, ChainSpec};
+use crate::chain_spec::test::{
+    avn_test_runtime_genesis, get_account_id_from_seed,
+    get_authority_keys_from_seed_with_derivation,
+};
 use hex_literal::hex;
-use sp_core::{ecdsa, sr25519, ByteArray, H160};
+use node_primitives::AccountId;
+use sp_core::{crypto::UncheckedInto, ecdsa, sr25519, ByteArray, H160};
 
 pub fn avn_garde_staging_config() -> ChainSpec {
     let avn_garde_staging_parachain_id: u32 = 3150;
-    ChainSpec::from_genesis(
-        // Name
-        "AvN Garde Staging Parachain",
-        // ID
-        "avn_garde_staging",
-        ChainType::Live,
-        move || {
-            avn_test_runtime_genesis(
-                // initial collators.
-                vec![
-                    get_authority_keys_from_seed_with_derivation("avn-collator-1"),
-                    get_authority_keys_from_seed_with_derivation("avn-collator-2"),
-                    get_authority_keys_from_seed_with_derivation("avn-collator-3"),
-                    get_authority_keys_from_seed_with_derivation("avn-collator-4"),
-                ],
-                // endowed accounts
-                vec![
-                    (get_account_id_from_seed::<sr25519::Public>("avn-collator-1"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("avn-collator-2"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("avn-collator-3"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("avn-collator-4"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("avn-sudo"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
-                    (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
-                    (
-                        get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"),
-                        AVT_ENDOWMENT,
-                    ),
-                    (
-                        get_account_id_from_seed::<sr25519::Public>("onboarding-relayer"),
-                        AVT_ENDOWMENT,
-                    ),
-                    (get_account_id_from_seed::<sr25519::Public>("test-account"), AVT_ENDOWMENT),
-                ],
-                avn_garde_staging_parachain_id.into(),
-                // SUDO account
-                get_account_id_from_seed::<sr25519::Public>("avn-sudo"),
-                // AVT contract
-                H160(hex!("a8303c24215F13f69736e445A5C5E2b9d85418DE")),
-                // AVN contract
-                H160(hex!("41FEed205211095Bdb81655A469A7a2D733Be2B9")),
-                vec![],
-                avn_garde_ethereum_public_keys(),
-                vec![],
-                SMALL_EVENT_CHALLENGE_PERIOD,
-                FOUR_HOURS_SCHEDULE_PERIOD,
-                NORMAL_VOTING_PERIOD,
-            )
-        },
-        // Bootnodes
-        Vec::new(),
-        // Telemetry
-        None,
-        // Protocol ID
-        Some("avn_garde_staging"),
-        // Fork ID
-        None,
-        // Properties
-        avn_chain_properties(),
-        // Extensions
+    let properties = avn_chain_properties();
+
+    ChainSpec::builder(
+        avn_parachain_runtime::WASM_BINARY.expect("WASM binary was not built, please build it!"),
         Extensions {
-            relay_chain: "rococo-local".into(), // You MUST set this to the correct network!
+            relay_chain: "rococo-local".into(),
+            // You MUST set this to the correct network!
             para_id: avn_garde_staging_parachain_id,
         },
     )
+    .with_name("AvN Garde Staging Parachain")
+    .with_protocol_id("avn_garde_staging")
+    .with_id("avn_garde_staging")
+    .with_properties(properties)
+    .with_chain_type(ChainType::Live)
+    .with_genesis_config_patch(avn_test_runtime_genesis(
+        // initial collators.
+        vec![
+            get_authority_keys_from_seed_with_derivation("avn-collator-1"),
+            get_authority_keys_from_seed_with_derivation("avn-collator-2"),
+            get_authority_keys_from_seed_with_derivation("avn-collator-3"),
+            get_authority_keys_from_seed_with_derivation("avn-collator-4"),
+        ],
+        // endowed accounts
+        vec![
+            (get_account_id_from_seed::<sr25519::Public>("avn-collator-1"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("avn-collator-2"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("avn-collator-3"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("avn-collator-4"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("avn-sudo"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("Bank"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("gateway-relayer"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("nft-marketplace-relayer"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("onboarding-relayer"), AVT_ENDOWMENT),
+            (get_account_id_from_seed::<sr25519::Public>("test-account"), AVT_ENDOWMENT),
+        ],
+        avn_garde_staging_parachain_id.into(),
+        // SUDO account
+        get_account_id_from_seed::<sr25519::Public>("avn-sudo"),
+        // AVT contract
+        H160(hex!("b3594297e1F257AD2A90222F66393645C6622263")),
+        // AVN contract
+        H160(hex!("2bb59e4f9Cd053779E5d6f6dB2724F5DF5e53ce6")),
+        vec![],
+        avn_garde_ethereum_public_keys(),
+        vec![],
+        SMALL_EVENT_CHALLENGE_PERIOD,
+        HALF_HOUR_SCHEDULE_PERIOD,
+        SMALL_VOTING_PERIOD,
+        None,
+    ))
+    .build()
 }
 
 fn avn_garde_ethereum_public_keys() -> Vec<EthPublicKey> {
