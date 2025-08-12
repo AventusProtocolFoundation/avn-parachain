@@ -804,11 +804,13 @@ pub mod pallet {
     fn setup_ocw<T: Config<I>, I: 'static>(
         block_number: BlockNumberFor<T>,
     ) -> Result<(Author<T>, BlockNumberFor<T>), DispatchError> {
-        AVN::<T>::pre_run_setup(
+        let caller_id = [&PALLET_NAME[..], &Instance::<T, I>::get().encode()[..]].concat();
+        log::debug!(
+            "👷 Running offchain worker for block {:?} with caller_id: {:?}",
             block_number,
-            [&PALLET_NAME[..], &Instance::<T, I>::get().encode()[..]].concat(),
-        )
-        .map_err(|e| {
+            caller_id
+        );
+        AVN::<T>::pre_run_setup(block_number, caller_id).map_err(|e| {
             if sp_io::offchain::is_validator() {
                 // If a non validator node has OCW enabled, don't bother logging an error
                 if e != DispatchError::from(avn_error::<T>::OffchainWorkerAlreadyRun) {
