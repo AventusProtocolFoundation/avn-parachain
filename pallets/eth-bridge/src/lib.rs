@@ -73,7 +73,8 @@ use frame_system::{
 };
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, EventMigration,
-    ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
+    EventProcessingError, NetworkAwareProcessedEventsChecker, ProcessedEventsChecker,
+    MAX_VALIDATOR_ACCOUNTS,
 };
 
 use pallet_session::historical::IdentificationTuple;
@@ -82,7 +83,7 @@ use sp_staking::offence::ReportOffence;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
-    eth::{EthBridgeInstance, LowerParams},
+    eth::{EthBridgeInstance, EthereumNetwork, LowerParams},
     event_discovery::*,
     event_types::{self, EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
 };
@@ -196,7 +197,7 @@ pub mod pallet {
             IdentificationTuple<Self>,
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
-        type ProcessedEventsChecker: ProcessedEventsChecker;
+        type ProcessedEventsChecker: NetworkAwareProcessedEventsChecker;
         type ProcessedEventsHandler: EthereumEventsFilterTrait;
     }
 
@@ -575,7 +576,8 @@ pub mod pallet {
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
-            ensure!(Instance::<T, I>::get().is_valid(), Error::<T, I>::InvalidInstance);
+            let instance = Instance::<T, I>::get();
+            ensure!(instance.is_valid(), Error::<T, I>::InvalidInstance);
 
             let active_range = Self::active_ethereum_range()
                 .ok_or_else(|| Error::<T, I>::NonActiveEthereumRange)?;
@@ -597,7 +599,11 @@ pub mod pallet {
                 EthereumEvents::<T, I>::insert(&events_partition, votes);
             } else {
                 threshold_met = true;
-                process_ethereum_events_partition::<T, I>(&active_range, &events_partition);
+                process_ethereum_events_partition::<T, I>(
+                    &instance.network,
+                    &active_range,
+                    &events_partition,
+                );
                 advance_partition::<T, I>(&active_range, &events_partition);
             }
 
@@ -786,8 +792,12 @@ pub mod pallet {
 
             meter.consume(base_on_idle);
 
-            if let Some(events_batch) = T::ProcessedEventsChecker::get_events_to_migrate() {
-                let weight = Self::migrate_events_batch(events_batch);
+            let instance = Instance::<T, I>::get();
+
+            if let Some(events_batch) =
+            <<T as pallet::Config<I>>::ProcessedEventsChecker as pallet_avn::NetworkAwareProcessedEventsChecker>::get_events_to_migrate(&instance.network)
+            {
+                let weight = Self::migrate_events_batch(&instance.network, events_batch);
                 meter.consume(weight);
             }
             meter.consumed()
@@ -937,6 +947,7 @@ pub mod pallet {
     }
 
     fn process_ethereum_events_partition<T: Config<I>, I: 'static>(
+        network: &EthereumNetwork,
         active_range: &ActiveEthRange,
         partition: &EthereumEventsPartition,
     ) {
@@ -954,7 +965,9 @@ pub mod pallet {
                             continue
                         }
 
-                        if let Err(err) = process_ethereum_event::<T, I>(&discovered_event.event) {
+                        if let Err(err) =
+                            process_ethereum_event::<T, I>(network, &discovered_event.event)
+                        {
                             log::error!(
                                 "💔 Invalid event to process: {:?}. Error: {:?}",
                                 discovered_event.event,
@@ -985,15 +998,16 @@ pub mod pallet {
     }
 
     fn process_ethereum_event<T: Config<I>, I: 'static>(
+        network: &EthereumNetwork,
         event: &EthEvent,
     ) -> Result<(), DispatchError> {
         ensure!(
-            false == T::ProcessedEventsChecker::processed_event_exists(&event.event_id.clone()),
+            false == <<T as pallet::Config<I>>::ProcessedEventsChecker as pallet_avn::NetworkAwareProcessedEventsChecker>::processed_event_exists(network, &event.event_id.clone()),
             Error::<T, I>::EventAlreadyProcessed
         );
 
         // Add record of succesful processing via ProcessedEventsChecker
-        T::ProcessedEventsChecker::add_processed_event(&event.event_id.clone(), true)
+        <<T as pallet::Config<I>>::ProcessedEventsChecker as pallet_avn::NetworkAwareProcessedEventsChecker>::add_processed_event(network, &event.event_id.clone(), true)
             .map_err(|_| Error::<T, I>::EventAlreadyProcessed)?;
 
         match T::BridgeInterfaceNotification::on_incoming_event_processed(&event) {
@@ -1274,12 +1288,14 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     }
 
     pub fn migrate_events_batch(
+        network: &EthereumNetwork,
         events_batch: BoundedVec<EventMigration, ProcessingBatchBound>,
     ) -> Weight {
         let mut counter = 0;
         events_batch.into_iter().for_each(|migration| {
             counter.saturating_inc();
-            match T::ProcessedEventsChecker::add_processed_event(
+            match <<T as pallet::Config<I>>::ProcessedEventsChecker as pallet_avn::NetworkAwareProcessedEventsChecker>::add_processed_event(
+                network,
                 &migration.event_id,
                 migration.outcome,
             ) {
@@ -1398,5 +1414,28 @@ impl<T: Config<I>, I: 'static> ProcessedEventsChecker for Pallet<T, I> {
         };
         ProcessedEthereumEvents::<T, I>::insert(tx_hash, EthProcessedEvent { id, accepted });
         Ok(())
+    }
+}
+
+impl<T: Config<I>, I: 'static> NetworkAwareProcessedEventsChecker for Pallet<T, I> {
+    fn processed_event_exists(network: &EthereumNetwork, event_id: &EthEventId) -> bool {
+        let instance = Instance::<T, I>::get();
+        if instance.is_valid() == false || instance.network != *network {
+            return false
+        }
+        <Self as ProcessedEventsChecker>::processed_event_exists(event_id)
+    }
+
+    fn add_processed_event(
+        network: &EthereumNetwork,
+        event_id: &EthEventId,
+        accepted: bool,
+    ) -> Result<(), EventProcessingError> {
+        let instance = Instance::<T, I>::get();
+        ensure!(instance.is_valid(), EventProcessingError::InvalidInstance);
+        ensure!(instance.network == *network, EventProcessingError::InvalidNetwork);
+
+        <Self as ProcessedEventsChecker>::add_processed_event(event_id, accepted)
+            .map_err(|_| EventProcessingError::EventAlreadyProcessed)
     }
 }

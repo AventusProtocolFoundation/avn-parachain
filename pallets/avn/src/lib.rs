@@ -32,7 +32,7 @@ pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
-    eth::LowerParams,
+    eth::{EthereumNetwork, LowerParams},
     event_types::{EthEvent, EthEventId, Validator},
     ocw_lock::{self as OcwLock, OcwStorageError},
     DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
@@ -735,6 +735,44 @@ impl ProcessedEventsChecker for () {
     }
 
     fn add_processed_event(_event_id: &EthEventId, _accepted: bool) -> Result<(), ()> {
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum EventProcessingError {
+    EventAlreadyProcessed,
+    InvalidNetwork,
+    InvalidInstance,
+    UnknownEventId,
+}
+
+pub trait NetworkAwareProcessedEventsChecker: ProcessedEventsChecker {
+    fn processed_event_exists(network: &EthereumNetwork, event_id: &EthEventId) -> bool;
+
+    fn add_processed_event(
+        network: &EthereumNetwork,
+        event_id: &EthEventId,
+        accepted: bool,
+    ) -> Result<(), EventProcessingError>;
+
+    fn get_events_to_migrate(
+        _network: &EthereumNetwork,
+    ) -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
+        None
+    }
+}
+
+impl NetworkAwareProcessedEventsChecker for () {
+    fn processed_event_exists(_network: &EthereumNetwork, _event_id: &EthEventId) -> bool {
+        false
+    }
+
+    fn add_processed_event(
+        _network: &EthereumNetwork,
+        _event_id: &EthEventId,
+        _accepted: bool,
+    ) -> Result<(), EventProcessingError> {
         Ok(())
     }
 }

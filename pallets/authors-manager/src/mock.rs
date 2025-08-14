@@ -250,7 +250,7 @@ thread_local! {
 }
 
 impl ProcessedEventsChecker for TestRuntime {
-    fn processed_event_exists(event_id: &EthEventId) -> bool {
+    fn processed_event_exists(event_id: &EthEventId, _network: Option<EthereumNetwork>) -> bool {
         return PROCESSED_EVENTS.with(|l| {
             l.borrow_mut().iter().any(|event| {
                 &EthEventId { signature: event.0.clone(), transaction_hash: event.1.clone() } ==
