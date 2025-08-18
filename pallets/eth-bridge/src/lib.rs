@@ -62,7 +62,7 @@ use frame_support::{
     dispatch::DispatchResultWithPostInfo,
     ensure,
     pallet_prelude::{StorageVersion, Weight},
-    traits::IsSubType,
+    traits::{Get, IsSubType},
     weights::WeightMeter,
     BoundedBTreeSet, BoundedVec,
 };
@@ -1388,6 +1388,52 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             }
         }
         false
+    }
+
+    pub fn get_events_batch_to_migrate(
+        network: &EthereumNetwork,
+    ) -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
+        let instance = Instance::<T, I>::get();
+        if instance.is_valid() || instance.network == *network {
+            return None
+        }
+
+        let batch_size: u32 = ProcessingBatchBound::get();
+        let entry_return = |event: &EthEventId, outcome: bool| {
+            let id = if let Ok(event) = ValidEvents::try_from(&event.signature) {
+                event
+            } else {
+                log::warn!("Unknown event signature: {:?}", &event.signature);
+                return;
+            };
+
+            ProcessedEthereumEvents::<T, I>::insert(
+                event.transaction_hash.clone(),
+                EthProcessedEvent { id, accepted: outcome },
+            )
+        };
+
+        let migration_batch: Vec<EventMigration> = ProcessedEthereumEvents::<T, I>::iter()
+            .take(batch_size as usize)
+            .map(|(tx_hash, event)| {
+                let event_id =
+                    EthEventId { transaction_hash: tx_hash, signature: event.id.signature() };
+                EventMigration {
+                    event_id,
+                    outcome: event.accepted,
+                    entry_return_impl: entry_return,
+                }
+            })
+            .collect();
+
+        if migration_batch.is_empty() {
+            return None
+        }
+
+        migration_batch.iter().for_each(|event_to_migrate| {
+            ProcessedEthereumEvents::<T, I>::remove(&event_to_migrate.event_id.transaction_hash);
+        });
+        Some(BoundedVec::<EventMigration, ProcessingBatchBound>::truncate_from(migration_batch))
     }
 }
 
