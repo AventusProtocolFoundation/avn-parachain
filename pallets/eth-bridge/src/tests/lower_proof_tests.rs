@@ -129,6 +129,7 @@ fn call_ocw_and_dispatch(
 
 mod lower_proofs {
     use super::*;
+    use frame_support::assert_ok;
 
     #[test]
     fn lower_proof_request_can_be_added() {
@@ -278,12 +279,11 @@ mod lower_proofs {
             let mut context = setup_context();
 
             // add a lower request as Active
-            add_new_lower_proof_request::<TestRuntime, ()>(
+            assert_ok!(add_new_lower_proof_request::<TestRuntime, ()>(
                 context.lower_id,
                 &context.lower_params,
                 &vec![],
-            )
-            .unwrap();
+            ));
 
             // Queue a send tx request
             let tx_id = add_new_send_request::<TestRuntime, ()>(
@@ -296,9 +296,11 @@ mod lower_proofs {
 
             // Re-use the same Id and queue another lower request
             let duplicate_lower_id = tx_id;
+            let duplicate_lower_params = create_lower_params(duplicate_lower_id);
+
             add_new_lower_proof_request::<TestRuntime, ()>(
                 duplicate_lower_id,
-                &context.lower_params,
+                &duplicate_lower_params,
                 &vec![],
             )
             .unwrap();

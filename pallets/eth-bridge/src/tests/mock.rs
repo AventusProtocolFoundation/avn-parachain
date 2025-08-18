@@ -76,7 +76,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Timestamp: pallet_timestamp,
-        AVN: pallet_avn::{Pallet, Storage, Event},
+        Avn: pallet_avn::{Pallet, Storage, Event},
         EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
     }
@@ -163,7 +163,7 @@ pub fn request_failed(id: &u32) -> bool {
 }
 
 pub fn setup_context() -> Context {
-    let primary_validator_id = AVN::advance_primary_validator_for_sending().unwrap();
+    let primary_validator_id = Avn::advance_primary_validator_for_sending().unwrap();
     let author = Author::<TestRuntime> {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,
@@ -205,7 +205,7 @@ pub fn setup_context() -> Context {
     }
 }
 
-fn create_lower_params(lower_id: u32) -> LowerParams {
+pub(crate) fn create_lower_params(lower_id: u32) -> LowerParams {
     let token_id = H160::from([3u8; 20]);
     let amount = 100_000_000_000_000_000_000u128;
     let t1_recipient = H160::from([2u8; 20]);
@@ -250,7 +250,7 @@ impl session::Config for TestRuntime {
     type SessionManager = TestSessionManager;
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
-    type SessionHandler = (AVN,);
+    type SessionHandler = (Avn,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = u64;
     type ValidatorIdOf = ConvertInto;
