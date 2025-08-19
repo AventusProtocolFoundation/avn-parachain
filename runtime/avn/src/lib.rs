@@ -116,6 +116,9 @@ where
     }
 }
 
+// Use the no-op implementation from primitives
+pub type ExternalNotifier = ();
+
 pub use node_primitives::{AccountId, Hash, Signature};
 use node_primitives::{Balance, BlockNumber, Nonce};
 
@@ -573,6 +576,7 @@ parameter_types! {
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
     pub const EthAutoSubmitSummaries: bool = true;
     pub const EthereumInstanceId: u8 = 1u8;
+    pub const RequireExternalValidation: bool = false;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -585,6 +589,8 @@ impl pallet_summary::Config for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type RequireExternalValidation = RequireExternalValidation;
+    type ExternalNotifier = ExternalNotifier;
 }
 
 pub type EthAddress = H160;

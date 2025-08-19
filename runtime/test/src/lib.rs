@@ -617,7 +617,11 @@ parameter_types! {
     pub const EthAutoSubmitSummaries: bool = true;
     pub const AvnAutoSubmitSummaries: bool = false;
     pub const AvnInstanceId: u8 = 2u8;
+    pub const RequireExternalValidation: bool = false;
 }
+
+// Use the no-op implementation from primitives
+pub type ExternalNotifier = ();
 
 pub type EthSummary = pallet_summary::Instance1;
 impl pallet_summary::Config<EthSummary> for Runtime {
@@ -630,6 +634,8 @@ impl pallet_summary::Config<EthSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type RequireExternalValidation = RequireExternalValidation;
+    type ExternalNotifier = ExternalNotifier;
 }
 
 pub type AvnAnchorSummary = pallet_summary::Instance2;
@@ -643,6 +649,8 @@ impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AvnAutoSubmitSummaries;
     type InstanceId = AvnInstanceId;
+    type RequireExternalValidation = RequireExternalValidation;
+    type ExternalNotifier = ExternalNotifier;
 }
 
 impl pallet_avn_anchor::Config for Runtime {

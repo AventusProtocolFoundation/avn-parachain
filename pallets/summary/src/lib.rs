@@ -7,19 +7,15 @@ use alloc::string::ToString;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::{
-    bounds::VotingSessionIdBound,
     event_types::Validator,
     ocw_lock::{self as OcwLock},
     safe_add_block_numbers, safe_sub_block_numbers, BridgeContractMethod, IngressCounter,
 };
 use sp_runtime::{
-    scale_info::TypeInfo,
-    traits::AtLeast32Bit,
-    transaction_validity::{
+    scale_info::TypeInfo, transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
-    },
-    BoundedVec, DispatchError,
+    }, DispatchError
 };
 use sp_std::prelude::*;
 
@@ -30,7 +26,7 @@ use frame_support::{
 };
 use frame_system::{
     self as system, ensure_none, ensure_root,
-    offchain::{SendTransactionTypes, SubmitTransaction},
+    offchain::{SendTransactionTypes, SubmitTransaction}, pallet_prelude::BlockNumberFor,
 };
 pub use pallet::*;
 use pallet_avn::{
@@ -86,11 +82,14 @@ pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
 
+use sp_avn_common::ExternalNotification;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
+    use sp_avn_common::{RootId, RootRange, SummaryStatus};
 
     // Public interface of this pallet
     #[pallet::config(with_default)]
@@ -131,8 +130,15 @@ pub mod pallet {
         type BridgeInterface: avn::BridgeInterface;
         /// A flag to determine if summaries will be automatically sent to Ethereum
         type AutoSubmitSummaries: Get<bool>;
+        /// A flag to determine if watchtower validation is required before submitting/anchoring
+        /// summaries
+        #[pallet::constant]
+        type RequireExternalValidation: Get<bool>;
         /// A unique instance id to differentiate different instances
         type InstanceId: Get<u8>;
+        /// Watchtower notification handler for direct communication
+        #[pallet::no_default_bounds]
+        type ExternalNotifier: sp_avn_common::ExternalNotification<BlockNumberFor<Self>>;
     }
 
     #[pallet::pallet]
@@ -195,6 +201,8 @@ pub mod pallet {
             ingress_counter: IngressCounter,
             block_range: RootRange<BlockNumberFor<T>>,
         },
+        /// A summary is ready for watchtower validation
+        SummaryReadyForValidation { root_id: RootId<BlockNumberFor<T>>, root_hash: H256 },
     }
 
     #[pallet::error]
@@ -331,6 +339,17 @@ pub mod pallet {
     #[pallet::getter(fn anchor_roots)]
     pub type AnchorRoots<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Blake2_128Concat, u32, H256, ValueQuery>;
+
+    #[pallet::storage]
+    pub type RootStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        RootRange<BlockNumberFor<T>>,
+        Blake2_128Concat,
+        IngressCounter,
+        SummaryStatus,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -728,6 +747,39 @@ pub mod pallet {
         }
     }
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        pub fn set_summary_status(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: SummaryStatus,
+        ) -> DispatchResult {
+            <RootStatus<T, I>>::insert(root_id.range, root_id.ingress_counter, status);
+            Ok(())
+        }
+
+        pub fn process_accepted_summary(root_id: &RootId<BlockNumberFor<T>>) -> DispatchResult {
+            let root_data = Self::try_get_root_data(root_id)?;
+            if root_data.root_hash != Self::empty_root() {
+                if T::AutoSubmitSummaries::get() {
+                    Self::send_root_to_ethereum(root_id, &root_data)?;
+                } else {
+                    let approved_root_id = Self::get_next_approved_root_id()?;
+                    <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                }
+            }
+            Ok(())
+        }
+
+        pub fn set_summary_status_and_process(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: SummaryStatus,
+        ) -> DispatchResult {
+            Self::set_summary_status(root_id, status.clone())?;
+
+            if status == SummaryStatus::Accepted {
+                Self::process_accepted_summary(&root_id)?;
+            }
+            Ok(())
+        }
+
         pub fn update_block_number_context() -> Vec<u8> {
             let mut context = Vec::with_capacity(1 + UPDATE_BLOCK_NUMBER_CONTEXT.len());
             context.push(T::InstanceId::get());
@@ -1211,12 +1263,21 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    if T::AutoSubmitSummaries::get() {
-                        Self::send_root_to_ethereum(root_id, &root_data)?;
+                    if T::RequireExternalValidation::get() {
+                        Self::set_summary_status(*root_id, SummaryStatus::ReadyForValidation)?;
+
+                        T::ExternalNotifier::on_summary_ready_for_validation(
+                            T::InstanceId::get(),
+                            *root_id,
+                            root_data.root_hash,
+                        )?;
+
+                        Self::deposit_event(Event::<T, I>::SummaryReadyForValidation {
+                            root_id: *root_id,
+                            root_hash: root_data.root_hash,
+                        });
                     } else {
-                        // Add root to anchor storage
-                        let approved_root_id = Self::get_next_approved_root_id()?;
-                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                        Self::process_accepted_summary(root_id)?;
                     }
                 }
                 // If we get here, then we did not get an error when submitting to T1.
@@ -1245,7 +1306,7 @@ pub mod pallet {
                     block_range: root_id.range,
                 });
             } else {
-                // We didn't get enough votes to approve this root
+                Self::set_summary_status(*root_id, SummaryStatus::Rejected)?;
 
                 let root_creator =
                     root_data.added_by.ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;
@@ -1400,34 +1461,6 @@ pub mod pallet {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootId<BlockNumber: AtLeast32Bit> {
-    pub range: RootRange<BlockNumber>,
-    pub ingress_counter: IngressCounter,
-}
-
-impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
-    fn new(range: RootRange<BlockNumber>, ingress_counter: IngressCounter) -> Self {
-        return RootId::<BlockNumber> { range, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootRange<BlockNumber: AtLeast32Bit> {
-    pub from_block: BlockNumber,
-    pub to_block: BlockNumber,
-}
-
-impl<BlockNumber: AtLeast32Bit> RootRange<BlockNumber> {
-    fn new(from_block: BlockNumber, to_block: BlockNumber) -> Self {
-        return RootRange::<BlockNumber> { from_block, to_block }
-    }
-}
-
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct RootData<AccountId> {
     pub root_hash: H256,
@@ -1496,6 +1529,43 @@ impl<T: Config<I>, I: 'static> BridgeInterfaceNotification for Pallet<T, I> {
             }
         }
 
+        Ok(())
+    }
+}
+pub struct RuntimeVoteStatusNotifier<T>(sp_std::marker::PhantomData<T>);
+
+impl<T> sp_avn_common::VoteStatusNotifier<BlockNumberFor<T>> for RuntimeVoteStatusNotifier<T>
+where
+    T: frame_system::Config 
+        + Config<pallet::Instance1> 
+        + Config<pallet::Instance2>,
+{
+    fn on_voting_completed(
+        root_id: sp_avn_common::RootId<BlockNumberFor<T>>,
+        status: sp_avn_common::VotingStatus,
+    ) -> DispatchResult {
+        let summary_status = match status {
+            sp_avn_common::VotingStatus::Accepted =>
+                sp_avn_common::SummaryStatus::Accepted,
+            sp_avn_common::VotingStatus::Rejected =>
+                sp_avn_common::SummaryStatus::Rejected,
+            sp_avn_common::VotingStatus::PendingChallengeResolution =>
+                sp_avn_common::SummaryStatus::PendingChallengeResolution
+        };
+
+        if <Roots<T, pallet::Instance1>>::contains_key(root_id.range, root_id.ingress_counter) {
+            return Pallet::<T, pallet::Instance1>::set_summary_status_and_process(root_id, summary_status)
+        }
+        
+        if <Roots<T, pallet::Instance2>>::contains_key(root_id.range, root_id.ingress_counter) {
+            return Pallet::<T, pallet::Instance2>::set_summary_status_and_process(root_id, summary_status)
+        }
+
+        log::error!(
+            "RuntimeVoteStatusNotifier: Could not find root_id {:?} in any summary instance", 
+            root_id
+        );
+        
         Ok(())
     }
 }
