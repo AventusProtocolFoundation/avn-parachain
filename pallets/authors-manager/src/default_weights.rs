@@ -39,6 +39,7 @@ use core::marker::PhantomData;
 pub trait WeightInfo {
 	fn add_author() -> Weight;
 	fn remove_author(v: u32, ) -> Weight;
+	fn rotate_author_ethereum_key() -> Weight;
 }
 
 /// Weights for pallet_authors_manager using the Substrate node and recommended hardware.
@@ -101,6 +102,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 			.saturating_add(Weight::from_parts(0, 1839).saturating_mul(v.into()))
 	}
+	/// Storage: `AuthorsManager::EthereumPublicKeys` (r:2 w:2)
+	/// Proof: `AuthorsManager::EthereumPublicKeys` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	fn rotate_author_ethereum_key() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `310`
+		//  Estimated: `6102`
+		// Minimum execution time: 29_402_000 picoseconds.
+		Weight::from_parts(30_043_000, 6102)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+
 }
 
 // For backwards compatibility and tests.
@@ -161,5 +174,16 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(v.into())))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 			.saturating_add(Weight::from_parts(0, 1839).saturating_mul(v.into()))
+	}
+	/// Storage: `AuthorsManager::EthereumPublicKeys` (r:2 w:2)
+	/// Proof: `AuthorsManager::EthereumPublicKeys` (`max_values`: None, `max_size`: Some(81), added: 2556, mode: `MaxEncodedLen`)
+	fn rotate_author_ethereum_key() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `310`
+		//  Estimated: `6102`
+		// Minimum execution time: 29_402_000 picoseconds.
+		Weight::from_parts(30_043_000, 6102)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
 }

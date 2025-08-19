@@ -256,6 +256,34 @@ pub mod pallet {
 
             return Ok(())
         }
+
+        #[pallet::call_index(2)]
+        #[pallet::weight(<T as Config>::WeightInfo::rotate_author_ethereum_key())]
+        #[transactional]
+        pub fn rotate_author_ethereum_key(
+            origin: OriginFor<T>,
+            author_account_id: T::AccountId,
+            author_old_eth_public_key: ecdsa::Public,
+            author_new_eth_public_key: ecdsa::Public,
+        ) -> DispatchResult {
+            let _ = ensure_root(origin)?;
+
+            ensure!(
+                !<EthereumPublicKeys<T>>::contains_key(&author_new_eth_public_key),
+                Error::<T>::AuthorEthKeyAlreadyExists
+            );
+            ensure!(
+                author_old_eth_public_key != author_new_eth_public_key,
+                Error::<T>::AuthorEthKeyAlreadyExists
+            );
+
+            let author_id = EthereumPublicKeys::<T>::take(&author_old_eth_public_key)
+                .ok_or(Error::<T>::AuthorNotFound)?;
+            ensure!(author_id == author_account_id, Error::<T>::AuthorNotFound);
+
+            EthereumPublicKeys::<T>::insert(author_new_eth_public_key, author_id);
+            return Ok(())
+        }
     }
 
     impl<T: Config> EthereumPublicKeyChecker<T::AccountId> for Pallet<T> {
