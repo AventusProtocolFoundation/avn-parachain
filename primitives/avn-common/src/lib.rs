@@ -517,3 +517,15 @@ pub trait ExternalNotification<BlockNumber: AtLeast32Bit> {
         root_hash: H256,
     ) -> DispatchResult;
 }
+
+// Provide a no-op default implementation so runtimes can set
+// `type ExternalNotifier = ();` without needing a dummy struct.
+impl<BlockNumber: AtLeast32Bit> ExternalNotification<BlockNumber> for () {
+    fn on_summary_ready_for_validation(
+        _instance: SummarySource,
+        _root_id: RootId<BlockNumber>,
+        _root_hash: H256,
+    ) -> DispatchResult {
+        Ok(())
+    }
+}

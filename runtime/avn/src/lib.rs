@@ -116,17 +116,8 @@ where
     }
 }
 
-pub struct ExternalNotifier;
-impl sp_avn_common::ExternalNotification<BlockNumber> for ExternalNotifier {
-    fn on_summary_ready_for_validation(
-        _instance_id: u8,
-        _root_id: sp_avn_common::RootId<BlockNumber>,
-        _root_hash: sp_core::H256,
-    ) -> sp_runtime::DispatchResult {
-        // No-op for tests
-        Ok(())
-    }
-}
+// Use the no-op implementation from primitives
+pub type ExternalNotifier = ();
 
 pub use node_primitives::{AccountId, Hash, Signature};
 use node_primitives::{Balance, BlockNumber, Nonce};
