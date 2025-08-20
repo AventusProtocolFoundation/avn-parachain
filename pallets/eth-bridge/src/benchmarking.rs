@@ -11,8 +11,11 @@ use frame_support::{ensure, traits::Hooks, BoundedVec};
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use rand::{RngCore, SeedableRng};
-use sp_avn_common::event_types::{EthEvent, EthEventId, LiftedData, ValidEvents};
-use sp_core::{Get, H256, U256};
+use sp_avn_common::{
+    eth::EthereumId,
+    event_types::{EthEvent, EthEventId, LiftedData, ValidEvents},
+};
+use sp_core::{Get, H160, H256, U256};
 use sp_runtime::{traits::One, WeakBoundedVec};
 
 fn setup_authors<T: Config<I>, I: 'static>(
@@ -536,8 +539,9 @@ benchmarks_instance_pallet! {
             }
         ).collect();
         let events_migration_batch = BoundedVec::<EventMigration, ProcessingBatchBound>::truncate_from(events);
+        let instance = Instance::<T, I>::get();
     }:
-    { Pallet::<T, I>::migrate_events_batch(events_migration_batch); }
+    { Pallet::<T, I>::migrate_events_batch(&instance.network, events_migration_batch); }
 }
 
 impl_benchmark_test_suite!(
