@@ -73,6 +73,7 @@ pub struct Config<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Bl
     pub keystore_path: PathBuf,
     pub avn_port: Option<String>,
     pub eth_node_url: String,
+    pub finance_api_key: String,
     pub web3_data_mutex: Arc<Mutex<Web3Data>>,
     pub client: Arc<ClientT>,
     pub _block: PhantomData<Block>,

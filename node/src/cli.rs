@@ -64,6 +64,10 @@ pub struct AvnRunCmd {
     /// URL for connecting with an ethereum node
     #[arg(long = "ethereum-node-url", value_name = "ETH URL")]
     pub eth_node_url: Option<String>,
+
+    /// Api key for the chosen finance provider
+    #[arg(long = "finance-provider-api-key", value_name = "FINANCE API KEY")]
+    pub finance_api_key: Option<String>,
 }
 
 impl std::ops::Deref for AvnRunCmd {
