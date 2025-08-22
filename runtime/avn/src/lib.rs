@@ -662,6 +662,11 @@ impl pallet_avn_anchor::Config for Runtime {
     type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
+impl pallet_avn_oracle::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+}
+
 use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
 
 impl pallet_eth_bridge::Config for Runtime {
@@ -819,6 +824,7 @@ construct_runtime!(
         AvnTransactionPayment: pallet_avn_transaction_payment = 90,
         EthBridge: pallet_eth_bridge = 91,
         AvnAnchor: pallet_avn_anchor = 92,
+        AvnOracle: pallet_avn_oracle = 93,
 
         // OpenGov pallets
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 97,

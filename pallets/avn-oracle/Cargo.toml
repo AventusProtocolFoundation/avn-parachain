@@ -1,0 +1,31 @@
+[package]
+name = "pallet-avn-oracle"
+description = "Handles the management of all AVT related prices"
+license = "GPL-3.0"
+
+version = { workspace = true }
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
+codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"], default-features = false }
+scale-info = { version = "2.10.0", default-features = false, features = [
+	"derive",
+] }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
+
+[features]
+default = ["std"]
+std = [
+  "frame-support/std",
+  "frame-system/std",
+  "codec/std",
+  "scale-info/std",
+  "sp-runtime/std",
+]
+
+try-runtime = ["frame-support/try-runtime"]

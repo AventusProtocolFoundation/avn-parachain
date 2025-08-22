@@ -1140,6 +1140,7 @@ dependencies = [
  "pallet-avn",
  "pallet-avn-anchor",
  "pallet-avn-offence-handler",
+ "pallet-avn-oracle",
  "pallet-avn-proxy",
  "pallet-avn-transaction-payment",
  "pallet-balances",
@@ -7303,6 +7304,17 @@ dependencies = [
  "sp-staking",
  "sp-state-machine",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
+]
+
+[[package]]
+name = "pallet-avn-oracle"
+version = "6.11.1"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec 3.6.11",
+ "scale-info",
+ "sp-runtime",
 ]
 
 [[package]]
