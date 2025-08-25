@@ -69,7 +69,7 @@ impl FinanceProvider for CoinGeckoFinance {
                     if let Some(prices) = json["prices"].as_array() {
                         if let Some(last_entry) = prices.last() {
                             if let Some(price) = last_entry.get(1).and_then(|v| v.as_f64()) {
-                                return Ok(price);
+                                return Ok(price)
                             }
                         }
                     }

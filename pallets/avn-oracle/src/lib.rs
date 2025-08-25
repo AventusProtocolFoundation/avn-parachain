@@ -313,17 +313,17 @@ pub mod pallet {
                         if rate <= 0.0 {
                             return Err(DispatchError::Other(
                                 Error::<T>::AvtPriceMustBeGreaterThanZero.into(),
-                            ));
+                            ))
                         }
                         // just scale and return
                         let scaled_rate = U256::from((rate * 1e8) as u128);
-                        return Ok(scaled_rate);
+                        return Ok(scaled_rate)
                     } else {
-                        return Err(Error::<T>::InvalidRateFormat.into());
+                        return Err(Error::<T>::InvalidRateFormat.into())
                     }
                 }
             }
-            return Err(Error::<T>::InvalidRateFormat.into());
+            return Err(Error::<T>::InvalidRateFormat.into())
         }
     }
 }
