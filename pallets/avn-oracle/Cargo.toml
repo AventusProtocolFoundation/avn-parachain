@@ -10,6 +10,8 @@ homepage = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
+log = { version = "0.4", default-features = false }
+serde_json = { version = "1.0.85", default-features = false }
 frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"], default-features = false }
@@ -17,6 +19,10 @@ scale-info = { version = "2.10.0", default-features = false, features = [
 	"derive",
 ] }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
+pallet-avn = { default-features = false, path = "../avn" }
+sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
+pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0", default-features = false }
 
 [features]
 default = ["std"]
