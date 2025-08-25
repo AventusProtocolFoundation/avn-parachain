@@ -22,13 +22,16 @@ pub use web3Secp256k1::SecretKey as web3SecretKey;
 
 pub mod ethereum_events_handler;
 pub mod extrinsic_utils;
+pub mod finance_provider_utils;
 pub mod keystore_utils;
 pub mod merkle_tree_utils;
 pub mod summary_utils;
 pub mod web3_utils;
 
 use crate::{
-    extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*, web3_utils::*,
+    extrinsic_utils::get_latest_finalised_block, 
+    finance_provider_utils::{FinanceProvider, CoinGeckoFinance},
+    keystore_utils::*, summary_utils::*, web3_utils::*,
 };
 
 pub use crate::web3_utils::{public_key_address, secret_key_address};
@@ -392,6 +395,69 @@ where
     }
 }
 
+#[tokio::main]
+async fn query_fiat_rates<Block: BlockT, ClientT>(
+    req: tide::Request<Arc<Config<Block, ClientT>>>,
+) -> Result<String, TideError>
+where
+    ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
+{
+    let symbols: Vec<String> = req
+        .param("symbols")
+        .map(|s| s.split(',').map(str::trim).map(String::from).collect())
+        .map_err(|_| TideError::from_str(400, "Missing or invalid symbols parameter"))?;
+
+    let currency: String = req
+        .param("currency")
+        .map(|s| s.to_lowercase())
+        .map_err(|_| TideError::from_str(400, "Missing currency parameter"))?;
+
+    let from: u64 = req
+        .param("from")
+        .map_err(|_| TideError::from_str(400, "Missing from param"))?
+        .parse()
+        .map_err(|_| TideError::from_str(400, "Invalid from param"))?;
+
+    let to: u64 = req
+        .param("to")
+        .map_err(|_| TideError::from_str(400, "Missing to param"))?
+        .parse()
+        .map_err(|_| TideError::from_str(400, "Invalid to param"))?;
+
+    let finance_api_key = &req.state().finance_api_key;
+    let provider =
+        CoinGeckoFinance::new(finance_api_key.clone()).map_err(|e| TideError::from_str(500, e))?;
+
+    let mut results = serde_json::Map::new();
+    for symbol in &symbols {
+        match provider.retrieve_symbol_data(symbol, &currency, from, to).await {
+            Ok(price) => {
+                log::info!("💰 Retrieved price for {} / {} from {} to {}: {}", symbol, currency, from, to, price);
+                results.insert(
+                    symbol.clone(),
+                    serde_json::Value::Number(serde_json::Number::from_f64(price).unwrap()),
+                );
+            },
+            Err(err) => {
+                log::error!(
+                    "❌ Failed to retrieve price for {} from {} to {}: {}",
+                    symbol,
+                    from,
+                    to,
+                    err
+                );
+                results.insert(
+                    symbol.clone(),
+                    serde_json::Value::String("Error retrieving rate".into()),
+                );
+            },
+        }
+    }
+
+    let response_json = serde_json::to_string(&results).unwrap();
+    Ok(response_json)
+}
+
 pub async fn start<Block: BlockT, ClientT>(config: Config<Block, ClientT>)
 where
     ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
@@ -501,6 +567,12 @@ where
             let finalised_block_number = get_latest_finalised_block(&req.state().client);
             log::info!("⛓️  avn-service: latest finalised block: {:?}", finalised_block_number);
             Ok(hex::encode(finalised_block_number.encode()))
+        },
+    );
+
+    app.at("/get_fiat_rates/:symbols/:from/:to").get(
+        |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
+            return query_fiat_rates(req)
         },
     );
 
