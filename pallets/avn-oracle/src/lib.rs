@@ -3,19 +3,17 @@ pub use pallet::*;
 #[frame_support::pallet]
 pub mod pallet {
     use frame_support::pallet_prelude::*;
-    use frame_system::pallet_prelude::*;
-    use log;
-    use pallet_avn::{self as avn, Error as avn_error};
-    use sp_avn_common::{
-        event_types::Validator,
-    };
-    use sp_core::{U256};
-    use serde_json::Value;
     use frame_system::{
         offchain::{SendTransactionTypes, SubmitTransaction},
+        pallet_prelude::*,
     };
-    use sp_runtime::{DispatchError, RuntimeAppPublic};
+    use log;
+    use pallet_avn::{self as avn, Error as avn_error};
     use pallet_timestamp as timestamp;
+    use serde_json::Value;
+    use sp_avn_common::event_types::Validator;
+    use sp_core::U256;
+    use sp_runtime::{DispatchError, RuntimeAppPublic};
 
     const PALLET_NAME: &'static [u8] = b"AvnOracle";
     pub const AVT_PRICE_SUBMISSION_CONTEXT: &'static [u8] = b"update_avt_price_signing_context";
@@ -57,7 +55,12 @@ pub mod pallet {
     pub type AventusUsdPrice<T> = StorageValue<_, U256, OptionQuery>;
 
     #[pallet::config]
-    pub trait Config: SendTransactionTypes<Call<Self>> + frame_system::Config + pallet_avn::Config + timestamp::Config {
+    pub trait Config:
+        SendTransactionTypes<Call<Self>>
+        + frame_system::Config
+        + pallet_avn::Config
+        + timestamp::Config
+    {
         /// The overarching runtime event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// A type representing the weights required by the dispatchables of this pallet.
@@ -116,15 +119,13 @@ pub mod pallet {
                 *count = count.saturating_add(1);
                 *count
             });
-            
+
             if count > AVN::<T>::quorum() {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
-                Self::deposit_event(Event::<T>::AventusPriceUpdated {
-                    avt_price,
-                });
+                Self::deposit_event(Event::<T>::AventusPriceUpdated { avt_price });
 
                 AventusUsdPrice::<T>::put(avt_price);
-                
+
                 ProcessedAvtPriceNonces::<T>::put(nonce);
                 LastAvtPriceSubmission::<T>::put(<frame_system::Pallet<T>>::block_number());
                 AvtPriceNonce::<T>::mutate(|value| *value += 1);
@@ -151,7 +152,8 @@ pub mod pallet {
                 let now_secs = now_u64 / 1000;
                 let two_minutes_secs = 120;
 
-                // we do this to ensure all data for the given period is available and the data is consistent
+                // we do this to ensure all data for the given period is available and the data is
+                // consistent
                 let to_u64 = now_secs.saturating_sub(two_minutes_secs);
 
                 // 10 minutes
@@ -300,9 +302,7 @@ pub mod pallet {
             formatted
         }
 
-        fn format_avt_price(
-            fiat_rates_json: Vec<u8>,
-        ) -> Result<U256, DispatchError> {
+        fn format_avt_price(fiat_rates_json: Vec<u8>) -> Result<U256, DispatchError> {
             let fiat_rates_str = String::from_utf8_lossy(&fiat_rates_json);
             let fiat_rates: Value = serde_json::from_str(&fiat_rates_str)
                 .map_err(|_| DispatchError::Other("JSON Parsing Error"))?;

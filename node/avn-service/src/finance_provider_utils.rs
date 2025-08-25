@@ -10,7 +10,13 @@ use std::time::Duration;
 #[async_trait]
 pub trait FinanceProvider {
     fn symbol_url(&self, symbol: &str, currency: &str, from: u64, to: u64) -> String;
-    async fn retrieve_symbol_data(&self, symbol: &str, currency: &str, from: u64, to: u64) -> Result<f64, String>;
+    async fn retrieve_symbol_data(
+        &self,
+        symbol: &str,
+        currency: &str,
+        from: u64,
+        to: u64,
+    ) -> Result<f64, String>;
 }
 
 pub struct CoinGeckoFinance {
@@ -47,7 +53,13 @@ impl FinanceProvider for CoinGeckoFinance {
         )
     }
 
-    async fn retrieve_symbol_data(&self, symbol: &str, currency: &str, from: u64, to: u64) -> Result<f64, String> {
+    async fn retrieve_symbol_data(
+        &self,
+        symbol: &str,
+        currency: &str,
+        from: u64,
+        to: u64,
+    ) -> Result<f64, String> {
         let url = self.symbol_url(symbol, currency, from, to);
         let response = self.client.get(&url).send().await;
 

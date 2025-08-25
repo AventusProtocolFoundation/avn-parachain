@@ -29,9 +29,11 @@ pub mod summary_utils;
 pub mod web3_utils;
 
 use crate::{
-    extrinsic_utils::get_latest_finalised_block, 
-    finance_provider_utils::{FinanceProvider, CoinGeckoFinance},
-    keystore_utils::*, summary_utils::*, web3_utils::*,
+    extrinsic_utils::get_latest_finalised_block,
+    finance_provider_utils::{CoinGeckoFinance, FinanceProvider},
+    keystore_utils::*,
+    summary_utils::*,
+    web3_utils::*,
 };
 
 pub use crate::web3_utils::{public_key_address, secret_key_address};
@@ -432,7 +434,14 @@ where
     for symbol in &symbols {
         match provider.retrieve_symbol_data(symbol, &currency, from, to).await {
             Ok(price) => {
-                log::info!("💰 Retrieved price for {} / {} from {} to {}: {}", symbol, currency, from, to, price);
+                log::info!(
+                    "💰 Retrieved price for {} / {} from {} to {}: {}",
+                    symbol,
+                    currency,
+                    from,
+                    to,
+                    price
+                );
                 results.insert(
                     symbol.clone(),
                     serde_json::Value::Number(serde_json::Number::from_f64(price).unwrap()),
