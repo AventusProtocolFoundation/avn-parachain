@@ -677,6 +677,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
     type ProcessedEventsHandler = CorePrimaryEventsFilter;
+    type EthereumEventsMigration = ();
 }
 
 // Other pallets

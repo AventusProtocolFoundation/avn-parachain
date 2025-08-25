@@ -702,6 +702,7 @@ impl pallet_eth_bridge::Config<MainEthBridge> for Runtime {
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
     type ProcessedEventsHandler = NoEventsFilter;
+    type EthereumEventsMigration = EthSecondBridge;
 }
 
 impl pallet_eth_bridge::Config<SecondaryEthBridge> for Runtime {
@@ -716,6 +717,7 @@ impl pallet_eth_bridge::Config<SecondaryEthBridge> for Runtime {
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
     type ProcessedEventsHandler = NoEventsFilter;
+    type EthereumEventsMigration = ();
 }
 
 // Other pallets

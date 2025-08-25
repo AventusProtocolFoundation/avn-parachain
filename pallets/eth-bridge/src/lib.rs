@@ -72,9 +72,9 @@ use frame_system::{
     pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use pallet_avn::{
-    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error, EventMigration,
-    EventProcessingError, NetworkAwareProcessedEventsChecker, ProcessedEventsChecker,
-    MAX_VALIDATOR_ACCOUNTS,
+    self as avn, BridgeInterface, BridgeInterfaceNotification, Error as avn_error,
+    EthereumEventsMigration, EventMigration, EventProcessingError,
+    NetworkAwareProcessedEventsChecker, ProcessedEventsChecker, MAX_VALIDATOR_ACCOUNTS,
 };
 
 use pallet_session::historical::IdentificationTuple;
@@ -198,6 +198,7 @@ pub mod pallet {
             CorroborationOffence<IdentificationTuple<Self>>,
         >;
         type ProcessedEventsChecker: NetworkAwareProcessedEventsChecker;
+        type EthereumEventsMigration: EthereumEventsMigration;
         type ProcessedEventsHandler: EthereumEventsFilterTrait;
     }
 
@@ -790,15 +791,18 @@ pub mod pallet {
                 return Weight::zero()
             }
 
+            let instance = Instance::<T, I>::get();
             meter.consume(base_on_idle);
 
-            let instance = Instance::<T, I>::get();
-
-            if let Some(events_batch) =
-            <<T as pallet::Config<I>>::ProcessedEventsChecker as pallet_avn::NetworkAwareProcessedEventsChecker>::get_events_to_migrate(&instance.network)
-            {
-                let weight = Self::migrate_events_batch(&instance.network, events_batch);
-                meter.consume(weight);
+            if let Some(network) = T::EthereumEventsMigration::get_network() {
+                if instance.network == network && instance.is_valid() {
+                    if let Some(events_batch) =
+                        T::EthereumEventsMigration::get_events_to_migrate(&instance.network)
+                    {
+                        let weight = Self::migrate_events_batch(&instance.network, events_batch);
+                        meter.consume(weight);
+                    }
+                }
             }
             meter.consumed()
         }
@@ -1389,52 +1393,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         }
         false
     }
-
-    pub fn get_events_batch_to_migrate(
-        network: &EthereumNetwork,
-    ) -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
-        let instance = Instance::<T, I>::get();
-        if instance.is_valid() || instance.network == *network {
-            return None
-        }
-
-        let batch_size: u32 = ProcessingBatchBound::get();
-        let entry_return = |event: &EthEventId, outcome: bool| {
-            let id = if let Ok(event) = ValidEvents::try_from(&event.signature) {
-                event
-            } else {
-                log::warn!("Unknown event signature: {:?}", &event.signature);
-                return;
-            };
-
-            ProcessedEthereumEvents::<T, I>::insert(
-                event.transaction_hash.clone(),
-                EthProcessedEvent { id, accepted: outcome },
-            )
-        };
-
-        let migration_batch: Vec<EventMigration> = ProcessedEthereumEvents::<T, I>::iter()
-            .take(batch_size as usize)
-            .map(|(tx_hash, event)| {
-                let event_id =
-                    EthEventId { transaction_hash: tx_hash, signature: event.id.signature() };
-                EventMigration {
-                    event_id,
-                    outcome: event.accepted,
-                    entry_return_impl: entry_return,
-                }
-            })
-            .collect();
-
-        if migration_batch.is_empty() {
-            return None
-        }
-
-        migration_batch.iter().for_each(|event_to_migrate| {
-            ProcessedEthereumEvents::<T, I>::remove(&event_to_migrate.event_id.transaction_hash);
-        });
-        Some(BoundedVec::<EventMigration, ProcessingBatchBound>::truncate_from(migration_batch))
-    }
 }
 
 impl<T: Config<I>, I: 'static> ProcessedEventsChecker for Pallet<T, I> {
@@ -1483,5 +1441,61 @@ impl<T: Config<I>, I: 'static> NetworkAwareProcessedEventsChecker for Pallet<T, 
 
         <Self as ProcessedEventsChecker>::add_processed_event(event_id, accepted)
             .map_err(|_| EventProcessingError::EventAlreadyProcessed)
+    }
+}
+
+impl<T: Config<I>, I: 'static> EthereumEventsMigration for Pallet<T, I> {
+    fn get_network() -> Option<EthereumNetwork> {
+        let instance = Instance::<T, I>::get();
+        if instance.is_valid() == false {
+            return None
+        }
+        Some(instance.network)
+    }
+
+    fn get_events_to_migrate(
+        network: &EthereumNetwork,
+    ) -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
+        let instance = Instance::<T, I>::get();
+        if instance.is_valid() || instance.network == *network {
+            return None
+        }
+
+        let batch_size: u32 = ProcessingBatchBound::get();
+        let entry_return = |event: &EthEventId, outcome: bool| {
+            let id = if let Ok(event) = ValidEvents::try_from(&event.signature) {
+                event
+            } else {
+                log::warn!("Unknown event signature: {:?}", &event.signature);
+                return
+            };
+
+            ProcessedEthereumEvents::<T, I>::insert(
+                event.transaction_hash.clone(),
+                EthProcessedEvent { id, accepted: outcome },
+            )
+        };
+
+        let migration_batch: Vec<EventMigration> = ProcessedEthereumEvents::<T, I>::iter()
+            .take(batch_size as usize)
+            .map(|(tx_hash, event)| {
+                let event_id =
+                    EthEventId { transaction_hash: tx_hash, signature: event.id.signature() };
+                EventMigration {
+                    event_id,
+                    outcome: event.accepted,
+                    entry_return_impl: entry_return,
+                }
+            })
+            .collect();
+
+        if migration_batch.is_empty() {
+            return None
+        }
+
+        migration_batch.iter().for_each(|event_to_migrate| {
+            ProcessedEthereumEvents::<T, I>::remove(&event_to_migrate.event_id.transaction_hash);
+        });
+        Some(BoundedVec::<EventMigration, ProcessingBatchBound>::truncate_from(migration_batch))
     }
 }

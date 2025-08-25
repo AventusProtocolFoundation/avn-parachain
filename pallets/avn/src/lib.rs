@@ -724,6 +724,7 @@ impl EventMigration {
 pub trait ProcessedEventsChecker {
     fn processed_event_exists(event_id: &EthEventId) -> bool;
     fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()>;
+    #[deprecated]
     fn get_events_to_migrate() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
         None
     }
@@ -755,12 +756,6 @@ pub trait NetworkAwareProcessedEventsChecker: ProcessedEventsChecker {
         event_id: &EthEventId,
         accepted: bool,
     ) -> Result<(), EventProcessingError>;
-
-    fn get_events_to_migrate(
-        _network: &EthereumNetwork,
-    ) -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
-        None
-    }
 }
 
 impl NetworkAwareProcessedEventsChecker for () {
@@ -776,6 +771,20 @@ impl NetworkAwareProcessedEventsChecker for () {
         Ok(())
     }
 }
+
+pub trait EthereumEventsMigration {
+    fn get_events_to_migrate(
+        _network: &EthereumNetwork,
+    ) -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
+        None
+    }
+
+    fn get_network() -> Option<EthereumNetwork> {
+        None
+    }
+}
+
+impl EthereumEventsMigration for () {}
 
 pub trait OnGrowthLiftedHandler<Balance> {
     fn on_growth_lifted(amount: Balance, growth_period: u32) -> DispatchResult;
