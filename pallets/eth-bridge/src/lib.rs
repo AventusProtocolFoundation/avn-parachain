@@ -80,6 +80,7 @@ use pallet_avn::{
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
+use crate::tx::set_up_active_tx;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
@@ -87,9 +88,7 @@ use sp_avn_common::{
     event_discovery::*,
     event_types::{self, EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
 };
-
-use crate::tx::set_up_active_tx;
-use sp_core::{ecdsa, ConstU32, H256};
+use sp_core::{ecdsa, hashing::twox_64, ConstU32, H256};
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
 
@@ -818,7 +817,9 @@ pub mod pallet {
     fn setup_ocw<T: Config<I>, I: 'static>(
         block_number: BlockNumberFor<T>,
     ) -> Result<(Author<T>, BlockNumberFor<T>), DispatchError> {
-        let caller_id = [&PALLET_NAME[..], &Instance::<T, I>::get().encode()[..]].concat();
+        let caller_id =
+            [&PALLET_NAME[..], &hex::encode(twox_64(&Instance::<T, I>::get().encode())).as_bytes()]
+                .concat();
         log::debug!(
             "👷 Running offchain worker for block {:?} with caller_id: {:?}",
             block_number,
