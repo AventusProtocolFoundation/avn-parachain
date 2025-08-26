@@ -88,7 +88,8 @@ use sp_avn_common::{
     event_discovery::*,
     event_types::{self, EthEventId, EthProcessedEvent, EthTransactionId, ValidEvents, Validator},
 };
-use sp_core::{ecdsa, hashing::twox_64, ConstU32, H256};
+use sp_core::{ecdsa, ConstU32, H256};
+use sp_io::hashing::twox_64;
 use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
 use sp_std::prelude::*;
 
