@@ -1459,7 +1459,7 @@ impl<T: Config<I>, I: 'static> EthereumEventsMigration for Pallet<T, I> {
         network: &EthereumNetwork,
     ) -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
         let instance = Instance::<T, I>::get();
-        if instance.is_valid() || instance.network == *network {
+        if !instance.is_valid() || instance.network != *network {
             return None
         }
 
