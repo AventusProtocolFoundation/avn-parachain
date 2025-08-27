@@ -107,6 +107,7 @@ impl Config for TestRuntime {
     type ReportCorroborationOffence = OffenceHandler;
     type ProcessedEventsChecker = EthBridge;
     type ProcessedEventsHandler = AllPrimaryEventsFilter;
+    type EthereumEventsMigration = ();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

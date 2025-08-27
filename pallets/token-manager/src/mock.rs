@@ -281,6 +281,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type ReportCorroborationOffence = ();
     type ProcessedEventsChecker = ();
     type ProcessedEventsHandler = ();
+    type EthereumEventsMigration = ();
 }
 
 impl pallet_timestamp::Config for TestRuntime {
