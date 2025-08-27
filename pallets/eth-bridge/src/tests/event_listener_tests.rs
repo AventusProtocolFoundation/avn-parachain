@@ -200,7 +200,7 @@ mod submit_discovered_events {
                     author: Author::<TestRuntime> { key: UintAuthorityId(id), account_id: id },
                     ..Default::default()
                 })
-                .take(AVN::<TestRuntime>::quorum() as usize)
+                .take(<TestRuntime as crate::Config>::Quorum::get_quorum() as usize)
                 .collect::<Vec<Context>>();
 
             let first_partition_index = 0usize;
@@ -389,7 +389,7 @@ mod initial_range_consensus {
                     discovered_block: id as u32 * 100,
                     eth_start_block: 1,
                 })
-                .take(AVN::<TestRuntime>::supermajority_quorum() as usize)
+                .take(<TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() as usize)
                 .collect::<Vec<Context>>();
 
             // Cast all votes

@@ -229,7 +229,7 @@ fn setup_active_tx_with_failure_corroborations<T: Config<I>, I: 'static>(
 }
 
 fn get_num_corroborations<T: Config<I>, I: 'static>(authors_count: usize) -> (usize, usize) {
-    let quorum = avn::Pallet::<T>::quorum() as usize;
+    let quorum = T::Quorum::get_quorum() as usize;
     let num_failure_corroborations = quorum - 1;
     let num_successful_corroborations = authors_count - num_failure_corroborations - 1; // because we are adding the last
     (num_failure_corroborations, num_successful_corroborations)
@@ -330,7 +330,7 @@ benchmarks_instance_pallet! {
         #[cfg(not(test))]
         let author = add_collator_to_avn::<T, I>(&author.account_id, authors.len() as u32 + 1u32)?;
 
-        let quorum = avn::Pallet::<T>::quorum();
+        let quorum = T::Quorum::get_quorum();
         let tx_id = 1u32;
         setup_new_active_tx::<T, I>(tx_id, quorum.saturating_sub(2), sender.clone());
 
@@ -451,7 +451,7 @@ benchmarks_instance_pallet! {
         let author = add_collator_to_avn::<T, I>(&author.account_id, authors.len() as u32 + 1u32)?;
         let signature = author.key.sign(&("DummyProof").encode()).expect("Error signing proof");
 
-        submit_votes_from_other_authors::<T, I>(AVN::<T>::quorum() - 1, &events, authors[1..].to_vec());
+        submit_votes_from_other_authors::<T, I>(T::Quorum::get_quorum() - 1, &events, authors[1..].to_vec());
     }: submit_ethereum_events(RawOrigin::None, author, events.clone(), signature )
     verify {
         assert!(ActiveEthereumRange::<T, I>::get().unwrap().partition as u32 == c + 1, "Range not advanced");
@@ -493,7 +493,7 @@ benchmarks_instance_pallet! {
         let author = add_collator_to_avn::<T, I>(&author.account_id, authors.len() as u32 + 1u32)?;
         let signature = author.key.sign(&("DummyProof").encode()).expect("Error signing proof");
 
-        submit_latest_block_from_other_authors::<T, I>(AVN::<T>::supermajority_quorum() - 1, &latest_seen_block, authors[1..].to_vec());
+        submit_latest_block_from_other_authors::<T, I>(T::Quorum::get_supermajority_quorum() - 1, &latest_seen_block, authors[1..].to_vec());
     }: submit_latest_ethereum_block(RawOrigin::None, author.clone(), latest_seen_block, signature )
     verify {
         let eth_block_range_size = EthBlockRangeSize::<T, I>::get();

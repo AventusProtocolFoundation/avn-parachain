@@ -35,7 +35,7 @@ use sp_avn_common::{
     eth::{EthereumNetwork, LowerParams},
     event_types::{EthEvent, EthEventId, Validator},
     ocw_lock::{self as OcwLock, OcwStorageError},
-    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
+    QuorumPolicy, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
 use sp_core::{ecdsa, H160};
 use sp_runtime::{
@@ -361,18 +361,19 @@ impl<T: Config> Pallet<T> {
     }
 
     // Minimum number required to reach the threshold.
+    #[deprecated(note = "Use QuorumPolicy trait methods instead")]
     pub fn quorum() -> u32 {
-        let total_num_of_validators = Self::validators().len() as u32;
-        Self::calculate_quorum(total_num_of_validators)
+        <Self as QuorumPolicy>::get_quorum()
     }
 
+    #[deprecated(note = "Use QuorumPolicy trait methods instead")]
     pub fn supermajority_quorum() -> u32 {
-        let total_num_of_validators = Self::validators().len() as u32;
-        total_num_of_validators * 2 / 3
+        <Self as QuorumPolicy>::get_supermajority_quorum()
     }
 
+    #[deprecated(note = "Use QuorumPolicy trait methods instead")]
     pub fn calculate_quorum(num: u32) -> u32 {
-        num - num * 2 / 3
+        <Self as QuorumPolicy>::required_for(num)
     }
 
     pub fn get_data_from_service(url_path: String) -> Result<Vec<u8>, DispatchError> {
@@ -854,6 +855,31 @@ impl BridgeInterfaceNotification for Tuple {
     fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
         for_tuples!( #( Tuple::on_incoming_event_processed(_event)?; )* );
         Ok(())
+    }
+}
+
+impl<T: Config> QuorumPolicy for Pallet<T> {
+    // These are not used in this implementation, but we need to define them to implement the trait
+    // to the closest value.
+    const QUORUM_PERCENT: u32 = 33;
+    const SUPERMAJORITY_PERCENT: u32 = 67;
+
+    fn required_for(num: u32) -> u32 {
+        num - num * 2 / 3
+    }
+
+    fn required_for_supermajority(num: u32) -> u32 {
+        num * 2 / 3
+    }
+
+    fn get_quorum() -> u32 {
+        let total_num_of_validators = Validators::<T>::get().len() as u32;
+        Self::required_for(total_num_of_validators)
+    }
+
+    fn get_supermajority_quorum() -> u32 {
+        let total_num_of_validators = Validators::<T>::get().len() as u32;
+        Self::required_for_supermajority(total_num_of_validators)
     }
 }
 

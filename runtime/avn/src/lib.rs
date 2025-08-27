@@ -678,6 +678,7 @@ impl pallet_eth_bridge::Config for Runtime {
     type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
     type ProcessedEventsHandler = CorePrimaryEventsFilter;
     type EthereumEventsMigration = ();
+    type Quorum = Avn;
 }
 
 // Other pallets

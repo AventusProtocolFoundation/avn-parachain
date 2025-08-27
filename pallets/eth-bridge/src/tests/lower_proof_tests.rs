@@ -9,7 +9,7 @@ use crate::{
 use codec::{alloc::sync::Arc, Decode, Encode};
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
-use sp_avn_common::BridgeContractMethod;
+use sp_avn_common::{BridgeContractMethod, QuorumPolicy};
 use sp_core::{
     ecdsa,
     offchain::testing::{OffchainState, PendingRequest, PoolState},
@@ -61,7 +61,8 @@ fn complete_send_request(context: &Context) {
     let mut active_request = ActiveRequest::<TestRuntime>::get().unwrap();
 
     active_request.tx_data.as_mut().unwrap().eth_tx_hash = context.eth_tx_hash;
-    for (index, _) in (1..AVN::<TestRuntime>::quorum()).enumerate() {
+
+    for (index, _) in (1..<TestRuntime as crate::Config>::Quorum::get_quorum()).enumerate() {
         active_request
             .tx_data
             .as_mut()
@@ -194,7 +195,9 @@ mod lower_proofs {
             )
             .unwrap();
             // Add enough confirmations so the last one will complete the quorum
-            add_confirmations(AVN::<TestRuntime>::supermajority_quorum() - 1);
+            add_confirmations(
+                <TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() - 1,
+            );
 
             // ensure there is no request in storage
             assert!(ActiveRequest::<TestRuntime>::get().is_some());
@@ -245,7 +248,9 @@ mod lower_proofs {
             .unwrap();
 
             // Add enough confirmations so the last one will complete the quorum
-            add_confirmations(AVN::<TestRuntime>::supermajority_quorum() - 1);
+            add_confirmations(
+                <TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() - 1,
+            );
 
             // Ensure the mem pool is empty
             assert_eq!(true, pool_state.read().transactions.is_empty());
@@ -307,7 +312,9 @@ mod lower_proofs {
             .unwrap();
 
             // Add enough confirmations to the 1st request so the last one will complete the quorum
-            add_confirmations(AVN::<TestRuntime>::supermajority_quorum() - 1);
+            add_confirmations(
+                <TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() - 1,
+            );
             call_ocw_and_dispatch(
                 &context,
                 offchain_state.clone(),
@@ -329,7 +336,7 @@ mod lower_proofs {
 
             // Add enough confirmations so the last one will complete the quorum
             // taking into account the sender (hence why -2 instead of -1)
-            add_confirmations(AVN::<TestRuntime>::quorum() - 2);
+            add_confirmations(<TestRuntime as crate::Config>::Quorum::get_quorum() - 2);
 
             let original_msg_hash = context.expected_lower_msg_hash.clone();
             // Update the hash to match the second request (tx_id) and call ocw
@@ -354,7 +361,9 @@ mod lower_proofs {
             assert_eq!(true, new_active_lower.request.id_matches(&duplicate_lower_id));
 
             // Add enough confirmations
-            add_confirmations(AVN::<TestRuntime>::supermajority_quorum() - 1);
+            add_confirmations(
+                <TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() - 1,
+            );
 
             // Reset hash for the new lower id
             context.expected_lower_msg_hash = original_msg_hash;

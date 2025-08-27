@@ -101,6 +101,7 @@ mod tx;
 pub mod types;
 mod util;
 use crate::types::*;
+use sp_avn_common::QuorumPolicy;
 
 pub use call::{submit_ethereum_events, submit_latest_ethereum_block};
 
@@ -200,6 +201,7 @@ pub mod pallet {
         type ProcessedEventsChecker: NetworkAwareProcessedEventsChecker;
         type EthereumEventsMigration: EthereumEventsMigration;
         type ProcessedEventsHandler: EthereumEventsFilterTrait;
+        type Quorum: QuorumPolicy;
     }
 
     #[pallet::event]
@@ -598,7 +600,7 @@ pub mod pallet {
                 .try_insert(author.account_id.to_owned())
                 .map_err(|_| Error::<T, I>::EventVotesFull)?;
 
-            if votes.len() < AVN::<T>::quorum() as usize {
+            if votes.len() < T::Quorum::get_quorum() as usize {
                 EthereumEvents::<T, I>::insert(&events_partition, votes);
             } else {
                 threshold_met = true;
@@ -668,12 +670,12 @@ pub mod pallet {
 
             submitted_blocks.sort();
 
-            let mut remaining_votes_threshold = AVN::<T>::supermajority_quorum() as usize;
+            let mut remaining_votes_threshold = T::Quorum::get_supermajority_quorum() as usize;
             let mut threshold_met = false;
 
             if total_votes_count >= remaining_votes_threshold as usize {
                 threshold_met = true;
-                let quorum = AVN::<T>::quorum() as usize;
+                let quorum = T::Quorum::get_quorum() as usize;
                 let mut selected_range: EthBlockRange = Default::default();
 
                 for (eth_block_num, votes_count) in submitted_blocks.iter() {
