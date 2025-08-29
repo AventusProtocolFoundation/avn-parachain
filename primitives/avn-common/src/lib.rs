@@ -395,3 +395,22 @@ pub struct EthQueryResponse {
     pub data: Vec<u8>,
     pub num_confirmations: u64,
 }
+
+pub trait QuorumPolicy {
+    /// Percentage required for quorum.
+    const QUORUM_PERCENT: u32;
+
+    /// Percentage for supermajority quorum.
+    const SUPERMAJORITY_PERCENT: u32;
+
+    fn required_for(total: u32) -> u32 {
+        (total * Self::QUORUM_PERCENT + 99) / 100
+    }
+
+    fn required_for_supermajority(total: u32) -> u32 {
+        (total * Self::SUPERMAJORITY_PERCENT + 99) / 100
+    }
+
+    fn get_quorum() -> u32;
+    fn get_supermajority_quorum() -> u32;
+}

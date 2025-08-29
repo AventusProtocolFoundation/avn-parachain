@@ -108,6 +108,7 @@ impl Config for TestRuntime {
     type ProcessedEventsChecker = EthBridge;
     type ProcessedEventsHandler = AllPrimaryEventsFilter;
     type EthereumEventsMigration = ();
+    type Quorum = Avn;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

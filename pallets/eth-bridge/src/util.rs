@@ -10,17 +10,17 @@ pub fn time_now<T: Config<I>, I: 'static>() -> u64 {
 pub fn has_enough_corroborations<T: Config<I>, I: 'static>(corroborations: usize) -> bool {
     // the sender cannot corroborate their own transaction
     let num_authors_excluding_sender = AVN::<T>::validators().len() as u32 - 1;
-    let quorum = AVN::<T>::calculate_quorum(num_authors_excluding_sender);
+    let quorum = T::Quorum::required_for(num_authors_excluding_sender);
     corroborations as u32 >= quorum
 }
 
 pub fn has_enough_confirmations<T: Config<I>, I: 'static>(confirmations: u32) -> bool {
     let num_confirmations_including_sender = confirmations + 1u32;
-    num_confirmations_including_sender >= AVN::<T>::quorum()
+    num_confirmations_including_sender >= T::Quorum::get_quorum()
 }
 
 pub fn has_supermajority_confirmations<T: Config<I>, I: 'static>(confirmations: u32) -> bool {
-    confirmations >= AVN::<T>::supermajority_quorum()
+    confirmations >= T::Quorum::get_supermajority_quorum()
 }
 
 pub fn requires_corroboration<T: Config<I>, I: 'static>(

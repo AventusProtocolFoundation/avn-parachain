@@ -282,6 +282,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type ProcessedEventsChecker = ();
     type ProcessedEventsHandler = ();
     type EthereumEventsMigration = ();
+    type Quorum = AVN;
 }
 
 impl pallet_timestamp::Config for TestRuntime {

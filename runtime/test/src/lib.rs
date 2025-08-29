@@ -703,6 +703,7 @@ impl pallet_eth_bridge::Config<MainEthBridge> for Runtime {
     type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
     type ProcessedEventsHandler = NoEventsFilter;
     type EthereumEventsMigration = EthSecondBridge;
+    type Quorum = Avn;
 }
 
 impl pallet_eth_bridge::Config<SecondaryEthBridge> for Runtime {
@@ -718,6 +719,7 @@ impl pallet_eth_bridge::Config<SecondaryEthBridge> for Runtime {
     type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
     type ProcessedEventsHandler = NoEventsFilter;
     type EthereumEventsMigration = ();
+    type Quorum = Avn;
 }
 
 // Other pallets
