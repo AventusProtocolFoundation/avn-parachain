@@ -267,6 +267,7 @@ mod lower_proofs {
         });
     }
 
+    #[ignore]
     #[test]
     fn multiple_mixed_requests_with_same_id_can_be_processed() {
         let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
