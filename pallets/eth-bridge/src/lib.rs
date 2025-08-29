@@ -80,7 +80,7 @@ use pallet_avn::{
 use pallet_session::historical::IdentificationTuple;
 use sp_staking::offence::ReportOffence;
 
-use crate::tx::set_up_active_tx;
+use crate::{offence::create_and_report_bridge_offence, tx::set_up_active_tx};
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
@@ -126,7 +126,7 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 pub mod offence;
-use offence::CorroborationOffence;
+use offence::EthBridgeOffence;
 
 pub type AVN<T> = avn::Pallet<T>;
 pub type Author<T> =
@@ -156,7 +156,7 @@ const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
 
 #[frame_support::pallet]
 pub mod pallet {
-    use crate::offence::CorroborationOffenceType;
+    use crate::offence::EthBridgeOffenceType;
 
     use super::*;
     use frame_support::{
@@ -195,7 +195,7 @@ pub mod pallet {
         type ReportCorroborationOffence: ReportOffence<
             Self::AccountId,
             IdentificationTuple<Self>,
-            CorroborationOffence<IdentificationTuple<Self>>,
+            EthBridgeOffence<IdentificationTuple<Self>>,
         >;
         type ProcessedEventsChecker: NetworkAwareProcessedEventsChecker;
         type EthereumEventsMigration: EthereumEventsMigration;
@@ -223,7 +223,7 @@ pub mod pallet {
             eth_tx_lifetime_secs: u64,
         },
         CorroborationOffenceReported {
-            offence_type: CorroborationOffenceType,
+            offence_type: EthBridgeOffenceType,
             offenders: Vec<IdentificationTuple<T>>,
         },
         ActiveRequestRemoved {
@@ -594,7 +594,9 @@ pub mod pallet {
 
             let mut threshold_met = false;
             let mut votes = EthereumEvents::<T, I>::get(&events_partition);
-            votes.try_insert(author.account_id).map_err(|_| Error::<T, I>::EventVotesFull)?;
+            votes
+                .try_insert(author.account_id.to_owned())
+                .map_err(|_| Error::<T, I>::EventVotesFull)?;
 
             if votes.len() < AVN::<T>::quorum() as usize {
                 EthereumEvents::<T, I>::insert(&events_partition, votes);
@@ -604,6 +606,7 @@ pub mod pallet {
                     &instance.network,
                     &active_range,
                     &events_partition,
+                    &author,
                 );
                 advance_partition::<T, I>(&active_range, &events_partition);
             }
@@ -956,6 +959,7 @@ pub mod pallet {
         network: &EthereumNetwork,
         active_range: &ActiveEthRange,
         partition: &EthereumEventsPartition,
+        author: &Author<T>,
     ) {
         // Remove entry from storage. Ignore votes.
         let _ = EthereumEvents::<T, I>::take(partition);
@@ -998,8 +1002,12 @@ pub mod pallet {
 
         // Cleanup
         for (partition, votes) in EthereumEvents::<T, I>::drain() {
-            // TODO raise offences
             log::info!("Collators with invalid votes on ethereum events (range: {:?}, partition: {}): {:?}", partition.range(), partition.partition(), votes);
+            create_and_report_bridge_offence::<T, I>(
+                &author.account_id,
+                &votes.into_iter().collect(),
+                offence::EthBridgeOffenceType::InvalidEthereumRangeData,
+            )
         }
     }
 
