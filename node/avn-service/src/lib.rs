@@ -25,10 +25,12 @@ pub mod extrinsic_utils;
 pub mod keystore_utils;
 pub mod merkle_tree_utils;
 pub mod summary_utils;
+pub mod timer;
 pub mod web3_utils;
 
 use crate::{
-    extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*, web3_utils::*,
+    extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*,
+    timer::Web3Timer, web3_utils::*,
 };
 
 pub use crate::web3_utils::{public_key_address, secret_key_address};
@@ -88,10 +90,11 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
                 return Ok(())
             }
 
-            let web3_init_time = Instant::now();
+            let _web3_init_time = Web3Timer::new("avn-service Web3 initialisation");
             log::info!("⛓️  avn-service: web3 initialisation start");
 
             let web3 = setup_web3_connection(&self.eth_node_url);
+
             if web3.is_none() {
                 log::error!(
                     "💔 Error creating a web3 connection. URL is not valid {:?}",
@@ -100,7 +103,6 @@ impl<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> Config<
                 return Err(server_error("Error creating a web3 connection".to_string()))
             }
 
-            log::info!("⏲️  web3 init task completed in: {:?}", web3_init_time.elapsed());
             web3_data_mutex.web3 = web3;
             Ok(())
         } else {
@@ -412,7 +414,6 @@ where
     app.at("/eth/sign/:data_to_sign").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             log::info!("⛓️  avn-service: sign Request");
-            let secp = Secp256k1::new();
             let keystore_path = &req.state().keystore_path;
 
             let data_to_sign = req.param("data_to_sign")?;
@@ -426,14 +427,22 @@ where
                 data_to_sign,
                 hex::encode(hashed_message)
             );
-            let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
-            let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
 
-            let secret = SecretKey::from_slice(&my_priv_key)?;
-            let message = secp256k1::Message::from_digest_slice(&hashed_message)?;
-            let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
+            sign_digest_from_keystore(keystore_path, &hashed_message)
+        },
+    );
 
-            Ok(hex::encode(signature.encode()))
+    app.at("/eth/sign_hashed_data/:hashed_data").get(
+        |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
+            log::info!("⛓️  avn-service: pre-hashed sign Request");
+            let keystore_path = &req.state().keystore_path;
+            let hash_str: &str = req.param("hashed_data")?;
+
+            let hashed_data: H256 = H256::from_slice(&hex::decode(hash_str).map_err(|e| {
+                server_error(format!("Error decoding hex string {:?}: {:?}", hash_str, e))
+            })?);
+
+            sign_digest_from_keystore(keystore_path, &hashed_data[..])
         },
     );
 
@@ -507,4 +516,18 @@ where
         .await
         .map_err(|e| log::error!("avn-service error: {}", e))
         .unwrap_or(());
+}
+
+fn sign_digest_from_keystore(keystore_path: &PathBuf, digest: &[u8]) -> Result<String, TideError> {
+    let secp = Secp256k1::new();
+    let my_eth_address = get_eth_address_bytes_from_keystore(keystore_path)?;
+    let my_priv_key = get_priv_key(keystore_path, &my_eth_address)?;
+
+    log::info!("⛓️  avn-service: digest to sign: {:?}", hex::encode(digest));
+
+    let secret = SecretKey::from_slice(&my_priv_key)?;
+    let message = secp256k1::Message::from_digest_slice(digest)?;
+    let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
+
+    Ok(hex::encode(signature.encode()))
 }

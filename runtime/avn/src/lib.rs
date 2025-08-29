@@ -33,7 +33,8 @@ use sp_runtime::{
     ApplyExtrinsicResult,
 };
 
-use sp_std::prelude::*;
+use sp_std::{collections::btree_map::BTreeMap, prelude::*, vec::Vec};
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -77,7 +78,9 @@ use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
 use pallet_avn_transaction_payment::AvnCurrencyAdapter;
+use pallet_eth_bridge_runtime_api::InstanceId;
 use sp_avn_common::{
+    eth::EthBridgeInstance,
     event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition},
     InnerCallValidator, Proof,
 };
@@ -179,7 +182,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 105,
+    spec_version: 110,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -461,7 +464,7 @@ impl pallet_parachain_staking::Config for Runtime {
     type MinNominationPerCollator = ConstU128<1>;
     type RewardPotId = RewardPotId;
     type ErasPerGrowthPeriod = ConstU32<30>; // 30 eras (~ 1 month if era = 1 day)
-    type ProcessedEventsChecker = ProcessedEventCustodian;
+    type ProcessedEventsChecker = EthBridge;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
     type CollatorSessionRegistration = Session;
@@ -561,7 +564,7 @@ impl pallet_ethereum_events::Config for Runtime {
     type ReportInvalidEthereumLog = Offences;
     type WeightInfo = pallet_ethereum_events::default_weights::SubstrateWeight<Runtime>;
     type ProcessedEventsHandler = NftEventsFilter;
-    type ProcessedEventsChecker = ProcessedEventCustodian;
+    type ProcessedEventsChecker = EthBridge;
 }
 
 parameter_types! {
@@ -570,7 +573,7 @@ parameter_types! {
 
 impl pallet_validators_manager::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type ProcessedEventsChecker = ProcessedEventCustodian;
+    type ProcessedEventsChecker = EthBridge;
     type VotingPeriod = ValidatorManagerVotingPeriod;
     type AccountToBytesConvert = Avn;
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
@@ -607,7 +610,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type Currency = Balances;
     type TokenBalance = Balance;
     type TokenId = EthAddress;
-    type ProcessedEventsChecker = ProcessedEventCustodian;
+    type ProcessedEventsChecker = EthBridge;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
     type OnGrowthLiftedHandler = ParachainStaking;
@@ -623,7 +626,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
 impl pallet_nft_manager::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
-    type ProcessedEventsChecker = ProcessedEventCustodian;
+    type ProcessedEventsChecker = EthBridge;
     type Public = <Signature as sp_runtime::traits::Verify>::Signer;
     type Signature = Signature;
     type BatchBound = pallet_nft_manager::BatchNftBound;
@@ -662,20 +665,19 @@ impl pallet_avn_anchor::Config for Runtime {
     type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
-use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
-
 impl pallet_eth_bridge::Config for Runtime {
     type MaxQueuedTxRequests = ConstU32<100>;
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = MinEthBlockConfirmation;
-    type ProcessedEventsChecker = ProcessedEventCustodian;
+    type ProcessedEventsChecker = EthBridge;
     type AccountToBytesConvert = Avn;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type ReportCorroborationOffence = Offences;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking);
     type ProcessedEventsHandler = CorePrimaryEventsFilter;
+    type EthereumEventsMigration = ();
 }
 
 // Other pallets
@@ -768,6 +770,7 @@ impl pallet_preimage::Config for Runtime {
         LinearStoragePrice<PreimageBaseDeposit, PreimageByteDeposit, Balance>,
     >;
 }
+const MAIN_ETH_BRIDGE_ID: u8 = 0u8;
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
@@ -1012,7 +1015,7 @@ impl_runtime_apis! {
             return res
         }
 
-        fn query_active_block_range()-> Option<(EthBlockRange, u16)> {
+        fn query_active_block_range(_instance_id: InstanceId)-> Option<(EthBlockRange, u16)> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
                 Some((active_eth_range.range, active_eth_range.partition))
             } else {
@@ -1020,20 +1023,18 @@ impl_runtime_apis! {
             }
         }
 
-        fn query_has_author_casted_vote(account_id: AccountId) -> bool{
-           pallet_eth_bridge::author_has_cast_event_vote::<Runtime>(&account_id) ||
-           pallet_eth_bridge::author_has_submitted_latest_block::<Runtime>(&account_id)
+        fn query_has_author_casted_vote(_instance_id: InstanceId, account_id: AccountId) -> bool{
+           EthBridge::author_has_cast_event_vote(&account_id) ||
+           EthBridge::author_has_submitted_latest_block(&account_id)
         }
 
-        fn query_signatures() -> Vec<sp_core::H256> {
+        fn query_signatures(_instance_id: InstanceId) -> Vec<sp_core::H256> {
             EthBridge::signatures()
         }
 
-        fn query_bridge_contract() -> H160 {
-            Avn::get_bridge_contract_address()
-        }
-
-        fn submit_vote(author: AccountId,
+        fn submit_vote(
+            _instance_id: InstanceId,
+            author: AccountId,
             events_partition: EthereumEventsPartition,
             signature: sp_core::sr25519::Signature,
         ) -> Option<()>{
@@ -1041,6 +1042,7 @@ impl_runtime_apis! {
         }
 
         fn submit_latest_ethereum_block(
+            _instance_id: InstanceId,
             author: AccountId,
             latest_seen_block: u32,
             signature: sp_core::sr25519::Signature
@@ -1048,12 +1050,18 @@ impl_runtime_apis! {
             EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
         }
 
-        fn additional_transactions() -> Option<AdditionalEvents> {
+        fn additional_transactions(_instance_id: InstanceId) -> Option<AdditionalEvents> {
             if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
                 Some(active_eth_range.additional_transactions)
             } else {
                 None
             }
+        }
+
+        fn instances() -> BTreeMap<InstanceId, EthBridgeInstance> {
+            BTreeMap::from([
+                (MAIN_ETH_BRIDGE_ID, EthBridge::instance()),
+            ])
         }
     }
 
@@ -1153,24 +1161,4 @@ impl_runtime_apis! {
 cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-}
-
-use pallet_avn::{EventMigration, ProcessedEventsChecker};
-use sp_avn_common::event_types::EthEventId;
-
-pub struct ProcessedEventCustodian {}
-impl ProcessedEventsChecker for ProcessedEventCustodian {
-    fn processed_event_exists(event_id: &EthEventId) -> bool {
-        EthBridge::processed_event_exists(event_id) ||
-            EthereumEvents::processed_event_exists(event_id)
-    }
-
-    fn add_processed_event(event_id: &EthEventId, accepted: bool) -> Result<(), ()> {
-        frame_support::ensure!(!Self::processed_event_exists(event_id), ());
-        EthBridge::add_processed_event(event_id, accepted)
-    }
-
-    fn get_events_to_migrate() -> Option<BoundedVec<EventMigration, ProcessingBatchBound>> {
-        EthereumEvents::get_events_to_migrate()
-    }
 }

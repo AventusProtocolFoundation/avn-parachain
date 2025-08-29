@@ -213,6 +213,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type ReportCorroborationOffence = ();
     type ProcessedEventsChecker = ();
     type ProcessedEventsHandler = ();
+    type EthereumEventsMigration = ();
 }
 
 impl BridgeInterfaceNotification for TestRuntime {
@@ -602,21 +603,4 @@ pub fn advance_session() {
     Balances::on_initialize(System::block_number());
     Session::on_initialize(System::block_number());
     ParachainStaking::on_initialize(System::block_number());
-}
-
-pub fn mock_response_of_get_ecdsa_signature(
-    state: &mut OffchainState,
-    data_to_sign: String,
-    response: Option<Vec<u8>>,
-) {
-    let mut url = "http://127.0.0.1:2020/eth/sign/".to_string();
-    url.push_str(&data_to_sign);
-
-    state.expect_request(PendingRequest {
-        method: "GET".into(),
-        uri: url.into(),
-        response,
-        sent: true,
-        ..Default::default()
-    });
 }

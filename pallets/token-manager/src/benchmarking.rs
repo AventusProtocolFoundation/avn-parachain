@@ -33,6 +33,7 @@ mod app_sr25519 {
     use sp_application_crypto::{app_crypto, sr25519};
     app_crypto!(sr25519, BENCH_KEY_TYPE_ID);
 }
+use sp_avn_common::eth::concat_lower_data;
 
 type SignerId = app_sr25519::Public;
 
@@ -332,7 +333,7 @@ benchmarks! {
     regenerate_lower_proof {
         let lower: Lower<T> = Lower::new().setup();
         let token_id = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
-        let params = crate::Pallet::<T>::concat_lower_data(lower.lower_id, token_id.into(), &lower.amount.into(), &token_id);
+        let params = concat_lower_data(lower.lower_id, token_id.into(), &lower.amount.into(), &token_id);
 
         let lower_data = vec![0u8; 32];
 

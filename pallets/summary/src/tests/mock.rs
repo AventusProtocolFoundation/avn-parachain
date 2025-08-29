@@ -7,12 +7,11 @@ use sp_state_machine::BasicExternalities;
 use frame_system::{self as system, DefaultConfig};
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,
-    LowerParams,
 };
 use pallet_eth_bridge::offence::CorroborationOffence;
 use pallet_session as session;
 use parking_lot::RwLock;
-use sp_avn_common::{safe_add_block_numbers, safe_sub_block_numbers};
+use sp_avn_common::{eth::LowerParams, safe_add_block_numbers, safe_sub_block_numbers};
 use sp_core::{
     ecdsa,
     offchain::{
@@ -438,6 +437,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type ReportCorroborationOffence = OffenceHandler;
     type ProcessedEventsChecker = ();
     type ProcessedEventsHandler = ();
+    type EthereumEventsMigration = ();
 }
 
 impl pallet_timestamp::Config for TestRuntime {
@@ -467,7 +467,7 @@ impl BridgeInterface for TestRuntime {
         _params: &[(Vec<u8>, Vec<u8>)],
         _caller_id: Vec<u8>,
     ) -> Result<u32, DispatchError> {
-        if function_name == BridgeContractMethod::PublishRoot.as_bytes() {
+        if function_name == BridgeContractMethod::PublishRoot.name_as_bytes() {
             return Ok(INITIAL_TRANSACTION_ID)
         }
         Err(Error::<TestRuntime>::ErrorPublishingSummary.into())

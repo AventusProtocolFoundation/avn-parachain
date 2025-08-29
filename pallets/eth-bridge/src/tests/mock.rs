@@ -8,14 +8,18 @@ use pallet_avn::{testing::U64To32BytesConverter, EthereumPublicKeyChecker};
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{
-    event_discovery::filters::AllPrimaryEventsFilter, event_types::EthEvent, BridgeContractMethod,
+    eth::{concat_lower_data, EthereumId, LowerParams},
+    event_discovery::filters::AllPrimaryEventsFilter,
+    event_types::EthEvent,
+    BridgeContractMethod,
 };
+
 use sp_core::{
     offchain::{
         testing::{OffchainState, PoolState, TestOffchainExt, TestTransactionPoolExt},
         OffchainDbExt, OffchainWorkerExt, TransactionPoolExt,
     },
-    ConstU32, ConstU64, H256,
+    ConstU32, ConstU64, H160, H256,
 };
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
@@ -72,7 +76,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Timestamp: pallet_timestamp,
-        AVN: pallet_avn::{Pallet, Storage, Event},
+        Avn: pallet_avn::{Pallet, Storage, Event},
         EthBridge: eth_bridge::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
     }
@@ -103,6 +107,7 @@ impl Config for TestRuntime {
     type ReportCorroborationOffence = OffenceHandler;
     type ProcessedEventsChecker = EthBridge;
     type ProcessedEventsHandler = AllPrimaryEventsFilter;
+    type EthereumEventsMigration = ();
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -138,7 +143,7 @@ pub(crate) fn generate_signature(author: Author<TestRuntime>, context: &[u8]) ->
 }
 
 pub fn setup_eth_tx_request(context: &Context) -> EthereumId {
-    add_new_send_request::<TestRuntime>(
+    add_new_send_request::<TestRuntime, ()>(
         &context.request_function_name,
         &context.request_params,
         &vec![],
@@ -159,7 +164,7 @@ pub fn request_failed(id: &u32) -> bool {
 }
 
 pub fn setup_context() -> Context {
-    let primary_validator_id = AVN::advance_primary_validator_for_sending().unwrap();
+    let primary_validator_id = Avn::advance_primary_validator_for_sending().unwrap();
     let author = Author::<TestRuntime> {
         key: UintAuthorityId(primary_validator_id),
         account_id: primary_validator_id,
@@ -178,6 +183,9 @@ pub fn setup_context() -> Context {
 
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(primary_validator_id)]);
 
+    let lower_id = 10u32;
+    let lower_params = create_lower_params(lower_id);
+
     Context {
         eth_tx_hash,
         test_signature,
@@ -186,16 +194,24 @@ pub fn setup_context() -> Context {
         second_confirming_author: second_confirming_author.clone(),
         third_confirming_author: third_confirming_author.clone(),
         confirmation_signature,
-        request_function_name: BridgeContractMethod::PublishRoot.as_bytes().to_vec(),
+        request_function_name: BridgeContractMethod::PublishRoot.name_as_bytes().to_vec(),
         request_params: vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())],
-        lower_params: [1u8; 76],
+        lower_params,
         finalised_block_vec,
-        lower_id: 10u32,
+        lower_id,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "5892dee772ffe3d97e9525b62805bbcd91bac29026536cfa09269623128280ca"
+        expected_lower_msg_hash: "3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba"
             .to_string(),
     }
+}
+
+pub(crate) fn create_lower_params(lower_id: u32) -> LowerParams {
+    let token_id = H160::from([3u8; 20]);
+    let amount = 100_000_000_000_000_000_000u128;
+    let t1_recipient = H160::from([2u8; 20]);
+
+    concat_lower_data(lower_id, token_id, &amount, &t1_recipient)
 }
 
 pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 8]) {
@@ -235,7 +251,7 @@ impl session::Config for TestRuntime {
     type SessionManager = TestSessionManager;
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
-    type SessionHandler = (AVN,);
+    type SessionHandler = (Avn,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = u64;
     type ValidatorIdOf = ConvertInto;
@@ -293,13 +309,19 @@ impl ExtBuilder {
         ext
     }
 
-    #[allow(dead_code)]
     pub fn with_genesis_config(mut self) -> Self {
         let _ = eth_bridge::GenesisConfig::<TestRuntime> {
             _phantom: Default::default(),
             eth_tx_lifetime_secs: 60 * 30,
             next_tx_id: 1,
             eth_block_range_size: 20u32,
+            instance: sp_avn_common::eth::EthBridgeInstance {
+                network: sp_avn_common::eth::EthereumNetwork::Sepolia,
+                bridge_contract: H160::from_slice(&[1u8; 20]),
+                name: b"TestBridge".to_vec().try_into().unwrap(),
+                version: b"1".to_vec().try_into().unwrap(),
+                ..Default::default()
+            },
         }
         .assimilate_storage(&mut self.storage);
         self
