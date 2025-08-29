@@ -33,6 +33,7 @@ mod app_sr25519 {
     use sp_application_crypto::{app_crypto, sr25519};
     app_crypto!(sr25519, BENCH_KEY_TYPE_ID);
 }
+use sp_avn_common::eth::concat_lower_data;
 
 type SignerId = app_sr25519::Public;
 
