@@ -108,6 +108,7 @@ pub async fn build_raw_transaction(
         gas: gas_estimate,
         gas_price: None,
         data: web3::types::Bytes(send_request.data.clone()),
+        chain_id: Some(get_chain_id(web3).await?),
         ..Default::default()
     })
 }
@@ -120,7 +121,6 @@ pub async fn build_call_request(view_request: &EthTransaction) -> anyhow::Result
     })
 }
 
-#[allow(dead_code)]
 pub async fn get_chain_id(web3: &Web3<Http>) -> anyhow::Result<u64> {
     Ok(web3
         .eth()
@@ -226,11 +226,4 @@ pub fn secret_key_address(key: &SecretKey) -> Address {
     let secp: Secp256k1<All> = Secp256k1::new();
     let public_key = PublicKey::from_secret_key(&secp, key);
     public_key_address(&public_key)
-}
-
-pub async fn get_chain_id_from_provider(web3: &Web3<Http>) -> Result<u64, Box<dyn Error>> {
-    // Call eth_chainId
-    let chain_id = web3.eth().chain_id().await?;
-    log::trace!("Web3 connection has chain ID: {}", chain_id);
-    Ok(chain_id.as_u64())
 }

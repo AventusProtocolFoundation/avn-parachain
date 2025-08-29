@@ -36,7 +36,7 @@ use web3::{
 use pallet_eth_bridge::{SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, SUBMIT_LATEST_ETH_BLOCK_CONTEXT};
 use pallet_eth_bridge_runtime_api::InstanceId;
 
-use crate::{get_chain_id_from_provider, server_error, setup_web3_connection, Web3Data};
+use crate::{get_chain_id, server_error, setup_web3_connection, Web3Data};
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 
 pub struct EventInfo {
@@ -484,11 +484,9 @@ where
             log::debug!("⛓️  Attempting to connect to Ethereum node: {}", eth_node_url);
             let web3 = setup_web3_connection(eth_node_url);
             if let Some(web3) = web3 {
-                // If we have a valid web3 connection, check the chain_id
-                let web3_chain_id = get_chain_id_from_provider(&web3).await.map_err(|e| {
-                    log::error!("Error getting chain ID from web3: {:?}", e);
-                    server_error("Error getting chain ID from web3".to_string())
-                })?;
+                let web3_chain_id = get_chain_id(&web3)
+                    .await
+                    .map_err(|e| server_error("Error getting chain ID from web3".to_string()))?;
 
                 log::info!(
                     "⛓️  Successfully connected to node: {} with chain ID: {}",
