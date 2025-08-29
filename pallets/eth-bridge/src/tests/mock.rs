@@ -39,7 +39,7 @@ pub type AccountId = u64;
 pub type BlockNumber = u64;
 
 type IdentificationTuple = (AccountId, AccountId);
-type Offence = crate::CorroborationOffence<IdentificationTuple>;
+type Offence = crate::EthBridgeOffence<IdentificationTuple>;
 pub struct OffenceHandler;
 impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
     fn report_offence(reporters: Vec<AccountId>, offence: Offence) -> Result<(), OffenceError> {

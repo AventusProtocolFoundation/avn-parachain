@@ -8,7 +8,7 @@ use frame_system::{self as system, DefaultConfig};
 use pallet_avn::{
     self as avn, testing::U64To32BytesConverter, vote::VotingSessionData, EthereumPublicKeyChecker,
 };
-use pallet_eth_bridge::offence::CorroborationOffence;
+use pallet_eth_bridge::offence::EthBridgeOffence;
 use pallet_session as session;
 use parking_lot::RwLock;
 use sp_avn_common::{eth::LowerParams, safe_add_block_numbers, safe_sub_block_numbers};
@@ -526,7 +526,7 @@ type Offence = crate::SummaryOffence<IdentificationTuple>;
 
 thread_local! {
     pub static OFFENCES: RefCell<Vec<(Vec<ValidatorId>, Offence)>> = RefCell::new(vec![]);
-    pub static ETH_BRIDGE_OFFENCES: RefCell<Vec<(Vec<ValidatorId>, CorroborationOffence<IdentificationTuple>)>> = RefCell::new(vec![]);
+    pub static ETH_BRIDGE_OFFENCES: RefCell<Vec<(Vec<ValidatorId>, EthBridgeOffence<IdentificationTuple>)>> = RefCell::new(vec![]);
 }
 
 /// A mock offence report handler.
@@ -542,12 +542,12 @@ impl ReportOffence<AccountId, IdentificationTuple, Offence> for OffenceHandler {
     }
 }
 
-impl ReportOffence<AccountId, IdentificationTuple, CorroborationOffence<IdentificationTuple>>
+impl ReportOffence<AccountId, IdentificationTuple, EthBridgeOffence<IdentificationTuple>>
     for OffenceHandler
 {
     fn report_offence(
         reporters: Vec<AccountId>,
-        offence: CorroborationOffence<IdentificationTuple>,
+        offence: EthBridgeOffence<IdentificationTuple>,
     ) -> Result<(), OffenceError> {
         ETH_BRIDGE_OFFENCES.with(|l| l.borrow_mut().push((reporters, offence)));
         Ok(())

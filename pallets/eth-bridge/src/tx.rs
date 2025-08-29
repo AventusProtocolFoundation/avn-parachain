@@ -1,5 +1,5 @@
 use super::*;
-use crate::{offence::create_and_report_corroboration_offence, Config};
+use crate::{offence::create_and_report_bridge_offence, Config};
 use frame_support::BoundedVec;
 use sp_avn_common::eth::{create_function_confirmation_hash, EthereumId};
 
@@ -24,10 +24,10 @@ fn complete_transaction<T: Config<I>, I: 'static>(
     // Check for offences:
     if success {
         if !tx.data.failure_corroborations.is_empty() {
-            create_and_report_corroboration_offence::<T, I>(
+            create_and_report_bridge_offence::<T, I>(
                 &tx.data.sender,
                 &tx.data.failure_corroborations,
-                offence::CorroborationOffenceType::ChallengeAttemptedOnSuccessfulTransaction,
+                offence::EthBridgeOffenceType::ChallengeAttemptedOnSuccessfulTransaction,
             )
         }
 
@@ -37,10 +37,10 @@ fn complete_transaction<T: Config<I>, I: 'static>(
         }
     } else {
         if !tx.data.success_corroborations.is_empty() {
-            create_and_report_corroboration_offence::<T, I>(
+            create_and_report_bridge_offence::<T, I>(
                 &tx.data.sender,
                 &tx.data.success_corroborations,
-                offence::CorroborationOffenceType::ChallengeAttemptedOnUnsuccessfulTransaction,
+                offence::EthBridgeOffenceType::ChallengeAttemptedOnUnsuccessfulTransaction,
             )
         }
     }
