@@ -861,7 +861,8 @@ pub mod pallet {
             match req.request {
                 Request::LowerProof(lower_req) =>
                     if !has_enough_confirmations {
-                        let confirmation = eth::sign_msg_hash::<T, I>(&req.confirmation.msg_hash)?;
+                        let confirmation =
+                            eth::sign_msg_hash::<T, I>(&author, &req.confirmation.msg_hash)?;
                         if !req.confirmation.confirmations.contains(&confirmation) {
                             call::add_confirmation::<T, I>(
                                 lower_req.lower_id,
@@ -875,7 +876,8 @@ pub mod pallet {
                     let self_is_sender = author.account_id == tx.data.sender;
                     // Plus 1 for sender
                     if !self_is_sender && !has_enough_confirmations {
-                        let confirmation = eth::sign_msg_hash::<T, I>(&tx.confirmation.msg_hash)?;
+                        let confirmation =
+                            eth::sign_msg_hash::<T, I>(&author, &tx.confirmation.msg_hash)?;
                         if !tx.confirmation.confirmations.contains(&confirmation) {
                             call::add_confirmation::<T, I>(tx.request.tx_id, confirmation, author);
                         }
@@ -910,7 +912,7 @@ pub mod pallet {
 
             // Protect against sending more than once
             if let Ok(guard) = lock.try_lock() {
-                let eth_tx_hash = eth::send_tx::<T, I>(&tx)?;
+                let eth_tx_hash = eth::send_tx::<T, I>(&author, &tx)?;
                 call::add_eth_tx_hash::<T, I>(tx.request.tx_id, eth_tx_hash, author);
                 guard.forget(); // keep the lock so we don't send again
             } else {
@@ -1230,6 +1232,7 @@ pub mod pallet {
                 calldata,
                 |data| Ok(data),
                 eth_block,
+                None,
             )
         }
 

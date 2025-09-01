@@ -14,10 +14,13 @@ use sp_runtime::DispatchError;
 use sp_std::vec;
 
 pub fn sign_msg_hash<T: Config<I>, I: 'static>(
+    author: &Author<T>,
     msg_hash: &H256,
 ) -> Result<ecdsa::Signature, DispatchError> {
     let msg_hash_string = hex::encode(msg_hash);
-    let confirmation = AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
+    let proof = author.key.sign(&msg_hash_string);
+    let confirmation =
+        AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string, proof)?;
     Ok(confirmation)
 }
 
@@ -71,10 +74,11 @@ fn eth_signature_is_valid<T: Config<I>, I: 'static>(
 }
 
 pub fn send_tx<T: Config<I>, I: 'static>(
+    author: &Author<T>,
     tx: &ActiveTransactionData<T::AccountId>,
 ) -> Result<H256, DispatchError> {
     match generate_send_calldata::<T, I>(tx) {
-        Ok(calldata) => match send_transaction::<T, I>(calldata, &tx.data.sender) {
+        Ok(calldata) => match send_transaction::<T, I>(calldata, author) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
             Err(_) => Err(Error::<T, I>::SendTransactionFailed.into()),
         },
@@ -108,7 +112,7 @@ fn check_tx_status<T: Config<I>, I: 'static>(
     author: &Author<T>,
 ) -> Result<Option<bool>, DispatchError> {
     if let Ok(calldata) = generate_corroborate_calldata::<T, I>(tx.request.tx_id, tx.data.expiry) {
-        if let Ok(result) = call_corroborate_method::<T, I>(calldata, &author.account_id) {
+        if let Ok(result) = call_corroborate_method::<T, I>(calldata, author) {
             match result {
                 0 => return Ok(None),
                 1 => return Ok(Some(true)),
@@ -128,7 +132,7 @@ fn check_tx_hash<T: Config<I>, I: 'static>(
 ) -> Result<(bool, Option<u64>), DispatchError> {
     if tx.data.eth_tx_hash != H256::zero() {
         if let Ok((call_data, num_confirmations)) =
-            get_transaction_call_data::<T, I>(tx.data.eth_tx_hash, &author.account_id)
+            get_transaction_call_data::<T, I>(tx.data.eth_tx_hash, author)
         {
             let expected_call_data = generate_send_calldata::<T, I>(&tx)?;
             return Ok((hex::encode(expected_call_data) == call_data, Some(num_confirmations)))
@@ -257,41 +261,45 @@ pub fn to_token_type<T: Config<I>, I: 'static>(
 
 fn get_transaction_call_data<T: Config<I>, I: 'static>(
     eth_tx_hash: H256,
-    author_account_id: &T::AccountId,
+    author: &Author<T>,
 ) -> Result<(String, u64), DispatchError> {
     let query_request =
         EthQueryRequest { tx_hash: eth_tx_hash, response_type: EthQueryResponseType::CallData };
     make_ethereum_call::<(String, u64), T, I>(
-        author_account_id,
+        &author.account_id,
         "query",
         query_request.encode(),
         process_query_result::<T, I>,
+        None,
         None,
     )
 }
 
 fn send_transaction<T: Config<I>, I: 'static>(
     calldata: Vec<u8>,
-    author_account_id: &T::AccountId,
+    author: &Author<T>,
 ) -> Result<H256, DispatchError> {
+    let proof = author.key.sign(&calldata);
     make_ethereum_call::<H256, T, I>(
-        author_account_id,
+        &author.account_id,
         "send",
         calldata,
         process_tx_hash::<T, I>,
         None,
+        proof,
     )
 }
 
 fn call_corroborate_method<T: Config<I>, I: 'static>(
     calldata: Vec<u8>,
-    author_account_id: &T::AccountId,
+    author: &Author<T>,
 ) -> Result<i8, DispatchError> {
     make_ethereum_call::<i8, T, I>(
-        author_account_id,
+        &author.account_id,
         "view",
         calldata,
         process_corroborate_result::<T, I>,
+        None,
         None,
     )
 }
@@ -302,13 +310,14 @@ pub fn make_ethereum_call<R, T: Config<I>, I: 'static>(
     calldata: Vec<u8>,
     process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
     eth_block: Option<u32>,
+    proof_maybe: Option<<T::AuthorityId as RuntimeAppPublic>::Signature>,
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let eth_instance = Instance::<T, I>::get();
     let ethereum_call =
         EthTransaction::new(sender, eth_instance.bridge_contract, calldata).set_block(eth_block);
     let url_path = format!("eth/{}", endpoint);
-    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
+    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode(), proof_maybe)?;
     process_result(result)
 }
 

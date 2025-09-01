@@ -384,21 +384,26 @@ impl<T: Config> Pallet<T> {
     pub fn post_data_to_service(
         url_path: String,
         post_body: Vec<u8>,
+        proof_maybe: Option<<T::AuthorityId as RuntimeAppPublic>::Signature>,
     ) -> Result<Vec<u8>, DispatchError> {
-        let request = http::Request::default().method(http::Method::Post).body(vec![post_body]);
+        let mut request = http::Request::default().method(http::Method::Post).body(vec![post_body]);
+        if let Some(proof) = proof_maybe {
+            request = request.add_header("X-Service-Proof", &format!("{:?}", proof));
+        }
 
         return Ok(Self::invoke_external_service(request, url_path)?)
     }
 
     pub fn request_ecdsa_signature_from_external_service(
         data_to_sign: &str,
+        proof_maybe: Option<<T::AuthorityId as RuntimeAppPublic>::Signature>,
     ) -> Result<ecdsa::Signature, DispatchError> {
         let mut url = String::from("eth/sign_hashed_data/");
         url.push_str(data_to_sign);
 
         log::info!(target: "avn-service", "avn-service sign request (ecdsa) for hex-encoded data {:?}", data_to_sign);
 
-        let ecdsa_signature_utf8 = Self::get_data_from_service(url)?;
+        let ecdsa_signature_utf8 = Self::post_data_to_service(url, vec![], proof_maybe)?;
         let ecdsa_signature_bytes = core::str::from_utf8(&ecdsa_signature_utf8)
             .map_err(|_| Error::<T>::ErrorConvertingUtf8)?;
 
