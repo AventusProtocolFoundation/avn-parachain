@@ -20,8 +20,10 @@ use crate::{
     Balances as TokenManagerBalances, *,
 };
 use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_system::RawOrigin;
 use hex_literal::hex;
 use pallet_balances::Error as BalancesError;
+use sp_runtime::DispatchError;
 
 const USE_RECEIVER_WITH_EXISTING_AMOUNT: bool = true;
 const USE_RECEIVER_WITH_0_AMOUNT: bool = false;
@@ -439,4 +441,93 @@ fn avt_lower_claimed_fails_due_with_invalid_lower_id() {
             Error::<TestRuntime>::InvalidLowerId
         );
     });
+}
+
+mod set_native_token_eth_address {
+    use super::*;
+
+    #[test]
+    fn works() {
+        let mut ext = ExtBuilder::build_default()
+            .with_genesis_config()
+            .with_balances()
+            .as_externality();
+
+        ext.execute_with(|| {
+            let old_address = <AVTTokenContract<TestRuntime>>::get();
+            let new_address = H160(hex_literal::hex!("dadB0d80178819F2319190D340ce9A924f783711"));
+
+            assert_ok!(TokenManager::set_native_token_eth_address(
+                RuntimeOrigin::root(),
+                new_address
+            ));
+
+            assert!(System::events().iter().any(|a| a.event ==
+                RuntimeEvent::TokenManager(
+                    crate::Event::<TestRuntime>::NativeTokenEthAddressUpdated {
+                        old_address,
+                        new_address
+                    }
+                )));
+        });
+    }
+
+    #[test]
+    fn fails_when_new_address_is_zero() {
+        let mut ext = ExtBuilder::build_default()
+            .with_genesis_config()
+            .with_balances()
+            .as_externality();
+        ext.execute_with(|| {
+            let new_token_address = H160::zero();
+
+            assert_noop!(
+                TokenManager::set_native_token_eth_address(
+                    RuntimeOrigin::root(),
+                    new_token_address
+                ),
+                Error::<TestRuntime>::InvalidEthAddress
+            );
+        });
+    }
+
+    #[test]
+    fn fails_for_non_root() {
+        let mut ext = ExtBuilder::build_default()
+            .with_genesis_config()
+            .with_balances()
+            .as_externality();
+        ext.execute_with(|| {
+            let new_token_address =
+                H160(hex_literal::hex!("dadB0d80178819F2319190D340ce9A924f783711"));
+            let random_signer = TestAccount::new([26u8; 32]).account_id();
+            assert_noop!(
+                TokenManager::set_native_token_eth_address(
+                    RuntimeOrigin::signed(random_signer),
+                    new_token_address
+                ),
+                DispatchError::BadOrigin
+            );
+        });
+    }
+
+    #[test]
+    fn fails_for_unsigned() {
+        let mut ext = ExtBuilder::build_default()
+            .with_genesis_config()
+            .with_balances()
+            .as_externality();
+        ext.execute_with(|| {
+            let new_token_address =
+                H160(hex_literal::hex!("dadB0d80178819F2319190D340ce9A924f783711"));
+
+            assert_noop!(
+                TokenManager::set_native_token_eth_address(
+                    RawOrigin::None.into(),
+                    new_token_address
+                ),
+                DispatchError::BadOrigin
+            );
+        });
+    }
 }
