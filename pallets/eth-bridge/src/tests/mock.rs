@@ -69,6 +69,12 @@ pub struct Context {
     pub expected_lower_msg_hash: String,
 }
 
+impl Context {
+    pub fn create_sign_proof(&self) -> TestSignature {
+        generate_signature(self.author.clone(), &self.expected_lower_msg_hash.encode())
+    }
+}
+
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 
 frame_support::construct_runtime!(

@@ -15,7 +15,10 @@ use sp_core::{
     offchain::testing::{OffchainState, PendingRequest, PoolState},
     H160,
 };
-use sp_runtime::{testing::UintAuthorityId, traits::Dispatchable};
+use sp_runtime::{
+    testing::{TestSignature, UintAuthorityId},
+    traits::Dispatchable,
+};
 
 pub fn mock_get_finalised_block(state: &mut OffchainState, response: &Option<Vec<u8>>) {
     let url = "http://127.0.0.1:2020/latest_finalised_block".to_string();
@@ -29,15 +32,14 @@ pub fn mock_get_finalised_block(state: &mut OffchainState, response: &Option<Vec
     });
 }
 
-pub fn mock_ecdsa_sign(state: &mut OffchainState, url_param: &String, response: Option<Vec<u8>>) {
-    let mut url = "http://127.0.0.1:2020/eth/sign_hashed_data/".to_string();
-    url.push_str(url_param);
+pub fn mock_ecdsa_sign(state: &mut OffchainState, proof: TestSignature, response: Option<Vec<u8>>) {
+    let url = "http://127.0.0.1:2020/eth/sign_hashed_data".to_string();
 
     state.expect_request(PendingRequest {
-        method: "GET".into(),
+        method: "POST".into(),
         uri: url.into(),
         response,
-        headers: vec![],
+        headers: vec![("X-Auth".to_owned(), format!("{:?}", proof))],
         sent: true,
         ..Default::default()
     });
@@ -102,7 +104,7 @@ fn call_ocw(
     mock_get_finalised_block(&mut offchain_state.write(), &context.finalised_block_vec);
     mock_ecdsa_sign(
         &mut offchain_state.write(),
-        &context.expected_lower_msg_hash,
+        context.create_sign_proof(),
         Some(hex::encode(&context.confirmation_signature).as_bytes().to_vec()),
     );
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(author)]);

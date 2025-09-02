@@ -17,10 +17,10 @@ pub fn sign_msg_hash<T: Config<I>, I: 'static>(
     author: &Author<T>,
     msg_hash: &H256,
 ) -> Result<ecdsa::Signature, DispatchError> {
-    let msg_hash_string = hex::encode(msg_hash);
-    let proof = author.key.sign(&msg_hash_string);
-    let confirmation =
-        AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string, proof)?;
+    let msg_data = msg_hash.encode();
+    let hex_data = hex::encode(&msg_data);
+    let proof = author.key.sign(&hex_data);
+    let confirmation = AVN::<T>::request_ecdsa_signature_from_external_service(msg_data, proof)?;
     Ok(confirmation)
 }
 
