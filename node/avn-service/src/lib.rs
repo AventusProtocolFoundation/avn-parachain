@@ -422,7 +422,7 @@ where
                 return Err(server_error(format!(
                     "Request body too large. Size: {:?}",
                     body_bytes.len()
-                )));
+                )))
             }
 
             let keystore_path = &req.state().keystore_path;
@@ -439,13 +439,13 @@ where
                 },
                 None => {
                     log::error!("Missing X-Auth token");
-                    return Err(server_error("Missing X-Auth token".to_string()));
+                    return Err(server_error("Missing X-Auth token".to_string()))
                 },
             };
 
             if !authenticate_token(&req.state().keystore, body_bytes, sig_data) {
                 log::error!("X-Auth token verification failed");
-                return Err(server_error("X-Auth token verification failed".to_string()));
+                return Err(server_error("X-Auth token verification failed".to_string()))
             };
 
             sign_digest_from_keystore(keystore_path, &hashed_data[..])

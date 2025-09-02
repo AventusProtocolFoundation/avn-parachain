@@ -111,13 +111,13 @@ pub fn authenticate_token(
         return keystore
             .sr25519_public_keys(KeyTypeId(*b"avnk"))
             .into_iter()
-            .any(|public| SrPair::verify(&signature, &message_data[..], &public));
+            .any(|public| SrPair::verify(&signature, &message_data[..], &public))
     } else {
         log::info!(
             "⛓️  avn-service: Authentication failed for msg: {:?}, sign_data: {:?}",
             message_data,
             sig_data
         );
-        return false;
+        return false
     }
 }
