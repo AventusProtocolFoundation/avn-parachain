@@ -416,6 +416,7 @@ pub mod pallet {
         QuotaReachedForAdditionalEvents,
         EventAlreadyAccepted,
         InvalidInstance,
+        AuthorNotSender,
     }
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]

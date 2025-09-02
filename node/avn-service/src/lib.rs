@@ -5,16 +5,14 @@ use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_avn_common::{
-    hash_with_ethereum_prefix, EthQueryRequest, EthQueryResponse, EthQueryResponseType,
-    EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
+    EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
+    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
 };
 use sp_core::{
     ecdsa::Signature,
     sr25519::{self, Pair as SrPair},
-    Pair as CorePair,
 };
-use sp_keystore::KeystorePtr;
-use sp_runtime::{traits::Block as BlockT, KeyTypeId};
+use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
 use web3::{transports::Http, types::TransactionReceipt, Web3};
 
@@ -420,6 +418,13 @@ where
         |mut req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             log::info!("⛓️  avn-service: pre-hashed sign Request");
             let body_bytes = req.body_bytes().await?;
+            if body_bytes.len() > MAX_BODY_SIZE {
+                return Err(server_error(format!(
+                    "Request body too large. Size: {:?}",
+                    body_bytes.len()
+                )));
+            }
+
             let keystore_path = &req.state().keystore_path;
 
             let hashed_data = H256::from_slice(&body_bytes);
@@ -433,12 +438,15 @@ where
                     })?
                 },
                 None => {
+                    log::error!("Missing X-Auth token");
                     return Err(server_error("Missing X-Auth token".to_string()));
                 },
             };
 
-            verify_token_with_keystore(&req.state().keystore, body_bytes, sig_data)
-                .ok_or_else(|| server_error("Error verifying X-Auth token".to_string()))?;
+            if !authenticate_token(&req.state().keystore, body_bytes, sig_data) {
+                log::error!("X-Auth token verification failed");
+                return Err(server_error("X-Auth token verification failed".to_string()));
+            };
 
             sign_digest_from_keystore(keystore_path, &hashed_data[..])
         },
@@ -528,22 +536,4 @@ fn sign_digest_from_keystore(keystore_path: &PathBuf, digest: &[u8]) -> Result<S
     let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
 
     Ok(hex::encode(signature.encode()))
-}
-
-use sp_keystore::Keystore;
-
-fn verify_token_with_keystore(
-    keystore: &LocalKeystore,
-    message_data: Vec<u8>,
-    sig_data: Vec<u8>,
-) -> Option<sr25519::Public> {
-    if let Some(signature) = sr25519::Signature::from_slice(&sig_data) {
-        return keystore
-            .sr25519_public_keys(KeyTypeId(*b"avnk"))
-            .into_iter()
-            .find(|public| SrPair::verify(&signature, &message_data[..], public));
-    } else {
-        log::info!("⛓️  avn-service: Error creating signature from sig_data: {:?}", sig_data);
-        return None;
-    }
 }

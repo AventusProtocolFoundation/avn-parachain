@@ -70,8 +70,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn create_sign_proof(&self) -> TestSignature {
-        generate_signature(self.author.clone(), &self.expected_lower_msg_hash.encode())
+    pub fn create_sign_proof(&self, author: AccountId) -> TestSignature {
+        let authority = Author::<TestRuntime> { key: UintAuthorityId(author), account_id: author };
+
+        let h256 = H256::from_slice(
+            &hex::decode(self.expected_lower_msg_hash.clone()).expect("failed to decode hex"),
+        );
+        authority.key.sign(&hex::encode(h256)).expect("sign proof failed")
     }
 }
 
