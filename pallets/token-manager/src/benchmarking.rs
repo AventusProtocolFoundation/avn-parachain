@@ -363,6 +363,13 @@ benchmarks! {
         assert_eq!(LowersDisabled::<T>::get(), true);
         assert_last_event::<T>(Event::<T>::LoweringDisabled.into());
     }
+
+    set_native_token_eth_address {
+        let new_address = H160(hex_literal::hex!("dadB0d80178819F2319190D340ce9A924f783711"));
+    }: _(RawOrigin::Root, new_address)
+    verify {
+        assert_eq!(AVTTokenContract::<T>::get(), new_address);
+    }
 }
 
 impl_benchmark_test_suite!(

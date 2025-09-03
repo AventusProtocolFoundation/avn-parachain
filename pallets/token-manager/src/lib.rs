@@ -259,6 +259,11 @@ pub mod pallet {
             recipient: T::AccountId,
             token_balance: T::TokenBalance,
         },
+        /// Event emitted when the native token's Ethereum address is updated
+        NativeTokenEthAddressUpdated {
+            old_address: H160,
+            new_address: H160,
+        },
     }
 
     #[pallet::error]
@@ -286,6 +291,7 @@ pub mod pallet {
         InvalidLowerId,
         LoweringDisabled,
         InvalidLiftRequest,
+        InvalidEthAddress,
     }
 
     #[pallet::storage]
@@ -570,6 +576,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
 
+            ensure!(<LowersDisabled<T>>::get() == false, Error::<T>::LoweringDisabled);
+
             if <LowersReadyToClaim<T>>::contains_key(lower_id) {
                 let lower = <LowersReadyToClaim<T>>::take(lower_id).expect("lower exists");
                 Self::regenerate_proof(lower_id, lower.params)?;
@@ -618,6 +626,26 @@ pub mod pallet {
             } else {
                 Self::deposit_event(Event::<T>::LoweringDisabled);
             }
+
+            return Ok(())
+        }
+
+        #[pallet::call_index(11)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_native_token_eth_address())]
+        pub fn set_native_token_eth_address(
+            origin: OriginFor<T>,
+            new_address: H160,
+        ) -> DispatchResult {
+            let _ = ensure_root(origin)?;
+            //ensure new_address is not 0
+            ensure!(new_address != H160::zero(), Error::<T>::InvalidEthAddress);
+
+            let old_address = <AVTTokenContract<T>>::get();
+            <AVTTokenContract<T>>::put(new_address);
+            Self::deposit_event(Event::<T>::NativeTokenEthAddressUpdated {
+                old_address,
+                new_address,
+            });
 
             return Ok(())
         }
