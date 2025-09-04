@@ -5,10 +5,13 @@ use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_avn_common::{
-    hash_with_ethereum_prefix, EthQueryRequest, EthQueryResponse, EthQueryResponseType,
-    EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
+    EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
+    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
 };
-use sp_core::ecdsa::Signature;
+use sp_core::{
+    ecdsa::Signature,
+    sr25519::{self, Pair as SrPair},
+};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
 use web3::{transports::Http, types::TransactionReceipt, Web3};
@@ -411,36 +414,39 @@ where
 
     let mut app = tide::with_state(Arc::<Config<Block, ClientT>>::from(config));
 
-    app.at("/eth/sign/:data_to_sign").get(
-        |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            log::info!("⛓️  avn-service: sign Request");
-            let keystore_path = &req.state().keystore_path;
-
-            let data_to_sign = req.param("data_to_sign")?;
-            let hashed_message =
-                hash_with_ethereum_prefix(&data_to_sign.to_string()).map_err(|e| {
-                    server_error(format!("Error converting data_to_sign into hex string {:?}", e))
-                })?;
-
-            log::info!(
-                "⛓️  avn-service: data to sign: {:?},\n hashed data to sign: {:?}",
-                data_to_sign,
-                hex::encode(hashed_message)
-            );
-
-            sign_digest_from_keystore(keystore_path, &hashed_message)
-        },
-    );
-
-    app.at("/eth/sign_hashed_data/:hashed_data").get(
-        |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
+    app.at("/eth/sign_hashed_data").post(
+        |mut req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             log::info!("⛓️  avn-service: pre-hashed sign Request");
-            let keystore_path = &req.state().keystore_path;
-            let hash_str: &str = req.param("hashed_data")?;
+            let body_bytes = req.body_bytes().await?;
+            if body_bytes.len() > MAX_BODY_SIZE {
+                return Err(server_error(format!(
+                    "Request body too large. Size: {:?}",
+                    body_bytes.len()
+                )))
+            }
 
-            let hashed_data: H256 = H256::from_slice(&hex::decode(hash_str).map_err(|e| {
-                server_error(format!("Error decoding hex string {:?}: {:?}", hash_str, e))
-            })?);
+            let keystore_path = &req.state().keystore_path;
+
+            let hashed_data = H256::from_slice(&body_bytes);
+
+            let sig_data: Vec<u8> = match req.header("X-Auth") {
+                Some(token) => {
+                    let token_str = token.as_str().trim();
+                    hex::decode(token_str).map_err(|e| {
+                        log::error!("Error decoding X-Auth token: {:?}", token_str);
+                        server_error(format!("Error decoding X-Auth token from hex: {:?}", e))
+                    })?
+                },
+                None => {
+                    log::error!("Missing X-Auth token");
+                    return Err(server_error("Missing X-Auth token".to_string()))
+                },
+            };
+
+            if !authenticate_token(&req.state().keystore, body_bytes, sig_data) {
+                log::error!("X-Auth token verification failed");
+                return Err(server_error("X-Auth token verification failed".to_string()))
+            };
 
             sign_digest_from_keystore(keystore_path, &hashed_data[..])
         },

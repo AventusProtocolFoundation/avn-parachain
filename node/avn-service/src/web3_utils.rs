@@ -1,7 +1,6 @@
 use anyhow::{ensure, Context};
 use ethereum_types;
 use sp_avn_common::EthTransaction;
-use std::error::Error;
 pub use std::{
     error::Error as StdError,
     path::PathBuf,
