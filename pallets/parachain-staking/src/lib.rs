@@ -81,7 +81,6 @@ pub mod pallet {
 
     use crate::set::BoundedOrderedSet;
     pub use crate::{
-        calls::*,
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
         proxy_methods::*,
         set::OrderedSet,

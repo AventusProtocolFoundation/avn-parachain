@@ -34,6 +34,7 @@ use pallet_transaction_payment::CurrencyAdapter;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
     event_types::{EthEventId, LiftedData, ValidEvents},
+    OnIdleHandler,
 };
 use sp_core::{sr25519, ConstU64, Pair, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -106,6 +107,7 @@ impl token_manager::Config for TestRuntime {
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
+    type OnIdleHandler = TestOnIdleHandler;
 }
 
 parameter_types! {
@@ -346,6 +348,15 @@ impl TestAccount {
 
 thread_local! {
     static PROCESSED_EVENTS: RefCell<Vec<EthEventId>> = RefCell::new(vec![]);
+    static ON_IDLE_RUN: RefCell<bool> = RefCell::new(false);
+}
+
+pub fn set_on_idle_run(run: bool) {
+    ON_IDLE_RUN.with(|f| *f.borrow_mut() = run);
+}
+
+pub fn on_idle_has_run() -> bool {
+    return ON_IDLE_RUN.with(|f| *f.borrow());
 }
 
 pub fn insert_to_mock_processed_events(event_id: &EthEventId) {
@@ -731,4 +742,13 @@ fn avn_test_log_parsing_logic() {
             assert!(false);
         }
     });
+}
+
+pub struct TestOnIdleHandler;
+
+impl OnIdleHandler<u64, Weight> for TestOnIdleHandler {
+    fn run_on_idle_process(_block_number: u64, remaining_weight: Weight) -> Weight {
+        set_on_idle_run(true);
+        remaining_weight
+    }
 }

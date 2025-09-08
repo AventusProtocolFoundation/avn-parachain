@@ -18,13 +18,9 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeAppPublic;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use frame_support::BoundedVec;
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
-use sp_avn_common::{
-    bounds::ProcessingBatchBound,
-    event_discovery::filters::{CorePrimaryEventsFilter, NftEventsFilter},
-};
+use sp_avn_common::event_discovery::filters::{CorePrimaryEventsFilter, NftEventsFilter};
 use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
@@ -621,6 +617,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
+    type OnIdleHandler = ();
 }
 
 impl pallet_nft_manager::Config for Runtime {

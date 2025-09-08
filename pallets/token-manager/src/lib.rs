@@ -43,14 +43,14 @@ use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
     OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
-use sp_avn_common::eth::{concat_lower_data, LowerParams, PACKED_LOWER_PARAM_SIZE};
+use sp_avn_common::eth::{concat_lower_data, LowerParams};
 
 use sp_avn_common::{
     event_types::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
         ProcessedEventHandler, TokenInterface,
     },
-    verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, Proof,
+    verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, OnIdleHandler, Proof,
 };
 use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
 use sp_runtime::{
@@ -100,8 +100,6 @@ mod test_proxying_signed_transfer;
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
 const PALLET_ID: &'static [u8; 13] = b"token_manager";
-
-pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -166,6 +164,7 @@ pub mod pallet {
         type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
         type BridgeInterface: BridgeInterface;
         type WeightInfo: WeightInfo;
+        type OnIdleHandler: OnIdleHandler<BlockNumberFor<Self>, Weight>;
     }
 
     #[pallet::pallet]
@@ -648,6 +647,13 @@ pub mod pallet {
             });
 
             return Ok(())
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_idle(n: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+            T::OnIdleHandler::run_on_idle_process(n, remaining_weight)
         }
     }
 }

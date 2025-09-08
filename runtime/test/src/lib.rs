@@ -666,6 +666,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
+    type OnIdleHandler = ();
 }
 
 impl pallet_nft_manager::Config for Runtime {
@@ -1269,6 +1270,7 @@ impl_runtime_apis! {
     }
 }
 
+#[allow(dead_code)]
 struct CheckInherents;
 
 impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
