@@ -356,7 +356,7 @@ pub fn set_on_idle_run(run: bool) {
 }
 
 pub fn on_idle_has_run() -> bool {
-    return ON_IDLE_RUN.with(|f| *f.borrow());
+    return ON_IDLE_RUN.with(|f| *f.borrow())
 }
 
 pub fn insert_to_mock_processed_events(event_id: &EthEventId) {
