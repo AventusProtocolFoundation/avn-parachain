@@ -24,6 +24,7 @@ use sp_runtime::{
     traits::{Convert, Member},
     DispatchError,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -45,7 +46,36 @@ use pallet_avn::BridgeInterface;
 
 pub use pallet::*;
 
-const PALLET_ID: &'static [u8; 14] = b"author_manager";
+const PALLET_ID: &'static [u8; 14] = b"validators_mgr"; // Changed to fix the critical bug
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct PendingValidatorRegistrationData<AccountId, BlockNumber, Balance> {
+    pub account_id: AccountId,
+    pub eth_public_key: ecdsa::Public,
+    pub tx_id: EthereumTransactionId,
+    pub timestamp: BlockNumber,
+    pub deposit: Option<Balance>,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct PendingValidatorDeregistrationData<BlockNumber> {
+    pub tx_id: EthereumTransactionId,
+    pub timestamp: BlockNumber,
+    pub reason: ValidatorDeregistrationReason,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum PendingValidatorOperationType {
+    Registration,
+    Deregistration,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum ValidatorDeregistrationReason {
+    Voluntary,
+    Slashing,
+    Governance,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -111,6 +141,18 @@ pub mod pallet {
         ValidatorEthKeyAlreadyExists,
         ErrorRemovingAccountFromCollators,
         MaximumValidatorsReached,
+        /// Pending registration not found
+        PendingRegistrationNotFound,
+        /// Pending deregistration not found
+        PendingDeregistrationNotFound,
+        /// Unknown transaction ID
+        UnknownTransaction,
+        /// Pending operation already exists for this account
+        PendingOperationExists,
+        /// T1 transaction failed
+        T1TransactionFailed,
+        /// Operation has timed out
+        OperationTimeout,
     }
 
     #[pallet::event]
@@ -123,6 +165,14 @@ pub mod pallet {
         ValidatorSlashed { action_id: ActionId<T::AccountId> },
         PublishingValidatorActionOnEthereumFailed { tx_id: u32 },
         PublishingValidatorActionOnEthereumSucceeded { tx_id: u32 },
+        /// Validator registration is pending T1 confirmation. \[validator_id, eth_key, tx_id\]
+        ValidatorRegistrationPending { validator_id: T::AccountId, eth_key: ecdsa::Public, tx_id: u32 },
+        /// Validator registration failed on T1. \[validator_id, tx_id\]
+        ValidatorRegistrationFailed { validator_id: T::AccountId, tx_id: u32 },
+        /// Validator deregistration is pending T1 confirmation. \[validator_id, tx_id\]
+        ValidatorDeregistrationPending { validator_id: T::AccountId, tx_id: u32 },
+        /// Validator deregistration failed on T1. \[validator_id, tx_id\]
+        ValidatorDeregistrationFailed { validator_id: T::AccountId, tx_id: u32 },
     }
 
     #[pallet::storage]
@@ -150,6 +200,36 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_ingress_counter)]
     pub type TotalIngresses<T: Config> = StorageValue<_, IngressCounter, ValueQuery>;
+
+    /// Pending validator registration requests awaiting T1 confirmation
+    #[pallet::storage]
+    pub type PendingValidatorRegistrations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        PendingValidatorRegistrationData<T::AccountId, BlockNumberFor<T>, BalanceOf<T>>,
+        OptionQuery,
+    >;
+
+    /// Pending validator deregistration requests awaiting T1 confirmation
+    #[pallet::storage]
+    pub type PendingValidatorDeregistrations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        PendingValidatorDeregistrationData<BlockNumberFor<T>>,
+        OptionQuery,
+    >;
+
+    /// Transaction ID to Account ID mapping for pending validator operations
+    #[pallet::storage]
+    pub type PendingValidatorTransactions<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EthereumTransactionId,
+        (T::AccountId, PendingValidatorOperationType),
+        OptionQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -640,12 +720,185 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(Event::<T>::ValidatorActionConfirmed { action_id });
         }
     }
+
+    /// Handle the result of a validator registration request sent to T1
+    fn handle_validator_registration_result(
+        account_id: T::AccountId,
+        tx_id: EthereumTransactionId,
+        succeeded: bool,
+    ) -> DispatchResult {
+        let pending_data = PendingValidatorRegistrations::<T>::get(&account_id)
+            .ok_or(Error::<T>::PendingRegistrationNotFound)?;
+
+        if succeeded {
+            // T1 confirmed - this will be implemented in Phase 2
+            log::info!("✅ T1 confirmed registration for validator {:?}", account_id);
+            Self::deposit_event(Event::<T>::ValidatorRegistered {
+                validator_id: account_id.clone(),
+                eth_key: pending_data.eth_public_key,
+            });
+        } else {
+            // T1 failed - cleanup pending request
+            log::error!("❌ T1 failed registration for validator {:?}", account_id);
+            Self::deposit_event(Event::<T>::ValidatorRegistrationFailed {
+                validator_id: account_id.clone(),
+                tx_id,
+            });
+        }
+
+        // Remove pending registration
+        PendingValidatorRegistrations::<T>::remove(&account_id);
+        Ok(())
+    }
+
+    /// Handle the result of a validator deregistration request sent to T1
+    fn handle_validator_deregistration_result(
+        account_id: T::AccountId,
+        tx_id: EthereumTransactionId,
+        succeeded: bool,
+    ) -> DispatchResult {
+        let _pending_data = PendingValidatorDeregistrations::<T>::get(&account_id)
+            .ok_or(Error::<T>::PendingDeregistrationNotFound)?;
+
+        if succeeded {
+            // T1 confirmed - this will be implemented in Phase 2
+            log::info!("✅ T1 confirmed deregistration for validator {:?}", account_id);
+            Self::deposit_event(Event::<T>::ValidatorDeregistered {
+                validator_id: account_id.clone(),
+            });
+        } else {
+            // T1 failed - validator stays active
+            log::error!("❌ T1 failed deregistration for validator {:?}", account_id);
+            Self::deposit_event(Event::<T>::ValidatorDeregistrationFailed {
+                validator_id: account_id.clone(),
+                tx_id,
+            });
+        }
+
+        // Remove pending deregistration
+        PendingValidatorDeregistrations::<T>::remove(&account_id);
+        Ok(())
+    }
+
+    /// Store a pending validator registration request
+    fn store_pending_validator_registration(
+        account_id: &T::AccountId,
+        eth_public_key: &ecdsa::Public,
+        deposit: Option<BalanceOf<T>>,
+        tx_id: EthereumTransactionId,
+    ) -> DispatchResult {
+        let current_block = <frame_system::Pallet<T>>::block_number();
+        let pending_data = PendingValidatorRegistrationData {
+            account_id: account_id.clone(),
+            eth_public_key: *eth_public_key,
+            tx_id,
+            timestamp: current_block,
+            deposit,
+        };
+
+        PendingValidatorRegistrations::<T>::insert(account_id, pending_data);
+        PendingValidatorTransactions::<T>::insert(tx_id, (account_id.clone(), PendingValidatorOperationType::Registration));
+        
+        Ok(())
+    }
+
+    /// Store a pending validator deregistration request
+    fn store_pending_validator_deregistration(
+        account_id: &T::AccountId,
+        tx_id: EthereumTransactionId,
+        reason: ValidatorDeregistrationReason,
+    ) -> DispatchResult {
+        let current_block = <frame_system::Pallet<T>>::block_number();
+        let pending_data = PendingValidatorDeregistrationData {
+            tx_id,
+            timestamp: current_block,
+            reason,
+        };
+
+        PendingValidatorDeregistrations::<T>::insert(account_id, pending_data);
+        PendingValidatorTransactions::<T>::insert(tx_id, (account_id.clone(), PendingValidatorOperationType::Deregistration));
+        
+        Ok(())
+    }
+
+    /// Validate a validator registration request
+    fn validate_validator_registration_request(
+        account_id: &T::AccountId,
+        eth_public_key: &ecdsa::Public,
+    ) -> DispatchResult {
+        // Check if there's already a pending operation for this account
+        ensure!(
+            !PendingValidatorRegistrations::<T>::contains_key(account_id) &&
+            !PendingValidatorDeregistrations::<T>::contains_key(account_id),
+            Error::<T>::PendingOperationExists
+        );
+
+        let validator_account_ids = Self::validator_account_ids().ok_or(Error::<T>::NoValidators)?;
+        ensure!(!validator_account_ids.is_empty(), Error::<T>::NoValidators);
+
+        ensure!(
+            !validator_account_ids.contains(account_id),
+            Error::<T>::ValidatorAlreadyExists
+        );
+        
+        ensure!(
+            !<EthereumPublicKeys<T>>::contains_key(eth_public_key),
+            Error::<T>::ValidatorEthKeyAlreadyExists
+        );
+
+        ensure!(
+            validator_account_ids.len() < (<MaximumValidatorsBound as sp_core::TypedGet>::get() as usize),
+            Error::<T>::MaximumValidatorsReached
+        );
+
+        Ok(())
+    }
+
+    /// Validate a validator deregistration request
+    fn validate_validator_deregistration_request(account_id: &T::AccountId) -> DispatchResult {
+        // Check if there's already a pending operation for this account
+        ensure!(
+            !PendingValidatorRegistrations::<T>::contains_key(account_id) &&
+            !PendingValidatorDeregistrations::<T>::contains_key(account_id),
+            Error::<T>::PendingOperationExists
+        );
+
+        let validator_account_ids = Self::validator_account_ids().ok_or(Error::<T>::NoValidators)?;
+        
+        ensure!(
+            validator_account_ids.len() > DEFAULT_MINIMUM_VALIDATORS_COUNT,
+            Error::<T>::MinimumValidatorsReached
+        );
+
+        ensure!(
+            validator_account_ids.contains(account_id),
+            Error::<T>::ValidatorNotFound
+        );
+
+        Ok(())
+    }
 }
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
-        // TODO: Update data structure to use tx_id as key
-        if caller_id == PALLET_ID.to_vec() {
+        if caller_id != PALLET_ID.to_vec() {
+            return Ok(())
+        }
+
+        // Check if this is a pending operation transaction first
+        if let Some((account_id, operation_type)) = PendingValidatorTransactions::<T>::get(tx_id) {
+            match operation_type {
+                PendingValidatorOperationType::Registration => {
+                    Self::handle_validator_registration_result(account_id, tx_id, succeeded)?;
+                },
+                PendingValidatorOperationType::Deregistration => {
+                    Self::handle_validator_deregistration_result(account_id, tx_id, succeeded)?;
+                },
+            }
+            // Cleanup transaction mapping
+            PendingValidatorTransactions::<T>::remove(tx_id);
+        } else {
+            // Fall back to existing transaction processing for legacy operations
             if succeeded {
                 log::info!(
                     "✅  Transaction with ID {} was successfully published to Ethereum.",

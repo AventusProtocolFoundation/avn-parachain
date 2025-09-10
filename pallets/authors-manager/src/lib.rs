@@ -23,6 +23,7 @@ use sp_runtime::{
     traits::{Convert, Member},
     DispatchError,
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use sp_std::prelude::*;
 
 use pallet_avn::{
@@ -37,6 +38,34 @@ pub use sp_avn_common::{
 pub use pallet::*;
 
 const PALLET_ID: &'static [u8; 14] = b"author_manager";
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct PendingRegistrationData<AccountId, BlockNumber> {
+    pub account_id: AccountId,
+    pub eth_public_key: ecdsa::Public,
+    pub tx_id: EthereumTransactionId,
+    pub timestamp: BlockNumber,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct PendingDeregistrationData<BlockNumber> {
+    pub tx_id: EthereumTransactionId,
+    pub timestamp: BlockNumber,
+    pub reason: DeregistrationReason,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum PendingOperationType {
+    Registration,
+    Deregistration,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum DeregistrationReason {
+    Voluntary,
+    Slashing,
+    Governance,
+}
 
 const DEFAULT_MINIMUM_AUTHORS_COUNT: usize = 2;
 
@@ -95,6 +124,14 @@ pub mod pallet {
         PublishingAuthorActionOnEthereumFailed { tx_id: u32 },
         /// Author action published on Tier1. \[tx_id\]
         PublishingAuthorActionOnEthereumSucceeded { tx_id: u32 },
+        /// Author registration is pending T1 confirmation. \[author_id, eth_key, tx_id\]
+        AuthorRegistrationPending { author_id: T::AccountId, eth_key: ecdsa::Public, tx_id: u32 },
+        /// Author registration failed on T1. \[author_id, tx_id\]
+        AuthorRegistrationFailed { author_id: T::AccountId, tx_id: u32 },
+        /// Author deregistration is pending T1 confirmation. \[author_id, tx_id\]
+        AuthorDeregistrationPending { author_id: T::AccountId, tx_id: u32 },
+        /// Author deregistration failed on T1. \[author_id, tx_id\]
+        AuthorDeregistrationFailed { author_id: T::AccountId, tx_id: u32 },
     }
 
     #[pallet::error]
@@ -141,6 +178,18 @@ pub mod pallet {
         TransactionNotFound,
         /// Invalid action status for transaction
         InvalidActionStatus,
+        /// Pending registration not found
+        PendingRegistrationNotFound,
+        /// Pending deregistration not found
+        PendingDeregistrationNotFound,
+        /// Unknown transaction ID
+        UnknownTransaction,
+        /// Pending operation already exists for this account
+        PendingOperationExists,
+        /// T1 transaction failed
+        T1TransactionFailed,
+        /// Operation has timed out
+        OperationTimeout,
     }
 
     #[pallet::storage]
@@ -175,6 +224,36 @@ pub mod pallet {
         Blake2_128Concat,
         EthereumTransactionId,
         (T::AccountId, IngressCounter),
+        OptionQuery,
+    >;
+
+    /// Pending registration requests awaiting T1 confirmation
+    #[pallet::storage]
+    pub type PendingRegistrations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        PendingRegistrationData<T::AccountId, BlockNumberFor<T>>,
+        OptionQuery,
+    >;
+
+    /// Pending deregistration requests awaiting T1 confirmation
+    #[pallet::storage]
+    pub type PendingDeregistrations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        PendingDeregistrationData<BlockNumberFor<T>>,
+        OptionQuery,
+    >;
+
+    /// Transaction ID to Account ID mapping for pending operations
+    #[pallet::storage]
+    pub type PendingTransactions<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EthereumTransactionId,
+        (T::AccountId, PendingOperationType),
         OptionQuery,
     >;
 
@@ -596,6 +675,161 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    /// Handle the result of a registration request sent to T1
+    fn handle_registration_result(
+        account_id: T::AccountId,
+        tx_id: EthereumTransactionId,
+        succeeded: bool,
+    ) -> DispatchResult {
+        let pending_data = PendingRegistrations::<T>::get(&account_id)
+            .ok_or(Error::<T>::PendingRegistrationNotFound)?;
+
+        if succeeded {
+            // T1 confirmed - this will be implemented in Phase 2
+            log::info!("✅ T1 confirmed registration for author {:?}", account_id);
+            Self::deposit_event(Event::<T>::AuthorRegistered {
+                author_id: account_id.clone(),
+                eth_key: pending_data.eth_public_key,
+            });
+        } else {
+            // T1 failed - cleanup pending request
+            log::error!("❌ T1 failed registration for author {:?}", account_id);
+            Self::deposit_event(Event::<T>::AuthorRegistrationFailed {
+                author_id: account_id.clone(),
+                tx_id,
+            });
+        }
+
+        // Remove pending registration
+        PendingRegistrations::<T>::remove(&account_id);
+        Ok(())
+    }
+
+    /// Handle the result of a deregistration request sent to T1
+    fn handle_deregistration_result(
+        account_id: T::AccountId,
+        tx_id: EthereumTransactionId,
+        succeeded: bool,
+    ) -> DispatchResult {
+        let _pending_data = PendingDeregistrations::<T>::get(&account_id)
+            .ok_or(Error::<T>::PendingDeregistrationNotFound)?;
+
+        if succeeded {
+            // T1 confirmed - this will be implemented in Phase 2
+            log::info!("✅ T1 confirmed deregistration for author {:?}", account_id);
+            Self::deposit_event(Event::<T>::AuthorDeregistered {
+                author_id: account_id.clone(),
+            });
+        } else {
+            // T1 failed - author stays active
+            log::error!("❌ T1 failed deregistration for author {:?}", account_id);
+            Self::deposit_event(Event::<T>::AuthorDeregistrationFailed {
+                author_id: account_id.clone(),
+                tx_id,
+            });
+        }
+
+        // Remove pending deregistration
+        PendingDeregistrations::<T>::remove(&account_id);
+        Ok(())
+    }
+
+    /// Store a pending registration request
+    fn store_pending_registration(
+        account_id: &T::AccountId,
+        eth_public_key: &ecdsa::Public,
+        tx_id: EthereumTransactionId,
+    ) -> DispatchResult {
+        let current_block = <frame_system::Pallet<T>>::block_number();
+        let pending_data = PendingRegistrationData {
+            account_id: account_id.clone(),
+            eth_public_key: *eth_public_key,
+            tx_id,
+            timestamp: current_block,
+        };
+
+        PendingRegistrations::<T>::insert(account_id, pending_data);
+        PendingTransactions::<T>::insert(tx_id, (account_id.clone(), PendingOperationType::Registration));
+        
+        Ok(())
+    }
+
+    /// Store a pending deregistration request
+    fn store_pending_deregistration(
+        account_id: &T::AccountId,
+        tx_id: EthereumTransactionId,
+        reason: DeregistrationReason,
+    ) -> DispatchResult {
+        let current_block = <frame_system::Pallet<T>>::block_number();
+        let pending_data = PendingDeregistrationData {
+            tx_id,
+            timestamp: current_block,
+            reason,
+        };
+
+        PendingDeregistrations::<T>::insert(account_id, pending_data);
+        PendingTransactions::<T>::insert(tx_id, (account_id.clone(), PendingOperationType::Deregistration));
+        
+        Ok(())
+    }
+
+    /// Validate a registration request
+    fn validate_registration_request(
+        account_id: &T::AccountId,
+        eth_public_key: &ecdsa::Public,
+    ) -> DispatchResult {
+        // Check if there's already a pending operation for this account
+        ensure!(
+            !PendingRegistrations::<T>::contains_key(account_id) &&
+            !PendingDeregistrations::<T>::contains_key(account_id),
+            Error::<T>::PendingOperationExists
+        );
+
+        let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
+        ensure!(!author_account_ids.is_empty(), Error::<T>::NoAuthors);
+
+        ensure!(
+            !author_account_ids.contains(account_id),
+            Error::<T>::AuthorAlreadyExists
+        );
+        
+        ensure!(
+            !<EthereumPublicKeys<T>>::contains_key(eth_public_key),
+            Error::<T>::AuthorEthKeyAlreadyExists
+        );
+
+        ensure!(
+            author_account_ids.len() < (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
+            Error::<T>::MaximumAuthorsReached
+        );
+
+        Ok(())
+    }
+
+    /// Validate a deregistration request
+    fn validate_deregistration_request(account_id: &T::AccountId) -> DispatchResult {
+        // Check if there's already a pending operation for this account
+        ensure!(
+            !PendingRegistrations::<T>::contains_key(account_id) &&
+            !PendingDeregistrations::<T>::contains_key(account_id),
+            Error::<T>::PendingOperationExists
+        );
+
+        let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
+        
+        ensure!(
+            author_account_ids.len() > DEFAULT_MINIMUM_AUTHORS_COUNT,
+            Error::<T>::MinimumAuthorsReached
+        );
+
+        ensure!(
+            author_account_ids.contains(account_id),
+            Error::<T>::AuthorNotFound
+        );
+
+        Ok(())
+    }
 }
 
 impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
@@ -682,9 +916,27 @@ impl<T: Config> session::SessionManager<T::AccountId> for Pallet<T> {
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
-        if caller_id == PALLET_ID.to_vec() {
-            Pallet::<T>::process_transaction(tx_id, succeeded)?;
+        if caller_id != PALLET_ID.to_vec() {
+            return Ok(())
         }
+
+        // Check if this is a pending operation transaction first
+        if let Some((account_id, operation_type)) = PendingTransactions::<T>::get(tx_id) {
+            match operation_type {
+                PendingOperationType::Registration => {
+                    Self::handle_registration_result(account_id, tx_id, succeeded)?;
+                },
+                PendingOperationType::Deregistration => {
+                    Self::handle_deregistration_result(account_id, tx_id, succeeded)?;
+                },
+            }
+            // Cleanup transaction mapping
+            PendingTransactions::<T>::remove(tx_id);
+        } else {
+            // Fall back to existing transaction processing for legacy operations
+            Self::process_transaction(tx_id, succeeded)?;
+        }
+        
         Ok(())
     }
 }
