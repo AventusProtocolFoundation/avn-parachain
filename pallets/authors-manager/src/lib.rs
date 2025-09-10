@@ -293,31 +293,24 @@ pub mod pallet {
             author_eth_public_key: ecdsa::Public,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
-            ensure!(!author_account_ids.is_empty(), Error::<T>::NoAuthors);
-
-            ensure!(
-                !author_account_ids.contains(&author_account_id),
-                Error::<T>::AuthorAlreadyExists
-            );
-            ensure!(
-                !<EthereumPublicKeys<T>>::contains_key(&author_eth_public_key),
-                Error::<T>::AuthorEthKeyAlreadyExists
-            );
-
-            ensure!(
-                AuthorAccountIds::<T>::get().unwrap_or_default().len() <
-                    (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
-                Error::<T>::MaximumAuthorsReached
-            );
-
-            Self::register_author(&author_account_id, &author_eth_public_key)?;
-
-            <AuthorAccountIds<T>>::try_append(author_account_id.clone())
-                .map_err(|_| Error::<T>::MaximumAuthorsReached)?;
-            <EthereumPublicKeys<T>>::insert(author_eth_public_key, author_account_id);
-
-            return Ok(())
+            
+            // Validate the registration request
+            Self::validate_registration_request(&author_account_id, &author_eth_public_key)?;
+            
+            // Send T1 transaction FIRST - no local state changes yet
+            let tx_id = Self::send_registration_to_t1(&author_account_id, &author_eth_public_key)?;
+            
+            // Store as pending (NOT in active list yet)
+            Self::store_pending_registration(&author_account_id, &author_eth_public_key, tx_id)?;
+            
+            // Emit pending event - registration not confirmed yet
+            Self::deposit_event(Event::<T>::AuthorRegistrationPending { 
+                author_id: author_account_id, 
+                eth_key: author_eth_public_key,
+                tx_id 
+            });
+            
+            Ok(())
         }
 
         #[pallet::call_index(1)]
@@ -327,13 +320,24 @@ pub mod pallet {
             origin: OriginFor<T>,
             author_account_id: T::AccountId,
         ) -> DispatchResult {
-            let _ = ensure_root(origin)?;
+            ensure_root(origin)?;
 
-            Self::remove_deregistered_author(&author_account_id)?;
+            // Validate the deregistration request
+            Self::validate_deregistration_request(&author_account_id)?;
 
-            Self::deposit_event(Event::<T>::AuthorDeregistered { author_id: author_account_id });
+            // Send T1 transaction FIRST - no local state changes yet
+            let tx_id = Self::send_deregistration_to_t1(&author_account_id)?;
 
-            return Ok(())
+            // Store as pending deregistration (author stays active for now)
+            Self::store_pending_deregistration(&author_account_id, tx_id, DeregistrationReason::Voluntary)?;
+
+            // Emit pending event - deregistration not confirmed yet
+            Self::deposit_event(Event::<T>::AuthorDeregistrationPending {
+                author_id: author_account_id,
+                tx_id
+            });
+
+            Ok(())
         }
 
         #[pallet::call_index(2)]
@@ -686,12 +690,9 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::PendingRegistrationNotFound)?;
 
         if succeeded {
-            // T1 confirmed - this will be implemented in Phase 2
+            // T1 confirmed - proceed with actual registration
             log::info!("✅ T1 confirmed registration for author {:?}", account_id);
-            Self::deposit_event(Event::<T>::AuthorRegistered {
-                author_id: account_id.clone(),
-                eth_key: pending_data.eth_public_key,
-            });
+            Self::complete_author_registration(&account_id, &pending_data)?;
         } else {
             // T1 failed - cleanup pending request
             log::error!("❌ T1 failed registration for author {:?}", account_id);
@@ -716,11 +717,9 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::PendingDeregistrationNotFound)?;
 
         if succeeded {
-            // T1 confirmed - this will be implemented in Phase 2
+            // T1 confirmed - proceed with actual deregistration
             log::info!("✅ T1 confirmed deregistration for author {:?}", account_id);
-            Self::deposit_event(Event::<T>::AuthorDeregistered {
-                author_id: account_id.clone(),
-            });
+            Self::complete_author_deregistration(&account_id)?;
         } else {
             // T1 failed - author stays active
             log::error!("❌ T1 failed deregistration for author {:?}", account_id);
@@ -830,6 +829,128 @@ impl<T: Config> Pallet<T> {
 
         Ok(())
     }
+
+    /// Send registration request to T1
+    fn send_registration_to_t1(
+        author_account_id: &T::AccountId,
+        author_eth_public_key: &ecdsa::Public,
+    ) -> Result<EthereumTransactionId, DispatchError> {
+        let decompressed_eth_public_key = decompress_eth_public_key(*author_eth_public_key)
+            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+
+        let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
+
+        let params = vec![
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+        ];
+
+        <T as pallet::Config>::BridgeInterface::publish(
+            AuthorOperationTier1Endpoint::Add.function_name(),
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|e| DispatchError::Other(e.into()))
+    }
+
+    /// Send deregistration request to T1
+    fn send_deregistration_to_t1(
+        author_account_id: &T::AccountId,
+    ) -> Result<EthereumTransactionId, DispatchError> {
+        let eth_public_key = Self::get_ethereum_public_key_if_exists(author_account_id)
+            .ok_or(Error::<T>::AuthorNotFound)?;
+
+        let decompressed_eth_public_key = decompress_eth_public_key(eth_public_key)
+            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+
+        let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
+
+        let params = vec![
+            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+        ];
+
+        <T as pallet::Config>::BridgeInterface::publish(
+            AuthorOperationTier1Endpoint::Remove.function_name(),
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|e| DispatchError::Other(e.into()))
+    }
+
+    /// Complete author registration after T1 confirmation
+    fn complete_author_registration(
+        account_id: &T::AccountId,
+        pending_data: &PendingRegistrationData<T::AccountId, BlockNumberFor<T>>,
+    ) -> DispatchResult {
+        // Add to active authors list
+        <AuthorAccountIds<T>>::try_append(account_id.clone())
+            .map_err(|_| Error::<T>::MaximumAuthorsReached)?;
+
+        // Add ethereum key mapping
+        <EthereumPublicKeys<T>>::insert(pending_data.eth_public_key, account_id);
+
+        // Notify validator registration
+        let new_author_id = <T as SessionConfig>::ValidatorIdOf::convert(account_id.clone())
+            .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
+        T::ValidatorRegistrationNotifier::on_validator_registration(&new_author_id);
+
+        // Emit success event
+        Self::deposit_event(Event::<T>::AuthorRegistered {
+            author_id: account_id.clone(),
+            eth_key: pending_data.eth_public_key,
+        });
+
+        Ok(())
+    }
+
+    /// Complete author deregistration after T1 confirmation
+    fn complete_author_deregistration(account_id: &T::AccountId) -> DispatchResult {
+        // Remove from active authors
+        let mut author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
+        let index = author_account_ids.iter().position(|v| v == account_id)
+            .ok_or(Error::<T>::AuthorNotFound)?;
+        author_account_ids.swap_remove(index);
+        <AuthorAccountIds<T>>::put(author_account_ids);
+
+        // Remove ethereum key mapping
+        Self::remove_ethereum_public_key_if_required(account_id);
+
+        // Emit success event
+        Self::deposit_event(Event::<T>::AuthorDeregistered {
+            author_id: account_id.clone(),
+        });
+
+        Ok(())
+    }
+
+    /// Clean up any expired or orphaned pending operations (for maintenance)
+    #[allow(dead_code)]
+    fn cleanup_expired_pending_operations(max_age_blocks: BlockNumberFor<T>) {
+        let current_block = <frame_system::Pallet<T>>::block_number();
+        
+        // Clean up old pending registrations
+        let expired_registrations: Vec<T::AccountId> = PendingRegistrations::<T>::iter()
+            .filter(|(_, data)| current_block > data.timestamp + max_age_blocks)
+            .map(|(account_id, _)| account_id)
+            .collect();
+            
+        for account_id in expired_registrations {
+            log::warn!("Cleaning up expired pending registration for {:?}", account_id);
+            PendingRegistrations::<T>::remove(&account_id);
+        }
+        
+        // Clean up old pending deregistrations
+        let expired_deregistrations: Vec<T::AccountId> = PendingDeregistrations::<T>::iter()
+            .filter(|(_, data)| current_block > data.timestamp + max_age_blocks)
+            .map(|(account_id, _)| account_id)
+            .collect();
+            
+        for account_id in expired_deregistrations {
+            log::warn!("Cleaning up expired pending deregistration for {:?}", account_id);
+            PendingDeregistrations::<T>::remove(&account_id);
+        }
+    }
 }
 
 impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
@@ -889,10 +1010,16 @@ impl<T: Config> session::SessionManager<T::AccountId> for Pallet<T> {
                 log::error!("💥 keeping old session because of empty author set!");
                 None
             } else {
+                // Log pending operations for debugging
+                let pending_registrations = PendingRegistrations::<T>::iter().count();
+                let pending_deregistrations = PendingDeregistrations::<T>::iter().count();
+                
                 log::debug!(
-                    "[AUTH-MGR] assembling new authors for new session {} with these authors {:#?} at #{:?}",
+                    "[AUTH-MGR] assembling new authors for session {} with {} confirmed authors (pending: {} reg, {} dereg) at #{:?}",
                     new_index,
-                    authors,
+                    authors.len(),
+                    pending_registrations,
+                    pending_deregistrations,
                     <frame_system::Pallet<T>>::block_number(),
                 );
 
