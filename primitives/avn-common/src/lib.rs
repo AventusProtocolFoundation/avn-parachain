@@ -8,7 +8,7 @@ use alloc::{
     string::{String, ToString},
 };
 
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode, MaxEncodedLen};
 use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
@@ -21,6 +21,8 @@ use sp_runtime::{
     MultiSignature,
 };
 use sp_std::{boxed::Box, vec::Vec};
+use frame_support::BoundedVec;
+use crate::bounds::VotingSessionIdBound;
 
 pub const OPEN_BYTES_TAG: &'static [u8] = b"<Bytes>";
 pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
@@ -31,6 +33,7 @@ pub mod eth_key_actions;
 pub mod event_discovery;
 pub mod event_types;
 pub mod ocw_lock;
+pub mod watchtower;
 #[cfg(test)]
 #[path = "tests/test_event_discovery.rs"]
 pub mod test_event_discovery;
@@ -430,4 +433,45 @@ pub enum HashMessageFormat {
 pub struct EthQueryResponse {
     pub data: Vec<u8>,
     pub num_confirmations: u64,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+pub enum RootStatusEnum {
+    ReadyForVerification,
+    Approved,
+    Rejected,
+    Unknown,
+}
+
+impl Default for RootStatusEnum {
+    fn default() -> Self {
+        RootStatusEnum::Unknown
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct RootRange<BlockNumber: AtLeast32Bit> {
+    pub from_block: BlockNumber,
+    pub to_block: BlockNumber,
+}
+
+impl<BlockNumber: AtLeast32Bit> RootRange<BlockNumber> {
+    pub fn new(from_block: BlockNumber, to_block: BlockNumber) -> Self {
+        return RootRange::<BlockNumber> { from_block, to_block }
+    }
+}
+
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct RootId<BlockNumber: AtLeast32Bit> {
+    pub range: RootRange<BlockNumber>,
+    pub ingress_counter: IngressCounter,
+}
+impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
+    pub fn new(range: RootRange<BlockNumber>, ingress_counter: IngressCounter) -> Self {
+        return RootId::<BlockNumber> { range, ingress_counter }
+    }
+
+    pub fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
+        BoundedVec::truncate_from(self.encode())
+    }
 }

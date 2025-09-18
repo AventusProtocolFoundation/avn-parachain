@@ -78,6 +78,7 @@ use sp_avn_common::{
     },
     event_types::ValidEvents,
     InnerCallValidator, Proof,
+    watchtower::NoopWatchtower
 };
 
 use pallet_parachain_staking;
@@ -630,6 +631,8 @@ impl pallet_summary::Config<EthSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type WatchtowerInterface = NoopWatchtower<AccountId>;
+    type RequireExternalValidation = ConstBool<false>;
 }
 
 pub type AvnAnchorSummary = pallet_summary::Instance2;
@@ -643,6 +646,8 @@ impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AvnAutoSubmitSummaries;
     type InstanceId = AvnInstanceId;
+    type WatchtowerInterface = NoopWatchtower<AccountId>;
+    type RequireExternalValidation = ConstBool<false>;
 }
 
 impl pallet_avn_anchor::Config for Runtime {

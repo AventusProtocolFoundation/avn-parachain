@@ -3,10 +3,14 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::ToString;
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::{
+    watchtower::*,
     bounds::VotingSessionIdBound,
     event_types::Validator,
     ocw_lock::{self as OcwLock},
@@ -14,12 +18,12 @@ use sp_avn_common::{
 };
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::AtLeast32Bit,
+    traits::{AtLeast32Bit, Hash},
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    BoundedVec, DispatchError,
+    BoundedVec, DispatchError, SaturatedConversion
 };
 use sp_std::prelude::*;
 
@@ -79,6 +83,7 @@ pub mod challenge;
 use crate::challenge::*;
 
 use pallet_avn::BridgeInterface;
+use sp_avn_common::{RootId, RootRange, RootStatusEnum};
 
 mod benchmarking;
 pub mod default_weights;
@@ -131,8 +136,16 @@ pub mod pallet {
         type BridgeInterface: avn::BridgeInterface;
         /// A flag to determine if summaries will be automatically sent to Ethereum
         type AutoSubmitSummaries: Get<bool>;
+        /// A flag to determine if watchtower validation is required before submitting/anchoring
+        /// summaries
+        #[pallet::constant]
+        type RequireExternalValidation: Get<bool>;
         /// A unique instance id to differentiate different instances
         type InstanceId: Get<u8>;
+        /// Interface to the Watchtower pallet
+        type WatchtowerInterface: WatchtowerInterface<
+            AccountId = Self::AccountId
+        >;
     }
 
     #[pallet::pallet]
@@ -195,6 +208,8 @@ pub mod pallet {
             ingress_counter: IngressCounter,
             block_range: RootRange<BlockNumberFor<T>>,
         },
+        /// A summary is ready for watchtower validation
+        SummaryReadyForVerification { root_id: RootId<BlockNumberFor<T>>, root_hash: H256 },
     }
 
     #[pallet::error]
@@ -331,6 +346,17 @@ pub mod pallet {
     #[pallet::getter(fn anchor_roots)]
     pub type AnchorRoots<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Blake2_128Concat, u32, H256, ValueQuery>;
+
+    #[pallet::storage]
+    pub type RootStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        RootRange<BlockNumberFor<T>>,
+        Blake2_128Concat,
+        IngressCounter,
+        RootStatusEnum,
+        ValueQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -728,6 +754,27 @@ pub mod pallet {
         }
     }
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        pub fn set_root_status(
+            root_id: RootId<BlockNumberFor<T>>,
+            status: RootStatusEnum,
+        ) -> DispatchResult {
+            <RootStatus<T, I>>::insert(root_id.range, root_id.ingress_counter, status);
+            Ok(())
+        }
+
+        pub fn finalise_summary(root_id: &RootId<BlockNumberFor<T>>) -> DispatchResult {
+            let root_data = Self::try_get_root_data(root_id)?;
+            if root_data.root_hash != Self::empty_root() {
+                Self::set_root_status(*root_id, RootStatusEnum::Approved)?;
+                if T::AutoSubmitSummaries::get() {
+                    Self::send_root_to_ethereum(root_id, &root_data)?;
+                } else {
+                    let approved_root_id = Self::get_next_approved_root_id()?;
+                    <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                }
+            }
+            Ok(())
+        }
         pub fn update_block_number_context() -> Vec<u8> {
             let mut context = Vec::with_capacity(1 + UPDATE_BLOCK_NUMBER_CONTEXT.len());
             context.push(T::InstanceId::get());
@@ -1211,12 +1258,17 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    if T::AutoSubmitSummaries::get() {
-                        Self::send_root_to_ethereum(root_id, &root_data)?;
+                    if T::RequireExternalValidation::get() {
+                        Self::set_root_status(*root_id, RootStatusEnum::ReadyForVerification)?;
+
+                        Self::notify_watchtower(&root_data, root_id)?;
+
+                        Self::deposit_event(Event::<T, I>::SummaryReadyForVerification {
+                            root_id: *root_id,
+                            root_hash: root_data.root_hash,
+                        });
                     } else {
-                        // Add root to anchor storage
-                        let approved_root_id = Self::get_next_approved_root_id()?;
-                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                        Self::finalise_summary(root_id)?;
                     }
                 }
                 // If we get here, then we did not get an error when submitting to T1.
@@ -1245,7 +1297,7 @@ pub mod pallet {
                     block_range: root_id.range,
                 });
             } else {
-                // We didn't get enough votes to approve this root
+                Self::set_root_status(*root_id, RootStatusEnum::Rejected)?;
 
                 let root_creator =
                     root_data.added_by.ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;
@@ -1397,34 +1449,47 @@ pub mod pallet {
         pub(crate) fn pallet_id() -> Vec<u8> {
             [PALLET_ID.to_vec(), vec![T::InstanceId::get()]].concat()
         }
-    }
-}
 
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootId<BlockNumber: AtLeast32Bit> {
-    pub range: RootRange<BlockNumber>,
-    pub ingress_counter: IngressCounter,
-}
+        fn notify_watchtower(
+            root_data: &RootData<T::AccountId>,
+            root_id: &RootId<BlockNumberFor<T>>,
+        ) -> DispatchResult {
+            let current_block = <frame_system::Pallet<T>>::block_number();
+            let inner_payload = (
+                root_id.range,
+                root_data.root_hash,
+            );
 
-impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
-    fn new(range: RootRange<BlockNumber>, ingress_counter: IngressCounter) -> Self {
-        return RootId::<BlockNumber> { range, ingress_counter }
-    }
+            // TODO: store this so we can find it later to finalise
+            let external_ref: T::Hash = T::Hashing::hash_of(&(
+                T::InstanceId::get(),
+                root_id.session_id(),
+                root_data.root_hash));
 
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
+            let title = if T::AutoSubmitSummaries::get() {
+                "Summary Proposal"
+            } else {
+                "Anchor Proposal"
+            };
 
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootRange<BlockNumber: AtLeast32Bit> {
-    pub from_block: BlockNumber,
-    pub to_block: BlockNumber,
-}
+            let source = if T::AutoSubmitSummaries::get() {
+                ProposalType::Summary
+            } else {
+                ProposalType::Anchor
+            };
 
-impl<BlockNumber: AtLeast32Bit> RootRange<BlockNumber> {
-    fn new(from_block: BlockNumber, to_block: BlockNumber) -> Self {
-        return RootRange::<BlockNumber> { from_block, to_block }
+            let proposal = ProposalRequest {
+                title: title.as_bytes().to_vec(),
+                external_ref: H256::from_slice(&external_ref.as_ref()),
+                rule: DecisionRule::SimpleMajority,
+                payload: RawPayload::Inline(inner_payload.encode()),
+                source: ProposalSource::Internal(source),
+                created_at: current_block.saturated_into::<u32>(),
+            };
+
+            T::WatchtowerInterface::submit_proposal(None, proposal)?;
+            Ok(())
+        }
     }
 }
 
