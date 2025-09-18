@@ -15,8 +15,11 @@ pub mod pallet {
     use sp_core::U256;
     use sp_runtime::{DispatchError, RuntimeAppPublic};
 
-    const PALLET_NAME: &'static [u8] = b"AvnOracle";
-    pub const AVT_PRICE_SUBMISSION_CONTEXT: &'static [u8] = b"update_avt_price_signing_context";
+    const PALLET_NAME: &'static [u8] = b"NativeTokenOracle";
+    pub const PRICE_SUBMISSION_CONTEXT: &'static [u8] = b"update_price_signing_context";
+
+    pub type CurrencyMaxLen = ConstU32<3>;
+    pub type CurrencyBytes = BoundedVec<u8, CurrencyMaxLen>;
 
     pub type AVN<T> = avn::Pallet<T>;
 
@@ -25,34 +28,50 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn last_avt_price_submission)]
-    pub type LastAvtPriceSubmission<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+    pub type LastUsdPriceSubmission<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn avt_price_nonce)]
-    pub type AvtPriceNonce<T> = StorageValue<_, u32, ValueQuery>;
+    #[pallet::getter(fn avt_price_nonce_of)]
+    pub type NonceByCurrency<T> = StorageMap<_, Blake2_128Concat, CurrencyBytes, u32, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn avt_price_submission_timestamps)]
-    pub type AvtPriceSubmissionTimestamps<T: Config> =
+    pub type PriceSubmissionTimestamps<T: Config> =
         StorageMap<_, Blake2_128Concat, u32, (u64, u64), OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn avt_price_reporters)]
-    pub type AvtPriceReporters<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, u32, Blake2_128Concat, T::AccountId, (), ValueQuery>;
+    pub type PriceReporters<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        (CurrencyBytes, u32),
+        Blake2_128Concat,
+        T::AccountId,
+        (),
+        ValueQuery,
+    >;
 
     #[pallet::storage]
-    #[pallet::getter(fn processed_avt_price_nonces)]
-    pub type ProcessedAvtPriceNonces<T: Config> = StorageValue<_, u32, ValueQuery>;
+    #[pallet::getter(fn processed_avt_price_nonces_of)]
+    pub type ProcessedNonces<T: Config> =
+        StorageMap<_, Blake2_128Concat, CurrencyBytes, u32, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn reported_avt_price)]
-    pub type ReportedAvtPrice<T: Config> =
-        StorageDoubleMap<_, Blake2_128Concat, u32, Blake2_128Concat, U256, u32, ValueQuery>;
+    pub type ReportedPrices<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        (CurrencyBytes, u32),
+        Blake2_128Concat,
+        U256,
+        u32,
+        ValueQuery,
+    >;
 
     #[pallet::storage]
-    #[pallet::getter(fn aventus_price_in_usd)]
-    pub type AventusUsdPrice<T> = StorageValue<_, U256, OptionQuery>;
+    #[pallet::getter(fn aventus_price)]
+    pub type PricesByCurrency<T> =
+        StorageMap<_, Blake2_128Concat, CurrencyBytes, U256, OptionQuery>;
 
     #[pallet::config]
     pub trait Config:
@@ -68,13 +87,13 @@ pub mod pallet {
 
         /// How often fiat rates should be refreshed, in blocks
         #[pallet::constant]
-        type AvtPriceRefreshRangeInBlocks: Get<u32>;
+        type PriceRefreshRangeInBlocks: Get<u32>;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        AventusPriceUpdated { avt_price: U256 },
+        PriceUpdated { price: U256, currency: CurrencyBytes },
     }
 
     #[pallet::error]
@@ -82,11 +101,12 @@ pub mod pallet {
         SubmitterNotAValidator,
         ErrorSigning,
         ErrorSubmittingTransaction,
-        ErrorFetchingAvtPrice,
+        ErrorFetchingPrice,
         ValidatorAlreadySubmitted,
-        AvtPriceMustBeGreaterThanZero,
+        PriceMustBeGreaterThanZero,
         InvalidRateFormat,
-        MissingAvtPriceTimestamps,
+        MissingPriceTimestamps,
+        InvalidCurrency,
     }
 
     #[pallet::storage]
@@ -96,9 +116,10 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
         #[pallet::weight(Weight::default())]
-        pub fn submit_avt_price(
+        pub fn submit_price(
             origin: OriginFor<T>,
-            avt_price: U256,
+            currency: CurrencyBytes,
+            price: U256,
             submitter: Validator<T::AuthorityId, T::AccountId>,
             _signature: <<T as avn::Config>::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
@@ -108,27 +129,29 @@ pub mod pallet {
                 Error::<T>::SubmitterNotAValidator
             );
 
-            let nonce = AvtPriceNonce::<T>::get();
+            let nonce = NonceByCurrency::<T>::get(&currency);
             ensure!(
-                !AvtPriceReporters::<T>::contains_key(nonce, &submitter.account_id),
+                !PriceReporters::<T>::contains_key((&currency, nonce), &submitter.account_id),
                 Error::<T>::ValidatorAlreadySubmitted
             );
-            AvtPriceReporters::<T>::insert(nonce, &submitter.account_id, ());
+            PriceReporters::<T>::insert((&currency, nonce), &submitter.account_id, ());
 
-            let count = ReportedAvtPrice::<T>::mutate(nonce, &avt_price, |count| {
+            let count = ReportedPrices::<T>::mutate((&currency, nonce), &price, |count| {
                 *count = count.saturating_add(1);
                 *count
             });
 
             if count > AVN::<T>::quorum() {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
-                Self::deposit_event(Event::<T>::AventusPriceUpdated { avt_price });
+                Self::deposit_event(Event::<T>::PriceUpdated { price, currency: currency.clone() });
 
-                AventusUsdPrice::<T>::put(avt_price);
+                PricesByCurrency::<T>::insert(&currency, price);
+                ProcessedNonces::<T>::insert(&currency, nonce);
 
-                ProcessedAvtPriceNonces::<T>::put(nonce);
-                LastAvtPriceSubmission::<T>::put(<frame_system::Pallet<T>>::block_number());
-                AvtPriceNonce::<T>::mutate(|value| *value += 1);
+                if currency == Self::usd_key() {
+                    LastUsdPriceSubmission::<T>::put(<frame_system::Pallet<T>>::block_number());
+                }
+                NonceByCurrency::<T>::mutate(&currency, |r| *r = r.saturating_add(1));
             }
 
             Ok(().into())
@@ -140,12 +163,13 @@ pub mod pallet {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             let total_weight = Weight::zero();
 
-            let last_submission_block = LastAvtPriceSubmission::<T>::get();
-            let nonce = AvtPriceNonce::<T>::get();
+            let last_submission_block = LastUsdPriceSubmission::<T>::get();
+            // let currency: CurrencyBytes = CurrencyBytes::truncate_from(b"usd".to_vec());
+            let nonce = NonceByCurrency::<T>::get(&Self::usd_key());
             if (n >=
                 last_submission_block +
-                    BlockNumberFor::<T>::from(T::AvtPriceRefreshRangeInBlocks::get())) &&
-                !AvtPriceSubmissionTimestamps::<T>::contains_key(nonce)
+                    BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get())) &&
+                !PriceSubmissionTimestamps::<T>::contains_key(nonce)
             {
                 let now = pallet_timestamp::Pallet::<T>::now();
                 let now_u64: u64 = now.try_into().unwrap_or_default();
@@ -159,7 +183,7 @@ pub mod pallet {
                 // 10 minutes
                 let ninety_minutes_secs = 600;
                 let from_u64 = to_u64.saturating_sub(ninety_minutes_secs);
-                AvtPriceSubmissionTimestamps::<T>::insert(nonce, (from_u64, to_u64));
+                PriceSubmissionTimestamps::<T>::insert(nonce, (from_u64, to_u64));
 
                 // TODO
                 // total_weight = total_weight.saturating_add(
@@ -192,7 +216,7 @@ pub mod pallet {
             }
             let (this_validator, _) = setup_result.expect("We have a validator");
 
-            let _ = Self::submit_avt_price_if_required(&this_validator);
+            let _ = Self::submit_usd_price_if_required(&this_validator);
         }
     }
 
@@ -201,17 +225,23 @@ pub mod pallet {
         type Call = Call<T>;
         fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
             match call {
-                Call::submit_avt_price { avt_price, submitter, signature } =>
+                Call::submit_price { currency, price, submitter, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(AVT_PRICE_SUBMISSION_CONTEXT, avt_price, AvtPriceNonce::<T>::get()),
+                        &(
+                            PRICE_SUBMISSION_CONTEXT,
+                            currency.clone(),
+                            price,
+                            NonceByCurrency::<T>::get(&currency),
+                        ),
                         &submitter,
                         signature,
                     ) {
                         ValidTransaction::with_tag_prefix("SubmitAvtPrice")
                             .and_provides(vec![(
-                                AVT_PRICE_SUBMISSION_CONTEXT,
-                                avt_price,
-                                AvtPriceNonce::<T>::get(),
+                                PRICE_SUBMISSION_CONTEXT,
+                                currency.clone(),
+                                price,
+                                NonceByCurrency::<T>::get(&currency),
                                 submitter.account_id.clone(),
                             )
                                 .encode()])
@@ -228,40 +258,43 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-        fn submit_avt_price_if_required(
+        fn submit_usd_price_if_required(
             submitter: &Validator<T::AuthorityId, T::AccountId>,
         ) -> Result<(), DispatchError> {
             let current_block = <frame_system::Pallet<T>>::block_number();
-            let last_submission_block = LastAvtPriceSubmission::<T>::get();
+            let last_submission_block = LastUsdPriceSubmission::<T>::get();
 
             if current_block >=
                 last_submission_block +
-                    BlockNumberFor::<T>::from(T::AvtPriceRefreshRangeInBlocks::get())
+                    BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get())
             {
+                let currency = Self::usd_key();
                 let guard_lock_name = Self::create_guard_lock(
-                    b"submit_avt_price::",
-                    AvtPriceNonce::<T>::get(),
+                    b"submit_price::",
+                    NonceByCurrency::<T>::get(&currency),
                     &submitter.account_id,
                 );
                 let mut lock = AVN::<T>::get_ocw_locker(&guard_lock_name);
 
                 if let Ok(guard) = lock.try_lock() {
-                    let avt_price = Self::fetch_and_decode_avt_price()?;
+                    let price = Self::fetch_and_decode_price(&currency)?;
                     let signature = submitter
                         .key
                         .sign(
                             &(
-                                AVT_PRICE_SUBMISSION_CONTEXT,
-                                avt_price.clone(),
-                                AvtPriceNonce::<T>::get(),
+                                PRICE_SUBMISSION_CONTEXT,
+                                currency.clone(),
+                                price.clone(),
+                                NonceByCurrency::<T>::get(&currency),
                             )
                                 .encode(),
                         )
                         .ok_or(Error::<T>::ErrorSigning);
 
                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-                        Call::submit_avt_price {
-                            avt_price,
+                        Call::submit_price {
+                            currency,
+                            price,
                             submitter: submitter.clone(),
                             signature: signature.expect("checked for errors"),
                         }
@@ -287,32 +320,36 @@ pub mod pallet {
             name
         }
 
-        fn fetch_and_decode_avt_price() -> Result<U256, DispatchError> {
-            let nonce = AvtPriceNonce::<T>::get();
-            let (from, to) = AvtPriceSubmissionTimestamps::<T>::get(nonce)
-                .ok_or(Error::<T>::MissingAvtPriceTimestamps)?;
+        fn fetch_and_decode_price(currency: &CurrencyBytes) -> Result<U256, DispatchError> {
+            let nonce = NonceByCurrency::<T>::get(currency);
+            let (from, to) = PriceSubmissionTimestamps::<T>::get(nonce)
+                .ok_or(Error::<T>::MissingPriceTimestamps)?;
 
-            let endpoint = format!("/get_fiat_rates/aventus/usd/{}/{}", from, to,);
+            let currency_str = std::str::from_utf8(currency.as_slice())
+                .map_err(|_| Error::<T>::InvalidCurrency)?;
+            let currency_lc = currency_str.to_ascii_lowercase();
+
+            let endpoint = format!("/get_fiat_rates/aventus/{}/{}/{}", currency_lc, from, to,);
             let response = AVN::<T>::get_data_from_service(endpoint)
-                .map_err(|_| Error::<T>::ErrorFetchingAvtPrice)?;
+                .map_err(|_| Error::<T>::ErrorFetchingPrice)?;
 
-            let formatted = Self::format_avt_price(response);
+            let formatted = Self::format_price(response);
             log::info!("✅ Formatted FiatRates: {:?}", formatted);
 
             formatted
         }
 
-        fn format_avt_price(fiat_rates_json: Vec<u8>) -> Result<U256, DispatchError> {
-            let fiat_rates_str = String::from_utf8_lossy(&fiat_rates_json);
-            let fiat_rates: Value = serde_json::from_str(&fiat_rates_str)
+        fn format_price(prices_json: Vec<u8>) -> Result<U256, DispatchError> {
+            let prices_str = String::from_utf8_lossy(&prices_json);
+            let prices: Value = serde_json::from_str(&prices_str)
                 .map_err(|_| DispatchError::Other("JSON Parsing Error"))?;
 
-            if let Some(rates) = fiat_rates.as_object() {
+            if let Some(rates) = prices.as_object() {
                 if let Some((_symbol, rate_value)) = rates.iter().next() {
                     if let Some(rate) = rate_value.as_f64() {
                         if rate <= 0.0 {
                             return Err(DispatchError::Other(
-                                Error::<T>::AvtPriceMustBeGreaterThanZero.into(),
+                                Error::<T>::PriceMustBeGreaterThanZero.into(),
                             ))
                         }
                         // just scale and return
@@ -324,6 +361,10 @@ pub mod pallet {
                 }
             }
             return Err(Error::<T>::InvalidRateFormat.into())
+        }
+
+        fn usd_key() -> CurrencyBytes {
+            CurrencyBytes::truncate_from(b"usd".to_vec())
         }
     }
 }
