@@ -107,10 +107,10 @@ impl<AccountId> WatchtowerInterface for NoopWatchtower<AccountId>
 }
 
 pub trait WatchtowerHooks {
-    type Proposal: Parameter;
+    type P: Parameter;
 
     /// Called when Watchtower raises an alert/notification.
-    fn on_proposal_submitted(proposal_id: ProposalId, proposal: Self::Proposal) -> DispatchResult;
+    fn on_proposal_submitted(proposal_id: ProposalId, proposal: Self::P) -> DispatchResult;
     fn on_consensus_reached(proposal_id: ProposalId, external_ref: &H256) -> DispatchResult;
     fn on_cancelled(proposal_id: ProposalId, external_ref: &H256) -> DispatchResult;
 }
