@@ -83,7 +83,7 @@ pub mod challenge;
 use crate::challenge::*;
 
 use pallet_avn::BridgeInterface;
-use sp_avn_common::{RootId, RootRange, RootStatusEnum};
+use sp_avn_common::{RootId, RootRange};
 
 mod benchmarking;
 pub mod default_weights;
@@ -348,14 +348,21 @@ pub mod pallet {
         StorageMap<_, Blake2_128Concat, u32, H256, ValueQuery>;
 
     #[pallet::storage]
-    pub type RootStatus<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+    pub type PendingVerification<T: Config<I>, I: 'static = ()> = StorageMap<
         _,
         Blake2_128Concat,
-        RootRange<BlockNumberFor<T>>,
+        H256, // External_ref
+        RootId<BlockNumberFor<T>>,
+        OptionQuery,
+    >;
+
+    #[pallet::storage]
+    pub type RejectedRoots<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
         Blake2_128Concat,
-        IngressCounter,
-        RootStatusEnum,
-        ValueQuery,
+        RootId<BlockNumberFor<T>>,
+        (ProposalId, H256), // (ProposalId, ExternalRef)
+        OptionQuery,
     >;
 
     #[pallet::genesis_config]
@@ -754,18 +761,9 @@ pub mod pallet {
         }
     }
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
-        pub fn set_root_status(
-            root_id: RootId<BlockNumberFor<T>>,
-            status: RootStatusEnum,
-        ) -> DispatchResult {
-            <RootStatus<T, I>>::insert(root_id.range, root_id.ingress_counter, status);
-            Ok(())
-        }
-
         pub fn finalise_summary(root_id: &RootId<BlockNumberFor<T>>) -> DispatchResult {
             let root_data = Self::try_get_root_data(root_id)?;
             if root_data.root_hash != Self::empty_root() {
-                Self::set_root_status(*root_id, RootStatusEnum::Approved)?;
                 if T::AutoSubmitSummaries::get() {
                     Self::send_root_to_ethereum(root_id, &root_data)?;
                 } else {
@@ -1259,7 +1257,6 @@ pub mod pallet {
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
                     if T::RequireExternalValidation::get() {
-                        Self::set_root_status(*root_id, RootStatusEnum::ReadyForVerification)?;
 
                         Self::notify_watchtower(&root_data, root_id)?;
 
@@ -1297,7 +1294,6 @@ pub mod pallet {
                     block_range: root_id.range,
                 });
             } else {
-                Self::set_root_status(*root_id, RootStatusEnum::Rejected)?;
 
                 let root_creator =
                     root_data.added_by.ok_or(Error::<T, I>::CurrentSlotValidatorNotFound)?;
@@ -1456,15 +1452,17 @@ pub mod pallet {
         ) -> DispatchResult {
             let current_block = <frame_system::Pallet<T>>::block_number();
             let inner_payload = (
-                root_id.range,
+                root_id,
                 root_data.root_hash,
             );
 
-            // TODO: store this so we can find it later to finalise
-            let external_ref: T::Hash = T::Hashing::hash_of(&(
+            let external_ref_hash: T::Hash = T::Hashing::hash_of(&(
                 T::InstanceId::get(),
-                root_id.session_id(),
-                root_data.root_hash));
+                root_id,
+                root_data.root_hash,
+            ));
+
+            let external_ref: H256 = H256::from_slice(&external_ref_hash.as_ref());
 
             let title = if T::AutoSubmitSummaries::get() {
                 "Summary Proposal"
@@ -1480,13 +1478,15 @@ pub mod pallet {
 
             let proposal = ProposalRequest {
                 title: title.as_bytes().to_vec(),
-                external_ref: H256::from_slice(&external_ref.as_ref()),
+                external_ref,
                 rule: DecisionRule::SimpleMajority,
                 payload: RawPayload::Inline(inner_payload.encode()),
                 source: ProposalSource::Internal(source),
                 created_at: current_block.saturated_into::<u32>(),
                 vote_duration: None,
             };
+
+            <PendingVerification<T, I>>::insert(external_ref, root_id);
 
             T::WatchtowerInterface::submit_proposal(None, proposal)?;
             Ok(())
@@ -1564,6 +1564,34 @@ impl<T: Config<I>, I: 'static> BridgeInterfaceNotification for Pallet<T, I> {
 
         Ok(())
     }
+}
+
+impl<T: Config<I>, I: 'static> WatchtowerHooks for Pallet<T, I> {
+    type P = ProposalRequest;
+
+    fn on_consensus_reached(proposal_id: ProposalId, external_ref: &H256, approved: bool) -> DispatchResult {
+        if <PendingVerification<T, I>>::contains_key(external_ref) {
+            if let Some(root_id) = <PendingVerification<T, I>>::get(external_ref) {
+                <PendingVerification<T, I>>::remove(external_ref);
+
+                if approved {
+                    Self::finalise_summary(&root_id)?;
+                } else {
+                    log::warn!(
+                        "💔️ Proposal to validate summary root {:?} was rejected by the watchtower.",
+                        root_id
+                    );
+
+                    <RejectedRoots<T, I>>::insert(root_id, (proposal_id, external_ref.clone()));
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    fn on_proposal_submitted(_proposal_id: ProposalId, _proposal: Self::P) -> DispatchResult { Ok(()) }
+    fn on_cancelled(_proposal_id: ProposalId, _external_ref: &H256) -> DispatchResult { Ok(()) }
 }
 
 #[cfg(test)]

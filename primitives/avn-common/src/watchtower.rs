@@ -89,7 +89,7 @@ pub trait WatchtowerInterface {
 }
 
 // A simple no-op implementation of the WatchtowerInterface trait
-pub struct NoopWatchtower<AccountId>(PhantomData<(AccountId)>);
+pub struct NoopWatchtower<AccountId>(PhantomData<AccountId>);
 impl<AccountId> WatchtowerInterface for NoopWatchtower<AccountId>
     where
         AccountId: Parameter + Member + MaxEncodedLen + TypeInfo + Eq + core::fmt::Debug,
@@ -111,6 +111,6 @@ pub trait WatchtowerHooks {
 
     /// Called when Watchtower raises an alert/notification.
     fn on_proposal_submitted(proposal_id: ProposalId, proposal: Self::P) -> DispatchResult;
-    fn on_consensus_reached(proposal_id: ProposalId, external_ref: &H256) -> DispatchResult;
+    fn on_consensus_reached(proposal_id: ProposalId, external_ref: &H256, approved: bool) -> DispatchResult;
     fn on_cancelled(proposal_id: ProposalId, external_ref: &H256) -> DispatchResult;
 }

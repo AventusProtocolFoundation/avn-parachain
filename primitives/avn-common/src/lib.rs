@@ -435,20 +435,6 @@ pub struct EthQueryResponse {
     pub num_confirmations: u64,
 }
 
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub enum RootStatusEnum {
-    ReadyForVerification,
-    Approved,
-    Rejected,
-    Unknown,
-}
-
-impl Default for RootStatusEnum {
-    fn default() -> Self {
-        RootStatusEnum::Unknown
-    }
-}
-
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct RootRange<BlockNumber: AtLeast32Bit> {
     pub from_block: BlockNumber,
