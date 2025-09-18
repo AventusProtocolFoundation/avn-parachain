@@ -1485,6 +1485,7 @@ pub mod pallet {
                 payload: RawPayload::Inline(inner_payload.encode()),
                 source: ProposalSource::Internal(source),
                 created_at: current_block.saturated_into::<u32>(),
+                vote_duration: None,
             };
 
             T::WatchtowerInterface::submit_proposal(None, proposal)?;

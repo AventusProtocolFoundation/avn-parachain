@@ -72,6 +72,7 @@ pub struct ProposalRequest
     /// A unique ref provided by the proposer. Used when sending notifications about this proposal.
     pub external_ref: H256,
     pub created_at: u32,
+    pub vote_duration: Option<u32>,
 }
 
 // Interface for other pallets to interact with the watchtower pallet
