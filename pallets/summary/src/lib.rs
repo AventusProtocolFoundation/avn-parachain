@@ -1566,9 +1566,7 @@ impl<T: Config<I>, I: 'static> BridgeInterfaceNotification for Pallet<T, I> {
     }
 }
 
-impl<T: Config<I>, I: 'static> WatchtowerHooks for Pallet<T, I> {
-    type P = ProposalRequest;
-
+impl<T: Config<I>, I: 'static> WatchtowerHooks<ProposalRequest> for Pallet<T, I> {
     fn on_consensus_reached(proposal_id: ProposalId, external_ref: &H256, approved: bool) -> DispatchResult {
         if <PendingVerification<T, I>>::contains_key(external_ref) {
             if let Some(root_id) = <PendingVerification<T, I>>::get(external_ref) {
@@ -1590,7 +1588,7 @@ impl<T: Config<I>, I: 'static> WatchtowerHooks for Pallet<T, I> {
         Ok(())
     }
 
-    fn on_proposal_submitted(_proposal_id: ProposalId, _proposal: Self::P) -> DispatchResult { Ok(()) }
+    fn on_proposal_submitted(_proposal_id: ProposalId, _proposal: ProposalRequest) -> DispatchResult { Ok(()) }
     fn on_cancelled(_proposal_id: ProposalId, _external_ref: &H256) -> DispatchResult { Ok(()) }
 }
 
