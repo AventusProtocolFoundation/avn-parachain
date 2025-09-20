@@ -46,7 +46,7 @@ pub enum ProposalType {
 }
 
 #[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub enum VotingStatusEnum {
+pub enum ProposalStatusEnum {
     Queued,
     Ongoing,
     Resolved { passed: bool },
@@ -54,10 +54,10 @@ pub enum VotingStatusEnum {
     Unknown,
 }
 
-//implement default for VotingStatusEnum to be Unknown
-impl Default for VotingStatusEnum {
+//implement default for ProposalStatusEnum to be Unknown
+impl Default for ProposalStatusEnum {
     fn default() -> Self {
-        VotingStatusEnum::Unknown
+        ProposalStatusEnum::Unknown
     }
 }
 
@@ -82,7 +82,7 @@ pub trait WatchtowerInterface {
         proposal: ProposalRequest,
     ) -> DispatchResult;
 
-    fn get_voting_status(proposal_id: ProposalId) -> VotingStatusEnum;
+    fn get_voting_status(proposal_id: ProposalId) -> ProposalStatusEnum;
     fn get_proposer(proposal_id: ProposalId) -> Option<Self::AccountId>;
 }
 
@@ -98,8 +98,8 @@ where
         Ok(())
     }
 
-    fn get_voting_status(_id: ProposalId) -> VotingStatusEnum {
-        VotingStatusEnum::Unknown
+    fn get_voting_status(_id: ProposalId) -> ProposalStatusEnum {
+        ProposalStatusEnum::Unknown
     }
 
     fn get_proposer(_id: ProposalId) -> Option<Self::AccountId> {
@@ -107,15 +107,35 @@ where
     }
 }
 
-pub trait WatchtowerHooks {
-    type P: Parameter;
-
+pub trait WatchtowerHooks<P: Parameter> {
     /// Called when Watchtower raises an alert/notification.
-    fn on_proposal_submitted(proposal_id: ProposalId, proposal: Self::P) -> DispatchResult;
+    fn on_proposal_submitted(proposal_id: ProposalId, proposal: P) -> DispatchResult;
     fn on_consensus_reached(
         proposal_id: ProposalId,
         external_ref: &H256,
         approved: bool,
     ) -> DispatchResult;
     fn on_cancelled(proposal_id: ProposalId, external_ref: &H256) -> DispatchResult;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl<P: Parameter> WatchtowerHooks<P> for Tuple {
+    fn on_proposal_submitted(proposal_id: ProposalId, proposal: P) -> DispatchResult {
+        for_tuples!( #( Tuple::on_proposal_submitted(proposal_id, proposal.clone())?; )* );
+        Ok(())
+    }
+
+    fn on_consensus_reached(
+        proposal_id: ProposalId,
+        external_ref: &H256,
+        approved: bool,
+    ) -> DispatchResult {
+        for_tuples!( #( Tuple::on_consensus_reached(proposal_id, external_ref, approved)?; )* );
+        Ok(())
+    }
+
+    fn on_cancelled(proposal_id: ProposalId, external_ref: &H256) -> DispatchResult {
+        for_tuples!( #( Tuple::on_cancelled(proposal_id, external_ref)?; )* );
+        Ok(())
+    }
 }
