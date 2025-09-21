@@ -82,7 +82,7 @@ pub trait WatchtowerInterface {
         proposal: ProposalRequest,
     ) -> DispatchResult;
 
-    fn get_voting_status(proposal_id: ProposalId) -> ProposalStatusEnum;
+    fn get_proposal_status(proposal_id: ProposalId) -> ProposalStatusEnum;
     fn get_proposer(proposal_id: ProposalId) -> Option<Self::AccountId>;
 }
 
@@ -98,7 +98,7 @@ where
         Ok(())
     }
 
-    fn get_voting_status(_id: ProposalId) -> ProposalStatusEnum {
+    fn get_proposal_status(_id: ProposalId) -> ProposalStatusEnum {
         ProposalStatusEnum::Unknown
     }
 
