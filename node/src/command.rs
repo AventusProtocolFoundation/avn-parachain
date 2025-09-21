@@ -270,6 +270,7 @@ pub fn run() -> Result<()> {
                 let avn_config = AvnCliConfiguration {
                     avn_port: cli.run.avn_port,
                     ethereum_node_url: cli.run.eth_node_url,
+                    finance_api_key: cli.run.finance_api_key,
                 };
 
                 info!("Parachain Account: {parachain_account}");

@@ -1140,6 +1140,7 @@ dependencies = [
  "pallet-avn",
  "pallet-avn-anchor",
  "pallet-avn-offence-handler",
+ "pallet-avn-oracle",
  "pallet-avn-proxy",
  "pallet-avn-transaction-payment",
  "pallet-balances",
@@ -1295,6 +1296,8 @@ name = "avn-service"
 version = "6.11.1"
 dependencies = [
  "anyhow",
+ "async-trait",
+ "chrono",
  "ethereum-types 0.11.0",
  "frame-system",
  "futures",
@@ -1306,6 +1309,7 @@ dependencies = [
  "pallet-eth-bridge",
  "pallet-eth-bridge-runtime-api",
  "parity-scale-codec 3.6.11",
+ "reqwest",
  "sc-client-api",
  "sc-client-db",
  "sc-keystore",
@@ -7303,6 +7307,26 @@ dependencies = [
  "sp-staking",
  "sp-state-machine",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
+]
+
+[[package]]
+name = "pallet-avn-oracle"
+version = "6.11.1"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-avn",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec 3.6.11",
+ "scale-info",
+ "serde_json",
+ "sp-avn-common",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
 ]
 
 [[package]]
