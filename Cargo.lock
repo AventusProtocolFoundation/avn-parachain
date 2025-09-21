@@ -7313,16 +7313,19 @@ dependencies = [
 name = "pallet-avn-oracle"
 version = "6.11.1"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
  "pallet-avn",
+ "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec 3.6.11",
  "scale-info",
  "serde_json",
  "sp-avn-common",
  "sp-core",
+ "sp-io",
  "sp-runtime",
 ]
 

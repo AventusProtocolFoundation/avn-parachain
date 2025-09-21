@@ -15,8 +15,9 @@ pub mod pallet {
     use sp_core::U256;
     use sp_runtime::{DispatchError, RuntimeAppPublic};
 
-    const PALLET_NAME: &'static [u8] = b"NativeTokenOracle";
+    const PALLET_NAME: &'static [u8] = b"AvnOracle";
     pub const PRICE_SUBMISSION_CONTEXT: &'static [u8] = b"update_price_signing_context";
+    const MAX_ACTIVE_CURRENCIES: u32 = 10;
 
     pub type CurrencyMaxLen = ConstU32<3>;
     pub type CurrencyBytes = BoundedVec<u8, CurrencyMaxLen>;
@@ -73,6 +74,11 @@ pub mod pallet {
     pub type PricesByCurrency<T> =
         StorageMap<_, Blake2_128Concat, CurrencyBytes, U256, OptionQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn pending_currencies)]
+    pub type PendingCurrencies<T: Config> =
+        StorageValue<_, BoundedVec<CurrencyBytes, ConstU32<MAX_ACTIVE_CURRENCIES>>, ValueQuery>;
+
     #[pallet::config]
     pub trait Config:
         SendTransactionTypes<Call<Self>>
@@ -93,7 +99,7 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        PriceUpdated { price: U256, currency: CurrencyBytes },
+        PriceUpdated { price: U256, currency: CurrencyBytes, nonce: u32 },
     }
 
     #[pallet::error]
@@ -107,6 +113,7 @@ pub mod pallet {
         InvalidRateFormat,
         MissingPriceTimestamps,
         InvalidCurrency,
+        TooManyCurrencies,
     }
 
     #[pallet::storage]
@@ -143,7 +150,11 @@ pub mod pallet {
 
             if count > AVN::<T>::quorum() {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
-                Self::deposit_event(Event::<T>::PriceUpdated { price, currency: currency.clone() });
+                Self::deposit_event(Event::<T>::PriceUpdated {
+                    price,
+                    currency: currency.clone(),
+                    nonce,
+                });
 
                 PricesByCurrency::<T>::insert(&currency, price);
                 ProcessedNonces::<T>::insert(&currency, nonce);
@@ -151,10 +162,32 @@ pub mod pallet {
                 if currency == Self::usd_key() {
                     LastUsdPriceSubmission::<T>::put(<frame_system::Pallet<T>>::block_number());
                 }
+
+                if PendingCurrencies::<T>::get().first() == Some(&currency) {
+                    PendingCurrencies::<T>::mutate(|q| {
+                        q.remove(0);
+                    });
+                }
+
                 NonceByCurrency::<T>::mutate(&currency, |r| *r = r.saturating_add(1));
             }
 
             Ok(().into())
+        }
+
+        #[pallet::call_index(1)]
+        #[pallet::weight(Weight::default())]
+        pub fn query_currency(origin: OriginFor<T>, currency_vec: Vec<u8>) -> DispatchResult {
+            ensure_root(origin)?;
+            let currency =
+                CurrencyBytes::try_from(currency_vec).map_err(|_| Error::<T>::InvalidCurrency)?;
+
+            PendingCurrencies::<T>::try_mutate(|q| {
+                if !q.contains(&currency) {
+                    q.try_push(currency).map_err(|_| Error::<T>::TooManyCurrencies)?;
+                }
+                Ok(())
+            })
         }
     }
 
@@ -216,7 +249,7 @@ pub mod pallet {
             }
             let (this_validator, _) = setup_result.expect("We have a validator");
 
-            let _ = Self::submit_usd_price_if_required(&this_validator);
+            let _ = Self::submit_price_if_required(&this_validator);
         }
     }
 
@@ -258,63 +291,77 @@ pub mod pallet {
     }
 
     impl<T: Config> Pallet<T> {
-        fn submit_usd_price_if_required(
+        fn submit_price_if_required(
             submitter: &Validator<T::AuthorityId, T::AccountId>,
         ) -> Result<(), DispatchError> {
             let current_block = <frame_system::Pallet<T>>::block_number();
             let last_submission_block = LastUsdPriceSubmission::<T>::get();
 
-            if current_block >=
+            let maybe_job: Option<(CurrencyBytes, u32)> = if current_block >=
                 last_submission_block +
                     BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get())
             {
-                let currency = Self::usd_key();
-                let guard_lock_name = Self::create_guard_lock(
-                    b"submit_price::",
-                    NonceByCurrency::<T>::get(&currency),
-                    &submitter.account_id,
-                );
-                let mut lock = AVN::<T>::get_ocw_locker(&guard_lock_name);
+                let c = Self::usd_key();
+                Some((c.clone(), NonceByCurrency::<T>::get(&c)))
+            } else if let Some(c) = PendingCurrencies::<T>::get().first().cloned() {
+                Some((c.clone(), NonceByCurrency::<T>::get(&c)))
+            } else {
+                None
+            };
 
-                if let Ok(guard) = lock.try_lock() {
-                    let price = Self::fetch_and_decode_price(&currency)?;
-                    let signature = submitter
-                        .key
-                        .sign(
-                            &(
-                                PRICE_SUBMISSION_CONTEXT,
-                                currency.clone(),
-                                price.clone(),
-                                NonceByCurrency::<T>::get(&currency),
-                            )
-                                .encode(),
+            let (currency, round) = match maybe_job {
+                Some(x) => x,
+                None => return Ok(()), // nothing to do this run
+            };
+
+            let guard_lock_name = Self::create_guard_lock(
+                b"submit_price::",
+                currency.clone(),
+                round,
+                &submitter.account_id,
+            );
+
+            let mut lock = AVN::<T>::get_ocw_locker(&guard_lock_name);
+            if let Ok(guard) = lock.try_lock() {
+                let price = Self::fetch_and_decode_price(&currency)?;
+                let signature = submitter
+                    .key
+                    .sign(
+                        &(
+                            PRICE_SUBMISSION_CONTEXT,
+                            currency.clone(),
+                            price.clone(),
+                            NonceByCurrency::<T>::get(&currency),
                         )
-                        .ok_or(Error::<T>::ErrorSigning);
-
-                    let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-                        Call::submit_price {
-                            currency,
-                            price,
-                            submitter: submitter.clone(),
-                            signature: signature.expect("checked for errors"),
-                        }
-                        .into(),
+                            .encode(),
                     )
-                    .map_err(|_| Error::<T>::ErrorSubmittingTransaction);
+                    .ok_or(Error::<T>::ErrorSigning);
 
-                    guard.forget();
-                };
-            }
+                let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
+                    Call::submit_price {
+                        currency,
+                        price,
+                        submitter: submitter.clone(),
+                        signature: signature.expect("checked for errors"),
+                    }
+                    .into(),
+                )
+                .map_err(|_| Error::<T>::ErrorSubmittingTransaction);
+
+                guard.forget();
+            };
 
             Ok(())
         }
 
         pub fn create_guard_lock<BlockNumber: Encode>(
             prefix: &'static [u8],
+            currency: CurrencyBytes,
             block_number: BlockNumber,
             authority: &T::AccountId,
         ) -> Vec<u8> {
             let mut name = prefix.to_vec();
+            name.extend_from_slice(&currency.encode());
             name.extend_from_slice(&block_number.encode());
             name.extend_from_slice(&authority.encode());
             name
@@ -368,3 +415,8 @@ pub mod pallet {
         }
     }
 }
+
+#[cfg(any(test, feature = "runtime-benchmarks"))]
+mod mock;
+#[cfg(test)]
+mod tests;
