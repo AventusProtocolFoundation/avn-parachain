@@ -48,7 +48,7 @@ pub enum ProposalType {
 #[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum ProposalStatusEnum {
     Queued,
-    Ongoing,
+    Active,
     Resolved { passed: bool },
     Cancelled,
     Unknown,
