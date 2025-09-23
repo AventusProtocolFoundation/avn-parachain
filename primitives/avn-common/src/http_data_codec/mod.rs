@@ -4,12 +4,29 @@
 extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
+use codec::Encode;
 
-pub fn encode_http_data(data: &Vec<u8>) -> String {
+pub fn encode_to_http_data<E: Encode>(to_encode: E) -> String {
+    let data = to_encode.encode();
+    encode_http_data(&data)
+}
+
+pub fn decode_from_http_data<D: codec::Decode>(encoded: &str) -> Result<D, String> {
+    let decoded_bytes = decode_http_data(encoded).map_err(|e| e.to_string())?;
+    D::decode(&mut &decoded_bytes[..]).map_err(|e| format!("Decode error: {:?}", e))
+}
+
+pub fn decode_from_http_raw_data<D: codec::Decode>(encoded: &Vec<u8>) -> Result<D, String> {
+    let hex_decoded = hex::decode(encoded).map_err(|e| e.to_string())?;
+    D::decode(&mut &hex_decoded[..]).map_err(|e| format!("Decode error: {:?}", e))
+}
+
+fn encode_http_data(data: &Vec<u8>) -> String {
     let encoded: String = hex::encode(data);
     encoded
 }
-pub fn decode_http_data(encoded: &str) -> Result<Vec<u8>, hex::FromHexError> {
+
+fn decode_http_data(encoded: &str) -> Result<Vec<u8>, hex::FromHexError> {
     let trimmed = encoded.trim();
     hex::decode(trimmed)
 }

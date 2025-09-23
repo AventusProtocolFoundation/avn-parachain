@@ -4,6 +4,7 @@ use sp_core::{crypto::KeyTypeId, Pair};
 use sp_keystore::Keystore;
 
 use std::{
+    fmt::Debug,
     fs::{self, File},
     path::PathBuf,
 };
@@ -102,22 +103,18 @@ fn key_phrase_by_type(
     }
 }
 
-pub fn authenticate_token(
+pub fn authenticate_token<M: Debug + AsRef<[u8]>>(
     keystore: &LocalKeystore,
-    message_data: Vec<u8>,
-    sig_data: Vec<u8>,
+    message_data: M,
+    signature: sr25519::Signature,
 ) -> bool {
-    if let Some(signature) = sr25519::Signature::from_slice(&sig_data) {
-        return keystore
-            .sr25519_public_keys(KeyTypeId(*b"avnk"))
-            .into_iter()
-            .any(|public| SrPair::verify(&signature, &message_data[..], &public))
-    } else {
-        log::info!(
-            "⛓️  avn-service: Authentication failed for msg: {:?}, sign_data: {:?}",
+    return keystore.sr25519_public_keys(KeyTypeId(*b"avnk")).into_iter().any(|public| {
+        log::warn!(
+            "⛓️  avn-service: Authenticating msg: {:?}, sign_data: {:?}, public: {:?}",
             message_data,
-            sig_data
+            signature,
+            public
         );
-        return false
-    }
+        SrPair::verify(&signature, &message_data, &public)
+    })
 }

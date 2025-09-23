@@ -5,6 +5,7 @@ use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_avn_common::{
+    http_data_codec::{decode_from_http_data, decode_from_http_raw_data},
     EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
     DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
 };
@@ -426,13 +427,17 @@ where
             }
 
             let keystore_path = &req.state().keystore_path;
+            let hashed_data =
+                decode_from_http_raw_data::<sp_core::H256>(&body_bytes).map_err(|e| {
+                    log::error!("Error decoding body_data: {:?}", body_bytes);
+                    server_error(format!("Error decoding body_data: {:?}", e))
+                })?;
+            log::debug!("Hashed data to sign (hex): {:?}", hex::encode(hashed_data));
 
-            let hashed_data = H256::from_slice(&body_bytes);
-
-            let sig_data: Vec<u8> = match req.header("X-Auth") {
+            let signature = match req.header("X-Auth") {
                 Some(token) => {
                     let token_str = token.as_str().trim();
-                    hex::decode(token_str).map_err(|e| {
+                    decode_from_http_data::<sr25519::Signature>(token_str).map_err(|e| {
                         log::error!("Error decoding X-Auth token: {:?}", token_str);
                         server_error(format!("Error decoding X-Auth token from hex: {:?}", e))
                     })?
@@ -443,7 +448,8 @@ where
                 },
             };
 
-            if !authenticate_token(&req.state().keystore, body_bytes, sig_data) {
+            log::debug!("X-Auth token received: {:?}", signature);
+            if !authenticate_token(&req.state().keystore, hashed_data, signature) {
                 log::error!("X-Auth token verification failed");
                 return Err(server_error("X-Auth token verification failed".to_string()))
             };

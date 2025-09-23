@@ -9,7 +9,7 @@ use crate::{
 use codec::{alloc::sync::Arc, Decode, Encode};
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
-use sp_avn_common::{BridgeContractMethod, QuorumPolicy};
+use sp_avn_common::{http_data_codec::encode_to_http_data, BridgeContractMethod, QuorumPolicy};
 use sp_core::{
     ecdsa,
     offchain::testing::{OffchainState, PendingRequest, PoolState},
@@ -39,12 +39,13 @@ pub fn mock_ecdsa_sign(
     response: Option<Vec<u8>>,
 ) {
     let url = "http://127.0.0.1:2020/eth/sign_hashed_data".to_string();
+    let proof_data = encode_to_http_data(&proof);
 
     state.expect_request(PendingRequest {
         method: "POST".into(),
         uri: url.into(),
         response,
-        headers: vec![("X-Auth".to_owned(), hex::encode(proof.encode()))],
+        headers: vec![("X-Auth".to_owned(), proof_data)],
         sent: true,
         body,
         ..Default::default()
