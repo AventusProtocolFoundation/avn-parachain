@@ -20,16 +20,6 @@ pub enum RawPayload {
 }
 
 #[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub enum DecisionRule {
-    /// Yes > No to win
-    SimpleMajority,
-    /// Yes > No AND turnout >= min_turnout (percent of snapshot).
-    MajorityWithTurnout { min_turnout: Perbill },
-    /// Yes / (Yes+No) >= threshold AND turnout >= min_turnout (optional).
-    Threshold { threshold: Perbill },
-}
-
-#[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 pub enum ProposalSource {
     /// External proposals created by other users. These require manual review and voting.
     External,
@@ -65,7 +55,7 @@ impl Default for ProposalStatusEnum {
 pub struct ProposalRequest {
     pub title: Vec<u8>,
     pub payload: RawPayload,
-    pub rule: DecisionRule,
+    pub threshold: Perbill,
     pub source: ProposalSource,
     /// A unique ref provided by the proposer. Used when sending notifications about this proposal.
     pub external_ref: H256,
