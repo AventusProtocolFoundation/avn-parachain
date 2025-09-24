@@ -45,6 +45,12 @@ pub enum ProposalStatusEnum {
     Unknown,
 }
 
+#[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+pub enum DecisionRule {
+    /// Yes > No to win
+    SimpleMajority,
+}
+
 //implement default for ProposalStatusEnum to be Unknown
 impl Default for ProposalStatusEnum {
     fn default() -> Self {
@@ -58,6 +64,7 @@ pub struct ProposalRequest {
     pub payload: RawPayload,
     pub threshold: Perbill,
     pub source: ProposalSource,
+    pub decision_rule: DecisionRule,
     /// A unique ref provided by the proposer. Used when sending notifications about this proposal.
     pub external_ref: H256,
     pub created_at: u32,
