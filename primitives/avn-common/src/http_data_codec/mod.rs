@@ -3,9 +3,13 @@
 #[cfg(not(feature = "std"))]
 extern crate alloc;
 #[cfg(not(feature = "std"))]
-use alloc::string::String;
+use alloc::{
+    format,
+    string::{String, ToString},
+};
 use codec::Encode;
 
+use sp_std::vec::Vec;
 pub fn encode_to_http_data<E: Encode>(to_encode: E) -> String {
     let data = to_encode.encode();
     encode_http_data(&data)
@@ -14,11 +18,6 @@ pub fn encode_to_http_data<E: Encode>(to_encode: E) -> String {
 pub fn decode_from_http_data<D: codec::Decode>(encoded: &str) -> Result<D, String> {
     let decoded_bytes = decode_http_data(encoded).map_err(|e| e.to_string())?;
     D::decode(&mut &decoded_bytes[..]).map_err(|e| format!("Decode error: {:?}", e))
-}
-
-pub fn decode_from_http_raw_data<D: codec::Decode>(encoded: &Vec<u8>) -> Result<D, String> {
-    let hex_decoded = hex::decode(encoded).map_err(|e| e.to_string())?;
-    D::decode(&mut &hex_decoded[..]).map_err(|e| format!("Decode error: {:?}", e))
 }
 
 fn encode_http_data(data: &Vec<u8>) -> String {

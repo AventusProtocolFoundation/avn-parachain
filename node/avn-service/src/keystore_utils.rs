@@ -103,9 +103,9 @@ fn key_phrase_by_type(
     }
 }
 
-pub fn authenticate_token<M: Debug + AsRef<[u8]>>(
+pub fn authenticate_token(
     keystore: &LocalKeystore,
-    message_data: M,
+    message_data: Vec<u8>,
     signature: sr25519::Signature,
 ) -> bool {
     return keystore.sr25519_public_keys(KeyTypeId(*b"avnk")).into_iter().any(|public| {

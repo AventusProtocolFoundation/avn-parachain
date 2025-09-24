@@ -1501,7 +1501,7 @@ impl<T: Config> Pallet<T> {
         let contract_address = AVN::<T>::get_bridge_contract_address();
         let ethereum_call = EthTransaction::new(sender, contract_address, calldata.encode());
 
-        AVN::<T>::post_data_to_service("/eth/query".to_string(), ethereum_call, None)
+        AVN::<T>::post_data_to_service("/eth/query".to_string(), ethereum_call.encode(), None)
     }
 
     fn event_exists_in_system(event_id: &EthEventId) -> bool {

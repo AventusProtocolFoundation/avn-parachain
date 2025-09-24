@@ -5,9 +5,8 @@ use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_avn_common::{
-    http_data_codec::{decode_from_http_data, decode_from_http_raw_data},
-    EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
-    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
+    http_data_codec::decode_from_http_data, EthQueryRequest, EthQueryResponse,
+    EthQueryResponseType, EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
 };
 use sp_core::{
     ecdsa::Signature,
@@ -425,18 +424,18 @@ where
                     body_bytes.len()
                 )))
             }
+            let msg_bytes = hex::decode(body_bytes).map_err(|e| {
+                server_error(format!("Error decoding signing message data from hex: {:?}", e))
+            })?;
 
             let keystore_path = &req.state().keystore_path;
-            let hashed_data =
-                decode_from_http_raw_data::<sp_core::H256>(&body_bytes).map_err(|e| {
-                    log::error!("Error decoding body_data: {:?}", body_bytes);
-                    server_error(format!("Error decoding body_data: {:?}", e))
-                })?;
-            log::debug!("Hashed data to sign (hex): {:?}", hex::encode(hashed_data));
 
-            let signature = match req.header("X-Auth") {
-                Some(token) => {
-                    let token_str = token.as_str().trim();
+            let hashed_data = H256::from_slice(&msg_bytes);
+            log::info!("Recovering H256 to sign: {:?}", hashed_data);
+
+            let signature_token = match req.header("X-Auth") {
+                Some(encoded_token) => {
+                    let token_str = encoded_token.as_str().trim();
                     decode_from_http_data::<sr25519::Signature>(token_str).map_err(|e| {
                         log::error!("Error decoding X-Auth token: {:?}", token_str);
                         server_error(format!("Error decoding X-Auth token from hex: {:?}", e))
@@ -448,8 +447,8 @@ where
                 },
             };
 
-            log::debug!("X-Auth token received: {:?}", signature);
-            if !authenticate_token(&req.state().keystore, hashed_data, signature) {
+            log::debug!("X-Auth token received: {:?}", signature_token);
+            if !authenticate_token(&req.state().keystore, msg_bytes, signature_token) {
                 log::error!("X-Auth token verification failed");
                 return Err(server_error("X-Auth token verification failed".to_string()))
             };

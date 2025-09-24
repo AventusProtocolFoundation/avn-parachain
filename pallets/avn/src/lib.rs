@@ -382,13 +382,11 @@ impl<T: Config> Pallet<T> {
         return Ok(Self::invoke_external_service(request, url_path)?)
     }
 
-    // TODO check all references
-    pub fn post_data_to_service<E: Encode + Debug>(
+    pub fn post_data_to_service(
         url_path: String,
-        data: E,
+        post_body: Vec<u8>,
         proof_maybe: Option<<T::AuthorityId as RuntimeAppPublic>::Signature>,
     ) -> Result<Vec<u8>, DispatchError> {
-        let post_body = encode_to_http_data(data).into_bytes();
         let mut request = http::Request::default().method(http::Method::Post).body(vec![post_body]);
         if let Some(proof) = proof_maybe {
             log::debug!("X-Auth proof: {:?}", proof);
@@ -399,14 +397,14 @@ impl<T: Config> Pallet<T> {
         return Ok(Self::invoke_external_service(request, url_path)?)
     }
 
-    pub fn request_ecdsa_signature_from_external_service<E: Encode + Debug>(
-        data_to_sign: E,
-        proof_maybe: Option<<T::AuthorityId as RuntimeAppPublic>::Signature>,
+    pub fn request_ecdsa_signature_from_external_service(
+        data_to_sign: Vec<u8>,
+        proof: <T::AuthorityId as RuntimeAppPublic>::Signature,
     ) -> Result<ecdsa::Signature, DispatchError> {
         let url = String::from("eth/sign_hashed_data");
 
         log::debug!("Sign request (ecdsa) for data {:?}", data_to_sign);
-        let ecdsa_signature_utf8 = Self::post_data_to_service(url, data_to_sign, proof_maybe)?;
+        let ecdsa_signature_utf8 = Self::post_data_to_service(url, data_to_sign, Some(proof))?;
         let ecdsa_signature_bytes = core::str::from_utf8(&ecdsa_signature_utf8)
             .map_err(|_| Error::<T>::ErrorConvertingUtf8)?;
 

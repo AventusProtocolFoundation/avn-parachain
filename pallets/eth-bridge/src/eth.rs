@@ -17,8 +17,11 @@ pub fn sign_msg_hash<T: Config<I>, I: 'static>(
     author: &Author<T>,
     msg_hash: &H256,
 ) -> Result<ecdsa::Signature, DispatchError> {
-    let proof = author.key.sign(&msg_hash);
-    let confirmation = AVN::<T>::request_ecdsa_signature_from_external_service(msg_hash, proof)?;
+    let msg_data = msg_hash.as_ref().to_vec();
+    let hex_data = hex::encode(&msg_data).into_bytes();
+    log::debug!("Sending H256 to sign: {:?}", msg_hash);
+    let proof = author.key.sign(&msg_data).ok_or(Error::<T, I>::SigningError)?;
+    let confirmation = AVN::<T>::request_ecdsa_signature_from_external_service(hex_data, proof)?;
     Ok(confirmation)
 }
 
@@ -325,7 +328,7 @@ pub fn make_ethereum_call<R, T: Config<I>, I: 'static>(
     let ethereum_call =
         EthTransaction::new(sender, eth_instance.bridge_contract, calldata).set_block(eth_block);
     let url_path = format!("eth/{}", endpoint);
-    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call, proof_maybe)?;
+    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode(), proof_maybe)?;
     process_result(result)
 }
 

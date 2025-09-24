@@ -417,6 +417,7 @@ pub mod pallet {
         EventAlreadyAccepted,
         InvalidInstance,
         AuthorNotSender,
+        SigningError,
     }
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]
