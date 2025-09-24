@@ -41,6 +41,7 @@ pub enum ProposalStatusEnum {
     Active,
     Resolved { passed: bool },
     Cancelled,
+    Expired,
     Unknown,
 }
 
