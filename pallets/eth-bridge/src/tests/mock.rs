@@ -76,7 +76,7 @@ impl Context {
         let h256 = H256::from_slice(
             &hex::decode(self.expected_lower_msg_hash.clone()).expect("failed to decode hex"),
         );
-        authority.key.sign(&hex::encode(h256)).expect("sign proof failed")
+        authority.key.sign(&h256.as_ref().to_vec()).expect("sign proof failed")
     }
 }
 

@@ -40,14 +40,13 @@ pub fn mock_ecdsa_sign(
 ) {
     let url = "http://127.0.0.1:2020/eth/sign_hashed_data".to_string();
     let proof_data = encode_to_http_data(&proof);
-
     state.expect_request(PendingRequest {
         method: "POST".into(),
         uri: url.into(),
         response,
         headers: vec![("X-Auth".to_owned(), proof_data)],
         sent: true,
-        body,
+        body: hex::encode(body).into_bytes(),
         ..Default::default()
     });
 }
