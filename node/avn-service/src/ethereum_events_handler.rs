@@ -486,7 +486,7 @@ where
             if let Some(web3) = web3 {
                 let web3_chain_id = get_chain_id(&web3)
                     .await
-                    .map_err(|_| server_error("Error getting chain ID from web3".to_string()))?;
+                    .map_err(|_e| server_error("Error getting chain ID from web3".to_string()))?;
 
                 log::info!(
                     "⛓️  Successfully connected to node: {} with chain ID: {}",

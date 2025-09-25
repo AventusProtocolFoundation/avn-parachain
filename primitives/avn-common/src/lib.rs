@@ -18,7 +18,7 @@ use sp_io::{
 };
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify},
+    traits::{AtLeast32Bit, Dispatchable, IdentifyAccount, Member, Verify, Zero},
     MultiSignature,
 };
 use sp_std::{boxed::Box, vec::Vec};
@@ -414,4 +414,14 @@ pub trait QuorumPolicy {
 
     fn get_quorum() -> u32;
     fn get_supermajority_quorum() -> u32;
+}
+
+pub trait OnIdleHandler<BlockNumber, Weight> {
+    fn run_on_idle_process(block_number: BlockNumber, weight: Weight) -> Weight;
+}
+
+impl<BlockNumber, Weight: Zero> OnIdleHandler<BlockNumber, Weight> for () {
+    fn run_on_idle_process(_block_number: BlockNumber, _remaining_weight: Weight) -> Weight {
+        Weight::zero()
+    }
 }

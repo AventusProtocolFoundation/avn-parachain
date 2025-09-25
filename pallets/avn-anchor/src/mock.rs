@@ -215,6 +215,7 @@ impl pallet_token_manager::Config for TestRuntime {
     type Preimages = ();
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
+    type OnIdleHandler = ();
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
