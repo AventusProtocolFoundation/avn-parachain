@@ -4,7 +4,6 @@ use sp_core::{crypto::KeyTypeId, Pair};
 use sp_keystore::Keystore;
 
 use std::{
-    fmt::Debug,
     fs::{self, File},
     path::PathBuf,
 };
@@ -105,7 +104,7 @@ fn key_phrase_by_type(
 
 pub fn authenticate_token(
     keystore: &LocalKeystore,
-    message_data: Vec<u8>,
+    message_data: &Vec<u8>,
     signature: sr25519::Signature,
 ) -> bool {
     return keystore.sr25519_public_keys(KeyTypeId(*b"avnk")).into_iter().any(|public| {
@@ -115,6 +114,6 @@ pub fn authenticate_token(
             signature,
             public
         );
-        SrPair::verify(&signature, &message_data, &public)
+        SrPair::verify(&signature, message_data, &public)
     })
 }

@@ -290,7 +290,10 @@ fn send_transaction<T: Config<I>, I: 'static>(
     calldata: Vec<u8>,
     author: &Author<T>,
 ) -> Result<H256, DispatchError> {
-    let proof = author.key.sign(&calldata);
+    let eth_instance = Instance::<T, I>::get();
+    let proof = author
+        .key
+        .sign(&(&author.account_id, &eth_instance.bridge_contract, &calldata).encode());
     make_ethereum_call::<H256, T, I>(
         &author.account_id,
         "send",

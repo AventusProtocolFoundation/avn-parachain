@@ -31,6 +31,8 @@ pub mod summary_utils;
 pub mod timer;
 pub mod web3_utils;
 
+use tide::http::headers::HeaderValues;
+
 use crate::{
     extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*,
     timer::Web3Timer, web3_utils::*,
@@ -269,8 +271,12 @@ where
     if post_body.len() > MAX_BODY_SIZE {
         return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())))
     }
+
     let send_request = &EthTransaction::decode(&mut &post_body[..])
         .map_err(|e| server_error(format!("Error decoding eth transaction data: {:?}", e)))?;
+
+    let proof_data = (&send_request.from, &send_request.to, &send_request.data).encode();
+    validate_authorisation_token(&req.state().keystore, req.header("X-Auth"), &proof_data)?;
 
     if let Some(mut mutex_web3_data) = req.state().web3_data_mutex.try_lock() {
         if mutex_web3_data.web3.is_none() {
@@ -433,25 +439,7 @@ where
             let hashed_data = H256::from_slice(&msg_bytes);
             log::info!("Recovering H256 to sign: {:?}", hashed_data);
 
-            let signature_token = match req.header("X-Auth") {
-                Some(encoded_token) => {
-                    let token_str = encoded_token.as_str().trim();
-                    decode_from_http_data::<sr25519::Signature>(token_str).map_err(|e| {
-                        log::error!("Error decoding X-Auth token: {:?}", token_str);
-                        server_error(format!("Error decoding X-Auth token from hex: {:?}", e))
-                    })?
-                },
-                None => {
-                    log::error!("Missing X-Auth token");
-                    return Err(server_error("Missing X-Auth token".to_string()))
-                },
-            };
-
-            log::debug!("X-Auth token received: {:?}", signature_token);
-            if !authenticate_token(&req.state().keystore, msg_bytes, signature_token) {
-                log::error!("X-Auth token verification failed");
-                return Err(server_error("X-Auth token verification failed".to_string()))
-            };
+            validate_authorisation_token(&req.state().keystore, req.header("X-Auth"), &msg_bytes)?;
 
             sign_digest_from_keystore(keystore_path, &hashed_data[..])
         },
@@ -541,4 +529,31 @@ fn sign_digest_from_keystore(keystore_path: &PathBuf, digest: &[u8]) -> Result<S
     let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
 
     Ok(hex::encode(signature.encode()))
+}
+
+fn validate_authorisation_token(
+    keystore: &LocalKeystore,
+    authorisation_header: Option<&HeaderValues>,
+    msg_bytes: &Vec<u8>,
+) -> Result<(), TideError> {
+    let signature_token = match authorisation_header {
+        Some(encoded_token) => {
+            let token_str = encoded_token.as_str().trim();
+            decode_from_http_data::<sr25519::Signature>(token_str).map_err(|e| {
+                log::error!("Error decoding X-Auth token: {:?}", token_str);
+                server_error(format!("Error decoding X-Auth token from hex: {:?}", e))
+            })?
+        },
+        None => {
+            log::error!("Missing X-Auth token");
+            return Err(server_error("Missing X-Auth token".to_string()))
+        },
+    };
+
+    log::debug!("X-Auth token received: {:?}", signature_token);
+    if !authenticate_token(keystore, msg_bytes, signature_token) {
+        log::error!("X-Auth token verification failed");
+        return Err(server_error("X-Auth token verification failed".to_string()))
+    };
+    Ok(())
 }
