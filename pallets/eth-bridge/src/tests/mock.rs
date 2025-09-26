@@ -69,6 +69,17 @@ pub struct Context {
     pub expected_lower_msg_hash: String,
 }
 
+impl Context {
+    pub fn create_sign_proof(&self, author: AccountId) -> TestSignature {
+        let authority = Author::<TestRuntime> { key: UintAuthorityId(author), account_id: author };
+
+        let h256 = H256::from_slice(
+            &hex::decode(self.expected_lower_msg_hash.clone()).expect("failed to decode hex"),
+        );
+        authority.key.sign(&h256.as_ref().to_vec()).expect("sign proof failed")
+    }
+}
+
 const ROOT_HASH: &str = "30b83f0d722d1d4308ab4660a72dbaf0a7392d5674eca3cd21d57256d42df7a0";
 
 frame_support::construct_runtime!(

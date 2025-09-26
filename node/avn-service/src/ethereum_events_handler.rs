@@ -883,27 +883,15 @@ where
         )
         .map_err(|err| format!("Failed to check if author has casted event vote: {:?}", err))?;
 
-    let additional_transactions: Vec<_> = if config
+    let additional_transactions: Vec<_> = config
         .client
         .runtime_api()
-        .has_api_with::<dyn EthEventHandlerApi<Block, AccountId>, _>(
-            config.client.info().best_hash,
-            |v| v >= 2,
-        )
-        .unwrap_or(false)
-    {
-        config
-            .client
-            .runtime_api()
-            .additional_transactions(config.client.info().best_hash, instance_id)
-            .map_err(|err| format!("Failed to query additional transactions: {:?}", err))?
-            .iter()
-            .flat_map(|events_set| events_set.iter())
-            .cloned()
-            .collect()
-    } else {
-        vec![]
-    };
+        .additional_transactions(config.client.info().best_hash, instance_id)
+        .map_err(|err| format!("Failed to query additional transactions: {:?}", err))?
+        .iter()
+        .flat_map(|events_set| events_set.iter())
+        .cloned()
+        .collect();
 
     if !has_casted_vote {
         execute_event_processing(

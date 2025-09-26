@@ -14,10 +14,14 @@ use sp_runtime::DispatchError;
 use sp_std::vec;
 
 pub fn sign_msg_hash<T: Config<I>, I: 'static>(
+    author: &Author<T>,
     msg_hash: &H256,
 ) -> Result<ecdsa::Signature, DispatchError> {
-    let msg_hash_string = hex::encode(msg_hash);
-    let confirmation = AVN::<T>::request_ecdsa_signature_from_external_service(&msg_hash_string)?;
+    let msg_data = msg_hash.as_ref().to_vec();
+    let hex_data = hex::encode(&msg_data).into_bytes();
+    log::debug!("Sending H256 to sign: {:?}", msg_hash);
+    let proof = author.key.sign(&msg_data).ok_or(Error::<T, I>::SigningError)?;
+    let confirmation = AVN::<T>::request_ecdsa_signature_from_external_service(hex_data, proof)?;
     Ok(confirmation)
 }
 
@@ -71,10 +75,21 @@ fn eth_signature_is_valid<T: Config<I>, I: 'static>(
 }
 
 pub fn send_tx<T: Config<I>, I: 'static>(
+    author: &Author<T>,
     tx: &ActiveTransactionData<T::AccountId>,
 ) -> Result<H256, DispatchError> {
+    if author.account_id != tx.data.sender {
+        log::error!(
+            "❌ Author {:?} is not the sender {:?} of the transaction {:?}",
+            author.account_id,
+            tx.data.sender,
+            tx.request.tx_id
+        );
+        return Err(Error::<T, I>::AuthorNotSender.into())
+    }
+
     match generate_send_calldata::<T, I>(tx) {
-        Ok(calldata) => match send_transaction::<T, I>(calldata, &tx.data.sender) {
+        Ok(calldata) => match send_transaction::<T, I>(calldata, author) {
             Ok(eth_tx_hash) => Ok(eth_tx_hash),
             Err(_) => Err(Error::<T, I>::SendTransactionFailed.into()),
         },
@@ -267,19 +282,25 @@ fn get_transaction_call_data<T: Config<I>, I: 'static>(
         query_request.encode(),
         process_query_result::<T, I>,
         None,
+        None,
     )
 }
 
 fn send_transaction<T: Config<I>, I: 'static>(
     calldata: Vec<u8>,
-    author_account_id: &T::AccountId,
+    author: &Author<T>,
 ) -> Result<H256, DispatchError> {
+    let eth_instance = Instance::<T, I>::get();
+    let proof = author
+        .key
+        .sign(&(&author.account_id, &eth_instance.bridge_contract, &calldata).encode());
     make_ethereum_call::<H256, T, I>(
-        author_account_id,
+        &author.account_id,
         "send",
         calldata,
         process_tx_hash::<T, I>,
         None,
+        proof,
     )
 }
 
@@ -293,6 +314,7 @@ fn call_corroborate_method<T: Config<I>, I: 'static>(
         calldata,
         process_corroborate_result::<T, I>,
         None,
+        None,
     )
 }
 
@@ -302,13 +324,14 @@ pub fn make_ethereum_call<R, T: Config<I>, I: 'static>(
     calldata: Vec<u8>,
     process_result: fn(Vec<u8>) -> Result<R, DispatchError>,
     eth_block: Option<u32>,
+    proof_maybe: Option<<T::AuthorityId as RuntimeAppPublic>::Signature>,
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
     let eth_instance = Instance::<T, I>::get();
     let ethereum_call =
         EthTransaction::new(sender, eth_instance.bridge_contract, calldata).set_block(eth_block);
     let url_path = format!("eth/{}", endpoint);
-    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;
+    let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode(), proof_maybe)?;
     process_result(result)
 }
 

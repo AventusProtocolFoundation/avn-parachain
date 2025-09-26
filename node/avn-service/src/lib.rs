@@ -5,10 +5,13 @@ use jsonrpc_core::ErrorCode;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_avn_common::{
-    hash_with_ethereum_prefix, EthQueryRequest, EthQueryResponse, EthQueryResponseType,
-    EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
+    http_data_codec::decode_from_http_data, EthQueryRequest, EthQueryResponse,
+    EthQueryResponseType, EthTransaction, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER,
 };
-use sp_core::ecdsa::Signature;
+use sp_core::{
+    ecdsa::Signature,
+    sr25519::{self, Pair as SrPair},
+};
 use sp_runtime::traits::Block as BlockT;
 use std::{marker::PhantomData, time::Instant};
 use web3::{transports::Http, types::TransactionReceipt, Web3};
@@ -27,6 +30,8 @@ pub mod merkle_tree_utils;
 pub mod summary_utils;
 pub mod timer;
 pub mod web3_utils;
+
+use tide::http::headers::HeaderValues;
 
 use crate::{
     extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*,
@@ -266,8 +271,12 @@ where
     if post_body.len() > MAX_BODY_SIZE {
         return Err(server_error(format!("Request body too large. Size: {:?}", post_body.len())))
     }
+
     let send_request = &EthTransaction::decode(&mut &post_body[..])
         .map_err(|e| server_error(format!("Error decoding eth transaction data: {:?}", e)))?;
+
+    let proof_data = (&send_request.from, &send_request.to, &send_request.data).encode();
+    validate_authorisation_token(&req.state().keystore, req.header("X-Auth"), &proof_data)?;
 
     if let Some(mut mutex_web3_data) = req.state().web3_data_mutex.try_lock() {
         if mutex_web3_data.web3.is_none() {
@@ -411,36 +420,26 @@ where
 
     let mut app = tide::with_state(Arc::<Config<Block, ClientT>>::from(config));
 
-    app.at("/eth/sign/:data_to_sign").get(
-        |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            log::info!("⛓️  avn-service: sign Request");
-            let keystore_path = &req.state().keystore_path;
-
-            let data_to_sign = req.param("data_to_sign")?;
-            let hashed_message =
-                hash_with_ethereum_prefix(&data_to_sign.to_string()).map_err(|e| {
-                    server_error(format!("Error converting data_to_sign into hex string {:?}", e))
-                })?;
-
-            log::info!(
-                "⛓️  avn-service: data to sign: {:?},\n hashed data to sign: {:?}",
-                data_to_sign,
-                hex::encode(hashed_message)
-            );
-
-            sign_digest_from_keystore(keystore_path, &hashed_message)
-        },
-    );
-
-    app.at("/eth/sign_hashed_data/:hashed_data").get(
-        |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
+    app.at("/eth/sign_hashed_data").post(
+        |mut req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             log::info!("⛓️  avn-service: pre-hashed sign Request");
-            let keystore_path = &req.state().keystore_path;
-            let hash_str: &str = req.param("hashed_data")?;
+            let body_bytes = req.body_bytes().await?;
+            if body_bytes.len() > MAX_BODY_SIZE {
+                return Err(server_error(format!(
+                    "Request body too large. Size: {:?}",
+                    body_bytes.len()
+                )))
+            }
+            let msg_bytes = hex::decode(body_bytes).map_err(|e| {
+                server_error(format!("Error decoding signing message data from hex: {:?}", e))
+            })?;
 
-            let hashed_data: H256 = H256::from_slice(&hex::decode(hash_str).map_err(|e| {
-                server_error(format!("Error decoding hex string {:?}: {:?}", hash_str, e))
-            })?);
+            let keystore_path = &req.state().keystore_path;
+
+            let hashed_data = H256::from_slice(&msg_bytes);
+            log::info!("Recovering H256 to sign: {:?}", hashed_data);
+
+            validate_authorisation_token(&req.state().keystore, req.header("X-Auth"), &msg_bytes)?;
 
             sign_digest_from_keystore(keystore_path, &hashed_data[..])
         },
@@ -530,4 +529,31 @@ fn sign_digest_from_keystore(keystore_path: &PathBuf, digest: &[u8]) -> Result<S
     let signature: Signature = secp.sign_ecdsa_recoverable(&message, &secret).into();
 
     Ok(hex::encode(signature.encode()))
+}
+
+fn validate_authorisation_token(
+    keystore: &LocalKeystore,
+    authorisation_header: Option<&HeaderValues>,
+    msg_bytes: &Vec<u8>,
+) -> Result<(), TideError> {
+    let signature_token = match authorisation_header {
+        Some(encoded_token) => {
+            let token_str = encoded_token.as_str().trim();
+            decode_from_http_data::<sr25519::Signature>(token_str).map_err(|e| {
+                log::error!("Error decoding X-Auth token: {:?}", token_str);
+                server_error(format!("Error decoding X-Auth token from hex: {:?}", e))
+            })?
+        },
+        None => {
+            log::error!("Missing X-Auth token");
+            return Err(server_error("Missing X-Auth token".to_string()))
+        },
+    };
+
+    log::debug!("X-Auth token received: {:?}", signature_token);
+    if !authenticate_token(keystore, msg_bytes, signature_token) {
+        log::error!("X-Auth token verification failed");
+        return Err(server_error("X-Auth token verification failed".to_string()))
+    };
+    Ok(())
 }
