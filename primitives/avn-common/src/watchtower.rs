@@ -45,17 +45,17 @@ pub enum ProposalStatusEnum {
     Unknown,
 }
 
+#[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
+pub enum DecisionRule {
+    /// Yes > No to win
+    SimpleMajority,
+}
+
 //implement default for ProposalStatusEnum to be Unknown
 impl Default for ProposalStatusEnum {
     fn default() -> Self {
         ProposalStatusEnum::Unknown
     }
-}
-
-#[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
-pub enum DecisionRule {
-    /// Yes > No to win
-    SimpleMajority,
 }
 
 #[derive(Encode, Decode, RuntimeDebug, Clone, PartialEq, Eq, TypeInfo)]
@@ -108,12 +108,12 @@ where
 pub trait WatchtowerHooks<P: Parameter> {
     /// Called when Watchtower raises an alert/notification.
     fn on_proposal_submitted(proposal_id: ProposalId, proposal: P) -> DispatchResult;
-    fn on_consensus_reached(
+    fn on_voting_completed(
         proposal_id: ProposalId,
         external_ref: &H256,
-        approved: bool,
-    ) -> DispatchResult;
-    fn on_cancelled(proposal_id: ProposalId, external_ref: &H256) -> DispatchResult;
+        result: &ProposalStatusEnum,
+    );
+    fn on_cancelled(proposal_id: ProposalId, external_ref: &H256);
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -123,17 +123,15 @@ impl<P: Parameter> WatchtowerHooks<P> for Tuple {
         Ok(())
     }
 
-    fn on_consensus_reached(
+    fn on_voting_completed(
         proposal_id: ProposalId,
         external_ref: &H256,
-        approved: bool,
-    ) -> DispatchResult {
-        for_tuples!( #( Tuple::on_consensus_reached(proposal_id, external_ref, approved)?; )* );
-        Ok(())
+        result: &ProposalStatusEnum,
+    ) {
+        for_tuples!( #( Tuple::on_voting_completed(proposal_id, external_ref, result); )* );
     }
 
-    fn on_cancelled(proposal_id: ProposalId, external_ref: &H256) -> DispatchResult {
-        for_tuples!( #( Tuple::on_cancelled(proposal_id, external_ref)?; )* );
-        Ok(())
+    fn on_cancelled(proposal_id: ProposalId, external_ref: &H256) {
+        for_tuples!( #( Tuple::on_cancelled(proposal_id, external_ref); )* );
     }
 }
