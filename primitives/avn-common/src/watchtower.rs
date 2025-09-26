@@ -107,7 +107,7 @@ where
 
 pub trait WatchtowerHooks<P: Parameter> {
     /// Called when Watchtower raises an alert/notification.
-    fn on_proposal_submitted(proposal_id: ProposalId, proposal: P);
+    fn on_proposal_submitted(proposal_id: ProposalId, proposal: P) -> DispatchResult;
     fn on_voting_completed(
         proposal_id: ProposalId,
         external_ref: &H256,
@@ -118,8 +118,9 @@ pub trait WatchtowerHooks<P: Parameter> {
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl<P: Parameter> WatchtowerHooks<P> for Tuple {
-    fn on_proposal_submitted(proposal_id: ProposalId, proposal: P) {
+    fn on_proposal_submitted(proposal_id: ProposalId, proposal: P) -> DispatchResult {
         for_tuples!( #( Tuple::on_proposal_submitted(proposal_id, proposal.clone()); )* );
+        Ok(())
     }
 
     fn on_voting_completed(
