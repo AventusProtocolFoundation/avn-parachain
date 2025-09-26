@@ -18,13 +18,14 @@ derive_more = "0.99.2"
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 hex-literal = { version = "0.4.1", default-features = false }
 impl-trait-for-tuples = "0.2.2"
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"], default-features = false }
+codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive", "max-encoded-len"], default-features = false }
 scale-info = { version = "2.9.0", default-features = false, features = [
 	"derive",
 ] }
 log = { version = "0.4.20",  default-features = false }
 strum = { version = "*", features = ["derive"], default-features = false }
 
+frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
 sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.1.0", features = ["serde"]}
