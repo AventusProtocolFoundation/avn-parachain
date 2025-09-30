@@ -489,7 +489,7 @@ mod bridge_interface_notification {
             let mut ext = ExtBuilder::build_default().with_authors().as_externality();
             ext.execute_with(|| {
                 let context = MockData::setup_valid();
-                let (ingress_counter, tx_id) = setup_test_action(&context);
+                let (_ingress_counter, tx_id) = setup_test_action(&context);
 
                 advance_session();
                 advance_session();
@@ -513,7 +513,7 @@ mod bridge_interface_notification {
             let mut ext = ExtBuilder::build_default().with_authors().as_externality();
             ext.execute_with(|| {
                 let context = MockData::setup_valid();
-                let (ingress_counter, tx_id) = setup_test_action(&context);
+                let (_ingress_counter, tx_id) = setup_test_action(&context);
 
                 advance_session();
                 advance_session();
