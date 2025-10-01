@@ -1,4 +1,4 @@
-//Copyright 2022 Aventus Network Services (UK) Ltd.
+//Copyright 2025 Aventus Network Services (UK) Ltd.
 
 #![cfg(test)]
 
@@ -8,10 +8,9 @@ use frame_support::{
 };
 use hex_literal::hex;
 use pallet_parachain_staking::Error as ParachainStakingError;
+use sp_avn_common::assert_eq_uvec;
 use sp_io::crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed};
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
-use substrate_test_utils::assert_eq_uvec;
-// use frame_system::*;
 
 fn register_validator(
     collator_id: &AccountId,

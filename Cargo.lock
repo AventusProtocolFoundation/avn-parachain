@@ -7577,7 +7577,6 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -7657,7 +7656,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -7679,7 +7677,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -8046,7 +8043,6 @@ dependencies = [
  "sp-staking",
  "sp-state-machine",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -8235,7 +8231,6 @@ dependencies = [
  "sp-keystore",
  "sp-runtime",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -8669,7 +8664,6 @@ dependencies = [
  "sp-staking",
  "sp-state-machine",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -8740,7 +8734,6 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -8855,7 +8848,6 @@ dependencies = [
  "sp-staking",
  "sp-state-machine",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
- "substrate-test-utils",
 ]
 
 [[package]]
