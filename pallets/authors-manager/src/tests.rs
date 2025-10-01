@@ -6,8 +6,8 @@ use crate::{mock::*, AVN, *};
 use frame_support::{assert_noop, assert_ok, traits::Currency};
 use frame_system::RawOrigin;
 use hex_literal::hex;
+use sp_avn_common::assert_eq_uvec;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
-use substrate_test_utils::assert_eq_uvec;
 
 fn register_author(author_id: &AccountId, author_eth_public_key: &ecdsa::Public) -> DispatchResult {
     return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key)
