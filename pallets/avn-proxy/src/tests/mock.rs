@@ -65,7 +65,7 @@ frame_support::construct_runtime!(
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         NftManager: pallet_nft_manager::{Pallet, Call, Storage, Event<T>},
         AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
-        AVN: pallet_avn::{Pallet, Storage, Event, Config<T>},
+        Avn: pallet_avn::{Pallet, Storage, Event, Config<T>},
         TokenManager: pallet_token_manager::{Pallet, Call, Storage, Event<T>},
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
@@ -202,13 +202,13 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type MinEthBlockConfirmation = ConstU64<20>;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
-    type AccountToBytesConvert = AVN;
+    type AccountToBytesConvert = Avn;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
     type ProcessedEventsChecker = ();
     type ProcessedEventsHandler = ();
     type EthereumEventsMigration = ();
-    type Quorum = AVN;
+    type Quorum = Avn;
 }
 
 impl pallet_timestamp::Config for TestRuntime {
@@ -227,7 +227,7 @@ impl session::Config for TestRuntime {
     type SessionManager = ();
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
-    type SessionHandler = (AVN,);
+    type SessionHandler = (Avn,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;

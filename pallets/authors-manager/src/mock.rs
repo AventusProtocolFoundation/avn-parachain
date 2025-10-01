@@ -94,7 +94,7 @@ frame_support::construct_runtime!(
         AuthorsManager: authors_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        AVN: pallet_avn::{Pallet, Storage, Event},
+        Avn: pallet_avn::{Pallet, Storage, Event},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
     }
@@ -128,7 +128,7 @@ parameter_types! {
 
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-    type AccountToBytesConvert = AVN;
+    type AccountToBytesConvert = Avn;
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
     type BridgeInterface = EthBridge;
@@ -191,13 +191,13 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type MinEthBlockConfirmation = ConstU64<20>;
     type RuntimeCall = RuntimeCall;
     type WeightInfo = ();
-    type AccountToBytesConvert = AVN;
+    type AccountToBytesConvert = Avn;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
     type ProcessedEventsChecker = ();
     type ProcessedEventsHandler = ();
     type EthereumEventsMigration = ();
-    type Quorum = AVN;
+    type Quorum = Avn;
 }
 
 impl BridgeInterfaceNotification for TestRuntime {
@@ -219,7 +219,7 @@ impl session::Config for TestRuntime {
     type SessionManager = AuthorsManager;
     type Keys = UintAuthorityId;
     type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
-    type SessionHandler = (AVN,);
+    type SessionHandler = (Avn,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
