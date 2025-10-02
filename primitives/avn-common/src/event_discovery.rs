@@ -1,7 +1,7 @@
 use core::cmp::Ordering;
 
 use crate::{
-    event_types::{EthEventId, EthTransactionId},
+    event_types::EthTransactionId,
     *,
 };
 

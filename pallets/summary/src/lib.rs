@@ -7,21 +7,18 @@ use alloc::string::ToString;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::{
-    bounds::VotingSessionIdBound,
     event_types::Validator,
     ocw_lock::{self as OcwLock},
     safe_add_block_numbers, safe_sub_block_numbers,
-    watchtower::*,
     BridgeContractMethod, IngressCounter,
 };
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::AtLeast32Bit,
     transaction_validity::{
         InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
         ValidTransaction,
     },
-    BoundedVec, DispatchError,
+    DispatchError,
 };
 use sp_std::prelude::*;
 
