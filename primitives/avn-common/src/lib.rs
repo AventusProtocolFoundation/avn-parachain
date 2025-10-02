@@ -34,6 +34,7 @@ pub mod eth;
 pub mod eth_key_actions;
 pub mod event_discovery;
 pub mod event_types;
+pub mod http_data_codec;
 pub mod ocw_lock;
 #[cfg(test)]
 #[path = "tests/test_event_discovery.rs"]

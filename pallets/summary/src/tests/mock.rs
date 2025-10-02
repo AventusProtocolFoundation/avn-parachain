@@ -336,7 +336,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-        AVN: pallet_avn::{Pallet, Storage, Event},
+        Avn: pallet_avn::{Pallet, Storage, Event},
         Summary: summary::{Pallet, Call, Storage, Event<T>, Config<T>},
         Historical: pallet_session::historical::{Pallet, Storage},
         EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
@@ -432,13 +432,13 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = ConstU64<20>;
     type WeightInfo = ();
-    type AccountToBytesConvert = AVN;
+    type AccountToBytesConvert = Avn;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = OffenceHandler;
     type ProcessedEventsChecker = ();
     type ProcessedEventsHandler = ();
     type EthereumEventsMigration = ();
-    type Quorum = AVN;
+    type Quorum = Avn;
 }
 
 impl pallet_timestamp::Config for TestRuntime {
@@ -564,7 +564,7 @@ impl session::Config for TestRuntime {
         pallet_session::historical::NoteHistoricalRoot<TestRuntime, TestSessionManager>;
     type Keys = UintAuthorityId;
     type ShouldEndSession = session::PeriodicSessions<Period, Offset>;
-    type SessionHandler = (AVN,);
+    type SessionHandler = (Avn,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = u64;
     type ValidatorIdOf = ConvertInto;

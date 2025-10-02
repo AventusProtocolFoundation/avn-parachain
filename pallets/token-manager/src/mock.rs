@@ -72,7 +72,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        AVN: pallet_avn::{Pallet, Storage, Event},
+        Avn: pallet_avn::{Pallet, Storage, Event},
         TokenManager: token_manager::{Pallet, Call, Storage, Event<T>, Config<T>},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config<T>},
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
@@ -218,7 +218,7 @@ impl session::Config for TestRuntime {
     type SessionManager = ParachainStaking;
     type Keys = UintAuthorityId;
     type ShouldEndSession = ParachainStaking;
-    type SessionHandler = (AVN,);
+    type SessionHandler = (Avn,);
     type RuntimeEvent = RuntimeEvent;
     type ValidatorId = AccountId;
     type ValidatorIdOf = ConvertInto;
@@ -261,7 +261,7 @@ impl parachain_staking::Config for TestRuntime {
     type ProcessedEventsChecker = ();
     type WeightInfo = ();
     type MaxCandidates = MaxCandidates;
-    type AccountToBytesConvert = AVN;
+    type AccountToBytesConvert = Avn;
     type BridgeInterface = EthBridge;
     type GrowthEnabled = GrowthEnabled;
 }
@@ -278,13 +278,13 @@ impl pallet_eth_bridge::Config for TestRuntime {
     type RuntimeCall = RuntimeCall;
     type MinEthBlockConfirmation = ConstU64<20>;
     type WeightInfo = ();
-    type AccountToBytesConvert = AVN;
+    type AccountToBytesConvert = Avn;
     type BridgeInterfaceNotification = Self;
     type ReportCorroborationOffence = ();
     type ProcessedEventsChecker = ();
     type ProcessedEventsHandler = ();
     type EthereumEventsMigration = ();
-    type Quorum = AVN;
+    type Quorum = Avn;
 }
 
 impl pallet_timestamp::Config for TestRuntime {

@@ -34,6 +34,7 @@ use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
     eth::{EthereumNetwork, LowerParams},
     event_types::{EthEvent, EthEventId, Validator},
+    http_data_codec::encode_to_http_data,
     ocw_lock::{self as OcwLock, OcwStorageError},
     QuorumPolicy, DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
@@ -48,7 +49,7 @@ use sp_runtime::{
     traits::Member,
     BoundedVec, DispatchError, WeakBoundedVec,
 };
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 
 #[path = "tests/testing.rs"]
 pub mod testing;
@@ -384,21 +385,26 @@ impl<T: Config> Pallet<T> {
     pub fn post_data_to_service(
         url_path: String,
         post_body: Vec<u8>,
+        proof_maybe: Option<<T::AuthorityId as RuntimeAppPublic>::Signature>,
     ) -> Result<Vec<u8>, DispatchError> {
-        let request = http::Request::default().method(http::Method::Post).body(vec![post_body]);
-
+        let mut request = http::Request::default().method(http::Method::Post).body(vec![post_body]);
+        if let Some(proof) = proof_maybe {
+            log::debug!("X-Auth proof: {:?}", proof);
+            let proof_data = encode_to_http_data(&proof);
+            log::debug!("X-Auth proof-data: {:?}", proof_data);
+            request = request.add_header("X-Auth", &proof_data);
+        }
         return Ok(Self::invoke_external_service(request, url_path)?)
     }
 
     pub fn request_ecdsa_signature_from_external_service(
-        data_to_sign: &str,
+        data_to_sign: Vec<u8>,
+        proof: <T::AuthorityId as RuntimeAppPublic>::Signature,
     ) -> Result<ecdsa::Signature, DispatchError> {
-        let mut url = String::from("eth/sign_hashed_data/");
-        url.push_str(data_to_sign);
+        let url = String::from("eth/sign_hashed_data");
 
-        log::info!(target: "avn-service", "avn-service sign request (ecdsa) for hex-encoded data {:?}", data_to_sign);
-
-        let ecdsa_signature_utf8 = Self::get_data_from_service(url)?;
+        log::debug!("Sign request (ecdsa) for data {:?}", data_to_sign);
+        let ecdsa_signature_utf8 = Self::post_data_to_service(url, data_to_sign, Some(proof))?;
         let ecdsa_signature_bytes = core::str::from_utf8(&ecdsa_signature_utf8)
             .map_err(|_| Error::<T>::ErrorConvertingUtf8)?;
 

@@ -27,7 +27,7 @@ jobs:
         uses: baptiste0928/cargo-install@v2
         with:
           crate: cargo-edit
-          version: '0.13.1'
+          version: '0.13.6'
       - name: Verify PR type
         env:
           description: ${{ github.event.pull_request.body }}

@@ -9,13 +9,16 @@ use crate::{
 use codec::{alloc::sync::Arc, Decode, Encode};
 use frame_support::traits::Hooks;
 use parking_lot::RwLock;
-use sp_avn_common::{BridgeContractMethod, QuorumPolicy};
+use sp_avn_common::{http_data_codec::encode_to_http_data, BridgeContractMethod, QuorumPolicy};
 use sp_core::{
     ecdsa,
     offchain::testing::{OffchainState, PendingRequest, PoolState},
-    H160,
+    H160, H256,
 };
-use sp_runtime::{testing::UintAuthorityId, traits::Dispatchable};
+use sp_runtime::{
+    testing::{TestSignature, UintAuthorityId},
+    traits::Dispatchable,
+};
 
 pub fn mock_get_finalised_block(state: &mut OffchainState, response: &Option<Vec<u8>>) {
     let url = "http://127.0.0.1:2020/latest_finalised_block".to_string();
@@ -29,16 +32,21 @@ pub fn mock_get_finalised_block(state: &mut OffchainState, response: &Option<Vec
     });
 }
 
-pub fn mock_ecdsa_sign(state: &mut OffchainState, url_param: &String, response: Option<Vec<u8>>) {
-    let mut url = "http://127.0.0.1:2020/eth/sign_hashed_data/".to_string();
-    url.push_str(url_param);
-
+pub fn mock_ecdsa_sign(
+    state: &mut OffchainState,
+    proof: TestSignature,
+    body: Vec<u8>,
+    response: Option<Vec<u8>>,
+) {
+    let url = "http://127.0.0.1:2020/eth/sign_hashed_data".to_string();
+    let proof_data = encode_to_http_data(&proof);
     state.expect_request(PendingRequest {
-        method: "GET".into(),
+        method: "POST".into(),
         uri: url.into(),
         response,
-        headers: vec![],
+        headers: vec![("X-Auth".to_owned(), proof_data)],
         sent: true,
+        body: hex::encode(body).into_bytes(),
         ..Default::default()
     });
 }
@@ -99,10 +107,14 @@ fn call_ocw(
     author: AccountId,
     block_number: BlockNumber,
 ) {
+    let h256 = H256::from_slice(
+        &hex::decode(context.expected_lower_msg_hash.clone()).expect("failed to decode hex"),
+    );
     mock_get_finalised_block(&mut offchain_state.write(), &context.finalised_block_vec);
     mock_ecdsa_sign(
         &mut offchain_state.write(),
-        &context.expected_lower_msg_hash,
+        context.create_sign_proof(author),
+        h256.as_ref().to_vec(),
         Some(hex::encode(&context.confirmation_signature).as_bytes().to_vec()),
     );
     UintAuthorityId::set_all_keys(vec![UintAuthorityId(author)]);
