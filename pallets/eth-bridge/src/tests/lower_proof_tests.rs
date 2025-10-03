@@ -4,7 +4,7 @@
 
 use crate::{
     eth::generate_encoded_lower_proof, mock::*, request::*, ActiveRequest, Request, RequestQueue,
-    SettledTransactions, AVN,
+    SettledTransactions,
 };
 use codec::{alloc::sync::Arc, Decode, Encode};
 use frame_support::traits::Hooks;

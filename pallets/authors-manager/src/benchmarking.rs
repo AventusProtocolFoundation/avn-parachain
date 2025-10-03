@@ -105,7 +105,7 @@ fn setup_resignation_action_data<T: Config>(sender: T::AccountId, ingress_counte
     let (action_account_id, _, t1_eth_public_key) =
         generate_resigning_author_account_details::<T>();
 
-    let eth_transaction_id: EthereumTransactionId = 0;
+    let eth_transaction_id: EthereumId = 0;
     let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
         .map_err(|_| Error::<T>::InvalidPublicKey)
         .unwrap();
