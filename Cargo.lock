@@ -13730,7 +13730,6 @@ dependencies = [
  "alloy-sol-types",
  "byte-slice-cast",
  "derive_more 0.99.17",
- "frame-support",
  "hex",
  "hex-literal",
  "impl-trait-for-tuples",
@@ -14514,6 +14513,23 @@ dependencies = [
  "parity-scale-codec 3.6.11",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk)",
  "wasmtime",
+]
+
+[[package]]
+name = "sp-watchtower"
+version = "7.2.0"
+dependencies = [
+ "derive_more 0.99.17",
+ "hex",
+ "hex-literal",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec 3.6.11",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
 ]
 
 [[package]]

@@ -11,8 +11,7 @@ use alloc::{
 use crate::bounds::VotingSessionIdBound;
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 pub use eth::{BridgeContractMethod, ECDSAVerificationError};
-use frame_support::BoundedVec;
-use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
+use sp_core::{bounded::BoundedVec, crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
     hashing::{blake2_256, keccak_256},
@@ -39,7 +38,6 @@ pub mod ocw_lock;
 #[cfg(test)]
 #[path = "tests/test_event_discovery.rs"]
 pub mod test_event_discovery;
-pub mod watchtower;
 
 /// Ingress counter type for a counter that can sign the same message with a different signature
 /// each time

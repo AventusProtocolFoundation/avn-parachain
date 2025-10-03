@@ -1,12 +1,13 @@
+#[cfg(not(feature = "std"))]
 extern crate alloc;
-
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use frame_support::pallet_prelude::*;
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::{traits::AtLeast32Bit, Perbill, RuntimeDebug};
+use sp_runtime::{traits::Member, DispatchResult, Perbill, RuntimeDebug};
 
 pub type ProposalId = H256;
 
@@ -73,7 +74,7 @@ pub struct ProposalRequest {
 
 // Interface for other pallets to interact with the watchtower pallet
 pub trait WatchtowerInterface {
-    type AccountId: Parameter;
+    type AccountId;
 
     fn submit_proposal(
         proposer: Option<Self::AccountId>,
@@ -88,7 +89,7 @@ pub trait WatchtowerInterface {
 pub struct NoopWatchtower<AccountId>(PhantomData<AccountId>);
 impl<AccountId> WatchtowerInterface for NoopWatchtower<AccountId>
 where
-    AccountId: Parameter + Member + MaxEncodedLen + TypeInfo + Eq + core::fmt::Debug,
+    AccountId: Member + MaxEncodedLen + TypeInfo + Eq + core::fmt::Debug,
 {
     type AccountId = AccountId;
 
@@ -105,7 +106,7 @@ where
     }
 }
 
-pub trait WatchtowerHooks<P: Parameter> {
+pub trait WatchtowerHooks<P> {
     /// Called when Watchtower raises an alert/notification.
     fn on_proposal_submitted(proposal_id: ProposalId, proposal: P) -> DispatchResult;
     fn on_voting_completed(
@@ -117,7 +118,7 @@ pub trait WatchtowerHooks<P: Parameter> {
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
-impl<P: Parameter> WatchtowerHooks<P> for Tuple {
+impl<P: Clone> WatchtowerHooks<P> for Tuple {
     fn on_proposal_submitted(proposal_id: ProposalId, proposal: P) -> DispatchResult {
         for_tuples!( #( Tuple::on_proposal_submitted(proposal_id, proposal.clone()); )* );
         Ok(())
