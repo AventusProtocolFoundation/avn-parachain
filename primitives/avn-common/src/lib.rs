@@ -10,8 +10,7 @@ use alloc::{
 
 use crate::bounds::VotingSessionIdBound;
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use frame_support::BoundedVec;
-use sp_core::{crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
+use sp_core::{bounded::BoundedVec, crypto::KeyTypeId, ecdsa, sr25519, H160, H256};
 use sp_io::{
     crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed},
     hashing::{blake2_256, keccak_256},
