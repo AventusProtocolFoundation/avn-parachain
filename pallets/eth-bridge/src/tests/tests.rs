@@ -918,12 +918,13 @@ fn unsent_transactions_are_replayed() {
         corroborate_bad_transactions(tx_id, &context.confirming_author, &context);
         corroborate_bad_transactions(tx_id, &context.second_confirming_author, &context);
 
-        // the active request is retried with a new id
+        // the active request is retried with the same id, different sender
         let tx = ActiveRequest::<TestRuntime>::get()
             .unwrap()
             .as_active_tx::<TestRuntime, ()>()
             .unwrap();
-        assert_eq!(tx_id + 1, tx.request.tx_id);
+        assert_eq!(tx_id, tx.request.tx_id);
+        assert_ne!(&context.author.account_id, &tx.data.sender);
 
         assert!(System::events().iter().any(|record| record.event ==
             mock::RuntimeEvent::EthBridge(crate::Event::ActiveRequestRetried {
