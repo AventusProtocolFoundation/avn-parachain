@@ -754,7 +754,7 @@ mod cast_votes_if_required {
                 // TODO [TYPE: test][PRI: medium][JIRA: 321]: mock of set_lock_with_expiry returns
                 // error
                 let lock_name = vote::create_vote_lock_name::<TestRuntime, ()>(&context.root_id);
-                let mut lock = AVN::<TestRuntime>::get_ocw_locker(&lock_name);
+                let mut lock = AVN::get_ocw_locker(&lock_name);
 
                 // Protect against sending more than once. When guard is out of scope the lock will
                 // be released.
@@ -1092,7 +1092,7 @@ mod end_voting_period {
                     .for_offchain_worker()
                     .as_externality_with_state();
                 ext.execute_with(|| {
-                    let active_validators = AVN::<TestRuntime>::validators();
+                    let active_validators = AVN::validators();
                     assert_eq!(active_validators.len(), TEST_VALIDATOR_COUNT as usize);
 
                     let context = setup_context();
@@ -1170,7 +1170,7 @@ mod end_voting_period {
                     .for_offchain_worker()
                     .as_externality_with_state();
                 ext.execute_with(|| {
-                    let active_validators = AVN::<TestRuntime>::validators();
+                    let active_validators = AVN::validators();
                     assert_eq!(active_validators.len(), TEST_VALIDATOR_COUNT as usize);
 
                     let context = setup_context();
@@ -1209,7 +1209,7 @@ mod end_voting_period {
                     .for_offchain_worker()
                     .as_externality_with_state();
                 ext.execute_with(|| {
-                    let active_validators = AVN::<TestRuntime>::validators();
+                    let active_validators = AVN::validators();
                     assert_eq!(active_validators.len(), TEST_VALIDATOR_COUNT as usize);
 
                     let context = setup_context();
@@ -1291,7 +1291,7 @@ mod end_voting_period {
                     .for_offchain_worker()
                     .as_externality_with_state();
                 ext.execute_with(|| {
-                    let active_validators = AVN::<TestRuntime>::validators();
+                    let active_validators = AVN::validators();
                     assert_eq!(active_validators.len(), TEST_VALIDATOR_COUNT as usize);
 
                     let context = setup_context();
@@ -1313,7 +1313,7 @@ mod end_voting_period {
                     .for_offchain_worker()
                     .as_externality_with_state();
                 ext.execute_with(|| {
-                    let active_validators = AVN::<TestRuntime>::validators();
+                    let active_validators = AVN::validators();
                     assert_eq!(active_validators.len(), TEST_VALIDATOR_COUNT as usize);
 
                     let context = setup_context();
@@ -1336,7 +1336,7 @@ mod end_voting_period {
                     .for_offchain_worker()
                     .as_externality_with_state();
                 ext.execute_with(|| {
-                    let active_validators = AVN::<TestRuntime>::validators();
+                    let active_validators = AVN::validators();
                     assert_eq!(active_validators.len(), TEST_VALIDATOR_COUNT as usize);
 
                     let context = setup_context();
@@ -1364,7 +1364,7 @@ mod end_voting_period {
                     .for_offchain_worker()
                     .as_externality_with_state();
                 ext.execute_with(|| {
-                    let active_validators = AVN::<TestRuntime>::validators();
+                    let active_validators = AVN::validators();
                     assert_eq!(active_validators.len(), TEST_VALIDATOR_COUNT as usize);
 
                     let context = setup_context();
