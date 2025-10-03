@@ -14516,6 +14516,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-watchtower"
+version = "7.2.0"
+dependencies = [
+ "derive_more 0.99.17",
+ "hex",
+ "hex-literal",
+ "impl-trait-for-tuples",
+ "log",
+ "parity-scale-codec 3.6.11",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
+]
+
+[[package]]
 name = "sp-weights"
 version = "20.0.0"
 source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0#e36ffb3da50afff65f8ec99378fbfe14f9d340e7"

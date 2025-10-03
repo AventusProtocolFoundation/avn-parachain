@@ -1,6 +1,6 @@
 [package]
-name = "sp-avn-common"
-description = "Common types for avn pallets"
+name = "sp-watchtower"
+description = "Common types for the watchtower pallet"
 license = "GPL-3.0"
 
 version = { workspace = true }
@@ -23,25 +23,13 @@ scale-info = { version = "2.10.0", default-features = false, features = [
 	"derive",
 ] }
 log = { version = "0.4.20",  default-features = false }
-strum = { version = "*", features = ["derive"], default-features = false }
 
 sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0", features = ["serde"]}
 sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 
-libsecp256k1 = { version = "0.7.0", default-features = false, features = [
-	"hmac",
-] }
-sha3 = { version = "0.8", default-features = false }
-alloy-primitives = { version = "1.1.2", default-features = false }
-alloy-sol-types = { version = "1.1.2", default-features = false }
-serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"], optional = true }
-
-
 [dev-dependencies]
-byte-slice-cast = "1.2.1"
-sha3 = { version = "0.8.2", default-features = false }
 
 [features]
 default = ["std"]
@@ -54,19 +42,6 @@ std = [
 	"sp-std/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"libsecp256k1/std",
-	"sha3/std",
-	"alloy-primitives/std",
-	"alloy-sol-types/std",
-	"strum/std",
-	"serde/std",
 ]
 
 runtime-benchmarks = []
-
-serde = [
-	"dep:serde",
-	"scale-info/serde",
-	"sp-core/serde",
-	"sp-runtime/serde",
-]

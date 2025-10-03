@@ -79,6 +79,7 @@ pub mod challenge;
 use crate::challenge::*;
 
 use pallet_avn::BridgeInterface;
+use sp_avn_common::{RootId, RootRange};
 
 mod benchmarking;
 pub mod default_weights;
@@ -1397,34 +1398,6 @@ pub mod pallet {
         pub(crate) fn pallet_id() -> Vec<u8> {
             [PALLET_ID.to_vec(), vec![T::InstanceId::get()]].concat()
         }
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootId<BlockNumber: AtLeast32Bit> {
-    pub range: RootRange<BlockNumber>,
-    pub ingress_counter: IngressCounter,
-}
-
-impl<BlockNumber: AtLeast32Bit + Encode> RootId<BlockNumber> {
-    fn new(range: RootRange<BlockNumber>, ingress_counter: IngressCounter) -> Self {
-        return RootId::<BlockNumber> { range, ingress_counter }
-    }
-
-    fn session_id(&self) -> BoundedVec<u8, VotingSessionIdBound> {
-        BoundedVec::truncate_from(self.encode())
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootRange<BlockNumber: AtLeast32Bit> {
-    pub from_block: BlockNumber,
-    pub to_block: BlockNumber,
-}
-
-impl<BlockNumber: AtLeast32Bit> RootRange<BlockNumber> {
-    fn new(from_block: BlockNumber, to_block: BlockNumber) -> Self {
-        return RootRange::<BlockNumber> { from_block, to_block }
     }
 }
 
