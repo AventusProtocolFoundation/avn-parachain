@@ -13063,7 +13063,6 @@ version = "6.8.5"
 dependencies = [
  "byte-slice-cast",
  "derive_more",
- "frame-support",
  "hex",
  "hex-literal",
  "impl-trait-for-tuples",
