@@ -16,7 +16,7 @@ use pallet_avn::BridgeInterfaceNotification;
 use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
 use pallet_session as session;
-use sp_avn_common::hash_string_data_with_ethereum_prefix;
+use sp_avn_common::{eth::EthereumId, hash_string_data_with_ethereum_prefix};
 use sp_core::{keccak_256, sr25519, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
@@ -25,7 +25,6 @@ use sp_runtime::{
     BuildStorage, MultiSignature, Perbill,
 };
 pub use std::sync::Arc;
-
 pub const BASE_FEE: u64 = 12;
 
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
@@ -590,7 +589,7 @@ pub fn single_nft_minted_events_count() -> usize {
 
 impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(
-        _tx_id: u32,
+        _tx_id: EthereumId,
         _caller_id: Vec<u8>,
         _tx_succeeded: bool,
     ) -> sp_runtime::DispatchResult {

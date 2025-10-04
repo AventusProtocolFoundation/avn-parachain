@@ -50,7 +50,7 @@ use sp_staking::offence::ReportOffence;
 pub mod offence;
 use crate::offence::{create_and_report_summary_offence, SummaryOffence, SummaryOffenceType};
 
-pub type EthereumTransactionId = u32;
+use sp_avn_common::eth::EthereumId;
 
 const PALLET_ID: &'static [u8; 8] = b"summary-";
 const UPDATE_BLOCK_NUMBER_CONTEXT: &'static [u8] = b"update_last_processed_block_number";
@@ -250,13 +250,8 @@ pub mod pallet {
         StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
-    pub type TxIdToRoot<T: Config<I>, I: 'static = ()> = StorageMap<
-        _,
-        Blake2_128Concat,
-        EthereumTransactionId,
-        RootId<BlockNumberFor<T>>,
-        ValueQuery,
-    >;
+    pub type TxIdToRoot<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Blake2_128Concat, EthereumId, RootId<BlockNumberFor<T>>, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn block_number_for_next_slot)]
@@ -1408,17 +1403,13 @@ pub struct RootData<AccountId> {
     pub is_validated: bool, // This is set to true when 2/3 of validators approve it
     pub is_finalised: bool, /* This is set to true when EthEvents confirms Tier1 has received
                              * the root */
-    pub tx_id: Option<EthereumTransactionId>, /* This is the TransacionId that will be used to
-                                               * submit
-                                               * the tx */
+    pub tx_id: Option<EthereumId>, /* This is the TransacionId that will be used to
+                                    * submit
+                                    * the tx */
 }
 
 impl<AccountId> RootData<AccountId> {
-    fn new(
-        root_hash: H256,
-        added_by: AccountId,
-        transaction_id: Option<EthereumTransactionId>,
-    ) -> Self {
+    fn new(root_hash: H256, added_by: AccountId, transaction_id: Option<EthereumId>) -> Self {
         return RootData::<AccountId> {
             root_hash,
             added_by: Some(added_by),

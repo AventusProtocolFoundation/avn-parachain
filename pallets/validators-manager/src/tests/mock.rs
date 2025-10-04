@@ -216,7 +216,7 @@ impl pallet_eth_bridge::Config for TestRuntime {
 
 impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(
-        _tx_id: u32,
+        _tx_id: EthereumId,
         _caller_id: Vec<u8>,
         _tx_succeeded: bool,
     ) -> sp_runtime::DispatchResult {
@@ -286,7 +286,7 @@ impl parachain_staking::Config for TestRuntime {
     type GrowthEnabled = GrowthEnabled;
 }
 
-pub const INITIAL_TRANSACTION_ID: EthereumTransactionId = 0;
+pub const INITIAL_TRANSACTION_ID: EthereumId = 0;
 
 thread_local! {
     static PROCESSED_EVENTS: RefCell<Vec<(H256,H256)>> = RefCell::new(vec![]);
@@ -299,7 +299,7 @@ thread_local! {
         validator_id_5(),
     ]));
 
-    static MOCK_TX_ID: RefCell<EthereumTransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
+    static MOCK_TX_ID: RefCell<EthereumId> = RefCell::new(INITIAL_TRANSACTION_ID);
 }
 
 impl ProcessedEventsChecker for TestRuntime {

@@ -119,6 +119,7 @@ pub mod pallet {
     };
     pub use sp_std::{collections::btree_map::BTreeMap, prelude::*};
     pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+    use sp_avn_common::eth::EthereumId;
 
     /// Pallet for parachain staking
     #[pallet::pallet]
@@ -128,7 +129,6 @@ pub mod pallet {
     pub type EraIndex = u32;
     pub type GrowthPeriodIndex = u32;
     pub type RewardPoint = u32;
-    pub type EthereumTransactionId = u32;
     pub type BalanceOf<T> =
         <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
     pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
@@ -653,7 +653,7 @@ pub mod pallet {
     #[pallet::getter(fn published_growth)]
     /// Map to keep track of growth we have published on Ethereum
     pub type PublishedGrowth<T: Config> =
-        StorageMap<_, Twox64Concat, EthereumTransactionId, GrowthPeriodIndex, ValueQuery>;
+        StorageMap<_, Twox64Concat, EthereumId, GrowthPeriodIndex, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {

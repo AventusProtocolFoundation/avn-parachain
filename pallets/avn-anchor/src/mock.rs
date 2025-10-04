@@ -20,6 +20,7 @@ use scale_info::TypeInfo;
 use sp_avn_common::{FeePaymentHandler, InnerCallValidator, Proof};
 use sp_core::{sr25519, Pair, H256};
 
+use sp_avn_common::eth::EthereumId;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
@@ -267,7 +268,7 @@ impl pallet_timestamp::Config for TestRuntime {
 
 impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(
-        _tx_id: u32,
+        _tx_id: EthereumId,
         _caller_id: Vec<u8>,
         _tx_succeeded: bool,
     ) -> sp_runtime::DispatchResult {

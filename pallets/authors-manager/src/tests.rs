@@ -463,7 +463,7 @@ mod add_author {
 mod bridge_interface_notification {
     use super::*;
 
-    fn setup_test_action(context: &MockData) -> (IngressCounter, EthereumTransactionId) {
+    fn setup_test_action(context: &MockData) -> (IngressCounter, EthereumId) {
         set_session_keys(&context.new_author_id);
         assert_ok!(register_author(&context.new_author_id, &context.author_eth_public_key));
 

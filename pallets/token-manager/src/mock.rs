@@ -29,10 +29,14 @@ use frame_system::DefaultConfig;
 use frame_system::{self as system, limits, EnsureRoot};
 use sp_state_machine::BasicExternalities;
 
+use hex_literal::hex;
 use pallet_avn::BridgeInterfaceNotification;
+use pallet_parachain_staking::{self as parachain_staking};
+use pallet_session as session;
 use pallet_transaction_payment::CurrencyAdapter;
 use sp_avn_common::{
     avn_tests_helpers::ethereum_converters::*,
+    eth::EthereumId,
     event_types::{EthEventId, LiftedData, ValidEvents},
     OnIdleHandler,
 };
@@ -43,10 +47,6 @@ use sp_runtime::{
     traits::{ConvertInto, IdentifyAccount, IdentityLookup, Verify},
     BuildStorage, Perbill, SaturatedConversion,
 };
-
-use hex_literal::hex;
-use pallet_parachain_staking::{self as parachain_staking};
-use pallet_session as session;
 use std::{cell::RefCell, sync::Arc};
 
 /// The signature type used by accounts/transactions.
@@ -296,7 +296,7 @@ impl pallet_timestamp::Config for TestRuntime {
 
 impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(
-        _tx_id: u32,
+        _tx_id: EthereumId,
         _caller_id: Vec<u8>,
         _tx_succeeded: bool,
     ) -> sp_runtime::DispatchResult {

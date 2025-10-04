@@ -51,7 +51,7 @@ impl Summary {
         root_id: &RootId<BlockNumber>,
         root_hash: H256,
         account_id: AccountId,
-        tx_id: EthereumTransactionId,
+        tx_id: EthereumId,
     ) {
         Roots::<TestRuntime>::insert(
             root_id.range,
@@ -251,7 +251,7 @@ impl AnchorSummary {
         root_id: &RootId<BlockNumber>,
         root_hash: H256,
         account_id: AccountId,
-        tx_id: EthereumTransactionId,
+        tx_id: EthereumId,
     ) {
         Roots::<TestRuntime, Instance1>::insert(
             root_id.range,
@@ -353,7 +353,7 @@ parameter_types! {
 pub type ValidatorId = u64;
 type FullIdentification = u64;
 
-pub const INITIAL_TRANSACTION_ID: EthereumTransactionId = 0;
+pub const INITIAL_TRANSACTION_ID: EthereumId = 0;
 pub const VALIDATOR_COUNT: u32 = 7;
 thread_local! {
     // validator accounts (aka public addresses, public keys-ish)
@@ -367,7 +367,7 @@ thread_local! {
         SEVENTH_VALIDATOR_INDEX
     ]));
 
-    static MOCK_TX_ID: RefCell<EthereumTransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
+    static MOCK_TX_ID: RefCell<EthereumId> = RefCell::new(INITIAL_TRANSACTION_ID);
 
     static ETH_PUBLIC_KEY_VALID: RefCell<bool> = RefCell::new(true);
 
@@ -450,7 +450,7 @@ impl pallet_timestamp::Config for TestRuntime {
 
 impl BridgeInterfaceNotification for TestRuntime {
     fn process_result(
-        _tx_id: u32,
+        _tx_id: EthereumId,
         _caller_id: Vec<u8>,
         _tx_succeeded: bool,
     ) -> sp_runtime::DispatchResult {
@@ -467,7 +467,7 @@ impl BridgeInterface for TestRuntime {
         function_name: &[u8],
         _params: &[(Vec<u8>, Vec<u8>)],
         _caller_id: Vec<u8>,
-    ) -> Result<u32, DispatchError> {
+    ) -> Result<EthereumId, DispatchError> {
         if function_name == BridgeContractMethod::PublishRoot.name_as_bytes() {
             return Ok(INITIAL_TRANSACTION_ID)
         }
@@ -726,7 +726,7 @@ pub struct Context {
     pub url_param: String,
     pub record_summary_calculation_signature: TestSignature,
     pub root_id: RootId<BlockNumber>,
-    pub tx_id: EthereumTransactionId,
+    pub tx_id: EthereumId,
     pub current_slot: BlockNumber,
     pub finalised_block_vec: Option<Vec<u8>>,
 }
@@ -788,7 +788,7 @@ pub fn setup_voting(
     root_hash_h256: H256,
     validator: &Validator<UintAuthorityId, u64>,
 ) {
-    let tx_id: EthereumTransactionId = INITIAL_TRANSACTION_ID;
+    let tx_id: EthereumId = INITIAL_TRANSACTION_ID;
     Summary::insert_root_hash(root_id, root_hash_h256, validator.account_id.clone(), tx_id);
     Summary::insert_pending_approval(root_id);
     Summary::register_root_for_voting(root_id, QUORUM, VOTING_PERIOD_END);
