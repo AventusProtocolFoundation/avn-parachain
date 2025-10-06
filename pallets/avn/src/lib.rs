@@ -32,7 +32,7 @@ pub use pallet::*;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_avn_common::{
     bounds::{MaximumValidatorsBound, ProcessingBatchBound},
-    eth::{EthereumNetwork, LowerParams},
+    eth::{EthereumId, EthereumNetwork, LowerParams},
     event_types::{EthEvent, EthEventId, Validator},
     http_data_codec::encode_to_http_data,
     ocw_lock::{self as OcwLock, OcwStorageError},
@@ -817,7 +817,7 @@ pub trait BridgeInterface {
         function_name: &[u8],
         params: &[(Vec<u8>, Vec<u8>)],
         caller_id: Vec<u8>,
-    ) -> Result<u32, DispatchError>;
+    ) -> Result<EthereumId, DispatchError>;
     fn generate_lower_proof(
         lower_id: u32,
         params: &LowerParams,
@@ -833,7 +833,7 @@ pub trait BridgeInterface {
 }
 
 pub trait BridgeInterfaceNotification {
-    fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult;
+    fn process_result(tx_id: EthereumId, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult;
     fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
         Ok(())
     }
@@ -844,7 +844,7 @@ pub trait BridgeInterfaceNotification {
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
 impl BridgeInterfaceNotification for Tuple {
-    fn process_result(_tx_id: u32, _caller_id: Vec<u8>, _succeeded: bool) -> DispatchResult {
+    fn process_result(_tx_id: EthereumId, _caller_id: Vec<u8>, _succeeded: bool) -> DispatchResult {
         for_tuples!( #( Tuple::process_result(_tx_id, _caller_id.clone(), _succeeded)?; )* );
         Ok(())
     }

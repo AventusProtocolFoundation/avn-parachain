@@ -12,7 +12,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-pub type EthereumTransactionId = u32;
+use sp_avn_common::eth::EthereumId;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, transactional};
@@ -170,13 +170,8 @@ pub mod pallet {
     pub type TotalIngresses<T: Config> = StorageValue<_, IngressCounter, ValueQuery>;
 
     #[pallet::storage]
-    pub type TransactionToAction<T: Config> = StorageMap<
-        _,
-        Blake2_128Concat,
-        EthereumTransactionId,
-        (T::AccountId, IngressCounter),
-        OptionQuery,
-    >;
+    pub type TransactionToAction<T: Config> =
+        StorageMap<_, Blake2_128Concat, EthereumId, (T::AccountId, IngressCounter), OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -342,14 +337,14 @@ impl Default for AuthorsActionStatus {
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct AuthorsActionData {
     pub status: AuthorsActionStatus,
-    pub eth_transaction_id: EthereumTransactionId,
+    pub eth_transaction_id: EthereumId,
     pub action_type: AuthorsActionType,
 }
 
 impl AuthorsActionData {
     fn new(
         status: AuthorsActionStatus,
-        eth_transaction_id: EthereumTransactionId,
+        eth_transaction_id: EthereumId,
         action_type: AuthorsActionType,
     ) -> Self {
         return AuthorsActionData { status, eth_transaction_id, action_type }
@@ -395,10 +390,7 @@ impl AuthorOperationTier1Endpoint {
 }
 
 impl<T: Config> Pallet<T> {
-    fn start_activation_for_registered_author(
-        registered_author: &T::AccountId,
-        tx_id: EthereumTransactionId,
-    ) {
+    fn start_activation_for_registered_author(registered_author: &T::AccountId, tx_id: EthereumId) {
         let ingress_counter = Self::get_ingress_counter() + 1;
 
         TotalIngresses::<T>::put(ingress_counter);
@@ -570,10 +562,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(Event::<T>::AuthorActionConfirmed { action_id });
     }
 
-    fn process_transaction(
-        tx_id: EthereumTransactionId,
-        succeeded: bool,
-    ) -> Result<(), DispatchError> {
+    fn process_transaction(tx_id: EthereumId, succeeded: bool) -> Result<(), DispatchError> {
         let (account_id, ingress_counter) =
             TransactionToAction::<T>::get(tx_id).ok_or(Error::<T>::TransactionNotFound)?;
 

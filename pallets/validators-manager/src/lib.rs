@@ -12,7 +12,7 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-pub type EthereumTransactionId = u32;
+use sp_avn_common::eth::EthereumId;
 
 use frame_support::{
     dispatch::DispatchResult, ensure, pallet_prelude::StorageVersion, traits::Get, transactional,
@@ -367,14 +367,14 @@ impl ValidatorsActionType {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ValidatorsActionData {
     pub status: ValidatorsActionStatus,
-    pub eth_transaction_id: EthereumTransactionId,
+    pub eth_transaction_id: EthereumId,
     pub action_type: ValidatorsActionType,
 }
 
 impl ValidatorsActionData {
     fn new(
         status: ValidatorsActionStatus,
-        eth_transaction_id: EthereumTransactionId,
+        eth_transaction_id: EthereumId,
         action_type: ValidatorsActionType,
     ) -> Self {
         return ValidatorsActionData { status, eth_transaction_id, action_type }
@@ -405,7 +405,7 @@ pub type AVN<T> = avn::Pallet<T>;
 impl<T: Config> Pallet<T> {
     fn start_activation_for_registered_validator(
         registered_validator: &T::AccountId,
-        tx_id: EthereumTransactionId,
+        tx_id: EthereumId,
     ) {
         let ingress_counter = Self::get_ingress_counter() + 1;
 
