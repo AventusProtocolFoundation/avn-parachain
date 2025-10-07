@@ -119,19 +119,15 @@ pub struct ActiveRequestData<BlockNumber, AccountId> {
 impl<BlockNumber, AccountId> ActiveRequestData<BlockNumber, AccountId> {
     // Function to convert an active request into an active transaction request.
     pub fn as_active_tx<T, I>(self) -> Result<ActiveTransactionData<AccountId>, Error<T, I>> {
-        if self.tx_data.is_none() {
-            return Err(Error::<T, I>::InvalidSendRequest)
-        }
+        let tx_data = self.tx_data.ok_or(Error::<T, I>::InvalidSendRequest)?;
 
         match self.request {
-            Request::Send(req) => {
-                let tx_data = self.tx_data.expect("data is not null");
-                Ok(ActiveTransactionData {
-                    request: req,
-                    confirmation: self.confirmation,
-                    data: tx_data,
-                })
-            },
+            Request::Send(req) => Ok(ActiveTransactionData {
+                request: req,
+                confirmation: self.confirmation,
+                replay_attempt: tx_data.replay_attempt,
+                data: tx_data,
+            }),
             _ => return Err(Error::<T, I>::InvalidSendRequest),
         }
     }
@@ -143,6 +139,7 @@ pub struct ActiveTransactionData<AccountId> {
     pub request: SendRequestData,
     pub confirmation: ActiveConfirmation,
     pub data: ActiveEthTransaction<AccountId>,
+    pub replay_attempt: u16,
 }
 
 // Transient data used for an active send transaction request
@@ -159,6 +156,7 @@ pub struct ActiveEthTransaction<AccountId> {
     pub valid_tx_hash_corroborations: BoundedVec<AccountId, ConfirmationsLimit>,
     pub invalid_tx_hash_corroborations: BoundedVec<AccountId, ConfirmationsLimit>,
     pub tx_succeeded: bool,
+    pub replay_attempt: u16,
 }
 
 impl<AccountId: fmt::Debug> fmt::Debug for ActiveEthTransaction<AccountId> {

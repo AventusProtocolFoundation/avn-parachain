@@ -63,6 +63,7 @@ fn corroborate_good_transactions(
         true,
         true,
         author.clone(),
+        context.replay_attempt,
         context.test_signature.clone(),
     )
 }
@@ -78,6 +79,7 @@ fn corroborate_bad_transactions(
         false,
         false,
         author.clone(),
+        context.replay_attempt,
         context.test_signature.clone(),
     )
     .unwrap();
@@ -625,6 +627,7 @@ mod add_corroboration {
             is_tx_successful,
             is_hash_valid,
             context.confirming_author.clone(),
+            context.replay_attempt,
             context.test_signature.clone(),
         ));
 
@@ -651,6 +654,7 @@ mod add_corroboration {
                 is_tx_successful,
                 is_hash_valid,
                 context.confirming_author.clone(),
+                context.replay_attempt,
                 context.test_signature.clone(),
             ));
 
@@ -897,6 +901,11 @@ fn unsent_transactions_are_replayed() {
         let params = vec![(b"bytes32".to_vec(), hex::decode(ROOT_HASH).unwrap())];
 
         let tx_id = EthBridge::publish(&function_name, &params, vec![]).unwrap();
+        let initial_replay_attempt = ActiveRequest::<TestRuntime>::get()
+            .unwrap()
+            .as_active_tx::<TestRuntime, ()>()
+            .unwrap()
+            .replay_attempt;
 
         EthBridge::add_confirmation(
             RuntimeOrigin::none(),
@@ -924,6 +933,7 @@ fn unsent_transactions_are_replayed() {
             .as_active_tx::<TestRuntime, ()>()
             .unwrap();
         assert_eq!(tx_id, tx.request.tx_id);
+        assert_eq!(initial_replay_attempt + 1, tx.replay_attempt);
         assert_ne!(&context.author.account_id, &tx.data.sender);
 
         assert!(System::events().iter().any(|record| record.event ==
@@ -977,6 +987,7 @@ fn self_corroborate_fails() {
                 true,
                 true,
                 primary_author,
+                context.replay_attempt,
                 context.test_signature,
             ),
             Error::<TestRuntime>::CannotCorroborateOwnTransaction

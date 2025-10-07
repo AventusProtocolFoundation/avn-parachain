@@ -67,6 +67,7 @@ pub struct Context {
     pub lower_id: u32,
     pub block_number: BlockNumber,
     pub expected_lower_msg_hash: String,
+    pub replay_attempt: u16,
 }
 
 impl Context {
@@ -215,6 +216,7 @@ pub fn setup_context() -> Context {
         // if request_params changes, this should also change
         expected_lower_msg_hash: "3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba"
             .to_string(),
+        replay_attempt: 0,
     }
 }
 

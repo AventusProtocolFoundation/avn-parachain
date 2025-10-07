@@ -79,7 +79,10 @@ pub fn finalize_state<T: Config<I>, I: 'static>(
     Ok(complete_transaction::<T, I>(tx, success)?)
 }
 
-pub fn set_up_active_tx<T: Config<I>, I: 'static>(req: SendRequestData) -> Result<(), Error<T, I>> {
+pub fn set_up_active_tx<T: Config<I>, I: 'static>(
+    req: SendRequestData,
+    replay_maybe: Option<u16>,
+) -> Result<(), Error<T, I>> {
     let expiry = util::time_now::<T, I>() + EthTxLifetimeSecs::<T, I>::get();
     let extended_params: BoundedVec<
         (BoundedVec<u8, ConstU32<7>>, BoundedVec<u8, ConstU32<130>>),
@@ -97,6 +100,7 @@ pub fn set_up_active_tx<T: Config<I>, I: 'static>(req: SendRequestData) -> Resul
     )
     .map_err(|_| Error::<T, I>::MsgHashError)?;
 
+    let replay_attempt = replay_maybe.unwrap_or(0);
     ActiveRequest::<T, I>::put(ActiveRequestData {
         request: Request::Send(req.clone()),
         confirmation: ActiveConfirmation { msg_hash, confirmations: BoundedVec::default() },
@@ -111,6 +115,7 @@ pub fn set_up_active_tx<T: Config<I>, I: 'static>(req: SendRequestData) -> Resul
             valid_tx_hash_corroborations: BoundedVec::default(),
             invalid_tx_hash_corroborations: BoundedVec::default(),
             tx_succeeded: false,
+            replay_attempt,
         }),
         last_updated: <frame_system::Pallet<T>>::block_number(),
     });
@@ -127,7 +132,7 @@ pub fn replay_send_request<T: Config<I>, I: 'static>(
         caller_id: tx.request.caller_id.clone(),
     });
 
-    return Ok(set_up_active_tx(tx.request)?)
+    return Ok(set_up_active_tx(tx.request, Some(tx.replay_attempt.saturating_plus_one()))?)
 }
 
 pub fn use_next_tx_id<T: Config<I>, I: 'static>() -> u32 {
