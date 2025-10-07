@@ -314,6 +314,7 @@ where
     }
 }
 
+// Vanilla fungible adapter from polkadot sdk without any discount logic
 pub struct FungibleAdapter<F, OU>(PhantomData<(F, OU)>);
 
 /// Default implementation for a Fungible and an OnUnbalanced handler.
