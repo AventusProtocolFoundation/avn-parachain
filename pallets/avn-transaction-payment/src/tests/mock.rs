@@ -1,5 +1,5 @@
 use crate::{
-    self as pallet_avn_transaction_payment, system::limits, AvnCurrencyAdapter, KnownSenders,
+    self as pallet_avn_transaction_payment, system::limits, AvnFungibleAdapter, KnownSenders,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -101,9 +101,18 @@ parameter_types! {
 }
 
 pub struct DealWithFees;
-impl OnUnbalanced<pallet_balances::NegativeImbalance<TestRuntime>> for DealWithFees {
+impl
+    OnUnbalanced<
+        frame_support::traits::fungible::Credit<AccountId, pallet_balances::Pallet<TestRuntime>>,
+    > for DealWithFees
+{
     fn on_unbalanceds<B>(
-        mut fees_then_tips: impl Iterator<Item = pallet_balances::NegativeImbalance<TestRuntime>>,
+        mut fees_then_tips: impl Iterator<
+            Item = frame_support::traits::fungible::Credit<
+                AccountId,
+                pallet_balances::Pallet<TestRuntime>,
+            >,
+        >,
     ) {
         if let Some(mut fees) = fees_then_tips.next() {
             if let Some(tips) = fees_then_tips.next() {
@@ -115,7 +124,7 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<TestRuntime>> for DealWithF
 
 impl pallet_transaction_payment::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = AvnCurrencyAdapter<Balances, DealWithFees>;
+    type OnChargeTransaction = AvnFungibleAdapter<Balances, DealWithFees>;
     type LengthToFee = TransactionByteFee;
     type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();

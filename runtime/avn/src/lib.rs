@@ -42,9 +42,10 @@ use frame_support::{
     genesis_builder_helper::{build_config, create_default_config},
     parameter_types,
     traits::{
-        fungible::HoldConsideration, AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64,
-        Contains, Currency, Imbalance, LinearStoragePrice, OnUnbalanced, PrivilegeCmp,
-        TransformOrigin,
+        fungible::{self as fungible, HoldConsideration},
+        tokens::imbalance::ResolveTo,
+        AsEnsureOriginWithArg, ConstBool, ConstU32, ConstU64, Contains, Currency, Imbalance,
+        LinearStoragePrice, OnUnbalanced, PrivilegeCmp, TransformOrigin,
     },
     weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
     PalletId,
@@ -73,7 +74,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
-use pallet_avn_transaction_payment::AvnCurrencyAdapter;
+use pallet_avn_transaction_payment::AvnFungibleAdapter;
 use pallet_eth_bridge_runtime_api::InstanceId;
 use sp_avn_common::{
     eth::EthBridgeInstance,
@@ -81,41 +82,29 @@ use sp_avn_common::{
     InnerCallValidator, Proof,
 };
 
-use pallet_parachain_staking;
+use pallet_parachain_staking::{self, StakingPotAccountId};
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
-/// Logic for the staking pot to get all the fees, including tips.
-pub struct ToStakingPot<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for ToStakingPot<R>
-where
-    R: pallet_balances::Config + pallet_parachain_staking::Config,
-    <R as frame_system::Config>::AccountId: From<AccountId>,
-    <R as frame_system::Config>::AccountId: Into<AccountId>,
-    <R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
-{
-    fn on_nonzero_unbalanced(amount: NegativeImbalance<R>) {
-        let staking_pot_address =
-            <pallet_parachain_staking::Pallet<R>>::compute_reward_pot_account_id();
-        <pallet_balances::Pallet<R>>::resolve_creating(&staking_pot_address, amount);
-    }
-}
-
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
-impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
+impl<R> OnUnbalanced<fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
     R: pallet_balances::Config + pallet_parachain_staking::Config,
     <R as frame_system::Config>::AccountId: From<AccountId>,
     <R as frame_system::Config>::AccountId: Into<AccountId>,
     <R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
-    fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance<R>>) {
+    fn on_unbalanceds<B>(
+        mut fees_then_tips: impl Iterator<
+            Item = fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>,
+        >,
+    ) {
         if let Some(mut fees) = fees_then_tips.next() {
             if let Some(tips) = fees_then_tips.next() {
                 tips.merge_into(&mut fees);
             }
-            <ToStakingPot<R> as OnUnbalanced<_>>::on_unbalanced(fees);
+            ResolveTo::<StakingPotAccountId<R>, pallet_balances::Pallet<R>>::on_unbalanced(fees)
         }
     }
 }
@@ -339,7 +328,7 @@ impl pallet_balances::Config for Runtime {
 
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = AvnCurrencyAdapter<Balances, DealWithFees<Runtime>>;
+    type OnChargeTransaction = AvnFungibleAdapter<Balances, DealWithFees<Runtime>>;
     type WeightToFee = WeightToFee;
     type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
     type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;

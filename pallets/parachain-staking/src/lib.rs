@@ -2488,3 +2488,15 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
         Ok(())
     }
 }
+
+/// [`TypedGet`] implementaion to get the AccountId of the StakingPot.
+pub struct StakingPotAccountId<R>(PhantomData<R>);
+impl<R> TypedGet for StakingPotAccountId<R>
+where
+    R: crate::Config,
+{
+    type Type = <R as frame_system::Config>::AccountId;
+    fn get() -> Self::Type {
+        <crate::Pallet<R>>::compute_reward_pot_account_id()
+    }
+}
