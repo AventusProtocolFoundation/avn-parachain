@@ -173,6 +173,7 @@ fn setup_active_tx<T: Config<I>, I: 'static>(
             valid_tx_hash_corroborations: BoundedVec::default(),
             invalid_tx_hash_corroborations: BoundedVec::default(),
             tx_succeeded: false,
+            replay_attempt: 0,
         }),
         last_updated: 0u32.into(),
     });
@@ -392,7 +393,7 @@ benchmarks_instance_pallet! {
         let tx_hash_valid = true;
         let proof = (Instance::<T, I>::get().hash(), crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
+    }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), 0, signature)
     verify {
         let active_tx = ActiveRequest::<T, I>::get().expect("is active");
         ensure!(active_tx.tx_data.unwrap().success_corroborations.contains(&author.account_id), "Corroboration not added");
@@ -414,7 +415,7 @@ benchmarks_instance_pallet! {
         let tx_hash_valid = true;
         let proof = (Instance::<T, I>::get().hash(), crate::ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, author.account_id.clone()).encode();
         let signature = author.key.sign(&proof).expect("Error signing proof");
-    }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), signature)
+    }: add_corroboration(RawOrigin::None, tx_id, tx_succeeded, tx_hash_valid, author.clone(), 0, signature)
     verify {
         ensure!(SettledTransactions::<T, I>::get(tx_id).is_some(), "Transaction is not settled");
     }
