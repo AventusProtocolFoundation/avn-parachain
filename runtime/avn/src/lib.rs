@@ -74,7 +74,7 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use pallet_avn::sr25519::AuthorityId as AvnId;
 
 pub use pallet_avn_proxy::{Event as AvnProxyEvent, ProvableProxy};
-use pallet_avn_transaction_payment::AvnFungibleAdapter;
+use pallet_avn_transaction_payment::AvnGasFeeAdapter;
 use pallet_eth_bridge_runtime_api::InstanceId;
 use sp_avn_common::{
     eth::EthBridgeInstance,
@@ -328,7 +328,7 @@ impl pallet_balances::Config for Runtime {
 
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = AvnFungibleAdapter<Balances, DealWithFees<Runtime>>;
+    type OnChargeTransaction = AvnGasFeeAdapter<Balances, DealWithFees<Runtime>>;
     type WeightToFee = WeightToFee;
     type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
     type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;

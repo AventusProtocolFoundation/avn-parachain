@@ -222,13 +222,13 @@ impl<T: Config> Pallet<T> {
 
 // The fungible changes are copied from PolkadotSdk:
 // https://github.com/paritytech/polkadot-sdk/commit/bda4e75ac49786a7246531cf729b25c208cd38e6
-pub struct AvnFungibleAdapter<F, OU>(PhantomData<(F, OU)>);
+pub struct AvnGasFeeAdapter<F, OU>(PhantomData<(F, OU)>);
 
 /// Default implementation for a Fungible and an OnUnbalanced handler.
 ///
 /// The unbalance handler is given 2 unbalanceds in [`OnUnbalanced::on_unbalanceds`]: fee and
 /// then tip.
-impl<T, F, OU> OnChargeTransaction<T> for AvnFungibleAdapter<F, OU>
+impl<T, F, OU> OnChargeTransaction<T> for AvnGasFeeAdapter<F, OU>
 where
     T: Config + pallet::Config<Currency = F>,
     F: Balanced<T::AccountId>,

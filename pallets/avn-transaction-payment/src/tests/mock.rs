@@ -1,5 +1,5 @@
 use crate::{
-    self as pallet_avn_transaction_payment, system::limits, AvnFungibleAdapter, KnownSenders,
+    self as pallet_avn_transaction_payment, system::limits, AvnGasFeeAdapter, KnownSenders,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -124,7 +124,7 @@ impl
 
 impl pallet_transaction_payment::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = AvnFungibleAdapter<Balances, DealWithFees>;
+    type OnChargeTransaction = AvnGasFeeAdapter<Balances, DealWithFees>;
     type LengthToFee = TransactionByteFee;
     type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
