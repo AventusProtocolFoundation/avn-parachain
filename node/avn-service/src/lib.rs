@@ -398,7 +398,7 @@ where
 }
 
 #[tokio::main]
-async fn query_fiat_rates<Block: BlockT, ClientT>(
+async fn query_token_rates<Block: BlockT, ClientT>(
     req: tide::Request<Arc<Config<Block, ClientT>>>,
 ) -> Result<String, TideError>
 where
@@ -410,7 +410,7 @@ where
         .map_err(|_| TideError::from_str(400, "Missing or invalid symbols parameter"))?;
 
     let currency: String = req
-        .param("currency")
+        .param("currencies")
         .map(|s| s.to_lowercase())
         .map_err(|_| TideError::from_str(400, "Missing currency parameter"))?;
 
@@ -432,34 +432,36 @@ where
 
     let mut results = serde_json::Map::new();
     for symbol in &symbols {
-        match provider.retrieve_symbol_data(symbol, &currency, from, to).await {
-            Ok(price) => {
-                log::info!(
-                    "💰 Retrieved price for {} / {} from {} to {}: {}",
-                    symbol,
-                    currency,
-                    from,
-                    to,
-                    price
-                );
-                results.insert(
-                    symbol.clone(),
-                    serde_json::Value::Number(serde_json::Number::from_f64(price).unwrap()),
-                );
-            },
-            Err(err) => {
-                log::error!(
-                    "❌ Failed to retrieve price for {} from {} to {}: {}",
-                    symbol,
-                    from,
-                    to,
-                    err
-                );
-                results.insert(
-                    symbol.clone(),
-                    serde_json::Value::String("Error retrieving rate".into()),
-                );
-            },
+        for currency in &currencies {
+            match provider.retrieve_symbol_data(symbol, &currency, from, to).await {
+                Ok(price) => {
+                    log::info!(
+                        "💰 Retrieved price for {} / {} from {} to {}: {}",
+                        symbol,
+                        currency,
+                        from,
+                        to,
+                        price
+                    );
+                    results.insert(
+                        format!("{}", currency),,
+                        serde_json::Value::Number(serde_json::Number::from_f64(price).unwrap()),
+                    );
+                },
+                Err(err) => {
+                    log::error!(
+                        "❌ Failed to retrieve price for {} from {} to {}: {}",
+                        symbol,
+                        from,
+                        to,
+                        err
+                    );
+                    results.insert(
+                        format!("{}", currency),
+                        serde_json::Value::String("Error retrieving rate".into()),
+                    );
+                },
+            }
         }
     }
 
@@ -579,9 +581,9 @@ where
         },
     );
 
-    app.at("/get_fiat_rates/:symbols/:from/:to").get(
+    app.at("/get_token_rates/:symbols/:currencies/:from/:to").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
-            return query_fiat_rates(req)
+            return query_token_rates(req)
         },
     );
 
