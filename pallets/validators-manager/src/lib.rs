@@ -21,8 +21,7 @@ use frame_support::{
     traits::{Currency, Get},
     transactional,
 };
-use frame_system::pallet_prelude::BlockNumberFor;
-use frame_system::{offchain::SendTransactionTypes, RawOrigin};
+use frame_system::{offchain::SendTransactionTypes, pallet_prelude::BlockNumberFor, RawOrigin};
 use pallet_session::{self as session, Config as SessionConfig};
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -439,7 +438,6 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Sudo function to add a collator.
-        /// This will now send a T1 transaction first and wait for confirmation before making any local changes.
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::add_collator())]
         #[transactional]
@@ -662,10 +660,10 @@ pub mod pallet {
             if let Some(validator_account_ids) = Self::validator_account_ids() {
                 let remaining_count = validator_account_ids.len().saturating_sub(1);
                 let minimum = T::MinimumValidatorCount::get() as usize;
-                
+
                 if remaining_count < minimum {
                     log::error!(
-                        "🚨 WARNING: Force completing deregistration will result in {} validators, \
+                        "WARNING: Force completing deregistration will result in {} validators, \
                         below minimum of {}. Proceeding because this is admin recovery, \
                         but network security may be compromised!",
                         remaining_count,
@@ -689,8 +687,7 @@ pub mod pallet {
 
                 // Just cleanup state
                 if let Some(mut validator_account_ids) = Self::validator_account_ids() {
-                    if let Some(index) =
-                        validator_account_ids.iter().position(|v| v == &account_id)
+                    if let Some(index) = validator_account_ids.iter().position(|v| v == &account_id)
                     {
                         validator_account_ids.swap_remove(index);
                         <ValidatorAccountIds<T>>::put(validator_account_ids);
@@ -703,9 +700,7 @@ pub mod pallet {
                 frame_support::storage::transactional::with_transaction(|| {
                     PendingValidatorDeregistrations::<T>::remove(&account_id);
                     PendingValidatorTransactions::<T>::remove(pending_data.tx_id);
-                    frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(
-                        (),
-                    ))
+                    frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
                 })?;
 
                 Self::deposit_event(Event::<T>::ValidatorDeregistered {
@@ -716,10 +711,7 @@ pub mod pallet {
                     operation_type: PendingValidatorOperationType::Deregistration,
                 });
 
-                log::info!(
-                    "✅ Force completed deregistration for {:?} (cleanup only)",
-                    account_id
-                );
+                log::info!("Force completed deregistration for {:?} (cleanup only)", account_id);
                 return Ok(());
             }
 
@@ -732,10 +724,9 @@ pub mod pallet {
                     frame_support::storage::transactional::with_transaction(|| {
                         PendingValidatorDeregistrations::<T>::remove(&account_id);
                         PendingValidatorTransactions::<T>::remove(pending_data.tx_id);
-                        frame_support::storage::TransactionOutcome::Commit(Ok::<
+                        frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(
                             (),
-                            DispatchError,
-                        >(()))
+                        ))
                     })?;
 
                     Self::deposit_event(Event::<T>::OperationForcedComplete {
@@ -775,7 +766,9 @@ pub mod pallet {
                                 frame_support::storage::TransactionOutcome::Commit(Ok::<
                                     (),
                                     DispatchError,
-                                >(()))
+                                >(
+                                    ()
+                                ))
                             })?;
 
                             Self::deposit_event(Event::<T>::ValidatorDeregistrationScheduled {
@@ -831,10 +824,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_root(origin)?;
 
-            log::warn!(
-                "ADMIN ACTION: Cancelling pending operation for {:?}",
-                account_id
-            );
+            log::warn!("ADMIN ACTION: Cancelling pending operation for {:?}", account_id);
 
             // Check for pending registration
             if let Some(pending_data) = PendingValidatorRegistrations::<T>::take(&account_id) {
@@ -1113,7 +1103,6 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        // Account for actual iterations (1 read per deactivating validator, 1 read per candidate_info check)
         weight = weight.saturating_add(T::DbWeight::get().reads(iterations as u64 * 2));
 
         for account_id in ready_to_remove {
@@ -1236,8 +1225,8 @@ impl<T: Config> Pallet<T> {
         disabled_validators: &Vec<T::AccountId>,
         deregistered_validator: &T::AccountId,
     ) -> bool {
-        !active_validators.iter().any(|v| &v.account_id == deregistered_validator)
-            && !disabled_validators.iter().any(|v| v == deregistered_validator)
+        !active_validators.iter().any(|v| &v.account_id == deregistered_validator) &&
+            !disabled_validators.iter().any(|v| v == deregistered_validator)
     }
 
     // Legacy remove_deregistered_validator has been removed - use new deregistration flow instead
@@ -1252,8 +1241,8 @@ impl<T: Config> Pallet<T> {
     fn has_active_slash(validator_account_id: &T::AccountId) -> bool {
         <ValidatorActions<T>>::iter_prefix_values(validator_account_id).any(
             |validators_action_data| {
-                validators_action_data.action_type == ValidatorsActionType::Slashed
-                    && Self::deregistration_state_is_active(validators_action_data.status)
+                validators_action_data.action_type == ValidatorsActionType::Slashed &&
+                    Self::deregistration_state_is_active(validators_action_data.status)
             },
         )
     }
@@ -1278,8 +1267,8 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            validator_account_ids.len()
-                < (<MaximumValidatorsBound as sp_core::TypedGet>::get() as usize),
+            validator_account_ids.len() <
+                (<MaximumValidatorsBound as sp_core::TypedGet>::get() as usize),
             Error::<T>::MaximumValidatorsReached
         );
 
@@ -1328,8 +1317,8 @@ impl<T: Config> Pallet<T> {
         // Check for pending activation
         let has_pending_activation =
             ValidatorActions::<T>::iter_prefix_values(account_id).any(|action| {
-                action.action_type == ValidatorsActionType::Activation
-                    && Self::deregistration_state_is_active(action.status)
+                action.action_type == ValidatorsActionType::Activation &&
+                    Self::deregistration_state_is_active(action.status)
             });
         ensure!(!has_pending_activation, Error::<T>::ActivationInProgress);
 
@@ -1364,7 +1353,7 @@ impl<T: Config> Pallet<T> {
         let staking_state = parachain_staking::Pallet::<T>::candidate_info(&action_account_id);
         if staking_state.is_none() {
             log::error!(
-                "💔 Unable to find staking candidate info for collator: {:?}",
+                "Unable to find staking candidate info for collator: {:?}",
                 action_account_id
             );
             return Err(());
@@ -1382,7 +1371,7 @@ impl<T: Config> Pallet<T> {
 
         if result.is_err() {
             log::error!(
-                "💔 Error removing staking data for collator {:?}: {:?}",
+                "Error removing staking data for collator {:?}: {:?}",
                 action_account_id,
                 result
             );
@@ -1726,7 +1715,6 @@ impl<T: Config> Pallet<T> {
 
         ValidatorStatus::NotValidator
     }
-
 }
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
@@ -1746,12 +1734,10 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
         // Check if this is a pending operation transaction
         if let Some((account_id, operation_type)) = PendingValidatorTransactions::<T>::get(tx_id) {
             let result = match operation_type {
-                PendingValidatorOperationType::Registration => {
-                    Self::handle_validator_registration_result(account_id, tx_id, succeeded)
-                },
-                PendingValidatorOperationType::Deregistration => {
-                    Self::handle_validator_deregistration_result(account_id, tx_id, succeeded)
-                },
+                PendingValidatorOperationType::Registration =>
+                    Self::handle_validator_registration_result(account_id, tx_id, succeeded),
+                PendingValidatorOperationType::Deregistration =>
+                    Self::handle_validator_deregistration_result(account_id, tx_id, succeeded),
             };
 
             // If processing failed, remove from processed set to allow retry
@@ -1796,18 +1782,18 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
             for (action_account_id, ingress_counter, validators_action_data) in
                 <ValidatorActions<T>>::iter()
             {
-                if validators_action_data.status == ValidatorsActionStatus::AwaitingConfirmation
-                    && validators_action_data.action_type.is_deregistration()
-                    && Self::validator_permanently_removed(
+                if validators_action_data.status == ValidatorsActionStatus::AwaitingConfirmation &&
+                    validators_action_data.action_type.is_deregistration() &&
+                    Self::validator_permanently_removed(
                         &active_validators,
                         &disabled_validators,
                         &action_account_id,
                     )
                 {
                     Self::clean_up_collator_data(action_account_id, ingress_counter);
-                } else if validators_action_data.status
-                    == ValidatorsActionStatus::AwaitingConfirmation
-                    && validators_action_data.action_type.is_activation()
+                } else if validators_action_data.status ==
+                    ValidatorsActionStatus::AwaitingConfirmation &&
+                    validators_action_data.action_type.is_activation()
                 {
                     <ValidatorActions<T>>::mutate(
                         &action_account_id,
@@ -1822,8 +1808,8 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
                     Self::deposit_event(Event::<T>::ValidatorActivationStarted {
                         validator_id: action_account_id.clone(),
                     });
-                } else if validators_action_data.status == ValidatorsActionStatus::Confirmed
-                    && validators_action_data.action_type.is_activation()
+                } else if validators_action_data.status == ValidatorsActionStatus::Confirmed &&
+                    validators_action_data.action_type.is_activation()
                 {
                     // Activation is complete - move to Actioned for cleanup
                     <ValidatorActions<T>>::mutate(
