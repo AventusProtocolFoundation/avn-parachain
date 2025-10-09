@@ -135,6 +135,8 @@ impl ValidatorManager {
 
 parameter_types! {
     pub const VotingPeriod: u64 = 2;
+    pub const PendingOperationTimeout: u64 = 100;
+    pub const MinimumValidatorCount: u32 = 2;
 }
 
 impl Config for TestRuntime {
@@ -145,6 +147,8 @@ impl Config for TestRuntime {
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = ();
     type BridgeInterface = EthBridge;
+    type PendingOperationTimeout = PendingOperationTimeout;
+    type MinimumValidatorCount = MinimumValidatorCount;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -546,9 +550,9 @@ impl MockData {
                 event_id: event_id.clone(),
             },
             new_validator_id,
-            validator_eth_public_key: ValidatorManager::compress_eth_public_key(
-                validator_data.eth_public_key,
-            ),
+            // Use the same compressed key as collator_eth_public_key for testing
+            // (compress_eth_public_key function was removed from pallet)
+            validator_eth_public_key: collator_eth_public_key,
             collator_eth_public_key,
         }
     }
