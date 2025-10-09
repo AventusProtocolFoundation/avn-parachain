@@ -82,11 +82,11 @@ pub mod pallet {
         /// A type representing the weights required by the dispatchables of this pallet.
         type WeightInfo;
 
-        /// How often fiat rates should be refreshed, in blocks
+        /// How often rates should be refreshed, in blocks
         #[pallet::constant]
         type PriceRefreshRangeInBlocks: Get<u32>;
 
-        /// How often fiat rates should be refreshed, in blocks
+        /// Grace period for consensus
         #[pallet::constant]
         type ConsensusGracePeriod: Get<u32>;
 
