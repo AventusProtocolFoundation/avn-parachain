@@ -96,6 +96,7 @@ fn complete_send_request(context: &Context) {
         true,
         true,
         context.confirming_author.clone(),
+        context.replay_attempt,
         context.test_signature.clone(),
     )
     .unwrap();

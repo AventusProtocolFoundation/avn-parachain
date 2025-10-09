@@ -30,15 +30,22 @@ pub fn add_corroboration<T: Config<I>, I: 'static>(
     tx_succeeded: bool,
     tx_hash_is_valid: bool,
     author: Author<T>,
+    replay_attempt: u16,
 ) {
-    let proof =
-        add_corroboration_proof::<T, I>(tx_id, tx_succeeded, tx_hash_is_valid, &author.account_id);
+    let proof = add_corroboration_proof::<T, I>(
+        tx_id,
+        tx_succeeded,
+        tx_hash_is_valid,
+        &author.account_id,
+        replay_attempt,
+    );
     let signature = author.key.sign(&proof).expect("Error signing proof");
     let call = Call::<T, I>::add_corroboration {
         tx_id,
         tx_succeeded,
         tx_hash_is_valid,
         author,
+        replay_attempt,
         signature,
     };
     let _ = SubmitTransaction::<T, Call<T, I>>::submit_unsigned_transaction(call.into());
@@ -85,6 +92,7 @@ fn add_corroboration_proof<T: Config<I>, I: 'static>(
     tx_succeeded: bool,
     tx_hash_is_valid: bool,
     account_id: &T::AccountId,
+    replay_attempt: u16,
 ) -> Vec<u8> {
     (
         Instance::<T, I>::get().hash(),
@@ -93,6 +101,7 @@ fn add_corroboration_proof<T: Config<I>, I: 'static>(
         tx_succeeded,
         tx_hash_is_valid,
         &account_id,
+        replay_attempt,
     )
         .encode()
 }
