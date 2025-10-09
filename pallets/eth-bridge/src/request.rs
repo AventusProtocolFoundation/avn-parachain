@@ -30,7 +30,7 @@ pub fn add_new_send_request<T: Config<I>, I: 'static>(
     if ActiveRequest::<T, I>::get().is_some() {
         queue_request(Request::Send(send_req))?;
     } else {
-        tx::set_up_active_tx(send_req)?;
+        tx::set_up_active_tx(send_req, None)?;
     }
 
     Ok(tx_id)
@@ -64,7 +64,7 @@ pub fn process_next_request<T: Config<I>, I: 'static>() {
     if let Some(req) = request::dequeue_request::<T, I>() {
         match req {
             Request::Send(send_req) => {
-                if let Err(e) = tx::set_up_active_tx::<T, I>(send_req.clone()) {
+                if let Err(e) = tx::set_up_active_tx::<T, I>(send_req.clone(), None) {
                     // If we failed to setup the next request, notify caller
                     log::error!(target: "runtime::eth-bridge", "Error processing send request from queue: {:?}", e);
                     let _ = T::BridgeInterfaceNotification::process_result(
