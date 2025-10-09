@@ -409,7 +409,7 @@ where
         .map(|s| s.split(',').map(str::trim).map(String::from).collect())
         .map_err(|_| TideError::from_str(400, "Missing or invalid symbols parameter"))?;
 
-    let currency: String = req
+    let currencies: String = req
         .param("currencies")
         .map(|s| s.to_lowercase())
         .map_err(|_| TideError::from_str(400, "Missing currency parameter"))?;
