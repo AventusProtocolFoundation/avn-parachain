@@ -37,11 +37,7 @@ fn force_add_collator(
 
     // Simulate T1 callback to complete registration
     let pending = PendingValidatorRegistrations::<TestRuntime>::get(collator_id).unwrap();
-    assert_ok!(ValidatorManager::process_result(
-        pending.tx_id,
-        b"author_manager".to_vec(),
-        true,
-    ));
+    assert_ok!(ValidatorManager::process_result(pending.tx_id, b"author_manager".to_vec(), true,));
 
     //Advance 2 session to add the collator to the session
     advance_session();
@@ -156,8 +152,7 @@ mod register_validator {
                             .unwrap()
                             .tx_id,
                         }
-                    ))
-                );
+                    )));
 
                 // Simulate T1 callback success
                 let pending =
@@ -181,8 +176,7 @@ mod register_validator {
                             validator_id: context.new_validator_id,
                             eth_key: context.collator_eth_public_key.clone()
                         }
-                    ))
-                );
+                    )));
 
                 // Activation action has been triggered
                 assert!(find_validator_activation_action(
@@ -225,13 +219,13 @@ mod register_validator {
 
                 // It takes 2 session for validators to be updated
                 advance_session();
-                
+
                 // After first session, should be Confirmed
                 assert!(find_validator_activation_action(
                     &context,
                     ValidatorsActionStatus::Confirmed
                 ));
-                
+
                 advance_session();
 
                 // ValidatorActivationStarted Event has been deposited
@@ -240,8 +234,7 @@ mod register_validator {
                         crate::Event::<TestRuntime>::ValidatorActivationStarted {
                             validator_id: context.new_validator_id
                         }
-                    ))
-                );
+                    )));
             });
         }
     }
@@ -296,10 +289,9 @@ mod remove_validator_public {
                 .contains(&context.new_validator_id));
 
             // Simulate T1 callback success
-            let pending = PendingValidatorDeregistrations::<TestRuntime>::get(
-                &context.new_validator_id
-            )
-            .unwrap();
+            let pending =
+                PendingValidatorDeregistrations::<TestRuntime>::get(&context.new_validator_id)
+                    .unwrap();
             assert_ok!(ValidatorManager::process_result(
                 pending.tx_id,
                 b"author_manager".to_vec(),
@@ -405,7 +397,8 @@ mod remove_validator_public {
             let original_validators = ValidatorManager::validator_account_ids();
             let num_events = System::events().len();
 
-            // Async behavior: Validation happens first, so ValidatorNotFound instead of CandidateDNE
+            // Async behavior: Validation happens first, so ValidatorNotFound instead of
+            // CandidateDNE
             assert_noop!(
                 ValidatorManager::remove_validator(RawOrigin::Root.into(), validator_account_id),
                 Error::<TestRuntime>::ValidatorNotFound
@@ -429,7 +422,8 @@ fn lydia_test_initial_validators_populated_from_genesis_config() {
     });
 }
 
-// compress_public_key test module removed - compress_eth_public_key function was deleted from pallet
+// compress_public_key test module removed - compress_eth_public_key function was deleted from
+// pallet
 
 mod add_validator {
     use super::*;
@@ -479,9 +473,7 @@ mod add_validator {
 
             // Now validator should be active
             assert!(!PendingValidatorRegistrations::<TestRuntime>::contains_key(&context.collator));
-            assert!(ValidatorManager::validator_account_ids()
-                .unwrap()
-                .contains(&context.collator));
+            assert!(ValidatorManager::validator_account_ids().unwrap().contains(&context.collator));
             assert_eq!(
                 ValidatorManager::get_validator_by_eth_public_key(
                     context.collator_eth_public_key.clone()

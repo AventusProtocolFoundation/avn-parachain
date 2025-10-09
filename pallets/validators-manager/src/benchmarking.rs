@@ -210,8 +210,7 @@ fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64, eth_pub
 
     // Simulate T1 callback to complete registration
     let pending = PendingValidatorRegistrations::<T>::get(collator_id).unwrap();
-    ValidatorManager::<T>::process_result(pending.tx_id, b"author_manager".to_vec(), true)
-        .unwrap();
+    ValidatorManager::<T>::process_result(pending.tx_id, b"author_manager".to_vec(), true).unwrap();
 
     //Advance 2 session to add the collator to the session
     advance_session::<T>();
@@ -248,7 +247,7 @@ benchmarks! {
         assert!(ValidatorAccountIds::<T>::get().unwrap().contains(&caller_account));
         // T1TransactionSent is the LAST event emitted (remove_validator emits 2 events)
         let tx_id = PendingValidatorDeregistrations::<T>::get(&caller_account).unwrap().tx_id;
-        assert_last_event::<T>(Event::<T>::T1TransactionSent{ 
+        assert_last_event::<T>(Event::<T>::T1TransactionSent{
             validator_id: caller_account.clone(),
             tx_id,
             operation_type: PendingValidatorOperationType::Deregistration,
@@ -276,12 +275,12 @@ benchmarks! {
         // Setup: Create a pending registration
         let candidate: T::AccountId = account("stuck_candidate", 2, 2);
         let eth_public_key: ecdsa::Public = Public::from_raw(NEW_COLLATOR_ETHEREUM_PUBLIC_KEY);
-        
+
         <T as pallet_parachain_staking::Config>::Currency::make_free_balance_be(
             &candidate,
             ParachainStaking::<T>::min_collator_stake() * 2u32.into(),
         );
-        
+
         // Create pending registration manually (simulating stuck state)
         let tx_id = 12345u32;
         PendingValidatorRegistrations::<T>::insert(
@@ -314,7 +313,7 @@ benchmarks! {
         // Setup: Add a validator then create pending deregistration
         setup_additional_validators::<T>(3);
         let (caller_account, _, _) = generate_resigning_collator_account_details::<T>();
-        
+
         // Create pending deregistration manually (simulating stuck state)
         let tx_id = 54321u32;
         PendingValidatorDeregistrations::<T>::insert(
@@ -345,7 +344,7 @@ benchmarks! {
         // Setup: Create a pending registration
         let candidate: T::AccountId = account("pending_candidate", 3, 3);
         let eth_public_key: ecdsa::Public = generate_collator_eth_public_key_from_seed::<T>(999);
-        
+
         let tx_id = 99999u32;
         PendingValidatorRegistrations::<T>::insert(
             &candidate,
