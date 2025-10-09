@@ -20,6 +20,7 @@ fn to_acc_id(id: u64) -> AccountId {
     return TestAccount::new(id).account_id()
 }
 
+#[cfg(not(feature = "disable-staking"))]
 mod proxy_signed_bond_extra {
     use super::*;
 
@@ -475,6 +476,7 @@ mod proxy_signed_bond_extra {
     }
 }
 
+#[cfg(not(feature = "disable-staking"))]
 mod proxy_signed_candidate_bond_extra {
     use super::*;
 
@@ -760,6 +762,7 @@ mod proxy_signed_candidate_bond_extra {
 
 // NOMINATOR BOND EXTRA
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nominator_bond_extra_reserves_balance() {
     let account_id = to_acc_id(1u64);
@@ -776,6 +779,7 @@ fn nominator_bond_extra_reserves_balance() {
         });
 }
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nominator_bond_extra_increases_total_staked() {
     let account_id = to_acc_id(1u64);
@@ -792,6 +796,7 @@ fn nominator_bond_extra_increases_total_staked() {
         });
 }
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nominator_bond_extra_updates_nominator_state() {
     let account_id = to_acc_id(1u64);
@@ -808,6 +813,7 @@ fn nominator_bond_extra_updates_nominator_state() {
         });
 }
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nominator_bond_extra_updates_candidate_state_top_nominations() {
     let account_id = to_acc_id(1u64);
@@ -840,6 +846,7 @@ fn nominator_bond_extra_updates_candidate_state_top_nominations() {
         });
 }
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nominator_bond_extra_updates_candidate_state_bottom_nominations() {
     let account_id = to_acc_id(1u64);
@@ -895,6 +902,7 @@ fn nominator_bond_extra_updates_candidate_state_bottom_nominations() {
         });
 }
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn can_nominator_bond_extra_for_leaving_candidate() {
     let account_id = to_acc_id(1u64);
@@ -910,6 +918,7 @@ fn can_nominator_bond_extra_for_leaving_candidate() {
         });
 }
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nominator_bond_extra_disallowed_when_revoke_scheduled() {
     let account_id = to_acc_id(1u64);
@@ -931,6 +940,7 @@ fn nominator_bond_extra_disallowed_when_revoke_scheduled() {
         });
 }
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nominator_bond_extra_allowed_when_bond_decrease_scheduled() {
     let account_id = to_acc_id(1u64);

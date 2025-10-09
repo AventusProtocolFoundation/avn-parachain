@@ -38,6 +38,7 @@ fn expected_tx_fee() -> u128 {
     return (BASE_FEE + TX_LEN as u64) as u128
 }
 
+#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn end_to_end_happy_path() {
     let reward_pot_account_id = ParachainStaking::compute_reward_pot_account_id();
