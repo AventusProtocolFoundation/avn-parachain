@@ -132,7 +132,8 @@ pub fn replay_send_request<T: Config<I>, I: 'static>(
         caller_id: tx.request.caller_id.clone(),
     });
 
-    return Ok(set_up_active_tx(tx.request, Some(tx.replay_attempt.saturating_plus_one()))?)
+    let replay_attempt = Some(tx.replay_attempt.saturating_plus_one());
+    return Ok(set_up_active_tx(tx.request, replay_attempt)?)
 }
 
 pub fn use_next_tx_id<T: Config<I>, I: 'static>() -> u32 {
