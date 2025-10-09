@@ -323,7 +323,6 @@ fn cannot_join_candidates_if_candidate() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cannot_join_candidates_if_nominator() {
     let account_id = to_acc_id(1u64);
@@ -612,7 +611,6 @@ fn execute_leave_candidates_callable_by_any_signed() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn execute_leave_candidates_requires_correct_weight_hint() {
     let account_id = to_acc_id(1u64);
@@ -726,7 +724,6 @@ fn execute_leave_candidates_removes_candidate_state() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn execute_leave_candidates_removes_pending_nomination_requests() {
     let account_id = to_acc_id(1u64);
@@ -1100,7 +1097,6 @@ fn only_candidate_can_cancel_candidate_unbond_request() {
 
 // SCHEDULE LEAVE NOMINATORS
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn schedule_leave_nominators_event_emits_correctly() {
     let account_id = to_acc_id(1u64);
@@ -1120,7 +1116,6 @@ fn schedule_leave_nominators_event_emits_correctly() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cannot_schedule_leave_nominators_if_already_leaving() {
     let account_id = to_acc_id(1u64);
@@ -1157,7 +1152,6 @@ fn cannot_schedule_leave_nominators_if_not_nominator() {
 
 // EXECUTE LEAVE NOMINATORS
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn execute_leave_nominators_event_emits_correctly() {
     let account_id = to_acc_id(1u64);
@@ -1182,7 +1176,6 @@ fn execute_leave_nominators_event_emits_correctly() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn execute_leave_nominators_unreserves_balance() {
     let account_id = to_acc_id(1u64);
@@ -1206,7 +1199,6 @@ fn execute_leave_nominators_unreserves_balance() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn execute_leave_nominators_decreases_total_staked() {
     let account_id = to_acc_id(1u64);
@@ -1229,7 +1221,6 @@ fn execute_leave_nominators_decreases_total_staked() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn execute_leave_nominators_removes_nominator_state() {
     let account_id = to_acc_id(1u64);
@@ -1252,7 +1243,6 @@ fn execute_leave_nominators_removes_nominator_state() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn execute_leave_nominators_removes_pending_nomination_requests() {
     let account_id = to_acc_id(1u64);
@@ -1297,7 +1287,6 @@ fn execute_leave_nominators_removes_pending_nomination_requests() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn execute_leave_nominators_removes_nominations_from_collator_state() {
     let account_id = to_acc_id(1u64);
@@ -1357,7 +1346,6 @@ fn execute_leave_nominators_removes_nominations_from_collator_state() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cannot_execute_leave_nominators_before_delay() {
     let account_id = to_acc_id(1u64);
@@ -1387,7 +1375,6 @@ fn cannot_execute_leave_nominators_before_delay() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cannot_execute_leave_nominators_if_single_nomination_revoke_manually_cancelled() {
     let account_id = to_acc_id(1u64);
@@ -1428,7 +1415,6 @@ fn cannot_execute_leave_nominators_if_single_nomination_revoke_manually_cancelle
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn insufficient_execute_leave_nominators_weight_hint_fails() {
     let account_id = to_acc_id(1u64);
@@ -1470,7 +1456,6 @@ fn insufficient_execute_leave_nominators_weight_hint_fails() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn sufficient_execute_leave_nominators_weight_hint_succeeds() {
     let account_id = to_acc_id(1u64);
@@ -1511,7 +1496,6 @@ fn sufficient_execute_leave_nominators_weight_hint_succeeds() {
 
 // CANCEL LEAVE NOMINATORS
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cancel_leave_nominators_emits_correct_event() {
     let account_id = to_acc_id(1u64);
@@ -1530,7 +1514,6 @@ fn cancel_leave_nominators_emits_correct_event() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cannot_cancel_leave_nominators_if_single_nomination_revoke_manually_cancelled() {
     let account_id = to_acc_id(1u64);
@@ -1565,7 +1548,6 @@ fn cannot_cancel_leave_nominators_if_single_nomination_revoke_manually_cancelled
 // CANCEL PENDING NOMINATION REQUEST
 // 1. CANCEL REVOKE NOMINATION
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cancel_revoke_nomination_emits_correct_event() {
     let account_id = to_acc_id(1u64);
@@ -1595,7 +1577,6 @@ fn cancel_revoke_nomination_emits_correct_event() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cancel_revoke_nomination_updates_nominator_state() {
     let account_id = to_acc_id(1u64);
@@ -1643,7 +1624,6 @@ fn cancel_revoke_nomination_updates_nominator_state() {
 
 // 2. CANCEL NOMINATOR BOND LESS
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cancel_nominator_unbond_correct_event() {
     let account_id = to_acc_id(1u64);
@@ -1674,7 +1654,6 @@ fn cancel_nominator_unbond_correct_event() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn cancel_nominator_unbond_updates_nominator_state() {
     let account_id = to_acc_id(1u64);
@@ -1723,7 +1702,6 @@ fn cancel_nominator_unbond_updates_nominator_state() {
 
 // ~~ PROPERTY-BASED TESTS ~~
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nominator_schedule_revocation_total() {
     let account_id = to_acc_id(1u64);
@@ -1820,7 +1798,6 @@ fn nominator_schedule_revocation_total() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn parachain_flow_reserve_matches_config() {
     let account_id = to_acc_id(1u64);
@@ -2368,7 +2345,6 @@ fn parachain_flow_reserve_matches_config() {
         });
 }
 // Working \^/ --------------------------
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn rewards_matches_config() {
     let account_id = to_acc_id(1u64);
@@ -2517,7 +2493,6 @@ fn rewards_matches_config() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn collator_exit_executes_after_delay() {
     let account_id = to_acc_id(1u64);
@@ -3203,7 +3178,6 @@ fn payout_distribution_to_solo_collators() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn multiple_nominations() {
     let account_id = to_acc_id(1u64);
@@ -3559,7 +3533,6 @@ fn multiple_nominations() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 // The test verifies that the pending revoke request is removed by 2's exit so there is no dangling
 // revoke request after 2 exits
@@ -3615,7 +3588,6 @@ fn execute_leave_candidate_removes_nominations() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn payouts_follow_nomination_changes() {
     let account_id = to_acc_id(1u64);
@@ -4140,7 +4112,6 @@ fn payouts_follow_nomination_changes() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn bottom_nominations_are_empty_when_top_nominations_not_full() {
     let account_id = to_acc_id(1u64);
@@ -4213,7 +4184,6 @@ fn bottom_nominations_are_empty_when_top_nominations_not_full() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn candidate_pool_updates_when_total_counted_changes() {
     let account_id = to_acc_id(1u64);
@@ -4297,7 +4267,6 @@ fn candidate_pool_updates_when_total_counted_changes() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn only_top_collators_are_counted() {
     let account_id = to_acc_id(1u64);
@@ -4384,7 +4353,6 @@ fn only_top_collators_are_counted() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nomination_events_convey_correct_position() {
     let account_id = to_acc_id(1u64);
@@ -4641,7 +4609,6 @@ fn no_rewards_paid_until_after_reward_payment_delay() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn deferred_payment_storage_items_are_cleaned_up() {
     use crate::*;
@@ -4802,7 +4769,6 @@ fn deferred_payment_storage_items_are_cleaned_up() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn deferred_payment_steady_state_event_flow() {
     use frame_support::traits::{Currency, ExistenceRequirement, WithdrawReasons};
@@ -4983,7 +4949,6 @@ fn deferred_payment_steady_state_event_flow() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn nomination_kicked_from_bottom_removes_pending_request() {
     let account_id = to_acc_id(1u64);
@@ -5105,7 +5070,6 @@ fn no_selected_candidates_defaults_to_last_era_collators() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_eras_but_not_for_future() {
     let account_id = to_acc_id(1u64);
@@ -5172,7 +5136,6 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_for_previous_eras_but_not_for
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
     let account_id = to_acc_id(1u64);
@@ -5245,7 +5208,6 @@ fn test_nominator_scheduled_for_revoke_is_rewarded_when_request_cancelled() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_less_for_future() {
     let account_id = to_acc_id(1u64);
@@ -5316,7 +5278,6 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_for_previous_eras_but_
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled() {
     let account_id = to_acc_id(1u64);
@@ -5393,7 +5354,6 @@ fn test_nominator_scheduled_for_bond_decrease_is_rewarded_when_request_cancelled
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_eras_but_not_for_future() {
     let account_id = to_acc_id(1u64);
@@ -5456,7 +5416,6 @@ fn test_nominator_scheduled_for_leave_is_rewarded_for_previous_eras_but_not_for_
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn test_nominator_scheduled_for_leave_is_rewarded_when_request_cancelled() {
     let account_id = to_acc_id(1u64);
@@ -5780,7 +5739,6 @@ fn locking_zero_amount_is_ignored() {
         });
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn revoke_last_removes_lock() {
     let account_id = to_acc_id(1u64);

@@ -1,5 +1,6 @@
-//Copyright 2025 Aventus Network Services.
-#![cfg(all(test, not(feature = "disable-staking")))]
+//Copyright 2022 Aventus Network Services.
+
+#![cfg(test)]
 
 use crate::{
     assert_event_emitted, assert_last_event, encode_signed_execute_candidate_unbond_params,

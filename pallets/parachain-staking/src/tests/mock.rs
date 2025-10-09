@@ -826,7 +826,6 @@ fn fake_treasury() -> AccountId {
     return TestAccount::new(8999999998u64).account_id()
 }
 
-#[cfg_attr(feature = "disable-staking", ignore)]
 #[test]
 fn genesis() {
     let collator_1 = TestAccount::new(1u64).account_id();
