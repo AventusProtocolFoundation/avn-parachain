@@ -153,7 +153,7 @@ pub const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscov
 pub const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
 pub const DEFAULT_ETH_RANGE: u32 = 20u32;
 
-const STORAGE_VERSION: StorageVersion = StorageVersion::new(3);
+const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -418,6 +418,7 @@ pub mod pallet {
         InvalidInstance,
         AuthorNotSender,
         SigningError,
+        InvalidCorroborationData,
     }
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]
@@ -520,6 +521,7 @@ pub mod pallet {
             tx_succeeded: bool,
             tx_hash_is_valid: bool,
             author: Author<T>,
+            replay_attempt: u16,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
@@ -529,6 +531,10 @@ pub mod pallet {
 
                 if tx.tx_data.is_some() {
                     let data = tx.tx_data.as_mut().expect("has data");
+                    ensure!(
+                        replay_attempt == data.replay_attempt,
+                        Error::<T, I>::InvalidCorroborationData
+                    );
 
                     let author_is_sender = author.account_id == data.sender;
                     ensure!(!author_is_sender, Error::<T, I>::CannotCorroborateOwnTransaction);
@@ -761,7 +767,7 @@ pub mod pallet {
                     if let Some(tx) = ActiveRequest::<T, I>::get() {
                         match tx.request {
                             Request::Send(tx_data) => {
-                                set_up_active_tx::<T, I>(tx_data)?;
+                                set_up_active_tx::<T, I>(tx_data, None)?;
                             },
                             _ => {},
                         }
@@ -931,6 +937,7 @@ pub mod pallet {
                         status,
                         tx_hash_is_valid.unwrap_or_default(),
                         author,
+                        tx.replay_attempt,
                     ),
                     (None, _) => {},
                 }
@@ -1103,6 +1110,7 @@ pub mod pallet {
                     tx_succeeded,
                     tx_hash_is_valid,
                     author,
+                    replay_attempt,
                     signature,
                 } =>
                     if AVN::<T>::signature_is_valid(
@@ -1113,6 +1121,7 @@ pub mod pallet {
                             tx_succeeded,
                             tx_hash_is_valid,
                             &author.account_id,
+                            replay_attempt,
                         ),
                         &author,
                         signature,
