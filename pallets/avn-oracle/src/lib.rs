@@ -138,9 +138,6 @@ pub mod pallet {
         CurrencyNotFound,
     }
 
-    #[pallet::storage]
-    pub type Something<T> = StorageValue<_, u32>;
-
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
