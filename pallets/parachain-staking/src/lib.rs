@@ -72,6 +72,15 @@ pub use types::*;
 pub type AVN<T> = pallet_avn::Pallet<T>;
 pub const PALLET_ID: &'static [u8; 17] = b"parachain_staking";
 pub const MAX_OFFENDERS: u32 = 2;
+
+fn is_staking_enabled() -> bool {
+    if cfg!(not(test)) {
+        false
+    } else {
+        true
+    }
+}
+
 #[pallet]
 pub mod pallet {
     #[cfg(not(feature = "std"))]
@@ -79,7 +88,7 @@ pub mod pallet {
     #[cfg(not(feature = "std"))]
     use alloc::{format, string::String};
 
-    use crate::set::BoundedOrderedSet;
+    use crate::{is_staking_enabled, set::BoundedOrderedSet};
     pub use crate::{
         nomination_requests::{CancelledScheduledRequest, NominationAction, ScheduledRequest},
         proxy_methods::*,
@@ -1213,10 +1222,7 @@ pub mod pallet {
             nomination_count: u32,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
-            #[cfg(not(test))]
-            {
-                return Err(Error::<T>::StakingNotAllowed.into())
-            }
+            ensure!(is_staking_enabled(), Error::<T>::StakingNotAllowed);
             return Self::call_nominate(
                 &nominator,
                 candidate,
@@ -1238,10 +1244,7 @@ pub mod pallet {
             #[pallet::compact] amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
-            #[cfg(not(test))]
-            {
-                return Err(Error::<T>::StakingNotAllowed.into())
-            }
+            ensure!(is_staking_enabled(), Error::<T>::StakingNotAllowed);
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let nominator_nonce = Self::proxy_nonce(&nominator);
@@ -1418,10 +1421,7 @@ pub mod pallet {
             more: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
-            #[cfg(not(test))]
-            {
-                return Err(Error::<T>::StakingNotAllowed.into())
-            }
+            ensure!(is_staking_enabled(), Error::<T>::StakingNotAllowed);
             return Self::call_bond_extra(&nominator, candidate, more)
         }
 
@@ -1435,10 +1435,7 @@ pub mod pallet {
             #[pallet::compact] extra_amount: BalanceOf<T>,
         ) -> DispatchResultWithPostInfo {
             let nominator = ensure_signed(origin)?;
-            #[cfg(not(test))]
-            {
-                return Err(Error::<T>::StakingNotAllowed.into())
-            }
+            ensure!(is_staking_enabled(), Error::<T>::StakingNotAllowed);
             ensure!(nominator == proof.signer, Error::<T>::SenderIsNotSigner);
 
             let nominator_nonce = Self::proxy_nonce(&nominator);
