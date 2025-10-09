@@ -40,6 +40,9 @@ pub trait WeightInfo {
 	fn add_collator() -> Weight;
 	fn remove_validator(v: u32, ) -> Weight;
 	fn rotate_validator_ethereum_key() -> Weight;
+	fn force_complete_registration() -> Weight;
+	fn force_complete_deregistration() -> Weight;
+	fn cancel_pending_operation() -> Weight;
 }
 
 /// Weights for pallet_validators_manager using the Substrate node and recommended hardware.
@@ -145,6 +148,44 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
+	/// Storage: `ValidatorsManager::PendingValidatorRegistrations` (r:1 w:1)
+	/// Storage: `ValidatorsManager::ValidatorAccountIds` (r:1 w:1)
+	/// Storage: `ValidatorsManager::PendingValidatorTransactions` (r:0 w:1)
+	/// Storage: `ValidatorsManager::EthereumPublicKeys` (r:0 w:1)
+	/// Storage: `ValidatorsManager::ValidatorActions` (r:0 w:1)
+	/// Storage: `ValidatorsManager::TotalIngresses` (r:0 w:1)
+	/// Storage: `ParachainStaking::CandidatePool` (r:1 w:1)
+	/// Storage: `ParachainStaking::CandidateInfo` (r:1 w:1)
+	/// Storage: Various staking reads/writes (estimate)
+	fn force_complete_registration() -> Weight {
+		// TODO: Benchmark this properly
+		Weight::from_parts(100_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(8_u64))
+			.saturating_add(T::DbWeight::get().writes(11_u64))
+	}
+	/// Storage: `ValidatorsManager::PendingValidatorDeregistrations` (r:1 w:1)
+	/// Storage: `ValidatorsManager::ValidatorAccountIds` (r:1 w:1)
+	/// Storage: `ValidatorsManager::PendingValidatorTransactions` (r:0 w:1)
+	/// Storage: `ValidatorsManager::EthereumPublicKeys` (r:0 w:1)
+	/// Storage: `ValidatorsManager::DeactivatingValidators` (r:0 w:1)
+	/// Storage: `ParachainStaking::CandidatePool` (r:1 w:0)
+	/// Storage: `ParachainStaking::CandidateInfo` (r:1 w:1)
+	/// Storage: Various staking reads/writes (estimate)
+	fn force_complete_deregistration() -> Weight {
+		// TODO: Benchmark this properly
+		Weight::from_parts(80_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(9_u64))
+			.saturating_add(T::DbWeight::get().writes(9_u64))
+	}
+	/// Storage: `ValidatorsManager::PendingValidatorRegistrations` (r:1 w:1)
+	/// Storage: `ValidatorsManager::PendingValidatorDeregistrations` (r:1 w:1)
+	/// Storage: `ValidatorsManager::PendingValidatorTransactions` (r:0 w:1)
+	fn cancel_pending_operation() -> Weight {
+		// TODO: Benchmark this properly
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -246,6 +287,44 @@ impl WeightInfo for () {
 		//  Estimated: `6102`
 		// Minimum execution time: 29_402_000 picoseconds.
 		Weight::from_parts(30_043_000, 6102)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `ValidatorsManager::PendingValidatorRegistrations` (r:1 w:1)
+	/// Storage: `ValidatorsManager::ValidatorAccountIds` (r:1 w:1)
+	/// Storage: `ValidatorsManager::PendingValidatorTransactions` (r:0 w:1)
+	/// Storage: `ValidatorsManager::EthereumPublicKeys` (r:0 w:1)
+	/// Storage: `ValidatorsManager::ValidatorActions` (r:0 w:1)
+	/// Storage: `ValidatorsManager::TotalIngresses` (r:0 w:1)
+	/// Storage: `ParachainStaking::CandidatePool` (r:1 w:1)
+	/// Storage: `ParachainStaking::CandidateInfo` (r:1 w:1)
+	/// Storage: Various staking reads/writes (estimate)
+	fn force_complete_registration() -> Weight {
+		// TODO: Benchmark this properly
+		Weight::from_parts(100_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(8_u64))
+			.saturating_add(RocksDbWeight::get().writes(11_u64))
+	}
+	/// Storage: `ValidatorsManager::PendingValidatorDeregistrations` (r:1 w:1)
+	/// Storage: `ValidatorsManager::ValidatorAccountIds` (r:1 w:1)
+	/// Storage: `ValidatorsManager::PendingValidatorTransactions` (r:0 w:1)
+	/// Storage: `ValidatorsManager::EthereumPublicKeys` (r:0 w:1)
+	/// Storage: `ValidatorsManager::DeactivatingValidators` (r:0 w:1)
+	/// Storage: `ParachainStaking::CandidatePool` (r:1 w:0)
+	/// Storage: `ParachainStaking::CandidateInfo` (r:1 w:1)
+	/// Storage: Various staking reads/writes (estimate)
+	fn force_complete_deregistration() -> Weight {
+		// TODO: Benchmark this properly
+		Weight::from_parts(80_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(9_u64))
+			.saturating_add(RocksDbWeight::get().writes(9_u64))
+	}
+	/// Storage: `ValidatorsManager::PendingValidatorRegistrations` (r:1 w:1)
+	/// Storage: `ValidatorsManager::PendingValidatorDeregistrations` (r:1 w:1)
+	/// Storage: `ValidatorsManager::PendingValidatorTransactions` (r:0 w:1)
+	fn cancel_pending_operation() -> Weight {
+		// TODO: Benchmark this properly
+		Weight::from_parts(20_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
