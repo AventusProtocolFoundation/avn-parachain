@@ -667,6 +667,8 @@ impl pallet_avn_oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type PriceRefreshRangeInBlocks = PriceRefreshRangeInBlocks;
+    type ConsensusGracePeriod = ConsensusGracePeriod;
+    type MaxCurrencies = MaxCurrencies;
 }
 
 use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
@@ -693,6 +695,8 @@ parameter_types! {
     pub const MetadataDepositBase: Balance = 1 * MILLI_AVT;
     pub const MetadataDepositPerByte: Balance = 100 * MICRO_AVT;
     pub const DefaultCheckpointFee: Balance = 60 * MILLI_AVT;
+    pub const ConsensusGracePeriod: u32 = 300;
+    pub const MaxCurrencies: u32 = 10;
 }
 const ASSET_ACCOUNT_DEPOSIT: Balance = 100 * MICRO_AVT;
 
