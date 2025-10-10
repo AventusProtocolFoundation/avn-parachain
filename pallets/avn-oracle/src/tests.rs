@@ -493,7 +493,7 @@ mod clear_consensus {
                 // in grace period blocks, it should reset round
                 let current_block: u64 = <frame_system::Pallet<TestRuntime>>::block_number();
                 let rates_refresh_range: u32 =
-                    <TestRuntime as Config>::PriceRefreshRangeInBlocks::get();
+                    RatesRefreshRangeBlocks::<TestRuntime>::get();
                 let grace: u32 = <TestRuntime as Config>::ConsensusGracePeriod::get();
                 let new_block_number = current_block
                     .saturating_add(grace.into())
@@ -542,7 +542,7 @@ mod clear_consensus {
                 // in grace period blocks, it should reset round
                 let current_block: u64 = <frame_system::Pallet<TestRuntime>>::block_number();
                 let rates_refresh_range: u32 =
-                    <TestRuntime as Config>::PriceRefreshRangeInBlocks::get();
+                    RatesRefreshRangeBlocks::<TestRuntime>::get();
                 let grace: u32 = <TestRuntime as Config>::ConsensusGracePeriod::get();
                 let new_block_number = current_block
                     .saturating_add(grace.into())
@@ -596,6 +596,52 @@ mod clear_consensus {
                     Error::<TestRuntime>::GracePeriodNotPassed
                 );
             })
+        }
+    }
+}
+
+mod set_rates_refresh_range {
+    use super::*;
+
+    #[cfg(test)]
+    mod succeeds_if {
+        use super::*;
+
+        #[test]
+        fn range_is_valid() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let valid_rates_range: u32 =
+                    <TestRuntime as Config>::MinRatesRefreshRange::get();
+
+                assert_ok!(AvnOracle::set_rates_refresh_range(
+                    RuntimeOrigin::root(),
+                    valid_rates_range
+                ));
+            });
+        }
+    }
+
+    #[cfg(test)]
+    mod fails_if {
+        use super::*;
+
+        #[test]
+        fn range_is_invalid() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let min_rates_range: u32 =
+                    <TestRuntime as Config>::MinRatesRefreshRange::get();
+                let invalid_rates_range: u32 = min_rates_range.saturating_sub(1);
+
+                assert_err!(
+                    AvnOracle::set_rates_refresh_range(
+                        RuntimeOrigin::root(),
+                        invalid_rates_range
+                    ),
+                    Error::<TestRuntime>::RateRangeTooLow
+                );
+            });
         }
     }
 }

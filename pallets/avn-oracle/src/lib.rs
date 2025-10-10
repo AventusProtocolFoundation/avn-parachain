@@ -70,6 +70,10 @@ pub mod pallet {
     pub type CurrencySymbols<T: Config> =
         StorageMap<_, Blake2_128Concat, CurrencySymbol, (), OptionQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn rates_refresh_range)]
+    pub type RatesRefreshRangeBlocks<T> = StorageValue<_, u32, ValueQuery>;
+
     #[pallet::config]
     pub trait Config:
         SendTransactionTypes<Call<Self>>
@@ -82,10 +86,6 @@ pub mod pallet {
         /// A type representing the weights required by the dispatchables of this pallet.
         type WeightInfo;
 
-        /// How often rates should be refreshed, in blocks
-        #[pallet::constant]
-        type PriceRefreshRangeInBlocks: Get<u32>;
-
         /// Grace period for consensus
         #[pallet::constant]
         type ConsensusGracePeriod: Get<u32>;
@@ -93,6 +93,10 @@ pub mod pallet {
         /// Maximum number of currencies
         #[pallet::constant]
         type MaxCurrencies: Get<u32>;
+
+        /// Minimum Rates Refresh range
+        #[pallet::constant]
+        type MinRatesRefreshRange: Get<u32>;
     }
 
     #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
@@ -116,10 +120,11 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        PriceUpdated { rates: Rates, nonce: u32 },
+        RatesUpdated { rates: Rates, nonce: u32 },
         ConsensusCleared { period: u32 },
         CurrencyRegistered { symbol: Vec<u8> },
         CurrencyRemoved { symbol: Vec<u8> },
+        RatesRefreshRangeUpdated { old: u32, new: u32 },
     }
 
     #[pallet::error]
@@ -136,6 +141,7 @@ pub mod pallet {
         TooManyCurrencies,
         GracePeriodNotPassed,
         CurrencyNotFound,
+        RateRangeTooLow,
     }
 
     #[pallet::call]
@@ -168,7 +174,7 @@ pub mod pallet {
 
             if count > AVN::<T>::quorum() {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
-                Self::deposit_event(Event::<T>::PriceUpdated { rates: rates.clone(), nonce });
+                Self::deposit_event(Event::<T>::RatesUpdated { rates: rates.clone(), nonce });
 
                 for (symbol, value) in &rates.0 {
                     NativeTokenRateByCurrency::<T>::insert(symbol, value.clone());
@@ -199,13 +205,13 @@ pub mod pallet {
             let last_submission_block = LastPriceSubmission::<T>::get();
 
             let required_block = last_submission_block
-                .saturating_add(BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get()))
+                .saturating_add(BlockNumberFor::<T>::from(RatesRefreshRangeBlocks::<T>::get()))
                 .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()));
 
             ensure!(current_block >= required_block, Error::<T>::GracePeriodNotPassed);
 
             let new_last_submission_block = current_block
-                .saturating_sub(BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get()));
+                .saturating_sub(BlockNumberFor::<T>::from(RatesRefreshRangeBlocks::<T>::get()));
             LastPriceSubmission::<T>::put(new_last_submission_block);
 
             let cleared_period = Nonce::<T>::get();
@@ -251,6 +257,24 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::CurrencyRemoved { symbol });
             Ok(().into())
         }
+
+        #[pallet::call_index(4)]
+        #[pallet::weight(Weight::default())]
+        pub fn set_rates_refresh_range(
+            origin: OriginFor<T>,
+            new_value: u32,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(
+                new_value >= T::MinRatesRefreshRange::get(),
+                Error::<T>::RateRangeTooLow
+            );
+
+            let old = RatesRefreshRangeBlocks::<T>::get();
+            RatesRefreshRangeBlocks::<T>::put(new_value);
+            Self::deposit_event(Event::<T>::RatesRefreshRangeUpdated { old, new: new_value });
+            Ok(().into())
+        }
     }
 
     #[pallet::hooks]
@@ -262,7 +286,7 @@ pub mod pallet {
             let nonce = Nonce::<T>::get();
             if (n >=
                 last_submission_block +
-                    BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get())) &&
+                    BlockNumberFor::<T>::from(RatesRefreshRangeBlocks::<T>::get())) &&
                 !PriceSubmissionTimestamps::<T>::contains_key(nonce)
             {
                 let now = pallet_timestamp::Pallet::<T>::now();
@@ -434,7 +458,7 @@ pub mod pallet {
 
             if current_block >=
                 last_submission_block +
-                    BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get())
+                    BlockNumberFor::<T>::from(RatesRefreshRangeBlocks::<T>::get())
             {
                 let mut lock = AVN::<T>::get_ocw_locker(&guard_lock_name);
                 if let Ok(guard) = lock.try_lock() {
@@ -473,7 +497,7 @@ pub mod pallet {
 
             if current_block >=
                 last_submission_block
-                    .saturating_add(BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get()))
+                    .saturating_add(BlockNumberFor::<T>::from(RatesRefreshRangeBlocks::<T>::get()))
                     .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
             {
                 let signature = submitter
