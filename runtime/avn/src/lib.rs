@@ -585,6 +585,7 @@ parameter_types! {
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
     pub const EthAutoSubmitSummaries: bool = true;
     pub const EthereumInstanceId: u8 = 1u8;
+    pub const PriceRefreshRangeInBlocks: u32 = 50; // 10 minutes
 }
 
 impl pallet_summary::Config for Runtime {
@@ -662,6 +663,14 @@ impl pallet_avn_anchor::Config for Runtime {
     type DefaultCheckpointFee = DefaultCheckpointFee;
 }
 
+impl pallet_avn_oracle::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type PriceRefreshRangeInBlocks = PriceRefreshRangeInBlocks;
+    type ConsensusGracePeriod = ConsensusGracePeriod;
+    type MaxCurrencies = MaxCurrencies;
+}
+
 use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};
 
 impl pallet_eth_bridge::Config for Runtime {
@@ -686,6 +695,8 @@ parameter_types! {
     pub const MetadataDepositBase: Balance = 1 * MILLI_AVT;
     pub const MetadataDepositPerByte: Balance = 100 * MICRO_AVT;
     pub const DefaultCheckpointFee: Balance = 60 * MILLI_AVT;
+    pub const ConsensusGracePeriod: u32 = 300;
+    pub const MaxCurrencies: u32 = 10;
 }
 const ASSET_ACCOUNT_DEPOSIT: Balance = 100 * MICRO_AVT;
 
@@ -819,6 +830,7 @@ construct_runtime!(
         AvnTransactionPayment: pallet_avn_transaction_payment = 90,
         EthBridge: pallet_eth_bridge = 91,
         AvnAnchor: pallet_avn_anchor = 92,
+        AvnOracle: pallet_avn_oracle = 93,
 
         // OpenGov pallets
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 97,
