@@ -1229,8 +1229,6 @@ impl<T: Config> Pallet<T> {
             !disabled_validators.iter().any(|v| v == deregistered_validator)
     }
 
-    // Legacy remove_deregistered_validator has been removed - use new deregistration flow instead
-
     fn deregistration_state_is_active(status: ValidatorsActionStatus) -> bool {
         matches!(
             status,
