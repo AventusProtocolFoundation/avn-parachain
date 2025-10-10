@@ -1,0 +1,69 @@
+[settings]
+timeout = 1200
+provider = "native"
+bootnode = false
+
+[relaychain]
+chain = "rococo-local"
+default_command = "<path_to_repo>/polkadot"
+default_args = [ "-lparachain=debug" ]
+
+  [[relaychain.nodes]]
+  name = "alice"
+  validator = true
+
+  [[relaychain.nodes]]
+  name = "bob"
+  validator = true
+
+[[parachains]]
+id = 2000
+add_to_genesis = false
+cumulus_based = true
+onboard_as_parachain = true
+register_para = true
+chain = "local"
+force_decorator = "aventus"
+chain_spec_path = "<path_to_repo>/avn-parachain/chain-specs/<generated_spec_name>-raw.json"
+  [[parachains.collators]]
+  name = "eve"
+  command = "<path_to_repo>/avn-parachain/target/release/avn-parachain-collator"
+  validator = true
+  keystore_key_types = ["aura", "babe", "imon", "gran", "avnk", "ethk_ec"]
+  args = ["-lparachain=debug", "--ethereum-node-url", "http://127.0.0.1:8545", "--avn-port", "2120", "--eve"]
+
+  [[parachains.collators]]
+  name = "ferdie"
+  command = "<path_to_repo>/avn-parachain/target/release/avn-parachain-collator"
+  validator = true
+  keystore_key_types = ["aura", "babe", "imon", "gran", "avnk", "ethk_ec"]
+  args = ["-lparachain=debug", "--ethereum-node-url", "http://127.0.0.1:8545", "--avn-port", "2121", "--ferdie"]
+
+  [[parachains.collators]]
+  name = "dave"
+  command = "<path_to_repo>/avn-parachain/target/release/avn-parachain-collator"
+  validator = true
+  keystore_key_types = ["aura", "babe", "imon", "gran", "avnk", "ethk_ec"]
+  args = ["-lparachain=debug", "--ethereum-node-url", "http://127.0.0.1:8545", "--avn-port", "2122", "--dave"]
+
+  [[parachains.collators]]
+  name = "charlie"
+  command = "<path_to_repo>/avn-parachain/target/release/avn-parachain-collator"
+  validator = true
+  keystore_key_types = ["aura", "babe", "imon", "gran", "avnk", "ethk_ec"]
+  args = ["-lparachain=debug", "--ethereum-node-url", "http://127.0.0.1:8545", "--avn-port", "2124", "--charlie"]
+
+  # Non-validator parachain node (does not pass --collator)
+  [[parachains.collators]]
+  name = "avn-full-1"
+  command = "<path_to_repo>/avn-parachain/target/release/avn-parachain-collator"
+  validator = false
+  keystore_key_types = ["aura", "babe", "imon", "gran", "avnk", "ethk_ec"]
+  args = ["-lparachain=debug", "--ethereum-node-url", "http://127.0.0.1:8545", "--avn-port", "2123"]
+
+[types.Header]
+number = "u64"
+parent_hash = "Hash"
+post_state = "Hash"
+
+
