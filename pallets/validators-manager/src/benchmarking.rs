@@ -16,7 +16,7 @@ use pallet_avn::{self as avn};
 use pallet_parachain_staking::{Currency, Pallet as ParachainStaking};
 use pallet_session::Pallet as Session;
 use sp_avn_common::eth_key_actions::decompress_eth_public_key;
-use sp_core::{ecdsa::Public, H512};
+use sp_core::ecdsa::Public;
 use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
 
 // Resigner keys derived from [6u8; 32] private key
@@ -185,9 +185,13 @@ fn generate_collator_eth_public_key_from_seed<T: Config>(seed: u64) -> Public {
     let secret_key = SecretKey::random(&mut rng);
     let public_key = PublicKey::from_secret_key(&secret_key);
 
-    return ValidatorManager::<T>::compress_eth_public_key(H512::from_slice(
-        &public_key.serialize()[1..],
-    ))
+    // Compress the public key manually (compress_eth_public_key was removed)
+    let serialized = public_key.serialize();
+    let mut compressed = [0u8; 33];
+    compressed[1..33].copy_from_slice(&serialized[1..33]);
+    compressed[0] = if serialized[64] % 2 == 0 { 2u8 } else { 3u8 };
+
+    Public::from_raw(compressed)
 }
 
 fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64, eth_public_key: &Public) {
@@ -204,6 +208,10 @@ fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64, eth_pub
     )
     .unwrap();
 
+    // Simulate T1 callback to complete registration
+    let pending = PendingValidatorRegistrations::<T>::get(collator_id).unwrap();
+    ValidatorManager::<T>::process_result(pending.tx_id, b"author_manager".to_vec(), true).unwrap();
+
     //Advance 2 session to add the collator to the session
     advance_session::<T>();
     advance_session::<T>();
@@ -219,7 +227,9 @@ benchmarks! {
         assert_eq!(false, pallet_parachain_staking::CandidateInfo::<T>::contains_key(&candidate));
     }: _(RawOrigin::Root, candidate.clone(), eth_public_key, None)
     verify {
-        assert!(pallet_parachain_staking::CandidateInfo::<T>::contains_key(&candidate));
+        // Async behavior: Should be in pending state, not candidate yet
+        assert!(PendingValidatorRegistrations::<T>::contains_key(&candidate));
+        assert_eq!(false, pallet_parachain_staking::CandidateInfo::<T>::contains_key(&candidate));
     }
 
     remove_validator {
@@ -231,9 +241,17 @@ benchmarks! {
 
     }: remove_validator(RawOrigin::Root, caller_account.clone())
     verify {
-        assert_eq!(ValidatorAccountIds::<T>::get().unwrap().iter().position(|validator_account_id| *validator_account_id == caller_account), None);
-        assert_last_event::<T>(Event::<T>::ValidatorDeregistered{ validator_id: caller_account.clone() }.into());
-        assert_eq!(true, ValidatorActions::<T>::contains_key(caller_account, <TotalIngresses<T>>::get()));
+        // Async behavior: Should be in pending state, not removed yet
+        assert!(PendingValidatorDeregistrations::<T>::contains_key(&caller_account));
+        // Validator still in active list (waiting for T1 confirmation)
+        assert!(ValidatorAccountIds::<T>::get().unwrap().contains(&caller_account));
+        // T1TransactionSent is the LAST event emitted (remove_validator emits 2 events)
+        let tx_id = PendingValidatorDeregistrations::<T>::get(&caller_account).unwrap().tx_id;
+        assert_last_event::<T>(Event::<T>::T1TransactionSent{
+            validator_id: caller_account.clone(),
+            tx_id,
+            operation_type: PendingValidatorOperationType::Deregistration,
+        }.into());
     }
 
     rotate_validator_ethereum_key {
@@ -251,6 +269,107 @@ benchmarks! {
     verify {
         assert!(EthereumPublicKeys::<T>::get(&eth_new_public_key).is_some());
         assert!(EthereumPublicKeys::<T>::get(&rotating_eth_key).is_none());
+    }
+
+    force_complete_registration {
+        // Setup: Create a pending registration
+        let candidate: T::AccountId = account("stuck_candidate", 2, 2);
+        let eth_public_key: ecdsa::Public = Public::from_raw(NEW_COLLATOR_ETHEREUM_PUBLIC_KEY);
+
+        <T as pallet_parachain_staking::Config>::Currency::make_free_balance_be(
+            &candidate,
+            ParachainStaking::<T>::min_collator_stake() * 2u32.into(),
+        );
+
+        // Create pending registration manually (simulating stuck state)
+        let tx_id = 12345u32;
+        PendingValidatorRegistrations::<T>::insert(
+            &candidate,
+            PendingValidatorRegistrationData {
+                account_id: candidate.clone(),
+                eth_public_key: eth_public_key.clone(),
+                tx_id,
+                timestamp: frame_system::Pallet::<T>::block_number(),
+                deposit: Some(ParachainStaking::<T>::min_collator_stake()),
+            },
+        );
+        PendingValidatorTransactions::<T>::insert(
+            tx_id,
+            (candidate.clone(), PendingValidatorOperationType::Registration),
+        );
+
+        set_session_keys::<T>(&candidate, 21u64);
+
+    }: _(RawOrigin::Root, candidate.clone())
+    verify {
+        // Pending state should be cleaned up
+        assert!(!PendingValidatorRegistrations::<T>::contains_key(&candidate));
+        assert!(!PendingValidatorTransactions::<T>::contains_key(tx_id));
+        // Validator should be active
+        assert!(ValidatorAccountIds::<T>::get().unwrap().contains(&candidate));
+    }
+
+    force_complete_deregistration {
+        // Setup: Add a validator then create pending deregistration
+        setup_additional_validators::<T>(3);
+        let (caller_account, _, _) = generate_resigning_collator_account_details::<T>();
+
+        // Create pending deregistration manually (simulating stuck state)
+        let tx_id = 54321u32;
+        PendingValidatorDeregistrations::<T>::insert(
+            &caller_account,
+            PendingValidatorDeregistrationData {
+                tx_id,
+                timestamp: frame_system::Pallet::<T>::block_number(),
+                reason: ValidatorDeregistrationReason::Voluntary,
+            },
+        );
+        PendingValidatorTransactions::<T>::insert(
+            tx_id,
+            (caller_account.clone(), PendingValidatorOperationType::Deregistration),
+        );
+
+        assert!(ValidatorAccountIds::<T>::get().unwrap().contains(&caller_account));
+
+    }: _(RawOrigin::Root, caller_account.clone())
+    verify {
+        // Pending state should be cleaned up
+        assert!(!PendingValidatorDeregistrations::<T>::contains_key(&caller_account));
+        assert!(!PendingValidatorTransactions::<T>::contains_key(tx_id));
+        // Should be marked as deactivating
+        assert!(DeactivatingValidators::<T>::contains_key(&caller_account));
+    }
+
+    cancel_pending_operation {
+        // Setup: Create a pending registration
+        let candidate: T::AccountId = account("pending_candidate", 3, 3);
+        let eth_public_key: ecdsa::Public = generate_collator_eth_public_key_from_seed::<T>(999);
+
+        let tx_id = 99999u32;
+        PendingValidatorRegistrations::<T>::insert(
+            &candidate,
+            PendingValidatorRegistrationData {
+                account_id: candidate.clone(),
+                eth_public_key,
+                tx_id,
+                timestamp: frame_system::Pallet::<T>::block_number(),
+                deposit: Some(ParachainStaking::<T>::min_collator_stake()),
+            },
+        );
+        PendingValidatorTransactions::<T>::insert(
+            tx_id,
+            (candidate.clone(), PendingValidatorOperationType::Registration),
+        );
+
+        assert!(PendingValidatorRegistrations::<T>::contains_key(&candidate));
+
+    }: _(RawOrigin::Root, candidate.clone())
+    verify {
+        // Pending state should be cleaned up
+        assert!(!PendingValidatorRegistrations::<T>::contains_key(&candidate));
+        assert!(!PendingValidatorTransactions::<T>::contains_key(tx_id));
+        // Validator should NOT be added
+        assert!(!ValidatorAccountIds::<T>::get().unwrap().contains(&candidate));
     }
 }
 
