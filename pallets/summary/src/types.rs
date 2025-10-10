@@ -49,7 +49,7 @@ impl<AccountId> Default for RootData<AccountId> {
 pub enum ExternalValidationEnum {
     Unknown,
     ValidationInProgress,
-    PendingAdminResolution,
+    PendingAdminReview,
     Accepted,
     Rejected,
 }
@@ -62,9 +62,9 @@ impl Default for ExternalValidationEnum {
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct ExternalValidationData {
-    proposal_id: ProposalId,
-    external_ref: H256,
-    external_validation_status: ProposalStatusEnum,
+    pub proposal_id: ProposalId,
+    pub external_ref: H256,
+    pub external_validation_status: ProposalStatusEnum,
 }
 
 impl ExternalValidationData {
@@ -75,4 +75,11 @@ impl ExternalValidationData {
     ) -> Self {
         Self { proposal_id, external_ref, external_validation_status }
     }
+}
+
+#[derive(Encode, Decode, TypeInfo, Debug, Clone, PartialEq)]
+pub enum AdminConfig<BlockNumber> {
+    ExternalValidationThreshold(u32),
+    SchedulePeriod(BlockNumber),
+    VotingPeriod(BlockNumber),
 }

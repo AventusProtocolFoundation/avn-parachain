@@ -24,17 +24,19 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
             }
 
-            Self::deposit_event(Event::<T, I>::RootFinalised {
-                root_hash,
-                block_range: root_id.range,
-            });
+            Self::deposit_event(Event::<T, I>::RootFinalised { root_id: *root_id, root_hash });
         }
 
         Ok(())
     }
 
-    pub fn cleanup_external_validation_data(root_id: &RootId<BlockNumberFor<T>>) {
+    pub fn cleanup_external_validation_data(
+        root_id: &RootId<BlockNumberFor<T>>,
+        external_ref: &H256,
+    ) {
         <ExternalValidationStatus<T, I>>::remove(root_id);
+        <ExternalValidationRef<T, I>>::remove(external_ref);
+        <PendingAdminReviews<T, I>>::remove(root_id);
     }
 
     pub fn submit_root_for_external_validation(
@@ -90,7 +92,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         external_ref: H256,
         status: ProposalStatusEnum,
     ) {
-        Self::set_summary_status(&root_id, ExternalValidationEnum::PendingAdminResolution);
+        Self::set_summary_status(&root_id, ExternalValidationEnum::PendingAdminReview);
         <PendingAdminReviews<T, I>>::insert(
             root_id,
             ExternalValidationData::new(proposal_id, external_ref, status.clone()),

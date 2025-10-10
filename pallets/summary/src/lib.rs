@@ -217,7 +217,15 @@ pub mod pallet {
             status: ProposalStatusEnum,
         },
         /// Root has been finalised
-        RootFinalised { root_hash: H256, block_range: RootRange<BlockNumberFor<T>> },
+        RootFinalised { root_id: RootId<BlockNumberFor<T>>, root_hash: H256 },
+        /// Root challenge has been resolved by an admin
+        RootChallengeResolved { root_id: RootId<BlockNumberFor<T>>, accepted: bool },
+        /// A new schedule period has been set
+        SchedulePeriodSet { new_period: BlockNumberFor<T> },
+        /// A new voting period has been set
+        VotingPeriodSet { new_period: BlockNumberFor<T> },
+        /// A new external validation threshold has been set
+        ExternalValidationThresholdSet { new_threshold: u32 },
     }
 
     #[pallet::error]
@@ -256,6 +264,10 @@ pub mod pallet {
         ErrorPublishingSummary,
         /// There is no rootId for the given external reference
         ExternalRefNotFound,
+        /// There is no external validation request for the given rootId
+        ExternalValidationRequestNotFound,
+        /// There is no external validation status for the given rootId
+        ExternalValidationStatusMissing,
     }
 
     // Note for SYS-152 (see notes in fn end_voting)):
@@ -371,6 +383,7 @@ pub mod pallet {
     #[pallet::storage]
     pub type ExternalValidationRef<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Blake2_128Concat, H256, RootId<BlockNumberFor<T>>, OptionQuery>;
+
     /// Roots that failed external validation and are pending admin review
     #[pallet::storage]
     pub type PendingAdminReviews<T: Config<I>, I: 'static = ()> = StorageMap<
@@ -380,6 +393,11 @@ pub mod pallet {
         ExternalValidationData,
         OptionQuery,
     >;
+
+    /// The threshold required for external validation to pass (in percent, e.g. 51 means 51%)
+    #[pallet::storage]
+    pub type ExternalValidationThreshold<T: Config<I>, I: 'static = ()> =
+        StorageValue<_, u32, OptionQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -442,6 +460,8 @@ pub mod pallet {
 
     #[pallet::call(weight(<T as Config<I>>::WeightInfo))]
     impl<T: Config<I>, I: 'static> Pallet<T, I> {
+        #[allow(deprecated)]
+        #[deprecated(note = "This extrinsic is deprecated, please use `set_admin_config` instead.")]
         #[pallet::weight(<T as pallet::Config<I>>::WeightInfo::set_periods())]
         #[pallet::call_index(0)]
         pub fn set_periods(
@@ -665,6 +685,87 @@ pub mod pallet {
                 challenger: challenge.challenger,
                 challengee: challenge.challengee,
             });
+
+            Ok(())
+        }
+
+        /// Set admin configurations
+        #[pallet::call_index(7)]
+        #[pallet::weight(
+             <T as pallet::Config<I>>::WeightInfo::set_external_validation_threshold()
+            .max(<T as pallet::Config<I>>::WeightInfo::set_schedule_period())
+            .max(<T as pallet::Config<I>>::WeightInfo::set_voting_period())
+        )]
+        pub fn set_admin_config(
+            origin: OriginFor<T>,
+            config: AdminConfig<BlockNumberFor<T>>,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+
+            match config {
+                AdminConfig::ExternalValidationThreshold(threshold) => {
+                    <ExternalValidationThreshold<T, I>>::mutate(|p| *p = Some(threshold));
+                    Self::deposit_event(Event::ExternalValidationThresholdSet {
+                        new_threshold: threshold,
+                    });
+                    return Ok(Some(
+                        <T as Config<I>>::WeightInfo::set_external_validation_threshold(),
+                    )
+                    .into());
+                },
+                AdminConfig::SchedulePeriod(period) => {
+                    Self::validate_schedule_period(period)?;
+
+                    let next_block_to_process = <NextBlockToProcess<T, I>>::get();
+                    let new_slot_at_block = safe_add_block_numbers(next_block_to_process, period)
+                        .map_err(|_| Error::<T, I>::Overflow)?;
+
+                    <SchedulePeriod<T, I>>::put(period);
+                    <NextSlotAtBlock<T, I>>::put(new_slot_at_block);
+
+                    Self::deposit_event(Event::SchedulePeriodSet { new_period: period });
+                    return Ok(Some(<T as Config<I>>::WeightInfo::set_schedule_period()).into());
+                },
+                AdminConfig::VotingPeriod(period) => {
+                    let schedule_period = <SchedulePeriod<T, I>>::get();
+                    Self::validate_voting_period(period, schedule_period)?;
+
+                    <VotingPeriod<T, I>>::mutate(|p| *p = period);
+
+                    Self::deposit_event(Event::VotingPeriodSet { new_period: period });
+                    return Ok(Some(<T as Config<I>>::WeightInfo::set_voting_period()).into());
+                },
+            }
+        }
+
+        #[pallet::weight(<T as pallet::Config<I>>::WeightInfo::admin_resolve_challenge())]
+        #[pallet::call_index(8)]
+        pub fn admin_resolve_challenge(
+            origin: OriginFor<T>,
+            root_id: RootId<BlockNumberFor<T>>,
+            accepted: bool,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let pending_review = <PendingAdminReviews<T, I>>::get(&root_id)
+                .ok_or(Error::<T, I>::ExternalValidationRequestNotFound)?;
+
+            let root_data = Self::try_get_root_data(&root_id)?;
+            let external_validation_status = <ExternalValidationStatus<T, I>>::get(&root_id)
+                .ok_or(Error::<T, I>::ExternalValidationStatusMissing)?;
+
+            ensure!(
+                external_validation_status == ExternalValidationEnum::PendingAdminReview,
+                Error::<T, I>::InvalidRoot
+            );
+
+            if accepted {
+                Self::process_accepted_root(&root_id, root_data.root_hash)?;
+            }
+
+            Self::cleanup_external_validation_data(&root_id, &pending_review.external_ref);
+
+            Self::deposit_event(Event::<T, I>::RootChallengeResolved { root_id, accepted });
 
             Ok(())
         }
@@ -1483,7 +1584,7 @@ pub mod pallet {
                             return;
                         };
 
-                        Self::cleanup_external_validation_data(&root_id);
+                        Self::cleanup_external_validation_data(&root_id, external_ref);
                     },
                     _ => {
                         Self::setup_root_for_admin_review(

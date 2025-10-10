@@ -48,11 +48,27 @@ pub trait WeightInfo {
 	fn advance_slot_with_offence(v: u32, ) -> Weight;
 	fn advance_slot_without_offence(v: u32, ) -> Weight;
 	fn add_challenge(v: u32, ) -> Weight;
+	fn set_external_validation_threshold() -> Weight;
+	fn set_schedule_period() -> Weight;
+	fn set_voting_period() -> Weight;
+	fn admin_resolve_challenge() -> Weight;
 }
 
 /// Weights for pallet_summary using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
+	fn set_schedule_period() -> Weight {
+		Weight::from_parts(15_945_000, 1489)
+	}
+	fn set_voting_period() -> Weight {
+		Weight::from_parts(15_945_000, 1489)
+	}
+	fn admin_resolve_challenge() -> Weight {
+		Weight::from_parts(15_945_000, 1489)
+	}
+	fn set_external_validation_threshold() -> Weight {
+		Weight::from_parts(15_945_000, 1489)
+	}
 	/// Storage: `Summary::NextBlockToProcess` (r:1 w:0)
 	/// Proof: `Summary::NextBlockToProcess` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Summary::VotingPeriod` (r:0 w:1)
@@ -399,6 +415,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
+	fn set_schedule_period() -> Weight {
+		Weight::from_parts(15_945_000, 1489)
+	}
+	fn set_voting_period() -> Weight {
+		Weight::from_parts(15_945_000, 1489)
+	}
+	fn admin_resolve_challenge() -> Weight {
+		Weight::from_parts(15_945_000, 1489)
+	}
+	fn set_external_validation_threshold() -> Weight {
+		Weight::from_parts(15_945_000, 1489)
+	}
 	/// Storage: `Summary::NextBlockToProcess` (r:1 w:0)
 	/// Proof: `Summary::NextBlockToProcess` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `Summary::VotingPeriod` (r:0 w:1)
