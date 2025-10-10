@@ -1553,8 +1553,8 @@ pub mod pallet {
         }
     }
 
-    impl<T: Config<I>, I: 'static> WatchtowerHooks<ProposalRequest> for Pallet<T, I> {
-        fn on_proposal_submitted(_id: ProposalId, _p: ProposalRequest) -> DispatchResult {
+    impl<T: Config<I>, I: 'static, P> WatchtowerHooks<P> for Pallet<T, I> {
+        fn on_proposal_submitted(_id: ProposalId, _p: P) -> DispatchResult {
             Ok(())
         }
 
