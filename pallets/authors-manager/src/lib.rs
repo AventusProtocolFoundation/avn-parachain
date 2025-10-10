@@ -15,12 +15,19 @@ use alloc::string::String;
 use sp_avn_common::eth::EthereumId;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{dispatch::DispatchResult, ensure, transactional};
+use frame_support::{
+    dispatch::DispatchResult,
+    ensure,
+    pallet_prelude::{DispatchClass, Weight},
+    traits::Get,
+    transactional,
+};
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_session::{self as session, Config as SessionConfig};
 use sp_core::{bounded::BoundedVec, ecdsa};
 use sp_runtime::{
     scale_info::TypeInfo,
-    traits::{Convert, Member},
+    traits::{Convert, Member, Saturating},
     DispatchError,
 };
 use sp_std::prelude::*;
@@ -38,7 +45,41 @@ pub use pallet::*;
 
 const PALLET_ID: &'static [u8; 14] = b"author_manager";
 
-const DEFAULT_MINIMUM_AUTHORS_COUNT: usize = 2;
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct PendingAuthorRegistrationData<AccountId, BlockNumber> {
+    pub account_id: AccountId,
+    pub eth_public_key: ecdsa::Public,
+    pub tx_id: EthereumId,
+    pub timestamp: BlockNumber,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct PendingAuthorDeregistrationData<BlockNumber> {
+    pub tx_id: EthereumId,
+    pub timestamp: BlockNumber,
+    pub reason: AuthorDeregistrationReason,
+}
+
+#[derive(Encode, Decode, Copy, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum PendingAuthorOperationType {
+    Registration,
+    Deregistration,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo)]
+pub enum AuthorStatus {
+    NotAuthor,
+    PendingRegistration,
+    Active,
+    PendingDeregistration,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum AuthorDeregistrationReason {
+    Voluntary,
+    Slashing,
+    Governance,
+}
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;
@@ -78,23 +119,89 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         type BridgeInterface: BridgeInterface;
+
+        /// Maximum blocks a pending operation can remain before timeout
+        #[pallet::constant]
+        type PendingOperationTimeout: Get<BlockNumberFor<Self>>;
+
+        /// Minimum number of authors that must remain active
+        #[pallet::constant]
+        type MinimumAuthorCount: Get<u32>;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// A new author has been registered. \[author_id, eth_key\]
-        AuthorRegistered { author_id: T::AccountId, eth_key: ecdsa::Public },
+        AuthorRegistered {
+            author_id: T::AccountId,
+            eth_key: ecdsa::Public,
+        },
         /// An author has been deregistered. \[author_id\]
-        AuthorDeregistered { author_id: T::AccountId },
+        AuthorDeregistered {
+            author_id: T::AccountId,
+        },
         /// An author has activation has started. \[author_id\]
-        AuthorActivationStarted { author_id: T::AccountId },
+        AuthorActivationStarted {
+            author_id: T::AccountId,
+        },
         /// An author action has been confirmed. \[action_id\]
-        AuthorActionConfirmed { action_id: ActionId<T::AccountId> },
+        AuthorActionConfirmed {
+            action_id: ActionId<T::AccountId>,
+        },
         /// Failed to publish author action on Tier1. \[tx_id\]
-        PublishingAuthorActionOnEthereumFailed { tx_id: u32 },
+        PublishingAuthorActionOnEthereumFailed {
+            tx_id: u32,
+        },
         /// Author action published on Tier1. \[tx_id\]
-        PublishingAuthorActionOnEthereumSucceeded { tx_id: u32 },
+        PublishingAuthorActionOnEthereumSucceeded {
+            tx_id: u32,
+        },
+        /// Author registration is pending T1 confirmation
+        AuthorRegistrationPending {
+            author_id: T::AccountId,
+            eth_key: ecdsa::Public,
+            tx_id: u32,
+        },
+        /// Author registration failed on T1
+        AuthorRegistrationFailed {
+            author_id: T::AccountId,
+            tx_id: u32,
+        },
+        /// Author deregistration is pending T1 confirmation
+        AuthorDeregistrationPending {
+            author_id: T::AccountId,
+            tx_id: u32,
+        },
+        /// Author deregistration failed on T1
+        AuthorDeregistrationFailed {
+            author_id: T::AccountId,
+            tx_id: u32,
+        },
+        AuthorRegistrationTimedOut {
+            author_id: T::AccountId,
+            tx_id: u32,
+        },
+        AuthorDeregistrationTimedOut {
+            author_id: T::AccountId,
+            tx_id: u32,
+        },
+        AuthorOperationCancelled {
+            author_id: T::AccountId,
+            operation_type: PendingAuthorOperationType,
+        },
+        UnknownTransactionCallback {
+            tx_id: u32,
+        },
+        T1TransactionSent {
+            author_id: T::AccountId,
+            tx_id: u32,
+            operation_type: PendingAuthorOperationType,
+        },
+        OperationForcedComplete {
+            author_id: T::AccountId,
+            operation_type: PendingAuthorOperationType,
+        },
     }
 
     #[pallet::error]
@@ -141,6 +248,24 @@ pub mod pallet {
         TransactionNotFound,
         /// Invalid action status for transaction
         InvalidActionStatus,
+        /// Pending registration not found
+        PendingRegistrationNotFound,
+        /// Pending deregistration not found
+        PendingDeregistrationNotFound,
+        /// Unknown transaction ID
+        UnknownTransaction,
+        /// Pending operation already exists for this account
+        PendingOperationExists,
+        /// T1 transaction failed
+        T1TransactionFailed,
+        /// Operation has timed out
+        OperationTimeout,
+        RegistrationInProgress,
+        DeregistrationInProgress,
+        BridgePublishFailed,
+        NoPendingOperationFound,
+        /// Operation was already processed
+        AlreadyProcessed,
     }
 
     #[pallet::storage]
@@ -173,6 +298,41 @@ pub mod pallet {
     pub type TransactionToAction<T: Config> =
         StorageMap<_, Blake2_128Concat, EthereumId, (T::AccountId, IngressCounter), OptionQuery>;
 
+    /// Pending author registration requests awaiting T1 confirmation
+    #[pallet::storage]
+    pub type PendingAuthorRegistrations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        PendingAuthorRegistrationData<T::AccountId, BlockNumberFor<T>>,
+        OptionQuery,
+    >;
+
+    /// Pending author deregistration requests awaiting T1 confirmation
+    #[pallet::storage]
+    pub type PendingAuthorDeregistrations<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        T::AccountId,
+        PendingAuthorDeregistrationData<BlockNumberFor<T>>,
+        OptionQuery,
+    >;
+
+    /// Transaction ID to Account ID mapping for pending author operations
+    #[pallet::storage]
+    pub type PendingAuthorTransactions<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        EthereumId,
+        (T::AccountId, PendingAuthorOperationType),
+        OptionQuery,
+    >;
+
+    /// Transactions that have been processed (to prevent replay)
+    #[pallet::storage]
+    pub type ProcessedTransactions<T: Config> =
+        StorageMap<_, Blake2_128Concat, EthereumId, BlockNumberFor<T>, OptionQuery>;
+
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub authors: Vec<(T::AccountId, ecdsa::Public)>,
@@ -198,8 +358,45 @@ pub mod pallet {
         }
     }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+            // Calculate maximum weight budget (10% of max block weight)
+            let max_weight = T::BlockWeights::get()
+                .get(DispatchClass::Normal)
+                .max_total
+                .unwrap_or(Weight::from_parts(2_000_000_000_000, 0))
+                .saturating_div(10);
+
+            let mut remaining_weight = max_weight;
+
+            // Check for timed out registrations
+            if remaining_weight.ref_time() > 0 {
+                let used = Self::cleanup_timed_out_registrations(n, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(used);
+            }
+
+            // Check for timed out deregistrations
+            if remaining_weight.ref_time() > 0 {
+                let used = Self::cleanup_timed_out_deregistrations(n, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(used);
+            }
+
+            // Cleanup old processed transactions
+            if remaining_weight.ref_time() > 0 {
+                let used = Self::cleanup_old_processed_transactions(n, remaining_weight);
+                remaining_weight = remaining_weight.saturating_sub(used);
+            }
+
+            max_weight.saturating_sub(remaining_weight)
+        }
+    }
+
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Add a new author.
+        /// This will send a T1 transaction first and wait for confirmation before making local
+        /// changes.
         #[pallet::call_index(0)]
         #[pallet::weight(<T as Config>::WeightInfo::add_author())]
         #[transactional]
@@ -209,33 +406,40 @@ pub mod pallet {
             author_eth_public_key: ecdsa::Public,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
-            ensure!(!author_account_ids.is_empty(), Error::<T>::NoAuthors);
 
-            ensure!(
-                !author_account_ids.contains(&author_account_id),
-                Error::<T>::AuthorAlreadyExists
-            );
-            ensure!(
-                !<EthereumPublicKeys<T>>::contains_key(&author_eth_public_key),
-                Error::<T>::AuthorEthKeyAlreadyExists
-            );
+            // Validate the registration request
+            Self::validate_author_registration_request(&author_account_id, &author_eth_public_key)?;
 
-            ensure!(
-                AuthorAccountIds::<T>::get().unwrap_or_default().len() <
-                    (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
-                Error::<T>::MaximumAuthorsReached
-            );
+            // Send T1 transaction FIRST to get tx_id
+            let tx_id =
+                Self::send_author_registration_to_t1(&author_account_id, &author_eth_public_key)?;
 
-            Self::register_author(&author_account_id, &author_eth_public_key)?;
+            // Store pending state with actual tx_id
+            Self::store_pending_author_registration(
+                &author_account_id,
+                &author_eth_public_key,
+                tx_id,
+            )?;
 
-            <AuthorAccountIds<T>>::try_append(author_account_id.clone())
-                .map_err(|_| Error::<T>::MaximumAuthorsReached)?;
-            <EthereumPublicKeys<T>>::insert(author_eth_public_key, author_account_id);
+            // Emit pending event
+            Self::deposit_event(Event::<T>::AuthorRegistrationPending {
+                author_id: author_account_id.clone(),
+                eth_key: author_eth_public_key,
+                tx_id,
+            });
 
-            return Ok(())
+            Self::deposit_event(Event::<T>::T1TransactionSent {
+                author_id: author_account_id,
+                tx_id,
+                operation_type: PendingAuthorOperationType::Registration,
+            });
+
+            Ok(())
         }
 
+        /// Remove an author.
+        /// This will send a T1 transaction first and wait for confirmation before making local
+        /// changes.
         #[pallet::call_index(1)]
         #[pallet::weight(<T as Config>::WeightInfo::remove_author(MAX_AUTHOR_ACCOUNTS))]
         #[transactional]
@@ -243,13 +447,34 @@ pub mod pallet {
             origin: OriginFor<T>,
             author_account_id: T::AccountId,
         ) -> DispatchResult {
-            let _ = ensure_root(origin)?;
+            ensure_root(origin)?;
 
-            Self::remove_deregistered_author(&author_account_id)?;
+            // Validate the deregistration request
+            Self::validate_author_deregistration_request(&author_account_id)?;
 
-            Self::deposit_event(Event::<T>::AuthorDeregistered { author_id: author_account_id });
+            // Send T1 transaction FIRST to get tx_id
+            let tx_id = Self::send_author_deregistration_to_t1(&author_account_id)?;
 
-            return Ok(())
+            // Store pending state with actual tx_id
+            Self::store_pending_author_deregistration(
+                &author_account_id,
+                tx_id,
+                AuthorDeregistrationReason::Voluntary,
+            )?;
+
+            // Emit pending event
+            Self::deposit_event(Event::<T>::AuthorDeregistrationPending {
+                author_id: author_account_id.clone(),
+                tx_id,
+            });
+
+            Self::deposit_event(Event::<T>::T1TransactionSent {
+                author_id: author_account_id,
+                tx_id,
+                operation_type: PendingAuthorOperationType::Deregistration,
+            });
+
+            Ok(())
         }
 
         #[pallet::call_index(2)]
@@ -277,7 +502,123 @@ pub mod pallet {
             ensure!(author_id == author_account_id, Error::<T>::AuthorNotFound);
 
             EthereumPublicKeys::<T>::insert(author_new_eth_public_key, author_id);
-            return Ok(())
+            Ok(())
+        }
+
+        /// Force complete an author registration that succeeded on T1 but failed locally.
+        #[pallet::call_index(3)]
+        #[pallet::weight(<T as Config>::WeightInfo::force_complete_registration())]
+        #[transactional]
+        pub fn force_complete_registration(
+            origin: OriginFor<T>,
+            account_id: T::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let pending_data = PendingAuthorRegistrations::<T>::get(&account_id)
+                .ok_or(Error::<T>::PendingRegistrationNotFound)?;
+
+            let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
+            ensure!(!author_account_ids.contains(&account_id), Error::<T>::AuthorAlreadyExists);
+
+            log::warn!(
+                "ADMIN ACTION: Force completing registration for {:?} (tx_id: {})",
+                account_id,
+                pending_data.tx_id
+            );
+
+            // Force complete (no staking, just add to authors list)
+            Self::complete_author_registration(&account_id, &pending_data)?;
+
+            // Cleanup pending state
+            frame_support::storage::transactional::with_transaction(|| {
+                PendingAuthorRegistrations::<T>::remove(&account_id);
+                PendingAuthorTransactions::<T>::remove(pending_data.tx_id);
+                frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
+            })?;
+
+            Self::deposit_event(Event::<T>::OperationForcedComplete {
+                author_id: account_id,
+                operation_type: PendingAuthorOperationType::Registration,
+            });
+
+            Ok(())
+        }
+
+        /// Force complete an author deregistration that succeeded on T1 but failed locally.
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as Config>::WeightInfo::force_complete_deregistration())]
+        #[transactional]
+        pub fn force_complete_deregistration(
+            origin: OriginFor<T>,
+            account_id: T::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            let pending_data = PendingAuthorDeregistrations::<T>::get(&account_id)
+                .ok_or(Error::<T>::PendingDeregistrationNotFound)?;
+
+            log::warn!(
+                "ADMIN ACTION: Force completing deregistration for {:?} (tx_id: {})",
+                account_id,
+                pending_data.tx_id
+            );
+
+            // Force complete (no staking, just remove from authors list)
+            Self::complete_author_deregistration(&account_id)?;
+
+            // Cleanup pending state
+            frame_support::storage::transactional::with_transaction(|| {
+                PendingAuthorDeregistrations::<T>::remove(&account_id);
+                PendingAuthorTransactions::<T>::remove(pending_data.tx_id);
+                frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
+            })?;
+
+            Self::deposit_event(Event::<T>::OperationForcedComplete {
+                author_id: account_id,
+                operation_type: PendingAuthorOperationType::Deregistration,
+            });
+
+            Ok(())
+        }
+
+        /// Cancel a pending author operation.
+        #[pallet::call_index(5)]
+        #[pallet::weight(<T as Config>::WeightInfo::cancel_pending_operation())]
+        #[transactional]
+        pub fn cancel_pending_operation(
+            origin: OriginFor<T>,
+            account_id: T::AccountId,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+
+            log::warn!("ADMIN ACTION: Cancelling pending operation for {:?}", account_id);
+
+            // Check for pending registration
+            if let Some(pending_data) = PendingAuthorRegistrations::<T>::take(&account_id) {
+                PendingAuthorTransactions::<T>::remove(pending_data.tx_id);
+
+                Self::deposit_event(Event::<T>::AuthorOperationCancelled {
+                    author_id: account_id,
+                    operation_type: PendingAuthorOperationType::Registration,
+                });
+
+                return Ok(())
+            }
+
+            // Check for pending deregistration
+            if let Some(pending_data) = PendingAuthorDeregistrations::<T>::take(&account_id) {
+                PendingAuthorTransactions::<T>::remove(pending_data.tx_id);
+
+                Self::deposit_event(Event::<T>::AuthorOperationCancelled {
+                    author_id: account_id,
+                    operation_type: PendingAuthorOperationType::Deregistration,
+                });
+
+                return Ok(())
+            }
+
+            Err(Error::<T>::NoPendingOperationFound.into())
         }
     }
 
@@ -374,22 +715,182 @@ impl<AccountId: Member + Encode> ActionId<AccountId> {
     }
 }
 
-#[derive(Debug)]
-pub enum AuthorOperationTier1Endpoint {
-    Add,
-    Remove,
-}
-
-impl AuthorOperationTier1Endpoint {
-    fn function_name(&self) -> &[u8] {
-        match self {
-            AuthorOperationTier1Endpoint::Add => b"addAuthor",
-            AuthorOperationTier1Endpoint::Remove => b"removeAuthor",
-        }
-    }
-}
-
 impl<T: Config> Pallet<T> {
+    // Maximum cleanup items per block to prevent weight overflow
+    const MAX_TIMEOUT_CLEANUPS_PER_BLOCK: usize = 10;
+    const MAX_PROCESSED_TX_CLEANUPS_PER_BLOCK: usize = 50;
+
+    fn cleanup_timed_out_registrations(
+        current_block: BlockNumberFor<T>,
+        max_weight: Weight,
+    ) -> Weight {
+        let timeout_threshold = T::PendingOperationTimeout::get();
+        let mut weight = T::DbWeight::get().reads(1);
+
+        if weight.ref_time() >= max_weight.ref_time() {
+            return weight
+        }
+
+        let mut timed_out = Vec::with_capacity(Self::MAX_TIMEOUT_CLEANUPS_PER_BLOCK);
+        let mut iterations = 0u32;
+        const MAX_ITERATIONS: u32 = 100;
+
+        for (account_id, pending_data) in PendingAuthorRegistrations::<T>::iter() {
+            iterations += 1;
+
+            if iterations >= MAX_ITERATIONS {
+                if timed_out.is_empty() {
+                    log::warn!(
+                        "Reached iteration limit in cleanup_timed_out_registrations \
+                        without finding any timed out operations"
+                    );
+                }
+                break
+            }
+
+            if current_block.saturating_sub(pending_data.timestamp) > timeout_threshold {
+                timed_out.push(account_id);
+                if timed_out.len() >= Self::MAX_TIMEOUT_CLEANUPS_PER_BLOCK {
+                    break
+                }
+            }
+        }
+
+        weight = weight.saturating_add(T::DbWeight::get().reads(iterations as u64));
+
+        for account_id in timed_out {
+            let operation_weight = T::DbWeight::get().reads_writes(1, 2);
+            if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
+                break
+            }
+
+            if let Some(pending_data) = PendingAuthorRegistrations::<T>::take(&account_id) {
+                PendingAuthorTransactions::<T>::remove(pending_data.tx_id);
+
+                Self::deposit_event(Event::<T>::AuthorRegistrationTimedOut {
+                    author_id: account_id,
+                    tx_id: pending_data.tx_id,
+                });
+
+                weight = weight.saturating_add(operation_weight);
+            }
+        }
+
+        weight
+    }
+
+    fn cleanup_timed_out_deregistrations(
+        current_block: BlockNumberFor<T>,
+        max_weight: Weight,
+    ) -> Weight {
+        let timeout_threshold = T::PendingOperationTimeout::get();
+        let mut weight = T::DbWeight::get().reads(1);
+
+        if weight.ref_time() >= max_weight.ref_time() {
+            return weight
+        }
+
+        let mut timed_out = Vec::with_capacity(Self::MAX_TIMEOUT_CLEANUPS_PER_BLOCK);
+        let mut iterations = 0u32;
+        const MAX_ITERATIONS: u32 = 100;
+
+        for (account_id, pending_data) in PendingAuthorDeregistrations::<T>::iter() {
+            iterations += 1;
+
+            if iterations >= MAX_ITERATIONS {
+                if timed_out.is_empty() {
+                    log::warn!(
+                        "Reached iteration limit in cleanup_timed_out_deregistrations \
+                        without finding any timed out operations"
+                    );
+                }
+                break
+            }
+
+            if current_block.saturating_sub(pending_data.timestamp) > timeout_threshold {
+                timed_out.push(account_id);
+                if timed_out.len() >= Self::MAX_TIMEOUT_CLEANUPS_PER_BLOCK {
+                    break
+                }
+            }
+        }
+
+        weight = weight.saturating_add(T::DbWeight::get().reads(iterations as u64));
+
+        for account_id in timed_out {
+            let operation_weight = T::DbWeight::get().reads_writes(1, 2);
+            if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
+                break
+            }
+
+            if let Some(pending_data) = PendingAuthorDeregistrations::<T>::take(&account_id) {
+                PendingAuthorTransactions::<T>::remove(pending_data.tx_id);
+
+                Self::deposit_event(Event::<T>::AuthorDeregistrationTimedOut {
+                    author_id: account_id,
+                    tx_id: pending_data.tx_id,
+                });
+
+                weight = weight.saturating_add(operation_weight);
+            }
+        }
+
+        weight
+    }
+
+    fn cleanup_old_processed_transactions(
+        current_block: BlockNumberFor<T>,
+        max_weight: Weight,
+    ) -> Weight {
+        const RETENTION_PERIOD: u32 = 28800; // 48 hours at 6s/block
+        let cutoff_block = current_block.saturating_sub(RETENTION_PERIOD.into());
+
+        let mut weight = T::DbWeight::get().reads(1);
+
+        if weight.ref_time() >= max_weight.ref_time() {
+            return weight
+        }
+
+        let mut to_remove = Vec::with_capacity(Self::MAX_PROCESSED_TX_CLEANUPS_PER_BLOCK);
+        let mut iterations = 0u32;
+        const MAX_ITERATIONS: u32 = 200;
+
+        for (tx_id, processed_at) in ProcessedTransactions::<T>::iter() {
+            iterations += 1;
+
+            if iterations >= MAX_ITERATIONS {
+                if to_remove.is_empty() {
+                    log::warn!(
+                        "Reached iteration limit in cleanup_old_processed_transactions \
+                        without finding any old transactions"
+                    );
+                }
+                break
+            }
+
+            if processed_at < cutoff_block {
+                to_remove.push(tx_id);
+                if to_remove.len() >= Self::MAX_PROCESSED_TX_CLEANUPS_PER_BLOCK {
+                    break
+                }
+            }
+        }
+
+        weight = weight.saturating_add(T::DbWeight::get().reads(iterations as u64));
+
+        for tx_id in to_remove {
+            let operation_weight = T::DbWeight::get().writes(1);
+            if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
+                break
+            }
+
+            ProcessedTransactions::<T>::remove(tx_id);
+            weight = weight.saturating_add(operation_weight);
+        }
+
+        weight
+    }
+
     fn start_activation_for_registered_author(registered_author: &T::AccountId, tx_id: EthereumId) {
         let ingress_counter = Self::get_ingress_counter() + 1;
 
@@ -405,55 +906,261 @@ impl<T: Config> Pallet<T> {
         );
     }
 
-    fn register_author(
+    // Validation functions
+
+    fn validate_author_registration_request(
         author_account_id: &T::AccountId,
         author_eth_public_key: &ecdsa::Public,
     ) -> DispatchResult {
-        let tx_id = Self::publish_to_bridge(
-            author_eth_public_key,
-            &author_account_id,
-            AuthorOperationTier1Endpoint::Add,
-        )?;
+        // Check for conflicting operations
+        Self::validate_no_conflicting_operations(author_account_id)?;
 
-        let new_author_id = <T as SessionConfig>::ValidatorIdOf::convert(author_account_id.clone())
-            .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
+        let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
+        ensure!(!author_account_ids.is_empty(), Error::<T>::NoAuthors);
 
-        Self::start_activation_for_registered_author(author_account_id, tx_id);
-        T::ValidatorRegistrationNotifier::on_validator_registration(&new_author_id);
-        Self::deposit_event(Event::<T>::AuthorRegistered {
-            author_id: author_account_id.clone(),
-            eth_key: *author_eth_public_key,
-        });
+        ensure!(!author_account_ids.contains(author_account_id), Error::<T>::AuthorAlreadyExists);
+
+        ensure!(
+            !<EthereumPublicKeys<T>>::contains_key(author_eth_public_key),
+            Error::<T>::AuthorEthKeyAlreadyExists
+        );
+
+        ensure!(
+            author_account_ids.len() < (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
+            Error::<T>::MaximumAuthorsReached
+        );
+
         Ok(())
     }
 
-    fn publish_to_bridge(
-        eth_public_key: &ecdsa::Public,
-        author_id: &T::AccountId,
-        operation: AuthorOperationTier1Endpoint,
-    ) -> Result<u32, DispatchError> {
+    fn validate_author_deregistration_request(account_id: &T::AccountId) -> DispatchResult {
+        // Check for conflicting operations
+        Self::validate_no_conflicting_operations(account_id)?;
+
+        let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
+
+        ensure!(
+            author_account_ids.len() > T::MinimumAuthorCount::get() as usize,
+            Error::<T>::MinimumAuthorsReached
+        );
+
+        ensure!(author_account_ids.contains(account_id), Error::<T>::AuthorNotFound);
+
+        Ok(())
+    }
+
+    fn validate_no_conflicting_operations(account_id: &T::AccountId) -> DispatchResult {
+        ensure!(
+            !PendingAuthorRegistrations::<T>::contains_key(account_id),
+            Error::<T>::RegistrationInProgress
+        );
+
+        ensure!(
+            !PendingAuthorDeregistrations::<T>::contains_key(account_id),
+            Error::<T>::DeregistrationInProgress
+        );
+
+        Ok(())
+    }
+
+    // T1 Communication functions
+
+    fn send_author_registration_to_t1(
+        author_account_id: &T::AccountId,
+        author_eth_public_key: &ecdsa::Public,
+    ) -> Result<EthereumId, DispatchError> {
+        let decompressed_eth_public_key = decompress_eth_public_key(*author_eth_public_key)
+            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+
+        let author_id_bytes =
+            <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
+
+        let params = vec![
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+        ];
+
+        <T as pallet::Config>::BridgeInterface::publish(b"addAuthor", &params, PALLET_ID.to_vec())
+            .map_err(|_| Error::<T>::BridgePublishFailed.into())
+    }
+
+    fn send_author_deregistration_to_t1(
+        author_account_id: &T::AccountId,
+    ) -> Result<EthereumId, DispatchError> {
+        let eth_public_key = Self::get_ethereum_public_key_if_exists(author_account_id)
+            .ok_or(Error::<T>::AuthorNotFound)?;
+
         let decompressed_eth_public_key =
-            decompress_eth_public_key(*eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
+            decompress_eth_public_key(eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
 
-        let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_id);
+        let author_id_bytes =
+            <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
 
-        let params = match operation {
-            AuthorOperationTier1Endpoint::Remove => vec![
-                (b"bytes32".to_vec(), author_id_bytes.to_vec()),
-                (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
-            ],
-            AuthorOperationTier1Endpoint::Add => vec![
-                (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
-                (b"bytes32".to_vec(), author_id_bytes.to_vec()),
-            ],
-        };
+        let params = vec![
+            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+        ];
 
         <T as pallet::Config>::BridgeInterface::publish(
-            operation.function_name(),
+            b"removeAuthor",
             &params,
             PALLET_ID.to_vec(),
         )
-        .map_err(|e| DispatchError::Other(e.into()))
+        .map_err(|_| Error::<T>::BridgePublishFailed.into())
+    }
+
+    // Storage functions
+
+    fn store_pending_author_registration(
+        account_id: &T::AccountId,
+        eth_public_key: &ecdsa::Public,
+        tx_id: EthereumId,
+    ) -> DispatchResult {
+        let current_block = <frame_system::Pallet<T>>::block_number();
+        let pending_data = PendingAuthorRegistrationData {
+            account_id: account_id.clone(),
+            eth_public_key: *eth_public_key,
+            tx_id,
+            timestamp: current_block,
+        };
+
+        frame_support::storage::transactional::with_transaction(|| {
+            PendingAuthorRegistrations::<T>::insert(account_id, pending_data);
+            PendingAuthorTransactions::<T>::insert(
+                tx_id,
+                (account_id.clone(), PendingAuthorOperationType::Registration),
+            );
+
+            frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
+        })?;
+
+        Ok(())
+    }
+
+    fn store_pending_author_deregistration(
+        account_id: &T::AccountId,
+        tx_id: EthereumId,
+        reason: AuthorDeregistrationReason,
+    ) -> DispatchResult {
+        let current_block = <frame_system::Pallet<T>>::block_number();
+        let pending_data =
+            PendingAuthorDeregistrationData { tx_id, timestamp: current_block, reason };
+
+        frame_support::storage::transactional::with_transaction(|| {
+            PendingAuthorDeregistrations::<T>::insert(account_id, pending_data);
+            PendingAuthorTransactions::<T>::insert(
+                tx_id,
+                (account_id.clone(), PendingAuthorOperationType::Deregistration),
+            );
+
+            frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
+        })?;
+
+        Ok(())
+    }
+
+    // Completion functions (no staking - just add/remove from list)
+
+    fn complete_author_registration(
+        account_id: &T::AccountId,
+        pending_data: &PendingAuthorRegistrationData<T::AccountId, BlockNumberFor<T>>,
+    ) -> DispatchResult {
+        // Add to active authors list (NO staking)
+        <AuthorAccountIds<T>>::try_append(account_id.clone())
+            .map_err(|_| Error::<T>::MaximumAuthorsReached)?;
+
+        // Add ethereum key mapping
+        <EthereumPublicKeys<T>>::insert(pending_data.eth_public_key, account_id);
+
+        // Notify author registration
+        let new_author_id = <T as SessionConfig>::ValidatorIdOf::convert(account_id.clone())
+            .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
+        T::ValidatorRegistrationNotifier::on_validator_registration(&new_author_id);
+
+        // Start activation process
+        Self::start_activation_for_registered_author(account_id, pending_data.tx_id);
+
+        // Emit success event
+        Self::deposit_event(Event::<T>::AuthorRegistered {
+            author_id: account_id.clone(),
+            eth_key: pending_data.eth_public_key,
+        });
+
+        Ok(())
+    }
+
+    fn complete_author_deregistration(account_id: &T::AccountId) -> DispatchResult {
+        // Remove from author list (NO staking - simple removal)
+        if let Some(mut author_account_ids) = Self::author_account_ids() {
+            if let Some(index) = author_account_ids.iter().position(|v| v == account_id) {
+                author_account_ids.swap_remove(index);
+                <AuthorAccountIds<T>>::put(author_account_ids);
+            }
+        }
+
+        // Remove ethereum key mapping
+        Self::remove_ethereum_public_key_if_required(account_id);
+
+        // Emit event
+        Self::deposit_event(Event::<T>::AuthorDeregistered { author_id: account_id.clone() });
+
+        Ok(())
+    }
+
+    // Callback handlers
+
+    fn handle_author_registration_result(
+        account_id: T::AccountId,
+        tx_id: EthereumId,
+        succeeded: bool,
+    ) -> DispatchResult {
+        let pending_data = PendingAuthorRegistrations::<T>::get(&account_id)
+            .ok_or(Error::<T>::PendingRegistrationNotFound)?;
+
+        if succeeded {
+            Self::complete_author_registration(&account_id, &pending_data)?;
+        } else {
+            Self::deposit_event(Event::<T>::AuthorRegistrationFailed {
+                author_id: account_id.clone(),
+                tx_id,
+            });
+        }
+
+        frame_support::storage::transactional::with_transaction(|| {
+            PendingAuthorRegistrations::<T>::remove(&account_id);
+            PendingAuthorTransactions::<T>::remove(tx_id);
+
+            frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
+        })?;
+
+        Ok(())
+    }
+
+    fn handle_author_deregistration_result(
+        account_id: T::AccountId,
+        tx_id: EthereumId,
+        succeeded: bool,
+    ) -> DispatchResult {
+        let _pending_data = PendingAuthorDeregistrations::<T>::get(&account_id)
+            .ok_or(Error::<T>::PendingDeregistrationNotFound)?;
+
+        if succeeded {
+            Self::complete_author_deregistration(&account_id)?;
+        } else {
+            Self::deposit_event(Event::<T>::AuthorDeregistrationFailed {
+                author_id: account_id.clone(),
+                tx_id,
+            });
+        }
+
+        frame_support::storage::transactional::with_transaction(|| {
+            PendingAuthorDeregistrations::<T>::remove(&account_id);
+            PendingAuthorTransactions::<T>::remove(tx_id);
+
+            frame_support::storage::TransactionOutcome::Commit(Ok::<(), DispatchError>(()))
+        })?;
+
+        Ok(())
     }
 
     fn get_ethereum_public_key_if_exists(account_id: &T::AccountId) -> Option<ecdsa::Public> {
@@ -470,69 +1177,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn remove(
-        author_id: &T::AccountId,
-        ingress_counter: IngressCounter,
-        action_type: AuthorsActionType,
-        eth_public_key: ecdsa::Public,
-    ) -> DispatchResult {
-        let mut author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
-
-        ensure!(
-            Self::get_ingress_counter() + 1 == ingress_counter,
-            Error::<T>::InvalidIngressCounter
-        );
-        ensure!(
-            author_account_ids.len() > DEFAULT_MINIMUM_AUTHORS_COUNT,
-            Error::<T>::MinimumAuthorsReached
-        );
-        ensure!(
-            !<AuthorActions<T>>::contains_key(author_id, ingress_counter),
-            Error::<T>::RemovalAlreadyRequested
-        );
-
-        let maybe_author_index = author_account_ids.iter().position(|v| v == author_id);
-        if maybe_author_index.is_none() {
-            // Exit early if deregistration is not in the system. As dicussed, we don't want to give
-            // any feedback if the author is not found.
-            return Ok(())
-        }
-
-        let index_of_author_to_remove = maybe_author_index.expect("checked for none already");
-
-        let tx_id = Self::publish_to_bridge(
-            &eth_public_key,
-            &author_id,
-            AuthorOperationTier1Endpoint::Remove,
-        )?;
-
-        TotalIngresses::<T>::put(ingress_counter);
-        <AuthorActions<T>>::insert(
-            author_id,
-            ingress_counter,
-            AuthorsActionData::new(AuthorsActionStatus::AwaitingConfirmation, tx_id, action_type),
-        );
-        author_account_ids.swap_remove(index_of_author_to_remove);
-        <AuthorAccountIds<T>>::put(author_account_ids);
-
-        Ok(())
-    }
-
-    fn remove_deregistered_author(resigned_author: &T::AccountId) -> DispatchResult {
-        // Take key from map.
-        let t1_eth_public_key = match Self::get_ethereum_public_key_if_exists(resigned_author) {
-            Some(eth_public_key) => eth_public_key,
-            _ => Err(Error::<T>::AuthorNotFound)?,
-        };
-
-        let ingress_counter = Self::get_ingress_counter() + 1;
-        return Self::remove(
-            resigned_author,
-            ingress_counter,
-            AuthorsActionType::Resignation,
-            t1_eth_public_key,
-        )
-    }
+    // Legacy remove functions removed - use new async flow instead
 
     fn author_permanently_removed(
         active_authors: &Vec<Author<T::AuthorityId, T::AccountId>>,
@@ -671,9 +1316,44 @@ impl<T: Config> session::SessionManager<T::AccountId> for Pallet<T> {
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
-        if caller_id == PALLET_ID.to_vec() {
-            Pallet::<T>::process_transaction(tx_id, succeeded)?;
+        if caller_id != PALLET_ID.to_vec() {
+            return Ok(())
         }
+
+        // Reentrancy protection: check if already processed
+        if ProcessedTransactions::<T>::contains_key(tx_id) {
+            return Ok(()) // Silently ignore duplicates
+        }
+
+        // Mark as processed FIRST
+        ProcessedTransactions::<T>::insert(tx_id, <frame_system::Pallet<T>>::block_number());
+
+        // Check if this is a pending operation transaction
+        if let Some((account_id, operation_type)) = PendingAuthorTransactions::<T>::get(tx_id) {
+            let result = match operation_type {
+                PendingAuthorOperationType::Registration =>
+                    Self::handle_author_registration_result(account_id, tx_id, succeeded),
+                PendingAuthorOperationType::Deregistration =>
+                    Self::handle_author_deregistration_result(account_id, tx_id, succeeded),
+            };
+
+            // If processing failed, remove from processed set to allow retry
+            if result.is_err() {
+                ProcessedTransactions::<T>::remove(tx_id);
+            }
+
+            result?;
+        } else {
+            // Check if this is an old-style action transaction (for backwards compatibility)
+            if let Some((_account_id, _ingress_counter)) = TransactionToAction::<T>::get(tx_id) {
+                // Handle old-style transactions
+                Self::process_transaction(tx_id, succeeded)?;
+            } else {
+                // Unknown transaction
+                Self::deposit_event(Event::<T>::UnknownTransactionCallback { tx_id });
+            }
+        }
+
         Ok(())
     }
 }
