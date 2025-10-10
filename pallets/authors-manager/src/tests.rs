@@ -27,6 +27,10 @@ fn force_add_author(
     set_session_keys(author_id);
     assert_ok!(register_author(author_id, author_eth_public_key));
 
+    // Simulate T1 callback to complete registration
+    let pending = PendingAuthorRegistrations::<TestRuntime>::get(author_id).unwrap();
+    assert_ok!(AuthorsManager::process_result(pending.tx_id, b"author_manager".to_vec(), true,));
+
     //Advance 2 session to add the author to the session
     advance_session();
     advance_session();
@@ -115,40 +119,43 @@ mod register_author {
 
                 // Result OK
                 assert_ok!(register_author(&context.new_author_id, &context.author_eth_public_key));
-                // Upon completion author has been added AuthorAccountIds storage
+
+                // Async behavior: Author should be in pending state
+                assert!(PendingAuthorRegistrations::<TestRuntime>::contains_key(
+                    &context.new_author_id
+                ));
+                assert!(!AuthorsManager::author_account_ids()
+                    .unwrap()
+                    .contains(&context.new_author_id));
+
+                // Simulate T1 callback success
+                let pending =
+                    PendingAuthorRegistrations::<TestRuntime>::get(&context.new_author_id).unwrap();
+                assert_ok!(AuthorsManager::process_result(
+                    pending.tx_id,
+                    b"author_manager".to_vec(),
+                    true,
+                ));
+
+                // Now: Author has been added AuthorAccountIds storage
                 assert!(AuthorsManager::author_account_ids()
                     .unwrap()
-                    .iter()
-                    .any(|a| a == &context.new_author_id));
+                    .contains(&context.new_author_id));
+
                 // AuthorRegistered Event has been deposited
-                assert_eq!(
-                    true,
-                    System::events().iter().any(|a| a.event ==
-                        mock::RuntimeEvent::AuthorsManager(
-                            crate::Event::<TestRuntime>::AuthorRegistered {
-                                author_id: context.new_author_id,
-                                eth_key: context.author_eth_public_key.clone()
-                            }
-                        ))
-                );
-                // AuthorActivationStarted Event has not been deposited yet
-                assert_eq!(
-                    false,
-                    System::events().iter().any(|a| a.event ==
-                        mock::RuntimeEvent::AuthorsManager(
-                            crate::Event::<TestRuntime>::AuthorActivationStarted {
-                                author_id: context.new_author_id
-                            }
-                        ))
-                );
-                // But the activation action has been triggered
-                assert_eq!(
-                    true,
-                    find_author_activation_action(
-                        &context,
-                        AuthorsActionStatus::AwaitingConfirmation
-                    )
-                );
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AuthorsManager(
+                        crate::Event::<TestRuntime>::AuthorRegistered {
+                            author_id: context.new_author_id,
+                            eth_key: context.author_eth_public_key.clone()
+                        }
+                    )));
+
+                // Activation action has been triggered
+                assert!(find_author_activation_action(
+                    &context,
+                    AuthorsActionStatus::AwaitingConfirmation
+                ));
             });
         }
 
@@ -164,15 +171,21 @@ mod register_author {
 
                 assert_ok!(register_author(&context.new_author_id, &context.author_eth_public_key));
 
+                // Simulate T1 callback success to complete registration
+                let pending =
+                    PendingAuthorRegistrations::<TestRuntime>::get(&context.new_author_id).unwrap();
+                assert_ok!(AuthorsManager::process_result(
+                    pending.tx_id,
+                    b"author_manager".to_vec(),
+                    true,
+                ));
+
                 // It takes 2 session for authors to be updated
                 advance_session();
                 advance_session();
 
                 // The activation action has been sent
-                assert_eq!(
-                    true,
-                    find_author_activation_action(&context, AuthorsActionStatus::Confirmed)
-                );
+                assert!(find_author_activation_action(&context, AuthorsActionStatus::Confirmed));
                 // AuthorActivationStarted Event has been deposited
                 assert_eq!(
                     true,
@@ -223,22 +236,35 @@ mod remove_author_public {
                 context.new_author_id
             ));
 
-            //Event emitted as expected
+            // Async behavior: Author should be in pending state
+            assert!(PendingAuthorDeregistrations::<TestRuntime>::contains_key(
+                &context.new_author_id
+            ));
+
+            // Author still in active list (waiting for T1 confirmation)
+            assert!(AuthorsManager::author_account_ids().unwrap().contains(&context.new_author_id));
+
+            // Simulate T1 callback success
+            let pending =
+                PendingAuthorDeregistrations::<TestRuntime>::get(&context.new_author_id).unwrap();
+            assert_ok!(AuthorsManager::process_result(
+                pending.tx_id,
+                b"author_manager".to_vec(),
+                true,
+            ));
+
+            // After callback: Author removed from authors manager
+            assert!(!AuthorsManager::author_account_ids()
+                .unwrap()
+                .contains(&context.new_author_id));
+
+            // AuthorDeregistered Event emitted
             assert!(System::events().iter().any(|a| a.event ==
                 mock::RuntimeEvent::AuthorsManager(
                     crate::Event::<TestRuntime>::AuthorDeregistered {
                         author_id: context.new_author_id
                     }
                 )));
-
-            //Author removed from authors manager
-            assert_eq!(
-                AuthorsManager::author_account_ids()
-                    .unwrap()
-                    .iter()
-                    .position(|&x| x == context.new_author_id),
-                None
-            );
 
             //Author is still in the session. Will be removed after 1 era.
             assert_eq_uvec!(
@@ -360,10 +386,19 @@ mod add_author {
             set_session_keys(&context.author);
             assert_ok!(register_author(&context.author, &context.author_eth_public_key));
 
-            assert_eq!(
+            // Async behavior: Should be in pending state
+            assert!(PendingAuthorRegistrations::<TestRuntime>::contains_key(&context.author));
+
+            // Simulate T1 callback
+            let pending = PendingAuthorRegistrations::<TestRuntime>::get(&context.author).unwrap();
+            assert_ok!(AuthorsManager::process_result(
+                pending.tx_id,
+                b"author_manager".to_vec(),
                 true,
-                AuthorsManager::author_account_ids().unwrap().contains(&context.author)
-            );
+            ));
+
+            // Now author should be active
+            assert!(AuthorsManager::author_account_ids().unwrap().contains(&context.author));
             assert_eq!(
                 AuthorsManager::get_author_by_eth_public_key(context.author_eth_public_key.clone())
                     .unwrap(),
@@ -467,12 +502,30 @@ mod bridge_interface_notification {
         set_session_keys(&context.new_author_id);
         assert_ok!(register_author(&context.new_author_id, &context.author_eth_public_key));
 
-        let (ingress_counter, action_data) = AuthorActions::<TestRuntime>::iter()
+        // Complete registration via T1 callback
+        let pending =
+            PendingAuthorRegistrations::<TestRuntime>::get(&context.new_author_id).unwrap();
+        assert_ok!(
+            AuthorsManager::process_result(pending.tx_id, b"author_manager".to_vec(), true,)
+        );
+
+        // Advance sessions to move activation to Confirmed status
+        advance_session();
+
+        let (ingress_counter, mut action_data) = AuthorActions::<TestRuntime>::iter()
             .find(|(author, _, _)| author == &context.new_author_id)
             .map(|(_, ingress, data)| (ingress, data))
             .expect("Action should exist");
 
-        let tx_id = action_data.eth_transaction_id;
+        // Ensure action is in Confirmed state for testing
+        action_data.status = AuthorsActionStatus::Confirmed;
+
+        // Use a NEW tx_id for this test (not the registration tx_id which is already processed)
+        let tx_id = 777u32;
+        action_data.eth_transaction_id = tx_id;
+
+        AuthorActions::<TestRuntime>::insert(&context.new_author_id, ingress_counter, action_data);
+
         TransactionToAction::<TestRuntime>::insert(
             tx_id,
             (context.new_author_id.clone(), ingress_counter),
@@ -543,10 +596,15 @@ mod bridge_interface_notification {
                 let context = MockData::setup_valid();
                 let (_, tx_id) = setup_test_action(&context);
 
-                assert_noop!(
-                    Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true),
-                    Error::<TestRuntime>::InvalidActionStatus
-                );
+                // First processing should succeed
+                assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true));
+
+                // Second processing of same tx_id should be silently ignored (reentrancy
+                // protection)
+                assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true));
+
+                // Verify tx_id is in ProcessedTransactions
+                assert!(ProcessedTransactions::<TestRuntime>::contains_key(tx_id));
             });
         }
 
@@ -554,10 +612,14 @@ mod bridge_interface_notification {
         fn with_missing_transaction() {
             let mut ext = ExtBuilder::build_default().with_authors().as_externality();
             ext.execute_with(|| {
-                assert_noop!(
-                    Pallet::<TestRuntime>::process_result(999u32, PALLET_ID.to_vec(), true),
-                    Error::<TestRuntime>::TransactionNotFound
-                );
+                // With new async flow, unknown transactions just emit event (no error)
+                assert_ok!(Pallet::<TestRuntime>::process_result(999u32, PALLET_ID.to_vec(), true));
+
+                // Verify UnknownTransactionCallback event emitted
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AuthorsManager(
+                        crate::Event::<TestRuntime>::UnknownTransactionCallback { tx_id: 999u32 }
+                    )));
             });
         }
     }

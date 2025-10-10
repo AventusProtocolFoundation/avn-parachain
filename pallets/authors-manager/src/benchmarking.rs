@@ -218,6 +218,10 @@ fn force_add_author<T: Config>(author_id: &T::AccountId, index: u64, eth_public_
     )
     .unwrap();
 
+    // Simulate T1 callback to complete registration
+    let pending = PendingAuthorRegistrations::<T>::get(author_id).unwrap();
+    AuthorsManager::<T>::process_result(pending.tx_id, b"author_manager".to_vec(), true).unwrap();
+
     //Advance 2 session to add the author to the session
     advance_session::<T>();
     advance_session::<T>();
@@ -230,12 +234,15 @@ benchmarks! {
         let eth_public_key: ecdsa::Public = Public::from_raw(NEW_AUTHOR_ETHEREUM_PUBLIC_KEY);
         set_session_keys::<T>(&candidate, 20u64);
         assert_eq!(false, Session::<T>::validators().contains(&candidate_id));
-            //Advance 2 session to add the author to the session
-    advance_session::<T>();
-    advance_session::<T>();
     }: _(RawOrigin::Root, candidate.clone(), eth_public_key)
     verify {
-        assert_last_event::<T>(Event::<T>::AuthorRegistered{ author_id: candidate.clone(), eth_key: eth_public_key.clone() }.into());
+        // Async behavior: Should be in pending state, last event is T1TransactionSent
+        assert!(PendingAuthorRegistrations::<T>::contains_key(&candidate));
+        assert_last_event::<T>(Event::<T>::T1TransactionSent{
+            author_id: candidate.clone(),
+            tx_id: PendingAuthorRegistrations::<T>::get(&candidate).unwrap().tx_id,
+            operation_type: PendingAuthorOperationType::Registration,
+        }.into());
     }
 
     remove_author {
@@ -247,9 +254,14 @@ benchmarks! {
 
     }: remove_author(RawOrigin::Root, caller_account.clone())
     verify {
-        assert_eq!(AuthorAccountIds::<T>::get().unwrap().iter().position(|author_account_id| *author_account_id == caller_account), None);
-        assert_last_event::<T>(Event::<T>::AuthorDeregistered{ author_id: caller_account.clone() }.into());
-        assert_eq!(true, AuthorActions::<T>::contains_key(caller_account, <TotalIngresses<T>>::get()));
+        // Async behavior: Should be in pending state, last event is T1TransactionSent
+        assert!(PendingAuthorDeregistrations::<T>::contains_key(&caller_account));
+        assert!(AuthorAccountIds::<T>::get().unwrap().contains(&caller_account));
+        assert_last_event::<T>(Event::<T>::T1TransactionSent{
+            author_id: caller_account.clone(),
+            tx_id: PendingAuthorDeregistrations::<T>::get(&caller_account).unwrap().tx_id,
+            operation_type: PendingAuthorOperationType::Deregistration,
+        }.into());
     }
 
     rotate_author_ethereum_key {

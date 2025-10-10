@@ -124,6 +124,8 @@ impl AuthorsManager {
 
 parameter_types! {
     pub const VotingPeriod: u64 = 2;
+    pub const PendingOperationTimeout: u64 = 100;
+    pub const MinimumAuthorCount: u32 = 2;
 }
 
 impl Config for TestRuntime {
@@ -132,6 +134,8 @@ impl Config for TestRuntime {
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
     type BridgeInterface = EthBridge;
+    type PendingOperationTimeout = PendingOperationTimeout;
+    type MinimumAuthorCount = MinimumAuthorCount;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
