@@ -13,7 +13,6 @@ use sp_runtime::{
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 use codec::{Decode, Encode};
 use frame_support::__private::BasicExternalities;
-use pallet_avn::LowerParams;
 use pallet_session as session;
 use sp_avn_common::event_types::Validator;
 use sp_core::{sr25519, Pair};
@@ -97,6 +96,8 @@ impl pallet_avn_oracle::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
     type PriceRefreshRangeInBlocks = PriceRefreshRangeInBlocks;
+    type ConsensusGracePeriod = ConsensusGracePeriod;
+    type MaxCurrencies = MaxCurrencies;
 }
 
 impl pallet_timestamp::Config for TestRuntime {
@@ -111,6 +112,8 @@ parameter_types! {
     pub const Period: u64 = 1;
     pub const Offset: u64 = 0;
     pub const PriceRefreshRangeInBlocks: u32 = 50;
+    pub const ConsensusGracePeriod: u32 = 300;
+    pub const MaxCurrencies: u32 = 10;
 }
 
 pub type SessionIndex = u32;
@@ -212,14 +215,6 @@ pub fn generate_signature(
 ) -> TestSignature {
     // Use the key field's sign method to generate the signature
     author.key.sign(&context.encode()).expect("Signature should be signed")
-}
-
-pub fn usd_key() -> CurrencyBytes {
-    CurrencyBytes::truncate_from(b"usd".to_vec())
-}
-
-pub fn eur_key() -> CurrencyBytes {
-    CurrencyBytes::truncate_from(b"eur".to_vec())
 }
 
 pub struct ExtBuilder {

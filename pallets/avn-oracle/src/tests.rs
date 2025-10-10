@@ -1,33 +1,48 @@
 #![cfg(test)]
 use super::{AVN, *};
 use crate::mock::*;
-// use env_logger;
 use frame_support::{assert_err, assert_ok, pallet_prelude::Weight, traits::Hooks};
+use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::prelude::collections::HashSet;
 use sp_core::{H160, U256};
 
-fn submit_price_for_x_validators(num_validators: u64, currency: CurrencyBytes, price: U256) {
+fn submit_price_for_x_validators(num_validators: u64, rates: Rates) {
     for i in 1..=num_validators {
         let submitter = create_validator(i);
         let signature = generate_signature(&submitter, b"test context");
 
         assert_ok!(AvnOracle::submit_price(
             RuntimeOrigin::none(),
-            currency.clone(),
-            price,
+            rates.clone(),
             submitter.clone(),
             signature
         ));
     }
 }
 
-fn query_max_currencies() {
-    let max_currencies = 10;
-    for i in 0..max_currencies {
-        let mut currency = b"us".to_vec();
-        currency.extend_from_slice(i.to_string().as_bytes());
+fn register_max_currencies() {
+    let max_currencies: u32 = <TestRuntime as Config>::MaxCurrencies::get();
+    for i in 1..=max_currencies {
+        let currency = format!("us{}", i).into_bytes();
+        let currency_symbol = CurrencySymbol(currency.clone());
 
-        assert_ok!(AvnOracle::query_currency(RuntimeOrigin::root(), currency.clone(),));
+        assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency.clone(),));
+        assert!(CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+    }
+}
+
+fn submit_different_rates_for_x_validators(num_validators: u64) {
+    for i in 1..=num_validators {
+        let submitter = create_validator(i);
+        let signature = generate_signature(&submitter, b"test context");
+        let currency = CurrencySymbol(b"usd".to_vec());
+
+        assert_ok!(AvnOracle::submit_price(
+            RuntimeOrigin::none(),
+            Rates(vec![(currency, U256::from(i),),]),
+            submitter.clone(),
+            signature
+        ));
     }
 }
 
@@ -45,23 +60,23 @@ mod price_submission {
             ext.execute_with(|| {
                 let submitter = create_validator(1);
                 let signature = generate_signature(&submitter, b"test context");
-                let price = U256::from(1000);
-                let currency = usd_key();
-                let current_nonce = NonceByCurrency::<TestRuntime>::get(&currency);
+                let currency = CurrencySymbol(b"usd".to_vec());
+                let rates = Rates(vec![(currency, U256::from(1000))]);
+
+                let current_nonce = Nonce::<TestRuntime>::get();
 
                 assert_ok!(AvnOracle::submit_price(
                     RuntimeOrigin::none(),
-                    currency.clone(),
-                    price,
+                    rates.clone(),
                     submitter.clone(),
                     signature
                 ));
 
                 assert!(PriceReporters::<TestRuntime>::contains_key(
-                    (&currency, current_nonce),
+                    current_nonce,
                     &submitter.account_id
                 ));
-                let count = ReportedPrices::<TestRuntime>::get((&currency, current_nonce), price);
+                let count = ReportedRates::<TestRuntime>::get(current_nonce, rates);
                 assert_eq!(count, 1);
             });
         }
@@ -75,82 +90,62 @@ mod price_submission {
                 let signature = generate_signature(&submitter, b"test context");
                 let signature_2 = generate_signature(&submitter_2, b"test context");
 
-                let price = U256::from(1000);
-                let currency = usd_key();
-                let current_nonce = NonceByCurrency::<TestRuntime>::get(&currency);
+                let currency = CurrencySymbol(b"usd".to_vec());
+                let rates = Rates(vec![(currency, U256::from(1000))]);
+
+                let current_nonce = Nonce::<TestRuntime>::get();
 
                 assert_ok!(AvnOracle::submit_price(
                     RuntimeOrigin::none(),
-                    currency.clone(),
-                    price,
+                    rates.clone(),
                     submitter.clone(),
                     signature
                 ));
-
                 assert_ok!(AvnOracle::submit_price(
                     RuntimeOrigin::none(),
-                    currency.clone(),
-                    price,
+                    rates.clone(),
                     submitter_2.clone(),
                     signature_2
                 ));
 
                 assert!(PriceReporters::<TestRuntime>::contains_key(
-                    (&currency, current_nonce),
+                    current_nonce,
                     &submitter.account_id
                 ));
                 assert!(PriceReporters::<TestRuntime>::contains_key(
-                    (&currency, current_nonce),
+                    current_nonce,
                     &submitter_2.account_id
                 ));
-                let count = ReportedPrices::<TestRuntime>::get((&currency, current_nonce), price);
+                let count = ReportedRates::<TestRuntime>::get(current_nonce, rates);
                 assert_eq!(count, 2);
             });
         }
 
         #[test]
-        fn second_submission_by_same_validator_but_different_currency() {
+        fn submission_with_multiple_currencies() {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let submitter = create_validator(1);
                 let signature = generate_signature(&submitter, b"test context");
-                let signature_2 = generate_signature(&submitter, b"test context currency");
+                let usd = CurrencySymbol(b"usd".to_vec());
+                let eur = CurrencySymbol(b"eur".to_vec());
+                let rates = Rates(vec![(usd, U256::from(1000)), (eur, U256::from(1000))]);
 
-                let price = U256::from(1000);
-                let usd = usd_key();
-                let eur = eur_key();
-                let nonce_eur = NonceByCurrency::<TestRuntime>::get(&eur);
-                let nonce_usd = NonceByCurrency::<TestRuntime>::get(&usd);
+                let current_nonce = Nonce::<TestRuntime>::get();
 
                 assert_ok!(AvnOracle::submit_price(
                     RuntimeOrigin::none(),
-                    usd.clone(),
-                    price,
+                    rates.clone(),
                     submitter.clone(),
                     signature
                 ));
 
-                assert_ok!(AvnOracle::submit_price(
-                    RuntimeOrigin::none(),
-                    eur.clone(),
-                    price,
-                    submitter.clone(),
-                    signature_2
-                ));
-
                 assert!(PriceReporters::<TestRuntime>::contains_key(
-                    (&eur, nonce_eur),
+                    current_nonce,
                     &submitter.account_id
                 ));
-                assert!(PriceReporters::<TestRuntime>::contains_key(
-                    (&usd, nonce_usd),
-                    &submitter.account_id
-                ));
-                let count_eur = ReportedPrices::<TestRuntime>::get((&eur, nonce_eur), price);
-                assert_eq!(count_eur, 1);
-
-                let count_usd = ReportedPrices::<TestRuntime>::get((&usd, nonce_usd), price);
-                assert_eq!(count_usd, 1);
+                let count = ReportedRates::<TestRuntime>::get(current_nonce, rates);
+                assert_eq!(count, 1);
             });
         }
     }
@@ -165,14 +160,13 @@ mod price_submission {
             ext.execute_with(|| {
                 let submitter = create_validator(11);
                 let signature = generate_signature(&submitter, b"test context");
-                let price = U256::from(1000);
-                let currency = usd_key();
+                let currency = CurrencySymbol(b"usd".to_vec());
+                let rates = Rates(vec![(currency, U256::from(1000))]);
 
                 assert_err!(
                     AvnOracle::submit_price(
                         RuntimeOrigin::none(),
-                        currency.clone(),
-                        price,
+                        rates.clone(),
                         submitter.clone(),
                         signature
                     ),
@@ -182,56 +176,24 @@ mod price_submission {
         }
 
         #[test]
-        fn second_submission_by_same_validator_with_same_currency() {
+        fn second_submission_by_same_validator() {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let submitter = create_validator(1);
                 let signature = generate_signature(&submitter, b"test context");
-                let price = U256::from(1000);
-                let currency = usd_key();
+                let currency = CurrencySymbol(b"usd".to_vec());
+                let rates = Rates(vec![(currency, U256::from(1000))]);
 
                 assert_ok!(AvnOracle::submit_price(
                     RuntimeOrigin::none(),
-                    currency.clone(),
-                    price,
+                    rates.clone(),
                     submitter.clone(),
                     signature.clone()
                 ));
                 assert_err!(
                     AvnOracle::submit_price(
                         RuntimeOrigin::none(),
-                        currency.clone(),
-                        price,
-                        submitter.clone(),
-                        signature
-                    ),
-                    Error::<TestRuntime>::ValidatorAlreadySubmitted
-                );
-            });
-        }
-
-        #[test]
-        fn second_submission_by_same_validator_and_same_currency_but_different_prices() {
-            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-            ext.execute_with(|| {
-                let submitter = create_validator(1);
-                let signature = generate_signature(&submitter, b"test context");
-                let price = U256::from(1000);
-                let different_price = U256::from(2000);
-                let currency = usd_key();
-
-                assert_ok!(AvnOracle::submit_price(
-                    RuntimeOrigin::none(),
-                    currency.clone(),
-                    price,
-                    submitter.clone(),
-                    signature.clone()
-                ));
-                assert_err!(
-                    AvnOracle::submit_price(
-                        RuntimeOrigin::none(),
-                        currency.clone(),
-                        different_price,
+                        rates.clone(),
                         submitter.clone(),
                         signature
                     ),
@@ -246,22 +208,24 @@ mod price_submission {
         use super::*;
 
         #[test]
-        fn price_event_is_emitted_and_storage_is_updated_correctly() {
+        fn rates_event_is_emitted_and_storage_is_updated_correctly() {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
-                let price = U256::from(1000);
                 let number_of_validators = AVN::<TestRuntime>::quorum();
-                let currency = usd_key();
-                let nonce = NonceByCurrency::<TestRuntime>::get(&currency);
+                let currency = CurrencySymbol(b"usd".to_vec());
+                let rates = Rates(vec![(currency, U256::from(1000))]);
+
+                let current_nonce = Nonce::<TestRuntime>::get();
 
                 // add enough votes, just before quorum is reached
-                submit_price_for_x_validators(number_of_validators.into(), currency.clone(), price);
+                submit_price_for_x_validators(number_of_validators.into(), rates.clone());
 
                 // verify count
-                let count = ReportedPrices::<TestRuntime>::get((&currency, nonce), price);
+                let count = ReportedRates::<TestRuntime>::get(current_nonce, rates.clone());
                 assert_eq!(count, number_of_validators);
 
                 // verify nonce
+                let nonce = Nonce::<TestRuntime>::get();
                 assert_eq!(nonce, 0);
 
                 // add the fifth validator that will trigger consensus
@@ -269,29 +233,36 @@ mod price_submission {
                 let signature = generate_signature(&submitter, b"test context");
                 assert_ok!(AvnOracle::submit_price(
                     RuntimeOrigin::none(),
-                    currency.clone(),
-                    price,
+                    rates.clone(),
                     submitter.clone(),
                     signature
                 ));
 
                 // check that nonce increments by currency
-                assert_eq!(NonceByCurrency::<TestRuntime>::get(&currency), 1);
+                assert_eq!(Nonce::<TestRuntime>::get(), 1);
 
                 // check that price is updated
-                assert_eq!(PricesByCurrency::<TestRuntime>::get(&currency), Some(price));
+                for (symbol, value) in &rates.0 {
+                    assert_eq!(
+                        NativeTokenRateByCurrency::<TestRuntime>::get(symbol),
+                        Some(value.clone())
+                    );
+                }
 
                 // check that nonce has been processed for currency
-                assert_eq!(ProcessedNonces::<TestRuntime>::get(&currency), 0);
+                assert_eq!(ProcessedNonces::<TestRuntime>::get(), 0);
+
+                // check that lastPriceSubmission updates correctly
+                let current_block = <frame_system::Pallet<TestRuntime>>::block_number();
+                assert_eq!(LastPriceSubmission::<TestRuntime>::get(), current_block);
 
                 // event is emitted
                 assert_eq!(
                     true,
                     System::events().iter().any(|a| a.event ==
                         mock::RuntimeEvent::AvnOracle(
-                            crate::Event::<TestRuntime>::PriceUpdated {
-                                price,
-                                currency: currency.clone(),
+                            crate::Event::<TestRuntime>::RatesUpdated {
+                                rates: rates.clone(),
                                 nonce,
                             }
                         ))
@@ -302,7 +273,7 @@ mod price_submission {
 }
 
 #[cfg(test)]
-mod query_currency {
+mod register_currency {
     use super::*;
 
     #[cfg(test)]
@@ -310,36 +281,31 @@ mod query_currency {
         use super::*;
 
         #[test]
-        fn currency_is_valid() {
+        fn origin_is_sudo() {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
-                let currency_usd = b"usd".to_vec();
+                let currency = b"usd".to_vec();
+                let currency_symbol = CurrencySymbol(currency.clone());
 
-                assert_ok!(AvnOracle::query_currency(RuntimeOrigin::root(), currency_usd.clone(),));
+                // Ensure currency is not registered initially
+                assert!(!CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
 
-                // ✅ Check that PendingCurrencies now contains "usd"
-                let pending = AvnOracle::pending_currencies();
-                assert_eq!(pending.len(), 1);
-                assert_eq!(pending[0].as_slice(), currency_usd.as_slice());
-            });
-        }
+                // Register currency
+                assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency.clone(),));
 
-        #[test]
-        fn second_query_with_different_currency() {
-            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
-            ext.execute_with(|| {
-                let currency_usd = b"usd".to_vec();
-                let currency_eur = b"eur".to_vec();
+                // Ensure currency is added
+                assert!(CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
 
-                assert_ok!(AvnOracle::query_currency(RuntimeOrigin::root(), currency_usd.clone(),));
-
-                assert_ok!(AvnOracle::query_currency(RuntimeOrigin::root(), currency_eur.clone(),));
-
-                // ✅ Check that PendingCurrencies now contains "usd"
-                let pending = AvnOracle::pending_currencies();
-                assert_eq!(pending.len(), 2);
-                assert_eq!(pending[0].as_slice(), currency_usd.as_slice());
-                assert_eq!(pending[1].as_slice(), currency_eur.as_slice());
+                // event is emitted
+                assert_eq!(
+                    true,
+                    System::events().iter().any(|a| a.event ==
+                        mock::RuntimeEvent::AvnOracle(
+                            crate::Event::<TestRuntime>::CurrencyRegistered {
+                                symbol: currency.clone(),
+                            }
+                        ))
+                );
             });
         }
     }
@@ -349,39 +315,287 @@ mod query_currency {
         use super::*;
 
         #[test]
-        fn currency_is_invalid() {
+        fn origin_is_not_sudo() {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
-                let invalid_currency = b"usdd".to_vec();
+                let currency = b"usd".to_vec();
+                let currency_symbol = CurrencySymbol(currency.clone());
 
+                // Ensure currency is not registered initially
+                assert!(!CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Register currency
                 assert_err!(
-                    AvnOracle::query_currency(RuntimeOrigin::root(), invalid_currency.clone(),),
-                    Error::<TestRuntime>::InvalidCurrency
+                    AvnOracle::register_currency(RuntimeOrigin::signed(1), currency.clone(),),
+                    sp_runtime::DispatchError::BadOrigin
                 );
 
-                // ✅ Check that PendingCurrencies doesnt contain usd
-                let pending = AvnOracle::pending_currencies();
-                assert_eq!(pending.len(), 0);
+                // Ensure currency is not registered
+                assert!(!CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Ensure no CurrencyRegistered event was emitted
+                assert!(!System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AvnOracle(
+                        crate::Event::<TestRuntime>::CurrencyRegistered {
+                            symbol: currency.clone(),
+                        }
+                    )));
             });
         }
 
         #[test]
-        fn more_than_limit_currencies() {
+        fn max_fiat_rates_reached() {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
-                let max_currencies = 10;
-                query_max_currencies();
-
+                register_max_currencies();
                 let currency = b"usd".to_vec();
+                let currency_symbol = CurrencySymbol(currency.clone());
+
+                // Ensure currency is not registered initially
+                assert!(!CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Register currency
                 assert_err!(
-                    AvnOracle::query_currency(RuntimeOrigin::root(), currency.clone(),),
+                    AvnOracle::register_currency(RuntimeOrigin::root(), currency.clone(),),
                     Error::<TestRuntime>::TooManyCurrencies
                 );
-
-                // ✅ Check that PendingCurrencies doesnt contain more than max_currencies
-                let pending = AvnOracle::pending_currencies();
-                assert_eq!(pending.len(), max_currencies);
             });
+        }
+    }
+}
+
+#[cfg(test)]
+mod remove_currency {
+    use super::*;
+
+    #[cfg(test)]
+    mod succeeds_if {
+        use super::*;
+
+        #[test]
+        fn origin_is_sudo() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let currency = b"usd".to_vec();
+                let currency_symbol = CurrencySymbol(currency.clone());
+
+                // Ensure currency is not registered initially
+                assert!(!CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Register currency
+                assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency.clone(),));
+
+                // Ensure currency is added
+                assert!(CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Remove currency
+                assert_ok!(AvnOracle::remove_currency(RuntimeOrigin::root(), currency.clone(),));
+
+                // Ensure currency is removed
+                assert!(!CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // event is emitted
+                assert_eq!(
+                    true,
+                    System::events().iter().any(|a| a.event ==
+                        mock::RuntimeEvent::AvnOracle(
+                            crate::Event::<TestRuntime>::CurrencyRemoved {
+                                symbol: currency.clone(),
+                            }
+                        ))
+                );
+            });
+        }
+    }
+
+    #[cfg(test)]
+    mod fails_if {
+        use super::*;
+
+        #[test]
+        fn origin_is_not_sudo() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let currency = b"usd".to_vec();
+                let currency_symbol = CurrencySymbol(currency.clone());
+
+                // Ensure currency is not registered initially
+                assert!(!CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Register currency
+                assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency.clone(),));
+
+                // Ensure currency is added
+                assert!(CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Remove currency
+                assert_err!(
+                    AvnOracle::remove_currency(RuntimeOrigin::signed(1), currency.clone(),),
+                    sp_runtime::DispatchError::BadOrigin
+                );
+
+                // Ensure currency is not removed
+                assert!(CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Ensure no CurrencyRemoved event was emitted
+                assert!(!System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AvnOracle(
+                        crate::Event::<TestRuntime>::CurrencyRemoved { symbol: currency.clone() }
+                    )));
+            });
+        }
+
+        #[test]
+        fn currency_not_found() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                register_max_currencies();
+                let currency = b"usd".to_vec();
+                let currency_symbol = CurrencySymbol(currency.clone());
+
+                // Ensure currency is not registered initially
+                assert!(!CurrencySymbols::<TestRuntime>::contains_key(&currency_symbol));
+
+                // Remove currency
+                assert_err!(
+                    AvnOracle::remove_currency(RuntimeOrigin::root(), currency.clone(),),
+                    Error::<TestRuntime>::CurrencyNotFound
+                );
+            });
+        }
+    }
+}
+
+#[cfg(test)]
+mod clear_consensus {
+    use super::*;
+
+    #[cfg(test)]
+    mod succeeds_if {
+        use super::*;
+
+        #[test]
+        fn round_hasnt_finish_in_grace_period_blocks() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let number_of_validators = AVN::<TestRuntime>::quorum() + 1;
+                let nonce = Nonce::<TestRuntime>::get();
+
+                // add votes to all validators with different rates so consensus is never reached
+                submit_different_rates_for_x_validators(number_of_validators.into());
+
+                // round started at block 0
+                assert_eq!(
+                    LastPriceSubmission::<TestRuntime>::get(),
+                    BlockNumberFor::<TestRuntime>::from(0u64)
+                );
+
+                // in grace period blocks, it should reset round
+                let current_block: u64 = <frame_system::Pallet<TestRuntime>>::block_number();
+                let rates_refresh_range: u32 =
+                    <TestRuntime as Config>::PriceRefreshRangeInBlocks::get();
+                let grace: u32 = <TestRuntime as Config>::ConsensusGracePeriod::get();
+                let new_block_number = current_block
+                    .saturating_add(grace.into())
+                    .saturating_add(rates_refresh_range.into());
+                System::set_block_number(new_block_number);
+
+                let submitter = create_validator(1);
+                let signature = generate_signature(&submitter, b"clear consensus");
+
+                assert_ok!(Pallet::<TestRuntime>::clear_consensus(
+                    RuntimeOrigin::none(),
+                    submitter.clone(),
+                    signature,
+                ));
+
+                // new submission round is set to rates_refresh_range blocks ago so it begins the
+                // round right after
+                let new_last_submission_block =
+                    new_block_number.saturating_sub(rates_refresh_range.into());
+                assert_eq!(LastPriceSubmission::<TestRuntime>::get(), new_last_submission_block);
+                assert_eq!(Nonce::<TestRuntime>::get(), nonce + 1);
+            })
+        }
+    }
+
+    #[cfg(test)]
+    mod fails_if {
+        use super::*;
+
+        #[test]
+        fn submitter_is_not_a_validator() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let number_of_validators = AVN::<TestRuntime>::quorum() + 1;
+                let nonce = Nonce::<TestRuntime>::get();
+
+                // add votes to all validators with different rates so consensus is never reached
+                submit_different_rates_for_x_validators(number_of_validators.into());
+
+                // round started at block 0
+                assert_eq!(
+                    LastPriceSubmission::<TestRuntime>::get(),
+                    BlockNumberFor::<TestRuntime>::from(0u64)
+                );
+
+                // in grace period blocks, it should reset round
+                let current_block: u64 = <frame_system::Pallet<TestRuntime>>::block_number();
+                let rates_refresh_range: u32 =
+                    <TestRuntime as Config>::PriceRefreshRangeInBlocks::get();
+                let grace: u32 = <TestRuntime as Config>::ConsensusGracePeriod::get();
+                let new_block_number = current_block
+                    .saturating_add(grace.into())
+                    .saturating_add(rates_refresh_range.into());
+                System::set_block_number(new_block_number);
+
+                let submitter = create_validator(11);
+                let signature = generate_signature(&submitter, b"clear consensus");
+
+                assert_err!(
+                    Pallet::<TestRuntime>::clear_consensus(
+                        RuntimeOrigin::none(),
+                        submitter.clone(),
+                        signature,
+                    ),
+                    Error::<TestRuntime>::SubmitterNotAValidator
+                );
+            })
+        }
+
+        #[test]
+        fn grace_period_has_not_passed() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let number_of_validators = AVN::<TestRuntime>::quorum() + 1;
+                let nonce = Nonce::<TestRuntime>::get();
+
+                // add votes to all validators with different rates so consensus is never reached
+                submit_different_rates_for_x_validators(number_of_validators.into());
+
+                // round started at block 0
+                assert_eq!(
+                    LastPriceSubmission::<TestRuntime>::get(),
+                    BlockNumberFor::<TestRuntime>::from(0u64)
+                );
+
+                let current_block: u64 = <frame_system::Pallet<TestRuntime>>::block_number();
+                let incomplete_grace: u32 =
+                    <TestRuntime as Config>::ConsensusGracePeriod::get() - 5;
+                System::set_block_number(current_block.saturating_add(incomplete_grace.into()));
+
+                let submitter = create_validator(1);
+                let signature = generate_signature(&submitter, b"clear rate");
+
+                assert_err!(
+                    Pallet::<TestRuntime>::clear_consensus(
+                        RuntimeOrigin::none(),
+                        submitter.clone(),
+                        signature,
+                    ),
+                    Error::<TestRuntime>::GracePeriodNotPassed
+                );
+            })
         }
     }
 }
