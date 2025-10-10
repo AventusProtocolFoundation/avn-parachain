@@ -349,6 +349,7 @@ frame_support::construct_runtime!(
 parameter_types! {
     pub const AdvanceSlotGracePeriod: u64 = 5;
     pub const MinBlockAge: u64 = 5;
+    pub const DoNotSubmit: bool = false;
 }
 
 pub type ValidatorId = u64;
@@ -385,6 +386,8 @@ impl Config for TestRuntime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AutoSubmitSummaries;
     type InstanceId = InstanceId;
+    type ExternalValidator = NoopWatchtower<AccountId>;
+    type ExternalValidationEnabled = DoNotSubmit;
 }
 
 type AvnAnchorSummary = summary::Instance1;

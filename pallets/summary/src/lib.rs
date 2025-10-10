@@ -9,7 +9,12 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use sp_avn_common::{
     event_types::Validator,
     ocw_lock::{self as OcwLock},
-    safe_add_block_numbers, safe_sub_block_numbers, BridgeContractMethod, IngressCounter,
+    safe_add_block_numbers, safe_sub_block_numbers,
+    watchtower::{
+        DecisionRule, ProposalId, ProposalRequest, ProposalSource, ProposalStatusEnum,
+        ProposalType, RawPayload, WatchtowerHooks, WatchtowerInterface,
+    },
+    BridgeContractMethod, IngressCounter,
 };
 use sp_runtime::{
     scale_info::TypeInfo,
@@ -76,6 +81,10 @@ use crate::vote::*;
 pub mod challenge;
 use crate::challenge::*;
 
+pub mod types;
+pub mod utils;
+use crate::types::*;
+
 use pallet_avn::BridgeInterface;
 use sp_avn_common::{RootId, RootRange};
 
@@ -132,6 +141,12 @@ pub mod pallet {
         type AutoSubmitSummaries: Get<bool>;
         /// A unique instance id to differentiate different instances
         type InstanceId: Get<u8>;
+        /// A flag to determine if external validation is enabled
+        type ExternalValidationEnabled: Get<bool>;
+        /// A type that provides external validation of summary roots. Use Noop implementation to
+        /// disable.
+        #[pallet::no_default_bounds]
+        type ExternalValidator: WatchtowerInterface;
     }
 
     #[pallet::pallet]
@@ -194,6 +209,15 @@ pub mod pallet {
             ingress_counter: IngressCounter,
             block_range: RootRange<BlockNumberFor<T>>,
         },
+        /// Root failed validation so admin review requested
+        AdminReviewRequested {
+            root_id: RootId<BlockNumberFor<T>>,
+            proposal_id: ProposalId,
+            external_ref: H256,
+            status: ProposalStatusEnum,
+        },
+        /// Root has been finalised
+        RootFinalised { root_hash: H256, block_range: RootRange<BlockNumberFor<T>> },
     }
 
     #[pallet::error]
@@ -230,6 +254,8 @@ pub mod pallet {
         VotingPeriodIsEqualOrLongerThanSchedulePeriod,
         CurrentSlotValidatorNotFound,
         ErrorPublishingSummary,
+        /// There is no rootId for the given external reference
+        ExternalRefNotFound,
     }
 
     // Note for SYS-152 (see notes in fn end_voting)):
@@ -330,6 +356,30 @@ pub mod pallet {
     #[pallet::getter(fn anchor_roots)]
     pub type AnchorRoots<T: Config<I>, I: 'static = ()> =
         StorageMap<_, Blake2_128Concat, u32, H256, ValueQuery>;
+
+    /// Map from RootId to the status of its external validation
+    #[pallet::storage]
+    pub type ExternalValidationStatus<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
+        Blake2_128Concat,
+        RootId<BlockNumberFor<T>>,
+        ExternalValidationEnum,
+        OptionQuery,
+    >;
+
+    /// Map from external reference (H256) to RootId
+    #[pallet::storage]
+    pub type ExternalValidationRef<T: Config<I>, I: 'static = ()> =
+        StorageMap<_, Blake2_128Concat, H256, RootId<BlockNumberFor<T>>, OptionQuery>;
+    /// Roots that failed external validation and are pending admin review
+    #[pallet::storage]
+    pub type PendingAdminReviews<T: Config<I>, I: 'static = ()> = StorageMap<
+        _,
+        Blake2_128Concat,
+        RootId<BlockNumberFor<T>>,
+        ExternalValidationData,
+        OptionQuery,
+    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
@@ -1162,7 +1212,7 @@ pub mod pallet {
             return Ok(H256::from_slice(&data))
         }
 
-        fn send_root_to_ethereum(
+        pub fn send_root_to_ethereum(
             root_id: &RootId<BlockNumberFor<T>>,
             root_data: &RootData<T::AccountId>,
         ) -> DispatchResult {
@@ -1186,7 +1236,7 @@ pub mod pallet {
             Ok(())
         }
 
-        fn get_next_approved_root_id() -> Result<u32, DispatchError> {
+        pub fn get_next_approved_root_id() -> Result<u32, DispatchError> {
             AnchorRootsCounter::<T, I>::try_mutate(|counter| {
                 let current_counter = *counter;
                 *counter = counter.checked_add(1).ok_or(Error::<T, I>::Overflow)?;
@@ -1210,12 +1260,10 @@ pub mod pallet {
             let root_data = Self::try_get_root_data(&root_id)?;
             if root_is_approved {
                 if root_data.root_hash != Self::empty_root() {
-                    if T::AutoSubmitSummaries::get() {
-                        Self::send_root_to_ethereum(root_id, &root_data)?;
+                    if T::ExternalValidationEnabled::get() {
+                        Self::submit_root_for_external_validation(root_id, root_data.root_hash)?;
                     } else {
-                        // Add root to anchor storage
-                        let approved_root_id = Self::get_next_approved_root_id()?;
-                        <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
+                        Self::process_accepted_root(root_id, root_data.root_hash)?;
                     }
                 }
                 // If we get here, then we did not get an error when submitting to T1.
@@ -1369,7 +1417,7 @@ pub mod pallet {
             return InvalidTransaction::Call.into()
         }
 
-        fn empty_root() -> H256 {
+        pub fn empty_root() -> H256 {
             return H256::from_slice(&[0; 32])
         }
 
@@ -1397,44 +1445,67 @@ pub mod pallet {
             [PALLET_ID.to_vec(), vec![T::InstanceId::get()]].concat()
         }
     }
-}
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
-pub struct RootData<AccountId> {
-    pub root_hash: H256,
-    pub added_by: Option<AccountId>,
-    pub is_validated: bool, // This is set to true when 2/3 of validators approve it
-    pub is_finalised: bool, /* This is set to true when EthEvents confirms Tier1 has received
-                             * the root */
-    pub tx_id: Option<EthereumTransactionId>, /* This is the TransacionId that will be used to
-                                               * submit
-                                               * the tx */
-}
-
-impl<AccountId> RootData<AccountId> {
-    fn new(
-        root_hash: H256,
-        added_by: AccountId,
-        transaction_id: Option<EthereumTransactionId>,
-    ) -> Self {
-        return RootData::<AccountId> {
-            root_hash,
-            added_by: Some(added_by),
-            is_validated: false,
-            is_finalised: false,
-            tx_id: transaction_id,
+    impl<T: Config<I>, I: 'static> WatchtowerHooks<ProposalRequest> for Pallet<T, I> {
+        fn on_proposal_submitted(_id: ProposalId, _p: ProposalRequest) -> DispatchResult {
+            Ok(())
         }
-    }
-}
 
-impl<AccountId> Default for RootData<AccountId> {
-    fn default() -> Self {
-        Self {
-            root_hash: H256::zero(),
-            added_by: None,
-            is_validated: false,
-            is_finalised: false,
-            tx_id: None,
+        fn on_voting_completed(
+            proposal_id: ProposalId,
+            external_ref: &H256,
+            result: &ProposalStatusEnum,
+        ) {
+            if let Ok(root_id) = Self::get_root_id_by_external_ref(external_ref) {
+                match result {
+                    ProposalStatusEnum::Resolved { passed } if *passed => {
+                        let root_data = match Self::try_get_root_data(&root_id) {
+                            Ok(data) => data,
+                            Err(e) => {
+                                log::error!(
+                                    "💔 Root data not found. ProposalId {:?}. External ref {:?}. Err: {:?}",
+                                    proposal_id,
+                                    external_ref,
+                                    e
+                                );
+                                return;
+                            },
+                        };
+
+                        Self::set_summary_status(&root_id, ExternalValidationEnum::Accepted);
+
+                        if let Err(e) = Self::process_accepted_root(&root_id, root_data.root_hash) {
+                            log::error!("💔 Processing on_voting_completed error. ProposalId {:?}. External ref {:?}. Err: {:?}",
+                                proposal_id,
+                                external_ref,
+                                e
+                            );
+                            return;
+                        };
+
+                        Self::cleanup_external_validation_data(&root_id);
+                    },
+                    _ => {
+                        Self::setup_root_for_admin_review(
+                            root_id,
+                            proposal_id,
+                            external_ref.clone(),
+                            result.clone(),
+                        );
+                    },
+                }
+            }
+        }
+
+        fn on_cancelled(proposal_id: ProposalId, external_ref: &H256) {
+            if let Ok(root_id) = Self::get_root_id_by_external_ref(external_ref) {
+                Self::setup_root_for_admin_review(
+                    root_id,
+                    proposal_id,
+                    external_ref.clone(),
+                    ProposalStatusEnum::Cancelled,
+                );
+            }
         }
     }
 }
@@ -1506,5 +1577,3 @@ mod test_ocw_locks;
 #[cfg(test)]
 #[path = "tests/anchor_tests.rs"]
 mod anchor_tests;
-
-// TODO: Add unit tests for setting schedule period and voting period
