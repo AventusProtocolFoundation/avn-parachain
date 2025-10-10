@@ -409,10 +409,10 @@ where
         .map(|s| s.split(',').map(str::trim).map(String::from).collect())
         .map_err(|_| TideError::from_str(400, "Missing or invalid symbols parameter"))?;
 
-    let currencies: String = req
+    let currencies: Vec<String> = req
         .param("currencies")
-        .map(|s| s.to_lowercase())
-        .map_err(|_| TideError::from_str(400, "Missing currency parameter"))?;
+        .map(|s| s.split(',').map(str::trim).map(String::from).collect())
+        .map_err(|_| TideError::from_str(400, "Missing or invalid currency parameter"))?;
 
     let from: u64 = req
         .param("from")
@@ -444,7 +444,7 @@ where
                         price
                     );
                     results.insert(
-                        format!("{}", currency),,
+                        format!("{}", currency),
                         serde_json::Value::Number(serde_json::Number::from_f64(price).unwrap()),
                     );
                 },

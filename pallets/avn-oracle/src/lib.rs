@@ -116,7 +116,7 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        PriceUpdated { rates: Rates, nonce: u32 },
+        RatesUpdated { rates: Rates, nonce: u32 },
         ConsensusCleared { period: u32 },
         CurrencyRegistered { symbol: Vec<u8> },
         CurrencyRemoved { symbol: Vec<u8> },
@@ -168,7 +168,7 @@ pub mod pallet {
 
             if count > AVN::<T>::quorum() {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
-                Self::deposit_event(Event::<T>::PriceUpdated { rates: rates.clone(), nonce });
+                Self::deposit_event(Event::<T>::RatesUpdated { rates: rates.clone(), nonce });
 
                 for (symbol, value) in &rates.0 {
                     NativeTokenRateByCurrency::<T>::insert(symbol, value.clone());
@@ -564,3 +564,6 @@ pub mod pallet {
 mod mock;
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
