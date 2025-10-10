@@ -712,7 +712,7 @@ pub mod pallet {
                 });
 
                 log::info!("Force completed deregistration for {:?} (cleanup only)", account_id);
-                return Ok(());
+                return Ok(())
             }
 
             // Try normal completion
@@ -779,7 +779,7 @@ pub mod pallet {
                                 operation_type: PendingValidatorOperationType::Deregistration,
                             });
 
-                            return Ok(());
+                            return Ok(())
                         }
                     }
 
@@ -836,7 +836,7 @@ pub mod pallet {
                 });
 
                 log::info!("Cancelled pending registration for {:?}", account_id);
-                return Ok(());
+                return Ok(())
             }
 
             // Check for pending deregistration
@@ -849,7 +849,7 @@ pub mod pallet {
                 });
 
                 log::info!("Cancelled pending deregistration for {:?}", account_id);
-                return Ok(());
+                return Ok(())
             }
 
             // No pending operation found
@@ -951,7 +951,7 @@ impl<T: Config> Pallet<T> {
 
         // Check if we have enough weight to do anything
         if weight.ref_time() >= max_weight.ref_time() {
-            return weight;
+            return weight
         }
 
         // BOUNDED: Limit both iterations AND results to prevent unbounded storage reads
@@ -970,7 +970,7 @@ impl<T: Config> Pallet<T> {
                         without finding any timed out operations"
                     );
                 }
-                break;
+                break
             }
 
             // Check if this entry is timed out
@@ -978,7 +978,7 @@ impl<T: Config> Pallet<T> {
                 timed_out.push(account_id);
                 // Stop if we have enough results
                 if timed_out.len() >= MAX_TIMEOUT_CLEANUPS_PER_BLOCK {
-                    break;
+                    break
                 }
             }
         }
@@ -990,7 +990,7 @@ impl<T: Config> Pallet<T> {
             // Check weight before each operation
             let operation_weight = T::DbWeight::get().reads_writes(1, 2);
             if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
-                break;
+                break
             }
 
             if let Some(pending_data) = PendingValidatorRegistrations::<T>::take(&account_id) {
@@ -1016,7 +1016,7 @@ impl<T: Config> Pallet<T> {
         let mut weight = T::DbWeight::get().reads(1);
 
         if weight.ref_time() >= max_weight.ref_time() {
-            return weight;
+            return weight
         }
 
         // BOUNDED: Limit both iterations AND results to prevent unbounded storage reads
@@ -1035,7 +1035,7 @@ impl<T: Config> Pallet<T> {
                         without finding any timed out operations"
                     );
                 }
-                break;
+                break
             }
 
             // Check if this entry is timed out
@@ -1043,7 +1043,7 @@ impl<T: Config> Pallet<T> {
                 timed_out.push(account_id);
                 // Stop if we have enough results
                 if timed_out.len() >= MAX_TIMEOUT_CLEANUPS_PER_BLOCK {
-                    break;
+                    break
                 }
             }
         }
@@ -1054,7 +1054,7 @@ impl<T: Config> Pallet<T> {
         for account_id in timed_out {
             let operation_weight = T::DbWeight::get().reads_writes(1, 2);
             if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
-                break;
+                break
             }
 
             if let Some(pending_data) = PendingValidatorDeregistrations::<T>::take(&account_id) {
@@ -1079,7 +1079,7 @@ impl<T: Config> Pallet<T> {
         let mut weight = T::DbWeight::get().reads(1);
 
         if weight.ref_time() >= max_weight.ref_time() {
-            return weight;
+            return weight
         }
 
         // BOUNDED: Limit both iterations AND results to prevent unbounded storage reads
@@ -1091,14 +1091,14 @@ impl<T: Config> Pallet<T> {
             iterations += 1;
 
             if iterations >= MAX_ITERATIONS {
-                break;
+                break
             }
 
             // Check if they're still a candidate - if not, they've completed exit
             if parachain_staking::Pallet::<T>::candidate_info(&account_id).is_none() {
                 ready_to_remove.push(account_id);
                 if ready_to_remove.len() >= MAX_DEACTIVATION_FINALIZATIONS_PER_BLOCK {
-                    break;
+                    break
                 }
             }
         }
@@ -1108,7 +1108,7 @@ impl<T: Config> Pallet<T> {
         for account_id in ready_to_remove {
             let operation_weight = T::DbWeight::get().reads_writes(2, 3);
             if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
-                break;
+                break
             }
 
             // Remove from ValidatorAccountIds with proper error handling
@@ -1142,7 +1142,7 @@ impl<T: Config> Pallet<T> {
         let mut weight = T::DbWeight::get().reads(1);
 
         if weight.ref_time() >= max_weight.ref_time() {
-            return weight;
+            return weight
         }
 
         // BOUNDED: Limit both iterations AND results to prevent unbounded storage reads
@@ -1161,7 +1161,7 @@ impl<T: Config> Pallet<T> {
                         without finding any old transactions"
                     );
                 }
-                break;
+                break
             }
 
             // Check if this entry is old enough to remove
@@ -1169,7 +1169,7 @@ impl<T: Config> Pallet<T> {
                 to_remove.push(tx_id);
                 // Stop if we have enough results
                 if to_remove.len() >= MAX_PROCESSED_TX_CLEANUPS_PER_BLOCK {
-                    break;
+                    break
                 }
             }
         }
@@ -1180,7 +1180,7 @@ impl<T: Config> Pallet<T> {
         for tx_id in to_remove {
             let operation_weight = T::DbWeight::get().writes(1);
             if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
-                break;
+                break
             }
 
             ProcessedTransactions::<T>::remove(tx_id);
@@ -1356,7 +1356,7 @@ impl<T: Config> Pallet<T> {
                 "Unable to find staking candidate info for collator: {:?}",
                 action_account_id
             );
-            return Err(());
+            return Err(())
         }
 
         let staking_state = staking_state.expect("Checked for none already");
@@ -1375,7 +1375,7 @@ impl<T: Config> Pallet<T> {
                 action_account_id,
                 result
             );
-            return Err(());
+            return Err(())
         }
 
         Ok(())
@@ -1459,7 +1459,7 @@ impl<T: Config> Pallet<T> {
                     });
 
                     // DON'T remove pending state - allow force_complete_deregistration to retry
-                    return Err(e);
+                    return Err(e)
                 },
             }
         } else {
@@ -1601,7 +1601,7 @@ impl<T: Config> Pallet<T> {
                     Self::deposit_event(Event::<T>::StakingOperationFailed {
                         validator_id: account_id.clone(),
                     });
-                    return Err(e.error);
+                    return Err(e.error)
                 },
             }
         }
@@ -1640,7 +1640,7 @@ impl<T: Config> Pallet<T> {
         ) {
             Ok(_) => {},
             Err(e) => {
-                return Err(e.error);
+                return Err(e.error)
             },
         }
 
@@ -1699,18 +1699,18 @@ impl<T: Config> Pallet<T> {
         if let Some(validator_account_ids) = Self::validator_account_ids() {
             if validator_account_ids.contains(account_id) {
                 if DeactivatingValidators::<T>::contains_key(account_id) {
-                    return ValidatorStatus::Deactivating;
+                    return ValidatorStatus::Deactivating
                 }
-                return ValidatorStatus::Active;
+                return ValidatorStatus::Active
             }
         }
 
         if PendingValidatorRegistrations::<T>::contains_key(account_id) {
-            return ValidatorStatus::PendingRegistration;
+            return ValidatorStatus::PendingRegistration
         }
 
         if PendingValidatorDeregistrations::<T>::contains_key(account_id) {
-            return ValidatorStatus::PendingDeregistration;
+            return ValidatorStatus::PendingDeregistration
         }
 
         ValidatorStatus::NotValidator
@@ -1720,12 +1720,12 @@ impl<T: Config> Pallet<T> {
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
         if caller_id != PALLET_ID.to_vec() {
-            return Ok(());
+            return Ok(())
         }
 
         // Reentrancy protection: check if already processed
         if ProcessedTransactions::<T>::contains_key(tx_id) {
-            return Ok(()); // Silently ignore duplicates
+            return Ok(()) // Silently ignore duplicates
         }
 
         // Mark as processed FIRST
