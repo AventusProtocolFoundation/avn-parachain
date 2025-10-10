@@ -98,7 +98,7 @@ benchmarks! {
         let context = (CLEAR_CONSENSUS_SUBMISSION_CONTEXT, Nonce::<T>::get()).encode();
         let signature = validator.key.sign(&context).expect("Invalid signature");
 
-        let current_block_with_expired_grace_period = T::PriceRefreshRangeInBlocks::get() + T::ConsensusGracePeriod::get() + 1;
+        let current_block_with_expired_grace_period = RatesRefreshRangeBlocks::<T>::get() + T::ConsensusGracePeriod::get() + 1;
         let now = BlockNumberFor::<T>::from(current_block_with_expired_grace_period);
         frame_system::Pallet::<T>::set_block_number(now);
 
@@ -111,14 +111,14 @@ benchmarks! {
         assert_eq!(updated_nonce, 1);
 
         let stored_block = LastPriceSubmission::<T>::get();
-        let new_last_submission = BlockNumberFor::<T>::from(current_block_with_expired_grace_period.saturating_sub(T::PriceRefreshRangeInBlocks::get()));
+        let new_last_submission = BlockNumberFor::<T>::from(current_block_with_expired_grace_period.saturating_sub(RatesRefreshRangeBlocks::<T>::get()));
         assert_eq!(stored_block, new_last_submission);
     }
 
     on_initialize_updates_rates_query_timestamps {
         // Set up a block that should trigger the timestamp update
         let last_block = BlockNumberFor::<T>::from(1u32);
-        let current_block = last_block + BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get() + 1);
+        let current_block = last_block + BlockNumberFor::<T>::from(RatesRefreshRangeBlocks::<T>::get() + 1);
 
         LastPriceSubmission::<T>::put(last_block);
 
@@ -172,6 +172,14 @@ benchmarks! {
         // Ensure storage maps are empty after cleanup
         assert!(PriceReporters::<T>::iter_prefix(nonce).next().is_none());
         assert!(ReportedRates::<T>::iter_prefix(nonce).next().is_none());
+    }
+
+    set_rates_refresh_range {
+        let new_rates_refresh_range = 990;
+        assert!(RatesRefreshRangeBlocks::<T>::get() != new_rates_refresh_range);
+    }: _(RawOrigin::Root, new_rates_refresh_range)
+    verify {
+        assert_eq!(RatesRefreshRangeBlocks::<T>::get(), new_fiat_rates_refresh_range);
     }
 }
 

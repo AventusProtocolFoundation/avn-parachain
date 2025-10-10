@@ -95,9 +95,9 @@ impl pallet_avn::Config for TestRuntime {
 impl pallet_avn_oracle::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type PriceRefreshRangeInBlocks = PriceRefreshRangeInBlocks;
     type ConsensusGracePeriod = ConsensusGracePeriod;
     type MaxCurrencies = MaxCurrencies;
+    type MinRatesRefreshRange = MinRatesRefreshRange;
 }
 
 impl pallet_timestamp::Config for TestRuntime {
@@ -111,9 +111,9 @@ impl pallet_timestamp::Config for TestRuntime {
 parameter_types! {
     pub const Period: u64 = 1;
     pub const Offset: u64 = 0;
-    pub const PriceRefreshRangeInBlocks: u32 = 50;
     pub const ConsensusGracePeriod: u32 = 300;
     pub const MaxCurrencies: u32 = 10;
+    pub const MinRatesRefreshRange: u32 = 5;
 }
 
 pub type SessionIndex = u32;
