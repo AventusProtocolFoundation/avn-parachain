@@ -603,7 +603,7 @@ pub mod pallet {
                     operation_type: PendingAuthorOperationType::Registration,
                 });
 
-                return Ok(());
+                return Ok(())
             }
 
             // Check for pending deregistration
@@ -615,7 +615,7 @@ pub mod pallet {
                     operation_type: PendingAuthorOperationType::Deregistration,
                 });
 
-                return Ok(());
+                return Ok(())
             }
 
             Err(Error::<T>::NoPendingOperationFound.into())
@@ -728,7 +728,7 @@ impl<T: Config> Pallet<T> {
         let mut weight = T::DbWeight::get().reads(1);
 
         if weight.ref_time() >= max_weight.ref_time() {
-            return weight;
+            return weight
         }
 
         let mut timed_out = Vec::with_capacity(Self::MAX_TIMEOUT_CLEANUPS_PER_BLOCK);
@@ -745,13 +745,13 @@ impl<T: Config> Pallet<T> {
                         without finding any timed out operations"
                     );
                 }
-                break;
+                break
             }
 
             if current_block.saturating_sub(pending_data.timestamp) > timeout_threshold {
                 timed_out.push(account_id);
                 if timed_out.len() >= Self::MAX_TIMEOUT_CLEANUPS_PER_BLOCK {
-                    break;
+                    break
                 }
             }
         }
@@ -761,7 +761,7 @@ impl<T: Config> Pallet<T> {
         for account_id in timed_out {
             let operation_weight = T::DbWeight::get().reads_writes(1, 2);
             if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
-                break;
+                break
             }
 
             if let Some(pending_data) = PendingAuthorRegistrations::<T>::take(&account_id) {
@@ -787,7 +787,7 @@ impl<T: Config> Pallet<T> {
         let mut weight = T::DbWeight::get().reads(1);
 
         if weight.ref_time() >= max_weight.ref_time() {
-            return weight;
+            return weight
         }
 
         let mut timed_out = Vec::with_capacity(Self::MAX_TIMEOUT_CLEANUPS_PER_BLOCK);
@@ -804,13 +804,13 @@ impl<T: Config> Pallet<T> {
                         without finding any timed out operations"
                     );
                 }
-                break;
+                break
             }
 
             if current_block.saturating_sub(pending_data.timestamp) > timeout_threshold {
                 timed_out.push(account_id);
                 if timed_out.len() >= Self::MAX_TIMEOUT_CLEANUPS_PER_BLOCK {
-                    break;
+                    break
                 }
             }
         }
@@ -820,7 +820,7 @@ impl<T: Config> Pallet<T> {
         for account_id in timed_out {
             let operation_weight = T::DbWeight::get().reads_writes(1, 2);
             if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
-                break;
+                break
             }
 
             if let Some(pending_data) = PendingAuthorDeregistrations::<T>::take(&account_id) {
@@ -848,7 +848,7 @@ impl<T: Config> Pallet<T> {
         let mut weight = T::DbWeight::get().reads(1);
 
         if weight.ref_time() >= max_weight.ref_time() {
-            return weight;
+            return weight
         }
 
         let mut to_remove = Vec::with_capacity(Self::MAX_PROCESSED_TX_CLEANUPS_PER_BLOCK);
@@ -865,13 +865,13 @@ impl<T: Config> Pallet<T> {
                         without finding any old transactions"
                     );
                 }
-                break;
+                break
             }
 
             if processed_at < cutoff_block {
                 to_remove.push(tx_id);
                 if to_remove.len() >= Self::MAX_PROCESSED_TX_CLEANUPS_PER_BLOCK {
-                    break;
+                    break
                 }
             }
         }
@@ -881,7 +881,7 @@ impl<T: Config> Pallet<T> {
         for tx_id in to_remove {
             let operation_weight = T::DbWeight::get().writes(1);
             if weight.saturating_add(operation_weight).ref_time() > max_weight.ref_time() {
-                break;
+                break
             }
 
             ProcessedTransactions::<T>::remove(tx_id);
@@ -1317,12 +1317,12 @@ impl<T: Config> session::SessionManager<T::AccountId> for Pallet<T> {
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
         if caller_id != PALLET_ID.to_vec() {
-            return Ok(());
+            return Ok(())
         }
 
         // Reentrancy protection: check if already processed
         if ProcessedTransactions::<T>::contains_key(tx_id) {
-            return Ok(()); // Silently ignore duplicates
+            return Ok(()) // Silently ignore duplicates
         }
 
         // Mark as processed FIRST
