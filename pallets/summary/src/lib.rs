@@ -264,6 +264,10 @@ pub mod pallet {
         ErrorPublishingSummary,
         /// There is no rootId for the given external reference
         ExternalRefNotFound,
+        /// Threshold should be between 1 and 100
+        InvalidExternalValidationThreshold,
+        /// External validation threshold not set
+        ExternalValidationThresholdNotSet,
         /// There is no external validation request for the given rootId
         ExternalValidationRequestNotFound,
         /// There is no external validation status for the given rootId
@@ -705,6 +709,8 @@ pub mod pallet {
             match config {
                 AdminConfig::ExternalValidationThreshold(threshold) => {
                     <ExternalValidationThreshold<T, I>>::mutate(|p| *p = Some(threshold));
+                    ensure!(threshold > 0 && threshold <= 100, Error::<T, I>::InvalidExternalValidationThreshold);
+                    <ExternalValidationThreshold<T, I>>::put(threshold);
                     Self::deposit_event(Event::ExternalValidationThresholdSet {
                         new_threshold: threshold,
                     });

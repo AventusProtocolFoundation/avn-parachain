@@ -57,10 +57,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             proposal_type = ProposalType::Anchor;
         }
 
+        let threshold_val = <ExternalValidationThreshold<T, I>>::get()
+            .ok_or(Error::<T, I>::ExternalValidationThresholdNotSet)?;
+
         let request = ProposalRequest {
             title: title.as_bytes().to_vec(),
             external_ref,
-            threshold: Perbill::from_percent(51),
+            threshold: Perbill::from_percent(threshold_val),
             payload: RawPayload::Inline(inner_payload.encode()),
             source: ProposalSource::Internal(proposal_type),
             decision_rule: DecisionRule::SimpleMajority,
