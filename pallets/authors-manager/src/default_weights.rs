@@ -40,6 +40,9 @@ pub trait WeightInfo {
 	fn add_author() -> Weight;
 	fn remove_author(v: u32, ) -> Weight;
 	fn rotate_author_ethereum_key() -> Weight;
+	fn force_complete_registration() -> Weight;
+	fn force_complete_deregistration() -> Weight;
+	fn cancel_pending_operation() -> Weight;
 }
 
 /// Weights for pallet_authors_manager using the Substrate node and recommended hardware.
@@ -114,6 +117,24 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
 
+	fn force_complete_registration() -> Weight {
+		Weight::from_parts(60_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
+	}
+
+	fn force_complete_deregistration() -> Weight {
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
+
+	fn cancel_pending_operation() -> Weight {
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+
 }
 
 // For backwards compatibility and tests.
@@ -183,6 +204,24 @@ impl WeightInfo for () {
 		//  Estimated: `6102`
 		// Minimum execution time: 29_402_000 picoseconds.
 		Weight::from_parts(30_043_000, 6102)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+
+	fn force_complete_registration() -> Weight {
+		Weight::from_parts(60_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
+	}
+
+	fn force_complete_deregistration() -> Weight {
+		Weight::from_parts(50_000_000, 0)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+
+	fn cancel_pending_operation() -> Weight {
+		Weight::from_parts(20_000_000, 0)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
