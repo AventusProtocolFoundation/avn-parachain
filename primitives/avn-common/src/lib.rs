@@ -29,6 +29,7 @@ pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
 
 #[path = "tests/helpers.rs"]
 pub mod avn_tests_helpers;
+pub mod context_constants;
 pub mod eth;
 pub mod eth_key_actions;
 pub mod event_discovery;
