@@ -322,7 +322,6 @@ impl pallet_balances::Config for Runtime {
     type RuntimeHoldReason = RuntimeHoldReason;
     type RuntimeFreezeReason = RuntimeFreezeReason;
     type FreezeIdentifier = ();
-    type MaxHolds = ConstU32<2>;
     type MaxFreezes = ConstU32<1>;
 }
 
@@ -761,8 +760,7 @@ const MAIN_ETH_BRIDGE_ID: u8 = 0u8;
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
-    // TODO is there any effect in making this a struct?
-    pub struct Runtime {
+    pub enum Runtime {
         // System support stuff.
         System: frame_system = 0,
         ParachainSystem: cumulus_pallet_parachain_system = 1,
