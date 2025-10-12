@@ -13,19 +13,19 @@ rust-version = { workspace = true }
 # third-party dependencies
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 log = "0.4.20"
-serde = "1.0.163"
+serde = "1.0.195"
 anyhow = "1.0.64"
 
 # primitives
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
+sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
 
 # client dependencies
-sc-service = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
-sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
-sc-client-db = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
-sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
+sc-service = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sc-client-db = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
 
 [dev-dependencies]
 hex = "0.4"
