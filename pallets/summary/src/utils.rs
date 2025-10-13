@@ -24,7 +24,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
                 <AnchorRoots<T, I>>::insert(approved_root_id, root_data.root_hash);
             }
 
-            Self::deposit_event(Event::<T, I>::RootFinalised { root_id: *root_id, root_hash });
+            Self::deposit_event(Event::<T, I>::RootPassedValidation { root_id: *root_id, root_hash });
         }
 
         Ok(())

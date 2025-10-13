@@ -216,8 +216,8 @@ pub mod pallet {
             external_ref: H256,
             status: ProposalStatusEnum,
         },
-        /// Root has been finalised
-        RootFinalised { root_id: RootId<BlockNumberFor<T>>, root_hash: H256 },
+        /// Root has been validated successfully
+        RootPassedValidation { root_id: RootId<BlockNumberFor<T>>, root_hash: H256 },
         /// Root challenge has been resolved by an admin
         RootChallengeResolved { root_id: RootId<BlockNumberFor<T>>, accepted: bool },
         /// A new schedule period has been set
