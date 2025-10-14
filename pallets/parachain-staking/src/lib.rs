@@ -1683,7 +1683,6 @@ pub mod pallet {
             // mutate era
             era.update(block_number);
 
-            // Only execute payouts in tests or when staking is enabled
             if is_staking_enabled() {
                 // pay all stakers for T::RewardPaymentDelay eras ago
                 Self::prepare_staking_payouts(era.current);
