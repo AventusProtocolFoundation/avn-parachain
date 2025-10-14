@@ -493,12 +493,26 @@ parameter_types! {
     pub const MaxPeerInHeartbeats: u32 = 10_000;
 }
 
+#[cfg(not(feature = "runtime-benchmarks"))]
 impl pallet_im_online::Config for Runtime {
     type AuthorityId = ImOnlineId;
     type RuntimeEvent = RuntimeEvent;
     type NextSessionRotation = ParachainStaking;
     type ValidatorSet = Historical;
     type ReportUnresponsiveness = Offences;
+    type UnsignedPriority = ImOnlineUnsignedPriority;
+    type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
+    type MaxKeys = MaxKeys;
+    type MaxPeerInHeartbeats = MaxPeerInHeartbeats;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_im_online::Config for Runtime {
+    type AuthorityId = ImOnlineId;
+    type RuntimeEvent = RuntimeEvent;
+    type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+    type ValidatorSet = Historical;
+    type ReportUnresponsiveness = ();
     type UnsignedPriority = ImOnlineUnsignedPriority;
     type WeightInfo = pallet_im_online::weights::SubstrateWeight<Runtime>;
     type MaxKeys = MaxKeys;
@@ -554,6 +568,8 @@ impl pallet_ethereum_events::Config for Runtime {
 
 parameter_types! {
     pub const ValidatorManagerVotingPeriod: BlockNumber = 30 * MINUTES;
+    // Minimum 2 validators must remain active
+    pub const MinimumValidatorCount: u32 = 2;
 }
 
 impl pallet_validators_manager::Config for Runtime {
@@ -564,6 +580,7 @@ impl pallet_validators_manager::Config for Runtime {
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
     type WeightInfo = pallet_validators_manager::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterface = EthBridge;
+    type MinimumValidatorCount = MinimumValidatorCount;
 }
 
 parameter_types! {
