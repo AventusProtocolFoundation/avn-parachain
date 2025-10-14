@@ -464,7 +464,9 @@ pub mod pallet {
                 weight = weight.saturating_add(start_new_era_weight);
             }
 
-            weight = weight.saturating_add(Self::handle_delayed_payouts(era.current));
+            if is_staking_enabled() {
+                weight = weight.saturating_add(Self::handle_delayed_payouts(era.current));
+            }
 
             // add on_finalize weight
             weight = weight.saturating_add(
@@ -2488,7 +2490,11 @@ pub mod pallet {
     }
     impl<T: Config> OnGrowthLiftedHandler<BalanceOf<T>> for Pallet<T> {
         fn on_growth_lifted(amount: BalanceOf<T>, growth_period: u32) -> DispatchResult {
-            return Self::payout_collators(amount, growth_period)
+            if is_staking_enabled() {
+                Self::payout_collators(amount, growth_period)
+            } else {
+                Ok(())
+            }
         }
     }
 }
