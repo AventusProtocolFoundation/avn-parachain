@@ -1681,8 +1681,11 @@ pub mod pallet {
             // mutate era
             era.update(block_number);
 
-            // pay all stakers for T::RewardPaymentDelay eras ago
-            Self::prepare_staking_payouts(era.current);
+            // Only execute payouts in tests or when staking is enabled
+            if is_staking_enabled() {
+                // pay all stakers for T::RewardPaymentDelay eras ago
+                Self::prepare_staking_payouts(era.current);
+            }
 
             // select top collator candidates for next era
             let (collator_count, nomination_count, total_staked) =
