@@ -9,6 +9,7 @@ use frame_support::{
 use hex_literal::hex;
 use pallet_parachain_staking::Error as ParachainStakingError;
 use sp_avn_common::assert_eq_uvec;
+use sp_core::H512;
 use sp_io::crypto::{secp256k1_ecdsa_recover, secp256k1_ecdsa_recover_compressed};
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 
@@ -24,6 +25,21 @@ fn register_validator(
     )
 }
 
+fn simulate_t1_callback_success(tx_id: EthereumId) {
+    const PALLET_ID: &[u8; 14] = b"author_manager";
+    assert_ok!(ValidatorManager::process_result(tx_id, PALLET_ID.to_vec(), true));
+}
+
+fn get_tx_id_for_validator(account_id: &AccountId) -> Option<EthereumId> {
+    // Find the ValidatorActions entry for this validator
+    for (acc_id, _ingress_counter, validators_action_data) in <ValidatorActions<TestRuntime>>::iter() {
+        if &acc_id == account_id {
+            return Some(validators_action_data.eth_transaction_id)
+        }
+    }
+    None
+}
+
 fn set_session_keys(collator_id: &AccountId) {
     pallet_session::NextKeys::<TestRuntime>::insert::<AccountId, UintAuthorityId>(
         *collator_id,
@@ -36,9 +52,17 @@ fn force_add_collator(
     collator_eth_public_key: &ecdsa::Public,
 ) -> DispatchResult {
     set_session_keys(collator_id);
+    
+    // Fund the account with enough balance for staking
+    Balances::make_free_balance_be(collator_id, 2_000_000_000_000_000);
+    
     assert_ok!(register_validator(collator_id, collator_eth_public_key));
 
-    //Advance 2 session to add the collator to the session
+    let tx_id = get_tx_id_for_validator(collator_id).unwrap();
+    simulate_t1_callback_success(tx_id);
+
+    //Advance sessions to add the collator to the session
+    advance_session();
     advance_session();
     advance_session();
 
@@ -125,11 +149,15 @@ mod register_validator {
                 //set the session keys of the new validator we are trying to register
                 set_session_keys(&context.new_validator_id);
 
-                // Result OK
+                // Result OK - this sends to T1 and creates ValidatorActions entry
                 assert_ok!(register_validator(
                     &context.new_validator_id,
                     &context.collator_eth_public_key
                 ));
+
+                let tx_id = get_tx_id_for_validator(&context.new_validator_id).unwrap();
+                simulate_t1_callback_success(tx_id);
+
                 // Upon completion validator has been added ValidatorAccountIds storage
                 assert!(ValidatorManager::validator_account_ids()
                     .unwrap()
@@ -182,11 +210,14 @@ mod register_validator {
                     &context.collator_eth_public_key
                 ));
 
-                // It takes 2 session for validators to be updated
-                advance_session();
+                let tx_id = get_tx_id_for_validator(&context.new_validator_id).unwrap();
+                simulate_t1_callback_success(tx_id);
+
+                // After T1 callback, activation status is AwaitingConfirmation
+                // It takes 1 session to move to Confirmed
                 advance_session();
 
-                // The activation action has been sent
+                // The activation action is now Confirmed
                 assert_eq!(
                     true,
                     find_validator_activation_action(&context, ValidatorsActionStatus::Confirmed)
@@ -238,30 +269,32 @@ mod remove_validator_public {
             //Validator exists in the AVN
             assert_eq!(AVN::<TestRuntime>::is_validator(&context.new_validator_id), true);
 
-            //Remove the validator
+            //Remove the validator - this sends to T1 and creates ValidatorActions entry
             assert_ok!(ValidatorManager::remove_validator(
                 RawOrigin::Root.into(),
                 context.new_validator_id
             ));
 
-            //Event emitted as expected
-            assert!(System::events().iter().any(|a| a.event ==
+            // Simulate T1 callback success - this initiates staking exit
+            let tx_id = get_tx_id_for_validator(&context.new_validator_id).unwrap();
+            simulate_t1_callback_success(tx_id);
+
+            //ValidatorDeregistered Event NOT emitted yet (happens after session removal)
+            assert!(!System::events().iter().any(|a| a.event ==
                 mock::RuntimeEvent::ValidatorManager(
                     crate::Event::<TestRuntime>::ValidatorDeregistered {
                         validator_id: context.new_validator_id
                     }
                 )));
 
-            //Validator removed from validators manager
-            assert_eq!(
+            //Validator still in validators manager (removed by session handler)
+            assert!(
                 ValidatorManager::validator_account_ids()
                     .unwrap()
-                    .iter()
-                    .position(|&x| x == context.new_validator_id),
-                None
+                    .contains(&context.new_validator_id)
             );
 
-            //Validator is still in the session. Will be removed after 1 era.
+            //Validator is still in the session. Will be removed after sessions.
             assert_eq_uvec!(
                 Session::validators(),
                 vec![
@@ -274,9 +307,14 @@ mod remove_validator_public {
                 ]
             );
 
-            // Advance 2 sessions
-            advance_session();
-            advance_session();
+            // Advance sessions to trigger removal via session handler
+            // The session handler needs to see the validator removed from active set,
+            // then clean_up_collator_data calls execute_leave_candidates,
+            // which schedules the exit (takes multiple sessions)
+            advance_session(); // Session 1: on_new_session triggers clean_up_collator_data
+            advance_session(); // Session 2: execute_leave_candidates completes
+            advance_session(); // Session 3: ParachainStaking removes from candidate pool
+            advance_session(); // Session 4: Session updates validator set
 
             // Validator has been removed from the session
             assert_eq_uvec!(
@@ -356,7 +394,7 @@ mod remove_validator_public {
 
             assert_noop!(
                 ValidatorManager::remove_validator(RawOrigin::Root.into(), validator_account_id),
-                ParachainStakingError::<TestRuntime>::CandidateDNE
+                Error::<TestRuntime>::ValidatorNotFound
             );
 
             // Caller of remove function has to emit event if removal is successful.
@@ -499,6 +537,9 @@ mod add_validator {
 
             set_session_keys(&context.collator);
             assert_ok!(register_validator(&context.collator, &context.collator_eth_public_key));
+
+            let tx_id = get_tx_id_for_validator(&context.collator).unwrap();
+            simulate_t1_callback_success(tx_id);
 
             assert_eq!(
                 true,
