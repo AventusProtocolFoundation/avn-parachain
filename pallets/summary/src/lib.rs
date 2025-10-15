@@ -63,11 +63,11 @@ const ADVANCE_SLOT_CONTEXT: &'static [u8] = b"advance_slot";
 const ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY: u8 = 10;
 const ERROR_CODE_INVALID_ROOT_RANGE: u8 = 30;
 
-const MIN_SCHEDULE_PERIOD: u32 = 60; // 6 MINUTES
+const MIN_SCHEDULE_PERIOD: u32 = 30; // 6 MINUTES
 const DEFAULT_SCHEDULE_PERIOD: u32 = 28800; // 1 DAY
-const MIN_VOTING_PERIOD: u32 = 100; // 5 MINUTES
+const MIN_VOTING_PERIOD: u32 = 10; // 5 MINUTES
 const MAX_VOTING_PERIOD: u32 = 28800; // 1 DAY
-const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
+const DEFAULT_VOTING_PERIOD: u32 = 29; // 30 MINUTES
 
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
@@ -425,10 +425,10 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config<I>, I: 'static> BuildGenesisConfig for GenesisConfig<T, I> {
         fn build(&self) {
-            let mut schedule_period_in_blocks = self.schedule_period;
-            if schedule_period_in_blocks == 0u32.into() {
-                schedule_period_in_blocks = DEFAULT_SCHEDULE_PERIOD.into();
-            }
+            let mut schedule_period_in_blocks = DEFAULT_SCHEDULE_PERIOD.into();
+            // if schedule_period_in_blocks == 0u32.into() {
+            //     schedule_period_in_blocks = DEFAULT_SCHEDULE_PERIOD.into();
+            // }
             assert!(
                 Pallet::<T, I>::validate_schedule_period(schedule_period_in_blocks).is_ok(),
                 "Schedule Period must be a valid value"
