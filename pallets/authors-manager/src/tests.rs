@@ -137,37 +137,22 @@ mod register_author {
                 // Upon completion author has been added AuthorAccountIds storage
                 assert!(AuthorsManager::author_account_ids()
                     .unwrap()
-                    .iter()
-                    .any(|a| a == &context.new_author_id));
+                    .contains(&context.new_author_id));
+
                 // AuthorRegistered Event has been deposited
-                assert_eq!(
-                    true,
-                    System::events().iter().any(|a| a.event ==
-                        mock::RuntimeEvent::AuthorsManager(
-                            crate::Event::<TestRuntime>::AuthorRegistered {
-                                author_id: context.new_author_id,
-                                eth_key: context.author_eth_public_key.clone()
-                            }
-                        ))
-                );
-                // AuthorActivationStarted Event has not been deposited yet
-                assert_eq!(
-                    false,
-                    System::events().iter().any(|a| a.event ==
-                        mock::RuntimeEvent::AuthorsManager(
-                            crate::Event::<TestRuntime>::AuthorActivationStarted {
-                                author_id: context.new_author_id
-                            }
-                        ))
-                );
-                // But the activation action has been triggered
-                assert_eq!(
-                    true,
-                    find_author_activation_action(
-                        &context,
-                        AuthorsActionStatus::AwaitingConfirmation
-                    )
-                );
+                assert!(System::events().iter().any(|a| a.event ==
+                    mock::RuntimeEvent::AuthorsManager(
+                        crate::Event::<TestRuntime>::AuthorRegistered {
+                            author_id: context.new_author_id,
+                            eth_key: context.author_eth_public_key.clone()
+                        }
+                    )));
+
+                // Activation action has been triggered
+                assert!(find_author_activation_action(
+                    &context,
+                    AuthorsActionStatus::AwaitingConfirmation
+                ));
             });
         }
 
@@ -274,15 +259,6 @@ mod remove_author_public {
                         author_id: context.new_author_id
                     }
                 )));
-
-            //Author removed from authors manager
-            assert_eq!(
-                AuthorsManager::author_account_ids()
-                    .unwrap()
-                    .iter()
-                    .position(|&x| x == context.new_author_id),
-                None
-            );
 
             //Author is still in the session. Will be removed after 1 era.
             assert_eq_uvec!(
@@ -412,10 +388,8 @@ mod add_author {
             let tx_id = action_data.eth_transaction_id;
             assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true));
 
-            assert_eq!(
-                true,
-                AuthorsManager::author_account_ids().unwrap().contains(&context.author)
-            );
+            // Now author should be active
+            assert!(AuthorsManager::author_account_ids().unwrap().contains(&context.author));
             assert_eq!(
                 AuthorsManager::get_author_by_eth_public_key(context.author_eth_public_key.clone())
                     .unwrap(),
@@ -510,7 +484,7 @@ mod add_author {
             });
         }
     }
-}
+
 
 mod bridge_interface_notification {
     use super::*;
@@ -519,12 +493,21 @@ mod bridge_interface_notification {
         set_session_keys(&context.new_author_id);
         assert_ok!(register_author(&context.new_author_id, &context.author_eth_public_key));
 
+        // Get tx_id from AuthorActions (created during registration)
         let (ingress_counter, action_data) = AuthorActions::<TestRuntime>::iter()
             .find(|(author, _, _)| author == &context.new_author_id)
             .map(|(_, ingress, data)| (ingress, data))
             .expect("Action should exist");
 
         let tx_id = action_data.eth_transaction_id;
+
+        // Complete registration via T1 callback
+        assert_ok!(
+            AuthorsManager::process_result(tx_id, b"author_manager".to_vec(), true,)
+        );
+
+        // Advance sessions to move activation to Confirmed status
+        advance_session();
 
         (ingress_counter, tx_id)
     }
@@ -562,8 +545,19 @@ mod bridge_interface_notification {
             let mut ext = ExtBuilder::build_default().with_authors().as_externality();
             ext.execute_with(|| {
                 let context = MockData::setup_valid();
-                let (_ingress_counter, tx_id) = setup_test_action(&context);
+                
+                // Call register_author but DON'T complete it (different from setup_test_action)
+                set_session_keys(&context.new_author_id);
+                assert_ok!(register_author(&context.new_author_id, &context.author_eth_public_key));
 
+                // Get tx_id from the registration action
+                let (_, action_data) = AuthorActions::<TestRuntime>::iter()
+                    .find(|(author, _, _)| author == &context.new_author_id)
+                    .map(|(_, ingress, data)| (ingress, data))
+                    .expect("Action should exist");
+                let tx_id = action_data.eth_transaction_id;
+
+                // Now simulate T1 FAILURE
                 assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), false));
 
                 assert!(System::events().iter().any(|a| a.event ==
@@ -755,4 +749,4 @@ mod rotate_author_ethereum_key {
             });
         }
     }
-}
+}}

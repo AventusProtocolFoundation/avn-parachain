@@ -242,9 +242,6 @@ benchmarks! {
         let eth_public_key: ecdsa::Public = Public::from_raw(NEW_AUTHOR_ETHEREUM_PUBLIC_KEY);
         set_session_keys::<T>(&candidate, 20u64);
         assert_eq!(false, Session::<T>::validators().contains(&candidate_id));
-            //Advance 2 session to add the author to the session
-    advance_session::<T>();
-    advance_session::<T>();
     }: _(RawOrigin::Root, candidate.clone(), eth_public_key)
     verify {
         // The extrinsic sends to T1 and emits PublishingAuthorActionOnEthereumSucceeded
