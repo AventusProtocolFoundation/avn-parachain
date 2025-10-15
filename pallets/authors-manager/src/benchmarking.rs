@@ -7,7 +7,7 @@
 
 use super::*;
 
-use crate::{Pallet as AuthorsManager, *};
+use crate::{Pallet as AuthorsManager, PALLET_ID, *};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::traits::ValidatorSet as AuthorSet;
 use frame_system::{EventRecord, Pallet as System, RawOrigin};
@@ -101,12 +101,12 @@ fn setup_additional_authors<T: Config>(number_of_additional_authors: u32) {
     });
 }
 
-fn setup_resignation_action_data<T: Config>(sender: T::AccountId, ingress_counter: IngressCounter) {
+fn setup_resignation_action_data<T: Config>(_sender: T::AccountId, ingress_counter: IngressCounter) {
     let (action_account_id, _, t1_eth_public_key) =
         generate_resigning_author_account_details::<T>();
 
     let eth_transaction_id: EthereumId = 0;
-    let decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
+    let _decompressed_eth_public_key = decompress_eth_public_key(t1_eth_public_key)
         .map_err(|_| Error::<T>::InvalidPublicKey)
         .unwrap();
 
@@ -218,6 +218,18 @@ fn force_add_author<T: Config>(author_id: &T::AccountId, index: u64, eth_public_
     )
     .unwrap();
 
+    // Simulate T1 callback to complete registration
+    let (_, action_data) = AuthorActions::<T>::iter()
+        .find(|(acc, _, _)| acc == author_id)
+        .map(|(_, ingress, data)| (ingress, data))
+        .expect("Action should exist");
+    let tx_id = action_data.eth_transaction_id;
+    let _ = <AuthorsManager::<T> as BridgeInterfaceNotification>::process_result(
+        tx_id, 
+        PALLET_ID.to_vec(), 
+        true
+    );
+
     //Advance 2 session to add the author to the session
     advance_session::<T>();
     advance_session::<T>();
@@ -235,7 +247,15 @@ benchmarks! {
     advance_session::<T>();
     }: _(RawOrigin::Root, candidate.clone(), eth_public_key)
     verify {
-        assert_last_event::<T>(Event::<T>::AuthorRegistered{ author_id: candidate.clone(), eth_key: eth_public_key.clone() }.into());
+        // The extrinsic sends to T1 and emits PublishingAuthorActionOnEthereumSucceeded
+        // Verify the action was created
+        let action_exists = AuthorActions::<T>::iter().any(|(acc, _, data)| 
+            acc == candidate && data.action_type == AuthorsActionType::Registration
+        );
+        assert!(action_exists, "Registration action should be created");
+        
+        // Verify eth key mapping was added
+        assert!(EthereumPublicKeys::<T>::contains_key(eth_public_key), "Eth key should be mapped");
     }
 
     remove_author {
@@ -247,9 +267,14 @@ benchmarks! {
 
     }: remove_author(RawOrigin::Root, caller_account.clone())
     verify {
-        assert_eq!(AuthorAccountIds::<T>::get().unwrap().iter().position(|author_account_id| *author_account_id == caller_account), None);
-        assert_last_event::<T>(Event::<T>::AuthorDeregistered{ author_id: caller_account.clone() }.into());
-        assert_eq!(true, AuthorActions::<T>::contains_key(caller_account, <TotalIngresses<T>>::get()));
+        // The extrinsic sends to T1 - verify the action was created
+        let ingress = <TotalIngresses<T>>::get();
+        let action_exists = AuthorActions::<T>::contains_key(&caller_account, ingress);
+        assert!(action_exists, "Deregistration action should be created");
+        
+        // Verify it's a resignation action
+        let action_data = AuthorActions::<T>::get(&caller_account, ingress).unwrap();
+        assert_eq!(action_data.action_type, AuthorsActionType::Resignation, "Should be resignation action");
     }
 
     rotate_author_ethereum_key {
