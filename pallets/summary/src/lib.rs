@@ -63,9 +63,9 @@ const ADVANCE_SLOT_CONTEXT: &'static [u8] = b"advance_slot";
 const ERROR_CODE_VALIDATOR_IS_NOT_PRIMARY: u8 = 10;
 const ERROR_CODE_INVALID_ROOT_RANGE: u8 = 30;
 
-const MIN_SCHEDULE_PERIOD: u32 = 60; // 6 MINUTES
+const MIN_SCHEDULE_PERIOD: u32 = 30; // 6 MINUTES
 const DEFAULT_SCHEDULE_PERIOD: u32 = 28800; // 1 DAY
-const MIN_VOTING_PERIOD: u32 = 100; // 5 MINUTES
+const MIN_VOTING_PERIOD: u32 = 25; // 5 MINUTES
 const MAX_VOTING_PERIOD: u32 = 28800; // 1 DAY
 const DEFAULT_VOTING_PERIOD: u32 = 600; // 30 MINUTES
 
@@ -709,7 +709,10 @@ pub mod pallet {
             match config {
                 AdminConfig::ExternalValidationThreshold(threshold) => {
                     <ExternalValidationThreshold<T, I>>::mutate(|p| *p = Some(threshold));
-                    ensure!(threshold > 0 && threshold <= 100, Error::<T, I>::InvalidExternalValidationThreshold);
+                    ensure!(
+                        threshold > 0 && threshold <= 100,
+                        Error::<T, I>::InvalidExternalValidationThreshold
+                    );
                     <ExternalValidationThreshold<T, I>>::put(threshold);
                     Self::deposit_event(Event::ExternalValidationThresholdSet {
                         new_threshold: threshold,
@@ -744,13 +747,16 @@ pub mod pallet {
             }
         }
 
-        #[pallet::weight(<T as pallet::Config<I>>::WeightInfo::admin_resolve_challenge())]
+        #[pallet::weight(
+             <T as pallet::Config<I>>::WeightInfo::admin_resolve_challenge_accepted()
+            .max(<T as pallet::Config<I>>::WeightInfo::admin_resolve_challenge_rejected())
+        )]
         #[pallet::call_index(8)]
         pub fn admin_resolve_challenge(
             origin: OriginFor<T>,
             root_id: RootId<BlockNumberFor<T>>,
             accepted: bool,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
             let pending_review = <PendingAdminReviews<T, I>>::get(&root_id)
@@ -770,10 +776,15 @@ pub mod pallet {
             }
 
             Self::cleanup_external_validation_data(&root_id, &pending_review.external_ref);
-
             Self::deposit_event(Event::<T, I>::RootChallengeResolved { root_id, accepted });
 
-            Ok(())
+            let weight = if accepted {
+                <T as Config<I>>::WeightInfo::admin_resolve_challenge_accepted()
+            } else {
+                <T as Config<I>>::WeightInfo::admin_resolve_challenge_rejected()
+            };
+
+            Ok(Some(weight).into())
         }
     }
 

@@ -64,16 +64,16 @@ impl Default for ExternalValidationEnum {
 pub struct ExternalValidationData {
     pub proposal_id: ProposalId,
     pub external_ref: H256,
-    pub external_validation_status: ProposalStatusEnum,
+    pub proposal_status: ProposalStatusEnum,
 }
 
 impl ExternalValidationData {
     pub fn new(
         proposal_id: ProposalId,
         external_ref: H256,
-        external_validation_status: ProposalStatusEnum,
+        proposal_status: ProposalStatusEnum,
     ) -> Self {
-        Self { proposal_id, external_ref, external_validation_status }
+        Self { proposal_id, external_ref, proposal_status }
     }
 }
 

@@ -77,8 +77,8 @@ use sp_avn_common::{
         EthereumEventsPartition,
     },
     event_types::ValidEvents,
-    InnerCallValidator, Proof,
     watchtower::NoopWatchtower,
+    InnerCallValidator, Proof,
 };
 
 use pallet_parachain_staking;
