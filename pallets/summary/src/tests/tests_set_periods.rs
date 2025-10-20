@@ -136,7 +136,8 @@ mod test_set_periods {
                 assert_ok!(Summary::set_admin_config(RawOrigin::Root.into(), config));
 
                 System::assert_last_event(
-                    crate::Event::<TestRuntime>::ExternalValidationThresholdSet { new_threshold }.into(),
+                    crate::Event::<TestRuntime>::ExternalValidationThresholdSet { new_threshold }
+                        .into(),
                 );
             });
         }
@@ -184,7 +185,13 @@ mod test_set_periods {
                     assert_ne!(context.new_schedule_period, Summary::schedule_period());
 
                     let config = AdminConfig::SchedulePeriod(100);
-                    assert_noop!(Summary::set_admin_config(RuntimeOrigin::signed(Default::default()), config), BadOrigin);
+                    assert_noop!(
+                        Summary::set_admin_config(
+                            RuntimeOrigin::signed(Default::default()),
+                            config
+                        ),
+                        BadOrigin
+                    );
                 });
             }
 
@@ -202,7 +209,10 @@ mod test_set_periods {
                     assert_ne!(context.new_schedule_period, Summary::schedule_period());
 
                     let config = AdminConfig::SchedulePeriod(100);
-                    assert_noop!(Summary::set_admin_config(RawOrigin::None.into(), config), BadOrigin);
+                    assert_noop!(
+                        Summary::set_admin_config(RawOrigin::None.into(), config),
+                        BadOrigin
+                    );
                 });
             }
 
@@ -252,7 +262,13 @@ mod test_set_periods {
                     assert_ne!(context.new_voting_period, Summary::voting_period());
 
                     let config = AdminConfig::VotingPeriod(99);
-                    assert_noop!(Summary::set_admin_config(RuntimeOrigin::signed(Default::default()), config), BadOrigin);
+                    assert_noop!(
+                        Summary::set_admin_config(
+                            RuntimeOrigin::signed(Default::default()),
+                            config
+                        ),
+                        BadOrigin
+                    );
                 });
             }
 
@@ -270,7 +286,10 @@ mod test_set_periods {
                     assert_ne!(context.new_voting_period, Summary::voting_period());
 
                     let config = AdminConfig::VotingPeriod(99);
-                    assert_noop!(Summary::set_admin_config(RawOrigin::None.into(), config), BadOrigin);
+                    assert_noop!(
+                        Summary::set_admin_config(RawOrigin::None.into(), config),
+                        BadOrigin
+                    );
                 });
             }
 
