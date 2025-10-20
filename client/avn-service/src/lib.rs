@@ -25,21 +25,18 @@ use secp256k1::{Secp256k1, SecretKey};
 use tide::{http::StatusCode, Error as TideError};
 pub use web3Secp256k1::SecretKey as web3SecretKey;
 
-pub mod error;
+// pub mod error;
 pub mod ethereum_events_handler;
-pub mod extrinsic_utils;
+// pub mod extrinsic_utils;
 pub mod keystore_utils;
-pub mod merkle_tree_utils;
-pub mod summary_utils;
+// pub mod merkle_tree_utils;
+// pub mod summary_utils;
 pub mod timer;
 pub mod web3_utils;
 
+use crate::{keystore_utils::*, timer::Web3Timer, web3_utils::*};
+use client_extrinsic_utils::{extrinsic_utils::get_latest_finalised_block, summary_utils::*};
 use tide::http::headers::HeaderValues;
-
-use crate::{
-    extrinsic_utils::get_latest_finalised_block, keystore_utils::*, summary_utils::*,
-    timer::Web3Timer, web3_utils::*,
-};
 
 pub use crate::web3_utils::{public_key_address, secret_key_address};
 use jsonrpc_core::Error as RPCError;
@@ -446,9 +443,12 @@ where
 
             let extrinsics_start_time = Instant::now();
 
-            let extrinsics =
-                get_extrinsics::<Block, ClientT>(&req, from_block_number, to_block_number)
-                    .map_err(|e| server_error(format!("{:?}", e)))?;
+            let extrinsics = get_extrinsics::<Block, ClientT>(
+                &req.state().client,
+                from_block_number,
+                to_block_number,
+            )
+            .map_err(|e| server_error(format!("{:?}", e)))?;
             let extrinsics_duration = extrinsics_start_time.elapsed();
             log::info!(
                 "⏲️  get_extrinsics on block range [{:?}, {:?}] time: {:?}",

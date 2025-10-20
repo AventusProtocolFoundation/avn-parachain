@@ -1,4 +1,4 @@
-use crate::{extrinsic_utils, merkle_tree_utils, Config};
+use crate::{extrinsic_utils, merkle_tree_utils};
 use anyhow::Result;
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sp_core::H256;
@@ -8,7 +8,7 @@ pub use std::sync::Arc;
 pub type EncodedLeafData = Vec<u8>;
 
 pub fn get_extrinsics<Block: BlockT, ClientT>(
-    req: &tide::Request<Arc<Config<Block, ClientT>>>,
+    client: &Arc<ClientT>,
     from_block_number: u32,
     to_block_number: u32,
 ) -> Result<Vec<EncodedLeafData>>
@@ -20,7 +20,7 @@ where
     for block_number in from_block_number..=to_block_number {
         let (_, mut extrinsics) =
             extrinsic_utils::process_extrinsics_in_block_and_check_if_filter_target_exists(
-                &req.state().client,
+                client,
                 block_number,
                 None,
             )?;
