@@ -720,7 +720,7 @@ pub mod pallet {
                     return Ok(Some(
                         <T as Config<I>>::WeightInfo::set_external_validation_threshold(),
                     )
-                    .into());
+                    .into())
                 },
                 AdminConfig::SchedulePeriod(period) => {
                     Self::validate_schedule_period(period)?;
@@ -733,7 +733,7 @@ pub mod pallet {
                     <NextSlotAtBlock<T, I>>::put(new_slot_at_block);
 
                     Self::deposit_event(Event::SchedulePeriodSet { new_period: period });
-                    return Ok(Some(<T as Config<I>>::WeightInfo::set_schedule_period()).into());
+                    return Ok(Some(<T as Config<I>>::WeightInfo::set_schedule_period()).into())
                 },
                 AdminConfig::VotingPeriod(period) => {
                     let schedule_period = <SchedulePeriod<T, I>>::get();
@@ -742,7 +742,7 @@ pub mod pallet {
                     <VotingPeriod<T, I>>::mutate(|p| *p = period);
 
                     Self::deposit_event(Event::VotingPeriodSet { new_period: period });
-                    return Ok(Some(<T as Config<I>>::WeightInfo::set_voting_period()).into());
+                    return Ok(Some(<T as Config<I>>::WeightInfo::set_voting_period()).into())
                 },
             }
         }
@@ -1586,7 +1586,7 @@ pub mod pallet {
                                     external_ref,
                                     e
                                 );
-                                return;
+                                return
                             },
                         };
 
@@ -1598,7 +1598,7 @@ pub mod pallet {
                                 external_ref,
                                 e
                             );
-                            return;
+                            return
                         };
 
                         Self::cleanup_external_validation_data(&root_id, external_ref);
