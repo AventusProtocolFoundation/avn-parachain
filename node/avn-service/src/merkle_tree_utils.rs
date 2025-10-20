@@ -1,8 +1,5 @@
-use crate::Error;
-use jsonrpsee::{
-    core::{error::Error as JsonRpseeError, RpcResult as Result},
-    types::error::{CallError, ErrorCode, ErrorObject},
-};
+use crate::error::TreeError;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sp_core::{hashing::keccak_256, H256};
 
@@ -27,15 +24,11 @@ pub fn generate_tree_root(leaves_data: Vec<Vec<u8>>) -> Result<H256> {
 
     let root_nodes = process_level(&mut nodes_hashes);
 
-    if root_nodes.len() != 1 {
-        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-            ErrorCode::ServerError(Error::ErrorGeneratingRoot.into()).code(),
-            "Error generating merkle root",
-            None::<()>,
-        ))))
-    }
-
-    return Ok(root_nodes[0])
+    root_nodes
+        .first()
+        .cloned()
+        .ok_or(TreeError::ErrorGeneratingRoot)
+        .context("Error generating merkle tree root: no root node found")
 }
 
 /// Keys:
@@ -92,19 +85,12 @@ pub fn generate_merkle_path(leaf_data: &Vec<u8>, leaves_data: Vec<Vec<u8>>) -> R
     let mut merkle_path: Vec<H256> = vec![];
 
     if leaf_data.is_empty() {
-        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-            ErrorCode::ServerError(Error::LeafDataEmpty.into()).code(),
-            "Error generating merkle path: no leaf data",
-            None::<()>,
-        ))))
+        return Err(TreeError::EmptyLeaves)
+            .context("Error generating merkle path: no leaves data")?
     }
 
     if leaves_data.is_empty() {
-        return Err(JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-            ErrorCode::ServerError(Error::EmptyLeaves.into()).code(),
-            "Error generating merkle path: no leaves data",
-            None::<()>,
-        ))))
+        return Err(TreeError::EmptyLeaves).context("Error generating merkle path: no leaf data")?
     }
 
     let mut node_hash_in_leaf_branch = H256::from_slice(&keccak_256(leaf_data));

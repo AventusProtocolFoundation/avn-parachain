@@ -1,7 +1,9 @@
+use anyhow::Result;
 use codec::{Decode, Encode};
 use futures::lock::Mutex;
 use hex::FromHex;
 use jsonrpc_core::ErrorCode;
+
 use sc_client_api::{client::BlockBackend, UsageProvider};
 use sc_keystore::LocalKeystore;
 use sp_avn_common::{
@@ -23,6 +25,7 @@ use secp256k1::{Secp256k1, SecretKey};
 use tide::{http::StatusCode, Error as TideError};
 pub use web3Secp256k1::SecretKey as web3SecretKey;
 
+pub mod error;
 pub mod ethereum_events_handler;
 pub mod extrinsic_utils;
 pub mod keystore_utils;
@@ -43,36 +46,6 @@ use jsonrpc_core::Error as RPCError;
 
 pub const ETH_FINALITY: u64 = 20u64;
 const MAX_BODY_SIZE: usize = 100_000; // 100 KB
-
-/// Error types for merkle tree and extrinsic utils.
-#[derive(Debug)]
-pub enum Error {
-    DecodeError = 1,
-    ResponseError = 2,
-    InvalidExtrinsicInLocalDB = 3,
-    ErrorGettingBlockData = 4,
-    BlockDataNotFound = 5,
-    BlockNotFinalised = 6,
-    ErrorGeneratingRoot = 7,
-    LeafDataEmpty = 8,
-    EmptyLeaves = 9,
-}
-
-impl From<Error> for i32 {
-    fn from(e: Error) -> i32 {
-        match e {
-            Error::DecodeError => 1_i32,
-            Error::ResponseError => 2_i32,
-            Error::InvalidExtrinsicInLocalDB => 3_i32,
-            Error::ErrorGettingBlockData => 4_i32,
-            Error::BlockDataNotFound => 5_i32,
-            Error::BlockNotFinalised => 6_i32,
-            Error::ErrorGeneratingRoot => 7_i32,
-            Error::LeafDataEmpty => 8_i32,
-            Error::EmptyLeaves => 9_i32,
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct Config<Block: BlockT, ClientT: BlockBackend<Block> + UsageProvider<Block>> {
@@ -474,7 +447,8 @@ where
             let extrinsics_start_time = Instant::now();
 
             let extrinsics =
-                get_extrinsics::<Block, ClientT>(&req, from_block_number, to_block_number)?;
+                get_extrinsics::<Block, ClientT>(&req, from_block_number, to_block_number)
+                    .map_err(|e| server_error(format!("{:?}", e)))?;
             let extrinsics_duration = extrinsics_start_time.elapsed();
             log::info!(
                 "⏲️  get_extrinsics on block range [{:?}, {:?}] time: {:?}",
@@ -485,7 +459,8 @@ where
 
             if !extrinsics.is_empty() {
                 let root_hash_start_time = Instant::now();
-                let root_hash = generate_tree_root(extrinsics)?;
+                let root_hash =
+                    generate_tree_root(extrinsics).map_err(|e| server_error(format!("{:?}", e)))?;
                 let root_hash_duration = root_hash_start_time.elapsed();
                 log::info!(
                     "⏲️  generate_tree_root on block range [{:?}, {:?}] time: {:?}",
