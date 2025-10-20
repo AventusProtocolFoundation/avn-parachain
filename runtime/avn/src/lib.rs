@@ -573,6 +573,7 @@ parameter_types! {
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
     pub const EthAutoSubmitSummaries: bool = true;
     pub const EthereumInstanceId: u8 = 1u8;
+    pub const ExternalValidationEnabled: bool = false;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -585,6 +586,8 @@ impl pallet_summary::Config for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type ExternalValidationEnabled = ExternalValidationEnabled;
+    type ExternalValidator = NoopWatchtower<AccountId>;
 }
 
 pub type EthAddress = H160;
@@ -653,6 +656,7 @@ impl pallet_avn_anchor::Config for Runtime {
 use sp_avn_common::{
     event_discovery::{EthBridgeEventsFilter, EthereumEventsFilterTrait},
     event_types::ValidEvents,
+    watchtower::NoopWatchtower,
 };
 use sp_std::collections::btree_set::BTreeSet;
 

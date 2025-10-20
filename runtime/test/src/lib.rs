@@ -77,6 +77,7 @@ use sp_avn_common::{
         EthereumEventsPartition,
     },
     event_types::ValidEvents,
+    watchtower::NoopWatchtower,
     InnerCallValidator, Proof,
 };
 
@@ -617,6 +618,7 @@ parameter_types! {
     pub const EthAutoSubmitSummaries: bool = true;
     pub const AvnAutoSubmitSummaries: bool = false;
     pub const AvnInstanceId: u8 = 2u8;
+    pub const ExternalValidationEnabled: bool = true;
 }
 
 pub type EthSummary = pallet_summary::Instance1;
@@ -630,6 +632,8 @@ impl pallet_summary::Config<EthSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type ExternalValidationEnabled = ExternalValidationEnabled;
+    type ExternalValidator = NoopWatchtower<AccountId>;
 }
 
 pub type AvnAnchorSummary = pallet_summary::Instance2;
@@ -643,6 +647,8 @@ impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AvnAutoSubmitSummaries;
     type InstanceId = AvnInstanceId;
+    type ExternalValidationEnabled = ExternalValidationEnabled;
+    type ExternalValidator = NoopWatchtower<AccountId>;
 }
 
 impl pallet_avn_anchor::Config for Runtime {
