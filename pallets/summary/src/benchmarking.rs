@@ -666,7 +666,6 @@ benchmarks_instance_pallet! {
     verify {
         assert_eq!(false, PendingAdminReviews::<T, I>::contains_key(&root_id));
         assert_eq!(false, ExternalValidationStatus::<T, I>::contains_key(&root_id));
-        assert_eq!(false, PendingAdminReviews::<T, I>::contains_key(&root_id));
 
         let root_data = Roots::<T, I>::get(root_id.range, root_id.ingress_counter);
         assert_event_exists::<T, I>(
@@ -698,7 +697,6 @@ benchmarks_instance_pallet! {
     verify {
         assert_eq!(false, PendingAdminReviews::<T, I>::contains_key(&root_id));
         assert_eq!(false, ExternalValidationStatus::<T, I>::contains_key(&root_id));
-        assert_eq!(false, PendingAdminReviews::<T, I>::contains_key(&root_id));
 
         let root_data = Roots::<T, I>::get(root_id.range, root_id.ingress_counter);
         assert_event_not_emitted::<T, I>(
