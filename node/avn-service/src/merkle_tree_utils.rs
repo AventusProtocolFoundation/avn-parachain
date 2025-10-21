@@ -24,11 +24,13 @@ pub fn generate_tree_root(leaves_data: Vec<Vec<u8>>) -> Result<H256> {
 
     let root_nodes = process_level(&mut nodes_hashes);
 
-    root_nodes
-        .first()
-        .cloned()
-        .ok_or(TreeError::ErrorGeneratingRoot)
-        .context("Error generating merkle tree root: no root node found")
+    // There should be only one root node
+    return match root_nodes.as_slice() {
+        [x] => Ok(*x),
+        _ =>
+            return Err(TreeError::ErrorGeneratingRoot)
+                .context("Error generating merkle tree root: multiple root nodes found"),
+    }
 }
 
 /// Keys:

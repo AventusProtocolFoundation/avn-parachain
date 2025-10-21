@@ -1,5 +1,5 @@
 use crate::error::TreeError;
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 
 use codec::Encode;
 use log::{debug, error};
@@ -129,11 +129,11 @@ where
         },
     };
 
-    ensure!(get_latest_finalised_block(client) >= block_number, {
+    if get_latest_finalised_block(client) < block_number {
         let error_message = format!("Data for block #{:?} is not found", block_number);
         error!("[RPC] {}", error_message);
-        error_message
-    });
+        Err(TreeError::BlockNotFinalised).with_context(|| error_message)?
+    };
 
     Ok(signed_block)
 }
