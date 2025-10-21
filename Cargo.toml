@@ -23,7 +23,7 @@ rust-version = "1.84.1"
 resolver = "2"
 members = [
     "node",
-    "node/avn-service",
+    "client/*",
     "pallets/*",
     "pallets/*/runtime-api",
     "primitives/*",
