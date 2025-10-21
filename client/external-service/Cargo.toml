@@ -1,5 +1,5 @@
 [package]
-name = "avn-service"
+name = "external-service"
 license = "GPL-3.0"
 
 version = { workspace = true }

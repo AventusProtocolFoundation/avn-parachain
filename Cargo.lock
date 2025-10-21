@@ -1224,7 +1224,6 @@ dependencies = [
  "avn-parachain-runtime",
  "avn-parachain-test-runtime",
  "avn-runtime-common",
- "avn-service",
  "cfg-if 0.1.10",
  "clap 4.4.14",
  "cumulus-client-cli",
@@ -1237,6 +1236,7 @@ dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-parachain-inherent",
  "cumulus-relay-chain-interface",
+ "external-service",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures",
@@ -1475,44 +1475,6 @@ dependencies = [
  "scale-info",
  "smallvec",
  "sp-runtime",
-]
-
-[[package]]
-name = "avn-service"
-version = "8.0.3"
-dependencies = [
- "anyhow",
- "client-extrinsic-utils",
- "ethereum-types 0.11.0",
- "futures",
- "hex",
- "hex-literal",
- "jsonrpc-core",
- "jsonrpsee",
- "log",
- "node-primitives",
- "pallet-eth-bridge",
- "pallet-eth-bridge-runtime-api",
- "parity-scale-codec 3.6.11",
- "sc-client-api",
- "sc-client-db",
- "sc-keystore",
- "sc-transaction-pool-api",
- "secp256k1 0.21.3",
- "secp256k1 0.28.0",
- "serde",
- "serde_json",
- "sp-api",
- "sp-avn-common",
- "sp-block-builder",
- "sp-blockchain",
- "sp-core",
- "sp-keystore",
- "sp-runtime",
- "structopt",
- "tide",
- "tokio",
- "web3",
 ]
 
 [[package]]
@@ -2233,7 +2195,7 @@ checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
 name = "client-extrinsic-utils"
-version = "8.0.2"
+version = "8.0.3"
 dependencies = [
  "anyhow",
  "hex",
@@ -4074,6 +4036,44 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.101",
+]
+
+[[package]]
+name = "external-service"
+version = "8.0.3"
+dependencies = [
+ "anyhow",
+ "client-extrinsic-utils",
+ "ethereum-types 0.11.0",
+ "futures",
+ "hex",
+ "hex-literal",
+ "jsonrpc-core",
+ "jsonrpsee",
+ "log",
+ "node-primitives",
+ "pallet-eth-bridge",
+ "pallet-eth-bridge-runtime-api",
+ "parity-scale-codec 3.6.11",
+ "sc-client-api",
+ "sc-client-db",
+ "sc-keystore",
+ "sc-transaction-pool-api",
+ "secp256k1 0.21.3",
+ "secp256k1 0.28.0",
+ "serde",
+ "serde_json",
+ "sp-api",
+ "sp-avn-common",
+ "sp-block-builder",
+ "sp-blockchain",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
+ "structopt",
+ "tide",
+ "tokio",
+ "web3",
 ]
 
 [[package]]
