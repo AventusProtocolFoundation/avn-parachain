@@ -62,4 +62,4 @@ sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk", 
 
 node-primitives = { version = "2.0.0", git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 
-client-extrinsic-utils = { path = "../client-extrinsic-utils" }
+client-extrinsic-utils = { path = "../extrinsic-utils" }

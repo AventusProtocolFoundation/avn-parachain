@@ -2236,6 +2236,8 @@ name = "client-extrinsic-utils"
 version = "8.0.2"
 dependencies = [
  "anyhow",
+ "hex",
+ "hex-literal",
  "log",
  "parity-scale-codec 3.6.11",
  "sc-client-api",
