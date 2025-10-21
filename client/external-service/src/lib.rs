@@ -25,12 +25,8 @@ use secp256k1::{Secp256k1, SecretKey};
 use tide::{http::StatusCode, Error as TideError};
 pub use web3Secp256k1::SecretKey as web3SecretKey;
 
-// pub mod error;
 pub mod ethereum_events_handler;
-// pub mod extrinsic_utils;
 pub mod keystore_utils;
-// pub mod merkle_tree_utils;
-// pub mod summary_utils;
 pub mod timer;
 pub mod web3_utils;
 
