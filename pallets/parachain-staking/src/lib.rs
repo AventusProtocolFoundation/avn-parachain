@@ -464,7 +464,9 @@ pub mod pallet {
                 weight = weight.saturating_add(start_new_era_weight);
             }
 
-            weight = weight.saturating_add(Self::handle_delayed_payouts(era.current));
+            if is_staking_enabled() {
+                weight = weight.saturating_add(Self::handle_delayed_payouts(era.current));
+            }
 
             // add on_finalize weight
             weight = weight.saturating_add(
@@ -1681,8 +1683,10 @@ pub mod pallet {
             // mutate era
             era.update(block_number);
 
-            // pay all stakers for T::RewardPaymentDelay eras ago
-            Self::prepare_staking_payouts(era.current);
+            if is_staking_enabled() {
+                // pay all stakers for T::RewardPaymentDelay eras ago
+                Self::prepare_staking_payouts(era.current);
+            }
 
             // select top collator candidates for next era
             let (collator_count, nomination_count, total_staked) =
