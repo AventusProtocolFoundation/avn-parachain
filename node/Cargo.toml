@@ -96,7 +96,7 @@ cumulus-primitives-parachain-inherent = { git = "https://github.com/paritytech/p
 cumulus-relay-chain-interface = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 
 # AvN
-avn-service = { path = "avn-service" }
+avn-service = { package = "external-service", path = "../client/external-service" }
 pallet-eth-bridge = { path = "../pallets/eth-bridge" }
 pallet-eth-bridge-runtime-api = { path = "../pallets/eth-bridge/runtime-api" }
 
@@ -118,7 +118,6 @@ runtime-benchmarks = [
     "sp-runtime/runtime-benchmarks",
     "avn-parachain-runtime?/runtime-benchmarks",
     "avn-test-runtime?/runtime-benchmarks",
-    "polkadot-cli/runtime-benchmarks",
 ]
 try-runtime = [
     "try-runtime-cli/try-runtime",
