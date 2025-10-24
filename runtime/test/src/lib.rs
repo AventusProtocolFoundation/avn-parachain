@@ -585,6 +585,8 @@ impl pallet_ethereum_events::Config for Runtime {
 
 parameter_types! {
     pub const ValidatorManagerVotingPeriod: BlockNumber = 30 * MINUTES;
+    // Minimum 2 validators must remain active
+    pub const MinimumValidatorCount: u32 = 2;
 }
 
 impl pallet_validators_manager::Config for Runtime {
@@ -595,6 +597,7 @@ impl pallet_validators_manager::Config for Runtime {
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
     type WeightInfo = pallet_validators_manager::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterface = EthBridge;
+    type MinimumValidatorCount = MinimumValidatorCount;
 }
 
 parameter_types! {
