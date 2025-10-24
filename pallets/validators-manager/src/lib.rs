@@ -562,6 +562,14 @@ impl<T: Config> Pallet<T> {
 
     fn clean_up_collator_data(action_account_id: T::AccountId, ingress_counter: IngressCounter) {
         if let Ok(()) = Self::clean_up_staking_data(action_account_id.clone()) {
+            ValidatorAccountIds::<T>::mutate(|maybe_validators| {
+                if let Some(validators) = maybe_validators {
+                    validators.retain(|v| v != &action_account_id);
+                }
+            });
+
+            Self::remove_ethereum_public_key_if_required(&action_account_id);
+
             <ValidatorActions<T>>::mutate(
                 &action_account_id,
                 ingress_counter,
@@ -574,6 +582,8 @@ impl<T: Config> Pallet<T> {
 
             let action_id = ActionId::new(action_account_id.clone(), ingress_counter);
             Self::deposit_event(Event::<T>::ValidatorActionConfirmed { action_id });
+            
+            Self::deposit_event(Event::<T>::ValidatorDeregistered { validator_id: action_account_id });
         }
     }
 
@@ -884,16 +894,6 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
                 },
             }
 
-            // Immediately clean up validator manager storage
-            // Remove from active validators list
-            ValidatorAccountIds::<T>::mutate(|maybe_validators| {
-                if let Some(validators) = maybe_validators {
-                    validators.retain(|v| v != &account_id);
-                }
-            });
-
-            Self::remove_ethereum_public_key_if_required(&account_id);
-
             <ValidatorActions<T>>::mutate(
                 &account_id,
                 ingress_counter,
@@ -904,7 +904,6 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
                 },
             );
 
-            Self::deposit_event(Event::<T>::ValidatorDeregistered { validator_id: account_id });
         }
 
         Ok(())
