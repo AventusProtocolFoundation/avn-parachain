@@ -633,10 +633,7 @@ impl<T: Config> Pallet<T> {
             ),
         );
 
-        TransactionIdToAction::<T>::insert(
-            tx_id,
-            (validator_account_id.clone(), ingress_counter),
-        );
+        TransactionIdToAction::<T>::insert(tx_id, (validator_account_id.clone(), ingress_counter));
 
         Self::deposit_event(Event::<T>::ValidatorActionPublished {
             validator_id: validator_account_id.clone(),
@@ -696,10 +693,7 @@ impl<T: Config> Pallet<T> {
             ),
         );
 
-        TransactionIdToAction::<T>::insert(
-            tx_id,
-            (validator_account_id.clone(), ingress_counter),
-        );
+        TransactionIdToAction::<T>::insert(tx_id, (validator_account_id.clone(), ingress_counter));
 
         Self::deposit_event(Event::<T>::ValidatorActionPublished {
             validator_id: validator_account_id.clone(),
