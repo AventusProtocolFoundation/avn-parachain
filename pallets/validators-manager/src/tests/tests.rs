@@ -32,7 +32,9 @@ fn simulate_t1_callback_success(tx_id: EthereumId) {
 
 fn get_tx_id_for_validator(account_id: &AccountId) -> Option<EthereumId> {
     // Find the ValidatorActions entry for this validator
-    for (acc_id, _ingress_counter, validators_action_data) in <ValidatorActions<TestRuntime>>::iter() {
+    for (acc_id, _ingress_counter, validators_action_data) in
+        <ValidatorActions<TestRuntime>>::iter()
+    {
         if &acc_id == account_id {
             return Some(validators_action_data.eth_transaction_id)
         }
@@ -52,10 +54,10 @@ fn force_add_collator(
     collator_eth_public_key: &ecdsa::Public,
 ) -> DispatchResult {
     set_session_keys(collator_id);
-    
+
     // Fund the account with enough balance for staking
     Balances::make_free_balance_be(collator_id, 2_000_000_000_000_000);
-    
+
     assert_ok!(register_validator(collator_id, collator_eth_public_key));
 
     let tx_id = get_tx_id_for_validator(collator_id).unwrap();
@@ -288,11 +290,9 @@ mod remove_validator_public {
                 )));
 
             //Validator still in validators manager (removed by session handler)
-            assert!(
-                ValidatorManager::validator_account_ids()
-                    .unwrap()
-                    .contains(&context.new_validator_id)
-            );
+            assert!(ValidatorManager::validator_account_ids()
+                .unwrap()
+                .contains(&context.new_validator_id));
 
             //Validator is still in the session. Will be removed after sessions.
             assert_eq_uvec!(

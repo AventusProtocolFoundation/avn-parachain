@@ -582,8 +582,10 @@ impl<T: Config> Pallet<T> {
 
             let action_id = ActionId::new(action_account_id.clone(), ingress_counter);
             Self::deposit_event(Event::<T>::ValidatorActionConfirmed { action_id });
-            
-            Self::deposit_event(Event::<T>::ValidatorDeregistered { validator_id: action_account_id });
+
+            Self::deposit_event(Event::<T>::ValidatorDeregistered {
+                validator_id: action_account_id,
+            });
         }
     }
 
@@ -903,7 +905,6 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
                     }
                 },
             );
-
         }
 
         Ok(())

@@ -256,7 +256,7 @@ benchmarks! {
     verify {
         // Verify ValidatorActions entry was created with Resignation type
         assert_eq!(true, ValidatorActions::<T>::contains_key(&caller_account, <TotalIngresses<T>>::get()));
-        
+
         // After extrinsic, validator is still in ValidatorAccountIds (removed by session handler later)
         assert!(ValidatorAccountIds::<T>::get().unwrap().contains(&caller_account));
     }
