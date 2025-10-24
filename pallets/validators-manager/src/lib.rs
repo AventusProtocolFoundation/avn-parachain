@@ -995,7 +995,7 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
                                         "Ethereum pub key not found. Validator: {:?}",
                                         action_account_id
                                     );
-                                    return;
+                                    return
                                 },
                             };
 
