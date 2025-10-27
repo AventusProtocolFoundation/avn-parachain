@@ -175,7 +175,7 @@ impl avn::Config for TestRuntime {
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ValidatorManager;
-    type DisabledValidatorChecker = ValidatorManager;
+    type DisabledValidatorChecker = ();
 }
 
 parameter_types! {

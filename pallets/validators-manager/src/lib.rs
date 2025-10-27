@@ -31,11 +31,11 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-use pallet_avn::{
-    self as avn, AccountToBytesConverter, BridgeInterfaceNotification, DisabledValidatorChecker,
-    Enforcer, EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
-    ValidatorRegistrationNotifier, MAX_VALIDATOR_ACCOUNTS,
-};
+    use pallet_avn::{
+        self as avn, AccountToBytesConverter, BridgeInterfaceNotification,
+        EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
+        ValidatorRegistrationNotifier, MAX_VALIDATOR_ACCOUNTS,
+    };
 
 use sp_avn_common::{
     bounds::MaximumValidatorsBound, eth_key_actions::decompress_eth_public_key,
@@ -114,7 +114,6 @@ pub mod pallet {
         ValidatorsActionDataNotFound,
         RemovalAlreadyRequested,
         ErrorConvertingAccountIdToValidatorId,
-        SlashedValidatorIsNotFound,
         ValidatorNotFound,
         InvalidPublicKey,
         /// The ethereum public key of this validator alredy exists
@@ -143,9 +142,6 @@ pub mod pallet {
             validator_id: T::AccountId,
         },
         ValidatorActionConfirmed {
-            action_id: ActionId<T::AccountId>,
-        },
-        ValidatorSlashed {
             action_id: ActionId<T::AccountId>,
         },
         /// Validator action was successfully sent to Ethereum via the bridge
@@ -204,6 +200,11 @@ pub mod pallet {
     pub type EthereumPublicKeys<T: Config> =
         StorageMap<_, Blake2_128Concat, ecdsa::Public, T::AccountId>;
 
+    /// Reverse mapping from account_id to ethereum public key for O(1) lookup
+    #[pallet::storage]
+    pub type AccountIdToEthereumKeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, ecdsa::Public>;
+
     #[pallet::storage]
     #[pallet::getter(fn get_ingress_counter)]
     pub type TotalIngresses<T: Config> = StorageValue<_, IngressCounter, ValueQuery>;
@@ -238,6 +239,7 @@ pub mod pallet {
             for (validator_account_id, eth_public_key) in &self.validators {
                 assert_ok!(<ValidatorAccountIds<T>>::try_append(validator_account_id));
                 <EthereumPublicKeys<T>>::insert(eth_public_key, validator_account_id);
+                <AccountIdToEthereumKeys<T>>::insert(validator_account_id, eth_public_key);
             }
 
             // Set storage version
@@ -329,7 +331,9 @@ pub mod pallet {
                 .ok_or(Error::<T>::ValidatorNotFound)?;
             ensure!(author_id == author_account_id, Error::<T>::ValidatorNotFound);
 
+            let cloned_author_id = author_id.clone();
             EthereumPublicKeys::<T>::insert(author_new_eth_public_key, author_id);
+            <AccountIdToEthereumKeys<T>>::insert(&cloned_author_id, author_new_eth_public_key);
             Ok(())
         }
     }
@@ -365,7 +369,6 @@ impl ValidatorsActionType {
     fn is_deregistration(&self) -> bool {
         match self {
             ValidatorsActionType::Resignation => true,
-            ValidatorsActionType::Slashed => true,
             _ => false,
         }
     }
@@ -427,39 +430,17 @@ impl<T: Config> Pallet<T> {
     }
 
     fn remove_ethereum_public_key_if_required(validator_id: &T::AccountId) {
-        if let Some(public_key_to_remove) = Self::get_ethereum_public_key_if_exists(validator_id) {
+        if let Some(public_key_to_remove) = <AccountIdToEthereumKeys<T>>::get(validator_id) {
             <EthereumPublicKeys<T>>::remove(public_key_to_remove);
+            <AccountIdToEthereumKeys<T>>::remove(validator_id);
         }
     }
 
-    fn get_ethereum_public_key_if_exists(account_id: &T::AccountId) -> Option<ecdsa::Public> {
-        <EthereumPublicKeys<T>>::iter()
-            .find(|(_, acc)| acc == account_id)
-            .map(|(pk, _)| pk)
-    }
-
-    fn validator_permanently_removed(
-        active_validators: &Vec<Validator<T::AuthorityId, T::AccountId>>,
-        disabled_validators: &Vec<T::AccountId>,
-        deregistered_validator: &T::AccountId,
-    ) -> bool {
-        !active_validators.iter().any(|v| &v.account_id == deregistered_validator) &&
-            !disabled_validators.iter().any(|v| v == deregistered_validator)
-    }
 
     fn deregistration_state_is_active(status: ValidatorsActionStatus) -> bool {
         matches!(
             status,
             ValidatorsActionStatus::AwaitingConfirmation | ValidatorsActionStatus::Confirmed
-        )
-    }
-
-    fn has_active_slash(validator_account_id: &T::AccountId) -> bool {
-        <ValidatorActions<T>>::iter_prefix_values(validator_account_id).any(
-            |validators_action_data| {
-                validators_action_data.action_type == ValidatorsActionType::Slashed &&
-                    Self::deregistration_state_is_active(validators_action_data.status)
-            },
         )
     }
 
@@ -591,6 +572,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<EthereumId, DispatchError> {
         // Add eth key mapping immediately (before T1 confirmation)
         <EthereumPublicKeys<T>>::insert(validator_eth_public_key, validator_account_id);
+        <AccountIdToEthereumKeys<T>>::insert(validator_account_id, validator_eth_public_key);
 
         // Prepare data for T1
         let decompressed_eth_public_key = decompress_eth_public_key(*validator_eth_public_key)
@@ -649,7 +631,7 @@ impl<T: Config> Pallet<T> {
         validator_account_id: &T::AccountId,
     ) -> Result<EthereumId, DispatchError> {
         // Prepare data for T1
-        let eth_public_key = Self::get_ethereum_public_key_if_exists(validator_account_id)
+        let eth_public_key = <AccountIdToEthereumKeys<T>>::get(validator_account_id)
             .ok_or(Error::<T>::ValidatorNotFound)?;
 
         let decompressed_eth_public_key =
@@ -766,7 +748,7 @@ impl<T: Config> Pallet<T> {
             |validators_action_data_maybe| {
                 if let Some(validators_action_data) = validators_action_data_maybe {
                     validators_action_data.action_type = ValidatorsActionType::Activation;
-                    validators_action_data.status = ValidatorsActionStatus::Actioned
+                    validators_action_data.status = ValidatorsActionStatus::Actioned;
                 }
             },
         );
@@ -815,7 +797,7 @@ impl<T: Config> Pallet<T> {
             ingress_counter,
             |validators_action_data_maybe| {
                 if let Some(validators_action_data) = validators_action_data_maybe {
-                    validators_action_data.status = ValidatorsActionStatus::Actioned
+                    validators_action_data.status = ValidatorsActionStatus::Actioned;
                 }
             },
         );
@@ -831,8 +813,9 @@ impl<T: Config> Pallet<T> {
         cleanup_deposit: bool,
     ) {
         // Remove the eth key mapping if it exists
-        if let Some(eth_key) = Self::get_ethereum_public_key_if_exists(&account_id) {
+        if let Some(eth_key) = <AccountIdToEthereumKeys<T>>::get(&account_id) {
             <EthereumPublicKeys<T>>::remove(eth_key);
+            <AccountIdToEthereumKeys<T>>::remove(&account_id);
         }
 
         // Cleanup stored deposit if requested
@@ -967,15 +950,17 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
                 <ValidatorActions<T>>::iter()
             {
                 if validators_action_data.status == ValidatorsActionStatus::Actioned &&
-                    validators_action_data.action_type.is_deregistration() &&
-                    Self::validator_permanently_removed(
-                        &active_validators,
-                        &disabled_validators,
-                        &action_account_id,
-                    )
+                    validators_action_data.action_type.is_deregistration()
                 {
-                    if let Ok(()) = Self::exit_from_staking(action_account_id.clone()) {
-                        Self::confirm_action(action_account_id, ingress_counter);
+                    // Check if account is still part of the session
+                    let is_account_part_of_session =
+                        active_validators.iter().any(|v| v.account_id == action_account_id) ||
+                        disabled_validators.iter().any(|v| *v == action_account_id);
+
+                    if !is_account_part_of_session {
+                        if let Ok(()) = Self::exit_from_staking(action_account_id.clone()) {
+                            Self::confirm_action(action_account_id, ingress_counter);
+                        }
                     }
                 } else if validators_action_data.status == ValidatorsActionStatus::Actioned &&
                     validators_action_data.action_type.is_activation()
@@ -985,10 +970,10 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
                         active_validators.iter().any(|v| v.account_id == action_account_id);
                     if is_now_active {
                         Self::confirm_action(action_account_id.clone(), ingress_counter);
-
+                        
                         // Get eth key for event (we know it exists because we added it earlier)
                         let eth_key =
-                            match Self::get_ethereum_public_key_if_exists(&action_account_id) {
+                            match <AccountIdToEthereumKeys<T>>::get(&action_account_id) {
                                 Some(key) => key,
                                 None => {
                                     log::error!(
@@ -1038,20 +1023,5 @@ impl Default for ValidatorsActionType {
 impl<T: Config> EthereumPublicKeyChecker<T::AccountId> for Pallet<T> {
     fn get_validator_for_eth_public_key(eth_public_key: &ecdsa::Public) -> Option<T::AccountId> {
         Self::get_validator_by_eth_public_key(eth_public_key)
-    }
-}
-
-impl<T: Config> DisabledValidatorChecker<T::AccountId> for Pallet<T> {
-    fn is_disabled(validator_account_id: &T::AccountId) -> bool {
-        Self::has_active_slash(validator_account_id)
-    }
-}
-
-impl<T: Config> Enforcer<<T as session::Config>::ValidatorId> for Pallet<T> {
-    fn slash_validator(
-        slashed_validator_id: &<T as session::Config>::ValidatorId,
-    ) -> DispatchResult {
-        log::error!("❌ Error: Incomplete Slashing Implementation. An attempt was made to slash validator {:?}, but the slashing implementation is currently incomplete. This code path should not have been reached.", slashed_validator_id);
-        Ok(())
     }
 }

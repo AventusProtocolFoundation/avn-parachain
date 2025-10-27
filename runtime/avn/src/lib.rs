@@ -521,7 +521,7 @@ impl pallet_utility::Config for Runtime {
 // AvN pallets
 impl pallet_avn_offence_handler::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type Enforcer = ValidatorsManager;
+    type Enforcer = ();
     type WeightInfo = pallet_avn_offence_handler::default_weights::SubstrateWeight<Runtime>;
 }
 
@@ -530,7 +530,7 @@ impl pallet_avn::Config for Runtime {
     type AuthorityId = AvnId;
     type EthereumPublicKeyChecker = ValidatorsManager;
     type NewSessionHandler = ValidatorsManager;
-    type DisabledValidatorChecker = ValidatorsManager;
+    type DisabledValidatorChecker = ();
     type WeightInfo = pallet_avn::default_weights::SubstrateWeight<Runtime>;
 }
 

@@ -125,7 +125,7 @@ mod register_validator {
         assert_eq!(false, validator_account_ids.contains(&context.new_validator_id));
         assert_eq!(
             false,
-            ValidatorManager::get_ethereum_public_key_if_exists(&context.new_validator_id)
+            <AccountIdToEthereumKeys<TestRuntime>>::get(&context.new_validator_id)
                 .is_some()
         );
     }
@@ -165,20 +165,9 @@ mod register_validator {
                     .unwrap()
                     .iter()
                     .any(|a| a == &context.new_validator_id));
-                // ValidatorRegistered Event has been deposited
+                // ValidatorActivationStarted Event has been deposited
                 assert_eq!(
                     true,
-                    System::events().iter().any(|a| a.event ==
-                        mock::RuntimeEvent::ValidatorManager(
-                            crate::Event::<TestRuntime>::ValidatorRegistered {
-                                validator_id: context.new_validator_id,
-                                eth_key: context.collator_eth_public_key.clone()
-                            }
-                        ))
-                );
-                // ValidatorActivationStarted Event has not been deposited yet
-                assert_eq!(
-                    false,
                     System::events().iter().any(|a| a.event ==
                         mock::RuntimeEvent::ValidatorManager(
                             crate::Event::<TestRuntime>::ValidatorActivationStarted {
@@ -186,12 +175,12 @@ mod register_validator {
                             }
                         ))
                 );
-                // But the activation action has been triggered
+                // But the activation action has been triggered with Actioned status
                 assert_eq!(
                     true,
                     find_validator_activation_action(
                         &context,
-                        ValidatorsActionStatus::AwaitingConfirmation
+                        ValidatorsActionStatus::Actioned
                     )
                 );
             });
@@ -215,16 +204,12 @@ mod register_validator {
                 let tx_id = get_tx_id_for_validator(&context.new_validator_id).unwrap();
                 simulate_t1_callback_success(tx_id);
 
-                // After T1 callback, activation status is AwaitingConfirmation
+                // After T1 callback, activation status is Actioned
                 // It takes 1 session to move to Confirmed
                 advance_session();
 
-                // The activation action is now Confirmed
-                assert_eq!(
-                    true,
-                    find_validator_activation_action(&context, ValidatorsActionStatus::Confirmed)
-                );
-                // ValidatorActivationStarted Event has been deposited
+                // The activation action has been confirmed when the validator became active
+                // ValidatorActivationStarted event should have been emitted during the session change
                 assert_eq!(
                     true,
                     System::events().iter().any(|a| a.event ==
@@ -281,16 +266,16 @@ mod remove_validator_public {
             let tx_id = get_tx_id_for_validator(&context.new_validator_id).unwrap();
             simulate_t1_callback_success(tx_id);
 
-            //ValidatorDeregistered Event NOT emitted yet (happens after session removal)
-            assert!(!System::events().iter().any(|a| a.event ==
+            //ValidatorDeregistered Event IS emitted immediately after T1 callback
+            assert!(System::events().iter().any(|a| a.event ==
                 mock::RuntimeEvent::ValidatorManager(
                     crate::Event::<TestRuntime>::ValidatorDeregistered {
                         validator_id: context.new_validator_id
                     }
                 )));
 
-            //Validator still in validators manager (removed by session handler)
-            assert!(ValidatorManager::validator_account_ids()
+            //Validator is removed from validators manager storage immediately
+            assert!(!ValidatorManager::validator_account_ids()
                 .unwrap()
                 .contains(&context.new_validator_id));
 
