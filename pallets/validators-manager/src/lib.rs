@@ -31,11 +31,11 @@ use sp_runtime::{
 use sp_std::prelude::*;
 
 use codec::{Decode, Encode, MaxEncodedLen};
-    use pallet_avn::{
-        self as avn, AccountToBytesConverter, BridgeInterfaceNotification,
-        EthereumPublicKeyChecker, NewSessionHandler, ProcessedEventsChecker,
-        ValidatorRegistrationNotifier, MAX_VALIDATOR_ACCOUNTS,
-    };
+use pallet_avn::{
+    self as avn, AccountToBytesConverter, BridgeInterfaceNotification, EthereumPublicKeyChecker,
+    NewSessionHandler, ProcessedEventsChecker, ValidatorRegistrationNotifier,
+    MAX_VALIDATOR_ACCOUNTS,
+};
 
 use sp_avn_common::{
     bounds::MaximumValidatorsBound, eth_key_actions::decompress_eth_public_key,
@@ -435,7 +435,6 @@ impl<T: Config> Pallet<T> {
             <AccountIdToEthereumKeys<T>>::remove(validator_id);
         }
     }
-
 
     fn deregistration_state_is_active(status: ValidatorsActionStatus) -> bool {
         matches!(
@@ -955,7 +954,7 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
                     // Check if account is still part of the session
                     let is_account_part_of_session =
                         active_validators.iter().any(|v| v.account_id == action_account_id) ||
-                        disabled_validators.iter().any(|v| *v == action_account_id);
+                            disabled_validators.iter().any(|v| *v == action_account_id);
 
                     if !is_account_part_of_session {
                         if let Ok(()) = Self::exit_from_staking(action_account_id.clone()) {
@@ -970,19 +969,18 @@ impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
                         active_validators.iter().any(|v| v.account_id == action_account_id);
                     if is_now_active {
                         Self::confirm_action(action_account_id.clone(), ingress_counter);
-                        
+
                         // Get eth key for event (we know it exists because we added it earlier)
-                        let eth_key =
-                            match <AccountIdToEthereumKeys<T>>::get(&action_account_id) {
-                                Some(key) => key,
-                                None => {
-                                    log::error!(
-                                        "Ethereum pub key not found. Validator: {:?}",
-                                        action_account_id
-                                    );
-                                    return
-                                },
-                            };
+                        let eth_key = match <AccountIdToEthereumKeys<T>>::get(&action_account_id) {
+                            Some(key) => key,
+                            None => {
+                                log::error!(
+                                    "Ethereum pub key not found. Validator: {:?}",
+                                    action_account_id
+                                );
+                                return
+                            },
+                        };
 
                         // Emit success event
                         Self::deposit_event(Event::<T>::ValidatorRegistered {

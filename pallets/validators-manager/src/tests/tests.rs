@@ -125,8 +125,7 @@ mod register_validator {
         assert_eq!(false, validator_account_ids.contains(&context.new_validator_id));
         assert_eq!(
             false,
-            <AccountIdToEthereumKeys<TestRuntime>>::get(&context.new_validator_id)
-                .is_some()
+            <AccountIdToEthereumKeys<TestRuntime>>::get(&context.new_validator_id).is_some()
         );
     }
 
@@ -178,10 +177,7 @@ mod register_validator {
                 // But the activation action has been triggered with Actioned status
                 assert_eq!(
                     true,
-                    find_validator_activation_action(
-                        &context,
-                        ValidatorsActionStatus::Actioned
-                    )
+                    find_validator_activation_action(&context, ValidatorsActionStatus::Actioned)
                 );
             });
         }
@@ -209,7 +205,8 @@ mod register_validator {
                 advance_session();
 
                 // The activation action has been confirmed when the validator became active
-                // ValidatorActivationStarted event should have been emitted during the session change
+                // ValidatorActivationStarted event should have been emitted during the session
+                // change
                 assert_eq!(
                     true,
                     System::events().iter().any(|a| a.event ==
