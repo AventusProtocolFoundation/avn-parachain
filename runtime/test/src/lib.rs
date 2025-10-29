@@ -181,7 +181,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 130,
+    spec_version: 131,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -453,6 +453,8 @@ impl pallet_aura::Config for Runtime {
     type DisabledValidators = ();
     type MaxAuthorities = ConstU32<100_000>;
     type AllowMultipleBlocksPerSlot = ConstBool<false>;
+    #[cfg(feature = "experimental")]
+    type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
 }
 
 parameter_types! {

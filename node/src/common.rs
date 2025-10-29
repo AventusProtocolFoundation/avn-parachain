@@ -7,11 +7,9 @@ use sc_cli::ChainSpec;
 cfg_if::cfg_if! {
 if #[cfg(feature = "test-native-runtime")] {
     pub use avn_test_runtime::{Block, RuntimeApi};
-    pub use crate::common::TestParachainExecutor as ParachainExecutor;
 }
 else {
     pub use avn_parachain_runtime::{Block, RuntimeApi};
-    pub use crate::common::AvnParachainExecutor as ParachainExecutor;
 }
 }
 

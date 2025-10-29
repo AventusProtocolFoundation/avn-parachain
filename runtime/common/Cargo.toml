@@ -11,16 +11,16 @@ repository = { workspace = true }
 
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = ["derive"] }
-log = { version = "0.4.20",  default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
+codec = { workspace = true, features = ["derive"] }
+log = { workspace = true }
+scale-info = { workspace = true }
+
 smallvec = "1.11.0"
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.7.2" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.7.2" }
-node-primitives = { version = "2.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.8.0" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.8.0" }
+node-primitives = { version = "2.0.0", default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 
 [features]
 default = [
