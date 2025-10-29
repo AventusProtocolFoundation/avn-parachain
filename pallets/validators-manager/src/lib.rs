@@ -46,6 +46,8 @@ use sp_avn_common::{
 use sp_avn_common::eth_key_actions::compress_eth_public_key;
 use sp_core::{bounded::BoundedVec, ecdsa};
 
+use pallet_parachain_staking::ValidatorRegistration;
+
 pub use pallet_parachain_staking::{self as parachain_staking, BalanceOf, PositiveImbalanceOf};
 
 use pallet_avn::BridgeInterface;
@@ -126,6 +128,8 @@ pub mod pallet {
         DepositBelowMinimum,
         /// Account has insufficient balance for deposit
         InsufficientBalance,
+        /// Validator session keys not found - account must be registered in session pallet
+        CandidateSessionKeysNotFound,
     }
 
     #[pallet::event]
@@ -462,6 +466,11 @@ impl<T: Config> Pallet<T> {
             validator_account_ids.len() <
                 (<MaximumValidatorsBound as sp_core::TypedGet>::get() as usize),
             Error::<T>::MaximumValidatorsReached
+        );
+
+        ensure!(
+            <T as parachain_staking::Config>::CollatorSessionRegistration::is_registered(account_id),
+            Error::<T>::CandidateSessionKeysNotFound
         );
 
         Ok(())
