@@ -10,35 +10,35 @@ repository = { workspace = true }
 rust-version = { workspace = true }
 
 [dependencies]
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive"], default-features = false }
+codec = { workspace = true, features = ["derive"] }
 ethabi = { default-features = false, git = "https://github.com/Aventus-Network-Services/ethabi.git", branch = "v13.0.0-no-std-avn" }
-hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+hex = { workspace = true }
 hex-literal = { version = "0.4.1", default-features = false }
 rand = { version = "0.8.5", default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = ["derive"] }
-log = { version = "0.4.20",  default-features = false }
-serde = { version = "1.0.195", optional = true }
+scale-info = { workspace = true }
+log = { workspace = true }
+serde = { workspace = true, optional = true }
 
-sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-staking = {default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-staking = {default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 sp-avn-common =  { default-features = false, path = "../../primitives/avn-common", features = ["serde"] }
-frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-pallet-session = {default-features = false, features = ["historical"], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+pallet-session = {default-features = false, features = ["historical"], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 pallet-avn = { default-features = false, path = "../avn" }
-sp-api = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.7.2" }
+sp-api = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.8.0" }
 
 # Optional imports for benchmarking
-frame-benchmarking = {  default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2", optional = true }
+frame-benchmarking = {  default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0", optional = true }
 
 [dev-dependencies]
 parking_lot = { version = "0.12.0" }
-sp-state-machine = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sp-state-machine = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 sp-avn-common = { features=["test-utils"], path = "../../primitives/avn-common" }
 alloy-sol-types = "1.1.2"
 alloy-primitives = "1.1.2"
@@ -64,6 +64,7 @@ std = [
 	"pallet-session/std",
 	"pallet-timestamp/std",
 	"serde/std",
+	"hex/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

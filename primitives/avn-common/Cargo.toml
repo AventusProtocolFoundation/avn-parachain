@@ -15,20 +15,18 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 derive_more = "0.99.2"
-hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
+hex = { workspace = true }
 hex-literal = { version = "0.4.1", default-features = false }
 impl-trait-for-tuples = "0.2.2"
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive", "max-encoded-len"], default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = [
-	"derive",
-] }
-log = { version = "0.4.20",  default-features = false }
+codec = { workspace = true, features = ["derive", "max-encoded-len"]}
+scale-info = { workspace = true }
+log = { workspace = true }
 strum = { version = "*", features = ["derive"], default-features = false }
 
-sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2", features = ["serde"]}
-sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0", features = ["serde"]}
+sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 
 libsecp256k1 = { version = "0.7.0", default-features = false, features = [
 	"hmac",
@@ -36,8 +34,7 @@ libsecp256k1 = { version = "0.7.0", default-features = false, features = [
 sha3 = { version = "0.8", default-features = false }
 alloy-primitives = { version = "1.1.2", default-features = false }
 alloy-sol-types = { version = "1.1.2", default-features = false }
-serde = { version = "1.0.195", default-features = false, features = ["alloc", "derive"], optional = true }
-
+serde = { features = ["alloc", "derive"], workspace = true, optional = true }
 
 [dev-dependencies]
 byte-slice-cast = "1.2.1"
@@ -60,6 +57,7 @@ std = [
 	"alloy-sol-types/std",
 	"strum/std",
 	"serde/std",
+	"hex/std",
 ]
 
 runtime-benchmarks = []
