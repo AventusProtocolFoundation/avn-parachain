@@ -13,7 +13,7 @@ use crate::{
     avn_config::*,
     chain_spec,
     cli::{Cli, RelayChainCli, Subcommand},
-    common::{Block, ParachainExecutor, RuntimeApi},
+    common::{Block, RuntimeApi},
     service::new_partial,
 };
 
@@ -188,17 +188,7 @@ pub fn run() -> Result<()> {
             match cmd {
                 BenchmarkCmd::Pallet(cmd) =>
                     if cfg!(feature = "runtime-benchmarks") {
-                        use sc_executor::{
-                            sp_wasm_interface::ExtendedHostFunctions, NativeExecutionDispatch,
-                        };
-                        type HostFunctionsOf<E> = ExtendedHostFunctions<
-                            sp_io::SubstrateHostFunctions,
-                            <E as NativeExecutionDispatch>::ExtendHostFunctions,
-                        >;
-
-                        runner.sync_run(|config| {
-                            cmd.run::<Block, HostFunctionsOf<ParachainExecutor>>(config)
-                        })
+                        runner.sync_run(|config| cmd.run::<sp_runtime::traits::HashingFor<Block>, ()>(config))
                     } else {
                         Err("Benchmarking wasn't enabled when building the node. \
 					You can enable it with `--features runtime-benchmarks`."
