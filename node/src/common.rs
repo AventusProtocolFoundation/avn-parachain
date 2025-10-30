@@ -54,7 +54,10 @@ pub struct AvnParachainExecutor;
 
 #[cfg(feature = "avn-native-runtime")]
 impl sc_executor::NativeExecutionDispatch for AvnParachainExecutor {
-    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+    type ExtendHostFunctions = (
+        cumulus_client_service::storage_proof_size::HostFunctions,
+        frame_benchmarking::benchmarking::HostFunctions,
+    );
 
     fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
         avn_parachain_runtime::api::dispatch(method, data)
@@ -70,7 +73,10 @@ pub struct TestParachainExecutor;
 
 #[cfg(feature = "test-native-runtime")]
 impl sc_executor::NativeExecutionDispatch for TestParachainExecutor {
-    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
+    type ExtendHostFunctions = (
+        cumulus_client_service::storage_proof_size::HostFunctions,
+        frame_benchmarking::benchmarking::HostFunctions,
+    );
 
     fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
         avn_test_runtime::api::dispatch(method, data)
