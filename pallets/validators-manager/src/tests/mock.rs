@@ -135,6 +135,7 @@ impl ValidatorManager {
 
 parameter_types! {
     pub const VotingPeriod: u64 = 2;
+    pub const MinimumValidatorCount: u32 = 2;
 }
 
 impl Config for TestRuntime {
@@ -145,6 +146,7 @@ impl Config for TestRuntime {
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = ();
     type BridgeInterface = EthBridge;
+    type MinimumValidatorCount = MinimumValidatorCount;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -173,7 +175,7 @@ impl avn::Config for TestRuntime {
     type AuthorityId = UintAuthorityId;
     type EthereumPublicKeyChecker = Self;
     type NewSessionHandler = ValidatorManager;
-    type DisabledValidatorChecker = ValidatorManager;
+    type DisabledValidatorChecker = ();
 }
 
 parameter_types! {
