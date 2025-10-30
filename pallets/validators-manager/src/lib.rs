@@ -469,7 +469,9 @@ impl<T: Config> Pallet<T> {
         );
 
         ensure!(
-            <T as parachain_staking::Config>::CollatorSessionRegistration::is_registered(account_id),
+            <T as parachain_staking::Config>::CollatorSessionRegistration::is_registered(
+                account_id
+            ),
             Error::<T>::CandidateSessionKeysNotFound
         );
 
