@@ -528,8 +528,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::MaximumAuthorsReached
         );
 
+        let validator_id = <T as SessionConfig>::ValidatorIdOf::convert(account_id.clone())
+            .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
+
         ensure!(
-            <pallet_session::NextKeys<T>>::contains_key(account_id),
+            <pallet_session::NextKeys<T>>::contains_key(&validator_id),
             Error::<T>::AuthorSessionKeysNotSet
         );
 
