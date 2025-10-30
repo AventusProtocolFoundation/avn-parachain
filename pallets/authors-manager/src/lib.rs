@@ -181,6 +181,8 @@ pub mod pallet {
         TransactionNotFound,
         /// Invalid action status for transaction
         InvalidActionStatus,
+        /// Author session keys are not set
+        AuthorSessionKeysNotSet,
     }
 
     #[pallet::storage]
@@ -524,6 +526,11 @@ impl<T: Config> Pallet<T> {
         ensure!(
             author_account_ids.len() < (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
             Error::<T>::MaximumAuthorsReached
+        );
+
+        ensure!(
+            <pallet_session::NextKeys<T>>::contains_key(account_id),
+            Error::<T>::AuthorSessionKeysNotSet
         );
 
         Ok(())
