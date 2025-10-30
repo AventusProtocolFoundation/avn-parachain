@@ -552,7 +552,7 @@ impl pallet_utility::Config for Runtime {
 // AvN pallets
 impl pallet_avn_offence_handler::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type Enforcer = ValidatorsManager;
+    type Enforcer = ();
     type WeightInfo = pallet_avn_offence_handler::default_weights::SubstrateWeight<Runtime>;
 }
 
@@ -561,7 +561,7 @@ impl pallet_avn::Config for Runtime {
     type AuthorityId = AvnId;
     type EthereumPublicKeyChecker = ValidatorsManager;
     type NewSessionHandler = ValidatorsManager;
-    type DisabledValidatorChecker = ValidatorsManager;
+    type DisabledValidatorChecker = ();
     type WeightInfo = pallet_avn::default_weights::SubstrateWeight<Runtime>;
 }
 
@@ -585,6 +585,8 @@ impl pallet_ethereum_events::Config for Runtime {
 
 parameter_types! {
     pub const ValidatorManagerVotingPeriod: BlockNumber = 30 * MINUTES;
+    // Minimum 2 validators must remain active
+    pub const MinimumValidatorCount: u32 = 2;
 }
 
 impl pallet_validators_manager::Config for Runtime {
@@ -595,6 +597,7 @@ impl pallet_validators_manager::Config for Runtime {
     type ValidatorRegistrationNotifier = AvnOffenceHandler;
     type WeightInfo = pallet_validators_manager::default_weights::SubstrateWeight<Runtime>;
     type BridgeInterface = EthBridge;
+    type MinimumValidatorCount = MinimumValidatorCount;
 }
 
 parameter_types! {
