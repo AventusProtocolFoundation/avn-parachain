@@ -1575,42 +1575,41 @@ pub mod pallet {
             result: &ProposalStatusEnum,
         ) {
             if let Ok(root_id) = Self::get_root_id_by_external_ref(external_ref) {
-                match result {
-                    ProposalStatusEnum::Resolved { passed } if *passed => {
-                        let root_data = match Self::try_get_root_data(&root_id) {
-                            Ok(data) => data,
-                            Err(e) => {
-                                log::error!(
-                                    "💔 Root data not found. ProposalId {:?}. External ref {:?}. Err: {:?}",
-                                    proposal_id,
-                                    external_ref,
-                                    e
-                                );
-                                return
-                            },
-                        };
-
-                        Self::set_summary_status(&root_id, ExternalValidationEnum::Accepted);
-
-                        if let Err(e) = Self::process_accepted_root(&root_id, root_data.root_hash) {
-                            log::error!("💔 Processing on_voting_completed error. ProposalId {:?}. External ref {:?}. Err: {:?}",
+                if matches!(result, ProposalStatusEnum::Expired) ||
+                    matches!(result, ProposalStatusEnum::Resolved { passed: true })
+                {
+                    let root_data = match Self::try_get_root_data(&root_id) {
+                        Ok(data) => data,
+                        Err(e) => {
+                            log::error!(
+                                "💔 Root data not found. ProposalId {:?}. External ref {:?}. Err: {:?}",
                                 proposal_id,
                                 external_ref,
                                 e
                             );
                             return
-                        };
+                        },
+                    };
 
-                        Self::cleanup_external_validation_data(&root_id, external_ref);
-                    },
-                    _ => {
-                        Self::setup_root_for_admin_review(
-                            root_id,
+                    Self::set_summary_status(&root_id, ExternalValidationEnum::Accepted);
+
+                    if let Err(e) = Self::process_accepted_root(&root_id, root_data.root_hash) {
+                        log::error!("💔 Processing on_voting_completed error. ProposalId {:?}. External ref {:?}. Err: {:?}",
                             proposal_id,
-                            external_ref.clone(),
-                            result.clone(),
+                            external_ref,
+                            e
                         );
-                    },
+                        return
+                    };
+
+                    Self::cleanup_external_validation_data(&root_id, external_ref);
+                } else {
+                    Self::setup_root_for_admin_review(
+                        root_id,
+                        proposal_id,
+                        external_ref.clone(),
+                        result.clone(),
+                    );
                 }
             }
         }
