@@ -31,6 +31,7 @@ use sp_staking::{
     offence::{OffenceError, ReportOffence},
     SessionIndex,
 };
+use sp_watchtower::NoopWatchtower;
 use std::{cell::RefCell, convert::From, sync::Arc};
 use system::pallet_prelude::BlockNumberFor;
 
@@ -345,11 +346,6 @@ frame_support::construct_runtime!(
     }
 );
 
-parameter_types! {
-    pub const AdvanceSlotGracePeriod: u64 = 5;
-    pub const MinBlockAge: u64 = 5;
-}
-
 pub type ValidatorId = u64;
 type FullIdentification = u64;
 
@@ -374,6 +370,17 @@ thread_local! {
     static MOCK_RECOVERED_ACCOUNT_ID: RefCell<AccountId> = RefCell::new(FIRST_VALIDATOR_INDEX);
 }
 
+parameter_types! {
+    pub const AdvanceSlotGracePeriod: u64 = 5;
+    pub const MinBlockAge: u64 = 5;
+    pub const ExternalValidationEnabled: bool = true;
+    pub const BlockHashCount: u64 = 250;
+    pub const AutoSubmitSummaries: bool = true;
+    pub const DoNotAutoSubmitAnchor: bool = false;
+    pub const InstanceId: u8 = 1u8;
+    pub const AnchorInstanceId: u8 = 2u8;
+}
+
 impl Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type AdvanceSlotGracePeriod = AdvanceSlotGracePeriod;
@@ -384,6 +391,8 @@ impl Config for TestRuntime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AutoSubmitSummaries;
     type InstanceId = InstanceId;
+    type ExternalValidator = NoopWatchtower<AccountId>;
+    type ExternalValidationEnabled = ExternalValidationEnabled;
 }
 
 type AvnAnchorSummary = summary::Instance1;
@@ -395,8 +404,10 @@ impl Config<AvnAnchorSummary> for TestRuntime {
     type ReportSummaryOffence = OffenceHandler;
     type WeightInfo = ();
     type BridgeInterface = EthBridge;
-    type AutoSubmitSummaries = DoNotSubmit;
+    type AutoSubmitSummaries = DoNotAutoSubmitAnchor;
     type InstanceId = AnchorInstanceId;
+    type ExternalValidator = NoopWatchtower<AccountId>;
+    type ExternalValidationEnabled = ExternalValidationEnabled;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -405,13 +416,6 @@ where
 {
     type OverarchingCall = RuntimeCall;
     type Extrinsic = Extrinsic;
-}
-
-parameter_types! {
-    pub const AutoSubmitSummaries: bool = true;
-    pub const InstanceId: u8 = 1u8;
-    pub const DoNotSubmit: bool = false;
-    pub const AnchorInstanceId: u8 = 2u8;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -600,7 +604,8 @@ impl ExtBuilder {
         // Events do not get emitted on block 0, so we increment the block here
         ext.execute_with(|| {
             Timestamp::set_timestamp(1);
-            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into())
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into());
+            ExternalValidationThreshold::<TestRuntime>::put(51u32);
         });
         ext
     }
@@ -666,7 +671,8 @@ impl ExtBuilder {
         assert!(self.offchain_state.is_some());
         ext.execute_with(|| {
             Timestamp::set_timestamp(1);
-            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into())
+            frame_system::Pallet::<TestRuntime>::set_block_number(1u32.into());
+            ExternalValidationThreshold::<TestRuntime>::put(51u32);
         });
         (ext, self.pool_state.unwrap(), self.offchain_state.unwrap())
     }
