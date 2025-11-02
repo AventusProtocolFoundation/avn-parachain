@@ -724,6 +724,8 @@ pub mod pallet {
                 },
                 AdminConfig::SchedulePeriod(period) => {
                     Self::validate_schedule_period(period)?;
+                    let voting_period = <VotingPeriod<T, I>>::get();
+                    Self::validate_voting_period(voting_period, period)?;
 
                     let next_block_to_process = <NextBlockToProcess<T, I>>::get();
                     let new_slot_at_block = safe_add_block_numbers(next_block_to_process, period)
