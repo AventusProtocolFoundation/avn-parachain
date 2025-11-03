@@ -10,6 +10,7 @@ rust-version = "1.85.0"
 resolver = "2"
 members = [
     "node",
+    "node/primitives",
     "client/*",
     "pallets/*",
     "pallets/*/runtime-api",
