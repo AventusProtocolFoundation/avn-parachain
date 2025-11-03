@@ -10,7 +10,6 @@ use frame_support::{
     parameter_types,
     weights::{WeightToFeeCoefficient, WeightToFeeCoefficients, WeightToFeePolynomial},
 };
-
 pub use sp_runtime::{MultiAddress, Perbill, Permill};
 
 pub use node_primitives::{AccountId, Signature};

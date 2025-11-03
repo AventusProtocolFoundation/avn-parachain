@@ -7309,7 +7309,6 @@ checksum = "43794a0ace135be66a25d3ae77d41b91615fb68ae937f904090203e81f755b65"
 [[package]]
 name = "node-primitives"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.8.0#a51b5dd3dd7d00b0c0ae5bdd28650eb13f0ae70c"
 dependencies = [
  "sp-core",
  "sp-runtime",
@@ -8808,7 +8807,6 @@ dependencies = [
  "hex",
  "hex-literal",
  "log",
- "node-primitives",
  "pallet-avn",
  "pallet-eth-bridge",
  "pallet-session",
