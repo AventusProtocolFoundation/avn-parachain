@@ -125,6 +125,7 @@ impl AuthorsManager {
 
 parameter_types! {
     pub const VotingPeriod: u64 = 2;
+    pub const MinimumAuthorsCount: u32 = 2;
 }
 
 impl Config for TestRuntime {
@@ -133,6 +134,7 @@ impl Config for TestRuntime {
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
     type BridgeInterface = EthBridge;
+    type MinimumAuthorsCount = MinimumAuthorsCount;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
