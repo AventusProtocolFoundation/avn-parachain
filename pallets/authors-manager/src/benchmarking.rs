@@ -253,10 +253,15 @@ benchmarks! {
     verify {
         // Author is not removed yet (only after T1 confirmation)
         assert_eq!(AuthorAccountIds::<T>::get().unwrap().iter().position(|author_account_id| *author_account_id == caller_account).is_some(), true);
+        // Extract the actual tx_id from storage
+        let ingress_counter = AuthorsManager::<T>::get_ingress_counter();
+        let action_data = AuthorActions::<T>::get(&caller_account, ingress_counter)
+            .expect("Author action should exist");
+        let actual_tx_id = action_data.eth_transaction_id;
         assert_last_event::<T>(Event::<T>::AuthorActionPublished{
             author_id: caller_account.clone(),
             action_type: AuthorsActionType::Resignation,
-            tx_id: 0
+            tx_id: actual_tx_id
         }.into());
     }
 
