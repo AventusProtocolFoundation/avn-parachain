@@ -135,20 +135,11 @@ fn generate_mock_ecdsa_signature<T: pallet_avn::Config>(msg: u8) -> ecdsa::Signa
 }
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
-    assert_last_nth_event::<T>(generic_event, 1);
-}
-
-fn assert_last_nth_event<T: Config>(generic_event: <T as Config>::RuntimeEvent, n: u32) {
     let events = frame_system::Pallet::<T>::events();
     let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
-    // Compare to the last event record
-    let EventRecord { event, .. } = &events[events.len().saturating_sub(n as usize)];
-    // Check that events have the same discriminant (type)
-    assert_eq!(
-        std::mem::discriminant(event),
-        std::mem::discriminant(&system_event),
-        "Events should match in type"
-    );
+    // compare to the last event record
+    let EventRecord { event, .. } = &events[events.len().saturating_sub(1 as usize)];
+    assert_eq!(event, &system_event);
 }
 
 fn advance_session<T: Config>() {

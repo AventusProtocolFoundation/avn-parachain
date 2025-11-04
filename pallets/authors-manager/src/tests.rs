@@ -388,6 +388,133 @@ mod remove_author_public {
             assert_eq!(AuthorsManager::author_account_ids(), original_authors);
         });
     }
+
+    #[test]
+    fn fails_when_another_deregistration_is_in_progress() {
+        let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+        ext.execute_with(|| {
+            let context = MockData::setup_valid();
+            assert_ok!(force_add_author(&context.new_author_id, &context.author_eth_public_key));
+
+            // Start a deregistration for author_id_1
+            assert_ok!(AuthorsManager::remove_author(
+                RawOrigin::Root.into(),
+                author_id_1()
+            ));
+
+            // Try to deregister a different author while the first is still in progress
+            assert_noop!(
+                AuthorsManager::remove_author(
+                    RawOrigin::Root.into(),
+                    author_id_2()
+                ),
+                Error::<TestRuntime>::DeregistrationAlreadyInProgress
+            );
+        });
+    }
+
+    #[test]
+    fn fails_when_same_author_tries_to_deregister_twice() {
+        let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+        ext.execute_with(|| {
+            let context = MockData::setup_valid();
+            assert_ok!(force_add_author(&context.new_author_id, &context.author_eth_public_key));
+
+            // Start a deregistration for author_id_1
+            assert_ok!(AuthorsManager::remove_author(
+                RawOrigin::Root.into(),
+                author_id_1()
+            ));
+
+            // Try to deregister the same author again (this should fail because a deregistration is already in progress)
+            // The global check prevents any new deregistration attempts while one is in progress
+            assert_noop!(
+                AuthorsManager::remove_author(
+                    RawOrigin::Root.into(),
+                    author_id_1()
+                ),
+                Error::<TestRuntime>::DeregistrationAlreadyInProgress
+            );
+        });
+    }
+
+    #[test]
+    fn allows_deregistration_after_previous_one_completes() {
+        let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+        ext.execute_with(|| {
+            let context = MockData::setup_valid();
+            assert_ok!(force_add_author(&context.new_author_id, &context.author_eth_public_key));
+
+            // Start a deregistration for author_id_1
+            assert_ok!(AuthorsManager::remove_author(
+                RawOrigin::Root.into(),
+                author_id_1()
+            ));
+
+            // Complete the first deregistration by simulating T1 confirmation
+            let (account_id, ingress_counter, action_data) = AuthorActions::<TestRuntime>::iter()
+                .find(|(acc, _, data)| {
+                    acc == &author_id_1() && data.action_type == AuthorsActionType::Resignation
+                })
+                .expect("Resignation action should exist");
+
+            let tx_id = action_data.eth_transaction_id;
+
+            // Set up transaction mapping for callback
+            TransactionToAction::<TestRuntime>::insert(
+                tx_id,
+                (account_id.clone(), ingress_counter),
+            );
+
+            // Process the T1 confirmation
+            assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true));
+
+            // Now we should be able to deregister a different author (author_id_2 is still in the list)
+            assert_ok!(AuthorsManager::remove_author(
+                RawOrigin::Root.into(),
+                author_id_2()
+            ));
+        });
+    }
+
+    #[test]
+    fn allows_deregistration_after_previous_one_fails() {
+        let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+        ext.execute_with(|| {
+            let context = MockData::setup_valid();
+            assert_ok!(force_add_author(&context.new_author_id, &context.author_eth_public_key));
+
+            // Start a deregistration for author_id_1
+            assert_ok!(AuthorsManager::remove_author(
+                RawOrigin::Root.into(),
+                author_id_1()
+            ));
+
+            // Simulate T1 failure
+            let (account_id, ingress_counter, action_data) = AuthorActions::<TestRuntime>::iter()
+                .find(|(acc, _, data)| {
+                    acc == &author_id_1() && data.action_type == AuthorsActionType::Resignation
+                })
+                .expect("Resignation action should exist");
+
+            let tx_id = action_data.eth_transaction_id;
+
+            // Set up transaction mapping for callback
+            TransactionToAction::<TestRuntime>::insert(
+                tx_id,
+                (account_id.clone(), ingress_counter),
+            );
+
+            // Process the T1 failure
+            assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), false));
+
+            // Now we should be able to deregister a different author (author_id_2 is still in the list)
+            assert_ok!(AuthorsManager::remove_author(
+                RawOrigin::Root.into(),
+                author_id_2()
+            ));
+        });
+    }
 }
 
 #[test]
