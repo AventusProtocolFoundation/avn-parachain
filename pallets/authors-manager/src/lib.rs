@@ -12,7 +12,10 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-use sp_avn_common::{eth::EthereumId, BridgeContractMethod};
+use sp_avn_common::BridgeContractMethod;
+
+/// Ethereum transaction ID type
+pub type EthereumId = u32;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, transactional};
@@ -613,7 +616,7 @@ impl<T: Config> Pallet<T> {
         let author_id_bytes =
             <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
 
-        let function_name = BridgeContractMethod::AddAuthor.name_as_bytes();
+        let function_name = BridgeContractMethod::AddAuthor.as_bytes();
         let params = vec![
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
             (b"bytes32".to_vec(), author_id_bytes.to_vec()),
@@ -672,7 +675,7 @@ impl<T: Config> Pallet<T> {
         let author_id_bytes =
             <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
 
-        let function_name = BridgeContractMethod::RemoveAuthor.name_as_bytes();
+        let function_name = BridgeContractMethod::RemoveAuthor.as_bytes();
         let params = vec![
             (b"bytes32".to_vec(), author_id_bytes.to_vec()),
             (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
