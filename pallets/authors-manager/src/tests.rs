@@ -397,17 +397,11 @@ mod remove_author_public {
             assert_ok!(force_add_author(&context.new_author_id, &context.author_eth_public_key));
 
             // Start a deregistration for author_id_1
-            assert_ok!(AuthorsManager::remove_author(
-                RawOrigin::Root.into(),
-                author_id_1()
-            ));
+            assert_ok!(AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_1()));
 
             // Try to deregister a different author while the first is still in progress
             assert_noop!(
-                AuthorsManager::remove_author(
-                    RawOrigin::Root.into(),
-                    author_id_2()
-                ),
+                AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_2()),
                 Error::<TestRuntime>::DeregistrationAlreadyInProgress
             );
         });
@@ -421,18 +415,13 @@ mod remove_author_public {
             assert_ok!(force_add_author(&context.new_author_id, &context.author_eth_public_key));
 
             // Start a deregistration for author_id_1
-            assert_ok!(AuthorsManager::remove_author(
-                RawOrigin::Root.into(),
-                author_id_1()
-            ));
+            assert_ok!(AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_1()));
 
-            // Try to deregister the same author again (this should fail because a deregistration is already in progress)
-            // The global check prevents any new deregistration attempts while one is in progress
+            // Try to deregister the same author again (this should fail because a deregistration is
+            // already in progress) The global check prevents any new deregistration
+            // attempts while one is in progress
             assert_noop!(
-                AuthorsManager::remove_author(
-                    RawOrigin::Root.into(),
-                    author_id_1()
-                ),
+                AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_1()),
                 Error::<TestRuntime>::DeregistrationAlreadyInProgress
             );
         });
@@ -446,10 +435,7 @@ mod remove_author_public {
             assert_ok!(force_add_author(&context.new_author_id, &context.author_eth_public_key));
 
             // Start a deregistration for author_id_1
-            assert_ok!(AuthorsManager::remove_author(
-                RawOrigin::Root.into(),
-                author_id_1()
-            ));
+            assert_ok!(AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_1()));
 
             // Complete the first deregistration by simulating T1 confirmation
             let (account_id, ingress_counter, action_data) = AuthorActions::<TestRuntime>::iter()
@@ -469,11 +455,9 @@ mod remove_author_public {
             // Process the T1 confirmation
             assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), true));
 
-            // Now we should be able to deregister a different author (author_id_2 is still in the list)
-            assert_ok!(AuthorsManager::remove_author(
-                RawOrigin::Root.into(),
-                author_id_2()
-            ));
+            // Now we should be able to deregister a different author (author_id_2 is still in the
+            // list)
+            assert_ok!(AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_2()));
         });
     }
 
@@ -485,10 +469,7 @@ mod remove_author_public {
             assert_ok!(force_add_author(&context.new_author_id, &context.author_eth_public_key));
 
             // Start a deregistration for author_id_1
-            assert_ok!(AuthorsManager::remove_author(
-                RawOrigin::Root.into(),
-                author_id_1()
-            ));
+            assert_ok!(AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_1()));
 
             // Simulate T1 failure
             let (account_id, ingress_counter, action_data) = AuthorActions::<TestRuntime>::iter()
@@ -508,11 +489,9 @@ mod remove_author_public {
             // Process the T1 failure
             assert_ok!(Pallet::<TestRuntime>::process_result(tx_id, PALLET_ID.to_vec(), false));
 
-            // Now we should be able to deregister a different author (author_id_2 is still in the list)
-            assert_ok!(AuthorsManager::remove_author(
-                RawOrigin::Root.into(),
-                author_id_2()
-            ));
+            // Now we should be able to deregister a different author (author_id_2 is still in the
+            // list)
+            assert_ok!(AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_2()));
         });
     }
 }

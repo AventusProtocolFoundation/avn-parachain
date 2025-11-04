@@ -554,7 +554,10 @@ impl<T: Config> Pallet<T> {
         ensure!(author_account_ids.contains(account_id), Error::<T>::AuthorNotFound);
 
         // Check if any author already has a deregistration in progress (global check)
-        ensure!(!Self::has_any_active_deregistration(), Error::<T>::DeregistrationAlreadyInProgress);
+        ensure!(
+            !Self::has_any_active_deregistration(),
+            Error::<T>::DeregistrationAlreadyInProgress
+        );
 
         // Check if this author has any active actions (registration or deregistration)
         ensure!(!Self::has_any_active_action(account_id), Error::<T>::RemovalAlreadyRequested);
@@ -582,11 +585,11 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// Check if a specific author has any active actions (registration, activation, or deregistration)
+    /// Check if a specific author has any active actions (registration, activation, or
+    /// deregistration)
     fn has_any_active_action(author_account_id: &T::AccountId) -> bool {
-        <AuthorActions<T>>::iter_prefix_values(author_account_id).any(|authors_action_data| {
-            Self::action_state_is_active(authors_action_data.status)
-        })
+        <AuthorActions<T>>::iter_prefix_values(author_account_id)
+            .any(|authors_action_data| Self::action_state_is_active(authors_action_data.status))
     }
 
     /// Check if an action status indicates the action is still active
