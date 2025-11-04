@@ -74,7 +74,10 @@ mod test_set_periods {
 
         #[test]
         fn schedule_period_can_be_set_via_admin_config() {
-            let mut ext = ExtBuilder::build_default().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_validators()
+                .with_genesis_config()
+                .as_externality();
             ext.execute_with(|| {
                 let current_period: BlockNumber = <SchedulePeriod<TestRuntime, Instance1>>::get();
                 let new_period = current_period + 100;
@@ -110,13 +113,13 @@ mod test_set_periods {
 
         #[test]
         fn voting_period_can_be_set_via_admin_config() {
-            let mut ext = ExtBuilder::build_default().as_externality();
+            let mut ext = ExtBuilder::build_default()
+                .with_validators()
+                .with_genesis_config()
+                .as_externality();
             ext.execute_with(|| {
-                let config = AdminConfig::SchedulePeriod(100);
-                assert_ok!(Summary::set_admin_config(RawOrigin::Root.into(), config));
-
                 let current_period: BlockNumber = <VotingPeriod<TestRuntime, Instance1>>::get();
-                let new_period = current_period + 99;
+                let new_period = current_period + 1;
 
                 let config = AdminConfig::VotingPeriod(new_period);
                 assert_ok!(Summary::set_admin_config(RawOrigin::Root.into(), config,));
