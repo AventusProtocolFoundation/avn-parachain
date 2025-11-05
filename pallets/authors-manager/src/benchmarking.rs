@@ -16,7 +16,7 @@ use libsecp256k1::{PublicKey, SecretKey};
 use pallet_avn::{self as avn};
 use pallet_session::Pallet as Session;
 use sp_avn_common::eth_key_actions::{compress_eth_public_key, decompress_eth_public_key};
-use sp_core::{ecdsa::Public, H512};
+use sp_core::{ecdsa::Public, ByteArray, H512};
 use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
 
 use codec::{Decode, Encode};

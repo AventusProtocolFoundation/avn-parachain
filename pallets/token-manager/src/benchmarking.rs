@@ -23,7 +23,7 @@ use codec::{Decode, Encode};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use frame_system::{pallet_prelude::BlockNumberFor, EventRecord, RawOrigin};
 use hex_literal::hex;
-use sp_core::{sr25519, H256};
+use sp_core::{sr25519, ByteArray, H256};
 use sp_runtime::{traits::SaturatedConversion, RuntimeAppPublic};
 
 use sp_application_crypto::KeyTypeId;

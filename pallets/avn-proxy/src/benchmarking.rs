@@ -9,7 +9,7 @@ use super::*;
 use crate::Pallet as AvnProxy;
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite, whitelisted_caller};
 use hex_literal::hex;
-use sp_core::{sr25519, H256};
+use sp_core::{sr25519, ByteArray, H256};
 
 fn get_proof<T: Config>(
     signer: T::AccountId,
