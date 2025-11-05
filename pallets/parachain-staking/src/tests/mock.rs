@@ -303,6 +303,7 @@ impl WeightToFeeT for TransactionByteFee {
 #[derive_impl(pallet_avn::config_preludes::TestDefaultConfig as pallet_avn::DefaultConfig)]
 impl avn::Config for Test {
     type DisabledValidatorChecker = ();
+    type AuthorityId = UintAuthorityId;
 }
 
 impl session::Config for Test {

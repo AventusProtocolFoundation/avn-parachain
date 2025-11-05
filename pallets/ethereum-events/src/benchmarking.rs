@@ -11,7 +11,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite, whiteli
 use frame_system::{EventRecord, RawOrigin};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
-use sp_core::sr25519;
+use sp_core::{sr25519, ByteArray};
 use sp_runtime::WeakBoundedVec;
 
 pub type AVN<T> = avn::Pallet<T>;

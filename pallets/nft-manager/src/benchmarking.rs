@@ -25,7 +25,7 @@ use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_system::{EventRecord, RawOrigin};
 use hex_literal::hex;
 use pallet_avn::{self as avn};
-use sp_core::H256;
+use sp_core::{ByteArray, H256};
 use sp_runtime::RuntimeAppPublic;
 
 #[cfg(not(feature = "std"))]

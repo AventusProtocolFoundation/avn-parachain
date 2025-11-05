@@ -16,7 +16,7 @@ use pallet_avn::{self as avn};
 use pallet_parachain_staking::{Currency, Pallet as ParachainStaking};
 use pallet_session::Pallet as Session;
 use sp_avn_common::eth_key_actions::decompress_eth_public_key;
-use sp_core::{ecdsa::Public, H512};
+use sp_core::{ecdsa::Public, ByteArray, H512};
 use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
 
 // Resigner keys derived from [6u8; 32] private key

@@ -15,7 +15,7 @@ use frame_support::{
 use frame_system::{self as system, limits::BlockWeights, DefaultConfig, EnsureRoot};
 use pallet_avn::BridgeInterfaceNotification;
 use pallet_avn_proxy::{self as avn_proxy, ProvableProxy};
-use pallet_session as session;
+use pallet_session::{self as session, historical as pallet_session_historical};
 use scale_info::TypeInfo;
 use sp_avn_common::{FeePaymentHandler, InnerCallValidator, Proof};
 use sp_core::{sr25519, Pair, H256};
@@ -127,16 +127,17 @@ pub fn set_mock_fee_handler_should_fail(should_fail: bool) {
 frame_support::construct_runtime!(
     pub enum TestRuntime
     {
-        System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Avn: pallet_avn::{Pallet, Storage, Event},
-        AvnProxy: avn_proxy::{Pallet, Call, Storage, Event<T>},
-        AvnAnchor: avn_anchor::{Pallet, Call, Storage, Event<T>},
-        TokenManager: pallet_token_manager::{Pallet, Call, Storage, Event<T>},
-        EthBridge: pallet_eth_bridge::{Pallet, Call, Storage, Event<T>},
-        Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>},
-        Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        System: frame_system,
+        Balances: pallet_balances,
+        Avn: pallet_avn,
+        AvnProxy: avn_proxy,
+        AvnAnchor: avn_anchor,
+        TokenManager: pallet_token_manager,
+        EthBridge: pallet_eth_bridge,
+        Session: pallet_session,
+        Historical: pallet_session_historical,
+        Scheduler: pallet_scheduler,
+        Timestamp: pallet_timestamp,
     }
 );
 

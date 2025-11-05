@@ -15,7 +15,7 @@ use sp_avn_common::{
     eth::EthereumId,
     event_types::{EthEvent, EthEventId, LiftedData, ValidEvents},
 };
-use sp_core::{Get, H160, H256, U256};
+use sp_core::{ByteArray, Get, H160, H256, U256};
 use sp_runtime::{traits::One, WeakBoundedVec};
 
 fn setup_authors<T: Config<I>, I: 'static>(

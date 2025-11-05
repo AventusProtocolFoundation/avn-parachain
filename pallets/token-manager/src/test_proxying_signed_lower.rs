@@ -26,7 +26,7 @@ use hex_literal::hex;
 use pallet_parachain_staking::Weight;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use sp_avn_common::verify_signature;
-use sp_core::{sr25519, Pair};
+use sp_core::{sr25519, ByteArray, Pair};
 use sp_runtime::{
     traits::{Hash, SignedExtension},
     transaction_validity::InvalidTransaction,

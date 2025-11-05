@@ -255,7 +255,7 @@ pub mod pallet {
             log::debug!(
                 "Validators manager storage chain/current storage version: {:?} / {:?}",
                 Pallet::<T>::on_chain_storage_version(),
-                Pallet::<T>::current_storage_version(),
+                Pallet::<T>::in_code_storage_version(),
             );
         }
     }

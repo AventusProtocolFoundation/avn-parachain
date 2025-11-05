@@ -106,7 +106,7 @@ pub fn translate_lower_data<T: Config>() -> Weight {
 pub struct SetLowerSchedulePeriod<T>(PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
     fn on_runtime_upgrade() -> Weight {
-        let current = Pallet::<T>::current_storage_version();
+        let current = Pallet::<T>::in_code_storage_version();
         let onchain = Pallet::<T>::on_chain_storage_version();
         let mut total_weight = Weight::zero();
 

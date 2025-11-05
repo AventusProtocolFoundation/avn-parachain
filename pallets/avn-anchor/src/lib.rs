@@ -496,7 +496,7 @@ pub mod pallet {
             OriginIdToCheckpoint::<T>::get(chain_id, origin_id)
         }
 
-        pub fn current_storage_version() -> StorageVersion {
+        pub fn in_code_storage_version() -> StorageVersion {
             StorageVersion::get::<Pallet<T>>()
         }
 

@@ -18,8 +18,8 @@ scale-info = { workspace = true }
 smallvec = "1.11.0"
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.9.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.9.0" }
+frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.10.0" }
+sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.10.0" }
 node-primitives = { path = "../../node/primitives/", default-features = false }
 
 [features]
