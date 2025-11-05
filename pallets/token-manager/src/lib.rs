@@ -40,7 +40,7 @@ use frame_support::{
 use frame_system::ensure_signed;
 pub use pallet::*;
 use pallet_avn::{
-    self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
+    self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
     OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
 use sp_avn_common::eth::{concat_lower_data, LowerParams};
