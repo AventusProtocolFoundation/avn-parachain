@@ -7,10 +7,10 @@ use sc_cli::ChainSpec;
 
 cfg_if::cfg_if! {
 if #[cfg(feature = "test-native-runtime")] {
-    pub use avn_test_runtime::{Block, RuntimeApi};
+    pub use avn_test_runtime::{Block, apis::RuntimeApi};
 }
 else {
-    pub use avn_parachain_runtime::{Block, RuntimeApi};
+    pub use avn_parachain_runtime::{Block, apis::RuntimeApi};
 }
 }
 
@@ -45,46 +45,6 @@ impl<Api> AvnRuntimeApiCollection for Api where
         + sp_consensus_aura::AuraApi<BlockT, AuraId>
         + pallet_eth_bridge_runtime_api::EthEventHandlerApi<BlockT, AccountId>
 {
-}
-
-/// Native executor type.
-
-#[cfg(feature = "avn-native-runtime")]
-pub struct AvnParachainExecutor;
-
-#[cfg(feature = "avn-native-runtime")]
-impl sc_executor::NativeExecutionDispatch for AvnParachainExecutor {
-    type ExtendHostFunctions = (
-        cumulus_client_service::storage_proof_size::HostFunctions,
-        frame_benchmarking::benchmarking::HostFunctions,
-    );
-
-    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        avn_parachain_runtime::api::dispatch(method, data)
-    }
-
-    fn native_version() -> sc_executor::NativeVersion {
-        avn_parachain_runtime::native_version()
-    }
-}
-
-#[cfg(feature = "test-native-runtime")]
-pub struct TestParachainExecutor;
-
-#[cfg(feature = "test-native-runtime")]
-impl sc_executor::NativeExecutionDispatch for TestParachainExecutor {
-    type ExtendHostFunctions = (
-        cumulus_client_service::storage_proof_size::HostFunctions,
-        frame_benchmarking::benchmarking::HostFunctions,
-    );
-
-    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        avn_test_runtime::api::dispatch(method, data)
-    }
-
-    fn native_version() -> sc_executor::NativeVersion {
-        avn_test_runtime::native_version()
-    }
 }
 
 pub trait AvnRuntimeIdentity {

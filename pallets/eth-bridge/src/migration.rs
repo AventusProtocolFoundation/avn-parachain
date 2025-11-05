@@ -93,7 +93,7 @@ mod v5 {
 pub struct EthBridgeMigrations<T: Config<I>, I: 'static = ()>(PhantomData<T>, PhantomData<I>);
 impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for EthBridgeMigrations<T, I> {
     fn on_runtime_upgrade() -> Weight {
-        let current = Pallet::<T, I>::current_storage_version();
+        let current = Pallet::<T, I>::in_code_storage_version();
         let onchain = Pallet::<T, I>::on_chain_storage_version();
 
         log::info!(
