@@ -670,6 +670,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
     type OnIdleHandler = ();
+    type AccountToBytesConvert = Avn;
 }
 
 impl pallet_nft_manager::Config for Runtime {
