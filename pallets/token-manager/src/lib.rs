@@ -771,7 +771,7 @@ impl<T: Config> Pallet<T> {
             &amount,
             &t1_recipient,
             t2_sender,
-            t2_timestamp
+            t2_timestamp,
         );
 
         <LowersPendingProof<T>>::insert(lower_id, &lower_params);

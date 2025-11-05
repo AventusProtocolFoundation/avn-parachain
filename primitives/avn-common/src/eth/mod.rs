@@ -206,7 +206,14 @@ impl TryFrom<LowerParams> for LowerData {
         let t2_sender = AlloyB256::from_slice(&lower_params[76..108]);
         let t2_timestamp = u32::from_be_bytes(lower_params[108..112].try_into().map_err(|_| ())?);
 
-        Ok(LowerData { token, amount, recipient, lowerId: lower_id, t2Sender: t2_sender, t2Timestamp: t2_timestamp })
+        Ok(LowerData {
+            token,
+            amount,
+            recipient,
+            lowerId: lower_id,
+            t2Sender: t2_sender,
+            t2Timestamp: t2_timestamp,
+        })
     }
 }
 
