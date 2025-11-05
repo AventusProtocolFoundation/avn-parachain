@@ -8,8 +8,8 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use hex_literal::hex;
-use sp_avn_common::assert_eq_uvec;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
+use substrate_test_utils::assert_eq_uvec;
 
 fn register_author(
     author_id: &AccountId,
@@ -665,7 +665,7 @@ mod bridge_interface_notification {
             let mut ext = ExtBuilder::build_default().with_authors().as_externality();
             ext.execute_with(|| {
                 let context = MockData::setup_valid();
-                let (_ingress_counter, tx_id) = setup_test_action(&context);
+                let (ingress_counter, tx_id) = setup_test_action(&context);
 
                 advance_session();
                 advance_session();
@@ -682,10 +682,12 @@ mod bridge_interface_notification {
                     )));
 
                 // After successful registration, the action is mutated to Activation type
-                // so there should be 1 action (the Activation action)
-                assert!(AuthorActions::<TestRuntime>::iter().count() == 1);
+                let activation_action = AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter)
+                    .expect("Activation action should exist");
+                assert_eq!(activation_action.action_type, AuthorsActionType::Activation);
+                
                 // Transaction mapping is removed by process_result (line 1005: take)
-                assert!(TransactionToAction::<TestRuntime>::iter().count() == 0);
+                assert_eq!(TransactionToAction::<TestRuntime>::get(tx_id), None);
             });
         }
 
@@ -694,7 +696,7 @@ mod bridge_interface_notification {
             let mut ext = ExtBuilder::build_default().with_authors().as_externality();
             ext.execute_with(|| {
                 let context = MockData::setup_valid();
-                let (_ingress_counter, tx_id) = setup_test_action(&context);
+                let (ingress_counter, tx_id) = setup_test_action(&context);
 
                 advance_session();
                 advance_session();
@@ -710,10 +712,10 @@ mod bridge_interface_notification {
                         }
                     )));
 
-                // On failure, the action is removed (cleanup_registration_storage line 718)
-                assert!(AuthorActions::<TestRuntime>::iter().count() == 0);
-                // Transaction mapping is also removed (line 1005: take)
-                assert!(TransactionToAction::<TestRuntime>::iter().count() == 0);
+                // On failure, the action is removed (cleanup_registration_storage)
+                assert_eq!(AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter), None);
+                // Transaction mapping is also removed (by process_result)
+                assert_eq!(TransactionToAction::<TestRuntime>::get(tx_id), None);
             });
         }
     }
