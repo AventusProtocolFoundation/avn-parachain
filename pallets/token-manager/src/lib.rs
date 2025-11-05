@@ -165,6 +165,7 @@ pub mod pallet {
         type BridgeInterface: BridgeInterface;
         type WeightInfo: WeightInfo;
         type OnIdleHandler: OnIdleHandler<BlockNumberFor<Self>, Weight>;
+        type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
     }
 
     #[pallet::pallet]
@@ -761,7 +762,7 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        let pk_bytes = Self::account_sr25519_pk_32(from)?;
+        let pk_bytes: [u8; 32] = T::AccountToBytesConvert::into_bytes(from);
         let t2_sender = H256::from(pk_bytes);
         let t2_timestamp: u32 = pallet_timestamp::Pallet::<T>::get().saturated_into::<u32>();
 
@@ -1107,11 +1108,6 @@ impl<T: Config> Pallet<T> {
             // Event handled or it is not for us, in which case ignore it.
             _ => Ok(()),
         }
-    }
-
-    fn account_sr25519_pk_32(acc: &T::AccountId) -> Result<[u8; 32], Error<T>> {
-        let bytes = acc.encode();
-        bytes.as_slice().try_into().map_err(|_| Error::<T>::ErrorConvertingAccountId)
     }
 
     pub fn get_token_balance(
