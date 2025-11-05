@@ -639,7 +639,7 @@ mod add_author {
 mod bridge_interface_notification {
     use super::*;
 
-    fn setup_test_action(context: &MockData) -> (IngressCounter, EthereumTransactionId) {
+    fn setup_test_action(context: &MockData) -> (IngressCounter, EthereumId) {
         set_session_keys(&context.new_author_id);
         assert_ok!(register_author(&context.new_author_id, &context.author_eth_public_key));
 
@@ -682,10 +682,12 @@ mod bridge_interface_notification {
                     )));
 
                 // After successful registration, the action is mutated to Activation type
-                // so there should be 1 action (the Activation action)
-                assert!(AuthorActions::<TestRuntime>::iter().count() == 1);
+                let activation_action = AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter)
+                    .expect("Activation action should exist");
+                assert_eq!(activation_action.action_type, AuthorsActionType::Activation);
+                
                 // Transaction mapping is removed by process_result (line 1005: take)
-                assert!(TransactionToAction::<TestRuntime>::iter().count() == 0);
+                assert_eq!(TransactionToAction::<TestRuntime>::get(tx_id), None);
             });
         }
 
@@ -710,10 +712,10 @@ mod bridge_interface_notification {
                         }
                     )));
 
-                // On failure, the action is removed (cleanup_registration_storage line 718)
-                assert!(AuthorActions::<TestRuntime>::iter().count() == 0);
-                // Transaction mapping is also removed (line 1005: take)
-                assert!(TransactionToAction::<TestRuntime>::iter().count() == 0);
+                // On failure, the action is removed (cleanup_registration_storage)
+                assert_eq!(AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter), None);
+                // Transaction mapping is also removed (by process_result)
+                assert_eq!(TransactionToAction::<TestRuntime>::get(tx_id), None);
             });
         }
     }
