@@ -15,7 +15,7 @@ use sp_runtime::{scale_info::TypeInfo, BoundedVec, Deserialize, Serialize};
 use sp_std::vec::Vec;
 pub type EthereumId = u32;
 
-pub const PACKED_LOWER_PARAM_SIZE: usize = 76;
+pub const PACKED_LOWER_PARAM_SIZE: usize = 112;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
@@ -186,6 +186,8 @@ sol! {
         uint256 amount;
         address recipient;
         uint32 lowerId;
+        bytes32 t2Sender;
+        uint32 t2Timestamp;
     }
 }
 
@@ -201,8 +203,10 @@ impl TryFrom<LowerParams> for LowerData {
         let amount = AlloyU256::try_from_be_slice(&lower_params[36..52]).ok_or(())?;
         let recipient = Address::from_slice(&lower_params[52..72]);
         let lower_id = u32::from_be_bytes(lower_params[72..76].try_into().map_err(|_| ())?);
+        let t2_sender = AlloyB256::from_slice(&lower_params[76..108]);
+        let t2_timestamp = u32::from_be_bytes(lower_params[108..112].try_into().map_err(|_| ())?);
 
-        Ok(LowerData { token, amount, recipient, lowerId: lower_id })
+        Ok(LowerData { token, amount, recipient, lowerId: lower_id, t2Sender: t2_sender, t2Timestamp: t2_timestamp })
     }
 }
 
@@ -455,6 +459,8 @@ pub fn concat_lower_data(
     token_id: H160,
     amount: &u128,
     t1_recipient: &H160,
+    t2_sender: H256,
+    t2_timestamp: u32,
 ) -> LowerParams {
     let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
 
@@ -465,7 +471,11 @@ pub fn concat_lower_data(
     // T1Recipient = 20 bytes
     lower_params[52..72].copy_from_slice(&t1_recipient.as_fixed_bytes()[0..20]);
     // LowerId = 4 bytes
-    lower_params[72..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
+    lower_params[72..76].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
+    // T2Sender = 32 bytes
+    lower_params[76..108].copy_from_slice(t2_sender.as_fixed_bytes());
+    // T2Timestamp = 4 bytes
+    lower_params[108..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&t2_timestamp.to_be_bytes());
 
     return lower_params
 }

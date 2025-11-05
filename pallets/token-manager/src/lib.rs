@@ -57,7 +57,7 @@ use sp_runtime::{
     scale_info::TypeInfo,
     traits::{
         AccountIdConversion, AtLeast32Bit, CheckedAdd, Dispatchable, Hash, IdentifyAccount, Member,
-        Saturating, Verify, Zero,
+        SaturatedConversion, Saturating, Verify, Zero,
     },
     Perbill,
 };
@@ -110,7 +110,7 @@ pub mod pallet {
 
     // Public interface of this pallet
     #[pallet::config]
-    pub trait Config: frame_system::Config + avn::Config {
+    pub trait Config: frame_system::Config + avn::Config + pallet_timestamp::Config {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
@@ -761,7 +761,18 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        let lower_params = concat_lower_data(lower_id, token_id.into(), &amount, &t1_recipient);
+        let pk_bytes = Self::account_sr25519_pk_32(from)?;
+        let t2_sender = H256::from(pk_bytes);
+        let t2_timestamp: u32 = pallet_timestamp::Pallet::<T>::get().saturated_into::<u32>();
+
+        let lower_params = concat_lower_data(
+            lower_id,
+            token_id.into(),
+            &amount,
+            &t1_recipient,
+            t2_sender,
+            t2_timestamp
+        );
 
         <LowersPendingProof<T>>::insert(lower_id, &lower_params);
         T::BridgeInterface::generate_lower_proof(lower_id, &lower_params, PALLET_ID.to_vec())?;
@@ -1096,6 +1107,11 @@ impl<T: Config> Pallet<T> {
             // Event handled or it is not for us, in which case ignore it.
             _ => Ok(()),
         }
+    }
+
+    fn account_sr25519_pk_32(acc: &T::AccountId) -> Result<[u8; 32], Error<T>> {
+        let bytes = acc.encode();
+        bytes.as_slice().try_into().map_err(|_| Error::<T>::ErrorConvertingAccountId)
     }
 
     pub fn get_token_balance(
