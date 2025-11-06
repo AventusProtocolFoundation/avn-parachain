@@ -685,7 +685,6 @@ mod bridge_interface_notification {
                 let activation_action = AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter)
                     .expect("Activation action should exist");
                 assert_eq!(activation_action.action_type, AuthorsActionType::Activation);
-                
                 // Transaction mapping is removed by process_result (line 1005: take)
                 assert_eq!(TransactionToAction::<TestRuntime>::get(tx_id), None);
             });
