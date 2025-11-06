@@ -216,7 +216,9 @@ pub mod pallet {
     #[pallet::getter(fn get_ingress_counter)]
     pub type TotalIngresses<T: Config> = StorageValue<_, IngressCounter, ValueQuery>;
 
-    /// Reverse mapping from account_id to ethereum public key for O(1) lookup
+    /// Storage map providing a reverse mapping from `AccountId` to Ethereum public key.
+    /// This enables O(1) lookup of the Ethereum public key associated with a given account.
+    /// Used for efficient author identification and key management.
     #[pallet::storage]
     pub type AccountIdToEthereumKeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ecdsa::Public>;
