@@ -570,15 +570,27 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn has_active_deregistration(author_account_id: &T::AccountId) -> bool {
-        <AuthorActions<T>>::iter_prefix_values(author_account_id).any(|authors_action_data| {
+    /// Check if any author has an active deregistration in progress
+    /// This ensures only one deregistration can be processed at a time
+    pub fn has_any_active_deregistration() -> bool {
+        <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
             authors_action_data.action_type.is_deregistration() &&
-                Self::deregistration_state_is_active(authors_action_data.status)
+                Self::action_state_is_active(authors_action_data.status)
         })
     }
 
-    fn deregistration_state_is_active(status: AuthorsActionStatus) -> bool {
-        matches!(status, AuthorsActionStatus::AwaitingConfirmation | AuthorsActionStatus::Confirmed)
+    fn has_active_deregistration(author_account_id: &T::AccountId) -> bool {
+        <AuthorActions<T>>::iter_prefix_values(author_account_id).any(|authors_action_data| {
+            authors_action_data.action_type.is_deregistration() &&
+                Self::action_state_is_active(authors_action_data.status)
+        })
+    }
+
+    /// Check if a specific author has any active actions (registration, activation, or
+    /// deregistration)
+    fn has_any_active_action(author_account_id: &T::AccountId) -> bool {
+        <AuthorActions<T>>::iter_prefix_values(author_account_id)
+            .any(|authors_action_data| Self::action_state_is_active(authors_action_data.status))
     }
 
     /// Check if any author has an active deregistration in progress
@@ -586,7 +598,7 @@ impl<T: Config> Pallet<T> {
     pub fn deregistration_in_progress() -> bool {
         <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
             authors_action_data.action_type.is_deregistration() &&
-                Self::deregistration_state_is_active(authors_action_data.status)
+                Self::action_state_is_active(authors_action_data.status)
         })
     }
 
