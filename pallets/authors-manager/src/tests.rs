@@ -682,10 +682,11 @@ mod bridge_interface_notification {
                     )));
 
                 // After successful registration, the action is mutated to Activation type
-                let activation_action = AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter)
-                    .expect("Activation action should exist");
+                let activation_action =
+                    AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter)
+                        .expect("Activation action should exist");
                 assert_eq!(activation_action.action_type, AuthorsActionType::Activation);
-                
+
                 // Transaction mapping is removed by process_result (line 1005: take)
                 assert_eq!(TransactionToAction::<TestRuntime>::get(tx_id), None);
             });
@@ -713,7 +714,10 @@ mod bridge_interface_notification {
                     )));
 
                 // On failure, the action is removed (cleanup_registration_storage)
-                assert_eq!(AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter), None);
+                assert_eq!(
+                    AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter),
+                    None
+                );
                 // Transaction mapping is also removed (by process_result)
                 assert_eq!(TransactionToAction::<TestRuntime>::get(tx_id), None);
             });
