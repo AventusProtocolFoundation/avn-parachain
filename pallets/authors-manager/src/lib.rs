@@ -592,7 +592,7 @@ impl<T: Config> Pallet<T> {
 
     /// Check if a specific author has any active actions (registration, activation, or
     /// deregistration)
-    fn has_any_active_action(author_account_id: &T::AccountId) -> bool {
+    fn author_action_in_progress(author_account_id: &T::AccountId) -> bool {
         <AuthorActions<T>>::iter_prefix_values(author_account_id)
             .any(|authors_action_data| Self::action_state_is_active(authors_action_data.status))
     }
