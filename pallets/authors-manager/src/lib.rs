@@ -583,7 +583,7 @@ impl<T: Config> Pallet<T> {
 
     /// Check if any author has an active deregistration in progress
     /// This ensures only one deregistration can be processed at a time
-    pub fn has_any_active_deregistration() -> bool {
+    pub fn deregistration_in_progress() -> bool {
         <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
             authors_action_data.action_type.is_deregistration() &&
                 Self::deregistration_state_is_active(authors_action_data.status)
