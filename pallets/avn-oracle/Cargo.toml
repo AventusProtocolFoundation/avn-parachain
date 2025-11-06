@@ -1,6 +1,6 @@
 [package]
 name = "pallet-avn-oracle"
-description = "Handles the management of all AVT related prices"
+description = "Handles the management of all token related prices"
 license = "GPL-3.0"
 
 version = { workspace = true }

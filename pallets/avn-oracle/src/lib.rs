@@ -21,8 +21,8 @@ pub mod pallet {
         b"clear_consensus_signing_context";
     const BATCH_PER_STORAGE: usize = 6;
     pub const MAX_DELETE_ATTEMPTS: u32 = 5;
-    const MAX_SYMBOL_LENGTH: usize = 4;
-    const MAX_CURRENCIES: usize = 10;
+    const MAX_CURRENCY_LENGTH: u32 = 4;
+    const MAX_CURRENCIES: u32 = 10;
 
     pub type AVN<T> = avn::Pallet<T>;
 
@@ -30,8 +30,8 @@ pub mod pallet {
     pub struct Pallet<T>(_);
 
     #[pallet::storage]
-    #[pallet::getter(fn nonce)]
-    pub type Nonce<T> = StorageValue<_, u32, ValueQuery>;
+    #[pallet::getter(fn voting_round_id)]
+    pub type VotingRoundId<T> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn price_submission_timestamps)]
@@ -49,11 +49,11 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn last_cleared_nonces)]
-    pub type LastClearedNonces<T: Config> = StorageValue<_, (u32, u32), OptionQuery>;
+    pub type LastClearedVotingRoundIds<T: Config> = StorageValue<_, (u32, u32), OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn processed_nonces)]
-    pub type ProcessedNonces<T: Config> = StorageValue<_, u32, ValueQuery>;
+    pub type ProcessedVotingRoundIds<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn reported_rates)]
@@ -61,14 +61,13 @@ pub mod pallet {
         StorageDoubleMap<_, Blake2_128Concat, u32, Blake2_128Concat, Rates, u32, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn native_toke_rate_by_currency)]
+    #[pallet::getter(fn native_token_rate_by_currency)]
     pub type NativeTokenRateByCurrency<T: Config> =
-        StorageMap<_, Blake2_128Concat, CurrencySymbol, U256, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, Currency, U256, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn currency_symbols)]
-    pub type CurrencySymbols<T: Config> =
-        StorageMap<_, Blake2_128Concat, CurrencySymbol, (), OptionQuery>;
+    pub type Currencies<T: Config> = StorageMap<_, Blake2_128Concat, Currency, (), OptionQuery>;
 
     #[pallet::config]
     pub trait Config:
@@ -79,6 +78,7 @@ pub mod pallet {
     {
         /// The overarching runtime event type.
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+
         /// A type representing the weights required by the dispatchables of this pallet.
         type WeightInfo;
 
@@ -95,31 +95,19 @@ pub mod pallet {
         type MaxCurrencies: Get<u32>;
     }
 
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-    pub struct CurrencySymbol(pub Vec<u8>);
+    #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+    pub struct Currency(pub BoundedVec<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>);
 
-    impl MaxEncodedLen for CurrencySymbol {
-        fn max_encoded_len() -> usize {
-            MAX_SYMBOL_LENGTH
-        }
-    }
-
-    #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-    pub struct Rates(pub Vec<(CurrencySymbol, U256)>);
-
-    impl MaxEncodedLen for Rates {
-        fn max_encoded_len() -> usize {
-            MAX_CURRENCIES
-        }
-    }
+    #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+    pub struct Rates(pub BoundedVec<(Currency, U256), ConstU32<{ MAX_CURRENCIES }>>);
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        RatesUpdated { rates: Rates, nonce: u32 },
+        RatesUpdated { rates: Rates, round_id: u32 },
         ConsensusCleared { period: u32 },
-        CurrencyRegistered { symbol: Vec<u8> },
-        CurrencyRemoved { symbol: Vec<u8> },
+        CurrencyRegistered { currency: Vec<u8> },
+        CurrencyRemoved { currency: Vec<u8> },
     }
 
     #[pallet::error]
@@ -154,29 +142,29 @@ pub mod pallet {
                 Error::<T>::SubmitterNotAValidator
             );
 
-            let nonce = Nonce::<T>::get();
+            let round_id = VotingRoundId::<T>::get();
             ensure!(
-                !PriceReporters::<T>::contains_key(nonce, &submitter.account_id),
+                !PriceReporters::<T>::contains_key(round_id, &submitter.account_id),
                 Error::<T>::ValidatorAlreadySubmitted
             );
-            PriceReporters::<T>::insert(nonce, &submitter.account_id, ());
+            PriceReporters::<T>::insert(round_id, &submitter.account_id, ());
 
-            let count = ReportedRates::<T>::mutate(nonce, &rates, |count| {
+            let count = ReportedRates::<T>::mutate(round_id, &rates, |count| {
                 *count = count.saturating_add(1);
                 *count
             });
 
             if count > AVN::<T>::quorum() {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
-                Self::deposit_event(Event::<T>::RatesUpdated { rates: rates.clone(), nonce });
+                Self::deposit_event(Event::<T>::RatesUpdated { rates: rates.clone(), round_id });
 
                 for (symbol, value) in &rates.0 {
                     NativeTokenRateByCurrency::<T>::insert(symbol, value.clone());
                 }
 
-                ProcessedNonces::<T>::put(nonce);
+                ProcessedVotingRoundIds::<T>::put(round_id);
                 LastPriceSubmission::<T>::put(<frame_system::Pallet<T>>::block_number());
-                Nonce::<T>::mutate(|value| *value += 1);
+                VotingRoundId::<T>::mutate(|value| *value += 1);
             }
             Ok(().into())
         }
@@ -208,8 +196,8 @@ pub mod pallet {
                 .saturating_sub(BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get()));
             LastPriceSubmission::<T>::put(new_last_submission_block);
 
-            let cleared_period = Nonce::<T>::get();
-            Nonce::<T>::mutate(|value| *value += 1);
+            let cleared_period = VotingRoundId::<T>::get();
+            VotingRoundId::<T>::mutate(|value| *value += 1);
 
             Self::deposit_event(Event::<T>::ConsensusCleared { period: cleared_period });
             Ok(().into())
@@ -219,17 +207,22 @@ pub mod pallet {
         #[pallet::weight(Weight::default())]
         pub fn register_currency(
             origin: OriginFor<T>,
-            symbol: Vec<u8>,
+            currency_symbol: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let current_count = CurrencySymbols::<T>::iter().count() as u32;
+            let current_count = Currencies::<T>::iter().count() as u32;
             ensure!(current_count < T::MaxCurrencies::get(), Error::<T>::TooManyCurrencies);
 
-            let currency_symbol = CurrencySymbol(symbol.clone());
-            CurrencySymbols::<T>::insert(currency_symbol.clone(), ());
+            let currency = Currency(
+                BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
+                    currency_symbol.clone(),
+                )
+                .map_err(|_| Error::<T>::InvalidCurrency)?,
+            );
+            Currencies::<T>::insert(currency.clone(), ());
 
-            Self::deposit_event(Event::<T>::CurrencyRegistered { symbol });
+            Self::deposit_event(Event::<T>::CurrencyRegistered { currency: currency_symbol });
             Ok(().into())
         }
 
@@ -237,18 +230,20 @@ pub mod pallet {
         #[pallet::weight(Weight::default())]
         pub fn remove_currency(
             origin: OriginFor<T>,
-            symbol: Vec<u8>,
+            currency_symbol: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let currency_symbol = CurrencySymbol(symbol.clone());
-            ensure!(
-                CurrencySymbols::<T>::contains_key(&currency_symbol),
-                Error::<T>::CurrencyNotFound
+            let currency = Currency(
+                BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
+                    currency_symbol.clone(),
+                )
+                .map_err(|_| Error::<T>::InvalidCurrency)?,
             );
-            CurrencySymbols::<T>::remove(&currency_symbol);
+            ensure!(Currencies::<T>::contains_key(&currency), Error::<T>::CurrencyNotFound);
+            Currencies::<T>::remove(&currency);
 
-            Self::deposit_event(Event::<T>::CurrencyRemoved { symbol });
+            Self::deposit_event(Event::<T>::CurrencyRemoved { currency: currency_symbol });
             Ok(().into())
         }
     }
@@ -259,11 +254,11 @@ pub mod pallet {
             let total_weight = Weight::zero();
 
             let last_submission_block = LastPriceSubmission::<T>::get();
-            let nonce = Nonce::<T>::get();
+            let round_id = VotingRoundId::<T>::get();
             if (n >=
                 last_submission_block +
                     BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get())) &&
-                !PriceSubmissionTimestamps::<T>::contains_key(nonce)
+                !PriceSubmissionTimestamps::<T>::contains_key(round_id)
             {
                 let now = pallet_timestamp::Pallet::<T>::now();
                 let now_u64: u64 = now.try_into().unwrap_or_default();
@@ -277,7 +272,7 @@ pub mod pallet {
                 // 10 minutes
                 let ninety_minutes_secs = 600;
                 let from_u64 = to_u64.saturating_sub(ninety_minutes_secs);
-                PriceSubmissionTimestamps::<T>::insert(nonce, (from_u64, to_u64));
+                PriceSubmissionTimestamps::<T>::insert(round_id, (from_u64, to_u64));
 
                 // TODO
                 // total_weight = total_weight.saturating_add(
@@ -324,9 +319,9 @@ pub mod pallet {
             }
 
             let (mut price_reporters_nonce, mut prices_nonce) =
-                LastClearedNonces::<T>::get().unwrap_or((0, 0));
+                LastClearedVotingRoundIds::<T>::get().unwrap_or((0, 0));
 
-            let max_vow_price_nonce_to_delete = ProcessedNonces::<T>::get();
+            let max_vow_price_nonce_to_delete = ProcessedVotingRoundIds::<T>::get();
 
             // Exit early if we've already caught up
             if price_reporters_nonce >= max_vow_price_nonce_to_delete &&
@@ -361,7 +356,7 @@ pub mod pallet {
                 meter.consume(min_on_idle_weight);
             }
 
-            LastClearedNonces::<T>::put((price_reporters_nonce, prices_nonce));
+            LastClearedVotingRoundIds::<T>::put((price_reporters_nonce, prices_nonce));
             meter.consumed()
         }
     }
@@ -369,11 +364,16 @@ pub mod pallet {
     #[pallet::validate_unsigned]
     impl<T: Config> ValidateUnsigned for Pallet<T> {
         type Call = Call<T>;
-        fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            match source {
+                TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+                _ => return InvalidTransaction::Call.into(),
+            }
+
             match call {
                 Call::submit_price { rates, submitter, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(PRICE_SUBMISSION_CONTEXT, rates, Nonce::<T>::get()),
+                        &(PRICE_SUBMISSION_CONTEXT, rates, VotingRoundId::<T>::get()),
                         &submitter,
                         signature,
                     ) {
@@ -381,33 +381,33 @@ pub mod pallet {
                             .and_provides(vec![(
                                 PRICE_SUBMISSION_CONTEXT,
                                 rates,
-                                Nonce::<T>::get(),
+                                VotingRoundId::<T>::get(),
                                 submitter.account_id.clone(),
                             )
                                 .encode()])
                             .priority(TransactionPriority::max_value())
                             .longevity(64_u64)
-                            .propagate(true)
+                            .propagate(false)
                             .build()
                     } else {
                         InvalidTransaction::Custom(1u8).into()
                     },
                 Call::clear_consensus { submitter, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(CLEAR_CONSENSUS_SUBMISSION_CONTEXT, Nonce::<T>::get()),
+                        &(CLEAR_CONSENSUS_SUBMISSION_CONTEXT, VotingRoundId::<T>::get()),
                         &submitter,
                         signature,
                     ) {
                         ValidTransaction::with_tag_prefix("ClearConsensus")
                             .and_provides(vec![(
                                 CLEAR_CONSENSUS_SUBMISSION_CONTEXT,
-                                Nonce::<T>::get(),
+                                VotingRoundId::<T>::get(),
                                 submitter.account_id.clone(),
                             )
                                 .encode()])
                             .priority(TransactionPriority::max_value())
                             .longevity(64_u64)
-                            .propagate(true)
+                            .propagate(false)
                             .build()
                     } else {
                         InvalidTransaction::Custom(1u8).into()
@@ -427,30 +427,23 @@ pub mod pallet {
 
             let current_block = <frame_system::Pallet<T>>::block_number();
             let last_submission_block = LastPriceSubmission::<T>::get();
-            let nonce = Nonce::<T>::get();
+            let round_id = VotingRoundId::<T>::get();
 
             let guard_lock_name =
-                Self::create_guard_lock(b"submit_price::", nonce, &submitter.account_id);
+                Self::create_guard_lock(b"submit_price::", round_id, &submitter.account_id);
 
-            if current_block >=
-                last_submission_block +
-                    BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get())
-            {
+            if Self::is_refresh_due(current_block, last_submission_block) {
                 let mut lock = AVN::<T>::get_ocw_locker(&guard_lock_name);
                 if let Ok(guard) = lock.try_lock() {
                     let rates = Self::fetch_and_decode_rates()?;
                     let signature = submitter
                         .key
-                        .sign(&(PRICE_SUBMISSION_CONTEXT, rates.clone(), nonce).encode())
-                        .ok_or(Error::<T>::ErrorSigning);
+                        .sign(&(PRICE_SUBMISSION_CONTEXT, rates.clone(), round_id).encode())
+                        .ok_or(Error::<T>::ErrorSigning)?;
 
                     let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-                        Call::submit_price {
-                            rates,
-                            submitter: submitter.clone(),
-                            signature: signature.expect("checked for errors"),
-                        }
-                        .into(),
+                        Call::submit_price { rates, submitter: submitter.clone(), signature }
+                            .into(),
                     )
                     .map_err(|_| Error::<T>::ErrorSubmittingTransaction);
 
@@ -471,22 +464,14 @@ pub mod pallet {
 
             let last_submission_block = LastPriceSubmission::<T>::get();
 
-            if current_block >=
-                last_submission_block
-                    .saturating_add(BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get()))
-                    .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
-            {
+            if Self::can_clear(current_block, last_submission_block) {
                 let signature = submitter
                     .key
-                    .sign(&(CLEAR_CONSENSUS_SUBMISSION_CONTEXT, Nonce::<T>::get()).encode())
-                    .ok_or(Error::<T>::ErrorSigning);
+                    .sign(&(CLEAR_CONSENSUS_SUBMISSION_CONTEXT, VotingRoundId::<T>::get()).encode())
+                    .ok_or(Error::<T>::ErrorSigning)?;
 
                 let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(
-                    Call::clear_consensus {
-                        submitter: submitter.clone(),
-                        signature: signature.expect("checked for errors"),
-                    }
-                    .into(),
+                    Call::clear_consensus { submitter: submitter.clone(), signature }.into(),
                 )
                 .map_err(|_| Error::<T>::ErrorSubmittingTransaction);
             }
@@ -505,12 +490,16 @@ pub mod pallet {
         }
 
         fn fetch_and_decode_rates() -> Result<Rates, DispatchError> {
-            let stored_currencies: Vec<String> = CurrencySymbols::<T>::iter_keys()
-                .map(|s| String::from_utf8_lossy(&s.0).into_owned())
-                .collect();
+            let stored_currencies: Vec<String> = Currencies::<T>::iter_keys()
+                .map(|s| {
+                    core::str::from_utf8(&s.0)
+                        .map(|v| v.to_string())
+                        .map_err(|_| Error::<T>::InvalidCurrency.into())
+                })
+                .collect::<Result<Vec<_>, DispatchError>>()?;
 
-            let nonce = Nonce::<T>::get();
-            let (from, to) = PriceSubmissionTimestamps::<T>::get(nonce)
+            let round_id = VotingRoundId::<T>::get();
+            let (from, to) = PriceSubmissionTimestamps::<T>::get(round_id)
                 .ok_or(Error::<T>::MissingPriceTimestamps)?;
 
             let endpoint = format!(
@@ -529,14 +518,13 @@ pub mod pallet {
         }
 
         fn format_rates(prices_json: Vec<u8>) -> Result<Rates, DispatchError> {
-            let prices_str = String::from_utf8_lossy(&prices_json);
-            let prices: Value = serde_json::from_str(&prices_str)
+            let prices: Value = serde_json::from_slice(&prices_json)
                 .map_err(|_| DispatchError::Other("JSON Parsing Error"))?;
 
-            let mut formatted_rates: Vec<(CurrencySymbol, U256)> = Vec::new();
+            let mut formatted_rates: Vec<(Currency, U256)> = Vec::new();
 
             if let Some(rates) = prices.as_object() {
-                if let Some((symbol, rate_value)) = rates.iter().next() {
+                for (currency, rate_value) in rates {
                     if let Some(rate) = rate_value.as_f64() {
                         if rate <= 0.0 {
                             return Err(DispatchError::Other(
@@ -544,18 +532,41 @@ pub mod pallet {
                             ))
                         }
                         let scaled_rate = U256::from((rate * 1e8) as u128);
-                        let symbol_key = CurrencySymbol(symbol.as_bytes().to_vec());
-                        formatted_rates.push((symbol_key, scaled_rate));
+                        let curr = Currency(
+                            BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
+                                currency.as_bytes().to_vec(),
+                            )
+                            .map_err(|_| Error::<T>::InvalidCurrency)?,
+                        );
+                        formatted_rates.push((curr, scaled_rate));
                     } else {
                         return Err(Error::<T>::InvalidRateFormat.into())
                     }
                 }
             }
-            Ok(Rates(formatted_rates))
+            let bounded: BoundedVec<(Currency, U256), ConstU32<{ MAX_CURRENCIES }>> =
+                formatted_rates.try_into().map_err(|_| DispatchError::Other("Too many rates"))?;
+
+            Ok(Rates(bounded))
         }
 
         pub fn should_query_rates() -> bool {
-            CurrencySymbols::<T>::iter_keys().next().is_some()
+            Currencies::<T>::iter_keys().next().is_some()
+        }
+
+        fn is_refresh_due(current: BlockNumberFor<T>, last: BlockNumberFor<T>) -> bool {
+            current >=
+                last.saturating_add(BlockNumberFor::<T>::from(
+                    T::PriceRefreshRangeInBlocks::get(),
+                ))
+        }
+
+        fn can_clear(current: BlockNumberFor<T>, last: BlockNumberFor<T>) -> bool {
+            current >=
+                last.saturating_add(BlockNumberFor::<T>::from(
+                    T::PriceRefreshRangeInBlocks::get(),
+                ))
+                .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
         }
     }
 }

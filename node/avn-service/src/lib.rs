@@ -404,10 +404,10 @@ async fn query_token_rates<Block: BlockT, ClientT>(
 where
     ClientT: BlockBackend<Block> + UsageProvider<Block> + Send + Sync + 'static,
 {
-    let symbols: Vec<String> = req
-        .param("symbols")
+    let tokens: Vec<String> = req
+        .param("tokens")
         .map(|s| s.split(',').map(str::trim).map(String::from).collect())
-        .map_err(|_| TideError::from_str(400, "Missing or invalid symbols parameter"))?;
+        .map_err(|_| TideError::from_str(400, "Missing or invalid tokens parameter"))?;
 
     let currencies: Vec<String> = req
         .param("currencies")
@@ -431,8 +431,16 @@ where
         CoinGeckoFinance::new(finance_api_key.clone()).map_err(|e| TideError::from_str(500, e))?;
 
     let mut results = serde_json::Map::new();
-    for symbol in &symbols {
+
+    for symbol in &tokens {
         for currency in &currencies {
+            let build_err = |msg: &str| {
+                TideError::from_str(
+                    502,
+                    format!("Error retrieving rate for {}/{}: {}", symbol, currency, msg),
+                )
+            };
+
             match provider.retrieve_symbol_data(symbol, &currency, from, to).await {
                 Ok(price) => {
                     log::info!(
@@ -443,29 +451,34 @@ where
                         to,
                         price
                     );
-                    results.insert(
-                        format!("{}", currency),
-                        serde_json::Value::Number(serde_json::Number::from_f64(price).unwrap()),
-                    );
+
+                    if let Some(num) = serde_json::Number::from_f64(price) {
+                        results.insert(format!("{}", currency), serde_json::Value::Number(num));
+                    } else {
+                        return Err(build_err(&format!(
+                            "Invalid (non-finite) price value: {}",
+                            price
+                        )));
+                    }
                 },
                 Err(err) => {
                     log::error!(
-                        "❌ Failed to retrieve price for {} from {} to {}: {}",
+                        "❌ Failed to retrieve price for {} / {} from {} to {}: {}",
                         symbol,
+                        currency,
                         from,
                         to,
                         err
                     );
-                    results.insert(
-                        format!("{}", currency),
-                        serde_json::Value::String("Error retrieving rate".into()),
-                    );
+                    return Err(build_err(&err.to_string()));
                 },
             }
         }
     }
 
-    let response_json = serde_json::to_string(&results).unwrap();
+    let response_json = serde_json::to_string(&results)
+        .map_err(|e| TideError::from_str(500, format!("Serialization error: {}", e)))?;
+
     Ok(response_json)
 }
 
@@ -581,7 +594,7 @@ where
         },
     );
 
-    app.at("/get_token_rates/:symbols/:currencies/:from/:to").get(
+    app.at("/get_token_rates/:tokens/:currencies/:from/:to").get(
         |req: tide::Request<Arc<Config<Block, ClientT>>>| async move {
             return query_token_rates(req)
         },
