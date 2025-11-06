@@ -158,8 +158,8 @@ pub mod pallet {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
                 Self::deposit_event(Event::<T>::RatesUpdated { rates: rates.clone(), round_id });
 
-                for (symbol, value) in &rates.0 {
-                    NativeTokenRateByCurrency::<T>::insert(symbol, value.clone());
+                for (currency, value) in &rates.0 {
+                    NativeTokenRateByCurrency::<T>::insert(currency, value.clone());
                 }
 
                 ProcessedVotingRoundIds::<T>::put(round_id);
@@ -255,11 +255,7 @@ pub mod pallet {
 
             let last_submission_block = LastPriceSubmission::<T>::get();
             let round_id = VotingRoundId::<T>::get();
-            if (n >=
-                last_submission_block +
-                    BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get())) &&
-                !PriceSubmissionTimestamps::<T>::contains_key(round_id)
-            {
+            if is_refresh_due && !PriceSubmissionTimestamps::<T>::contains_key(round_id) {
                 let now = pallet_timestamp::Pallet::<T>::now();
                 let now_u64: u64 = now.try_into().unwrap_or_default();
                 let now_secs = now_u64 / 1000;
