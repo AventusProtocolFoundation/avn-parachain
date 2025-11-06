@@ -6,9 +6,10 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+pub mod apis;
+mod configs;
 pub mod governance;
 pub mod proxy_config;
-pub mod xcm_config;
 
 use core::cmp::Ordering;
 
