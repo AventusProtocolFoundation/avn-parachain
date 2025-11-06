@@ -795,7 +795,7 @@ impl<T: Config> Pallet<T> {
         account_id: &T::AccountId,
         ingress_counter: IngressCounter,
     ) -> DispatchResult {
-        // Immediately clean up auta managerhor manager storage
+        // Immediately clean up author manager storage
         // Remove from active authors list
         AuthorAccountIds::<T>::mutate(|maybe_validators| {
             if let Some(validators) = maybe_validators {
