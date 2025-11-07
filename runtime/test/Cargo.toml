@@ -274,5 +274,3 @@ try-runtime = [
 	"pallet-referenda/try-runtime",
 	"pallet-whitelist/try-runtime",
 ]
-
-experimental = ["pallet-aura/experimental"]
