@@ -5,8 +5,6 @@ use frame_support::{assert_err, assert_ok, pallet_prelude::Weight, traits::Hooks
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::prelude::collections::HashSet;
 use sp_core::{H160, U256};
-use frame_support::BoundedVec;
-use frame_support::pallet_prelude::ConstU32;
 use serde_json::json;
 
 fn submit_price_for_x_validators(num_validators: u64, rates: Rates) {
@@ -49,21 +47,6 @@ fn submit_different_rates_for_x_validators(num_validators: u64) {
             signature
         ));
     }
-}
-
-fn create_currency(symbol: Vec<u8>) -> Currency {
-    let bounded_currency =
-        BoundedVec::<u8, ConstU32<MAX_CURRENCY_LENGTH>>::try_from(symbol)
-            .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
-    Currency(bounded_currency)
-}
-
-fn create_rates(pairs: Vec<(Currency, U256)>) -> Rates {
-    let bounded_rate: BoundedVec<(Currency, U256), ConstU32<MAX_CURRENCIES>> =
-        BoundedVec::try_from(pairs)
-            .expect("number of rates must be ≤ MAX_CURRENCIES");
-
-    Rates(bounded_rate)
 }
 
 pub fn scale_rate(rate: f64) -> U256 {
