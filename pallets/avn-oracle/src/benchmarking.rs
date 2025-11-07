@@ -72,7 +72,7 @@ benchmarks! {
          // Verify the reported rate count
         assert_eq!(ReportedRates::<T>::get(0, rates), (quorum + 1) as u32);
 
-        // Ensure the nonce incremented, indicating quorum was met
+        // Ensure the voting_round_id incremented, indicating quorum was met
         assert_eq!(VotingRoundId::<T>::get(), 1);
     }
 
@@ -107,8 +107,8 @@ benchmarks! {
         LastPriceSubmission::<T>::put(last_submission);
     }: _(RawOrigin::None, validator.clone(), signature)
     verify {
-        let updated_nonce = VotingRoundId::<T>::get();
-        assert_eq!(updated_nonce, 1);
+        let updated_voting_round_id = VotingRoundId::<T>::get();
+        assert_eq!(updated_voting_round_id, 1);
 
         let stored_block = LastPriceSubmission::<T>::get();
         let new_last_submission = BlockNumberFor::<T>::from(current_block_with_expired_grace_period.saturating_sub(T::PriceRefreshRangeInBlocks::get()));
@@ -127,8 +127,8 @@ benchmarks! {
 
     }: { AvnOracle::<T>::on_initialize(current_block) }
     verify {
-        let nonce = VotingRoundId::<T>::get();
-        let (from, to) = PriceSubmissionTimestamps::<T>::get(nonce)
+        let voting_round_id = VotingRoundId::<T>::get();
+        let (from, to) = PriceSubmissionTimestamps::<T>::get(voting_round_id)
             .expect("Expected FiatRatesSubmissionTimestamps to contain a value");
         assert!(to > from, "Expected 'to' timestamp to be greater than 'from'");
     }
@@ -145,13 +145,13 @@ benchmarks! {
 
     }: { AvnOracle::<T>::on_initialize(current_block) }
     verify {
-        let nonce = VotingRoundId::<T>::get();
+        let voting_round_id = VotingRoundId::<T>::get();
         // timestamps not set
-        assert!(PriceSubmissionTimestamps::<T>::get(nonce).is_none());
+        assert!(PriceSubmissionTimestamps::<T>::get(voting_round_id).is_none());
     }
 
     on_idle_one_full_iteration {
-        let nonce = 0u32;
+        let voting_round_id = 0u32;
         let current_authors = generate_validators::<T>(10);
 
         let currency = create_currency(b"usd".to_vec().clone());
@@ -159,10 +159,10 @@ benchmarks! {
 
         let quorum = AVN::<T>::quorum() as usize;
         for i in 0..=quorum {
-            PriceReporters::<T>::insert(nonce, &current_authors[i].account_id, ());
+            PriceReporters::<T>::insert(voting_round_id, &current_authors[i].account_id, ());
         }
-        ReportedRates::<T>::insert(nonce, rates, 5);
-        ProcessedVotingRoundIds::<T>::put(nonce + 1);
+        ReportedRates::<T>::insert(voting_round_id, rates, 5);
+        ProcessedVotingRoundIds::<T>::put(voting_round_id + 1);
 
         let limit = Weight::from_parts(1_000_000_000_000_000, 1000000);
     }: { AvnOracle::<T>::on_idle(1u32.into(), limit) }
@@ -170,8 +170,8 @@ benchmarks! {
         assert_eq!(LastClearedVotingRoundIds::<T>::get(), Some((1,1)));
 
         // Ensure storage maps are empty after cleanup
-        assert!(PriceReporters::<T>::iter_prefix(nonce).next().is_none());
-        assert!(ReportedRates::<T>::iter_prefix(nonce).next().is_none());
+        assert!(PriceReporters::<T>::iter_prefix(voting_round_id).next().is_none());
+        assert!(ReportedRates::<T>::iter_prefix(voting_round_id).next().is_none());
     }
 }
 
