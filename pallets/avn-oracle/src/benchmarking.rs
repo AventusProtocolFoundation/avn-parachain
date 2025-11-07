@@ -13,6 +13,7 @@ use scale_info::prelude::{format, vec};
 use sp_avn_common::event_types::Validator;
 use sp_core::{H160, U256};
 use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
+use crate::mock::*;
 
 fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId, T::AccountId>> {
     let mut validators = Vec::new();
@@ -43,10 +44,10 @@ fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId,
 benchmarks! {
     submit_price {
         let current_authors = generate_validators::<T>(10);
-        let currency = CurrencySymbol(b"usd".to_vec());
-        let rates = Rates(vec![(currency, U256::from(1000))]);
+        let currency = create_currency(b"usd".to_vec().clone());
+        let rates = create_rates(vec![(currency, U256::from(1000))]);
 
-        let context = (PRICE_SUBMISSION_CONTEXT, rates.clone(), Nonce::<T>::get()).encode();
+        let context = (PRICE_SUBMISSION_CONTEXT, rates.clone(), VotingRoundId::<T>::get()).encode();
         let quorum = AVN::<T>::quorum() as usize;
 
         // Submit reports from the first 4 validators to simulate quorum preparation
@@ -72,30 +73,29 @@ benchmarks! {
         assert_eq!(ReportedRates::<T>::get(0, rates), (quorum + 1) as u32);
 
         // Ensure the nonce incremented, indicating quorum was met
-        assert_eq!(Nonce::<T>::get(), 1);
+        assert_eq!(VotingRoundId::<T>::get(), 1);
     }
 
     register_currency {
-        let currency = b"usd".to_vec();
-    }: _(RawOrigin::Root, currency.clone())
+        let currency_symbol = b"usd".to_vec();
+    }: _(RawOrigin::Root, currency_symbol.clone())
     verify {
-        let key = CurrencySymbol(currency.clone());
-        assert!(CurrencySymbols::<T>::contains_key(&key));
+        let currency = create_currency(currency_symbol.clone());
+        assert!(Currencies::<T>::contains_key(&currency));
     }
 
     remove_currency {
-        let currency = b"usd".to_vec();
-        let key = CurrencySymbol(currency.clone());
-        CurrencySymbols::<T>::insert(&key, ());
-    }: _(RawOrigin::Root, currency.clone())
+        let currency_symbol = b"usd".to_vec();
+        let currency = create_currency(currency_symbol.clone());
+        Currencies::<T>::insert(&currency, ());
+    }: _(RawOrigin::Root, currency_symbol.clone())
     verify {
-        let key = CurrencySymbol(currency);
-        assert!(!CurrencySymbols::<T>::contains_key(&key));
+        assert!(!Currencies::<T>::contains_key(&currency));
     }
 
     clear_consensus {
         let validator = generate_validators::<T>(1)[0].clone();
-        let context = (CLEAR_CONSENSUS_SUBMISSION_CONTEXT, Nonce::<T>::get()).encode();
+        let context = (CLEAR_CONSENSUS_SUBMISSION_CONTEXT, VotingRoundId::<T>::get()).encode();
         let signature = validator.key.sign(&context).expect("Invalid signature");
 
         let current_block_with_expired_grace_period = RatesRefreshRangeBlocks::<T>::get() + T::ConsensusGracePeriod::get() + 1;
@@ -107,7 +107,7 @@ benchmarks! {
         LastPriceSubmission::<T>::put(last_submission);
     }: _(RawOrigin::None, validator.clone(), signature)
     verify {
-        let updated_nonce = Nonce::<T>::get();
+        let updated_nonce = VotingRoundId::<T>::get();
         assert_eq!(updated_nonce, 1);
 
         let stored_block = LastPriceSubmission::<T>::get();
@@ -127,7 +127,7 @@ benchmarks! {
 
     }: { AvnOracle::<T>::on_initialize(current_block) }
     verify {
-        let nonce = Nonce::<T>::get();
+        let nonce = VotingRoundId::<T>::get();
         let (from, to) = PriceSubmissionTimestamps::<T>::get(nonce)
             .expect("Expected FiatRatesSubmissionTimestamps to contain a value");
         assert!(to > from, "Expected 'to' timestamp to be greater than 'from'");
@@ -145,7 +145,7 @@ benchmarks! {
 
     }: { AvnOracle::<T>::on_initialize(current_block) }
     verify {
-        let nonce = Nonce::<T>::get();
+        let nonce = VotingRoundId::<T>::get();
         // timestamps not set
         assert!(PriceSubmissionTimestamps::<T>::get(nonce).is_none());
     }
@@ -154,20 +154,20 @@ benchmarks! {
         let nonce = 0u32;
         let current_authors = generate_validators::<T>(10);
 
-        let currency = CurrencySymbol(b"usd".to_vec());
-        let rates = Rates(vec![(currency, U256::from(1000))]);
+        let currency = create_currency(b"usd".to_vec().clone());
+        let rates = create_rates(vec![(currency, U256::from(1000))]);
 
         let quorum = AVN::<T>::quorum() as usize;
         for i in 0..=quorum {
             PriceReporters::<T>::insert(nonce, &current_authors[i].account_id, ());
         }
         ReportedRates::<T>::insert(nonce, rates, 5);
-        ProcessedNonces::<T>::put(nonce + 1);
+        ProcessedVotingRoundIds::<T>::put(nonce + 1);
 
         let limit = Weight::from_parts(1_000_000_000_000_000, 1000000);
     }: { AvnOracle::<T>::on_idle(1u32.into(), limit) }
     verify {
-        assert_eq!(LastClearedNonces::<T>::get(), Some((1,1)));
+        assert_eq!(LastClearedVotingRoundIds::<T>::get(), Some((1,1)));
 
         // Ensure storage maps are empty after cleanup
         assert!(PriceReporters::<T>::iter_prefix(nonce).next().is_none());
