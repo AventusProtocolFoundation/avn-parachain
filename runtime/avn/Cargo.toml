@@ -185,7 +185,7 @@ std = [
 	"pallet-whitelist/std",
 	"pallet-scheduler/std",
 	"pallet-preimage/std",
-	"substrate-wasm-builder"
+	"substrate-wasm-builder",
 ]
 
 runtime-benchmarks = [

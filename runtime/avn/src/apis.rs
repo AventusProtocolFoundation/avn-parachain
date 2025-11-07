@@ -184,6 +184,71 @@ impl_runtime_apis! {
         }
     }
 
+    impl pallet_eth_bridge_runtime_api::EthEventHandlerApi<Block, AccountId> for Runtime {
+        fn query_authors() -> Vec<([u8; 32], [u8; 32])> {
+            let validators = Avn::validators().to_vec();
+            let res = validators.iter().map(|validator| {
+                let mut address: [u8; 32] = Default::default();
+                address.copy_from_slice(&validator.account_id.encode()[0..32]);
+
+                let mut key: [u8; 32] = Default::default();
+                key.copy_from_slice(&validator.key.to_raw_vec()[0..32]);
+
+                return (address, key)
+            }).collect();
+            return res
+        }
+
+        fn query_active_block_range(_instance_id: InstanceId)-> Option<(EthBlockRange, u16)> {
+            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
+                Some((active_eth_range.range, active_eth_range.partition))
+            } else {
+                None
+            }
+        }
+
+        fn query_has_author_casted_vote(_instance_id: InstanceId, account_id: AccountId) -> bool{
+           EthBridge::author_has_cast_event_vote(&account_id) ||
+           EthBridge::author_has_submitted_latest_block(&account_id)
+        }
+
+        fn query_signatures(_instance_id: InstanceId) -> Vec<sp_core::H256> {
+            EthBridge::signatures()
+        }
+
+        fn submit_vote(
+            _instance_id: InstanceId,
+            author: AccountId,
+            events_partition: EthereumEventsPartition,
+            signature: sp_core::sr25519::Signature,
+        ) -> Option<()>{
+            EthBridge::submit_vote(author, events_partition, signature.into()).ok()
+        }
+
+        fn submit_latest_ethereum_block(
+            _instance_id: InstanceId,
+            author: AccountId,
+            latest_seen_block: u32,
+            signature: sp_core::sr25519::Signature
+        ) -> Option<()>{
+            EthBridge::submit_latest_ethereum_block_vote(author, latest_seen_block, signature.into()).ok()
+        }
+
+        fn additional_transactions(_instance_id: InstanceId) -> Option<AdditionalEvents> {
+            if let Some(active_eth_range) =  EthBridge::active_ethereum_range(){
+                Some(active_eth_range.additional_transactions)
+            } else {
+                None
+            }
+        }
+
+        fn instances() -> BTreeMap<InstanceId, EthBridgeInstance> {
+            BTreeMap::from([
+                (MAIN_ETH_BRIDGE_ID, EthBridge::instance()),
+            ])
+        }
+    }
+
     impl cumulus_primitives_core::CollectCollationInfo<Block> for Runtime {
         fn collect_collation_info(header: &<Block as BlockT>::Header) -> cumulus_primitives_core::CollationInfo {
             ParachainSystem::collect_collation_info(header)
@@ -195,6 +260,7 @@ impl_runtime_apis! {
         fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
             use super::configs::RuntimeBlockWeights;
 
+            log::info!("try-runtime::on_runtime_upgrade avn-parachain.");
             let weight = Executive::try_runtime_upgrade(checks).unwrap();
             (weight, RuntimeBlockWeights::get().max_block)
         }
@@ -265,11 +331,17 @@ impl_runtime_apis! {
 
     impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {
         fn create_default_config() -> Vec<u8> {
-            create_default_config::<RuntimeGenesisConfig>()
+                create_default_config::<RuntimeGenesisConfig>()
         }
 
         fn build_config(config: Vec<u8>) -> sp_genesis_builder::Result {
-            build_config::<RuntimeGenesisConfig>(config)
+                build_config::<RuntimeGenesisConfig>(config)
+        }
+    }
+
+    impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+        fn authorities() -> Vec<AuthorityDiscoveryId> {
+            AuthorityDiscovery::authorities()
         }
     }
 }
