@@ -61,22 +61,15 @@ impl FinanceProvider for CoinGeckoFinance {
         to: u64,
     ) -> Result<f64, String> {
         let url = self.symbol_url(symbol, currency, from, to);
-        let response = self.client.get(&url).send().await;
+        let resp = self.client.get(&url).send().await.map_err(|e| e.to_string())?;
+        let body = resp.text().await.map_err(|e| e.to_string())?;
+        let json: Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
 
-        if let Ok(resp) = response {
-            if let Ok(body) = resp.text().await {
-                if let Ok(json) = serde_json::from_str::<Value>(&body) {
-                    if let Some(prices) = json["prices"].as_array() {
-                        if let Some(last_entry) = prices.last() {
-                            if let Some(price) = last_entry.get(1).and_then(|v| v.as_f64()) {
-                                return Ok(price)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Err(format!("Failed to retrieve CoinGecko price for {}", symbol))
+        json["prices"]
+            .as_array()
+            .and_then(|prices| prices.last())
+            .and_then(|entry| entry.get(1))
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| format!("Failed to retrieve CoinGecko price for {}", symbol))
     }
 }
