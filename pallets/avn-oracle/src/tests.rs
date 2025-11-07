@@ -26,11 +26,11 @@ fn submit_price_for_x_validators(num_validators: u64, rates: Rates) {
 fn register_max_currencies() {
     let max_currencies: u32 = <TestRuntime as Config>::MaxCurrencies::get();
     for i in 1..=max_currencies {
-        let currency = format!("us{}", i).into_bytes();
-        let bounded_currency = create_currency(currency.clone());
+        let currency_symbol = format!("us{}", i).into_bytes();
+        let currency = create_currency(currency_symbol.clone());
         
-        assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency.clone(),));
-        assert!(Currencies::<TestRuntime>::contains_key(&bounded_currency));
+        assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
+        assert!(Currencies::<TestRuntime>::contains_key(&currency));
     }
 }
 
@@ -92,13 +92,13 @@ mod price_submission {
                 let signature = generate_signature(&submitter, b"test context");
 
                 let currency = create_currency(b"usd".to_vec().clone());
-                let rate = create_rates(vec![(currency, U256::from(1000))]);
+                let rates = create_rates(vec![(currency, U256::from(1000))]);
 
                 let current_voting_id = VotingRoundId::<TestRuntime>::get();
 
                 assert_ok!(AvnOracle::submit_price(
                     RuntimeOrigin::none(),
-                    rate.clone(),
+                    rates.clone(),
                     submitter.clone(),
                     signature
                 ));
@@ -107,7 +107,7 @@ mod price_submission {
                     current_voting_id,
                     &submitter.account_id
                 ));
-                let count = ReportedRates::<TestRuntime>::get(current_voting_id, rate);
+                let count = ReportedRates::<TestRuntime>::get(current_voting_id, rates);
                 assert_eq!(count, 1);
             });
         }
