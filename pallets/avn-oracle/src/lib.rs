@@ -22,9 +22,11 @@ pub mod pallet {
     const BATCH_PER_STORAGE: usize = 6;
     pub const MAX_DELETE_ATTEMPTS: u32 = 5;
     pub const MAX_CURRENCY_LENGTH: u32 = 4;
-    pub const MAX_CURRENCIES: u32 = 10;
+    pub const MAX_RATES: u32 = 10;
 
     pub type AVN<T> = avn::Pallet<T>;
+    pub type Currency = BoundedVec<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>;
+    pub type Rates = BoundedVec<(Currency, U256), ConstU32<{ MAX_RATES }>>;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -48,11 +50,11 @@ pub mod pallet {
     pub type LastPriceSubmission<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn last_cleared_nonces)]
+    #[pallet::getter(fn last_cleared_voting_round_ids)]
     pub type LastClearedVotingRoundIds<T: Config> = StorageValue<_, (u32, u32), OptionQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn processed_nonces)]
+    #[pallet::getter(fn processed_voting_round_ids)]
     pub type ProcessedVotingRoundIds<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::storage]
@@ -95,12 +97,6 @@ pub mod pallet {
         type MaxCurrencies: Get<u32>;
     }
 
-    #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-    pub struct Currency(pub BoundedVec<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>);
-
-    #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-    pub struct Rates(pub BoundedVec<(Currency, U256), ConstU32<{ MAX_CURRENCIES }>>);
-
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
@@ -124,6 +120,7 @@ pub mod pallet {
         TooManyCurrencies,
         GracePeriodNotPassed,
         CurrencyNotFound,
+        TooManyRates,
     }
 
     #[pallet::call]
@@ -158,7 +155,7 @@ pub mod pallet {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
                 Self::deposit_event(Event::<T>::RatesUpdated { rates: rates.clone(), round_id });
 
-                for (currency, value) in &rates.0 {
+                for (currency, value) in rates.iter() {
                     NativeTokenRateByCurrency::<T>::insert(currency, value.clone());
                 }
 
@@ -214,12 +211,7 @@ pub mod pallet {
             let current_count = Currencies::<T>::iter().count() as u32;
             ensure!(current_count < T::MaxCurrencies::get(), Error::<T>::TooManyCurrencies);
 
-            let currency = Currency(
-                BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
-                    currency_symbol.clone(),
-                )
-                .map_err(|_| Error::<T>::InvalidCurrency)?,
-            );
+            let currency = Self::to_currency(currency_symbol.clone())?;
             Currencies::<T>::insert(currency.clone(), ());
 
             Self::deposit_event(Event::<T>::CurrencyRegistered { currency: currency_symbol });
@@ -234,12 +226,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let currency = Currency(
-                BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
-                    currency_symbol.clone(),
-                )
-                .map_err(|_| Error::<T>::InvalidCurrency)?,
-            );
+            let currency = Self::to_currency(currency_symbol.clone())?;
             ensure!(Currencies::<T>::contains_key(&currency), Error::<T>::CurrencyNotFound);
             Currencies::<T>::remove(&currency);
 
@@ -255,7 +242,9 @@ pub mod pallet {
 
             let last_submission_block = LastPriceSubmission::<T>::get();
             let round_id = VotingRoundId::<T>::get();
-            if Self::is_refresh_due(n, last_submission_block) && !PriceSubmissionTimestamps::<T>::contains_key(round_id) {
+            if Self::is_refresh_due(n, last_submission_block) &&
+                !PriceSubmissionTimestamps::<T>::contains_key(round_id)
+            {
                 let now = pallet_timestamp::Pallet::<T>::now();
                 let now_u64: u64 = now.try_into().unwrap_or_default();
                 let now_secs = now_u64 / 1000;
@@ -314,14 +303,14 @@ pub mod pallet {
                 return meter.consumed();
             }
 
-            let (mut price_reporters_nonce, mut prices_nonce) =
+            let (mut price_reporters_round_id, mut prices_round_id) =
                 LastClearedVotingRoundIds::<T>::get().unwrap_or((0, 0));
 
-            let max_vow_price_nonce_to_delete = ProcessedVotingRoundIds::<T>::get();
+            let max_vow_price_round_id_to_delete = ProcessedVotingRoundIds::<T>::get();
 
             // Exit early if we've already caught up
-            if price_reporters_nonce >= max_vow_price_nonce_to_delete &&
-                prices_nonce >= max_vow_price_nonce_to_delete
+            if price_reporters_round_id >= max_vow_price_round_id_to_delete &&
+                prices_round_id >= max_vow_price_round_id_to_delete
             {
                 return meter.consumed();
             }
@@ -331,28 +320,28 @@ pub mod pallet {
                     break;
                 }
 
-                if price_reporters_nonce < max_vow_price_nonce_to_delete {
-                    let cleared = PriceReporters::<T>::drain_prefix(price_reporters_nonce)
+                if price_reporters_round_id < max_vow_price_round_id_to_delete {
+                    let cleared = PriceReporters::<T>::drain_prefix(price_reporters_round_id)
                         .take(BATCH_PER_STORAGE)
                         .count();
                     if cleared < BATCH_PER_STORAGE {
-                        price_reporters_nonce += 1;
+                        price_reporters_round_id += 1;
                     }
                 }
 
-                if prices_nonce < max_vow_price_nonce_to_delete {
-                    let cleared = ReportedRates::<T>::drain_prefix(prices_nonce)
+                if prices_round_id < max_vow_price_round_id_to_delete {
+                    let cleared = ReportedRates::<T>::drain_prefix(prices_round_id)
                         .take(BATCH_PER_STORAGE)
                         .count();
                     if cleared < BATCH_PER_STORAGE {
-                        prices_nonce += 1;
+                        prices_round_id += 1;
                     }
                 }
 
                 meter.consume(min_on_idle_weight);
             }
 
-            LastClearedVotingRoundIds::<T>::put((price_reporters_nonce, prices_nonce));
+            LastClearedVotingRoundIds::<T>::put((price_reporters_round_id, prices_round_id));
             meter.consumed()
         }
     }
@@ -488,7 +477,7 @@ pub mod pallet {
         fn fetch_and_decode_rates() -> Result<Rates, DispatchError> {
             let stored_currencies: Vec<String> = Currencies::<T>::iter_keys()
                 .map(|s| {
-                    core::str::from_utf8(&s.0)
+                    core::str::from_utf8(&s.as_slice())
                         .map(|v| v.to_string())
                         .map_err(|_| Error::<T>::InvalidCurrency.into())
                 })
@@ -520,28 +509,16 @@ pub mod pallet {
             let mut formatted_rates: Vec<(Currency, U256)> = Vec::new();
 
             if let Some(rates) = prices.as_object() {
-                for (currency, rate_value) in rates {
-                    if let Some(rate) = rate_value.as_f64() {
-                        if rate <= 0.0 {
-                            return Err(Error::<T>::PriceMustBeGreaterThanZero.into());
-                        }
-                        let scaled_rate = U256::from((rate * 1e8) as u128);
-                        let curr = Currency(
-                            BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
-                                currency.as_bytes().to_vec(),
-                            )
-                            .map_err(|_| Error::<T>::InvalidCurrency)?,
-                        );
-                        formatted_rates.push((curr, scaled_rate));
-                    } else {
-                        return Err(Error::<T>::InvalidRateFormat.into())
-                    }
+                for (currency_symbol, rate_value) in rates {
+                    let rate = rate_value.as_f64().ok_or(Error::<T>::InvalidRateFormat)?;
+                    ensure!(rate > 0.0, Error::<T>::PriceMustBeGreaterThanZero);
+
+                    let scaled_rate = U256::from((rate * 1e8) as u128);
+                    let currency = Self::to_currency(currency_symbol.as_bytes().to_vec())?;
+                    formatted_rates.push((currency, scaled_rate));
                 }
             }
-            let bounded: BoundedVec<(Currency, U256), ConstU32<{ MAX_CURRENCIES }>> =
-                formatted_rates.try_into().map_err(|_| DispatchError::Other("Too many rates"))?;
-
-            Ok(Rates(bounded))
+            Self::to_rates(formatted_rates)
         }
 
         pub fn should_query_rates() -> bool {
@@ -561,6 +538,19 @@ pub mod pallet {
                     T::PriceRefreshRangeInBlocks::get(),
                 ))
                 .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
+        }
+
+        fn to_currency(currency_symbol: Vec<u8>) -> Result<Currency, DispatchError> {
+            let currency =
+                BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
+                    .map_err(|_| DispatchError::from(Error::<T>::InvalidCurrency))?;
+            Ok(currency)
+        }
+
+        fn to_rates(rates: Vec<(Currency, U256)>) -> Result<Rates, DispatchError> {
+            let bounded: Rates =
+                rates.try_into().map_err(|_| DispatchError::from(Error::<T>::TooManyRates))?;
+            Ok(bounded)
         }
     }
 }
