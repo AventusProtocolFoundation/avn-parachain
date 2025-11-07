@@ -71,7 +71,12 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn rates_refresh_range)]
-    pub type RatesRefreshRangeBlocks<T> = StorageValue<_, u32, ValueQuery>;
+    pub type RatesRefreshRangeBlocks<T> = StorageValue<_, u32, ValueQuery, DefaultRatesRefreshRange<T>>;
+
+    #[pallet::type_value]
+    pub fn DefaultRatesRefreshRange<T: Config>() -> u32 {
+        T::MinRatesRefreshRange::get()
+    }
 
     #[pallet::config]
     pub trait Config:

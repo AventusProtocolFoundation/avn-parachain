@@ -179,7 +179,7 @@ benchmarks! {
         assert!(RatesRefreshRangeBlocks::<T>::get() != new_rates_refresh_range);
     }: _(RawOrigin::Root, new_rates_refresh_range)
     verify {
-        assert_eq!(RatesRefreshRangeBlocks::<T>::get(), new_fiat_rates_refresh_range);
+        assert_eq!(RatesRefreshRangeBlocks::<T>::get(), new_rates_refresh_range);
     }
 }
 
