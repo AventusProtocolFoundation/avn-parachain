@@ -21,8 +21,8 @@ pub mod pallet {
         b"clear_consensus_signing_context";
     const BATCH_PER_STORAGE: usize = 6;
     pub const MAX_DELETE_ATTEMPTS: u32 = 5;
-    const MAX_CURRENCY_LENGTH: u32 = 4;
-    const MAX_CURRENCIES: u32 = 10;
+    pub const MAX_CURRENCY_LENGTH: u32 = 4;
+    pub const MAX_CURRENCIES: u32 = 10;
 
     pub type AVN<T> = avn::Pallet<T>;
 
@@ -255,7 +255,7 @@ pub mod pallet {
 
             let last_submission_block = LastPriceSubmission::<T>::get();
             let round_id = VotingRoundId::<T>::get();
-            if is_refresh_due && !PriceSubmissionTimestamps::<T>::contains_key(round_id) {
+            if Self::is_refresh_due(n, last_submission_block) && !PriceSubmissionTimestamps::<T>::contains_key(round_id) {
                 let now = pallet_timestamp::Pallet::<T>::now();
                 let now_u64: u64 = now.try_into().unwrap_or_default();
                 let now_secs = now_u64 / 1000;
@@ -513,7 +513,7 @@ pub mod pallet {
             formatted
         }
 
-        fn format_rates(prices_json: Vec<u8>) -> Result<Rates, DispatchError> {
+        pub fn format_rates(prices_json: Vec<u8>) -> Result<Rates, DispatchError> {
             let prices: Value = serde_json::from_slice(&prices_json)
                 .map_err(|_| DispatchError::Other("JSON Parsing Error"))?;
 
@@ -523,9 +523,7 @@ pub mod pallet {
                 for (currency, rate_value) in rates {
                     if let Some(rate) = rate_value.as_f64() {
                         if rate <= 0.0 {
-                            return Err(DispatchError::Other(
-                                Error::<T>::PriceMustBeGreaterThanZero.into(),
-                            ))
+                            return Err(Error::<T>::PriceMustBeGreaterThanZero.into());
                         }
                         let scaled_rate = U256::from((rate * 1e8) as u128);
                         let curr = Currency(
