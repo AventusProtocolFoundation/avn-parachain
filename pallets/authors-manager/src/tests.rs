@@ -2,7 +2,8 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, AVN, *};
+use crate::{mock::*, migration::AuthorsManagerMigrations, AVN, *};
+use frame_support::{pallet_prelude::{Weight, StorageVersion}, traits::{GetStorageVersion, OnRuntimeUpgrade}};
 use frame_support::{
     assert_noop, assert_ok, pallet_prelude::DispatchResultWithPostInfo, traits::Currency,
 };
@@ -905,4 +906,39 @@ mod rotate_author_ethereum_key {
             });
         }
     }
+}
+
+#[test]
+fn migration_populates_accountid_to_ethereum_keys_and_sets_storage_version() {
+    let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+    ext.execute_with(|| {
+        // Simulate old state by clearing reverse map while keeping EthereumPublicKeys intact
+        for (account_id, _) in AccountIdToEthereumKeys::<TestRuntime>::iter() {
+            AccountIdToEthereumKeys::<TestRuntime>::remove(&account_id);
+        }
+
+        // Sanity: reverse map is empty or missing for authors
+        let authors = AuthorsManager::author_account_ids().unwrap();
+        for author in authors.iter() {
+            assert_eq!(AccountIdToEthereumKeys::<TestRuntime>::get(author), None);
+        }
+
+        // Simulate older on-chain storage version so migration runs
+        StorageVersion::new(0).put::<Pallet<TestRuntime>>();
+
+        // Run migration
+        let _w = AuthorsManagerMigrations::<TestRuntime>::on_runtime_upgrade();
+
+        // Verify reverse map populated from forward map
+        for (eth_key, account_id) in EthereumPublicKeys::<TestRuntime>::iter() {
+            assert_eq!(AccountIdToEthereumKeys::<TestRuntime>::get(&account_id), Some(eth_key));
+        }
+
+        // Verify version bumped so it won't run again
+        assert_eq!(Pallet::<TestRuntime>::on_chain_storage_version(), crate::migration::STORAGE_VERSION);
+
+        // Second run should do nothing
+        let w2 = AuthorsManagerMigrations::<TestRuntime>::on_runtime_upgrade();
+        assert_eq!(w2, Weight::zero());
+    });
 }

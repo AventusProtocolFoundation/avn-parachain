@@ -47,6 +47,7 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
+pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -57,6 +58,7 @@ pub mod pallet {
     use sp_core::ecdsa;
 
     #[pallet::pallet]
+    #[pallet::storage_version(migration::STORAGE_VERSION)]
     pub struct Pallet<T>(PhantomData<T>);
 
     #[pallet::config]
@@ -250,6 +252,7 @@ pub mod pallet {
                 <EthereumPublicKeys<T>>::insert(eth_public_key, author_account_id);
                 <AccountIdToEthereumKeys<T>>::insert(author_account_id, eth_public_key);
             }
+            migration::STORAGE_VERSION.put::<Pallet<T>>();
         }
     }
 
@@ -328,6 +331,7 @@ pub mod pallet {
             Self::get_author_by_eth_public_key(eth_public_key)
         }
     }
+
 }
 
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
