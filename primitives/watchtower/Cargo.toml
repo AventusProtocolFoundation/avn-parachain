@@ -14,20 +14,18 @@ rust-version = { workspace = true }
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+hex = { workspace = true }
+codec = { workspace = true, features = ["derive", "max-encoded-len"]}
+scale-info = { workspace = true }
+log = { workspace = true }
 derive_more = "0.99.2"
-hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 hex-literal = { version = "0.4.1", default-features = false }
 impl-trait-for-tuples = "0.2.2"
-codec = { package = "parity-scale-codec", version = "3.6.1", features = ["derive", "max-encoded-len"], default-features = false }
-scale-info = { version = "2.10.0", default-features = false, features = [
-	"derive",
-] }
-log = { version = "0.4.20",  default-features = false }
 
-sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
-sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2", features = ["serde"]}
-sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.7.2" }
+sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
+sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0", features = ["serde"]}
+sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 
 [dev-dependencies]
 
@@ -42,6 +40,7 @@ std = [
 	"sp-std/std",
 	"sp-io/std",
 	"sp-runtime/std",
+	"hex/std",
 ]
 
 runtime-benchmarks = []
