@@ -98,9 +98,9 @@ frame_support::construct_runtime!(
     }
 );
 
+use frame_support::derive_impl;
 use frame_system::{self as system};
 use pallet_session as session;
-use frame_support::derive_impl;
 
 impl AuthorsManager {
     pub fn insert_authors_action_data(action_id: &ActionId<AccountId>) {
