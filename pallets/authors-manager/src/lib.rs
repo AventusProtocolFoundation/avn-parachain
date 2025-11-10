@@ -578,7 +578,7 @@ impl<T: Config> Pallet<T> {
     pub fn has_any_active_deregistration() -> bool {
         <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
             authors_action_data.action_type.is_deregistration() &&
-                Self::deregistration_state_is_active(authors_action_data.status)
+                Self::action_state_is_active(authors_action_data.status)
         })
     }
 
