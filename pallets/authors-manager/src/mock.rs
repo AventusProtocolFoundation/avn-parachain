@@ -174,7 +174,6 @@ impl system::Config for TestRuntime {
     type OnSetCode = ();
     type MaxConsumers = frame_support::traits::ConstU32<16>;
     type RuntimeTask = ();
-    
 }
 
 impl avn::Config for TestRuntime {
