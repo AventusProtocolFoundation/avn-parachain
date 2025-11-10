@@ -1,13 +1,16 @@
 #![cfg(test)]
 use super::{AVN, *};
 use crate::mock::*;
-use frame_support::{assert_err, assert_ok, pallet_prelude::Weight, traits::Hooks};
+use frame_support::{
+    assert_err, assert_ok,
+    pallet_prelude::{ConstU32, Weight},
+    traits::Hooks,
+    BoundedVec,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use scale_info::prelude::collections::HashSet;
-use sp_core::{H160, U256};
-use frame_support::BoundedVec;
-use frame_support::pallet_prelude::ConstU32;
 use serde_json::json;
+use sp_core::{H160, U256};
 
 fn submit_price_for_x_validators(num_validators: u64, rates: Rates) {
     for i in 1..=num_validators {
@@ -28,7 +31,7 @@ fn register_max_currencies() {
     for i in 1..=max_currencies {
         let currency_symbol = format!("us{}", i).into_bytes();
         let currency = create_currency(currency_symbol.clone());
-        
+
         assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
         assert!(Currencies::<TestRuntime>::contains_key(&currency));
     }
@@ -39,7 +42,10 @@ fn submit_different_rates_for_x_validators(num_validators: u64) {
         let submitter = create_validator(i);
         let signature = generate_signature(&submitter, b"test context");
 
-        let currency = create_currency(b"usd".to_vec().clone());
+        let currency_symbol = b"usd".to_vec();
+        let currency = create_currency(currency_symbol.clone());
+        register_currency(currency_symbol);
+
         let rates = create_rates(vec![(currency, U256::from(i))]);
 
         assert_ok!(AvnOracle::submit_price(
@@ -51,19 +57,19 @@ fn submit_different_rates_for_x_validators(num_validators: u64) {
     }
 }
 
-fn create_currency(symbol: Vec<u8>) -> Currency {
-    let bounded_currency =
-        BoundedVec::<u8, ConstU32<MAX_CURRENCY_LENGTH>>::try_from(symbol)
-            .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
-    Currency(bounded_currency)
+fn register_currency(currency_symbol: Vec<u8>) {
+    assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
 }
 
-fn create_rates(pairs: Vec<(Currency, U256)>) -> Rates {
-    let bounded_rate: BoundedVec<(Currency, U256), ConstU32<MAX_CURRENCIES>> =
-        BoundedVec::try_from(pairs)
-            .expect("number of rates must be ≤ MAX_CURRENCIES");
+fn create_currency(currency_symbol: Vec<u8>) -> Currency {
+    let currency = BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
+        .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
+    currency
+}
 
-    Rates(bounded_rate)
+fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
+    let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
+    bounded
 }
 
 pub fn scale_rate(rate: f64) -> U256 {
@@ -71,9 +77,10 @@ pub fn scale_rate(rate: f64) -> U256 {
 }
 
 fn sort_rates(r: Rates) -> Rates {
-    let mut v = r.0.to_vec();
-    v.sort_by_key(|(c, _)| c.0.clone());
-    Rates(v.try_into().expect("bounds unchanged"))
+    let mut v: Vec<(Currency, U256)> = r.into_inner();
+    v.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+    <Rates as TryFrom<Vec<(Currency, U256)>>>::try_from(v).expect("bounds unchanged")
 }
 
 #[cfg(test)]
@@ -91,7 +98,10 @@ mod price_submission {
                 let submitter = create_validator(1);
                 let signature = generate_signature(&submitter, b"test context");
 
-                let currency = create_currency(b"usd".to_vec().clone());
+                let currency_symbol = b"usd".to_vec();
+                let currency = create_currency(currency_symbol.clone());
+                register_currency(currency_symbol);
+
                 let rates = create_rates(vec![(currency, U256::from(1000))]);
 
                 let current_voting_id = VotingRoundId::<TestRuntime>::get();
@@ -121,7 +131,10 @@ mod price_submission {
                 let signature = generate_signature(&submitter, b"test context");
                 let signature_2 = generate_signature(&submitter_2, b"test context");
 
-                let currency = create_currency(b"usd".to_vec().clone());
+                let currency_symbol = b"usd".to_vec();
+                let currency = create_currency(currency_symbol.clone());
+                register_currency(currency_symbol);
+
                 let rates = create_rates(vec![(currency, U256::from(1000))]);
 
                 let current_voting_id = VotingRoundId::<TestRuntime>::get();
@@ -159,8 +172,14 @@ mod price_submission {
                 let submitter = create_validator(1);
                 let signature = generate_signature(&submitter, b"test context");
 
-                let usd = create_currency(b"usd".to_vec().clone());
-                let eur = create_currency(b"eur".to_vec().clone());
+                let usd_symbol = b"usd".to_vec();
+                let usd = create_currency(usd_symbol.clone());
+                register_currency(usd_symbol);
+
+                let eur_symbol = b"eur".to_vec();
+                let eur = create_currency(eur_symbol.clone());
+                register_currency(eur_symbol);
+
                 let rates = create_rates(vec![(usd, U256::from(1000)), (eur, U256::from(1000))]);
 
                 let current_voting_id = VotingRoundId::<TestRuntime>::get();
@@ -213,7 +232,11 @@ mod price_submission {
             ext.execute_with(|| {
                 let submitter = create_validator(1);
                 let signature = generate_signature(&submitter, b"test context");
-                let currency = create_currency(b"usd".to_vec().clone());
+
+                let currency_symbol = b"usd".to_vec();
+                let currency = create_currency(currency_symbol.clone());
+                register_currency(currency_symbol);
+
                 let rates = create_rates(vec![(currency, U256::from(1000))]);
 
                 assert_ok!(AvnOracle::submit_price(
@@ -233,6 +256,27 @@ mod price_submission {
                 );
             });
         }
+
+        #[test]
+        fn currency_is_not_registered() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let submitter = create_validator(1);
+                let signature = generate_signature(&submitter, b"test context");
+                let currency = create_currency(b"usd".to_vec().clone());
+                let rates = create_rates(vec![(currency, U256::from(1000))]);
+
+                assert_err!(
+                    AvnOracle::submit_price(
+                        RuntimeOrigin::none(),
+                        rates.clone(),
+                        submitter.clone(),
+                        signature
+                    ),
+                    Error::<TestRuntime>::UnregisteredCurrency
+                );
+            });
+        }
     }
 
     #[cfg(test)]
@@ -244,7 +288,11 @@ mod price_submission {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let number_of_validators = AVN::<TestRuntime>::quorum();
-                let currency = create_currency(b"usd".to_vec().clone());
+
+                let currency_symbol = b"usd".to_vec();
+                let currency = create_currency(currency_symbol.clone());
+                register_currency(currency_symbol);
+
                 let rates = create_rates(vec![(currency, U256::from(1000))]);
 
                 let current_voting_id = VotingRoundId::<TestRuntime>::get();
@@ -274,7 +322,7 @@ mod price_submission {
                 assert_eq!(VotingRoundId::<TestRuntime>::get(), 1);
 
                 // check that price is updated
-                for (symbol, value) in &rates.0 {
+                for (symbol, value) in &rates {
                     assert_eq!(
                         NativeTokenRateByCurrency::<TestRuntime>::get(symbol),
                         Some(value.clone())
@@ -323,7 +371,10 @@ mod register_currency {
                 assert!(!Currencies::<TestRuntime>::contains_key(&currency));
 
                 // Register currency
-                assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
+                assert_ok!(AvnOracle::register_currency(
+                    RuntimeOrigin::root(),
+                    currency_symbol.clone(),
+                ));
 
                 // Ensure currency is added
                 assert!(Currencies::<TestRuntime>::contains_key(&currency));
@@ -337,6 +388,39 @@ mod register_currency {
                                 currency: currency_symbol.clone(),
                             }
                         ))
+                );
+            });
+        }
+
+        #[test]
+        fn duplicate_symbols_will_replace_existing() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let currency_symbol = b"usd".to_vec();
+                let currency = create_currency(currency_symbol.clone());
+
+                // Ensure currency is not registered initially
+                assert!(!Currencies::<TestRuntime>::contains_key(&currency));
+
+                assert_ok!(AvnOracle::register_currency(
+                    RuntimeOrigin::root(),
+                    currency_symbol.clone(),
+                ));
+
+                assert!(Currencies::<TestRuntime>::contains_key(&currency));
+
+                assert_ok!(AvnOracle::register_currency(
+                    RuntimeOrigin::root(),
+                    currency_symbol.clone(),
+                ));
+
+                assert!(Currencies::<TestRuntime>::contains_key(&currency));
+
+                // make sure only one entry exists
+                let count = Currencies::<TestRuntime>::iter().count();
+                assert_eq!(
+                    count, 1,
+                    "Expected only one currency entry after duplicate registration"
                 );
             });
         }
@@ -393,6 +477,23 @@ mod register_currency {
                 );
             });
         }
+
+        #[test]
+        fn currency_symbol_too_long() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let long_currency_symbol = b"usdusd".to_vec();
+
+                // Register currency
+                assert_err!(
+                    AvnOracle::register_currency(
+                        RuntimeOrigin::root(),
+                        long_currency_symbol.clone(),
+                    ),
+                    Error::<TestRuntime>::InvalidCurrency
+                );
+            });
+        }
     }
 }
 
@@ -415,13 +516,19 @@ mod remove_currency {
                 assert!(!Currencies::<TestRuntime>::contains_key(&currency));
 
                 // Register currency
-                assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
+                assert_ok!(AvnOracle::register_currency(
+                    RuntimeOrigin::root(),
+                    currency_symbol.clone(),
+                ));
 
                 // Ensure currency is added
                 assert!(Currencies::<TestRuntime>::contains_key(&currency));
 
                 // Remove currency
-                assert_ok!(AvnOracle::remove_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
+                assert_ok!(AvnOracle::remove_currency(
+                    RuntimeOrigin::root(),
+                    currency_symbol.clone(),
+                ));
 
                 // Ensure currency is removed
                 assert!(!Currencies::<TestRuntime>::contains_key(&currency));
@@ -455,7 +562,10 @@ mod remove_currency {
                 assert!(!Currencies::<TestRuntime>::contains_key(&currency));
 
                 // Register currency
-                assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
+                assert_ok!(AvnOracle::register_currency(
+                    RuntimeOrigin::root(),
+                    currency_symbol.clone(),
+                ));
 
                 // Ensure currency is added
                 assert!(Currencies::<TestRuntime>::contains_key(&currency));
@@ -472,7 +582,9 @@ mod remove_currency {
                 // Ensure no CurrencyRemoved event was emitted
                 assert!(!System::events().iter().any(|a| a.event ==
                     mock::RuntimeEvent::AvnOracle(
-                        crate::Event::<TestRuntime>::CurrencyRemoved { currency: currency_symbol.clone() }
+                        crate::Event::<TestRuntime>::CurrencyRemoved {
+                            currency: currency_symbol.clone()
+                        }
                     )));
             });
         }
@@ -650,7 +762,7 @@ mod format_rates {
                 })
                 .to_string()
                 .into_bytes();
-                
+
                 let formatted_rates = Pallet::<TestRuntime>::format_rates(prices_json);
 
                 let usd = create_currency(b"usd".to_vec().clone());
@@ -672,12 +784,13 @@ mod format_rates {
                 })
                 .to_string()
                 .into_bytes();
-                
+
                 let formatted_rates = Pallet::<TestRuntime>::format_rates(prices_json);
 
                 let usd = create_currency(b"usd".to_vec().clone());
                 let eur = create_currency(b"eur".to_vec().clone());
-                let rates = create_rates(vec![(usd, scale_rate(usd_rate)), (eur, scale_rate(eur_rate))]);
+                let rates =
+                    create_rates(vec![(usd, scale_rate(usd_rate)), (eur, scale_rate(eur_rate))]);
 
                 assert_eq!(sort_rates(formatted_rates.expect("ok")), sort_rates(rates));
             });
@@ -700,7 +813,7 @@ mod format_rates {
                 })
                 .to_string()
                 .into_bytes();
-                
+
                 assert_err!(
                     Pallet::<TestRuntime>::format_rates(zero_price_json),
                     Error::<TestRuntime>::PriceMustBeGreaterThanZero
@@ -718,7 +831,7 @@ mod format_rates {
                 })
                 .to_string()
                 .into_bytes();
-                
+
                 assert_err!(
                     Pallet::<TestRuntime>::format_rates(invalid_currency_json),
                     Error::<TestRuntime>::InvalidCurrency
@@ -735,7 +848,7 @@ mod format_rates {
                 })
                 .to_string()
                 .into_bytes();
-                
+
                 assert_err!(
                     Pallet::<TestRuntime>::format_rates(invalid_format_json),
                     Error::<TestRuntime>::InvalidRateFormat
