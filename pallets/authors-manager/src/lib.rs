@@ -572,9 +572,6 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    fn deregistration_state_is_active(status: AuthorsActionStatus) -> bool {
-        matches!(status, AuthorsActionStatus::AwaitingConfirmation | AuthorsActionStatus::Confirmed)
-    }
 
     /// Check if any author has an active deregistration in progress
     /// This ensures only one deregistration can be processed at a time
