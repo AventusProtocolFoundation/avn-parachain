@@ -56,6 +56,8 @@ pub use pallet::*;
 
 const PALLET_ID: &'static [u8; 14] = b"author_manager";
 
+pub mod migration;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -130,6 +132,10 @@ pub mod pallet {
         InsufficientBalance,
         /// Validator session keys not found - account must be registered in session pallet
         CandidateSessionKeysNotFound,
+        /// A validator action is already in progress
+        ValidatorActionAlreadyInProgress,
+        /// A deregistration is already in progress for another validator
+        DeregistrationAlreadyInProgress,
     }
 
     #[pallet::event]
@@ -475,6 +481,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CandidateSessionKeysNotFound
         );
 
+        // Disallow starting a registration if any validator action is already in progress
+        ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
+
         Ok(())
     }
 
@@ -489,8 +498,14 @@ impl<T: Config> Pallet<T> {
 
         ensure!(validator_account_ids.contains(account_id), Error::<T>::ValidatorNotFound);
 
-        // Check for conflicting deregistration already in progress
-        ensure!(!Self::has_active_deregistration(account_id), Error::<T>::RemovalAlreadyRequested);
+        // Check if any validator already has a deregistration in progress (global check)
+        ensure!(
+            !Self::has_any_active_deregistration(),
+            Error::<T>::DeregistrationAlreadyInProgress
+        );
+
+        // Check if this validator has any active actions (registration or deregistration)
+        ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
 
         Ok(())
     }
@@ -501,6 +516,30 @@ impl<T: Config> Pallet<T> {
                 validators_action_data.action_type.is_deregistration() &&
                     Self::deregistration_state_is_active(validators_action_data.status)
             },
+        )
+    }
+
+    /// Check if any validator has an active deregistration in progress
+    /// This ensures only one deregistration can be processed at a time
+    pub fn has_any_active_deregistration() -> bool {
+        <ValidatorActions<T>>::iter().any(|(_, _, validators_action_data)| {
+            validators_action_data.action_type.is_deregistration() &&
+                Self::action_state_is_active(validators_action_data.status)
+        })
+    }
+
+    /// Check if any validator has any active action (registration, activation, or deregistration)
+    fn has_any_active_action() -> bool {
+        <ValidatorActions<T>>::iter().any(|(_, _, validators_action_data)| {
+            Self::action_state_is_active(validators_action_data.status)
+        })
+    }
+
+    /// Check if an action status indicates the action is still active
+    fn action_state_is_active(status: ValidatorsActionStatus) -> bool {
+        matches!(
+            status,
+            ValidatorsActionStatus::AwaitingConfirmation | ValidatorsActionStatus::Confirmed
         )
     }
 

@@ -226,6 +226,10 @@ fn force_add_collator<T: Config>(collator_id: &T::AccountId, index: u64, eth_pub
     //Advance 2 session to add the collator to the session
     advance_session::<T>();
     advance_session::<T>();
+
+    // Clean up the action entry to prevent interference with subsequent operations
+    let ingress_counter = <TotalIngresses<T>>::get();
+    <ValidatorActions<T>>::remove(collator_id, ingress_counter);
 }
 
 benchmarks! {
@@ -243,6 +247,10 @@ benchmarks! {
         let tx_id = get_tx_id_for_validator::<T>(&candidate).unwrap();
         simulate_t1_callback_success::<T>(tx_id);
         assert!(pallet_parachain_staking::CandidateInfo::<T>::contains_key(&candidate));
+
+        // Clean up action to allow subsequent benchmarks to run
+        let ingress_counter = <TotalIngresses<T>>::get();
+        <ValidatorActions<T>>::remove(&candidate, ingress_counter);
     }
 
     remove_validator {
@@ -255,10 +263,14 @@ benchmarks! {
     }: remove_validator(RawOrigin::Root, caller_account.clone())
     verify {
         // Verify ValidatorActions entry was created with Resignation type
-        assert_eq!(true, ValidatorActions::<T>::contains_key(&caller_account, <TotalIngresses<T>>::get()));
+        let ingress_counter = <TotalIngresses<T>>::get();
+        assert_eq!(true, ValidatorActions::<T>::contains_key(&caller_account, ingress_counter));
 
         // After extrinsic, validator is still in ValidatorAccountIds (removed by session handler later)
         assert!(ValidatorAccountIds::<T>::get().unwrap().contains(&caller_account));
+
+        // Clean up action to allow subsequent benchmarks to run
+        <ValidatorActions<T>>::remove(&caller_account, ingress_counter);
     }
 
     rotate_validator_ethereum_key {
