@@ -59,19 +59,9 @@ fn populate_reverse_map<T: Config>() -> Weight {
     let mut writes: u64 = 0;
 
     for (eth_key, account_id) in <EthereumPublicKeys<T>>::iter() {
-        match <AccountIdToEthereumKeys<T>>::get(&account_id) {
-            Some(existing) => {
-                reads += 1;
-                if existing != eth_key {
-                    <AccountIdToEthereumKeys<T>>::insert(&account_id, eth_key);
-                    writes += 1;
-                }
-            },
-            None => {
-                <AccountIdToEthereumKeys<T>>::insert(&account_id, eth_key);
-                writes += 1;
-            },
-        }
+        reads += 1;
+        <AccountIdToEthereumKeys<T>>::insert(&account_id, eth_key);
+        writes += 1;
     }
 
     // Bump storage version
