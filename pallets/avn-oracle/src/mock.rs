@@ -22,9 +22,6 @@ use sp_runtime::{
     DispatchError, RuntimeAppPublic,
 };
 use std::cell::RefCell;
-use frame_support::BoundedVec;
-use frame_support::pallet_prelude::ConstU32;
-use sp_core::U256;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = u64;
@@ -218,21 +215,6 @@ pub fn generate_signature(
 ) -> TestSignature {
     // Use the key field's sign method to generate the signature
     author.key.sign(&context.encode()).expect("Signature should be signed")
-}
-
-pub fn create_currency(symbol: Vec<u8>) -> Currency {
-    let bounded_currency =
-        BoundedVec::<u8, ConstU32<MAX_CURRENCY_LENGTH>>::try_from(symbol)
-            .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
-    Currency(bounded_currency)
-}
-
-pub fn create_rates(pairs: Vec<(Currency, U256)>) -> Rates {
-    let bounded_rate: BoundedVec<(Currency, U256), ConstU32<MAX_CURRENCIES>> =
-        BoundedVec::try_from(pairs)
-            .expect("number of rates must be ≤ MAX_CURRENCIES");
-
-    Rates(bounded_rate)
 }
 
 pub struct ExtBuilder {

@@ -32,7 +32,6 @@ frame-benchmarking = { default-features = false, git = "https://github.com/parit
 [features]
 default = ["std"]
 std = [
-  "frame-benchmarking?/std",
   "frame-support/std",
   "frame-system/std",
   "codec/std",
