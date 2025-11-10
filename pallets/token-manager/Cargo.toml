@@ -61,6 +61,8 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-avn/std",
+	"log/std",
+	"enumflags2/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

@@ -64,6 +64,7 @@ std = [
 	"pallet-session/std",
 	"pallet-timestamp/std",
 	"serde/std",
+	"hex/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

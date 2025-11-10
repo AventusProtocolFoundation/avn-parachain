@@ -29,7 +29,6 @@ pallet-avn = { default-features = false, path = "../avn" }
 sp-std = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 sp-runtime = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
-sp-state-machine = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 
 frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
@@ -46,6 +45,7 @@ sp-io = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0", features=["insecure_zero_ed"] }
 parking_lot = { version = "0.12.0" }
+sp-state-machine = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 
 substrate-test-utils = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.8.0" }
 pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
@@ -57,17 +57,21 @@ std = [
 	"frame-benchmarking?/std",
 	"scale-info/std",
 	"codec/std",
+	"serde/std",
+	"hex/std",
 	"sp-std/std",
 	"sp-core/std",
 	"sp-runtime/std",
-	"sp-application-crypto/std",
 	"frame-support/std",
 	"frame-system/std",
 	"sp-avn-common/std",
 	"pallet-avn/std",
 	"pallet-eth-bridge/std",
 	"pallet-session/std",
+	"pallet-timestamp/std",
 	"libsecp256k1?/std",
+	"rand?/std",
+	"sha3?/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

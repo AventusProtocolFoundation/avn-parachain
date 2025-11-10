@@ -58,8 +58,6 @@ std = [
 	"sp-avn-common/std",
 	"frame-support/std",
 	"frame-system/std",
-	"libsecp256k1/std",
-
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

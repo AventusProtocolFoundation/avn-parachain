@@ -50,6 +50,7 @@ default = ["std", "pallet-session/historical"]
 std = [
 	"frame-benchmarking?/std",
 	"serde/std",
+	"hex/std",
 	"scale-info/std",
 	"codec/std",
 	"sp-std/std",

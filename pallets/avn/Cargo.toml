@@ -10,7 +10,7 @@ repository = { workspace = true }
 rust-version = { workspace = true }
 
 [dependencies]
-serde = { workspace = true, default-features = true }
+serde = { workspace = true }
 codec = { workspace = true, features = ["derive"] }
 impl-trait-for-tuples = "0.2.2"
 hex = { workspace = true }
@@ -58,6 +58,7 @@ std = [
 	"frame-system/std",
 	"sp-avn-common/std",
 	"pallet-session/std",
+	"hex/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
