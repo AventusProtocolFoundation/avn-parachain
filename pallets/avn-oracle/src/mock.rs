@@ -22,6 +22,13 @@ use sp_runtime::{
     DispatchError, RuntimeAppPublic,
 };
 use std::cell::RefCell;
+use frame_support::{
+    assert_err, assert_ok,
+    pallet_prelude::{ConstU32, Weight},
+    traits::Hooks,
+    BoundedVec,
+};
+use sp_core::U256;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = u64;
@@ -215,6 +222,21 @@ pub fn generate_signature(
 ) -> TestSignature {
     // Use the key field's sign method to generate the signature
     author.key.sign(&context.encode()).expect("Signature should be signed")
+}
+
+pub fn register_currency(currency_symbol: Vec<u8>) {
+    assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
+}
+
+pub fn create_currency(currency_symbol: Vec<u8>) -> Currency {
+    let currency = BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
+        .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
+    currency
+}
+
+pub fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
+    let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
+    bounded
 }
 
 pub struct ExtBuilder {

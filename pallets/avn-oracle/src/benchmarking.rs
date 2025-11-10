@@ -8,6 +8,10 @@ use frame_support::{
     pallet_prelude::Weight,
     traits::{Get, Hooks},
 };
+use frame_support::{
+    assert_err, assert_ok,
+    BoundedVec,
+};
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use scale_info::prelude::{format, vec};
 use sp_avn_common::event_types::Validator;
@@ -41,10 +45,25 @@ fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId,
     validators
 }
 
+fn register_max_currencies<T: Config>() {
+    let max_currencies: u32 = T::MaxCurrencies::get();
+    for i in 1..=max_currencies - 1 {
+        let currency_symbol = format!("us{}", i).into_bytes();
+        let currency = create_currency(currency_symbol.clone());
+
+        assert_ok!(AvnOracle::<T>::register_currency(RawOrigin::Root.into(), currency_symbol.clone(),));
+        assert!(Currencies::<T>::contains_key(&currency));
+    }
+}
+
 benchmarks! {
     submit_price {
         let current_authors = generate_validators::<T>(10);
-        let currency = create_currency(b"usd".to_vec().clone());
+
+        let currency_symbol = b"usd".to_vec();
+        let currency = create_currency(currency_symbol.clone());
+        assert_ok!(AvnOracle::<T>::register_currency(RawOrigin::Root.into(), currency_symbol.clone(),));
+
         let rates = create_rates(vec![(currency, U256::from(1000))]);
 
         let context = (PRICE_SUBMISSION_CONTEXT, rates.clone(), VotingRoundId::<T>::get()).encode();
@@ -77,7 +96,8 @@ benchmarks! {
     }
 
     register_currency {
-        let currency_symbol = b"usd".to_vec();
+        register_max_currencies::<T>();
+        let currency_symbol = b"eur".to_vec();
     }: _(RawOrigin::Root, currency_symbol.clone())
     verify {
         let currency = create_currency(currency_symbol.clone());
