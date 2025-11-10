@@ -224,8 +224,10 @@ pub(crate) fn create_lower_params(lower_id: u32) -> LowerParams {
     let token_id = H160::from([3u8; 20]);
     let amount = 100_000_000_000_000_000_000u128;
     let t1_recipient = H160::from([2u8; 20]);
+    let t2_sender = H256::from([5u8; 32]);
+    let t2_timestamp = 1893456000u32;
 
-    concat_lower_data(lower_id, token_id, &amount, &t1_recipient)
+    concat_lower_data(lower_id, token_id, &amount, &t1_recipient, t2_sender, t2_timestamp)
 }
 
 pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 8]) {

@@ -15,8 +15,15 @@ use sp_runtime::{scale_info::TypeInfo, BoundedVec, Deserialize, Serialize};
 use sp_std::vec::Vec;
 pub type EthereumId = u32;
 
-pub const PACKED_LOWER_PARAM_SIZE: usize = 112;
+pub const PACKED_LOWER_PARAM_SIZE: usize = 96;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
+
+const TOKEN_OFFSET: core::ops::Range<usize> = 0..20;
+const AMOUNT_OFFSET: core::ops::Range<usize> = 20..36;
+const RECIPIENT_OFFSET: core::ops::Range<usize> = 36..56;
+const LOWER_ID_OFFSET: core::ops::Range<usize> = 56..60;
+const T2_SENDER_OFFSET: core::ops::Range<usize> = 60..92;
+const T2_TIMESTAMP_OFFSET: core::ops::Range<usize> = 92..96;
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -183,7 +190,7 @@ sol! {
 sol! {
     struct LowerData {
         address token;
-        uint256 amount;
+        uint128 amount;
         address recipient;
         uint32 lowerId;
         bytes32 t2Sender;
@@ -196,15 +203,19 @@ impl TryFrom<LowerParams> for LowerData {
 
     fn try_from(lower_params: LowerParams) -> Result<Self, Self::Error> {
         if lower_params.len() != PACKED_LOWER_PARAM_SIZE {
-            return Err(())
+            return Err(());
         }
 
-        let token = Address::from_slice(&lower_params[0..20]);
-        let amount = AlloyU256::try_from_be_slice(&lower_params[36..52]).ok_or(())?;
-        let recipient = Address::from_slice(&lower_params[52..72]);
-        let lower_id = u32::from_be_bytes(lower_params[72..76].try_into().map_err(|_| ())?);
-        let t2_sender = AlloyB256::from_slice(&lower_params[76..108]);
-        let t2_timestamp = u32::from_be_bytes(lower_params[108..112].try_into().map_err(|_| ())?);
+        let token = Address::from_slice(&lower_params[TOKEN_OFFSET]);
+
+        let amount = u128::from_be_bytes(lower_params[AMOUNT_OFFSET].try_into().map_err(|_| ())?);
+
+        let recipient = Address::from_slice(&lower_params[RECIPIENT_OFFSET]);
+        let lower_id =
+            u32::from_be_bytes(lower_params[LOWER_ID_OFFSET].try_into().map_err(|_| ())?);
+        let t2_sender = AlloyB256::from_slice(&lower_params[T2_SENDER_OFFSET]);
+        let t2_timestamp =
+            u32::from_be_bytes(lower_params[T2_TIMESTAMP_OFFSET].try_into().map_err(|_| ())?);
 
         Ok(LowerData {
             token,
@@ -446,43 +457,51 @@ mod test {
 
         let lower_data = LowerData {
             token: Address::from_slice(&H160::from([3u8; 20]).as_bytes()),
-            amount: AlloyU256::from(100_000_000_000_000_000_000u128),
+            amount: 100_000_000_000_000_000_000u128,
             recipient: Address::from_slice(&H160::from([2u8; 20]).as_bytes()),
             lowerId: 10,
+            t2Sender: alloy_primitives::FixedBytes::from_slice(
+                H256::from_slice(&hex!(
+                    "1234000000000000000000000000000000000000000000000000000000000000"
+                ))
+                .as_fixed_bytes(),
+            ),
+            t2Timestamp: 1893456000u32,
         };
 
         let eip712_domain: Eip712Domain = domain();
         let hash = eip712_hash(&lower_data, &eip712_domain);
 
-        assert_eq!(
-            hash,
             H256(hex!("3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba")) /* Generated via the EnergyBridge contract */
         );
+        let lower_id: u32 = 0x01020304;
+        let token = H160::from_slice(&hex!("00112233445566778899aabbccddeeff00112233"));
+        assert_eq!(params.len(), PACKED_LOWER_PARAM_SIZE);
+        assert_eq!(&params[TOKEN_OFFSET], token.as_fixed_bytes());
+        assert_eq!(&params[AMOUNT_OFFSET], &amount.to_be_bytes());
+        assert_eq!(&params[RECIPIENT_OFFSET], recipient.as_fixed_bytes());
+        assert_eq!(&params[LOWER_ID_OFFSET], &lower_id.to_be_bytes());
+        assert_eq!(&params[T2_SENDER_OFFSET], t2_sender.as_fixed_bytes());
+        assert_eq!(&params[T2_TIMESTAMP_OFFSET], &t2_timestamp.to_be_bytes());
     }
 }
 
 pub fn concat_lower_data(
     lower_id: u32,
-    token_id: H160,
+    token: H160,
     amount: &u128,
-    t1_recipient: &H160,
+    recipient: &H160,
     t2_sender: H256,
     t2_timestamp: u32,
 ) -> LowerParams {
     let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
 
-    // TokenId = 20 bytes
-    lower_params[0..20].copy_from_slice(&token_id.as_fixed_bytes()[0..20]);
-    // TokenBalance = 32 bytes
-    lower_params[36..52].copy_from_slice(&amount.to_be_bytes()[0..16]);
-    // T1Recipient = 20 bytes
-    lower_params[52..72].copy_from_slice(&t1_recipient.as_fixed_bytes()[0..20]);
-    // LowerId = 4 bytes
-    lower_params[72..76].copy_from_slice(&lower_id.to_be_bytes()[0..4]);
-    // T2Sender = 32 bytes
-    lower_params[76..108].copy_from_slice(t2_sender.as_fixed_bytes());
-    // T2Timestamp = 4 bytes
-    lower_params[108..PACKED_LOWER_PARAM_SIZE].copy_from_slice(&t2_timestamp.to_be_bytes());
+    lower_params[TOKEN_OFFSET].copy_from_slice(token.as_fixed_bytes());
+    lower_params[AMOUNT_OFFSET].copy_from_slice(&amount.to_be_bytes());
+    lower_params[RECIPIENT_OFFSET].copy_from_slice(recipient.as_fixed_bytes());
+    lower_params[LOWER_ID_OFFSET].copy_from_slice(&lower_id.to_be_bytes());
+    lower_params[T2_SENDER_OFFSET].copy_from_slice(t2_sender.as_fixed_bytes());
+    lower_params[T2_TIMESTAMP_OFFSET].copy_from_slice(&t2_timestamp.to_be_bytes());
 
-    return lower_params
+    lower_params
 }
