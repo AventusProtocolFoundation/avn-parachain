@@ -2,20 +2,18 @@
 
 #![cfg(test)]
 
-use crate::{mock::*, migration::AuthorsManagerMigrations, AVN, *};
-use frame_support::{pallet_prelude::{Weight, StorageVersion}, traits::{GetStorageVersion, OnRuntimeUpgrade}};
+use crate::{migration::AuthorsManagerMigrations, mock::*, AVN, *};
 use frame_support::{
-    assert_noop, assert_ok, pallet_prelude::DispatchResultWithPostInfo, traits::Currency,
+    assert_noop, assert_ok,
+    pallet_prelude::{DispatchResultWithPostInfo, StorageVersion, Weight},
+    traits::{Currency, GetStorageVersion, OnRuntimeUpgrade},
 };
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 use substrate_test_utils::assert_eq_uvec;
 
-fn register_author(
-    author_id: &AccountId,
-    author_eth_public_key: &ecdsa::Public,
-) -> DispatchResultWithPostInfo {
+fn register_author(author_id: &AccountId, author_eth_public_key: &ecdsa::Public) -> DispatchResult {
     return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key)
 }
 
@@ -935,7 +933,10 @@ fn migration_populates_accountid_to_ethereum_keys_and_sets_storage_version() {
         }
 
         // Verify version bumped so it won't run again
-        assert_eq!(Pallet::<TestRuntime>::on_chain_storage_version(), crate::migration::STORAGE_VERSION);
+        assert_eq!(
+            Pallet::<TestRuntime>::on_chain_storage_version(),
+            crate::migration::STORAGE_VERSION
+        );
 
         // Second run should do nothing
         let w2 = AuthorsManagerMigrations::<TestRuntime>::on_runtime_upgrade();

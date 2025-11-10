@@ -168,6 +168,8 @@ pub mod pallet {
         AuthorsActionDataNotFound,
         /// Removal already requested
         RemovalAlreadyRequested,
+        /// A validator action is already in progress
+        ValidatorActionAlreadyInProgress,
         /// There was an error converting accountId to AuthorId
         ErrorConvertingAccountIdToAuthorId,
         /// Slashed author is not found
@@ -265,7 +267,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             author_account_id: T::AccountId,
             author_eth_public_key: ecdsa::Public,
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             ensure_root(origin)?;
 
             // Validate the registration request
@@ -331,7 +333,6 @@ pub mod pallet {
             Self::get_author_by_eth_public_key(eth_public_key)
         }
     }
-
 }
 
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
@@ -548,6 +549,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AuthorSessionKeysNotSet
         );
 
+        // Disallow starting a registration if any author action is already in progress
+        ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
+
         Ok(())
     }
 
@@ -569,7 +573,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Check if this author has any active actions (registration or deregistration)
-        ensure!(!Self::has_any_active_action(account_id), Error::<T>::RemovalAlreadyRequested);
+        ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
 
         Ok(())
     }
@@ -590,27 +594,11 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// Check if a specific author has any active actions (registration, activation, or
-    /// deregistration)
-    fn has_any_active_action(author_account_id: &T::AccountId) -> bool {
-        <AuthorActions<T>>::iter_prefix_values(author_account_id)
-            .any(|authors_action_data| Self::action_state_is_active(authors_action_data.status))
-    }
-
-    /// Check if any author has an active deregistration in progress
-    /// This ensures only one deregistration can be processed at a time
-    pub fn deregistration_in_progress() -> bool {
+    /// Check if any author has any active action (registration, activation, or deregistration)
+    fn has_any_active_action() -> bool {
         <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
-            authors_action_data.action_type.is_deregistration() &&
-                Self::action_state_is_active(authors_action_data.status)
+            Self::action_state_is_active(authors_action_data.status)
         })
-    }
-
-    /// Check if a specific author has any active actions (registration, activation, or
-    /// deregistration)
-    fn author_action_in_progress(author_account_id: &T::AccountId) -> bool {
-        <AuthorActions<T>>::iter_prefix_values(author_account_id)
-            .any(|authors_action_data| Self::action_state_is_active(authors_action_data.status))
     }
 
     /// Check if an action status indicates the action is still active

@@ -80,5 +80,3 @@ fn populate_reverse_map<T: Config>() -> Weight {
 
     T::DbWeight::get().reads_writes(reads, writes)
 }
-
-
