@@ -121,6 +121,7 @@ pub mod pallet {
         GracePeriodNotPassed,
         CurrencyNotFound,
         TooManyRates,
+        UnregisteredCurrency,
     }
 
     #[pallet::call]
@@ -138,6 +139,10 @@ pub mod pallet {
                 AVN::<T>::is_validator(&submitter.account_id),
                 Error::<T>::SubmitterNotAValidator
             );
+
+            for (currency, _) in rates.iter() {
+                ensure!(Currencies::<T>::contains_key(currency), Error::<T>::UnregisteredCurrency);
+            }
 
             let round_id = VotingRoundId::<T>::get();
             ensure!(
