@@ -272,7 +272,7 @@ pub mod pallet {
             // Send to T1 - actual registration happens in callback
             Self::send_author_registration_to_t1(&author_account_id, &author_eth_public_key)?;
 
-            Ok(().into())
+            Ok(())
         }
 
         #[pallet::call_index(1)]
@@ -578,13 +578,6 @@ impl<T: Config> Pallet<T> {
     /// This ensures only one deregistration can be processed at a time
     pub fn has_any_active_deregistration() -> bool {
         <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
-            authors_action_data.action_type.is_deregistration() &&
-                Self::action_state_is_active(authors_action_data.status)
-        })
-    }
-
-    fn has_active_deregistration(author_account_id: &T::AccountId) -> bool {
-        <AuthorActions<T>>::iter_prefix_values(author_account_id).any(|authors_action_data| {
             authors_action_data.action_type.is_deregistration() &&
                 Self::action_state_is_active(authors_action_data.status)
         })

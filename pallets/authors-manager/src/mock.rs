@@ -1,4 +1,4 @@
-//Copyright 2024 Aventus Network Services (UK) Ltd.
+//Copyright 2025 Aventus Network Services (UK) Ltd.
 
 use crate::{self as authors_manager, *};
 use frame_support::{
@@ -149,6 +149,7 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
 }
 
+#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl system::Config for TestRuntime {
     type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
