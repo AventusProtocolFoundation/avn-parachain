@@ -47,39 +47,7 @@ impl<Api> AvnRuntimeApiCollection for Api where
 {
 }
 
-/// Native executor type.
-
-#[cfg(feature = "avn-native-runtime")]
-pub struct AvnParachainExecutor;
-
-#[cfg(feature = "avn-native-runtime")]
-impl sc_executor::NativeExecutionDispatch for AvnParachainExecutor {
-    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        avn_parachain_runtime::api::dispatch(method, data)
-    }
-
-    fn native_version() -> sc_executor::NativeVersion {
-        avn_parachain_runtime::native_version()
-    }
-}
-
-#[cfg(feature = "test-native-runtime")]
-pub struct TestParachainExecutor;
-
-#[cfg(feature = "test-native-runtime")]
-impl sc_executor::NativeExecutionDispatch for TestParachainExecutor {
-    type ExtendHostFunctions = frame_benchmarking::benchmarking::HostFunctions;
-
-    fn dispatch(method: &str, data: &[u8]) -> Option<Vec<u8>> {
-        avn_test_runtime::api::dispatch(method, data)
-    }
-
-    fn native_version() -> sc_executor::NativeVersion {
-        avn_test_runtime::native_version()
-    }
-}
+type ParachainExecutor = WasmExecutor<ParachainHostFunctions>;
 
 pub trait AvnRuntimeIdentity {
     #[allow(dead_code)]
