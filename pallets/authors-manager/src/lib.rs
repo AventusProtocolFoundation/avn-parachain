@@ -44,6 +44,7 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
+pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -54,6 +55,7 @@ pub mod pallet {
     use sp_core::ecdsa;
 
     #[pallet::pallet]
+    #[pallet::storage_version(migration::STORAGE_VERSION)]
     pub struct Pallet<T>(PhantomData<T>);
 
     #[pallet::config]
@@ -163,6 +165,8 @@ pub mod pallet {
         AuthorsActionDataNotFound,
         /// Removal already requested
         RemovalAlreadyRequested,
+        /// A validator action is already in progress
+        ValidatorActionAlreadyInProgress,
         /// There was an error converting accountId to AuthorId
         ErrorConvertingAccountIdToAuthorId,
         /// Slashed author is not found
@@ -213,7 +217,9 @@ pub mod pallet {
     #[pallet::getter(fn get_ingress_counter)]
     pub type TotalIngresses<T: Config> = StorageValue<_, IngressCounter, ValueQuery>;
 
-    /// Reverse mapping from account_id to ethereum public key for O(1) lookup
+    /// Storage map providing a reverse mapping from `AccountId` to Ethereum public key.
+    /// This enables O(1) lookup of the Ethereum public key associated with a given account.
+    /// Used for efficient author identification and key management.
     #[pallet::storage]
     pub type AccountIdToEthereumKeys<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, ecdsa::Public>;
@@ -266,7 +272,7 @@ pub mod pallet {
             // Send to T1 - actual registration happens in callback
             Self::send_author_registration_to_t1(&author_account_id, &author_eth_public_key)?;
 
-            Ok(())
+            Ok(().into())
         }
 
         #[pallet::call_index(1)]
@@ -539,6 +545,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::AuthorSessionKeysNotSet
         );
 
+        // Disallow starting a registration if any author action is already in progress
+        ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
+
         Ok(())
     }
 
@@ -560,7 +569,7 @@ impl<T: Config> Pallet<T> {
         );
 
         // Check if this author has any active actions (registration or deregistration)
-        ensure!(!Self::has_any_active_action(account_id), Error::<T>::RemovalAlreadyRequested);
+        ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
 
         Ok(())
     }
@@ -574,11 +583,18 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    /// Check if a specific author has any active actions (registration, activation, or
-    /// deregistration)
-    fn has_any_active_action(author_account_id: &T::AccountId) -> bool {
-        <AuthorActions<T>>::iter_prefix_values(author_account_id)
-            .any(|authors_action_data| Self::action_state_is_active(authors_action_data.status))
+    fn has_active_deregistration(author_account_id: &T::AccountId) -> bool {
+        <AuthorActions<T>>::iter_prefix_values(author_account_id).any(|authors_action_data| {
+            authors_action_data.action_type.is_deregistration() &&
+                Self::action_state_is_active(authors_action_data.status)
+        })
+    }
+
+    /// Check if any author has any active action (registration, activation, or deregistration)
+    fn has_any_active_action() -> bool {
+        <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
+            Self::action_state_is_active(authors_action_data.status)
+        })
     }
 
     /// Check if an action status indicates the action is still active

@@ -1,20 +1,19 @@
-//Copyright 2025 Aventus Network Services (UK) Ltd.
+//Copyright 2024 Aventus Network Services (UK) Ltd.
 
 #![cfg(test)]
 
-use crate::{mock::*, AVN, *};
+use crate::{migration::AuthorsManagerMigrations, mock::*, AVN, *};
 use frame_support::{
-    assert_noop, assert_ok, pallet_prelude::DispatchResultWithPostInfo, traits::Currency,
+    assert_noop, assert_ok,
+    pallet_prelude::{DispatchResultWithPostInfo, StorageVersion, Weight},
+    traits::{Currency, GetStorageVersion, OnRuntimeUpgrade},
 };
 use frame_system::RawOrigin;
 use hex_literal::hex;
 use sp_runtime::{testing::UintAuthorityId, traits::BadOrigin};
 use substrate_test_utils::assert_eq_uvec;
 
-fn register_author(
-    author_id: &AccountId,
-    author_eth_public_key: &ecdsa::Public,
-) -> DispatchResultWithPostInfo {
+fn register_author(author_id: &AccountId, author_eth_public_key: &ecdsa::Public) -> DispatchResult {
     return AuthorsManager::add_author(RawOrigin::Root.into(), *author_id, *author_eth_public_key)
 }
 
@@ -686,7 +685,6 @@ mod bridge_interface_notification {
                     AuthorActions::<TestRuntime>::get(&context.new_author_id, ingress_counter)
                         .expect("Activation action should exist");
                 assert_eq!(activation_action.action_type, AuthorsActionType::Activation);
-
                 // Transaction mapping is removed by process_result (line 1005: take)
                 assert_eq!(TransactionToAction::<TestRuntime>::get(tx_id), None);
             });
@@ -906,4 +904,42 @@ mod rotate_author_ethereum_key {
             });
         }
     }
+}
+
+#[test]
+fn migration_populates_accountid_to_ethereum_keys_and_sets_storage_version() {
+    let mut ext = ExtBuilder::build_default().with_authors().as_externality();
+    ext.execute_with(|| {
+        // Simulate old state by clearing reverse map while keeping EthereumPublicKeys intact
+        for (account_id, _) in AccountIdToEthereumKeys::<TestRuntime>::iter() {
+            AccountIdToEthereumKeys::<TestRuntime>::remove(&account_id);
+        }
+
+        // Sanity: reverse map is empty or missing for authors
+        let authors = AuthorsManager::author_account_ids().unwrap();
+        for author in authors.iter() {
+            assert_eq!(AccountIdToEthereumKeys::<TestRuntime>::get(author), None);
+        }
+
+        // Simulate older on-chain storage version so migration runs
+        StorageVersion::new(0).put::<Pallet<TestRuntime>>();
+
+        // Run migration
+        let _w = AuthorsManagerMigrations::<TestRuntime>::on_runtime_upgrade();
+
+        // Verify reverse map populated from forward map
+        for (eth_key, account_id) in EthereumPublicKeys::<TestRuntime>::iter() {
+            assert_eq!(AccountIdToEthereumKeys::<TestRuntime>::get(&account_id), Some(eth_key));
+        }
+
+        // Verify version bumped so it won't run again
+        assert_eq!(
+            Pallet::<TestRuntime>::on_chain_storage_version(),
+            crate::migration::STORAGE_VERSION
+        );
+
+        // Second run should do nothing
+        let w2 = AuthorsManagerMigrations::<TestRuntime>::on_runtime_upgrade();
+        assert_eq!(w2, Weight::zero());
+    });
 }
