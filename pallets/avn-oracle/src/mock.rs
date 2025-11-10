@@ -12,23 +12,22 @@ use sp_runtime::{
 };
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 use codec::{Decode, Encode};
-use frame_support::__private::BasicExternalities;
+use frame_support::{
+    __private::BasicExternalities,
+    assert_err, assert_ok,
+    pallet_prelude::{ConstU32, Weight},
+    traits::Hooks,
+    BoundedVec,
+};
 use pallet_session as session;
 use sp_avn_common::event_types::Validator;
-use sp_core::{sr25519, Pair};
+use sp_core::{sr25519, Pair, U256};
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
     traits::ConvertInto,
     DispatchError, RuntimeAppPublic,
 };
 use std::cell::RefCell;
-use frame_support::{
-    assert_err, assert_ok,
-    pallet_prelude::{ConstU32, Weight},
-    traits::Hooks,
-    BoundedVec,
-};
-use sp_core::U256;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = u64;

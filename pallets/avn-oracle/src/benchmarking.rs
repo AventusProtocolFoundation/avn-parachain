@@ -1,15 +1,13 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::Pallet as AvnOracle;
+use crate::{mock::*, Pallet as AvnOracle};
 use codec::{Decode, Encode};
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_support::{
+    assert_err, assert_ok,
     pallet_prelude::Weight,
     traits::{Get, Hooks},
-};
-use frame_support::{
-    assert_err, assert_ok,
     BoundedVec,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
@@ -17,7 +15,6 @@ use scale_info::prelude::{format, vec};
 use sp_avn_common::event_types::Validator;
 use sp_core::{H160, U256};
 use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
-use crate::mock::*;
 
 fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId, T::AccountId>> {
     let mut validators = Vec::new();
@@ -45,15 +42,16 @@ fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId,
     validators
 }
 
-fn register_max_currencies<T: Config>() {
-    let max_currencies: u32 = T::MaxCurrencies::get();
-    for i in 1..=max_currencies - 1 {
+fn register_n_currencies<T: Config>(n: u32) {
+    for i in 0..n {
         let currency_symbol = format!("us{}", i).into_bytes();
         let currency = create_currency(currency_symbol.clone());
-
-        assert_ok!(AvnOracle::<T>::register_currency(RawOrigin::Root.into(), currency_symbol.clone(),));
-        assert!(Currencies::<T>::contains_key(&currency));
+        Currencies::<T>::insert(currency, ());
     }
+}
+
+fn register_max_currencies<T: Config>() {
+    register_n_currencies::<T>(T::MaxCurrencies::get().saturating_sub(1));
 }
 
 benchmarks! {
@@ -96,7 +94,9 @@ benchmarks! {
     }
 
     register_currency {
-        register_max_currencies::<T>();
+        let m in 0 .. T::MaxCurrencies::get().saturating_sub(1);
+        register_n_currencies::<T>(m);
+
         let currency_symbol = b"eur".to_vec();
     }: _(RawOrigin::Root, currency_symbol.clone())
     verify {
