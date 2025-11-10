@@ -59,7 +59,6 @@ std = [
 	"frame-system/std",
 	"codec/std",
 	"scale-info/std",
-	"serde",
 	"sp-runtime/std",
 	"sp-std/std",
     "sp-io/std",
@@ -71,7 +70,10 @@ std = [
 	"pallet-avn/std",
 	"pallet-session/std",
 	"log/std",
-
+	"hex/std",
+	"serde/std",
+	"substrate-fixed/std",
+	"rand/std",
 ]
 runtime-benchmarks = ["frame-benchmarking"]
 try-runtime = ["frame-support/try-runtime"]

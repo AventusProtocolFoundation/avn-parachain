@@ -59,7 +59,7 @@ migrate = []
 default = ["std", "pallet-session/historical"]
 std = [
 	"frame-benchmarking?/std",
-	"serde/std",
+	"serde?/std",
 	"scale-info/std",
 	"codec/std",
 	"sp-std/std",
@@ -75,6 +75,9 @@ std = [
 	"pallet-parachain-staking/std",
 	"pallet-session/std",
 	"libsecp256k1?/std",
+	"hex/std",
+	"log/std",
+	"rand?/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

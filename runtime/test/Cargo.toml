@@ -188,7 +188,6 @@ std = [
 ]
 
 runtime-benchmarks = [
-	"hex-literal",
 	"cumulus-pallet-session-benchmarking/runtime-benchmarks",
 	"cumulus-pallet-xcmp-queue/runtime-benchmarks",
 	"cumulus-pallet-parachain-system/runtime-benchmarks",

@@ -57,6 +57,7 @@ std = [
 	"alloy-sol-types/std",
 	"strum/std",
 	"serde/std",
+	"hex/std",
 ]
 
 runtime-benchmarks = []

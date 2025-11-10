@@ -62,6 +62,9 @@ std = [
 	"frame-system/std",
 	"pallet-avn/std",
 	"pallet-session/std",
+	"hex/std",
+	"log/std",
+	"serde?/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
