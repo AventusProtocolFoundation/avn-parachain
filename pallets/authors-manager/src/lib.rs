@@ -257,7 +257,7 @@ pub mod pallet {
             origin: OriginFor<T>,
             author_account_id: T::AccountId,
             author_eth_public_key: ecdsa::Public,
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             ensure_root(origin)?;
 
             // Validate the registration request
@@ -266,7 +266,7 @@ pub mod pallet {
             // Send to T1 - actual registration happens in callback
             Self::send_author_registration_to_t1(&author_account_id, &author_eth_public_key)?;
 
-            Ok(().into())
+            Ok(())
         }
 
         #[pallet::call_index(1)]
@@ -275,7 +275,7 @@ pub mod pallet {
         pub fn remove_author(
             origin: OriginFor<T>,
             author_account_id: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
+        ) -> DispatchResult {
             let _ = ensure_root(origin)?;
 
             // Validate the deregistration request
@@ -284,7 +284,7 @@ pub mod pallet {
             // Send to T1 - actual deregistration happens in callback
             Self::send_author_deregistration_to_t1(&author_account_id)?;
 
-            Ok(().into())
+            Ok(())
         }
 
         #[pallet::call_index(2)]
