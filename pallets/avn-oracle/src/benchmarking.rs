@@ -50,10 +50,6 @@ fn register_n_currencies<T: Config>(n: u32) {
     }
 }
 
-fn register_max_currencies<T: Config>() {
-    register_n_currencies::<T>(T::MaxCurrencies::get().saturating_sub(1));
-}
-
 benchmarks! {
     submit_price {
         let current_authors = generate_validators::<T>(10);
