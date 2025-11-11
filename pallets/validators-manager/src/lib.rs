@@ -446,13 +446,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn deregistration_state_is_active(status: ValidatorsActionStatus) -> bool {
-        matches!(
-            status,
-            ValidatorsActionStatus::AwaitingConfirmation | ValidatorsActionStatus::Confirmed
-        )
-    }
-
     fn validate_validator_registration_request(
         account_id: &T::AccountId,
         eth_public_key: &ecdsa::Public,
@@ -508,15 +501,6 @@ impl<T: Config> Pallet<T> {
         ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
 
         Ok(())
-    }
-
-    fn has_active_deregistration(validator_account_id: &T::AccountId) -> bool {
-        <ValidatorActions<T>>::iter_prefix_values(validator_account_id).any(
-            |validators_action_data| {
-                validators_action_data.action_type.is_deregistration() &&
-                    Self::deregistration_state_is_active(validators_action_data.status)
-            },
-        )
     }
 
     /// Check if any validator has an active deregistration in progress
