@@ -145,145 +145,145 @@ mod lower_proofs {
     use super::*;
     use frame_support::assert_ok;
 
-    // #[test]
-    // fn lower_proof_request_can_be_added() {
-    //     let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
-    //         .with_validators()
-    //         .with_genesis_config()
-    //         .for_offchain_worker()
-    //         .as_externality_with_state();
+    #[test]
+    fn lower_proof_request_can_be_added() {
+        let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .for_offchain_worker()
+            .as_externality_with_state();
 
-    //     ext.execute_with(|| {
-    //         let context = setup_context();
+        ext.execute_with(|| {
+            let context = setup_context();
 
-    //         add_new_lower_proof_request::<TestRuntime, ()>(
-    //             context.lower_id,
-    //             &context.lower_params,
-    //             &vec![],
-    //         )
-    //         .unwrap();
+            add_new_lower_proof_request::<TestRuntime, ()>(
+                context.lower_id,
+                &context.lower_params,
+                &vec![],
+            )
+            .unwrap();
 
-    //         // Ensure the mem pool is empty
-    //         assert_eq!(true, pool_state.read().transactions.is_empty());
-    //         call_ocw(&context, offchain_state, 1u64, context.block_number);
+            // Ensure the mem pool is empty
+            assert_eq!(true, pool_state.read().transactions.is_empty());
+            call_ocw(&context, offchain_state, 1u64, context.block_number);
 
-    //         // A new active lower request is added
-    //         let active_lower = ActiveRequest::<TestRuntime>::get().unwrap();
-    //         assert_eq!(true, active_lower.request.id_matches(&context.lower_id));
+            // A new active lower request is added
+            let active_lower = ActiveRequest::<TestRuntime>::get().unwrap();
+            assert_eq!(true, active_lower.request.id_matches(&context.lower_id));
 
-    //         // A new confirmation is added to the pool
-    //         assert_eq!(false, pool_state.read().transactions.is_empty());
+            // A new confirmation is added to the pool
+            assert_eq!(false, pool_state.read().transactions.is_empty());
 
-    //         // Make sure the transaction in the mempool is what we expect to see
-    //         let tx = pool_state.write().transactions.pop().unwrap();
-    //         let tx = Extrinsic::decode(&mut &*tx).unwrap();
+            // Make sure the transaction in the mempool is what we expect to see
+            let tx = pool_state.write().transactions.pop().unwrap();
+            let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
-    //         assert!(matches!(
-    //             tx.call,
-    //             RuntimeCall::EthBridge(crate::Call::add_confirmation {
-    //                 request_id: _,
-    //                 confirmation: _,
-    //                 author: _,
-    //                 signature: _
-    //             })
-    //         ))
-    //     });
-    // }
+            assert!(matches!(
+                tx.call,
+                RuntimeCall::EthBridge(crate::Call::add_confirmation {
+                    request_id: _,
+                    confirmation: _,
+                    author: _,
+                    signature: _
+                })
+            ))
+        });
+    }
 
-    // #[test]
-    // fn lower_proof_request_can_be_generated() {
-    //     let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
-    //         .with_validators()
-    //         .with_genesis_config()
-    //         .for_offchain_worker()
-    //         .as_externality_with_state();
+    #[test]
+    fn lower_proof_request_can_be_generated() {
+        let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .for_offchain_worker()
+            .as_externality_with_state();
 
-    //     ext.execute_with(|| {
-    //         let context = setup_context();
+        ext.execute_with(|| {
+            let context = setup_context();
 
-    //         add_new_lower_proof_request::<TestRuntime, ()>(
-    //             context.lower_id,
-    //             &context.lower_params,
-    //             &vec![],
-    //         )
-    //         .unwrap();
-    //         // Add enough confirmations so the last one will complete the quorum
-    //         add_confirmations(
-    //             <TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() - 1,
-    //         );
+            add_new_lower_proof_request::<TestRuntime, ()>(
+                context.lower_id,
+                &context.lower_params,
+                &vec![],
+            )
+            .unwrap();
+            // Add enough confirmations so the last one will complete the quorum
+            add_confirmations(
+                <TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() - 1,
+            );
 
-    //         // ensure there is no request in storage
-    //         assert!(ActiveRequest::<TestRuntime>::get().is_some());
-    //         assert_eq!(false, lower_is_ready_to_be_claimed(&context.lower_id));
+            // ensure there is no request in storage
+            assert!(ActiveRequest::<TestRuntime>::get().is_some());
+            assert_eq!(false, lower_is_ready_to_be_claimed(&context.lower_id));
 
-    //         // Ensure the mem pool is empty
-    //         assert_eq!(true, pool_state.read().transactions.is_empty());
-    //         call_ocw(&context, offchain_state, 1u64, context.block_number);
+            // Ensure the mem pool is empty
+            assert_eq!(true, pool_state.read().transactions.is_empty());
+            call_ocw(&context, offchain_state, 1u64, context.block_number);
 
-    //         // Make sure the transaction in the mempool is what we expect to see
-    //         let tx = pool_state.write().transactions.pop().unwrap();
-    //         let tx = Extrinsic::decode(&mut &*tx).unwrap();
+            // Make sure the transaction in the mempool is what we expect to see
+            let tx = pool_state.write().transactions.pop().unwrap();
+            let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
-    //         // Simulate sending the tx from the mem pool. Normally this would happen as
-    //         // part of the ocw but in tests we have to dispatch it manually.
-    //         tx.call.dispatch(frame_system::RawOrigin::None.into()).map(|_| ()).unwrap();
+            // Simulate sending the tx from the mem pool. Normally this would happen as
+            // part of the ocw but in tests we have to dispatch it manually.
+            tx.call.dispatch(frame_system::RawOrigin::None.into()).map(|_| ()).unwrap();
 
-    //         // The proof should be generated now
-    //         assert!(ActiveRequest::<TestRuntime>::get().is_none());
-    //         assert_eq!(true, lower_is_ready_to_be_claimed(&context.lower_id));
-    //     });
-    // }
+            // The proof should be generated now
+            assert!(ActiveRequest::<TestRuntime>::get().is_none());
+            assert_eq!(true, lower_is_ready_to_be_claimed(&context.lower_id));
+        });
+    }
 
-    // #[test]
-    // fn multiple_lower_proof_can_be_processed() {
-    //     let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
-    //         .with_validators()
-    //         .with_genesis_config()
-    //         .for_offchain_worker()
-    //         .as_externality_with_state();
+    #[test]
+    fn multiple_lower_proof_can_be_processed() {
+        let (mut ext, pool_state, offchain_state) = ExtBuilder::build_default()
+            .with_validators()
+            .with_genesis_config()
+            .for_offchain_worker()
+            .as_externality_with_state();
 
-    //     ext.execute_with(|| {
-    //         let context = setup_context();
+        ext.execute_with(|| {
+            let context = setup_context();
 
-    //         add_new_lower_proof_request::<TestRuntime, ()>(
-    //             context.lower_id,
-    //             &context.lower_params,
-    //             &vec![],
-    //         )
-    //         .unwrap();
+            add_new_lower_proof_request::<TestRuntime, ()>(
+                context.lower_id,
+                &context.lower_params,
+                &vec![],
+            )
+            .unwrap();
 
-    //         let new_lower_id = context.lower_id + 1;
-    //         add_new_lower_proof_request::<TestRuntime, ()>(
-    //             new_lower_id,
-    //             &context.lower_params,
-    //             &vec![],
-    //         )
-    //         .unwrap();
+            let new_lower_id = context.lower_id + 1;
+            add_new_lower_proof_request::<TestRuntime, ()>(
+                new_lower_id,
+                &context.lower_params,
+                &vec![],
+            )
+            .unwrap();
 
-    //         // Add enough confirmations so the last one will complete the quorum
-    //         add_confirmations(
-    //             <TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() - 1,
-    //         );
+            // Add enough confirmations so the last one will complete the quorum
+            add_confirmations(
+                <TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() - 1,
+            );
 
-    //         // Ensure the mem pool is empty
-    //         assert_eq!(true, pool_state.read().transactions.is_empty());
-    //         call_ocw(&context, offchain_state, 1u64, context.block_number);
+            // Ensure the mem pool is empty
+            assert_eq!(true, pool_state.read().transactions.is_empty());
+            call_ocw(&context, offchain_state, 1u64, context.block_number);
 
-    //         // Make sure the transaction in the mempool is what we expect to see
-    //         let tx = pool_state.write().transactions.pop().unwrap();
-    //         let tx = Extrinsic::decode(&mut &*tx).unwrap();
+            // Make sure the transaction in the mempool is what we expect to see
+            let tx = pool_state.write().transactions.pop().unwrap();
+            let tx = Extrinsic::decode(&mut &*tx).unwrap();
 
-    //         // Simulate sending the tx from the mem pool
-    //         tx.call.dispatch(frame_system::RawOrigin::None.into()).map(|_| ()).unwrap();
+            // Simulate sending the tx from the mem pool
+            tx.call.dispatch(frame_system::RawOrigin::None.into()).map(|_| ()).unwrap();
 
-    //         // The proof should be generated now
-    //         assert_eq!(true, lower_is_ready_to_be_claimed(&context.lower_id));
+            // The proof should be generated now
+            assert_eq!(true, lower_is_ready_to_be_claimed(&context.lower_id));
 
-    //         // The next active request should be lower_id + 1
-    //         let new_active_lower = ActiveRequest::<TestRuntime>::get().unwrap();
-    //         assert_eq!(true, new_active_lower.request.id_matches(&new_lower_id));
-    //     });
-    // }
+            // The next active request should be lower_id + 1
+            let new_active_lower = ActiveRequest::<TestRuntime>::get().unwrap();
+            assert_eq!(true, new_active_lower.request.id_matches(&new_lower_id));
+        });
+    }
 
     #[ignore]
     #[test]
@@ -408,33 +408,29 @@ mod lower_proof_encoding {
 
         ext.execute_with(|| {
             let lower_id = 10u32;
-            let token_id = H160::from([3u8; 20]);
+            let token = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
             let amount = 100_000_000_000_000_000_000u128;
-            let t1_recipient = H160::from([2u8; 20]);
-            let t2_sender = H256::from([5u8; 32]);
-            let t2_timestamp = 1893456000u32;
+            let recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
+            let t2_sender = H256::from_slice(&hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"));
+            let t2_timestamp = 1767225600u32;
 
             let params = concat_lower_data(
                 lower_id,
-                token_id,
+                token,
                 &amount,
-                &t1_recipient,
+                &recipient,
                 t2_sender,
                 t2_timestamp,
             );
             let expected_msg_hash =
-                "3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba";
+                "df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7";
 
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
             assert_eq!(true, active_req.request.id_matches(&lower_id));
 
             let msg_hash = hex::encode(active_req.confirmation.msg_hash);
-
-            let msg_hash_hex = hex::encode(active_req.confirmation.msg_hash);
-            println!("[lower msg hash] {}", msg_hash_hex);
-            println!("[lower params]  {}", hex::encode(params));
-            // assert_eq!(msg_hash, expected_msg_hash);
+            assert_eq!(msg_hash, expected_msg_hash);
         })
     }
 
@@ -447,18 +443,18 @@ mod lower_proof_encoding {
             .as_externality_with_state();
 
         ext.execute_with(|| {
-            let lower_id = 0u32;
-            let token_id = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
+            let lower_id = 10u32;
+            let token = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
             let amount = 10u128;
-            let t1_recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
-            let t2_sender = H256::from([5u8; 32]);
-            let t2_timestamp = 1893456000u32;
+            let recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
+            let t2_sender = H256::from_slice(&hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"));
+            let t2_timestamp = 1767225600u32;
 
             let params = concat_lower_data(
                 lower_id,
-                token_id,
+                token,
                 &amount,
-                &t1_recipient,
+                &recipient,
                 t2_sender,
                 t2_timestamp,
             );
@@ -466,12 +462,10 @@ mod lower_proof_encoding {
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
 
-            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b2200000000";
+            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b220000000adf527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd76955b900";
             if let Request::LowerProof(lower_req) = active_req.request {
                 let encoded_proof = generate_encoded_lower_proof::<TestRuntime, ()>(&lower_req, active_req.confirmation.confirmations);
-                // assert_eq!(expected_encoded_proof, hex::encode(encoded_proof));
-                let proof_hex = hex::encode(encoded_proof);
-                println!("[lower proof]   {}", proof_hex);
+                assert_eq!(expected_encoded_proof, hex::encode(encoded_proof));
             } else {
                 assert!(false, "active request is not a lower proof");
             }
