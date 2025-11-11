@@ -444,10 +444,7 @@ mod test {
         let eip712_domain: Eip712Domain = domain();
         let hash = eip712_hash(&growth, &eip712_domain);
 
-        assert_eq!(
-            hash,
-            H256(hex!("560ddcd37021adc249014f89c426ee711d1928db1d6e3e145101ddc128aae27c")) /* Generated via the EnergyBridge contract */
-        );
+        assert_eq!(hash, H256(hex!("560ddcd37021adc249014f89c426ee711d1928db1d6e3e145101ddc128aae27c")));
     }
 
     #[test]
@@ -459,15 +456,14 @@ mod test {
             amount: AlloyU256::from(100_000_000_000_000_000_000u128),
             recipient: Address::from_slice(H160::from_slice(&hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22")).as_bytes()),
             lowerId: 10,
-            t2Sender: alloy_primitives::FixedBytes::from_slice(
-            H256::from_slice(&hex!("4e9139b7bcb5acc9d55582b82637ad7f8a54b5697e7a280e76b3a3fd088f3105")).as_fixed_bytes()),
+            t2Sender: FixedBytes::from_slice(H256(hex!("4e9139b7bcb5acc9d55582b82637ad7f8a54b5697e7a280e76b3a3fd088f3105")).as_fixed_bytes()),
             t2Timestamp: 1767225600u32,
         };
 
         let eip712_domain: Eip712Domain = domain();
         let hash = eip712_hash(&lower_data, &eip712_domain);
 
-        assert_eq!(hash, H256::from_slice(&hex!("0xdf527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7")));
+        assert_eq!(hash, H256(hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7")));
     }
 }
 

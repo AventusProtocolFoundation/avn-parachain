@@ -411,7 +411,7 @@ mod lower_proof_encoding {
             let token = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
             let amount = 100_000_000_000_000_000_000u128;
             let recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
-            let t2_sender = H256::from_slice(&hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"));
+            let t2_sender = H256(hex_literal::hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"));
             let t2_timestamp = 1767225600u32;
 
             let params = concat_lower_data(
@@ -447,7 +447,7 @@ mod lower_proof_encoding {
             let token = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
             let amount = 10u128;
             let recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
-            let t2_sender = H256::from_slice(&hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"));
+            let t2_sender = H256(hex_literal::hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"));
             let t2_timestamp = 1767225600u32;
 
             let params = concat_lower_data(
