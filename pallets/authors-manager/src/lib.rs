@@ -12,12 +12,12 @@ extern crate alloc;
 #[cfg(not(feature = "std"))]
 use alloc::string::String;
 
-use sp_avn_common::eth::EthereumId;
+use sp_avn_common::{eth::EthereumId, BridgeContractMethod};
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{dispatch::DispatchResult, ensure, transactional};
 use pallet_session::{self as session, Config as SessionConfig};
-use sp_core::{bounded::BoundedVec, ecdsa};
+use sp_core::{bounded::BoundedVec, ecdsa, Get};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{Convert, Member},
@@ -44,6 +44,7 @@ pub mod default_weights;
 pub use default_weights::WeightInfo;
 
 pub type AVN<T> = avn::Pallet<T>;
+pub mod migration;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -54,6 +55,7 @@ pub mod pallet {
     use sp_core::ecdsa;
 
     #[pallet::pallet]
+    #[pallet::storage_version(migration::STORAGE_VERSION)]
     pub struct Pallet<T>(PhantomData<T>);
 
     #[pallet::config]
@@ -78,23 +80,63 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         type BridgeInterface: BridgeInterface;
+        /// Minimum number of authors that must remain active
+        #[pallet::constant]
+        type MinimumAuthorsCount: Get<u32>;
     }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
         /// A new author has been registered. \[author_id, eth_key\]
-        AuthorRegistered { author_id: T::AccountId, eth_key: ecdsa::Public },
+        AuthorRegistered {
+            author_id: T::AccountId,
+            eth_key: ecdsa::Public,
+        },
         /// An author has been deregistered. \[author_id\]
-        AuthorDeregistered { author_id: T::AccountId },
+        AuthorDeregistered {
+            author_id: T::AccountId,
+        },
         /// An author has activation has started. \[author_id\]
-        AuthorActivationStarted { author_id: T::AccountId },
+        AuthorActivationStarted {
+            author_id: T::AccountId,
+        },
         /// An author action has been confirmed. \[action_id\]
-        AuthorActionConfirmed { action_id: ActionId<T::AccountId> },
-        /// Failed to publish author action on Tier1. \[tx_id\]
-        PublishingAuthorActionOnEthereumFailed { tx_id: u32 },
-        /// Author action published on Tier1. \[tx_id\]
-        PublishingAuthorActionOnEthereumSucceeded { tx_id: u32 },
+        AuthorActionConfirmed {
+            action_id: ActionId<T::AccountId>,
+        },
+        /// Validator action was successfully sent to Ethereum via the bridge
+        AuthorActionPublished {
+            author_id: T::AccountId,
+            action_type: AuthorsActionType,
+            tx_id: u32,
+        },
+        /// Failed to send author action to Ethereum bridge
+        FailedToPublishAuthorAction {
+            author_id: T::AccountId,
+            action_type: AuthorsActionType,
+            reason: Vec<u8>,
+        },
+        /// Author action transaction confirmed on Ethereum
+        AuthorActionConfirmedOnEthereum {
+            author_id: T::AccountId,
+            action_type: AuthorsActionType,
+            tx_id: u32,
+        },
+        /// Author action transaction failed on Ethereum
+        AuthorActionFailedOnEthereum {
+            author_id: T::AccountId,
+            action_type: AuthorsActionType,
+            tx_id: u32,
+        },
+        AuthorRegistrationFailed {
+            author_id: T::AccountId,
+            reason: Vec<u8>,
+        },
+        AuthorDeregistrationFailed {
+            author_id: T::AccountId,
+            reason: Vec<u8>,
+        },
     }
 
     #[pallet::error]
@@ -123,6 +165,8 @@ pub mod pallet {
         AuthorsActionDataNotFound,
         /// Removal already requested
         RemovalAlreadyRequested,
+        /// A validator action is already in progress
+        ValidatorActionAlreadyInProgress,
         /// There was an error converting accountId to AuthorId
         ErrorConvertingAccountIdToAuthorId,
         /// Slashed author is not found
@@ -141,6 +185,10 @@ pub mod pallet {
         TransactionNotFound,
         /// Invalid action status for transaction
         InvalidActionStatus,
+        /// Author session keys are not set
+        AuthorSessionKeysNotSet,
+        /// A deregistration is already in progress for another author
+        DeregistrationAlreadyInProgress,
     }
 
     #[pallet::storage]
@@ -169,6 +217,13 @@ pub mod pallet {
     #[pallet::getter(fn get_ingress_counter)]
     pub type TotalIngresses<T: Config> = StorageValue<_, IngressCounter, ValueQuery>;
 
+    /// Storage map providing a reverse mapping from `AccountId` to Ethereum public key.
+    /// This enables O(1) lookup of the Ethereum public key associated with a given account.
+    /// Used for efficient author identification and key management.
+    #[pallet::storage]
+    pub type AccountIdToEthereumKeys<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, ecdsa::Public>;
+
     #[pallet::storage]
     pub type TransactionToAction<T: Config> =
         StorageMap<_, Blake2_128Concat, EthereumId, (T::AccountId, IngressCounter), OptionQuery>;
@@ -194,6 +249,7 @@ pub mod pallet {
             for (author_account_id, eth_public_key) in &self.authors {
                 assert_ok!(<AuthorAccountIds<T>>::try_append(author_account_id));
                 <EthereumPublicKeys<T>>::insert(eth_public_key, author_account_id);
+                <AccountIdToEthereumKeys<T>>::insert(author_account_id, eth_public_key);
             }
         }
     }
@@ -209,31 +265,14 @@ pub mod pallet {
             author_eth_public_key: ecdsa::Public,
         ) -> DispatchResult {
             ensure_root(origin)?;
-            let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
-            ensure!(!author_account_ids.is_empty(), Error::<T>::NoAuthors);
 
-            ensure!(
-                !author_account_ids.contains(&author_account_id),
-                Error::<T>::AuthorAlreadyExists
-            );
-            ensure!(
-                !<EthereumPublicKeys<T>>::contains_key(&author_eth_public_key),
-                Error::<T>::AuthorEthKeyAlreadyExists
-            );
+            // Validate the registration request
+            Self::validate_author_registration_request(&author_account_id, &author_eth_public_key)?;
 
-            ensure!(
-                AuthorAccountIds::<T>::get().unwrap_or_default().len() <
-                    (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
-                Error::<T>::MaximumAuthorsReached
-            );
+            // Send to T1 - actual registration happens in callback
+            Self::send_author_registration_to_t1(&author_account_id, &author_eth_public_key)?;
 
-            Self::register_author(&author_account_id, &author_eth_public_key)?;
-
-            <AuthorAccountIds<T>>::try_append(author_account_id.clone())
-                .map_err(|_| Error::<T>::MaximumAuthorsReached)?;
-            <EthereumPublicKeys<T>>::insert(author_eth_public_key, author_account_id);
-
-            return Ok(())
+            Ok(())
         }
 
         #[pallet::call_index(1)]
@@ -245,11 +284,13 @@ pub mod pallet {
         ) -> DispatchResult {
             let _ = ensure_root(origin)?;
 
-            Self::remove_deregistered_author(&author_account_id)?;
+            // Validate the deregistration request
+            Self::validate_author_deregistration_request(&author_account_id)?;
 
-            Self::deposit_event(Event::<T>::AuthorDeregistered { author_id: author_account_id });
+            // Send to T1 - actual deregistration happens in callback
+            Self::send_author_deregistration_to_t1(&author_account_id)?;
 
-            return Ok(())
+            Ok(())
         }
 
         #[pallet::call_index(2)]
@@ -306,6 +347,8 @@ pub enum AuthorsActionType {
     Activation,
     /// Default value
     Unknown,
+    /// Author registration pending T1 confirmation
+    Registration,
 }
 
 impl Default for AuthorsActionType {
@@ -316,15 +359,13 @@ impl Default for AuthorsActionType {
 
 #[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub enum AuthorsActionStatus {
-    /// Author enters this state immediately within removal extrinsic, ready for session
-    /// confirmation
+    /// Action enters this state immediately upon a request from the author.
     AwaitingConfirmation,
-    /// Author enters this state within session handler, ready for signing and sending to T1
+    /// The action has completed
     Confirmed,
-    /// Author enters this state once T1 action request is sent, ready to be removed from
-    /// hashmap
+    /// The request has been actioned (ex: sent to Ethereum and executed successfully)
     Actioned,
-    /// Author enters this state once T1 event processed
+    /// Default value, status is unknown
     None,
 }
 
@@ -363,6 +404,13 @@ impl AuthorsActionType {
     fn is_activation(&self) -> bool {
         match self {
             AuthorsActionType::Activation => true,
+            _ => false,
+        }
+    }
+
+    fn is_registration(&self) -> bool {
+        match self {
+            AuthorsActionType::Registration => true,
             _ => false,
         }
     }
@@ -470,6 +518,329 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    fn validate_author_registration_request(
+        account_id: &T::AccountId,
+        eth_public_key: &ecdsa::Public,
+    ) -> DispatchResult {
+        let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
+        ensure!(!author_account_ids.is_empty(), Error::<T>::NoAuthors);
+
+        ensure!(!author_account_ids.contains(account_id), Error::<T>::AuthorAlreadyExists);
+
+        ensure!(
+            !<EthereumPublicKeys<T>>::contains_key(eth_public_key),
+            Error::<T>::AuthorEthKeyAlreadyExists
+        );
+
+        ensure!(
+            author_account_ids.len() < (<MaximumAuthorsBound as sp_core::TypedGet>::get() as usize),
+            Error::<T>::MaximumAuthorsReached
+        );
+
+        let validator_id = <T as SessionConfig>::ValidatorIdOf::convert(account_id.clone())
+            .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
+
+        ensure!(
+            <pallet_session::NextKeys<T>>::contains_key(&validator_id),
+            Error::<T>::AuthorSessionKeysNotSet
+        );
+
+        // Disallow starting a registration if any author action is already in progress
+        ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
+
+        Ok(())
+    }
+
+    fn validate_author_deregistration_request(account_id: &T::AccountId) -> DispatchResult {
+        let author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
+
+        ensure!(
+            author_account_ids.len() > T::MinimumAuthorsCount::get() as usize,
+            Error::<T>::MinimumAuthorsReached
+        );
+
+        // Check if the author exists in the current list of authors
+        ensure!(author_account_ids.contains(account_id), Error::<T>::AuthorNotFound);
+
+        // Check if any author already has a deregistration in progress (global check)
+        ensure!(
+            !Self::has_any_active_deregistration(),
+            Error::<T>::DeregistrationAlreadyInProgress
+        );
+
+        // Check if this author has any active actions (registration or deregistration)
+        ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
+
+        Ok(())
+    }
+
+    /// Check if any author has an active deregistration in progress
+    /// This ensures only one deregistration can be processed at a time
+    pub fn has_any_active_deregistration() -> bool {
+        <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
+            authors_action_data.action_type.is_deregistration() &&
+                Self::action_state_is_active(authors_action_data.status)
+        })
+    }
+
+    /// Check if any author has any active action (registration, activation, or deregistration)
+    fn has_any_active_action() -> bool {
+        <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
+            Self::action_state_is_active(authors_action_data.status)
+        })
+    }
+
+    /// Check if an action status indicates the action is still active
+    fn action_state_is_active(status: AuthorsActionStatus) -> bool {
+        matches!(status, AuthorsActionStatus::AwaitingConfirmation | AuthorsActionStatus::Confirmed)
+    }
+
+    /// Send validator registration request to T1
+    fn send_author_registration_to_t1(
+        author_account_id: &T::AccountId,
+        author_eth_public_key: &ecdsa::Public,
+    ) -> Result<EthereumId, DispatchError> {
+        // Add eth key mapping immediately (before T1 confirmation)
+        <EthereumPublicKeys<T>>::insert(author_eth_public_key, author_account_id);
+        <AccountIdToEthereumKeys<T>>::insert(author_account_id, author_eth_public_key);
+
+        // Prepare data for T1
+        let decompressed_eth_public_key = decompress_eth_public_key(*author_eth_public_key)
+            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+
+        let author_id_bytes =
+            <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
+
+        let function_name = BridgeContractMethod::AddAuthor.name_as_bytes();
+        let params = vec![
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+        ];
+
+        let tx_id = <T as pallet::Config>::BridgeInterface::publish(
+            function_name,
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|_| {
+            Self::deposit_event(Event::<T>::FailedToPublishAuthorAction {
+                author_id: author_account_id.clone(),
+                action_type: AuthorsActionType::Registration,
+                reason: b"Failed to submit transaction to Ethereum bridge".to_vec(),
+            });
+            Error::<T>::ErrorSubmitCandidateTxnToTier1
+        })?;
+
+        // Now create authorActions entry with the actual tx_id (single insert, no mutation)
+        let ingress_counter = Self::get_ingress_counter() + 1;
+        TotalIngresses::<T>::put(ingress_counter);
+
+        <AuthorActions<T>>::insert(
+            author_account_id,
+            ingress_counter,
+            AuthorsActionData::new(
+                AuthorsActionStatus::AwaitingConfirmation,
+                tx_id,
+                AuthorsActionType::Registration,
+            ),
+        );
+
+        TransactionToAction::<T>::insert(tx_id, (author_account_id.clone(), ingress_counter));
+
+        Self::deposit_event(Event::<T>::AuthorActionPublished {
+            author_id: author_account_id.clone(),
+            action_type: AuthorsActionType::Registration,
+            tx_id,
+        });
+
+        Ok(tx_id)
+    }
+
+    /// Send validator deregistration request to T1
+    fn send_author_deregistration_to_t1(
+        author_account_id: &T::AccountId,
+    ) -> Result<EthereumId, DispatchError> {
+        // Prepare data for T1
+        let eth_public_key = <AccountIdToEthereumKeys<T>>::get(author_account_id)
+            .ok_or(Error::<T>::AuthorNotFound)?;
+
+        let decompressed_eth_public_key =
+            decompress_eth_public_key(eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
+
+        let author_id_bytes =
+            <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_account_id);
+
+        let function_name = BridgeContractMethod::RemoveAuthor.name_as_bytes();
+        let params = vec![
+            (b"bytes32".to_vec(), author_id_bytes.to_vec()),
+            (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
+        ];
+
+        // Send to T1 and get tx_id FIRST
+        let tx_id = <T as pallet::Config>::BridgeInterface::publish(
+            function_name,
+            &params,
+            PALLET_ID.to_vec(),
+        )
+        .map_err(|_| {
+            Self::deposit_event(Event::<T>::FailedToPublishAuthorAction {
+                author_id: author_account_id.clone(),
+                action_type: AuthorsActionType::Resignation,
+                reason: b"Failed to submit transaction to Ethereum bridge".to_vec(),
+            });
+            Error::<T>::ErrorSubmitCandidateTxnToTier1
+        })?;
+
+        // Now create ValidatorActions entry with the actual tx_id (single insert, no mutation)
+        let ingress_counter = Self::get_ingress_counter() + 1;
+        TotalIngresses::<T>::put(ingress_counter);
+
+        <AuthorActions<T>>::insert(
+            author_account_id,
+            ingress_counter,
+            AuthorsActionData::new(
+                AuthorsActionStatus::AwaitingConfirmation,
+                tx_id,
+                AuthorsActionType::Resignation,
+            ),
+        );
+
+        TransactionToAction::<T>::insert(tx_id, (author_account_id.clone(), ingress_counter));
+
+        Self::deposit_event(Event::<T>::AuthorActionPublished {
+            author_id: author_account_id.clone(),
+            action_type: AuthorsActionType::Resignation,
+            tx_id,
+        });
+
+        Ok(tx_id)
+    }
+
+    /// Rollback and cleanup state when T1 operation fails
+    fn rollback_failed_author_action(
+        account_id: &T::AccountId,
+        ingress_counter: IngressCounter,
+        action_type: AuthorsActionType,
+        tx_id: EthereumId,
+    ) {
+        // Type-specific cleanup
+        if action_type.is_registration() {
+            Self::cleanup_registration_storage(&account_id, ingress_counter);
+        } else {
+            // For non-registration actions, just remove the author action entry
+            <AuthorActions<T>>::remove(&account_id, ingress_counter);
+        }
+
+        Self::deposit_event(Event::<T>::AuthorActionFailedOnEthereum {
+            author_id: account_id.clone(),
+            action_type,
+            tx_id,
+        });
+    }
+
+    fn cleanup_registration_storage(account_id: &T::AccountId, ingress_counter: IngressCounter) {
+        // Remove the eth key mapping if it exists
+        if let Some(eth_key) = <AccountIdToEthereumKeys<T>>::get(&account_id) {
+            <EthereumPublicKeys<T>>::remove(eth_key);
+            <AccountIdToEthereumKeys<T>>::remove(&account_id);
+        }
+
+        // Remove author action entry
+        <AuthorActions<T>>::remove(&account_id, ingress_counter);
+    }
+
+    fn complete_author_registration(
+        account_id: &T::AccountId,
+        ingress_counter: IngressCounter,
+    ) -> DispatchResult {
+        // Add to active authors list
+        match <AuthorAccountIds<T>>::try_append(account_id.clone()) {
+            Ok(_) => {},
+            Err(_) => {
+                // Cleanup on failure (no deposit to clean as it's already been used for staking)
+                Self::handle_registration_failure(
+                    &account_id,
+                    ingress_counter,
+                    "Failed to append author to active authors list",
+                );
+                return Err(Error::<T>::MaximumAuthorsReached.into())
+            },
+        }
+
+        // Notify author registration
+        let new_author_id = <T as SessionConfig>::ValidatorIdOf::convert(account_id.clone())
+            .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
+
+        T::ValidatorRegistrationNotifier::on_validator_registration(&new_author_id);
+
+        // Update ValidatorActions for activation process
+        <AuthorActions<T>>::mutate(&account_id, ingress_counter, |authors_action_data_maybe| {
+            if let Some(authors_action_data) = authors_action_data_maybe {
+                authors_action_data.action_type = AuthorsActionType::Activation;
+                authors_action_data.status = AuthorsActionStatus::Actioned;
+            }
+        });
+
+        Self::deposit_event(Event::<T>::AuthorActivationStarted { author_id: account_id.clone() });
+
+        Ok(())
+    }
+
+    fn complete_author_deregistration(
+        account_id: &T::AccountId,
+        ingress_counter: IngressCounter,
+    ) -> DispatchResult {
+        // Immediately clean up author manager storage
+        // Remove from active authors list
+        AuthorAccountIds::<T>::mutate(|maybe_validators| {
+            if let Some(validators) = maybe_validators {
+                validators.retain(|v| v != account_id);
+            }
+        });
+
+        Self::remove_ethereum_public_key_if_required(&account_id);
+
+        <AuthorActions<T>>::mutate(&account_id, ingress_counter, |authors_action_data_maybe| {
+            if let Some(authors_action_data) = authors_action_data_maybe {
+                authors_action_data.status = AuthorsActionStatus::Actioned;
+            }
+        });
+
+        Self::deposit_event(Event::<T>::AuthorDeregistered { author_id: account_id.clone() });
+
+        Ok(())
+    }
+
+    fn handle_registration_failure(
+        account_id: &T::AccountId,
+        ingress_counter: IngressCounter,
+        reason: &str,
+    ) {
+        log::error!("Validator registration failed for {:?}: {}", account_id, reason);
+
+        Self::cleanup_registration_storage(&account_id, ingress_counter);
+
+        Self::deposit_event(Event::<T>::AuthorRegistrationFailed {
+            author_id: account_id.clone(),
+            reason: reason.as_bytes().to_vec(),
+        });
+    }
+
+    fn handle_deregistration_failure(
+        account_id: &T::AccountId,
+        ingress_counter: IngressCounter,
+        reason: &str,
+    ) {
+        log::error!("Author deregistration failed for {:?}: {}", account_id, reason);
+
+        <AuthorActions<T>>::remove(&account_id, ingress_counter);
+
+        Self::deposit_event(Event::<T>::AuthorDeregistrationFailed {
+            author_id: account_id.clone(),
+            reason: reason.as_bytes().to_vec(),
+        });
+    }
+
     fn remove(
         author_id: &T::AccountId,
         ingress_counter: IngressCounter,
@@ -561,30 +932,6 @@ impl<T: Config> Pallet<T> {
 
         Self::deposit_event(Event::<T>::AuthorActionConfirmed { action_id });
     }
-
-    fn process_transaction(tx_id: EthereumId, succeeded: bool) -> Result<(), DispatchError> {
-        let (account_id, ingress_counter) =
-            TransactionToAction::<T>::get(tx_id).ok_or(Error::<T>::TransactionNotFound)?;
-
-        let action_data = AuthorActions::<T>::get(&account_id, ingress_counter)
-            .ok_or(Error::<T>::AuthorsActionDataNotFound)?;
-
-        ensure!(
-            action_data.status == AuthorsActionStatus::Confirmed,
-            Error::<T>::InvalidActionStatus
-        );
-
-        if succeeded {
-            AuthorActions::<T>::remove(&account_id, ingress_counter);
-            TransactionToAction::<T>::remove(tx_id);
-
-            Self::deposit_event(Event::<T>::PublishingAuthorActionOnEthereumSucceeded { tx_id });
-        } else {
-            Self::deposit_event(Event::<T>::PublishingAuthorActionOnEthereumFailed { tx_id });
-        }
-
-        Ok(())
-    }
 }
 
 impl<T: Config> NewSessionHandler<T::AuthorityId, T::AccountId> for Pallet<T> {
@@ -671,9 +1018,36 @@ impl<T: Config> session::SessionManager<T::AccountId> for Pallet<T> {
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
-        if caller_id == PALLET_ID.to_vec() {
-            Pallet::<T>::process_transaction(tx_id, succeeded)?;
+        if caller_id != PALLET_ID.to_vec() {
+            return Ok(())
         }
+
+        let Some((account_id, ingress_counter)) = TransactionToAction::<T>::take(tx_id) else {
+            return Ok(())
+        };
+        let action_data = <AuthorActions<T>>::get(&account_id, ingress_counter)
+            .ok_or(Error::<T>::AuthorsActionDataNotFound)?;
+        let action_type = action_data.action_type;
+
+        if !succeeded {
+            Self::rollback_failed_author_action(&account_id, ingress_counter, action_type, tx_id);
+            return Ok(())
+        }
+
+        // T1 succeeded - emit confirmation event and complete the operation
+        Self::deposit_event(Event::<T>::AuthorActionConfirmedOnEthereum {
+            author_id: account_id.clone(),
+            action_type,
+            tx_id,
+        });
+
+        // Complete the operation based on action type
+        if action_type.is_registration() {
+            Self::complete_author_registration(&account_id, ingress_counter)?;
+        } else if action_type.is_deregistration() {
+            Self::complete_author_deregistration(&account_id, ingress_counter)?;
+        }
+
         Ok(())
     }
 }
