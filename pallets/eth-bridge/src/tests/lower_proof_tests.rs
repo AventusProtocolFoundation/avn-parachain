@@ -39,6 +39,7 @@ pub fn mock_ecdsa_sign(
     response: Option<Vec<u8>>,
 ) {
     let url = "http://127.0.0.1:2020/eth/sign_hashed_data".to_string();
+
     let proof_data = encode_to_http_data(&proof);
     state.expect_request(PendingRequest {
         method: "POST".into(),
@@ -46,7 +47,7 @@ pub fn mock_ecdsa_sign(
         response,
         headers: vec![("X-Auth".to_owned(), proof_data)],
         sent: true,
-        body: hex::encode(body).into_bytes(),
+        body: body_hex.into_bytes(),
         ..Default::default()
     });
 }
@@ -54,11 +55,12 @@ pub fn mock_ecdsa_sign(
 fn add_confirmations(count: u32) {
     let mut active_request = ActiveRequest::<TestRuntime>::get().unwrap();
 
-    for (index, _) in (0..count).enumerate() {
+    for i in 0..count {
+        let sig = ecdsa::Signature::try_from(&[i as u8; 65][0..65]).unwrap();
         active_request
             .confirmation
             .confirmations
-            .try_push(ecdsa::Signature::try_from(&[(index + 2) as u8; 65][0..65]).unwrap())
+            .try_push(sig)
             .unwrap();
     }
 
@@ -108,9 +110,12 @@ fn call_ocw(
     author: AccountId,
     block_number: BlockNumber,
 ) {
+    UintAuthorityId::set_all_keys(vec![UintAuthorityId(author)]);
+
     let h256 = H256::from_slice(
         &hex::decode(context.expected_lower_msg_hash.clone()).expect("failed to decode hex"),
     );
+
     mock_get_finalised_block(&mut offchain_state.write(), &context.finalised_block_vec);
     mock_ecdsa_sign(
         &mut offchain_state.write(),
@@ -118,7 +123,6 @@ fn call_ocw(
         h256.as_ref().to_vec(),
         Some(hex::encode(&context.confirmation_signature).as_bytes().to_vec()),
     );
-    UintAuthorityId::set_all_keys(vec![UintAuthorityId(author)]);
 
     let mut account_vec: [u8; 8] = Default::default();
     account_vec.copy_from_slice(&1u64.encode()[0..8]);
@@ -423,7 +427,7 @@ mod lower_proof_encoding {
                 t2_timestamp,
             );
             let expected_msg_hash =
-                "df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7";
+                "b48a5a380e530ce18122675d45d9bf05589c8659d527b85e3f6e9c2fcaf4c668";
 
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
@@ -443,7 +447,7 @@ mod lower_proof_encoding {
             .as_externality_with_state();
 
         ext.execute_with(|| {
-            let lower_id = 10u32;
+            let lower_id = 0u32;
             let token = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
             let amount = 10u128;
             let recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
@@ -462,7 +466,7 @@ mod lower_proof_encoding {
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
 
-            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b220000000adf527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd76955b900";
+            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a934310000000000000000000000000000000000000000000000056bc75e2d63100000de7e1091cde63c05aa4d82c62e4c54edbc701b2200000000df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd76955b900";
             if let Request::LowerProof(lower_req) = active_req.request {
                 let encoded_proof = generate_encoded_lower_proof::<TestRuntime, ()>(&lower_req, active_req.confirmation.confirmations);
                 assert_eq!(expected_encoded_proof, hex::encode(encoded_proof));
