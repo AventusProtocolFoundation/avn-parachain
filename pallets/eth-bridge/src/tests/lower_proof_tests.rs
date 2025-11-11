@@ -39,7 +39,6 @@ pub fn mock_ecdsa_sign(
     response: Option<Vec<u8>>,
 ) {
     let url = "http://127.0.0.1:2020/eth/sign_hashed_data".to_string();
-
     let proof_data = encode_to_http_data(&proof);
     state.expect_request(PendingRequest {
         method: "POST".into(),
@@ -47,7 +46,7 @@ pub fn mock_ecdsa_sign(
         response,
         headers: vec![("X-Auth".to_owned(), proof_data)],
         sent: true,
-        body: body_hex.into_bytes(),
+        body: hex::encode(body).into_bytes(),
         ..Default::default()
     });
 }
@@ -57,11 +56,7 @@ fn add_confirmations(count: u32) {
 
     for i in 0..count {
         let sig = ecdsa::Signature::try_from(&[i as u8; 65][0..65]).unwrap();
-        active_request
-            .confirmation
-            .confirmations
-            .try_push(sig)
-            .unwrap();
+        active_request.confirmation.confirmations.try_push(sig).unwrap();
     }
 
     ActiveRequest::<TestRuntime>::put(active_request);
@@ -415,17 +410,13 @@ mod lower_proof_encoding {
             let token = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
             let amount = 100_000_000_000_000_000_000u128;
             let recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
-            let t2_sender = H256(hex_literal::hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"));
+            let t2_sender = H256(hex_literal::hex!(
+                "df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"
+            ));
             let t2_timestamp = 1767225600u32;
 
-            let params = concat_lower_data(
-                lower_id,
-                token,
-                &amount,
-                &recipient,
-                t2_sender,
-                t2_timestamp,
-            );
+            let params =
+                concat_lower_data(lower_id, token, &amount, &recipient, t2_sender, t2_timestamp);
             let expected_msg_hash =
                 "b48a5a380e530ce18122675d45d9bf05589c8659d527b85e3f6e9c2fcaf4c668";
 
