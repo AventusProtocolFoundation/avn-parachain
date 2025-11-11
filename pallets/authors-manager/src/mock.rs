@@ -125,6 +125,7 @@ impl AuthorsManager {
 
 parameter_types! {
     pub const VotingPeriod: u64 = 2;
+    pub const MinimumAuthorsCount: u32 = 2;
 }
 
 impl Config for TestRuntime {
@@ -133,6 +134,7 @@ impl Config for TestRuntime {
     type ValidatorRegistrationNotifier = Self;
     type WeightInfo = default_weights::SubstrateWeight<TestRuntime>;
     type BridgeInterface = EthBridge;
+    type MinimumAuthorsCount = MinimumAuthorsCount;
 }
 
 impl<LocalCall> system::offchain::SendTransactionTypes<LocalCall> for TestRuntime
@@ -262,7 +264,7 @@ impl pallet_session::historical::Config for TestRuntime {
 /// An extrinsic type used for tests.
 //type IdentificationTuple = (AccountId, AccountId);
 
-pub const INITIAL_TRANSACTION_ID: EthereumTransactionId = 0;
+pub const INITIAL_TRANSACTION_ID: EthereumId = 0;
 
 thread_local! {
     static PROCESSED_EVENTS: RefCell<Vec<(H256,H256)>> = RefCell::new(vec![]);
@@ -275,7 +277,7 @@ thread_local! {
         author_id_5(),
     ]));
 
-    static MOCK_TX_ID: RefCell<EthereumTransactionId> = RefCell::new(INITIAL_TRANSACTION_ID);
+    static MOCK_TX_ID: RefCell<EthereumId> = RefCell::new(INITIAL_TRANSACTION_ID);
 }
 
 impl ProcessedEventsChecker for TestRuntime {
