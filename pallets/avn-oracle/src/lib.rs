@@ -136,7 +136,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as Config>::WeightInfo::submit_price())]
         pub fn submit_price(
             origin: OriginFor<T>,
             rates: Rates,
@@ -181,7 +181,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as Config>::WeightInfo::clear_consensus())]
         pub fn clear_consensus(
             origin: OriginFor<T>,
             submitter: Validator<T::AuthorityId, T::AccountId>,
@@ -215,7 +215,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(T::WeightInfo::register_currency(T::MaxCurrencies::get()))]
         pub fn register_currency(
             origin: OriginFor<T>,
             currency_symbol: Vec<u8>,
@@ -233,7 +233,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_currency())]
         pub fn remove_currency(
             origin: OriginFor<T>,
             currency_symbol: Vec<u8>,
@@ -273,14 +273,12 @@ pub mod pallet {
                 let from = to.saturating_sub(ten_minutes_secs);
                 PriceSubmissionTimestamps::<T>::insert(round_id, (from, to));
 
-                // TODO
-                // total_weight = total_weight.saturating_add(
-                //     <T as Config>::WeightInfo::on_initialize_updates_fiat_rates_query_timestamps(),
-                // );
+                total_weight = total_weight.saturating_add(
+                    <T as Config>::WeightInfo::on_initialize_updates_rates_query_timestamps(),
+                );
             }
 
-            // let db_read_weight = T::DbWeight::get().reads(1);
-            // total_weight.saturating_add(db_read_weight.saturating_mul(if_counter.into()))
+            total_weight.saturating_add(<T as Config>::WeightInfo::on_initialize_without_updating_rates_query_timestamps())
             total_weight
         }
 
@@ -310,7 +308,7 @@ pub mod pallet {
 
         fn on_idle(_now: BlockNumberFor<T>, limit: Weight) -> Weight {
             let mut meter = WeightMeter::with_limit(limit / 2);
-            let min_on_idle_weight = Weight::zero(); // todo calculate weight
+            let min_on_idle_weight = <T as Config>::WeightInfo::on_idle_one_full_iteration();
 
             if !meter.can_consume(min_on_idle_weight) {
                 log::debug!("⚠️ Not enough weight to proceed with cleanup.");
