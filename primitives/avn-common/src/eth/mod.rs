@@ -17,13 +17,13 @@ pub type EthereumId = u32;
 
 pub const PACKED_LOWER_PARAM_SIZE: usize = 112;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
-
 const TOKEN_SPAN: core::ops::Range<usize> = 0..20;
+const AMOUNT_PADDING_SPAN: core::ops::Range<usize> = 20..36;
 const AMOUNT_SPAN: core::ops::Range<usize> = 36..52;
 const RECIPIENT_SPAN: core::ops::Range<usize> = 52..72;
 const LOWER_ID_SPAN: core::ops::Range<usize> = 72..76;
 const T2_SENDER_SPAN: core::ops::Range<usize> = 76..108;
-const T2_TIMESTAMP_SPAN: core::ops::Range<usize> = 108..112;
+const T2_TIMESTAMP_SPAN: core::ops::Range<usize> = 108..PACKED_LOWER_PARAM_SIZE;
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -482,6 +482,7 @@ pub fn concat_lower_data(
     let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
 
     lower_params[TOKEN_SPAN].copy_from_slice(token_id.as_fixed_bytes());
+    lower_params[AMOUNT_PADDING_SPAN].fill(0);
     lower_params[AMOUNT_SPAN].copy_from_slice(&amount.to_be_bytes());
     lower_params[RECIPIENT_SPAN].copy_from_slice(t1_recipient.as_fixed_bytes());
     lower_params[LOWER_ID_SPAN].copy_from_slice(&lower_id.to_be_bytes());
