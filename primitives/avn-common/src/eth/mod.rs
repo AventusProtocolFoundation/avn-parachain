@@ -15,7 +15,7 @@ use sp_runtime::{scale_info::TypeInfo, BoundedVec, Deserialize, Serialize};
 use sp_std::vec::Vec;
 pub type EthereumId = u32;
 
-pub const PACKED_LOWER_PARAM_SIZE: usize = 112;
+pub const PACKED_LOWER_PARAM_SIZE: usize = 116;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
 const TOKEN_SPAN: core::ops::Range<usize> = 0..20;
@@ -195,7 +195,7 @@ sol! {
         address recipient;
         uint32 lowerId;
         bytes32 t2Sender;
-        uint32 t2Timestamp;
+        uint64 t2Timestamp;
     }
 }
 
@@ -213,7 +213,7 @@ impl TryFrom<LowerParams> for LowerData {
         let lower_id = u32::from_be_bytes(lower_params[LOWER_ID_SPAN].try_into().map_err(|_| ())?);
         let t2_sender = AlloyB256::from_slice(&lower_params[T2_SENDER_SPAN]);
         let t2_timestamp =
-            u32::from_be_bytes(lower_params[T2_TIMESTAMP_SPAN].try_into().map_err(|_| ())?);
+            u64::from_be_bytes(lower_params[T2_TIMESTAMP_SPAN].try_into().map_err(|_| ())?);
 
         Ok(LowerData {
             token,
@@ -459,7 +459,7 @@ mod test {
             recipient: Address::from_slice(&H160::from([2u8; 20]).as_bytes()),
             lowerId: 10,
             t2Sender: FixedBytes::from_slice(H256::from([5u8; 32]).as_fixed_bytes()),
-            t2Timestamp: 1_000_000_000u32,
+            t2Timestamp: 1_000_000_000u64,
         };
 
         let eip712_domain: Eip712Domain = domain();
@@ -467,7 +467,7 @@ mod test {
 
         assert_eq!(
             hash,
-            H256(hex!("9649a0599af835d314b0d8138af1adecd31e987f8877909c7be401ed18f0f370"))
+            H256(hex!("e5bf20ae6173912260d45213e1fc29b9d68f7ddc72f2922779a4f040f373f50e"))
         );
     }
 }
@@ -478,7 +478,7 @@ pub fn concat_lower_data(
     amount: &u128,
     t1_recipient: &H160,
     t2_sender: H256,
-    t2_timestamp: u32,
+    t2_timestamp: u64,
 ) -> LowerParams {
     let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
 
