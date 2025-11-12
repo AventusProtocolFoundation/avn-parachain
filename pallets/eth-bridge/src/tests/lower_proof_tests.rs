@@ -108,12 +108,9 @@ fn call_ocw(
     author: AccountId,
     block_number: BlockNumber,
 ) {
-    UintAuthorityId::set_all_keys(vec![UintAuthorityId(author)]);
-
     let h256 = H256::from_slice(
         &hex::decode(context.expected_lower_msg_hash.clone()).expect("failed to decode hex"),
     );
-
     mock_get_finalised_block(&mut offchain_state.write(), &context.finalised_block_vec);
     mock_ecdsa_sign(
         &mut offchain_state.write(),
@@ -121,6 +118,7 @@ fn call_ocw(
         h256.as_ref().to_vec(),
         Some(hex::encode(&context.confirmation_signature).as_bytes().to_vec()),
     );
+    UintAuthorityId::set_all_keys(vec![UintAuthorityId(author)]);
 
     let mut account_vec: [u8; 8] = Default::default();
     account_vec.copy_from_slice(&1u64.encode()[0..8]);

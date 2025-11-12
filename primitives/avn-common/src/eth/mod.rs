@@ -445,7 +445,7 @@ mod test {
 
         assert_eq!(
             hash,
-            H256(hex!("560ddcd37021adc249014f89c426ee711d1928db1d6e3e145101ddc128aae27c"))
+            H256(hex!("560ddcd37021adc249014f89c426ee711d1928db1d6e3e145101ddc128aae27c")) /* Generated via the EnergyBridge contract */
         );
     }
 
