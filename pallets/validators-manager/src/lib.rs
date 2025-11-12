@@ -134,8 +134,6 @@ pub mod pallet {
         CandidateSessionKeysNotFound,
         /// A validator action is already in progress
         ValidatorActionAlreadyInProgress,
-        /// A deregistration is already in progress for another validator
-        DeregistrationAlreadyInProgress,
     }
 
     #[pallet::event]
