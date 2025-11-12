@@ -17,6 +17,7 @@ pub type EthereumId = u32;
 
 pub const PACKED_LOWER_PARAM_SIZE: usize = 112;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
+
 const TOKEN_SPAN: core::ops::Range<usize> = 0..20;
 const AMOUNT_PADDING_SPAN: core::ops::Range<usize> = 20..36;
 const AMOUNT_SPAN: core::ops::Range<usize> = 36..52;
