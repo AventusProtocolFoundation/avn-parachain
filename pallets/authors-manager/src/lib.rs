@@ -562,7 +562,6 @@ impl<T: Config> Pallet<T> {
         // Check if the author exists in the current list of authors
         ensure!(author_account_ids.contains(account_id), Error::<T>::AuthorNotFound);
 
-
         // Check if this author has any active actions (registration or deregistration)
         ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
 
