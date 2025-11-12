@@ -187,8 +187,6 @@ pub mod pallet {
         InvalidActionStatus,
         /// Author session keys are not set
         AuthorSessionKeysNotSet,
-        /// A deregistration is already in progress for another author
-        DeregistrationAlreadyInProgress,
     }
 
     #[pallet::storage]

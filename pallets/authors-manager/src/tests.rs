@@ -401,7 +401,7 @@ mod remove_author_public {
             // Try to deregister a different author while the first is still in progress
             assert_noop!(
                 AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_2()),
-                Error::<TestRuntime>::DeregistrationAlreadyInProgress
+                Error::<TestRuntime>::ValidatorActionAlreadyInProgress
             );
         });
     }
@@ -421,7 +421,7 @@ mod remove_author_public {
             // attempts while one is in progress
             assert_noop!(
                 AuthorsManager::remove_author(RawOrigin::Root.into(), author_id_1()),
-                Error::<TestRuntime>::DeregistrationAlreadyInProgress
+                Error::<TestRuntime>::ValidatorActionAlreadyInProgress
             );
         });
     }
