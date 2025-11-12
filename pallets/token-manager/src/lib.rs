@@ -762,10 +762,8 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        let pk_bytes: [u8; 32] = T::AccountToBytesConvert::into_bytes(from);
-        let t2_sender = H256::from(pk_bytes);
+        let t2_sender = H256::from(T::AccountToBytesConvert::into_bytes(from));
         let t2_timestamp: u32 = pallet_timestamp::Pallet::<T>::get().saturated_into::<u32>();
-
         let lower_params = concat_lower_data(
             lower_id,
             token_id.into(),
