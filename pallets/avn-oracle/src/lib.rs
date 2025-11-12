@@ -1,14 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(not(feature = "std"))]
-extern crate alloc;
-#[cfg(not(feature = "std"))]
-use alloc::string::ToString;
-
 pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+    #[cfg(not(feature = "std"))]
+    extern crate alloc;
+    
+    #[cfg(not(feature = "std"))]
+    use alloc::string::ToString;
+
     use frame_support::{pallet_prelude::*, weights::WeightMeter};
     use frame_system::{
         offchain::{SendTransactionTypes, SubmitTransaction},

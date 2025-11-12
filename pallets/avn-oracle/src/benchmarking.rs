@@ -158,7 +158,11 @@ benchmarks! {
         let (from, to) = PriceSubmissionTimestamps::<T>::get(voting_round_id)
             .expect("Expected FiatRatesSubmissionTimestamps to contain a value");
 
-        assert!(to == from.saturating_add(600), "Expected 'to' timestamp to be greater than 'from'");
+        assert!(
+            to == from.saturating_add(600),
+            "Expected 'to' > 'from' but got from={:?} to={:?}",
+            from, to
+        );
     }
 
     on_initialize_without_updating_rates_query_timestamps {
