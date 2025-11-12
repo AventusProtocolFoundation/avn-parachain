@@ -22,8 +22,12 @@ impl<T: Config> OnRuntimeUpgrade for ValidatorsManagerMigrations<T> {
 
         let mut consumed_weight = Weight::zero();
 
-        if onchain == 1 && current == 2 {
+        if onchain == 1 {
+            log::info!("🚀 running validators manager migration: populating reverse map (onchain: {:?} -> target: 2)", onchain);
             consumed_weight.saturating_accrue(populate_reverse_map::<T>());
+            log::info!("✅ validators manager migration completed successfully - NEW VERSION: 2");
+        } else {
+            log::info!("⏭️  validators manager migration skipped - already up to date");
         }
 
         consumed_weight
@@ -37,7 +41,7 @@ impl<T: Config> OnRuntimeUpgrade for ValidatorsManagerMigrations<T> {
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_input: Vec<u8>) -> Result<(), TryRuntimeError> {
         frame_support::ensure!(
-            Pallet::<T>::on_chain_storage_version() >= crate::STORAGE_VERSION,
+            Pallet::<T>::on_chain_storage_version() > crate::STORAGE_VERSION,
             "ValidatorsManager storage version not bumped"
         );
 

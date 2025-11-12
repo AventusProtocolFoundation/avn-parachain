@@ -428,7 +428,7 @@ mod benchmarking;
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
-pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 pub type AVN<T> = avn::Pallet<T>;
 
