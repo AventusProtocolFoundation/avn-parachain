@@ -454,19 +454,12 @@ mod test {
         use hex_literal::hex;
 
         let lower_data = LowerData {
-            token: Address::from_slice(
-                H160::from_slice(&hex!("93ba86ecfddd9caaac29be83ace5a3188ac47730")).as_bytes(),
-            ),
+            token: Address::from_slice(&H160::from([3u8; 20]).as_bytes()),
             amount: AlloyU256::from(100_000_000_000_000_000_000u128),
-            recipient: Address::from_slice(
-                H160::from_slice(&hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22")).as_bytes(),
-            ),
+            recipient: Address::from_slice(&H160::from([2u8; 20]).as_bytes()),
             lowerId: 10,
-            t2Sender: FixedBytes::from_slice(
-                H256(hex!("4e9139b7bcb5acc9d55582b82637ad7f8a54b5697e7a280e76b3a3fd088f3105"))
-                    .as_fixed_bytes(),
-            ),
-            t2Timestamp: 1767225600u32,
+            t2Sender: FixedBytes::from_slice(H256::from([5u8; 32]).as_fixed_bytes()),
+            t2Timestamp: 1_000_000_000u32,
         };
 
         let eip712_domain: Eip712Domain = domain();
@@ -474,7 +467,7 @@ mod test {
 
         assert_eq!(
             hash,
-            H256(hex!("e5cbb537f5c2a8858568b28cfa1dcbf94630eae88d7805b4ffc53821ee152fd9"))
+            H256(hex!("9649a0599af835d314b0d8138af1adecd31e987f8877909c7be401ed18f0f370"))
         );
     }
 }
