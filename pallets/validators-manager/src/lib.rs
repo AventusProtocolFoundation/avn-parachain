@@ -491,25 +491,10 @@ impl<T: Config> Pallet<T> {
 
         ensure!(validator_account_ids.contains(account_id), Error::<T>::ValidatorNotFound);
 
-        // Check if any validator already has a deregistration in progress (global check)
-        ensure!(
-            !Self::has_any_active_deregistration(),
-            Error::<T>::DeregistrationAlreadyInProgress
-        );
-
         // Check if this validator has any active actions (registration or deregistration)
         ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
 
         Ok(())
-    }
-
-    /// Check if any validator has an active deregistration in progress
-    /// This ensures only one deregistration can be processed at a time
-    pub fn has_any_active_deregistration() -> bool {
-        <ValidatorActions<T>>::iter().any(|(_, _, validators_action_data)| {
-            validators_action_data.action_type.is_deregistration() &&
-                Self::action_state_is_active(validators_action_data.status)
-        })
     }
 
     /// Check if any validator has any active action (registration, activation, or deregistration)

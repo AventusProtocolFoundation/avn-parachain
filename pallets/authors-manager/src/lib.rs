@@ -562,25 +562,11 @@ impl<T: Config> Pallet<T> {
         // Check if the author exists in the current list of authors
         ensure!(author_account_ids.contains(account_id), Error::<T>::AuthorNotFound);
 
-        // Check if any author already has a deregistration in progress (global check)
-        ensure!(
-            !Self::has_any_active_deregistration(),
-            Error::<T>::DeregistrationAlreadyInProgress
-        );
 
         // Check if this author has any active actions (registration or deregistration)
         ensure!(!Self::has_any_active_action(), Error::<T>::ValidatorActionAlreadyInProgress);
 
         Ok(())
-    }
-
-    /// Check if any author has an active deregistration in progress
-    /// This ensures only one deregistration can be processed at a time
-    pub fn has_any_active_deregistration() -> bool {
-        <AuthorActions<T>>::iter().any(|(_, _, authors_action_data)| {
-            authors_action_data.action_type.is_deregistration() &&
-                Self::action_state_is_active(authors_action_data.status)
-        })
     }
 
     /// Check if any author has any active action (registration, activation, or deregistration)
