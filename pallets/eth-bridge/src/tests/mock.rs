@@ -214,7 +214,7 @@ pub fn setup_context() -> Context {
         lower_id,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba"
+        expected_lower_msg_hash: "7d5469a27ca06e29b8d416cd80ac5ecdcbd05109209ae2e8c72ffac4e42053a9"
             .to_string(),
         replay_attempt: 0,
     }

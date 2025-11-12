@@ -418,7 +418,7 @@ mod lower_proof_encoding {
             let params =
                 concat_lower_data(lower_id, token, &amount, &recipient, t2_sender, t2_timestamp);
             let expected_msg_hash =
-                "b48a5a380e530ce18122675d45d9bf05589c8659d527b85e3f6e9c2fcaf4c668";
+                "bc3b610adc18a03f8ffde9ae55debe681628c900e0385d88049307b2552644b4";
 
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
@@ -457,7 +457,7 @@ mod lower_proof_encoding {
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
 
-            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a934310000000000000000000000000000000000000000000000056bc75e2d63100000de7e1091cde63c05aa4d82c62e4c54edbc701b2200000000df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd76955b900";
+            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b2200000000df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd76955b900";
             if let Request::LowerProof(lower_req) = active_req.request {
                 let encoded_proof = generate_encoded_lower_proof::<TestRuntime, ()>(&lower_req, active_req.confirmation.confirmations);
                 assert_eq!(expected_encoded_proof, hex::encode(encoded_proof));

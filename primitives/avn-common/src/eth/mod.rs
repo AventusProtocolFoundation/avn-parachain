@@ -19,7 +19,6 @@ pub const PACKED_LOWER_PARAM_SIZE: usize = 112;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
 const TOKEN_OFFSET: core::ops::Range<usize> = 0..20;
-const AMOUNT_PADDING_OFFSET: core::ops::Range<usize> = 20..36;
 const AMOUNT_OFFSET: core::ops::Range<usize> = 36..52;
 const RECIPIENT_OFFSET: core::ops::Range<usize> = 52..72;
 const LOWER_ID_OFFSET: core::ops::Range<usize> = 72..76;
@@ -475,7 +474,7 @@ mod test {
 
         assert_eq!(
             hash,
-            H256(hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"))
+            H256(hex!("e5cbb537f5c2a8858568b28cfa1dcbf94630eae88d7805b4ffc53821ee152fd9"))
         );
     }
 }
@@ -491,7 +490,6 @@ pub fn concat_lower_data(
     let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
 
     lower_params[TOKEN_OFFSET].copy_from_slice(token.as_fixed_bytes());
-    lower_params[AMOUNT_PADDING_OFFSET].fill(0);
     lower_params[AMOUNT_OFFSET].copy_from_slice(&amount.to_be_bytes());
     lower_params[RECIPIENT_OFFSET].copy_from_slice(recipient.as_fixed_bytes());
     lower_params[LOWER_ID_OFFSET].copy_from_slice(&lower_id.to_be_bytes());
