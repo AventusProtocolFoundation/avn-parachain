@@ -411,10 +411,19 @@ mod lower_proof_encoding {
             let token_id = H160::from([3u8; 20]);
             let amount = 100_000_000_000_000_000_000u128;
             let t1_recipient = H160::from([2u8; 20]);
+            let t2_sender = H256::from([4u8; 32]);
+            let t2_timestamp = 1_000_000_000u64;
 
-            let params = concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
+            let params = concat_lower_data(
+                lower_id,
+                token_id,
+                &amount,
+                &t1_recipient,
+                t2_sender,
+                t2_timestamp,
+            );
             let expected_msg_hash =
-                "3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba";
+                "d89f2a698b48feb1e3248027e48e853e973fbf8e090e36dc00e6fd731d9c0df5";
 
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
@@ -438,12 +447,22 @@ mod lower_proof_encoding {
             let token_id = H160(hex_literal::hex!("97d9b397189e8b771ffac3cb04cf26c780a93431"));
             let amount = 10u128;
             let t1_recipient = H160(hex_literal::hex!("de7e1091cde63c05aa4d82c62e4c54edbc701b22"));
-            let params = concat_lower_data(lower_id, token_id, &amount, &t1_recipient);
+            let t2_sender = H256(hex_literal::hex!("df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7"));
+            let t2_timestamp = 1767225600u64;
+
+            let params = concat_lower_data(
+                lower_id,
+                token_id,
+                &amount,
+                &t1_recipient,
+                t2_sender,
+                t2_timestamp,
+            );
 
             add_new_lower_proof_request::<TestRuntime, ()>(lower_id, &params, &vec![]).unwrap();
             let active_req = ActiveRequest::<TestRuntime>::get().expect("is active");
 
-            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b2200000000";
+            let expected_encoded_proof = "97d9b397189e8b771ffac3cb04cf26c780a93431000000000000000000000000000000000000000000000000000000000000000ade7e1091cde63c05aa4d82c62e4c54edbc701b2200000000df527229a93a80c6d3f82c10ac618d88fec68d54fdcfa423c9483ab3b0d6bcd7000000006955b900";
             if let Request::LowerProof(lower_req) = active_req.request {
                 let encoded_proof = generate_encoded_lower_proof::<TestRuntime, ()>(&lower_req, active_req.confirmation.confirmations);
                 assert_eq!(expected_encoded_proof, hex::encode(encoded_proof));

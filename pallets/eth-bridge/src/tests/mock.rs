@@ -214,7 +214,7 @@ pub fn setup_context() -> Context {
         lower_id,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "3e2db3ace644f2fb37e230ff886adc918da7266413b04143854a4deedba467ba"
+        expected_lower_msg_hash: "d89f2a698b48feb1e3248027e48e853e973fbf8e090e36dc00e6fd731d9c0df5"
             .to_string(),
         replay_attempt: 0,
     }
@@ -224,8 +224,10 @@ pub(crate) fn create_lower_params(lower_id: u32) -> LowerParams {
     let token_id = H160::from([3u8; 20]);
     let amount = 100_000_000_000_000_000_000u128;
     let t1_recipient = H160::from([2u8; 20]);
+    let t2_sender = H256::from([4u8; 32]);
+    let t2_timestamp = 1_000_000_000u64;
 
-    concat_lower_data(lower_id, token_id, &amount, &t1_recipient)
+    concat_lower_data(lower_id, token_id, &amount, &t1_recipient, t2_sender, t2_timestamp)
 }
 
 pub fn set_mock_recovered_account_id(account_id_bytes: [u8; 8]) {
