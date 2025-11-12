@@ -864,6 +864,7 @@ mod benches {
         [pallet_utility, Utility]
         [pallet_parachain_staking, ParachainStaking]
         [pallet_avn_anchor, AvnAnchor]
+        [pallet_avn_oracle, AvnOracle]
         [cumulus_pallet_parachain_system, ParachainSystem]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
     );

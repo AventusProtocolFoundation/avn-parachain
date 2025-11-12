@@ -1,20 +1,20 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::{mock::*, Pallet as AvnOracle};
+use crate::Pallet as AvnOracle;
 use codec::{Decode, Encode};
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_support::{
     assert_err, assert_ok,
-    pallet_prelude::Weight,
+    pallet_prelude::{ConstU32, Weight},
     traits::{Get, Hooks},
     BoundedVec,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use scale_info::prelude::{format, vec};
+use scale_info::prelude::{format, vec, vec::Vec};
 use sp_avn_common::event_types::Validator;
 use sp_core::{H160, U256};
-use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
+use sp_runtime::{print, RuntimeAppPublic, WeakBoundedVec};
 
 fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId, T::AccountId>> {
     let mut validators = Vec::new();
@@ -48,6 +48,17 @@ fn register_n_currencies<T: Config>(n: u32) {
         let currency = create_currency(currency_symbol.clone());
         Currencies::<T>::insert(currency, ());
     }
+}
+
+pub fn create_currency(currency_symbol: Vec<u8>) -> Currency {
+    let currency = BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
+        .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
+    currency
+}
+
+pub fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
+    let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
+    bounded
 }
 
 benchmarks! {
@@ -146,7 +157,8 @@ benchmarks! {
         let voting_round_id = VotingRoundId::<T>::get();
         let (from, to) = PriceSubmissionTimestamps::<T>::get(voting_round_id)
             .expect("Expected FiatRatesSubmissionTimestamps to contain a value");
-        assert!(to > from, "Expected 'to' timestamp to be greater than 'from'");
+
+        assert!(to == from.saturating_add(600), "Expected 'to' timestamp to be greater than 'from'");
     }
 
     on_initialize_without_updating_rates_query_timestamps {

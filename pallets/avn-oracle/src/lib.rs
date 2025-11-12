@@ -1,3 +1,10 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+use alloc::string::ToString;
+
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -10,6 +17,7 @@ pub mod pallet {
     use log;
     use pallet_avn::{self as avn, Error as avn_error};
     use pallet_timestamp as timestamp;
+    use scale_info::prelude::{format, string::String, vec, vec::Vec};
     use serde_json::Value;
     use sp_avn_common::event_types::Validator;
     use sp_core::U256;
@@ -257,12 +265,12 @@ pub mod pallet {
 
                 // we do this to ensure all data for the given period is available and the data is
                 // consistent
-                let to_u64 = now_secs.saturating_sub(two_minutes_secs);
+                let to = now_secs.saturating_sub(two_minutes_secs);
 
                 // 10 minutes
-                let ninety_minutes_secs = 600;
-                let from_u64 = to_u64.saturating_sub(ninety_minutes_secs);
-                PriceSubmissionTimestamps::<T>::insert(round_id, (from_u64, to_u64));
+                let ten_minutes_secs = 600;
+                let from = to.saturating_sub(ten_minutes_secs);
+                PriceSubmissionTimestamps::<T>::insert(round_id, (from, to));
 
                 // TODO
                 // total_weight = total_weight.saturating_add(
