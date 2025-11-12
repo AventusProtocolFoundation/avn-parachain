@@ -203,7 +203,7 @@ impl TryFrom<LowerParams> for LowerData {
 
     fn try_from(lower_params: LowerParams) -> Result<Self, Self::Error> {
         if lower_params.len() != PACKED_LOWER_PARAM_SIZE {
-            return Err(());
+            return Err(())
         }
 
         let token = Address::from_slice(&lower_params[TOKEN_OFFSET]);
