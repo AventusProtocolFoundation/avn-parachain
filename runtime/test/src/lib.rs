@@ -164,7 +164,7 @@ pub type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (),
+    (pallet_validators_manager::migration::ValidatorsManagerMigrations<Runtime>,),
 >;
 
 impl_opaque_keys! {
@@ -181,7 +181,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 117,
+    spec_version: 118,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -676,6 +676,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
     type OnIdleHandler = ();
+    type AccountToBytesConvert = Avn;
 }
 
 impl pallet_nft_manager::Config for Runtime {

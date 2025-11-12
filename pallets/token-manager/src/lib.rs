@@ -40,8 +40,8 @@ use frame_support::{
 use frame_system::ensure_signed;
 pub use pallet::*;
 use pallet_avn::{
-    self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
-    OnGrowthLiftedHandler, ProcessedEventsChecker,
+    self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification,
+    CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
 use sp_avn_common::eth::{concat_lower_data, LowerParams};
 
@@ -57,7 +57,7 @@ use sp_runtime::{
     scale_info::TypeInfo,
     traits::{
         AccountIdConversion, AtLeast32Bit, CheckedAdd, Dispatchable, Hash, IdentifyAccount, Member,
-        Saturating, Verify, Zero,
+        SaturatedConversion, Saturating, Verify, Zero,
     },
     Perbill,
 };
@@ -110,7 +110,7 @@ pub mod pallet {
 
     // Public interface of this pallet
     #[pallet::config]
-    pub trait Config: frame_system::Config + avn::Config {
+    pub trait Config: frame_system::Config + avn::Config + pallet_timestamp::Config {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as frame_system::Config>::RuntimeEvent>
@@ -165,6 +165,7 @@ pub mod pallet {
         type BridgeInterface: BridgeInterface;
         type WeightInfo: WeightInfo;
         type OnIdleHandler: OnIdleHandler<BlockNumberFor<Self>, Weight>;
+        type AccountToBytesConvert: pallet_avn::AccountToBytesConverter<Self::AccountId>;
     }
 
     #[pallet::pallet]
@@ -761,7 +762,16 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        let lower_params = concat_lower_data(lower_id, token_id.into(), &amount, &t1_recipient);
+        let t2_sender = H256::from(T::AccountToBytesConvert::into_bytes(from));
+        let t2_timestamp: u64 = pallet_timestamp::Pallet::<T>::get().saturated_into::<u64>();
+        let lower_params = concat_lower_data(
+            lower_id,
+            token_id.into(),
+            &amount,
+            &t1_recipient,
+            t2_sender,
+            t2_timestamp,
+        );
 
         <LowersPendingProof<T>>::insert(lower_id, &lower_params);
         T::BridgeInterface::generate_lower_proof(lower_id, &lower_params, PALLET_ID.to_vec())?;

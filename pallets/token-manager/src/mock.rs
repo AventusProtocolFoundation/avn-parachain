@@ -108,6 +108,7 @@ impl token_manager::Config for TestRuntime {
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
     type OnIdleHandler = TestOnIdleHandler;
+    type AccountToBytesConvert = Avn;
 }
 
 parameter_types! {
