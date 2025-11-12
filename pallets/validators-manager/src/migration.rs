@@ -22,7 +22,7 @@ impl<T: Config> OnRuntimeUpgrade for ValidatorsManagerMigrations<T> {
 
         let mut consumed_weight = Weight::zero();
 
-        if onchain < 2 {
+        if onchain == 1 && current == 2 {
             consumed_weight.saturating_accrue(populate_reverse_map::<T>());
         }
 
