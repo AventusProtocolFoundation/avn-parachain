@@ -214,7 +214,7 @@ pub fn setup_context() -> Context {
         lower_id,
         block_number: 1u64,
         // if request_params changes, this should also change
-        expected_lower_msg_hash: "7d5469a27ca06e29b8d416cd80ac5ecdcbd05109209ae2e8c72ffac4e42053a9"
+        expected_lower_msg_hash: "977cac5b8a1aa32ea054f2abe21442ab4f1c96a64aab2ad9a0849aedb19a3cf5"
             .to_string(),
         replay_attempt: 0,
     }
@@ -224,8 +224,8 @@ pub(crate) fn create_lower_params(lower_id: u32) -> LowerParams {
     let token_id = H160::from([3u8; 20]);
     let amount = 100_000_000_000_000_000_000u128;
     let t1_recipient = H160::from([2u8; 20]);
-    let t2_sender = H256::from([5u8; 32]);
-    let t2_timestamp = 1893456000u32;
+    let t2_sender = H256::from([4u8; 32]);
+    let t2_timestamp = 1_000_000_000u32;
 
     concat_lower_data(lower_id, token_id, &amount, &t1_recipient, t2_sender, t2_timestamp)
 }

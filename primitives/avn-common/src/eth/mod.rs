@@ -18,12 +18,12 @@ pub type EthereumId = u32;
 pub const PACKED_LOWER_PARAM_SIZE: usize = 112;
 pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
 
-const TOKEN_OFFSET: core::ops::Range<usize> = 0..20;
-const AMOUNT_OFFSET: core::ops::Range<usize> = 36..52;
-const RECIPIENT_OFFSET: core::ops::Range<usize> = 52..72;
-const LOWER_ID_OFFSET: core::ops::Range<usize> = 72..76;
-const T2_SENDER_OFFSET: core::ops::Range<usize> = 76..108;
-const T2_TIMESTAMP_OFFSET: core::ops::Range<usize> = 108..112;
+const TOKEN_SPAN: core::ops::Range<usize> = 0..20;
+const AMOUNT_SPAN: core::ops::Range<usize> = 36..52;
+const RECIPIENT_SPAN: core::ops::Range<usize> = 52..72;
+const LOWER_ID_SPAN: core::ops::Range<usize> = 72..76;
+const T2_SENDER_SPAN: core::ops::Range<usize> = 76..108;
+const T2_TIMESTAMP_SPAN: core::ops::Range<usize> = 108..112;
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -206,14 +206,13 @@ impl TryFrom<LowerParams> for LowerData {
             return Err(())
         }
 
-        let token = Address::from_slice(&lower_params[TOKEN_OFFSET]);
-        let amount = AlloyU256::try_from_be_slice(&lower_params[AMOUNT_OFFSET]).ok_or(())?;
-        let recipient = Address::from_slice(&lower_params[RECIPIENT_OFFSET]);
-        let lower_id =
-            u32::from_be_bytes(lower_params[LOWER_ID_OFFSET].try_into().map_err(|_| ())?);
-        let t2_sender = AlloyB256::from_slice(&lower_params[T2_SENDER_OFFSET]);
+        let token = Address::from_slice(&lower_params[TOKEN_SPAN]);
+        let amount = AlloyU256::try_from_be_slice(&lower_params[AMOUNT_SPAN]).ok_or(())?;
+        let recipient = Address::from_slice(&lower_params[RECIPIENT_SPAN]);
+        let lower_id = u32::from_be_bytes(lower_params[LOWER_ID_SPAN].try_into().map_err(|_| ())?);
+        let t2_sender = AlloyB256::from_slice(&lower_params[T2_SENDER_SPAN]);
         let t2_timestamp =
-            u32::from_be_bytes(lower_params[T2_TIMESTAMP_OFFSET].try_into().map_err(|_| ())?);
+            u32::from_be_bytes(lower_params[T2_TIMESTAMP_SPAN].try_into().map_err(|_| ())?);
 
         Ok(LowerData {
             token,
@@ -474,20 +473,20 @@ mod test {
 
 pub fn concat_lower_data(
     lower_id: u32,
-    token: H160,
+    token_id: H160,
     amount: &u128,
-    recipient: &H160,
+    t1_recipient: &H160,
     t2_sender: H256,
     t2_timestamp: u32,
 ) -> LowerParams {
     let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
 
-    lower_params[TOKEN_OFFSET].copy_from_slice(token.as_fixed_bytes());
-    lower_params[AMOUNT_OFFSET].copy_from_slice(&amount.to_be_bytes());
-    lower_params[RECIPIENT_OFFSET].copy_from_slice(recipient.as_fixed_bytes());
-    lower_params[LOWER_ID_OFFSET].copy_from_slice(&lower_id.to_be_bytes());
-    lower_params[T2_SENDER_OFFSET].copy_from_slice(t2_sender.as_fixed_bytes());
-    lower_params[T2_TIMESTAMP_OFFSET].copy_from_slice(&t2_timestamp.to_be_bytes());
+    lower_params[TOKEN_SPAN].copy_from_slice(token_id.as_fixed_bytes());
+    lower_params[AMOUNT_SPAN].copy_from_slice(&amount.to_be_bytes());
+    lower_params[RECIPIENT_SPAN].copy_from_slice(t1_recipient.as_fixed_bytes());
+    lower_params[LOWER_ID_SPAN].copy_from_slice(&lower_id.to_be_bytes());
+    lower_params[T2_SENDER_SPAN].copy_from_slice(t2_sender.as_fixed_bytes());
+    lower_params[T2_TIMESTAMP_SPAN].copy_from_slice(&t2_timestamp.to_be_bytes());
 
     lower_params
 }
