@@ -229,7 +229,9 @@ pub mod pallet {
             Currencies::<T>::insert(currency.clone(), ());
 
             Self::deposit_event(Event::<T>::CurrencyRegistered { currency: currency_symbol });
-            Ok(().into())
+
+            let final_weight = T::WeightInfo::register_currency(current_count);
+            Ok(Some(final_weight).into())
         }
 
         #[pallet::call_index(3)]
