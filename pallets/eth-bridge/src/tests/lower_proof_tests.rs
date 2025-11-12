@@ -54,9 +54,12 @@ pub fn mock_ecdsa_sign(
 fn add_confirmations(count: u32) {
     let mut active_request = ActiveRequest::<TestRuntime>::get().unwrap();
 
-    for i in 0..count {
-        let sig = ecdsa::Signature::try_from(&[i as u8; 65][0..65]).unwrap();
-        active_request.confirmation.confirmations.try_push(sig).unwrap();
+    for (index, _) in (0..count).enumerate() {
+        active_request
+            .confirmation
+            .confirmations
+            .try_push(ecdsa::Signature::try_from(&[(index + 2) as u8; 65][0..65]).unwrap())
+            .unwrap();
     }
 
     ActiveRequest::<TestRuntime>::put(active_request);
