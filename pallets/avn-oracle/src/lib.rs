@@ -1,12 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
+pub mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use super::*;
     #[cfg(not(feature = "std"))]
     extern crate alloc;
-    
+
     #[cfg(not(feature = "std"))]
     use alloc::string::ToString;
 
@@ -91,7 +94,7 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A type representing the weights required by the dispatchables of this pallet.
-        type WeightInfo;
+        type WeightInfo: WeightInfo;
 
         /// How often rates should be refreshed, in blocks
         #[pallet::constant]
@@ -181,7 +184,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as Config>::WeightInfo::clear_consensus())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::clear_consensus())]
         pub fn clear_consensus(
             origin: OriginFor<T>,
             submitter: Validator<T::AuthorityId, T::AccountId>,
@@ -215,7 +218,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(T::WeightInfo::register_currency(T::MaxCurrencies::get()))]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::register_currency(T::MaxCurrencies::get()))]
         pub fn register_currency(
             origin: OriginFor<T>,
             currency_symbol: Vec<u8>,
@@ -230,12 +233,12 @@ pub mod pallet {
 
             Self::deposit_event(Event::<T>::CurrencyRegistered { currency: currency_symbol });
 
-            let final_weight = T::WeightInfo::register_currency(current_count);
+            let final_weight = <T as pallet::Config>::WeightInfo::register_currency(current_count);
             Ok(Some(final_weight).into())
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(<T as Config>::WeightInfo::remove_currency())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::remove_currency())]
         pub fn remove_currency(
             origin: OriginFor<T>,
             currency_symbol: Vec<u8>,
@@ -254,7 +257,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            let total_weight = Weight::zero();
+            let mut total_weight = Weight::zero();
 
             let last_submission_block = LastPriceSubmission::<T>::get();
             let round_id = VotingRoundId::<T>::get();
@@ -276,11 +279,12 @@ pub mod pallet {
                 PriceSubmissionTimestamps::<T>::insert(round_id, (from, to));
 
                 total_weight = total_weight.saturating_add(
-                    <T as Config>::WeightInfo::on_initialize_updates_rates_query_timestamps(),
+                    <T as pallet::Config>::WeightInfo::on_initialize_updates_rates_query_timestamps(
+                    ),
                 );
             }
 
-            total_weight.saturating_add(<T as Config>::WeightInfo::on_initialize_without_updating_rates_query_timestamps())
+            total_weight.saturating_add(<T as pallet::Config>::WeightInfo::on_initialize_without_updating_rates_query_timestamps());
             total_weight
         }
 
@@ -310,7 +314,8 @@ pub mod pallet {
 
         fn on_idle(_now: BlockNumberFor<T>, limit: Weight) -> Weight {
             let mut meter = WeightMeter::with_limit(limit / 2);
-            let min_on_idle_weight = <T as Config>::WeightInfo::on_idle_one_full_iteration();
+            let min_on_idle_weight =
+                <T as pallet::Config>::WeightInfo::on_idle_one_full_iteration();
 
             if !meter.can_consume(min_on_idle_weight) {
                 log::debug!("⚠️ Not enough weight to proceed with cleanup.");
