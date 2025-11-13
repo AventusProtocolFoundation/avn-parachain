@@ -57,21 +57,6 @@ fn submit_different_rates_for_x_validators(num_validators: u64) {
     }
 }
 
-fn register_currency(currency_symbol: Vec<u8>) {
-    assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
-}
-
-fn create_currency(currency_symbol: Vec<u8>) -> Currency {
-    let currency = BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
-        .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
-    currency
-}
-
-fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
-    let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
-    bounded
-}
-
 pub fn scale_rate(rate: f64) -> U256 {
     U256::from((rate * 1e8) as u128)
 }

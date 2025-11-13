@@ -1,7 +1,18 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
+pub mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use super::*;
+    #[cfg(not(feature = "std"))]
+    extern crate alloc;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::string::ToString;
+
     use frame_support::{pallet_prelude::*, weights::WeightMeter};
     use frame_system::{
         offchain::{SendTransactionTypes, SubmitTransaction},
@@ -10,6 +21,7 @@ pub mod pallet {
     use log;
     use pallet_avn::{self as avn, Error as avn_error};
     use pallet_timestamp as timestamp;
+    use scale_info::prelude::{format, string::String, vec, vec::Vec};
     use serde_json::Value;
     use sp_avn_common::event_types::Validator;
     use sp_core::U256;
@@ -82,7 +94,7 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A type representing the weights required by the dispatchables of this pallet.
-        type WeightInfo;
+        type WeightInfo: WeightInfo;
 
         /// How often rates should be refreshed, in blocks
         #[pallet::constant]
@@ -127,7 +139,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as Config>::WeightInfo::submit_price())]
         pub fn submit_price(
             origin: OriginFor<T>,
             rates: Rates,
@@ -172,7 +184,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::clear_consensus())]
         pub fn clear_consensus(
             origin: OriginFor<T>,
             submitter: Validator<T::AuthorityId, T::AccountId>,
@@ -206,7 +218,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::register_currency(T::MaxCurrencies::get()))]
         pub fn register_currency(
             origin: OriginFor<T>,
             currency_symbol: Vec<u8>,
@@ -220,11 +232,13 @@ pub mod pallet {
             Currencies::<T>::insert(currency.clone(), ());
 
             Self::deposit_event(Event::<T>::CurrencyRegistered { currency: currency_symbol });
-            Ok(().into())
+
+            let final_weight = <T as pallet::Config>::WeightInfo::register_currency(current_count);
+            Ok(Some(final_weight).into())
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::remove_currency())]
         pub fn remove_currency(
             origin: OriginFor<T>,
             currency_symbol: Vec<u8>,
@@ -243,7 +257,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            let total_weight = Weight::zero();
+            let mut total_weight = Weight::zero();
 
             let last_submission_block = LastPriceSubmission::<T>::get();
             let round_id = VotingRoundId::<T>::get();
@@ -257,21 +271,20 @@ pub mod pallet {
 
                 // we do this to ensure all data for the given period is available and the data is
                 // consistent
-                let to_u64 = now_secs.saturating_sub(two_minutes_secs);
+                let to = now_secs.saturating_sub(two_minutes_secs);
 
                 // 10 minutes
-                let ninety_minutes_secs = 600;
-                let from_u64 = to_u64.saturating_sub(ninety_minutes_secs);
-                PriceSubmissionTimestamps::<T>::insert(round_id, (from_u64, to_u64));
+                let ten_minutes_secs = 600;
+                let from = to.saturating_sub(ten_minutes_secs);
+                PriceSubmissionTimestamps::<T>::insert(round_id, (from, to));
 
-                // TODO
-                // total_weight = total_weight.saturating_add(
-                //     <T as Config>::WeightInfo::on_initialize_updates_fiat_rates_query_timestamps(),
-                // );
+                total_weight = total_weight.saturating_add(
+                    <T as pallet::Config>::WeightInfo::on_initialize_updates_rates_query_timestamps(
+                    ),
+                );
             }
 
-            // let db_read_weight = T::DbWeight::get().reads(1);
-            // total_weight.saturating_add(db_read_weight.saturating_mul(if_counter.into()))
+            total_weight.saturating_add(<T as pallet::Config>::WeightInfo::on_initialize_without_updating_rates_query_timestamps());
             total_weight
         }
 
@@ -301,7 +314,8 @@ pub mod pallet {
 
         fn on_idle(_now: BlockNumberFor<T>, limit: Weight) -> Weight {
             let mut meter = WeightMeter::with_limit(limit / 2);
-            let min_on_idle_weight = Weight::zero(); // todo calculate weight
+            let min_on_idle_weight =
+                <T as pallet::Config>::WeightInfo::on_idle_one_full_iteration();
 
             if !meter.can_consume(min_on_idle_weight) {
                 log::debug!("⚠️ Not enough weight to proceed with cleanup.");

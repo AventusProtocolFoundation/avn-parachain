@@ -215,6 +215,7 @@ runtime-benchmarks = [
 	"pallet-token-manager/runtime-benchmarks",
 	"pallet-validators-manager/runtime-benchmarks",
 	"pallet-avn-transaction-payment/runtime-benchmarks",
+	"pallet-avn-oracle/runtime-benchmarks",
 	# Staking
 	"pallet-parachain-staking/runtime-benchmarks",
 	# Avn Common Runtime

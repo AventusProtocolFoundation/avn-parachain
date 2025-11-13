@@ -12,10 +12,16 @@ use sp_runtime::{
 };
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 use codec::{Decode, Encode};
-use frame_support::__private::BasicExternalities;
+use frame_support::{
+    __private::BasicExternalities,
+    assert_err, assert_ok,
+    pallet_prelude::{ConstU32, Weight},
+    traits::Hooks,
+    BoundedVec,
+};
 use pallet_session as session;
 use sp_avn_common::event_types::Validator;
-use sp_core::{sr25519, Pair};
+use sp_core::{sr25519, Pair, U256};
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
     traits::ConvertInto,
@@ -215,6 +221,21 @@ pub fn generate_signature(
 ) -> TestSignature {
     // Use the key field's sign method to generate the signature
     author.key.sign(&context.encode()).expect("Signature should be signed")
+}
+
+pub fn register_currency(currency_symbol: Vec<u8>) {
+    assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
+}
+
+pub fn create_currency(currency_symbol: Vec<u8>) -> Currency {
+    let currency = BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
+        .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
+    currency
+}
+
+pub fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
+    let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
+    bounded
 }
 
 pub struct ExtBuilder {
