@@ -1,7 +1,18 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
 pub use pallet::*;
+pub mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use super::*;
+    #[cfg(not(feature = "std"))]
+    extern crate alloc;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::string::ToString;
+
     use frame_support::{pallet_prelude::*, weights::WeightMeter};
     use frame_system::{
         offchain::{SendTransactionTypes, SubmitTransaction},
@@ -10,6 +21,7 @@ pub mod pallet {
     use log;
     use pallet_avn::{self as avn, Error as avn_error};
     use pallet_timestamp as timestamp;
+    use scale_info::prelude::{format, string::String, vec, vec::Vec};
     use serde_json::Value;
     use sp_avn_common::event_types::Validator;
     use sp_core::U256;
@@ -22,9 +34,11 @@ pub mod pallet {
     const BATCH_PER_STORAGE: usize = 6;
     pub const MAX_DELETE_ATTEMPTS: u32 = 5;
     pub const MAX_CURRENCY_LENGTH: u32 = 4;
-    pub const MAX_CURRENCIES: u32 = 10;
+    pub const MAX_RATES: u32 = 10;
 
     pub type AVN<T> = avn::Pallet<T>;
+    pub type Currency = BoundedVec<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>;
+    pub type Rates = BoundedVec<(Currency, U256), ConstU32<{ MAX_RATES }>>;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -48,11 +62,11 @@ pub mod pallet {
     pub type LastPriceSubmission<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn last_cleared_nonces)]
+    #[pallet::getter(fn last_cleared_voting_round_ids)]
     pub type LastClearedVotingRoundIds<T: Config> = StorageValue<_, (u32, u32), OptionQuery>;
 
     #[pallet::storage]
-    #[pallet::getter(fn processed_nonces)]
+    #[pallet::getter(fn processed_voting_round_ids)]
     pub type ProcessedVotingRoundIds<T: Config> = StorageValue<_, u32, ValueQuery>;
 
     #[pallet::storage]
@@ -71,7 +85,8 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn rates_refresh_range)]
-    pub type RatesRefreshRangeBlocks<T> = StorageValue<_, u32, ValueQuery, DefaultRatesRefreshRange<T>>;
+    pub type RatesRefreshRangeBlocks<T> =
+        StorageValue<_, u32, ValueQuery, DefaultRatesRefreshRange<T>>;
 
     #[pallet::type_value]
     pub fn DefaultRatesRefreshRange<T: Config>() -> u32 {
@@ -89,7 +104,7 @@ pub mod pallet {
         type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
         /// A type representing the weights required by the dispatchables of this pallet.
-        type WeightInfo;
+        type WeightInfo: WeightInfo;
 
         /// Grace period for consensus
         #[pallet::constant]
@@ -103,12 +118,6 @@ pub mod pallet {
         #[pallet::constant]
         type MinRatesRefreshRange: Get<u32>;
     }
-
-    #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-    pub struct Currency(pub BoundedVec<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>);
-
-    #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
-    pub struct Rates(pub BoundedVec<(Currency, U256), ConstU32<{ MAX_CURRENCIES }>>);
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -134,13 +143,15 @@ pub mod pallet {
         TooManyCurrencies,
         GracePeriodNotPassed,
         CurrencyNotFound,
+        TooManyRates,
+        UnregisteredCurrency,
         RateRangeTooLow,
     }
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as Config>::WeightInfo::submit_price())]
         pub fn submit_price(
             origin: OriginFor<T>,
             rates: Rates,
@@ -152,6 +163,10 @@ pub mod pallet {
                 AVN::<T>::is_validator(&submitter.account_id),
                 Error::<T>::SubmitterNotAValidator
             );
+
+            for (currency, _) in rates.iter() {
+                ensure!(Currencies::<T>::contains_key(currency), Error::<T>::UnregisteredCurrency);
+            }
 
             let round_id = VotingRoundId::<T>::get();
             ensure!(
@@ -169,7 +184,7 @@ pub mod pallet {
                 log::info!("🎁 Quorum reached: {}, proceeding to publish rates", count);
                 Self::deposit_event(Event::<T>::RatesUpdated { rates: rates.clone(), round_id });
 
-                for (currency, value) in &rates.0 {
+                for (currency, value) in rates.iter() {
                     NativeTokenRateByCurrency::<T>::insert(currency, value.clone());
                 }
 
@@ -181,7 +196,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::clear_consensus())]
         pub fn clear_consensus(
             origin: OriginFor<T>,
             submitter: Validator<T::AuthorityId, T::AccountId>,
@@ -215,7 +230,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(2)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::register_currency(T::MaxCurrencies::get()))]
         pub fn register_currency(
             origin: OriginFor<T>,
             currency_symbol: Vec<u8>,
@@ -225,32 +240,24 @@ pub mod pallet {
             let current_count = Currencies::<T>::iter().count() as u32;
             ensure!(current_count < T::MaxCurrencies::get(), Error::<T>::TooManyCurrencies);
 
-            let currency = Currency(
-                BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
-                    currency_symbol.clone(),
-                )
-                .map_err(|_| Error::<T>::InvalidCurrency)?,
-            );
+            let currency = Self::to_currency(currency_symbol.clone())?;
             Currencies::<T>::insert(currency.clone(), ());
 
             Self::deposit_event(Event::<T>::CurrencyRegistered { currency: currency_symbol });
-            Ok(().into())
+
+            let final_weight = <T as pallet::Config>::WeightInfo::register_currency(current_count);
+            Ok(Some(final_weight).into())
         }
 
         #[pallet::call_index(3)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::remove_currency())]
         pub fn remove_currency(
             origin: OriginFor<T>,
             currency_symbol: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
-            let currency = Currency(
-                BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
-                    currency_symbol.clone(),
-                )
-                .map_err(|_| Error::<T>::InvalidCurrency)?,
-            );
+            let currency = Self::to_currency(currency_symbol.clone())?;
             ensure!(Currencies::<T>::contains_key(&currency), Error::<T>::CurrencyNotFound);
             Currencies::<T>::remove(&currency);
 
@@ -259,16 +266,13 @@ pub mod pallet {
         }
 
         #[pallet::call_index(4)]
-        #[pallet::weight(Weight::default())]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_rates_refresh_range())]
         pub fn set_rates_refresh_range(
             origin: OriginFor<T>,
             new_value: u32,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            ensure!(
-                new_value >= T::MinRatesRefreshRange::get(),
-                Error::<T>::RateRangeTooLow
-            );
+            ensure!(new_value >= T::MinRatesRefreshRange::get(), Error::<T>::RateRangeTooLow);
 
             let old = RatesRefreshRangeBlocks::<T>::get();
             RatesRefreshRangeBlocks::<T>::put(new_value);
@@ -280,11 +284,13 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            let total_weight = Weight::zero();
+            let mut total_weight = Weight::zero();
 
             let last_submission_block = LastPriceSubmission::<T>::get();
             let round_id = VotingRoundId::<T>::get();
-            if Self::is_refresh_due(n, last_submission_block) && !PriceSubmissionTimestamps::<T>::contains_key(round_id) {
+            if Self::is_refresh_due(n, last_submission_block) &&
+                !PriceSubmissionTimestamps::<T>::contains_key(round_id)
+            {
                 let now = pallet_timestamp::Pallet::<T>::now();
                 let now_u64: u64 = now.try_into().unwrap_or_default();
                 let now_secs = now_u64 / 1000;
@@ -292,21 +298,20 @@ pub mod pallet {
 
                 // we do this to ensure all data for the given period is available and the data is
                 // consistent
-                let to_u64 = now_secs.saturating_sub(two_minutes_secs);
+                let to = now_secs.saturating_sub(two_minutes_secs);
 
                 // 10 minutes
-                let ninety_minutes_secs = 600;
-                let from_u64 = to_u64.saturating_sub(ninety_minutes_secs);
-                PriceSubmissionTimestamps::<T>::insert(round_id, (from_u64, to_u64));
+                let ten_minutes_secs = 600;
+                let from = to.saturating_sub(ten_minutes_secs);
+                PriceSubmissionTimestamps::<T>::insert(round_id, (from, to));
 
-                // TODO
-                // total_weight = total_weight.saturating_add(
-                //     <T as Config>::WeightInfo::on_initialize_updates_fiat_rates_query_timestamps(),
-                // );
+                total_weight = total_weight.saturating_add(
+                    <T as pallet::Config>::WeightInfo::on_initialize_updates_rates_query_timestamps(
+                    ),
+                );
             }
 
-            // let db_read_weight = T::DbWeight::get().reads(1);
-            // total_weight.saturating_add(db_read_weight.saturating_mul(if_counter.into()))
+            total_weight.saturating_add(<T as pallet::Config>::WeightInfo::on_initialize_without_updating_rates_query_timestamps());
             total_weight
         }
 
@@ -336,21 +341,22 @@ pub mod pallet {
 
         fn on_idle(_now: BlockNumberFor<T>, limit: Weight) -> Weight {
             let mut meter = WeightMeter::with_limit(limit / 2);
-            let min_on_idle_weight = Weight::zero(); // todo calculate weight
+            let min_on_idle_weight =
+                <T as pallet::Config>::WeightInfo::on_idle_one_full_iteration();
 
             if !meter.can_consume(min_on_idle_weight) {
                 log::debug!("⚠️ Not enough weight to proceed with cleanup.");
                 return meter.consumed();
             }
 
-            let (mut price_reporters_nonce, mut prices_nonce) =
+            let (mut price_reporters_round_id, mut prices_round_id) =
                 LastClearedVotingRoundIds::<T>::get().unwrap_or((0, 0));
 
-            let max_vow_price_nonce_to_delete = ProcessedVotingRoundIds::<T>::get();
+            let max_vow_price_round_id_to_delete = ProcessedVotingRoundIds::<T>::get();
 
             // Exit early if we've already caught up
-            if price_reporters_nonce >= max_vow_price_nonce_to_delete &&
-                prices_nonce >= max_vow_price_nonce_to_delete
+            if price_reporters_round_id >= max_vow_price_round_id_to_delete &&
+                prices_round_id >= max_vow_price_round_id_to_delete
             {
                 return meter.consumed();
             }
@@ -360,28 +366,28 @@ pub mod pallet {
                     break;
                 }
 
-                if price_reporters_nonce < max_vow_price_nonce_to_delete {
-                    let cleared = PriceReporters::<T>::drain_prefix(price_reporters_nonce)
+                if price_reporters_round_id < max_vow_price_round_id_to_delete {
+                    let cleared = PriceReporters::<T>::drain_prefix(price_reporters_round_id)
                         .take(BATCH_PER_STORAGE)
                         .count();
                     if cleared < BATCH_PER_STORAGE {
-                        price_reporters_nonce += 1;
+                        price_reporters_round_id += 1;
                     }
                 }
 
-                if prices_nonce < max_vow_price_nonce_to_delete {
-                    let cleared = ReportedRates::<T>::drain_prefix(prices_nonce)
+                if prices_round_id < max_vow_price_round_id_to_delete {
+                    let cleared = ReportedRates::<T>::drain_prefix(prices_round_id)
                         .take(BATCH_PER_STORAGE)
                         .count();
                     if cleared < BATCH_PER_STORAGE {
-                        prices_nonce += 1;
+                        prices_round_id += 1;
                     }
                 }
 
                 meter.consume(min_on_idle_weight);
             }
 
-            LastClearedVotingRoundIds::<T>::put((price_reporters_nonce, prices_nonce));
+            LastClearedVotingRoundIds::<T>::put((price_reporters_round_id, prices_round_id));
             meter.consumed()
         }
     }
@@ -517,7 +523,7 @@ pub mod pallet {
         fn fetch_and_decode_rates() -> Result<Rates, DispatchError> {
             let stored_currencies: Vec<String> = Currencies::<T>::iter_keys()
                 .map(|s| {
-                    core::str::from_utf8(&s.0)
+                    core::str::from_utf8(&s.as_slice())
                         .map(|v| v.to_string())
                         .map_err(|_| Error::<T>::InvalidCurrency.into())
                 })
@@ -549,28 +555,16 @@ pub mod pallet {
             let mut formatted_rates: Vec<(Currency, U256)> = Vec::new();
 
             if let Some(rates) = prices.as_object() {
-                for (currency, rate_value) in rates {
-                    if let Some(rate) = rate_value.as_f64() {
-                        if rate <= 0.0 {
-                            return Err(Error::<T>::PriceMustBeGreaterThanZero.into());
-                        }
-                        let scaled_rate = U256::from((rate * 1e8) as u128);
-                        let curr = Currency(
-                            BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(
-                                currency.as_bytes().to_vec(),
-                            )
-                            .map_err(|_| Error::<T>::InvalidCurrency)?,
-                        );
-                        formatted_rates.push((curr, scaled_rate));
-                    } else {
-                        return Err(Error::<T>::InvalidRateFormat.into())
-                    }
+                for (currency_symbol, rate_value) in rates {
+                    let rate = rate_value.as_f64().ok_or(Error::<T>::InvalidRateFormat)?;
+                    ensure!(rate > 0.0, Error::<T>::PriceMustBeGreaterThanZero);
+
+                    let scaled_rate = U256::from((rate * 1e8) as u128);
+                    let currency = Self::to_currency(currency_symbol.as_bytes().to_vec())?;
+                    formatted_rates.push((currency, scaled_rate));
                 }
             }
-            let bounded: BoundedVec<(Currency, U256), ConstU32<{ MAX_CURRENCIES }>> =
-                formatted_rates.try_into().map_err(|_| DispatchError::Other("Too many rates"))?;
-
-            Ok(Rates(bounded))
+            Self::to_rates(formatted_rates)
         }
 
         pub fn should_query_rates() -> bool {
@@ -590,6 +584,19 @@ pub mod pallet {
                     RatesRefreshRangeBlocks::<T>::get(),
                 ))
                 .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
+        }
+
+        fn to_currency(currency_symbol: Vec<u8>) -> Result<Currency, DispatchError> {
+            let currency =
+                BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
+                    .map_err(|_| DispatchError::from(Error::<T>::InvalidCurrency))?;
+            Ok(currency)
+        }
+
+        fn to_rates(rates: Vec<(Currency, U256)>) -> Result<Rates, DispatchError> {
+            let bounded: Rates =
+                rates.try_into().map_err(|_| DispatchError::from(Error::<T>::TooManyRates))?;
+            Ok(bounded)
         }
     }
 }

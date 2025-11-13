@@ -12,19 +12,18 @@ use sp_runtime::{
 };
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 use codec::{Decode, Encode};
-use frame_support::__private::BasicExternalities;
+use frame_support::{
+    __private::BasicExternalities, assert_ok, pallet_prelude::ConstU32, BoundedVec,
+};
 use pallet_session as session;
 use sp_avn_common::event_types::Validator;
-use sp_core::{sr25519, Pair};
+use sp_core::{sr25519, Pair, U256};
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
     traits::ConvertInto,
-    DispatchError, RuntimeAppPublic,
+    RuntimeAppPublic,
 };
 use std::cell::RefCell;
-use frame_support::BoundedVec;
-use frame_support::pallet_prelude::ConstU32;
-use sp_core::U256;
 
 pub type Extrinsic = TestXt<RuntimeCall, ()>;
 pub type AccountId = u64;
@@ -114,6 +113,7 @@ impl pallet_timestamp::Config for TestRuntime {
 parameter_types! {
     pub const Period: u64 = 1;
     pub const Offset: u64 = 0;
+    pub const PriceRefreshRangeInBlocks: u32 = 50;
     pub const ConsensusGracePeriod: u32 = 300;
     pub const MaxCurrencies: u32 = 10;
     pub const MinRatesRefreshRange: u32 = 5;
@@ -220,19 +220,19 @@ pub fn generate_signature(
     author.key.sign(&context.encode()).expect("Signature should be signed")
 }
 
-pub fn create_currency(symbol: Vec<u8>) -> Currency {
-    let bounded_currency =
-        BoundedVec::<u8, ConstU32<MAX_CURRENCY_LENGTH>>::try_from(symbol)
-            .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
-    Currency(bounded_currency)
+pub fn register_currency(currency_symbol: Vec<u8>) {
+    assert_ok!(AvnOracle::register_currency(RuntimeOrigin::root(), currency_symbol.clone(),));
 }
 
-pub fn create_rates(pairs: Vec<(Currency, U256)>) -> Rates {
-    let bounded_rate: BoundedVec<(Currency, U256), ConstU32<MAX_CURRENCIES>> =
-        BoundedVec::try_from(pairs)
-            .expect("number of rates must be ≤ MAX_CURRENCIES");
+pub fn create_currency(currency_symbol: Vec<u8>) -> Currency {
+    let currency = BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
+        .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
+    currency
+}
 
-    Rates(bounded_rate)
+pub fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
+    let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
+    bounded
 }
 
 pub struct ExtBuilder {

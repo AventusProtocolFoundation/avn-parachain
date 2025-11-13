@@ -5,15 +5,16 @@ use crate::Pallet as AvnOracle;
 use codec::{Decode, Encode};
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_support::{
-    pallet_prelude::Weight,
+    assert_ok,
+    pallet_prelude::{ConstU32, Weight},
     traits::{Get, Hooks},
+    BoundedVec,
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
-use scale_info::prelude::{format, vec};
+use scale_info::prelude::{format, vec, vec::Vec};
 use sp_avn_common::event_types::Validator;
-use sp_core::{H160, U256};
+use sp_core::U256;
 use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
-use crate::mock::*;
 
 fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId, T::AccountId>> {
     let mut validators = Vec::new();
@@ -41,10 +42,33 @@ fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId,
     validators
 }
 
+fn register_n_currencies<T: Config>(n: u32) {
+    for i in 0..n {
+        let currency_symbol = format!("us{}", i).into_bytes();
+        let currency = create_currency(currency_symbol.clone());
+        Currencies::<T>::insert(currency, ());
+    }
+}
+
+pub fn create_currency(currency_symbol: Vec<u8>) -> Currency {
+    let currency = BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
+        .expect("currency symbol must be ≤ MAX_CURRENCY_LENGTH bytes");
+    currency
+}
+
+pub fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
+    let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
+    bounded
+}
+
 benchmarks! {
     submit_price {
         let current_authors = generate_validators::<T>(10);
-        let currency = create_currency(b"usd".to_vec().clone());
+
+        let currency_symbol = b"usd".to_vec();
+        let currency = create_currency(currency_symbol.clone());
+        assert_ok!(AvnOracle::<T>::register_currency(RawOrigin::Root.into(), currency_symbol.clone(),));
+
         let rates = create_rates(vec![(currency, U256::from(1000))]);
 
         let context = (PRICE_SUBMISSION_CONTEXT, rates.clone(), VotingRoundId::<T>::get()).encode();
@@ -72,12 +96,15 @@ benchmarks! {
          // Verify the reported rate count
         assert_eq!(ReportedRates::<T>::get(0, rates), (quorum + 1) as u32);
 
-        // Ensure the nonce incremented, indicating quorum was met
+        // Ensure the voting_round_id incremented, indicating quorum was met
         assert_eq!(VotingRoundId::<T>::get(), 1);
     }
 
     register_currency {
-        let currency_symbol = b"usd".to_vec();
+        let m in 0 .. T::MaxCurrencies::get().saturating_sub(1);
+        register_n_currencies::<T>(m);
+
+        let currency_symbol = b"eur".to_vec();
     }: _(RawOrigin::Root, currency_symbol.clone())
     verify {
         let currency = create_currency(currency_symbol.clone());
@@ -107,8 +134,8 @@ benchmarks! {
         LastPriceSubmission::<T>::put(last_submission);
     }: _(RawOrigin::None, validator.clone(), signature)
     verify {
-        let updated_nonce = VotingRoundId::<T>::get();
-        assert_eq!(updated_nonce, 1);
+        let updated_voting_round_id = VotingRoundId::<T>::get();
+        assert_eq!(updated_voting_round_id, 1);
 
         let stored_block = LastPriceSubmission::<T>::get();
         let new_last_submission = BlockNumberFor::<T>::from(current_block_with_expired_grace_period.saturating_sub(RatesRefreshRangeBlocks::<T>::get()));
@@ -127,10 +154,15 @@ benchmarks! {
 
     }: { AvnOracle::<T>::on_initialize(current_block) }
     verify {
-        let nonce = VotingRoundId::<T>::get();
-        let (from, to) = PriceSubmissionTimestamps::<T>::get(nonce)
+        let voting_round_id = VotingRoundId::<T>::get();
+        let (from, to) = PriceSubmissionTimestamps::<T>::get(voting_round_id)
             .expect("Expected FiatRatesSubmissionTimestamps to contain a value");
-        assert!(to > from, "Expected 'to' timestamp to be greater than 'from'");
+
+        assert!(
+            to == from.saturating_add(600),
+            "Expected 'to' > 'from' but got from={:?} to={:?}",
+            from, to
+        );
     }
 
     on_initialize_without_updating_rates_query_timestamps {
@@ -145,13 +177,13 @@ benchmarks! {
 
     }: { AvnOracle::<T>::on_initialize(current_block) }
     verify {
-        let nonce = VotingRoundId::<T>::get();
+        let voting_round_id = VotingRoundId::<T>::get();
         // timestamps not set
-        assert!(PriceSubmissionTimestamps::<T>::get(nonce).is_none());
+        assert!(PriceSubmissionTimestamps::<T>::get(voting_round_id).is_none());
     }
 
     on_idle_one_full_iteration {
-        let nonce = 0u32;
+        let voting_round_id = 0u32;
         let current_authors = generate_validators::<T>(10);
 
         let currency = create_currency(b"usd".to_vec().clone());
@@ -159,10 +191,10 @@ benchmarks! {
 
         let quorum = AVN::<T>::quorum() as usize;
         for i in 0..=quorum {
-            PriceReporters::<T>::insert(nonce, &current_authors[i].account_id, ());
+            PriceReporters::<T>::insert(voting_round_id, &current_authors[i].account_id, ());
         }
-        ReportedRates::<T>::insert(nonce, rates, 5);
-        ProcessedVotingRoundIds::<T>::put(nonce + 1);
+        ReportedRates::<T>::insert(voting_round_id, rates, 5);
+        ProcessedVotingRoundIds::<T>::put(voting_round_id + 1);
 
         let limit = Weight::from_parts(1_000_000_000_000_000, 1000000);
     }: { AvnOracle::<T>::on_idle(1u32.into(), limit) }
@@ -170,8 +202,8 @@ benchmarks! {
         assert_eq!(LastClearedVotingRoundIds::<T>::get(), Some((1,1)));
 
         // Ensure storage maps are empty after cleanup
-        assert!(PriceReporters::<T>::iter_prefix(nonce).next().is_none());
-        assert!(ReportedRates::<T>::iter_prefix(nonce).next().is_none());
+        assert!(PriceReporters::<T>::iter_prefix(voting_round_id).next().is_none());
+        assert!(ReportedRates::<T>::iter_prefix(voting_round_id).next().is_none());
     }
 
     set_rates_refresh_range {
