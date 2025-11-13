@@ -83,6 +83,16 @@ pub mod pallet {
     #[pallet::getter(fn currency_symbols)]
     pub type Currencies<T: Config> = StorageMap<_, Blake2_128Concat, Currency, (), OptionQuery>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn rates_refresh_range)]
+    pub type RatesRefreshRangeBlocks<T> =
+        StorageValue<_, u32, ValueQuery, DefaultRatesRefreshRange<T>>;
+
+    #[pallet::type_value]
+    pub fn DefaultRatesRefreshRange<T: Config>() -> u32 {
+        T::MinRatesRefreshRange::get()
+    }
+
     #[pallet::config]
     pub trait Config:
         SendTransactionTypes<Call<Self>>
@@ -96,10 +106,6 @@ pub mod pallet {
         /// A type representing the weights required by the dispatchables of this pallet.
         type WeightInfo: WeightInfo;
 
-        /// How often rates should be refreshed, in blocks
-        #[pallet::constant]
-        type PriceRefreshRangeInBlocks: Get<u32>;
-
         /// Grace period for consensus
         #[pallet::constant]
         type ConsensusGracePeriod: Get<u32>;
@@ -107,6 +113,10 @@ pub mod pallet {
         /// Maximum number of currencies
         #[pallet::constant]
         type MaxCurrencies: Get<u32>;
+
+        /// Minimum Rates Refresh range
+        #[pallet::constant]
+        type MinRatesRefreshRange: Get<u32>;
     }
 
     #[pallet::event]
@@ -116,6 +126,7 @@ pub mod pallet {
         ConsensusCleared { period: u32 },
         CurrencyRegistered { currency: Vec<u8> },
         CurrencyRemoved { currency: Vec<u8> },
+        RatesRefreshRangeUpdated { old: u32, new: u32 },
     }
 
     #[pallet::error]
@@ -134,6 +145,7 @@ pub mod pallet {
         CurrencyNotFound,
         TooManyRates,
         UnregisteredCurrency,
+        RateRangeTooLow,
     }
 
     #[pallet::call]
@@ -201,13 +213,13 @@ pub mod pallet {
             let last_submission_block = LastPriceSubmission::<T>::get();
 
             let required_block = last_submission_block
-                .saturating_add(BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get()))
+                .saturating_add(BlockNumberFor::<T>::from(RatesRefreshRangeBlocks::<T>::get()))
                 .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()));
 
             ensure!(current_block >= required_block, Error::<T>::GracePeriodNotPassed);
 
             let new_last_submission_block = current_block
-                .saturating_sub(BlockNumberFor::<T>::from(T::PriceRefreshRangeInBlocks::get()));
+                .saturating_sub(BlockNumberFor::<T>::from(RatesRefreshRangeBlocks::<T>::get()));
             LastPriceSubmission::<T>::put(new_last_submission_block);
 
             let cleared_period = VotingRoundId::<T>::get();
@@ -250,6 +262,21 @@ pub mod pallet {
             Currencies::<T>::remove(&currency);
 
             Self::deposit_event(Event::<T>::CurrencyRemoved { currency: currency_symbol });
+            Ok(().into())
+        }
+
+        #[pallet::call_index(4)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_rates_refresh_range())]
+        pub fn set_rates_refresh_range(
+            origin: OriginFor<T>,
+            new_value: u32,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(new_value >= T::MinRatesRefreshRange::get(), Error::<T>::RateRangeTooLow);
+
+            let old = RatesRefreshRangeBlocks::<T>::get();
+            RatesRefreshRangeBlocks::<T>::put(new_value);
+            Self::deposit_event(Event::<T>::RatesRefreshRangeUpdated { old, new: new_value });
             Ok(().into())
         }
     }
@@ -547,14 +574,14 @@ pub mod pallet {
         fn is_refresh_due(current: BlockNumberFor<T>, last: BlockNumberFor<T>) -> bool {
             current >=
                 last.saturating_add(BlockNumberFor::<T>::from(
-                    T::PriceRefreshRangeInBlocks::get(),
+                    RatesRefreshRangeBlocks::<T>::get(),
                 ))
         }
 
         fn can_clear(current: BlockNumberFor<T>, last: BlockNumberFor<T>) -> bool {
             current >=
                 last.saturating_add(BlockNumberFor::<T>::from(
-                    T::PriceRefreshRangeInBlocks::get(),
+                    RatesRefreshRangeBlocks::<T>::get(),
                 ))
                 .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
         }

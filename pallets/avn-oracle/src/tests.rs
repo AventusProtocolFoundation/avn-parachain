@@ -1,16 +1,10 @@
 #![cfg(test)]
 use super::{AVN, *};
 use crate::mock::*;
-use frame_support::{
-    assert_err, assert_ok,
-    pallet_prelude::{ConstU32, Weight},
-    traits::Hooks,
-    BoundedVec,
-};
+use frame_support::{assert_err, assert_ok};
 use frame_system::pallet_prelude::BlockNumberFor;
-use scale_info::prelude::collections::HashSet;
 use serde_json::json;
-use sp_core::{H160, U256};
+use sp_core::U256;
 
 fn submit_price_for_x_validators(num_validators: u64, rates: Rates) {
     for i in 1..=num_validators {
@@ -621,8 +615,7 @@ mod clear_consensus {
 
                 // in grace period blocks, it should reset round
                 let current_block: u64 = <frame_system::Pallet<TestRuntime>>::block_number();
-                let rates_refresh_range: u32 =
-                    <TestRuntime as Config>::PriceRefreshRangeInBlocks::get();
+                let rates_refresh_range: u32 = RatesRefreshRangeBlocks::<TestRuntime>::get();
                 let grace: u32 = <TestRuntime as Config>::ConsensusGracePeriod::get();
                 let new_block_number = current_block
                     .saturating_add(grace.into())
@@ -657,7 +650,6 @@ mod clear_consensus {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let number_of_validators = AVN::<TestRuntime>::quorum() + 1;
-                let voting_round_id = VotingRoundId::<TestRuntime>::get();
 
                 // add votes to all validators with different rates so consensus is never reached
                 submit_different_rates_for_x_validators(number_of_validators.into());
@@ -670,8 +662,7 @@ mod clear_consensus {
 
                 // in grace period blocks, it should reset round
                 let current_block: u64 = <frame_system::Pallet<TestRuntime>>::block_number();
-                let rates_refresh_range: u32 =
-                    <TestRuntime as Config>::PriceRefreshRangeInBlocks::get();
+                let rates_refresh_range: u32 = RatesRefreshRangeBlocks::<TestRuntime>::get();
                 let grace: u32 = <TestRuntime as Config>::ConsensusGracePeriod::get();
                 let new_block_number = current_block
                     .saturating_add(grace.into())
@@ -697,7 +688,6 @@ mod clear_consensus {
             let mut ext = ExtBuilder::build_default().with_validators().as_externality();
             ext.execute_with(|| {
                 let number_of_validators = AVN::<TestRuntime>::quorum() + 1;
-                let voting_round_id = VotingRoundId::<TestRuntime>::get();
 
                 // add votes to all validators with different rates so consensus is never reached
                 submit_different_rates_for_x_validators(number_of_validators.into());
@@ -837,6 +827,47 @@ mod format_rates {
                 assert_err!(
                     Pallet::<TestRuntime>::format_rates(invalid_format_json),
                     Error::<TestRuntime>::InvalidRateFormat
+                );
+            });
+        }
+    }
+}
+
+mod set_rates_refresh_range {
+    use super::*;
+
+    #[cfg(test)]
+    mod succeeds_if {
+        use super::*;
+
+        #[test]
+        fn range_is_valid() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let valid_rates_range: u32 = <TestRuntime as Config>::MinRatesRefreshRange::get();
+
+                assert_ok!(AvnOracle::set_rates_refresh_range(
+                    RuntimeOrigin::root(),
+                    valid_rates_range
+                ));
+            });
+        }
+    }
+
+    #[cfg(test)]
+    mod fails_if {
+        use super::*;
+
+        #[test]
+        fn range_is_invalid() {
+            let mut ext = ExtBuilder::build_default().with_validators().as_externality();
+            ext.execute_with(|| {
+                let min_rates_range: u32 = <TestRuntime as Config>::MinRatesRefreshRange::get();
+                let invalid_rates_range: u32 = min_rates_range.saturating_sub(1);
+
+                assert_err!(
+                    AvnOracle::set_rates_refresh_range(RuntimeOrigin::root(), invalid_rates_range),
+                    Error::<TestRuntime>::RateRangeTooLow
                 );
             });
         }

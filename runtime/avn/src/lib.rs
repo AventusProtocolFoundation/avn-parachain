@@ -621,6 +621,7 @@ parameter_types! {
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
     pub const EthAutoSubmitSummaries: bool = true;
     pub const EthereumInstanceId: u8 = 1u8;
+    pub const MinRatesRefreshRange: u32 = 5;
     pub const PriceRefreshRangeInBlocks: u32 = 50; // 10 minutes
 }
 
@@ -702,9 +703,9 @@ impl pallet_avn_anchor::Config for Runtime {
 impl pallet_avn_oracle::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type PriceRefreshRangeInBlocks = PriceRefreshRangeInBlocks;
     type ConsensusGracePeriod = ConsensusGracePeriod;
     type MaxCurrencies = MaxCurrencies;
+    type MinRatesRefreshRange = MinRatesRefreshRange;
 }
 
 use sp_avn_common::{event_discovery::EthBridgeEventsFilter, event_types::ValidEvents};

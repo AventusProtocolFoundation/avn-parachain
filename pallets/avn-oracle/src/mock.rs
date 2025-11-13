@@ -13,11 +13,7 @@ use sp_runtime::{
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 use codec::{Decode, Encode};
 use frame_support::{
-    __private::BasicExternalities,
-    assert_err, assert_ok,
-    pallet_prelude::{ConstU32, Weight},
-    traits::Hooks,
-    BoundedVec,
+    __private::BasicExternalities, assert_ok, pallet_prelude::ConstU32, BoundedVec,
 };
 use pallet_session as session;
 use sp_avn_common::event_types::Validator;
@@ -25,7 +21,7 @@ use sp_core::{sr25519, Pair, U256};
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
     traits::ConvertInto,
-    DispatchError, RuntimeAppPublic,
+    RuntimeAppPublic,
 };
 use std::cell::RefCell;
 
@@ -101,9 +97,9 @@ impl pallet_avn::Config for TestRuntime {
 impl pallet_avn_oracle::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type PriceRefreshRangeInBlocks = PriceRefreshRangeInBlocks;
     type ConsensusGracePeriod = ConsensusGracePeriod;
     type MaxCurrencies = MaxCurrencies;
+    type MinRatesRefreshRange = MinRatesRefreshRange;
 }
 
 impl pallet_timestamp::Config for TestRuntime {
@@ -120,6 +116,7 @@ parameter_types! {
     pub const PriceRefreshRangeInBlocks: u32 = 50;
     pub const ConsensusGracePeriod: u32 = 300;
     pub const MaxCurrencies: u32 = 10;
+    pub const MinRatesRefreshRange: u32 = 5;
 }
 
 pub type SessionIndex = u32;
