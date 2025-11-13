@@ -81,6 +81,7 @@ use sp_avn_common::{
     event_discovery::{AdditionalEvents, EthBlockRange, EthereumEventsPartition},
     InnerCallValidator, Proof,
 };
+use sp_watchtower::NoopWatchtower;
 
 use pallet_parachain_staking::{self, StakingPotAccountId};
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -170,7 +171,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 118,
+    spec_version: 119,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -579,6 +580,7 @@ parameter_types! {
     pub const TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
     pub const EthAutoSubmitSummaries: bool = true;
     pub const EthereumInstanceId: u8 = 1u8;
+    pub const ExternalValidationEnabled: bool = false;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -591,6 +593,8 @@ impl pallet_summary::Config for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type ExternalValidationEnabled = ExternalValidationEnabled;
+    type ExternalValidator = NoopWatchtower<AccountId>;
 }
 
 pub type EthAddress = H160;

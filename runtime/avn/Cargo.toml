@@ -100,6 +100,7 @@ pallet-eth-bridge = { path = "../../pallets/eth-bridge", default-features = fals
 pallet-eth-bridge-runtime-api = { path = "../../pallets/eth-bridge/runtime-api", default-features = false }
 pallet-parachain-staking = { path = "../../pallets/parachain-staking", default-features = false }
 pallet-avn-anchor = { path = "../../pallets/avn-anchor", default-features = false }
+sp-watchtower = { path = "../../primitives/watchtower", default-features = false }
 
 # Common Runtime
 runtime-common = { package = "avn-runtime-common", path = "../common", default-features = false }
@@ -161,6 +162,7 @@ std = [
 	"xcm/std",
 	# AvN pallets
 	"sp-avn-common/std",
+	"sp-watchtower/std",
 	"pallet-avn/std",
 	"pallet-avn-anchor/std",
 	"pallet-avn-proxy/std",

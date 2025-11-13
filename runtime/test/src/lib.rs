@@ -82,6 +82,7 @@ use sp_avn_common::{
     },
     InnerCallValidator, Proof,
 };
+use sp_watchtower::NoopWatchtower;
 
 use pallet_parachain_staking;
 pub type NegativeImbalance<T> = <pallet_balances::Pallet<T> as Currency<
@@ -180,7 +181,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-test-parachain"),
     impl_name: create_runtime_str!("avn-test-parachain"),
     authoring_version: 1,
-    spec_version: 118,
+    spec_version: 119,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -610,6 +611,7 @@ parameter_types! {
     pub const EthAutoSubmitSummaries: bool = true;
     pub const AvnAutoSubmitSummaries: bool = false;
     pub const AvnInstanceId: u8 = 2u8;
+    pub const ExternalValidationEnabled: bool = false;
 }
 
 pub type EthSummary = pallet_summary::Instance1;
@@ -623,6 +625,8 @@ impl pallet_summary::Config<EthSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = EthAutoSubmitSummaries;
     type InstanceId = EthereumInstanceId;
+    type ExternalValidationEnabled = ExternalValidationEnabled;
+    type ExternalValidator = NoopWatchtower<AccountId>;
 }
 
 pub type AvnAnchorSummary = pallet_summary::Instance2;
@@ -636,6 +640,8 @@ impl pallet_summary::Config<AvnAnchorSummary> for Runtime {
     type BridgeInterface = EthBridge;
     type AutoSubmitSummaries = AvnAutoSubmitSummaries;
     type InstanceId = AvnInstanceId;
+    type ExternalValidationEnabled = ExternalValidationEnabled;
+    type ExternalValidator = NoopWatchtower<AccountId>;
 }
 
 impl pallet_avn_anchor::Config for Runtime {

@@ -27,6 +27,7 @@ sp-io = { default-features = false, git = "https://github.com/paritytech/polkado
 sp-staking = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 sp-application-crypto = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
+sp-watchtower = { default-features = false, path = "../../primitives/watchtower" }
 frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 pallet-avn = { path = "../avn", default-features = false }
@@ -64,6 +65,7 @@ std = [
 	"sp-application-crypto/std",
 	"sp-staking/std",
 	"sp-avn-common/std",
+	"sp-watchtower/std",
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-avn/std",

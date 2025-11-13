@@ -1374,6 +1374,7 @@ dependencies = [
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
  "sp-transaction-pool",
  "sp-version",
+ "sp-watchtower",
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",
@@ -1457,6 +1458,7 @@ dependencies = [
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
  "sp-transaction-pool",
  "sp-version",
+ "sp-watchtower",
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-builder",
@@ -8680,6 +8682,7 @@ dependencies = [
  "sp-staking",
  "sp-state-machine",
  "sp-std 8.0.0 (git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.6.0)",
+ "sp-watchtower",
 ]
 
 [[package]]
