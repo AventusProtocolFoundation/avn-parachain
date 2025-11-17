@@ -678,7 +678,6 @@ impl pallet_eth_bridge::Config for Runtime {
     type Quorum = Avn;
 }
 
-// Other pallets
 parameter_types! {
     pub const AssetDeposit: Balance = 10 * MILLI_AVT;
     pub const ApprovalDeposit: Balance = 100 * MICRO_AVT;
