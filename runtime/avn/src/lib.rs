@@ -171,7 +171,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("avn-parachain"),
     impl_name: create_runtime_str!("avn-parachain"),
     authoring_version: 1,
-    spec_version: 120,
+    spec_version: 121,
     impl_version: 0,
     apis: RUNTIME_API_VERSIONS,
     transaction_version: 1,
@@ -678,7 +678,6 @@ impl pallet_eth_bridge::Config for Runtime {
     type Quorum = Avn;
 }
 
-// Other pallets
 parameter_types! {
     pub const AssetDeposit: Balance = 10 * MILLI_AVT;
     pub const ApprovalDeposit: Balance = 100 * MICRO_AVT;

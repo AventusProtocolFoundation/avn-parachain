@@ -38,8 +38,6 @@ pub use pallet::*;
 
 const PALLET_ID: &'static [u8; 14] = b"author_manager";
 
-const DEFAULT_MINIMUM_AUTHORS_COUNT: usize = 2;
-
 pub mod default_weights;
 pub use default_weights::WeightInfo;
 
@@ -420,88 +418,7 @@ impl<AccountId: Member + Encode> ActionId<AccountId> {
     }
 }
 
-#[derive(Debug)]
-pub enum AuthorOperationTier1Endpoint {
-    Add,
-    Remove,
-}
-
-impl AuthorOperationTier1Endpoint {
-    fn function_name(&self) -> &[u8] {
-        match self {
-            AuthorOperationTier1Endpoint::Add => b"addAuthor",
-            AuthorOperationTier1Endpoint::Remove => b"removeAuthor",
-        }
-    }
-}
-
 impl<T: Config> Pallet<T> {
-    fn start_activation_for_registered_author(registered_author: &T::AccountId, tx_id: EthereumId) {
-        let ingress_counter = Self::get_ingress_counter() + 1;
-
-        TotalIngresses::<T>::put(ingress_counter);
-        <AuthorActions<T>>::insert(
-            registered_author,
-            ingress_counter,
-            AuthorsActionData::new(
-                AuthorsActionStatus::AwaitingConfirmation,
-                tx_id,
-                AuthorsActionType::Activation,
-            ),
-        );
-    }
-
-    fn register_author(
-        author_account_id: &T::AccountId,
-        author_eth_public_key: &ecdsa::Public,
-    ) -> DispatchResult {
-        let tx_id = Self::publish_to_bridge(
-            author_eth_public_key,
-            &author_account_id,
-            AuthorOperationTier1Endpoint::Add,
-        )?;
-
-        let new_author_id = <T as SessionConfig>::ValidatorIdOf::convert(author_account_id.clone())
-            .ok_or(Error::<T>::ErrorConvertingAccountIdToAuthorId)?;
-
-        Self::start_activation_for_registered_author(author_account_id, tx_id);
-        T::ValidatorRegistrationNotifier::on_validator_registration(&new_author_id);
-        Self::deposit_event(Event::<T>::AuthorRegistered {
-            author_id: author_account_id.clone(),
-            eth_key: *author_eth_public_key,
-        });
-        Ok(())
-    }
-
-    fn publish_to_bridge(
-        eth_public_key: &ecdsa::Public,
-        author_id: &T::AccountId,
-        operation: AuthorOperationTier1Endpoint,
-    ) -> Result<u32, DispatchError> {
-        let decompressed_eth_public_key =
-            decompress_eth_public_key(*eth_public_key).map_err(|_| Error::<T>::InvalidPublicKey)?;
-
-        let author_id_bytes = <T as pallet::Config>::AccountToBytesConvert::into_bytes(author_id);
-
-        let params = match operation {
-            AuthorOperationTier1Endpoint::Remove => vec![
-                (b"bytes32".to_vec(), author_id_bytes.to_vec()),
-                (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
-            ],
-            AuthorOperationTier1Endpoint::Add => vec![
-                (b"bytes".to_vec(), decompressed_eth_public_key.to_fixed_bytes().to_vec()),
-                (b"bytes32".to_vec(), author_id_bytes.to_vec()),
-            ],
-        };
-
-        <T as pallet::Config>::BridgeInterface::publish(
-            operation.function_name(),
-            &params,
-            PALLET_ID.to_vec(),
-        )
-        .map_err(|e| DispatchError::Other(e.into()))
-    }
-
     fn get_ethereum_public_key_if_exists(account_id: &T::AccountId) -> Option<ecdsa::Public> {
         return <EthereumPublicKeys<T>>::iter()
             .filter(|(_, acc)| acc == account_id)
@@ -807,85 +724,6 @@ impl<T: Config> Pallet<T> {
             author_id: account_id.clone(),
             reason: reason.as_bytes().to_vec(),
         });
-    }
-
-    fn handle_deregistration_failure(
-        account_id: &T::AccountId,
-        ingress_counter: IngressCounter,
-        reason: &str,
-    ) {
-        log::error!("Author deregistration failed for {:?}: {}", account_id, reason);
-
-        <AuthorActions<T>>::remove(&account_id, ingress_counter);
-
-        Self::deposit_event(Event::<T>::AuthorDeregistrationFailed {
-            author_id: account_id.clone(),
-            reason: reason.as_bytes().to_vec(),
-        });
-    }
-
-    fn remove(
-        author_id: &T::AccountId,
-        ingress_counter: IngressCounter,
-        action_type: AuthorsActionType,
-        eth_public_key: ecdsa::Public,
-    ) -> DispatchResult {
-        let mut author_account_ids = Self::author_account_ids().ok_or(Error::<T>::NoAuthors)?;
-
-        ensure!(
-            Self::get_ingress_counter() + 1 == ingress_counter,
-            Error::<T>::InvalidIngressCounter
-        );
-        ensure!(
-            author_account_ids.len() > DEFAULT_MINIMUM_AUTHORS_COUNT,
-            Error::<T>::MinimumAuthorsReached
-        );
-        ensure!(
-            !<AuthorActions<T>>::contains_key(author_id, ingress_counter),
-            Error::<T>::RemovalAlreadyRequested
-        );
-
-        let maybe_author_index = author_account_ids.iter().position(|v| v == author_id);
-        if maybe_author_index.is_none() {
-            // Exit early if deregistration is not in the system. As dicussed, we don't want to give
-            // any feedback if the author is not found.
-            return Ok(())
-        }
-
-        let index_of_author_to_remove = maybe_author_index.expect("checked for none already");
-
-        let tx_id = Self::publish_to_bridge(
-            &eth_public_key,
-            &author_id,
-            AuthorOperationTier1Endpoint::Remove,
-        )?;
-
-        TotalIngresses::<T>::put(ingress_counter);
-        <AuthorActions<T>>::insert(
-            author_id,
-            ingress_counter,
-            AuthorsActionData::new(AuthorsActionStatus::AwaitingConfirmation, tx_id, action_type),
-        );
-        author_account_ids.swap_remove(index_of_author_to_remove);
-        <AuthorAccountIds<T>>::put(author_account_ids);
-
-        Ok(())
-    }
-
-    fn remove_deregistered_author(resigned_author: &T::AccountId) -> DispatchResult {
-        // Take key from map.
-        let t1_eth_public_key = match Self::get_ethereum_public_key_if_exists(resigned_author) {
-            Some(eth_public_key) => eth_public_key,
-            _ => Err(Error::<T>::AuthorNotFound)?,
-        };
-
-        let ingress_counter = Self::get_ingress_counter() + 1;
-        return Self::remove(
-            resigned_author,
-            ingress_counter,
-            AuthorsActionType::Resignation,
-            t1_eth_public_key,
-        )
     }
 
     fn author_permanently_removed(
