@@ -711,7 +711,7 @@ impl pallet_eth_bridge::Config<MainEthBridge> for Runtime {
     type ReportCorroborationOffence = Offences;
     type TimeProvider = pallet_timestamp::Pallet<Runtime>;
     type WeightInfo = pallet_eth_bridge::default_weights::SubstrateWeight<Runtime>;
-    type BridgeInterfaceNotification = (Summary, TokenManager, NftManager, ParachainStaking);
+    type BridgeInterfaceNotification = (Summary, TokenManager, ParachainStaking, ValidatorsManager);
     type ProcessedEventsHandler = NoEventsFilter;
     type EthereumEventsMigration = EthSecondBridge;
     type Quorum = Avn;
