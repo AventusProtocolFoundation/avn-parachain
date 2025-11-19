@@ -3,6 +3,7 @@ use frame_support::{
     traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
     weights::Weight,
 };
+use sp_avn_common::eth::{PACKED_LOWER_V1_PARAMS_SIZE, PACKED_LOWER_V2_PARAMS_SIZE};
 
 use crate::*;
 
@@ -82,6 +83,10 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for EthBridgeMigrations<T, I> {
             consumed_weight.saturating_accrue(migrate_to_v4::<T, I>());
         }
 
+        if onchain == 4 && current == 5 {
+            consumed_weight.saturating_accrue(migrate_to_v5::<T, I>());
+        }
+
         consumed_weight
     }
 
@@ -92,10 +97,35 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for EthBridgeMigrations<T, I> {
 
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_input: Vec<u8>) -> Result<(), TryRuntimeError> {
-        frame_support::ensure!(
-            EthBlockRangeSize::<T, I>::get() == DEFAULT_ETH_RANGE,
-            "Block range not set"
-        );
+        use frame_support::ensure;
+        let onchain = Pallet::<T, I>::on_chain_storage_version();
+
+        ensure!(EthBlockRangeSize::<T, I>::get() != 0, "Block range not set");
+
+        if onchain == 5 {
+            if let Some(queue) = RequestQueue::<T, I>::get() {
+                queue.iter().try_for_each(|req| -> Result<(), TryRuntimeError> {
+                    if let Request::LowerProof(data) = req {
+                        for byte in
+                            &data.params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE]
+                        {
+                            ensure!(*byte == 0, "LowerProof params not migrated");
+                        }
+                    }
+                    Ok(())
+                })?;
+            }
+
+            if let Some(active_req) = ActiveRequest::<T, I>::get() {
+                if let Request::LowerProof(data) = active_req.request {
+                    for byte in
+                        &data.params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE]
+                    {
+                        ensure!(*byte == 0, "ActiveRequest LowerProof params not migrated");
+                    }
+                }
+            }
+        }
 
         Ok(())
     }
@@ -178,5 +208,89 @@ pub fn migrate_to_v4<T: Config<I>, I: 'static>() -> Weight {
     STORAGE_VERSION.put::<Pallet<T, I>>();
     consumed_weight += T::DbWeight::get().writes(1);
 
+    consumed_weight
+}
+
+pub fn migrate_to_v5<T: Config<I>, I: 'static>() -> Weight {
+    let mut consumed_weight: Weight = T::DbWeight::get().reads(1);
+
+    consumed_weight += migrate_active_request_to_v5::<T, I>();
+    consumed_weight += migrate_request_queue_to_v5::<T, I>();
+
+    STORAGE_VERSION.put::<Pallet<T, I>>();
+    consumed_weight += T::DbWeight::get().writes(1);
+
+    consumed_weight
+}
+
+pub fn migrate_active_request_to_v5<T: Config<I>, I: 'static>() -> Weight {
+    let mut consumed_weight: Weight = T::DbWeight::get().reads(1);
+
+    log::info!("🔄 Starting ActiveRequest LowerParams migrations");
+
+    let translate = |req: ActiveRequestData<BlockNumberFor<T>, T::AccountId>| -> ActiveRequestData<BlockNumberFor<T>, T::AccountId> {
+
+        let request = match req.request {
+            Request::Send(_) => req.request,
+            Request::LowerProof(d) => {
+                let mut lower_params = d.params;
+                lower_params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
+                let new_proof_data = LowerProofRequestData {
+                    lower_id: d.lower_id,
+                    params: lower_params,
+                    caller_id: d.caller_id,
+                };
+                Request::LowerProof(new_proof_data)
+            }
+        };
+
+        let new = ActiveRequestData {
+            request,
+            confirmation: req.confirmation,
+            last_updated: req.last_updated,
+            tx_data: req.tx_data,
+        };
+        log::info!("✅ ActiveRequest LowerParams migration has been successful");
+        new
+    };
+
+    if ActiveRequest::<T, I>::translate(|pre| pre.map(translate)).is_err() {
+        log::error!(
+            "unexpected error when performing translation of the LowerParams type \
+            during storage upgrade to v5"
+        );
+    }
+    consumed_weight += T::DbWeight::get().writes(1);
+    consumed_weight
+}
+
+pub fn migrate_request_queue_to_v5<T: Config<I>, I: 'static>() -> Weight {
+    let mut consumed_weight: Weight = T::DbWeight::get().reads(1);
+
+    log::info!("🔄 Starting RequestQueue LowerParams migrations");
+
+    let mut translated = 0u64;
+    let translate = |mut queue: BoundedVec<Request, T::MaxQueuedTxRequests>| -> BoundedVec<Request, T::MaxQueuedTxRequests> {
+        for req in &mut queue {
+            match req {
+                Request::Send(_) => {},
+                Request::LowerProof(d) => {
+                    translated.saturating_inc();
+                    let mut lower_params = d.params;
+                    lower_params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
+                }
+            };
+        }
+        log::info!("✅ RequestQueue LowerParams migration has been successful");
+        queue
+    };
+
+    if RequestQueue::<T, I>::translate(|pre| pre.map(translate)).is_err() {
+        log::error!(
+            "unexpected error when performing translation of the RequestQueue LowerParams type \
+            during storage upgrade to v5"
+        );
+    }
+    consumed_weight += T::DbWeight::get().reads_writes(translated + 1, translated + 1);
     consumed_weight
 }
