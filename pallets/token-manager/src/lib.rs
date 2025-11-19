@@ -99,6 +99,8 @@ mod test_proxying_signed_transfer;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
+pub const LOWER_V1_PARAMS_SIZE: usize = 76;
+pub const LOWER_V2_PARAMS_SIZE: usize = 116;
 const PALLET_ID: &'static [u8; 13] = b"token_manager";
 
 #[frame_support::pallet]
@@ -336,6 +338,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn lower_id)]
     pub type LowerNonce<T: Config> = StorageValue<_, LowerId, ValueQuery>;
+.
+    /// This value gets set once during the runtime upgrade to the LowerNonce value at the time
+    #[pallet::storage]
+    #[pallet::getter(fn lower_v2_threshold)]
+    pub type LowerV2Threshold<T: Config> = StorageValue<_, LowerId, OptionQuery>;
 
     /// The number of blocks lower transactions are delayed before executing
     #[pallet::storage]
@@ -869,7 +876,15 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn regenerate_proof(lower_id: u32, params: LowerParams) -> DispatchResult {
+    fn regenerate_proof(lower_id: LowerId, params: LowerParams) -> DispatchResult {
+        let mut params = params;
+
+        if let Some(threshold) = Self::lower_v2_threshold() {
+            if lower_id < threshold {
+                params[LOWER_V1_PARAMS_SIZE..LOWER_V2_PARAMS_SIZE].fill(0);
+            }
+        }
+
         <LowersPendingProof<T>>::insert(lower_id, params);
         T::BridgeInterface::generate_lower_proof(lower_id, &params, PALLET_ID.to_vec())?;
 
