@@ -43,7 +43,7 @@ use pallet_avn::{
     self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification,
     CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
-use sp_avn_common::eth::{concat_lower_data, LowerParams};
+use sp_avn_common::eth::{concat_lower_data, LowerParams, PACKED_LOWER_V1_PARAMS_SIZE, PACKED_LOWER_V2_PARAMS_SIZE};
 
 use sp_avn_common::{
     event_types::{
@@ -99,8 +99,6 @@ mod test_proxying_signed_transfer;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
-pub const LOWER_V1_PARAMS_SIZE: usize = 76;
-pub const LOWER_V2_PARAMS_SIZE: usize = 116;
 const PALLET_ID: &'static [u8; 13] = b"token_manager";
 
 #[frame_support::pallet]
@@ -881,7 +879,7 @@ impl<T: Config> Pallet<T> {
 
         if let Some(threshold) = Self::lower_v2_threshold() {
             if lower_id < threshold {
-                params[LOWER_V1_PARAMS_SIZE..LOWER_V2_PARAMS_SIZE].fill(0);
+                params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
             }
         }
 

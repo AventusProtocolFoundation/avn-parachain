@@ -1,4 +1,5 @@
-use crate::{Config, LowerNonce, LowerSchedulePeriod, LowerV2Threshold, Pallet};
+use crate::{Config, FailedLowerProofs, LowerNonce, LowerSchedulePeriod, LowerV2Threshold, Pallet};
+use sp_avn_common::eth::{LowerParams, LOWER_V1_PARAMS_SIZE, LOWER_V2_PARAMS_SIZE };
 use frame_support::{
     pallet_prelude::{PhantomData, StorageVersion},
     traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
@@ -36,27 +37,36 @@ pub fn set_lower_schedule_period<T: Config>() -> Weight {
     return consumed_weight + Weight::from_parts(25_000_000 as u64, 0)
 }
 
-pub fn set_lower_v2_threshold<T: Config>() -> Weight {
+pub fn set_lower_v2_threshold_and_normalise_failed_V1_lower_proofs<T: Config>() -> Weight {
     let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
     };
 
-    log::info!("🚧 🚧 Running migration to set LowerV2Threshold from LowerNonce");
+    log::info!("🚧 🚧 Running migration to set LowerV2Threshold from LowerNonce and normalise FailedLowerProofs");
 
     let next_lower_id = LowerNonce::<T>::get();
     LowerV2Threshold::<T>::put(next_lower_id);
+
+    // Any failed lower with lower_id < next_lower_id is V1 so zero pad to make V2 compatible
+    FailedLowerProofs::<T>::translate(|lower_id, mut params: LowerParams| {
+        if lower_id < next_lower_id {
+            params[LOWER_V1_PARAMS_SIZE..LOWER_V2_PARAMS_SIZE].fill(0);
+        }
+        Some(params)
+    });
 
     // Read: LowerNonce, Write: LowerV2Threshold, STORAGE_VERSION
     add_weight(1, 2, Weight::from_parts(0 as u64, 0));
     STORAGE_VERSION.put::<Pallet<T>>();
 
-    log::info!("✅ LowerV2Threshold successfully set to {:?}", next_lower_id);
+    log::info!("✅ LowerV2Threshold successfully set to {:?} and FailedLowerProofs normalised", next_lower_id);
 
     // add a bit extra as safety margin for computation
-    consumed_weight + Weight::from_parts(25_000_000 as u64, 0)
+    consumed_weight + Weight::from_parts(50_000_000 as u64, 0)
 }
+
 
 /// Migration to enable staking pallet and set LowerV2Threshold
 pub struct SetLowerSchedulePeriod<T>(PhantomData<T>);
@@ -81,7 +91,7 @@ impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
                 current,
                 onchain
             );
-            total_weight += set_lower_v2_threshold::<T>();
+            total_weight += set_lower_v2_threshold_and_normalise_failed_V1_lower_proofs::<T>();
         }
 
         total_weight
