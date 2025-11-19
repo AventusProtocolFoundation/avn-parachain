@@ -1,11 +1,11 @@
 use crate::{Config, FailedLowerProofs, LowerNonce, LowerSchedulePeriod, LowerV2Threshold, Pallet};
-use sp_avn_common::eth::{LowerParams, LOWER_V1_PARAMS_SIZE, LOWER_V2_PARAMS_SIZE };
 use frame_support::{
     pallet_prelude::{PhantomData, StorageVersion},
     traits::{Get, GetStorageVersion, OnRuntimeUpgrade},
     weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
+use sp_avn_common::eth::{LowerParams, LOWER_V1_PARAMS_SIZE, LOWER_V2_PARAMS_SIZE};
 
 #[cfg(feature = "try-runtime")]
 use crate::Vec;
@@ -61,12 +61,14 @@ pub fn set_lower_v2_threshold_and_normalise_failed_V1_lower_proofs<T: Config>() 
     add_weight(1, 2, Weight::from_parts(0 as u64, 0));
     STORAGE_VERSION.put::<Pallet<T>>();
 
-    log::info!("✅ LowerV2Threshold successfully set to {:?} and FailedLowerProofs normalised", next_lower_id);
+    log::info!(
+        "✅ LowerV2Threshold successfully set to {:?} and FailedLowerProofs normalised",
+        next_lower_id
+    );
 
     // add a bit extra as safety margin for computation
     consumed_weight + Weight::from_parts(50_000_000 as u64, 0)
 }
-
 
 /// Migration to enable staking pallet and set LowerV2Threshold
 pub struct SetLowerSchedulePeriod<T>(PhantomData<T>);

@@ -43,7 +43,9 @@ use pallet_avn::{
     self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification,
     CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
-use sp_avn_common::eth::{concat_lower_data, LowerParams, PACKED_LOWER_V1_PARAMS_SIZE, PACKED_LOWER_V2_PARAMS_SIZE};
+use sp_avn_common::eth::{
+    concat_lower_data, LowerParams, PACKED_LOWER_V1_PARAMS_SIZE, PACKED_LOWER_V2_PARAMS_SIZE,
+};
 
 use sp_avn_common::{
     event_types::{
@@ -336,7 +338,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn lower_id)]
     pub type LowerNonce<T: Config> = StorageValue<_, LowerId, ValueQuery>;
-.
+
     /// This value gets set once during the runtime upgrade to the LowerNonce value at the time
     #[pallet::storage]
     #[pallet::getter(fn lower_v2_threshold)]
