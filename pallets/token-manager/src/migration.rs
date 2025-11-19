@@ -37,7 +37,7 @@ pub fn set_lower_schedule_period<T: Config>() -> Weight {
     return consumed_weight + Weight::from_parts(25_000_000 as u64, 0)
 }
 
-pub fn set_lower_v2_threshold_and_normalise_failed_V1_lower_proofs<T: Config>() -> Weight {
+pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() -> Weight {
     let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -93,7 +93,7 @@ impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
                 current,
                 onchain
             );
-            total_weight += set_lower_v2_threshold_and_normalise_failed_V1_lower_proofs::<T>();
+            total_weight += set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs::<T>();
         }
 
         total_weight
