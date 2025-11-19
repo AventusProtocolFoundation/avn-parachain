@@ -126,7 +126,7 @@ where
         config,
         telemetry.as_ref().map(|telemetry| telemetry.handle()),
         &task_manager,
-    )?;
+    );
 
     Ok(PartialComponents {
         backend,
@@ -140,11 +140,108 @@ where
     })
 }
 
+/// Build the import queue for the parachain runtime.
+fn build_import_queue<RuntimeApi>(
+    client: Arc<ParachainClient<RuntimeApi>>,
+    block_import: ParachainBlockImport<RuntimeApi>,
+    config: &Configuration,
+    telemetry: Option<TelemetryHandle>,
+    task_manager: &TaskManager,
+) -> sc_consensus::DefaultImportQueue<Block>
+where
+    RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+    RuntimeApi::RuntimeApi: AvnRuntimeApiCollection,
+{
+    cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
+        sp_consensus_aura::sr25519::AuthorityPair,
+        _,
+        _,
+        _,
+        _,
+    >(
+        client,
+        block_import,
+        move |_, _| async move {
+            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
+            Ok(timestamp)
+        },
+        &task_manager.spawn_essential_handle(),
+        config.prometheus_registry(),
+        telemetry,
+    )
+}
+
+fn start_consensus<RuntimeApi>(
+    client: Arc<ParachainClient<RuntimeApi>>,
+    block_import: ParachainBlockImport<RuntimeApi>,
+    prometheus_registry: Option<&Registry>,
+    telemetry: Option<TelemetryHandle>,
+    task_manager: &TaskManager,
+    relay_chain_interface: Arc<dyn RelayChainInterface>,
+    transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+    sync_oracle: Arc<SyncingService<Block>>,
+    keystore: KeystorePtr,
+    relay_chain_slot_duration: Duration,
+    para_id: ParaId,
+    collator_key: CollatorPair,
+    overseer_handle: OverseerHandle,
+    announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
+) -> Result<(), sc_service::Error>
+where
+    RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
+    RuntimeApi::RuntimeApi: AvnRuntimeApiCollection,
+{
+    use cumulus_client_consensus_aura::collators::basic::{
+        self as basic_aura, Params as BasicAuraParams,
+    };
+
+    let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
+        task_manager.spawn_handle(),
+        client.clone(),
+        transaction_pool,
+        prometheus_registry,
+        telemetry.clone(),
+    );
+
+    let proposer = Proposer::new(proposer_factory);
+
+    let collator_service = CollatorService::new(
+        client.clone(),
+        Arc::new(task_manager.spawn_handle()),
+        announce_block,
+        client.clone(),
+    );
+
+    let params = BasicAuraParams {
+        create_inherent_data_providers: move |_, ()| async move { Ok(()) },
+        block_import,
+        para_client: client,
+        relay_client: relay_chain_interface,
+        sync_oracle,
+        keystore,
+        collator_key,
+        para_id,
+        overseer_handle,
+        relay_chain_slot_duration,
+        proposer,
+        collator_service,
+        // Very limited proposal time.
+        authoring_duration: Duration::from_millis(500),
+        collation_request_receiver: None,
+    };
+
+    let fut =
+        basic_aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _>(
+            params,
+        );
+    task_manager.spawn_essential_handle().spawn("aura", None, fut);
+
+    Ok(())
+}
+
 /// Start a node with the given parachain `Configuration` and relay chain `Configuration`.
-///
-/// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node_impl<RuntimeApi>(
+pub async fn start_parachain_node<RuntimeApi>(
     parachain_config: Configuration,
     polkadot_config: Configuration,
     avn_cli_config: AvnCliConfiguration,
@@ -160,7 +257,11 @@ where
 
     let params = new_partial::<RuntimeApi>(&parachain_config)?;
     let (block_import, mut telemetry, telemetry_worker_handle) = params.other;
-    let net_config = sc_network::config::FullNetworkConfiguration::new(&parachain_config.network);
+    let net_config = sc_network::config::FullNetworkConfiguration::<
+        _,
+        _,
+        sc_network::NetworkWorker<Block, Hash>,
+    >::new(&parachain_config.network);
 
     let client = params.client.clone();
     let backend = params.backend.clone();
@@ -184,6 +285,8 @@ where
 
     let avn_port = avn_cli_config.avn_port.clone();
 
+    // NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
+    // when starting the network.
     let (network, system_rpc_tx, tx_handler_controller, start_network, sync_service) =
         cumulus_client_service::build_network(cumulus_client_service::BuildNetworkParams {
             parachain_config: &parachain_config,
@@ -223,7 +326,7 @@ where
                 transaction_pool: Some(OffchainTransactionPoolFactory::new(
                     transaction_pool.clone(),
                 )),
-                network_provider: network.clone(),
+                network_provider: Arc::new(network.clone()),
                 is_validator: parachain_config.role.is_authority(),
                 enable_http_requests: true,
                 custom_extensions: move |_| vec![],
@@ -375,136 +478,4 @@ where
     start_network.start_network();
 
     Ok((task_manager, client))
-}
-
-/// Build the import queue for the parachain runtime.
-fn build_import_queue<RuntimeApi>(
-    client: Arc<ParachainClient<RuntimeApi>>,
-    block_import: ParachainBlockImport<RuntimeApi>,
-    config: &Configuration,
-    telemetry: Option<TelemetryHandle>,
-    task_manager: &TaskManager,
-) -> Result<sc_consensus::DefaultImportQueue<Block>, sc_service::Error>
-where
-    RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-    RuntimeApi::RuntimeApi: AvnRuntimeApiCollection,
-{
-    let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
-    Ok(cumulus_client_consensus_aura::equivocation_import_queue::fully_verifying_import_queue::<
-        sp_consensus_aura::sr25519::AuthorityPair,
-        _,
-        _,
-        _,
-        _,
-    >(
-        client,
-        block_import,
-        move |_, _| async move {
-            let timestamp = sp_timestamp::InherentDataProvider::from_system_time();
-            Ok(timestamp)
-        },
-        slot_duration,
-        &task_manager.spawn_essential_handle(),
-        config.prometheus_registry(),
-        telemetry,
-    ))
-}
-
-fn start_consensus<RuntimeApi>(
-    client: Arc<ParachainClient<RuntimeApi>>,
-    block_import: ParachainBlockImport<RuntimeApi>,
-    prometheus_registry: Option<&Registry>,
-    telemetry: Option<TelemetryHandle>,
-    task_manager: &TaskManager,
-    relay_chain_interface: Arc<dyn RelayChainInterface>,
-    transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
-    sync_oracle: Arc<SyncingService<Block>>,
-    keystore: KeystorePtr,
-    relay_chain_slot_duration: Duration,
-    para_id: ParaId,
-    collator_key: CollatorPair,
-    overseer_handle: OverseerHandle,
-    announce_block: Arc<dyn Fn(Hash, Option<Vec<u8>>) + Send + Sync>,
-) -> Result<(), sc_service::Error>
-where
-    RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-    RuntimeApi::RuntimeApi: AvnRuntimeApiCollection,
-{
-    use cumulus_client_consensus_aura::collators::basic::{
-        self as basic_aura, Params as BasicAuraParams,
-    };
-
-    // NOTE: because we use Aura here explicitly, we can use `CollatorSybilResistance::Resistant`
-    // when starting the network.
-
-    let slot_duration = cumulus_client_consensus_aura::slot_duration(&*client)?;
-
-    let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
-        task_manager.spawn_handle(),
-        client.clone(),
-        transaction_pool,
-        prometheus_registry,
-        telemetry.clone(),
-    );
-
-    let proposer = Proposer::new(proposer_factory);
-
-    let collator_service = CollatorService::new(
-        client.clone(),
-        Arc::new(task_manager.spawn_handle()),
-        announce_block,
-        client.clone(),
-    );
-
-    let params = BasicAuraParams {
-        create_inherent_data_providers: move |_, ()| async move { Ok(()) },
-        block_import,
-        para_client: client,
-        relay_client: relay_chain_interface,
-        sync_oracle,
-        keystore,
-        collator_key,
-        para_id,
-        overseer_handle,
-        slot_duration,
-        relay_chain_slot_duration,
-        proposer,
-        collator_service,
-        // Very limited proposal time.
-        authoring_duration: Duration::from_millis(500),
-        collation_request_receiver: None,
-    };
-
-    let fut =
-        basic_aura::run::<Block, sp_consensus_aura::sr25519::AuthorityPair, _, _, _, _, _, _, _>(
-            params,
-        );
-    task_manager.spawn_essential_handle().spawn("aura", None, fut);
-
-    Ok(())
-}
-
-/// Start a parachain node.
-pub async fn start_parachain_node<RuntimeApi>(
-    parachain_config: Configuration,
-    polkadot_config: Configuration,
-    avn_cli_config: AvnCliConfiguration,
-    collator_options: CollatorOptions,
-    para_id: ParaId,
-    hwbench: Option<sc_sysinfo::HwBench>,
-) -> sc_service::error::Result<(TaskManager, Arc<ParachainClient<RuntimeApi>>)>
-where
-    RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
-    RuntimeApi::RuntimeApi: AvnRuntimeApiCollection,
-{
-    start_node_impl(
-        parachain_config,
-        polkadot_config,
-        avn_cli_config,
-        collator_options,
-        para_id,
-        hwbench,
-    )
-    .await
 }
