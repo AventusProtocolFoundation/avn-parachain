@@ -5,7 +5,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use sp_avn_common::eth::{LowerParams, LOWER_V1_PARAMS_SIZE, LOWER_V2_PARAMS_SIZE};
+use sp_avn_common::eth::{LowerParams, PACKED_LOWER_V1_PARAMS_SIZE, PACKED_LOWER_V2_PARAMS_SIZE};
 
 #[cfg(feature = "try-runtime")]
 use crate::Vec;
@@ -52,7 +52,7 @@ pub fn set_lower_v2_threshold_and_normalise_failed_V1_lower_proofs<T: Config>() 
     // Any failed lower with lower_id < next_lower_id is V1 so zero pad to make V2 compatible
     FailedLowerProofs::<T>::translate(|lower_id, mut params: LowerParams| {
         if lower_id < next_lower_id {
-            params[LOWER_V1_PARAMS_SIZE..LOWER_V2_PARAMS_SIZE].fill(0);
+            params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
         }
         Some(params)
     });
