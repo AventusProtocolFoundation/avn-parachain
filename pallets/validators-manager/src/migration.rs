@@ -41,7 +41,7 @@ impl<T: Config> OnRuntimeUpgrade for ValidatorsManagerMigrations<T> {
     #[cfg(feature = "try-runtime")]
     fn post_upgrade(_input: Vec<u8>) -> Result<(), TryRuntimeError> {
         frame_support::ensure!(
-            Pallet::<T>::on_chain_storage_version() > crate::STORAGE_VERSION,
+            Pallet::<T>::on_chain_storage_version() == crate::STORAGE_VERSION,
             "ValidatorsManager storage version not bumped"
         );
 

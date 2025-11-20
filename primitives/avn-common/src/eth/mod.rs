@@ -15,16 +15,17 @@ use sp_runtime::{scale_info::TypeInfo, BoundedVec, Deserialize, Serialize};
 use sp_std::vec::Vec;
 pub type EthereumId = u32;
 
-pub const PACKED_LOWER_PARAM_SIZE: usize = 116;
-pub type LowerParams = [u8; PACKED_LOWER_PARAM_SIZE];
+pub const PACKED_LOWER_V1_PARAMS_SIZE: usize = 76;
+pub const PACKED_LOWER_V2_PARAMS_SIZE: usize = 116;
+pub type LowerParams = [u8; PACKED_LOWER_V2_PARAMS_SIZE];
 
 const TOKEN_SPAN: core::ops::Range<usize> = 0..20;
 const AMOUNT_PADDING_SPAN: core::ops::Range<usize> = 20..36;
 const AMOUNT_SPAN: core::ops::Range<usize> = 36..52;
 const RECIPIENT_SPAN: core::ops::Range<usize> = 52..72;
-const LOWER_ID_SPAN: core::ops::Range<usize> = 72..76;
-const T2_SENDER_SPAN: core::ops::Range<usize> = 76..108;
-const T2_TIMESTAMP_SPAN: core::ops::Range<usize> = 108..PACKED_LOWER_PARAM_SIZE;
+const LOWER_ID_SPAN: core::ops::Range<usize> = 72..PACKED_LOWER_V1_PARAMS_SIZE;
+const T2_SENDER_SPAN: core::ops::Range<usize> = PACKED_LOWER_V1_PARAMS_SIZE..108;
+const T2_TIMESTAMP_SPAN: core::ops::Range<usize> = 108..PACKED_LOWER_V2_PARAMS_SIZE;
 
 #[derive(Encode, Decode, Default, Clone, Debug, PartialEq, Eq, TypeInfo, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -203,7 +204,7 @@ impl TryFrom<LowerParams> for LowerData {
     type Error = ();
 
     fn try_from(lower_params: LowerParams) -> Result<Self, Self::Error> {
-        if lower_params.len() != PACKED_LOWER_PARAM_SIZE {
+        if lower_params.len() != PACKED_LOWER_V2_PARAMS_SIZE {
             return Err(())
         }
 
@@ -480,7 +481,7 @@ pub fn concat_lower_data(
     t2_sender: H256,
     t2_timestamp: u64,
 ) -> LowerParams {
-    let mut lower_params: [u8; PACKED_LOWER_PARAM_SIZE] = [0u8; PACKED_LOWER_PARAM_SIZE];
+    let mut lower_params: [u8; PACKED_LOWER_V2_PARAMS_SIZE] = [0u8; PACKED_LOWER_V2_PARAMS_SIZE];
 
     lower_params[TOKEN_SPAN].copy_from_slice(token_id.as_fixed_bytes());
     lower_params[AMOUNT_PADDING_SPAN].fill(0);
