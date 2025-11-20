@@ -57,7 +57,7 @@ pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() 
     let next_lower_id = LowerNonce::<T>::get();
     LowerV2Threshold::<T>::put(next_lower_id);
 
-    // Any failed lower with lower_id < next_lower_id is V1 so zero pad to make V2 compatible
+    // Expand lower params from 76 bytes (V1) to 116 bytes (V2)
     FailedLowerProofs::<T>::translate::<LowerParamsV1, _>(|_lower_id, v1_lower_params| {
         let mut v2_lower_params: LowerParams = [0u8; PACKED_LOWER_V2_PARAMS_SIZE];
         v2_lower_params[..legacy::V1_SIZE].copy_from_slice(&v1_lower_params);
