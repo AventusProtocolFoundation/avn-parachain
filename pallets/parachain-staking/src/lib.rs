@@ -683,7 +683,7 @@ pub mod pallet {
             Self {
                 candidates: vec![],
                 nominations: vec![],
-                delay: Default::default(),
+                delay: 1,
                 min_collator_stake: Default::default(),
                 min_total_nominator_stake: Default::default(),
             }
@@ -782,7 +782,7 @@ pub mod pallet {
             log::debug!(
                 "Staking storage chain/current storage version: {:?} / {:?}",
                 Pallet::<T>::on_chain_storage_version(),
-                Pallet::<T>::current_storage_version(),
+                Pallet::<T>::in_code_storage_version(),
             );
         }
     }

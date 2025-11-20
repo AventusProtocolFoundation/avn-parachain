@@ -5,6 +5,7 @@ use crate::{mock::*, *};
 use frame_support::{assert_noop, assert_ok, error::BadOrigin};
 use frame_system::RawOrigin;
 use sp_avn_common::{recover_ethereum_address_from_ecdsa_signature, HashMessageFormat};
+use sp_core::ByteArray;
 use sp_runtime::traits::Hash;
 
 mod proxy_without_fees {

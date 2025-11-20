@@ -17,7 +17,7 @@ use pallet_balances;
 use pallet_nft_manager::nft_data::Royalty;
 use pallet_session as session;
 use sp_avn_common::{eth::EthereumId, hash_string_data_with_ethereum_prefix};
-use sp_core::{keccak_256, sr25519, ConstU32, ConstU64, Pair, H160, H256};
+use sp_core::{keccak_256, sr25519, ByteArray, ConstU32, ConstU64, Pair, H160, H256};
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
 use sp_runtime::{
     testing::{TestXt, UintAuthorityId},
