@@ -15,6 +15,12 @@ use sp_runtime::TryRuntimeError;
 
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
+mod legacy {
+    use super::PACKED_LOWER_V1_PARAMS_SIZE;
+    pub const V1_SIZE: usize = PACKED_LOWER_V1_PARAMS_SIZE;
+    pub type LowerParamsV1 = [u8; V1_SIZE];
+}
+
 pub fn set_lower_schedule_period<T: Config>() -> Weight {
     let default_lower_schedule_period: BlockNumberFor<T> = 3275u32.into(); // ~ 12 hrs
     let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
@@ -38,6 +44,8 @@ pub fn set_lower_schedule_period<T: Config>() -> Weight {
 }
 
 pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() -> Weight {
+    use legacy::LowerParamsV1;
+
     let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
@@ -50,11 +58,10 @@ pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() 
     LowerV2Threshold::<T>::put(next_lower_id);
 
     // Any failed lower with lower_id < next_lower_id is V1 so zero pad to make V2 compatible
-    FailedLowerProofs::<T>::translate(|lower_id, mut params: LowerParams| {
-        if lower_id < next_lower_id {
-            params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
-        }
-        Some(params)
+    FailedLowerProofs::<T>::translate::<LowerParamsV1, _>(|_lower_id, v1_lower_params| {
+        let mut v2_lower_params: LowerParams = [0u8; PACKED_LOWER_V2_PARAMS_SIZE];
+        v2_lower_params[..legacy::V1_SIZE].copy_from_slice(&v1_lower_params);
+        Some(v2_lower_params)
     });
 
     // Read: LowerNonce, Write: LowerV2Threshold, STORAGE_VERSION
