@@ -17,8 +17,7 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 mod legacy {
     use super::PACKED_LOWER_V1_PARAMS_SIZE;
-    pub const V1_SIZE: usize = PACKED_LOWER_V1_PARAMS_SIZE;
-    pub type LowerParamsV1 = [u8; V1_SIZE];
+    pub type LowerParamsV1 = [u8; PACKED_LOWER_V1_PARAMS_SIZE];
 }
 
 pub fn set_lower_schedule_period<T: Config>() -> Weight {
@@ -60,7 +59,7 @@ pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() 
     // Expand lower params from 76 bytes (V1) to 116 bytes (V2)
     FailedLowerProofs::<T>::translate::<LowerParamsV1, _>(|_lower_id, v1_lower_params| {
         let mut v2_lower_params: LowerParams = [0u8; PACKED_LOWER_V2_PARAMS_SIZE];
-        v2_lower_params[..legacy::V1_SIZE].copy_from_slice(&v1_lower_params);
+        v2_lower_params[..PACKED_LOWER_V1_PARAMS_SIZE].copy_from_slice(&v1_lower_params);
         Some(v2_lower_params)
     });
 
