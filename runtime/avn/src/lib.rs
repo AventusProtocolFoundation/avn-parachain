@@ -154,6 +154,7 @@ pub type Executive = frame_executive::Executive<
     (
         pallet_validators_manager::migration::ValidatorsManagerMigrations<Runtime>,
         pallet_eth_bridge::migration::EthBridgeMigrations<Runtime>,
+        pallet_token_manager::migration::SetLowerSchedulePeriod<Runtime>,
     ),
 >;
 
