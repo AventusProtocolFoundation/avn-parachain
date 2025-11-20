@@ -268,30 +268,7 @@ construct_runtime!(
 );
 
 #[cfg(feature = "runtime-benchmarks")]
-mod benches {
-    frame_benchmarking::define_benchmarks!(
-        [frame_system, SystemBench::<Runtime>]
-        [pallet_assets, Assets]
-        [pallet_balances, Balances]
-        [pallet_avn_offence_handler, AvnOffenceHandler]
-        [pallet_avn_proxy, AvnProxy]
-        [pallet_avn, Avn]
-        [pallet_eth_bridge, EthBridge]
-        [pallet_ethereum_events, EthereumEvents]
-        [pallet_nft_manager, NftManager]
-        [pallet_summary, Summary]
-        [pallet_token_manager, TokenManager]
-        [pallet_validators_manager, ValidatorsManager]
-        [pallet_session, SessionBench::<Runtime>]
-        [pallet_timestamp, Timestamp]
-        [pallet_message_queue, MessageQueue]
-        [pallet_utility, Utility]
-        [pallet_parachain_staking, ParachainStaking]
-        [pallet_avn_anchor, AvnAnchor]
-        [cumulus_pallet_parachain_system, ParachainSystem]
-        [cumulus_pallet_xcmp_queue, XcmpQueue]
-    );
-}
+mod benchmarks;
 
 cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
