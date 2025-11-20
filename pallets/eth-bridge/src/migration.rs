@@ -314,7 +314,7 @@ pub fn migrate_active_request_to_v5<T: Config<I>, I: 'static>() -> Weight {
 }
 
 pub fn migrate_request_queue_to_v5<T: Config<I>, I: 'static>() -> Weight {
-    let mut consumed_weight: Weight;
+    let mut consumed_weight: Weight = Default::default();
 
     log::info!("🔄 Starting RequestQueue LowerParams migrations");
 
