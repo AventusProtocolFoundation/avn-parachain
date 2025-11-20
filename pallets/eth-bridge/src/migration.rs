@@ -58,6 +58,38 @@ mod v3 {
     }
 }
 
+mod v5 {
+    use super::*;
+    pub type LegacyLowerParams = [u8; PACKED_LOWER_V1_PARAMS_SIZE];
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo, MaxEncodedLen)]
+    pub struct LegacyActiveRequestData<BlockNumber, AccountId> {
+        pub request: LegacyRequest,
+        pub confirmation: ActiveConfirmation,
+        pub tx_data: Option<ActiveEthTransaction<AccountId>>,
+        pub last_updated: BlockNumber,
+    }
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+    pub struct LegacyLowerProofRequestData {
+        pub lower_id: LowerId,
+        pub params: LegacyLowerParams,
+        pub caller_id: BoundedVec<u8, CallerIdLimit>,
+    }
+
+    #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+    pub enum LegacyRequest {
+        Send(SendRequestData),
+        LowerProof(LegacyLowerProofRequestData),
+    }
+
+    impl Default for LegacyRequest {
+        fn default() -> Self {
+            LegacyRequest::Send(Default::default())
+        }
+    }
+}
+
 pub struct EthBridgeMigrations<T: Config<I>, I: 'static = ()>(PhantomData<T>, PhantomData<I>);
 impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for EthBridgeMigrations<T, I> {
     fn on_runtime_upgrade() -> Weight {
@@ -72,19 +104,19 @@ impl<T: Config<I>, I: 'static> OnRuntimeUpgrade for EthBridgeMigrations<T, I> {
         let mut consumed_weight = Weight::zero();
 
         if EthBlockRangeSize::<T, I>::get() == 0 {
-            consumed_weight.saturating_accrue(set_block_range_size::<T, I>());
+            consumed_weight += set_block_range_size::<T, I>();
         }
 
         if onchain < 3 {
-            consumed_weight.saturating_accrue(migrate_to_v3::<T, I>());
+            consumed_weight += migrate_to_v3::<T, I>();
         }
 
         if onchain < 4 && (current == 4 || current == 5) {
-            consumed_weight.saturating_accrue(migrate_to_v4::<T, I>());
+            consumed_weight += migrate_to_v4::<T, I>();
         }
 
-        if onchain < 4 && current == 5 {
-            consumed_weight.saturating_accrue(migrate_to_v5::<T, I>());
+        if onchain <= 4 && current == 5 {
+            consumed_weight += migrate_to_v5::<T, I>();
         }
 
         consumed_weight
@@ -224,25 +256,39 @@ pub fn migrate_to_v5<T: Config<I>, I: 'static>() -> Weight {
     consumed_weight
 }
 
+fn resize_lower_params_to_v5<T: Config<I>, I: 'static>(
+    params: v5::LegacyLowerParams,
+) -> [u8; PACKED_LOWER_V2_PARAMS_SIZE] {
+    let mut new_params = [0u8; PACKED_LOWER_V2_PARAMS_SIZE];
+    new_params[..PACKED_LOWER_V1_PARAMS_SIZE].copy_from_slice(&params);
+    new_params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
+    new_params
+}
+
 pub fn migrate_active_request_to_v5<T: Config<I>, I: 'static>() -> Weight {
     let mut consumed_weight: Weight = T::DbWeight::get().reads(1);
 
     log::info!("🔄 Starting ActiveRequest LowerParams migrations");
 
-    let translate = |req: ActiveRequestData<BlockNumberFor<T>, T::AccountId>| -> ActiveRequestData<BlockNumberFor<T>, T::AccountId> {
+    let translate = |req: v5::LegacyActiveRequestData<BlockNumberFor<T>, T::AccountId>| -> ActiveRequestData<BlockNumberFor<T>, T::AccountId> {
 
         let request = match req.request {
-            Request::Send(_) => req.request,
-            Request::LowerProof(d) => {
-                let mut lower_params = d.params;
-                lower_params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
+            v5::LegacyRequest::LowerProof(d) => {
+                let lower_params = resize_lower_params_to_v5::<T, I>(d.params);
                 let new_proof_data = LowerProofRequestData {
                     lower_id: d.lower_id,
                     params: lower_params,
                     caller_id: d.caller_id,
                 };
                 Request::LowerProof(new_proof_data)
-            }
+            },
+            v5::LegacyRequest::Send(d) =>
+                Request::Send(SendRequestData {
+                    tx_id: d.tx_id,
+                    function_name: d.function_name,
+                    params: d.params,
+                    caller_id: d.caller_id,
+                }),
         };
 
         let new = ActiveRequestData {
@@ -256,7 +302,7 @@ pub fn migrate_active_request_to_v5<T: Config<I>, I: 'static>() -> Weight {
 
     if ActiveRequest::<T, I>::translate(|pre| pre.map(translate)).is_err() {
         log::error!(
-            "unexpected error when performing translation of the LowerParams type \
+            " 💔 unexpected error when performing translation of the LowerParams type \
             during storage upgrade to v5"
         );
     }
@@ -268,34 +314,52 @@ pub fn migrate_active_request_to_v5<T: Config<I>, I: 'static>() -> Weight {
 }
 
 pub fn migrate_request_queue_to_v5<T: Config<I>, I: 'static>() -> Weight {
-    let mut consumed_weight: Weight = T::DbWeight::get().reads(1);
+    let mut consumed_weight: Weight;
 
     log::info!("🔄 Starting RequestQueue LowerParams migrations");
 
+    let mut read = 0u64;
     let mut translated = 0u64;
-    let translate = |mut queue: BoundedVec<Request, T::MaxQueuedTxRequests>| -> BoundedVec<Request, T::MaxQueuedTxRequests> {
-        for req in &mut queue {
-            match req {
-                Request::Send(_) => {},
-                Request::LowerProof(d) => {
-                    translated.saturating_inc();
-                    let mut lower_params = d.params;
-                    lower_params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
+    let translate = |queue: BoundedVec<v5::LegacyRequest, T::MaxQueuedTxRequests>| -> BoundedVec<Request, T::MaxQueuedTxRequests> {
+        let mut translated_queue: BoundedVec<Request, T::MaxQueuedTxRequests> = BoundedVec::default();
+
+        for req in queue.into_iter() {
+            read += 1;
+            let new_req = match req {
+                v5::LegacyRequest::Send(d) =>
+                    Request::Send(SendRequestData {
+                        tx_id: d.tx_id,
+                        function_name: d.function_name,
+                        params: d.params,
+                        caller_id: d.caller_id,
+                    }),
+                v5::LegacyRequest::LowerProof(d) => {
+                    translated += 1;
+                    let lower_params = resize_lower_params_to_v5::<T, I>(d.params);
+                    Request::LowerProof(LowerProofRequestData {
+                        lower_id: d.lower_id,
+                        params: lower_params,
+                        caller_id: d.caller_id,
+                    })
                 }
             };
+            translated_queue
+                .try_push(new_req)
+                .map_err(|_| log::error!(" 💔 RequestQueue migration exceeded max length"))
+                .ok();
         }
-        queue
+        translated_queue
     };
 
     if RequestQueue::<T, I>::translate(|pre| pre.map(translate)).is_err() {
         log::error!(
-            "unexpected error when performing translation of the RequestQueue LowerParams type \
+            " 💔 unexpected error when performing translation of the RequestQueue LowerParams type \
             during storage upgrade to v5"
         );
     }
 
     log::info!("✅ {} RequestQueue LowerParams entries migrated successfully", translated);
 
-    consumed_weight += T::DbWeight::get().reads_writes(translated + 1, translated + 1);
+    consumed_weight += T::DbWeight::get().reads_writes(read + 1, translated + 1);
     consumed_weight
 }
