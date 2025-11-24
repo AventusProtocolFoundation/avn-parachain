@@ -43,9 +43,7 @@ use pallet_avn::{
     self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification,
     CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
-use sp_avn_common::eth::{
-    concat_lower_data, LowerParams, PACKED_LOWER_V1_PARAMS_SIZE, PACKED_LOWER_V2_PARAMS_SIZE,
-};
+use sp_avn_common::eth::{concat_lower_data, LowerParams};
 
 use sp_avn_common::{
     event_types::{
@@ -876,15 +874,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn regenerate_proof(lower_id: LowerId, params: LowerParams) -> DispatchResult {
-        let mut params = params;
-
-        if let Some(threshold) = Self::lower_v2_threshold() {
-            if lower_id < threshold {
-                params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
-            }
-        }
-
+    fn regenerate_proof(lower_id: u32, params: LowerParams) -> DispatchResult {
         <LowersPendingProof<T>>::insert(lower_id, params);
         T::BridgeInterface::generate_lower_proof(lower_id, &params, PALLET_ID.to_vec())?;
 
