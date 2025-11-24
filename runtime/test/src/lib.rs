@@ -30,7 +30,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 use frame_support::{
-    construct_runtime, parameter_types,
+    parameter_types,
     traits::{
         fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU32, Contains, Currency,
         LinearStoragePrice, OnUnbalanced, PrivilegeCmp,
@@ -224,67 +224,151 @@ pub type SecondaryEthBridge = pallet_eth_bridge::Instance2;
 const MAIN_ETH_BRIDGE_ID: u8 = 1u8;
 const SECONDARY_ETH_BRIDGE_ID: u8 = 2u8;
 
-// Create the runtime by composing the FRAME pallets that were previously configured.
-construct_runtime!(
-    pub enum Runtime
-    {
-        // System support stuff.
-        System: frame_system = 0,
-        ParachainSystem: cumulus_pallet_parachain_system = 1,
-        Timestamp: pallet_timestamp = 2,
-        ParachainInfo: parachain_info = 3,
+#[frame_support::runtime]
+mod runtime {
+    #[runtime::runtime]
+    #[runtime::derive(
+        RuntimeCall,
+        RuntimeEvent,
+        RuntimeError,
+        RuntimeOrigin,
+        RuntimeFreezeReason,
+        RuntimeHoldReason,
+        RuntimeSlashReason,
+        RuntimeLockId,
+        RuntimeTask
+    )]
+    pub struct Runtime;
 
-        // Monetary stuff.
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 10,
-        TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>} = 11,
+    // System support stuff.
+    #[runtime::pallet_index(0)]
+    pub type System = frame_system;
 
-        // Collator support. The order of these 4 are important and shall not change.
-        Authorship: pallet_authorship = 20,
-        Session: pallet_session = 22,
-        Aura: pallet_aura = 23,
-        AuraExt: cumulus_pallet_aura_ext = 24,
-        ParachainStaking: pallet_parachain_staking = 96,
+    #[runtime::pallet_index(1)]
+    pub type ParachainSystem = cumulus_pallet_parachain_system;
 
-        // Since the ValidatorsManager integrates with the ParachainStaking pallet, we want to initialise after it.
-        ValidatorsManager: pallet_validators_manager = 18,
+    #[runtime::pallet_index(2)]
+    pub type Timestamp = pallet_timestamp;
 
-        // XCM helpers.
-        XcmpQueue: cumulus_pallet_xcmp_queue = 30,
-        PolkadotXcm: pallet_xcm = 31,
-        CumulusXcm: cumulus_pallet_xcm = 32,
-        MessageQueue: pallet_message_queue = 33,
+    #[runtime::pallet_index(3)]
+    pub type ParachainInfo = parachain_info;
 
-        // Substrate pallets
-        Assets: pallet_assets = 60,
-        Sudo: pallet_sudo = 62,
-        AuthorityDiscovery: pallet_authority_discovery = 70,
-        Historical: pallet_session_historical::{Pallet} = 71,
-        Offences: pallet_offences = 72,
-        ImOnline: pallet_im_online = 73,
-        Utility: pallet_utility = 74,
+    // Monetary stuff.
+    #[runtime::pallet_index(10)]
+    pub type Balances = pallet_balances;
 
-        // Rest of AvN pallets
-        Avn: pallet_avn = 81,
-        AvnOffenceHandler: pallet_avn_offence_handler = 83,
-        EthereumEvents: pallet_ethereum_events = 84,
-        NftManager: pallet_nft_manager = 86,
-        TokenManager: pallet_token_manager = 87,
-        Summary: pallet_summary::<Instance1> = 88,
-        AvnProxy: pallet_avn_proxy = 89,
-        EthBridge: pallet_eth_bridge::<Instance1> = 91,
-        AvnAnchor: pallet_avn_anchor = 92,
-        AnchorSummary: pallet_summary::<Instance2> = 110,
-        EthSecondBridge: pallet_eth_bridge::<Instance2> = 111,
+    #[runtime::pallet_index(11)]
+    pub type TransactionPayment = pallet_transaction_payment;
 
-         // OpenGov pallets
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 97,
-        Scheduler: pallet_scheduler::{Pallet, Storage, Event<T>, Call} = 98,
-        Origins: pallet_custom_origins::{Origin} = 99,
-        ConvictionVoting: pallet_conviction_voting::{Pallet, Call, Storage, Event<T>} = 100,
-        Referenda: pallet_referenda::{Pallet, Call, Storage, Event<T>} = 101,
-        Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102
-    }
-);
+    // Collator support. The order of these 4 are important and shall not change.
+    #[runtime::pallet_index(20)]
+    pub type Authorship = pallet_authorship;
+
+    #[runtime::pallet_index(22)]
+    pub type Session = pallet_session;
+
+    #[runtime::pallet_index(23)]
+    pub type Aura = pallet_aura;
+
+    #[runtime::pallet_index(24)]
+    pub type AuraExt = cumulus_pallet_aura_ext;
+
+    #[runtime::pallet_index(96)]
+    pub type ParachainStaking = pallet_parachain_staking;
+
+    // Since the ValidatorsManager integrates with the ParachainStaking pallet, we want to
+    // initialise after it.
+    #[runtime::pallet_index(18)]
+    pub type ValidatorsManager = pallet_validators_manager;
+
+    // XCM helpers.
+    #[runtime::pallet_index(30)]
+    pub type XcmpQueue = cumulus_pallet_xcmp_queue;
+
+    #[runtime::pallet_index(31)]
+    pub type PolkadotXcm = pallet_xcm;
+
+    #[runtime::pallet_index(32)]
+    pub type CumulusXcm = cumulus_pallet_xcm;
+
+    #[runtime::pallet_index(33)]
+    pub type MessageQueue = pallet_message_queue;
+
+    // Substrate pallets
+    #[runtime::pallet_index(60)]
+    pub type Assets = pallet_assets;
+
+    #[runtime::pallet_index(62)]
+    pub type Sudo = pallet_sudo;
+
+    #[runtime::pallet_index(70)]
+    pub type AuthorityDiscovery = pallet_authority_discovery;
+
+    #[runtime::pallet_index(71)]
+    pub type Historical = pallet_session_historical;
+
+    #[runtime::pallet_index(72)]
+    pub type Offences = pallet_offences;
+
+    #[runtime::pallet_index(73)]
+    pub type ImOnline = pallet_im_online;
+
+    #[runtime::pallet_index(74)]
+    pub type Utility = pallet_utility;
+
+    // Rest of AvN pallets
+    #[runtime::pallet_index(81)]
+    pub type Avn = pallet_avn;
+
+    #[runtime::pallet_index(83)]
+    pub type AvnOffenceHandler = pallet_avn_offence_handler;
+
+    #[runtime::pallet_index(84)]
+    pub type EthereumEvents = pallet_ethereum_events;
+
+    #[runtime::pallet_index(86)]
+    pub type NftManager = pallet_nft_manager;
+
+    #[runtime::pallet_index(87)]
+    pub type TokenManager = pallet_token_manager;
+
+    #[runtime::pallet_index(88)]
+    pub type Summary = pallet_summary<Instance1>;
+
+    #[runtime::pallet_index(89)]
+    pub type AvnProxy = pallet_avn_proxy;
+
+    #[runtime::pallet_index(91)]
+    pub type EthBridge = pallet_eth_bridge<Instance1>;
+
+    #[runtime::pallet_index(92)]
+    pub type AvnAnchor = pallet_avn_anchor;
+
+    #[runtime::pallet_index(110)]
+    pub type AnchorSummary = pallet_summary<Instance2>;
+
+    #[runtime::pallet_index(111)]
+    pub type EthSecondBridge = pallet_eth_bridge<Instance2>;
+
+    // OpenGov pallets
+    #[runtime::pallet_index(97)]
+    pub type Preimage = pallet_preimage;
+
+    #[runtime::pallet_index(98)]
+    pub type Scheduler = pallet_scheduler;
+
+    #[runtime::pallet_index(99)]
+    pub type Origins = pallet_custom_origins;
+
+    #[runtime::pallet_index(100)]
+    pub type ConvictionVoting = pallet_conviction_voting;
+
+    #[runtime::pallet_index(101)]
+    pub type Referenda = pallet_referenda;
+
+    #[runtime::pallet_index(102)]
+    pub type Whitelist = pallet_whitelist;
+}
 
 cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,
