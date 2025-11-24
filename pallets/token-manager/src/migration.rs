@@ -75,19 +75,19 @@ pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() 
     LowerV2Threshold::<T>::put(next_lower_id);
 
     FailedLowerProofs::<T>::translate::<LowerParamsV1, _>(|_lower_id, v1_lower_params| {
-        add_weight(1, 2, Weight::zero());
+        add_weight(1, 1, Weight::zero());
         let v2_lower_params = expand_lower_v1_to_v2(&v1_lower_params);
         Some(v2_lower_params)
     });
 
     LowersPendingProof::<T>::translate::<LowerParamsV1, _>(|_lower_id, v1_lower_params| {
-        add_weight(1, 2, Weight::zero());
+        add_weight(1, 1, Weight::zero());
         let v2_lower_params = expand_lower_v1_to_v2(&v1_lower_params);
         Some(v2_lower_params)
     });
 
     LowersReadyToClaim::<T>::translate::<LowerProofDataV1, _>(|_lower_id, v1_proof| {
-        add_weight(1, 2, Weight::zero());
+        add_weight(1, 1, Weight::zero());
         let v2_lower_params = expand_lower_v1_to_v2(&v1_proof.params);
         let v2_proof = LowerProofData {
             params: v2_lower_params,
