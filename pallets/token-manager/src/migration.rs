@@ -32,6 +32,12 @@ mod legacy {
     }
 }
 
+fn expand_lower_v1_to_v2(v1: &legacy::LowerParamsV1) -> LowerParams {
+    let mut v2: LowerParams = [0u8; PACKED_LOWER_V2_PARAMS_SIZE];
+    v2[..PACKED_LOWER_V1_PARAMS_SIZE].copy_from_slice(v1);
+    v2
+}
+
 pub fn set_lower_schedule_period<T: Config>() -> Weight {
     let default_lower_schedule_period: BlockNumberFor<T> = 3275u32.into(); // ~ 12 hrs
     let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
@@ -45,7 +51,7 @@ pub fn set_lower_schedule_period<T: Config>() -> Weight {
     <LowerSchedulePeriod<T>>::put(default_lower_schedule_period);
 
     //Write: [LowerSchedulePeriod, STORAGE_VERSION]
-    add_weight(0, 2, Weight::from_parts(0 as u64, 0));
+    add_weight(0, 2, Weight::zero());
     STORAGE_VERSION.put::<Pallet<T>>();
 
     log::info!("✅ Lower schedule period successfully");
@@ -68,25 +74,21 @@ pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() 
     let next_lower_id = LowerNonce::<T>::get();
     LowerV2Threshold::<T>::put(next_lower_id);
 
-    // Helper to expand lower params from 76 bytes (V1) to 116 bytes (V2)
-    fn expand_v1_to_v2(v1: &LowerParamsV1) -> LowerParams {
-        let mut v2: LowerParams = [0u8; PACKED_LOWER_V2_PARAMS_SIZE];
-        v2[..PACKED_LOWER_V1_PARAMS_SIZE].copy_from_slice(v1);
-        v2
-    }
-
     FailedLowerProofs::<T>::translate::<LowerParamsV1, _>(|_lower_id, v1_lower_params| {
-        let v2_lower_params = expand_v1_to_v2(&v1_lower_params);
+        add_weight(1, 2, Weight::zero());
+        let v2_lower_params = expand_lower_v1_to_v2(&v1_lower_params);
         Some(v2_lower_params)
     });
 
     LowersPendingProof::<T>::translate::<LowerParamsV1, _>(|_lower_id, v1_lower_params| {
-        let v2_lower_params = expand_v1_to_v2(&v1_lower_params);
+        add_weight(1, 2, Weight::zero());
+        let v2_lower_params = expand_lower_v1_to_v2(&v1_lower_params);
         Some(v2_lower_params)
     });
 
     LowersReadyToClaim::<T>::translate::<LowerProofDataV1, _>(|_lower_id, v1_proof| {
-        let v2_lower_params = expand_v1_to_v2(&v1_proof.params);
+        add_weight(1, 2, Weight::zero());
+        let v2_lower_params = expand_lower_v1_to_v2(&v1_proof.params);
         let v2_proof = LowerProofData {
             params: v2_lower_params,
             encoded_lower_data: v1_proof.encoded_lower_data,
@@ -95,7 +97,7 @@ pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() 
     });
 
     // Read: LowerNonce, Write: LowerV2Threshold, STORAGE_VERSION, and above normalisations
-    add_weight(1, 2, Weight::from_parts(0 as u64, 0));
+    add_weight(1, 2, Weight::zero());
     STORAGE_VERSION.put::<Pallet<T>>();
 
     log::info!(
