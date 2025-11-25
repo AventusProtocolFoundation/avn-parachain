@@ -1,6 +1,6 @@
 use crate::{
-    Config, FailedLowerProofs, LowerNonce, LowerProofData, LowerSchedulePeriod,
-    LowersPendingProof, LowersReadyToClaim, Pallet,
+    Config, FailedLowerProofs, LowerNonce, LowerProofData, LowerSchedulePeriod, LowersPendingProof,
+    LowersReadyToClaim, Pallet,
 };
 use frame_support::{
     pallet_prelude::{PhantomData, StorageVersion},
