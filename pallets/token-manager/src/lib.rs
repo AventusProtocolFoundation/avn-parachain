@@ -337,11 +337,6 @@ pub mod pallet {
     #[pallet::getter(fn lower_id)]
     pub type LowerNonce<T: Config> = StorageValue<_, LowerId, ValueQuery>;
 
-    /// This value gets set once during the runtime upgrade to the LowerNonce value at the time
-    #[pallet::storage]
-    #[pallet::getter(fn lower_v2_threshold)]
-    pub type LowerV2Threshold<T: Config> = StorageValue<_, LowerId, OptionQuery>;
-
     /// The number of blocks lower transactions are delayed before executing
     #[pallet::storage]
     #[pallet::getter(fn lower_schedule_period)]

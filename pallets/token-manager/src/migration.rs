@@ -1,5 +1,5 @@
 use crate::{
-    Config, FailedLowerProofs, LowerNonce, LowerProofData, LowerSchedulePeriod, LowerV2Threshold,
+    Config, FailedLowerProofs, LowerNonce, LowerProofData, LowerSchedulePeriod,
     LowersPendingProof, LowersReadyToClaim, Pallet,
 };
 use frame_support::{
@@ -60,19 +60,16 @@ pub fn set_lower_schedule_period<T: Config>() -> Weight {
     return consumed_weight + Weight::from_parts(25_000_000 as u64, 0)
 }
 
-pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() -> Weight {
+pub fn translate_lower_data<T: Config>() -> Weight {
     use legacy::{LowerParamsV1, LowerProofDataV1};
 
-    let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
+    let mut consumed_weight: Weight = Weight::zero();
     let mut add_weight = |reads, writes, weight: Weight| {
         consumed_weight += T::DbWeight::get().reads_writes(reads, writes);
         consumed_weight += weight;
     };
 
-    log::info!("🚧 🚧 Running migration to set LowerV2Threshold from LowerNonce and normalise: FailedLowerProofs, LowersPendingProof, and LowersReadyToClaim");
-
-    let next_lower_id = LowerNonce::<T>::get();
-    LowerV2Threshold::<T>::put(next_lower_id);
+    log::info!("🚧 🚧 Running migration to translate FailedLowerProofs, LowersPendingProof, and LowersReadyToClaim lower data from V1 to V2");
 
     FailedLowerProofs::<T>::translate::<LowerParamsV1, _>(|_lower_id, v1_lower_params| {
         add_weight(1, 1, Weight::zero());
@@ -96,20 +93,16 @@ pub fn set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs<T: Config>() 
         Some(v2_proof)
     });
 
-    // Read: LowerNonce, Write: LowerV2Threshold, STORAGE_VERSION, and above normalisations
-    add_weight(1, 2, Weight::zero());
+    add_weight(0, 1, Weight::zero());
     STORAGE_VERSION.put::<Pallet<T>>();
 
-    log::info!(
-        "✅ LowerV2Threshold successfully set to {:?} and FailedLowerProofs, LowersPendingProof, and LowersReadyToClaim normalised",
-        next_lower_id
-    );
+    log::info!("✅ FailedLowerProofs, LowersPendingProof, and LowersReadyToClaim lower data translated from V1 to V2");
 
     // add a bit extra as safety margin for computation
     consumed_weight + Weight::from_parts(50_000_000 as u64, 0)
 }
 
-/// Migration to enable staking pallet and set LowerV2Threshold
+/// Migration to enable staking pallet and translate lower data from V1 into V2
 pub struct SetLowerSchedulePeriod<T>(PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
     fn on_runtime_upgrade() -> Weight {
@@ -128,11 +121,11 @@ impl<T: Config> OnRuntimeUpgrade for SetLowerSchedulePeriod<T> {
 
         if onchain < 2 {
             log::info!(
-                "💽 Running LowerV2Threshold migration with current storage version {:?} / onchain {:?}",
+                "💽 Running lower data V1 to V2 migration with current storage version {:?} / onchain {:?}",
                 current,
                 onchain
             );
-            total_weight += set_lower_v2_threshold_and_normalise_failed_v1_lower_proofs::<T>();
+            total_weight += translate_lower_data::<T>();
         }
 
         total_weight
