@@ -34,7 +34,10 @@ use sc_service::{
 };
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 
-use sp_avn_common::{DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY};
+use sp_avn_common::{
+    transaction_filter::{DecodingFilter, FilteredPool},
+    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
+};
 use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
@@ -61,6 +64,29 @@ pub type Service<RuntimeApi> = PartialComponents<
     sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>,
     (ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
+
+pub fn create_extrinsic_filter(
+    enable_filter: bool,
+    log_rejections: bool,
+) -> Arc<impl sp_avn_common::transaction_filter::ExtrinsicFilter> {
+    use codec::Decode;
+    use avn_parachain_runtime::{RuntimeCall, UncheckedExtrinsic};
+
+    let decoder = |bytes: &[u8]| -> Result<RuntimeCall, codec::Error> {
+        UncheckedExtrinsic::decode(&mut &bytes[..]).map(|xt| xt.function)
+    };
+
+    let predicate = |call: &RuntimeCall| {
+        matches!(
+            call,
+            RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. }) |
+                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. }) |
+                RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+        )
+    };
+
+    Arc::new(DecodingFilter::new(enable_filter, log_rejections, decoder, predicate))
+}
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -182,7 +208,14 @@ where
 
     let validator = parachain_config.role.is_authority();
     let prometheus_registry = parachain_config.prometheus_registry().cloned();
-    let transaction_pool = params.transaction_pool.clone();
+
+    // Create filtered pool for RPC and offchain workers  
+    let filter = create_extrinsic_filter(
+        avn_cli_config.enable_extrinsic_filter,
+        avn_cli_config.log_filtered_extrinsics,
+    );
+    let base_transaction_pool = params.transaction_pool.clone();
+    let filtered_transaction_pool = Arc::new(FilteredPool::new(params.transaction_pool, filter));
     let import_queue_service = params.import_queue.service();
 
     let avn_port = avn_cli_config.avn_port.clone();
@@ -192,7 +225,7 @@ where
             parachain_config: &parachain_config,
             net_config,
             client: client.clone(),
-            transaction_pool: transaction_pool.clone(),
+            transaction_pool: base_transaction_pool.clone(),
             para_id,
             spawn_handle: task_manager.spawn_handle(),
             relay_chain_interface: relay_chain_interface.clone(),
@@ -224,7 +257,7 @@ where
                 keystore: Some(params.keystore_container.keystore()),
                 offchain_db: backend.offchain_storage(),
                 transaction_pool: Some(OffchainTransactionPoolFactory::new(
-                    transaction_pool.clone(),
+                    filtered_transaction_pool.clone(),
                 )),
                 network_provider: network.clone(),
                 is_validator: parachain_config.role.is_authority(),
@@ -238,12 +271,12 @@ where
 
     let rpc_builder = {
         let client = client.clone();
-        let transaction_pool = transaction_pool.clone();
+        let pool = filtered_transaction_pool.clone();
 
         Box::new(move |deny_unsafe, _| {
             let deps = crate::rpc::FullDeps {
                 client: client.clone(),
-                pool: transaction_pool.clone(),
+                pool: pool.clone(),
                 deny_unsafe,
             };
 
@@ -257,7 +290,7 @@ where
     sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         rpc_builder,
         client: client.clone(),
-        transaction_pool: transaction_pool.clone(),
+        transaction_pool: filtered_transaction_pool.clone(),
         task_manager: &mut task_manager,
         config: parachain_config,
         keystore: params.keystore_container.keystore(),
@@ -342,7 +375,7 @@ where
                 web3_data_mutexes: Default::default(),
                 client: client.clone(),
                 offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
-                    transaction_pool.clone(),
+                    filtered_transaction_pool.clone(),
                 ),
             };
 
@@ -364,7 +397,7 @@ where
             telemetry.as_ref().map(|t| t.handle()),
             &task_manager,
             relay_chain_interface.clone(),
-            transaction_pool,
+            base_transaction_pool,
             sync_service.clone(),
             params.keystore_container.keystore(),
             relay_chain_slot_duration,

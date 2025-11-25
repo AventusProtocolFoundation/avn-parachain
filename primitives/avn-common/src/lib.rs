@@ -39,6 +39,7 @@ pub mod ocw_lock;
 #[path = "tests/test_event_discovery.rs"]
 pub mod test_event_discovery;
 
+pub mod transaction_filter;
 /// Ingress counter type for a counter that can sign the same message with a different signature
 /// each time
 pub type IngressCounter = u64;

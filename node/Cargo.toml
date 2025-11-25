@@ -16,7 +16,7 @@ name = "avn-parachain-collator"
 path = "src/main.rs"
 
 [dependencies]
-clap = { version = "4.4.14", features = ["derive"] }
+clap = { version = "4.4.14", features = ["derive", "env"] }
 log = "0.4.20"
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 serde = { version = "1.0.195", features = ["derive"] }
@@ -27,6 +27,7 @@ serde_json = { version = "1.0.111", features = ["arbitrary_precision"] }
 
 futures = "0.3.21"
 cfg-if = "0.1"
+async-trait = "0.1.57"
 
 # Local
 runtime-common = { package = "avn-runtime-common", path = "../runtime/common" }
@@ -75,6 +76,7 @@ node-primitives = { version = "2.0.0", git = "https://github.com/paritytech/polk
 # AvN dependencies
 sp-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 pallet-im-online = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
+pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 sp-avn-common = { path = "../primitives/avn-common"}
 
 # Polkadot
