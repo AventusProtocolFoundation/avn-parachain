@@ -5,7 +5,7 @@ pub use local::avn_garde_local_config;
 pub use staging::avn_garde_staging_config;
 
 use crate::chain_spec::{
-    constants::*, helpers::*, AuraId, AuthorityDiscoveryId, AvnId, EthPublicKey, Extensions,
+    constants::*, helpers::*, AuraId, AuthorityDiscoveryId, AvnId, ChainSpec, EthPublicKey,
     ImOnlineId, ParaId,
 };
 use avn_test_runtime::{self as avn_test_runtime};
@@ -15,10 +15,6 @@ use sp_core::{H160, H256};
 
 use hex_literal::hex;
 use sp_runtime::{traits::ConstU32, BoundedVec};
-
-/// Specialized `ChainSpec` for the normal parachain runtime.
-// TODO remove this
-pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// Generate the session keys from individual elements.
 ///
