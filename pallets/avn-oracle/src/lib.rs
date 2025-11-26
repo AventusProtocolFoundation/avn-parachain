@@ -586,7 +586,7 @@ pub mod pallet {
                 .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
         }
 
-        fn to_currency(currency_symbol: Vec<u8>) -> Result<Currency, DispatchError> {
+        pub fn to_currency(currency_symbol: Vec<u8>) -> Result<Currency, DispatchError> {
             let currency =
                 BoundedVec::<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>::try_from(currency_symbol)
                     .map_err(|_| DispatchError::from(Error::<T>::InvalidCurrency))?;

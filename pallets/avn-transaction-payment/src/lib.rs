@@ -15,12 +15,12 @@ use frame_system::{self as system};
 
 use core::convert::TryInto;
 pub use pallet::*;
+use pallet_transaction_payment::{CurrencyAdapter, OnChargeTransaction};
+use sp_core::U256;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating},
     transaction_validity::InvalidTransaction,
 };
-
-use pallet_transaction_payment::{CurrencyAdapter, OnChargeTransaction};
 use sp_std::{marker::PhantomData, prelude::*};
 
 pub mod fee_adjustment_config;
@@ -28,6 +28,11 @@ use fee_adjustment_config::{
     AdjustmentType::{TimeBased, TransactionBased},
     *,
 };
+
+pub trait NativeRateProvider {
+    /// Return price of 1 native token in USD (8 decimals), or None if unavailable
+    fn native_rate_usd() -> Option<U256>;
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -55,10 +60,36 @@ pub mod pallet {
         type KnownUserOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
         type WeightInfo: WeightInfo;
+
+        /// Provider of the native token USD rate (8 decimals)
+        type NativeRateProvider: NativeRateProvider;
     }
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
+
+    /// The base gas fee for a simple token transfer in usd
+    #[pallet::storage]
+    pub type BaseGasFeeUsd<T: Config> = StorageValue<_, u128, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub base_gas_fee_usd: u128,
+        pub _phantom: sp_std::marker::PhantomData<T>,
+    }
+
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self { base_gas_fee_usd: 10000000u128, _phantom: Default::default() }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+        fn build(&self) {
+            BaseGasFeeUsd::<T>::put(self.base_gas_fee_usd);
+        }
+    }
 
     #[pallet::event]
     #[pallet::generate_deposit(pub fn deposit_event)]
@@ -82,6 +113,10 @@ pub mod pallet {
             who: T::AccountId,
             fee: BalanceOf<T>,
         },
+        /// A new base gas fee has been set
+        BaseGasFeeUsdSet {
+            new_base_gas_fee: u128,
+        },
     }
 
     #[pallet::error]
@@ -90,6 +125,7 @@ pub mod pallet {
         InvalidFeeType,
         KnownSenderMustMatchAccount,
         KnownSenderMissing,
+        BaseGasFeeZero,
     }
 
     #[pallet::storage]
@@ -176,6 +212,39 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::KnownSenderRemoved { known_sender });
 
             Ok(())
+        }
+
+        /// Set the base gas fee in usd (8 decimals)
+        #[pallet::call_index(2)]
+        #[pallet::weight(0)]
+        pub fn set_base_gas_fee_usd(origin: OriginFor<T>, base_fee: u128) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(base_fee > 0u128, Error::<T>::BaseGasFeeZero);
+
+            <BaseGasFeeUsd<T>>::mutate(|a| *a = base_fee.clone());
+            Self::deposit_event(Event::BaseGasFeeUsdSet { new_base_gas_fee: base_fee });
+
+            Ok(())
+        }
+    }
+
+    impl<T: Config> Pallet<T> {
+        pub fn usd_min_fee() -> u128 {
+            // Base fee in USD (8 decimals)
+            let base_usd = <BaseGasFeeUsd<T>>::get();
+            if base_usd == 0 {
+                return 0;
+            }
+
+            // Price of 1 native token in USD (8 decimals)
+            let price = match T::NativeRateProvider::native_rate_usd() {
+                Some(p) if p > U256::zero() => p,
+                _ => return 0,
+            };
+
+            let result = U256::from(base_usd) / price;
+
+            result.try_into().unwrap_or(u128::MAX)
         }
     }
 }
@@ -319,6 +388,10 @@ pub mod set_known_sender_tests;
 #[cfg(test)]
 #[path = "tests/adjustment_fee_tests.rs"]
 pub mod adjustment_fee_tests;
+
+#[cfg(test)]
+#[path = "tests/base_fee_tests.rs"]
+pub mod base_fee_tests;
 
 pub mod default_weights;
 pub use default_weights::WeightInfo;

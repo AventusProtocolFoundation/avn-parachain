@@ -19,18 +19,20 @@ use sp_runtime::RuntimeAppPublic;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use frame_support::BoundedVec;
+use pallet_avn_transaction_payment::NativeRateProvider;
+use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
 use sp_api::impl_runtime_apis;
 use sp_avn_common::{
     bounds::ProcessingBatchBound,
     event_discovery::filters::{CorePrimaryEventsFilter, NftEventsFilter},
 };
-use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160};
+use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160, U256};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{Block as BlockT, ConvertInto},
+    traits::{Block as BlockT, ConvertInto, One},
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult,
+    ApplyExtrinsicResult, FixedPointNumber,
 };
 
 use sp_std::prelude::*;
@@ -49,7 +51,11 @@ use frame_support::{
         Contains, Currency, Imbalance, LinearStoragePrice, OnUnbalanced, PrivilegeCmp,
         TransformOrigin,
     },
-    weights::{constants::WEIGHT_REF_TIME_PER_SECOND, ConstantMultiplier, Weight},
+    weights::{
+        constants::{ExtrinsicBaseWeight, WEIGHT_REF_TIME_PER_SECOND},
+        ConstantMultiplier, Weight, WeightToFeeCoefficient, WeightToFeeCoefficients,
+        WeightToFeePolynomial,
+    },
     PalletId,
 };
 pub use frame_system::{
@@ -57,9 +63,12 @@ pub use frame_system::{
     EnsureRoot, EnsureSigned, Event as SystemEvent, EventRecord, Phase,
 };
 use governance::pallet_custom_origins;
+use pallet_authorship;
 use parachains_common::message_queue::{NarrowOriginToSibling, ParaIdToSibling};
 use proxy_config::AvnProxyConfig;
+use smallvec::smallvec;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_runtime::FixedU128;
 pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
 use xcm_config::XcmOriginToTransactDispatchOrigin;
 
@@ -67,7 +76,7 @@ use xcm_config::XcmOriginToTransactDispatchOrigin;
 pub use sp_runtime::BuildStorage;
 
 // Polkadot imports
-use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
+use polkadot_runtime_common::BlockHashCount;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical::{self as pallet_session_historical};
@@ -121,14 +130,41 @@ where
     }
 }
 
+pub struct WeightToFee;
+impl WeightToFeePolynomial for WeightToFee {
+    type Balance = Balance;
+    fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
+        // We adjust the fee conversion so that a simple token transfer
+        // direct to chain costs base_fee USD.
+        let min_fee: u128 = pallet_avn_transaction_payment::Pallet::<Runtime>::usd_min_fee();
+
+        // fallback if something happens
+        let base_fee: u128 = if min_fee == 0 { FALLBACK_MIN_FEE } else { min_fee };
+
+        // The magic number (2.380951) is the result of :
+        // setting p = 50 * MILLI_BASE, the cost of a simple transfer was 119.04775 milli AVT
+        // (visual observation on polkadot.js). magic_number = 119.04775 / 50 = 2.380951
+        let factor = FixedU128::saturating_from_rational(1_000_000u128, 2_380_951u128);
+
+        let p = factor.saturating_mul_int(base_fee);
+        let q = Balance::from(ExtrinsicBaseWeight::get().ref_time());
+        smallvec![WeightToFeeCoefficient {
+            degree: 1,
+            negative: false,
+            coeff_frac: Perbill::from_rational(p % q, q),
+            coeff_integer: p / q,
+        }]
+    }
+}
+
 pub use node_primitives::{AccountId, Hash, Signature};
 use node_primitives::{Balance, BlockNumber, Nonce};
 
 use runtime_common::{
     constants::{currency::*, time::*},
-    weights, Address, Header, OperationalFeeMultiplier, TransactionByteFee, WeightToFee,
+    weights, Address, Header, OperationalFeeMultiplier, TransactionByteFee,
 };
-use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
+use weights::{BlockExecutionWeight, RocksDbWeight};
 
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
@@ -197,6 +233,9 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
 pub const EXISTENTIAL_DEPOSIT: Balance = 0;
+
+// If something happens to with the fee calculation
+pub const FALLBACK_MIN_FEE: u128 = 100_000_000_000u128;
 
 /// We assume that ~5% of the block weight is consumed by `on_initialize` handlers. This is
 /// used to limit the maximal weight of a single extrinsic.
@@ -374,12 +413,16 @@ impl pallet_balances::Config for Runtime {
     type MaxFreezes = ConstU32<1>;
 }
 
+parameter_types! {
+    pub FeeMultiplier: Multiplier = Multiplier::one();
+}
+
 impl pallet_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type OnChargeTransaction = AvnCurrencyAdapter<Balances, DealWithFees<Runtime>>;
     type WeightToFee = WeightToFee;
     type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
-    type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
+    type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
     type OperationalFeeMultiplier = OperationalFeeMultiplier;
 }
 
@@ -680,12 +723,21 @@ impl pallet_avn_proxy::Config for Runtime {
     type Token = EthAddress;
 }
 
+pub struct OracleNativeRateProvider;
+impl NativeRateProvider for OracleNativeRateProvider {
+    fn native_rate_usd() -> Option<U256> {
+        let usd_key = pallet_avn_oracle::Pallet::<Runtime>::to_currency(b"usd".to_vec()).ok()?;
+        pallet_avn_oracle::NativeTokenRateByCurrency::<Runtime>::get(usd_key)
+    }
+}
+
 impl pallet_avn_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type KnownUserOrigin = EnsureRoot<AccountId>;
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
+    type NativeRateProvider = OracleNativeRateProvider;
 }
 
 impl pallet_avn_anchor::Config for Runtime {
