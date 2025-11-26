@@ -12,6 +12,9 @@ use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use serde::{Deserialize, Serialize};
 use sp_core::{ecdsa, ByteArray};
 
+/// Specialized `ChainSpec` for the normal parachain runtime.
+pub type ChainSpec = sc_service::GenericChainSpec<Extensions>;
+
 pub(crate) type EthPublicKey = ecdsa::Public;
 
 pub(crate) use cumulus_primitives_core::ParaId;
@@ -33,8 +36,6 @@ pub(crate) mod constants {
 
     pub(crate) const HALF_HOUR_SCHEDULE_PERIOD: BlockNumber = 30 * MINUTES;
     pub(crate) const FOUR_HOURS_SCHEDULE_PERIOD: BlockNumber = 4 * HOURS;
-    #[cfg(feature = "rococo-spec-build")]
-    pub(crate) const EIGHT_HOURS_SCHEDULE_PERIOD: BlockNumber = 8 * HOURS;
 
     pub(crate) const AVT_ENDOWMENT: Balance = 10_000 * AVT;
     pub(crate) const COLLATOR_DEPOSIT: Balance = 2_000 * AVT;
@@ -145,13 +146,13 @@ pub(crate) mod helpers {
 }
 
 /// The extensions for the [`ChainSpec`].
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
-#[serde(deny_unknown_fields)]
 pub struct Extensions {
     /// The relay chain of the Parachain.
+    #[serde(alias = "relayChain", alias = "RelayChain")]
     pub relay_chain: String,
     /// The id of the Parachain.
+    #[serde(alias = "paraId", alias = "ParaId")]
     pub para_id: u32,
 }
 

@@ -5,8 +5,7 @@ pub use local::{development_config, local_testnet_config};
 pub use staging::{staging_dev_testnet_config, staging_testnet_config};
 
 use crate::chain_spec::{
-    constants::*, helpers::*, AuraId, AuthorityDiscoveryId, AvnId, EthPublicKey, Extensions,
-    ImOnlineId, ParaId,
+    constants::*, helpers::*, AuraId, AuthorityDiscoveryId, AvnId, EthPublicKey, ImOnlineId, ParaId,
 };
 use avn_parachain_runtime::{self as avn_runtime};
 use node_primitives::AccountId;
@@ -16,10 +15,6 @@ use sp_core::{H160, H256};
 use hex_literal::hex;
 use sp_avn_common::eth::EthereumNetwork;
 use sp_runtime::{traits::ConstU32, BoundedVec};
-
-/// Specialized `ChainSpec` for the normal parachain runtime.
-// TODO move this on shared module.
-pub type ChainSpec = sc_service::GenericChainSpec<(), Extensions>;
 
 /// Generate the session keys from individual elements.
 ///

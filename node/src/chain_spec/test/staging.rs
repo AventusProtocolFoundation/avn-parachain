@@ -7,8 +7,7 @@ use crate::chain_spec::test::{
     get_authority_keys_from_seed_with_derivation,
 };
 use hex_literal::hex;
-use node_primitives::AccountId;
-use sp_core::{crypto::UncheckedInto, ecdsa, sr25519, ByteArray, H160};
+use sp_core::{ecdsa, sr25519, ByteArray, H160};
 
 pub fn avn_garde_staging_config() -> ChainSpec {
     let avn_garde_staging_parachain_id: u32 = 3150;
