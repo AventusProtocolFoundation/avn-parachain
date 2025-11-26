@@ -14,8 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-// mod xcm_config;
-pub mod xcm_config;
+mod xcm_config;
 
 // Substrate and Polkadot dependencies
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
@@ -54,9 +53,9 @@ use sp_watchtower::NoopWatchtower;
 use crate::{
     weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
     AccountId, AsEnsureOriginWithArg, Aura, Avn, AvnId, AvnOffenceHandler, AvnProxyConfig, Balance,
-    Balances, Block, BlockNumber, EnsureSigned, EthBridge, EthSecondBridge, Hash, Historical,
-    HoldConsideration, ImOnlineId, LinearStoragePrice, MainEthBridge, MessageQueue, Moment,
-    NftManager, Nonce, Offences, Ordering, OriginCaller, PalletInfo, ParachainStaking,
+    Balances, Block, BlockNumber, ConsensusHook, EnsureSigned, EthBridge, EthSecondBridge, Hash,
+    Historical, HoldConsideration, ImOnlineId, LinearStoragePrice, MainEthBridge, MessageQueue,
+    Moment, NftManager, Nonce, Offences, Ordering, OriginCaller, PalletInfo, ParachainStaking,
     ParachainSystem, Preimage, PrivilegeCmp, RestrictedEndpointFilter, Runtime, RuntimeCall,
     RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Scheduler,
     SecondaryEthBridge, Session, SessionKeys, Signature, Summary, System, TokenManager,
@@ -191,7 +190,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
     type ReservedDmpWeight = ReservedDmpWeight;
     type XcmpMessageHandler = XcmpQueue;
     type ReservedXcmpWeight = ReservedXcmpWeight;
-    type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
+    type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
+    type ConsensusHook = ConsensusHook;
 }
 
 impl parachain_info::Config for Runtime {}

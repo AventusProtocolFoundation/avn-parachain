@@ -8,9 +8,10 @@ mod service;
 mod avn_config;
 mod cli;
 mod command;
-mod common;
 mod rpc;
 
 fn main() -> sc_cli::Result<()> {
     command::run()
 }
+
+pub use avn_parachain_runtime::{apis::RuntimeApi, Block};
