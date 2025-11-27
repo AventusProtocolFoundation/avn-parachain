@@ -43,9 +43,7 @@ use pallet_avn::{
     self as avn, AccountToBytesConverter, BridgeInterface, BridgeInterfaceNotification,
     CollatorPayoutDustHandler, OnGrowthLiftedHandler, ProcessedEventsChecker,
 };
-use sp_avn_common::eth::{
-    concat_lower_data, LowerParams, PACKED_LOWER_V1_PARAMS_SIZE, PACKED_LOWER_V2_PARAMS_SIZE,
-};
+use sp_avn_common::eth::{concat_lower_data, LowerParams};
 
 use sp_avn_common::{
     event_types::{
@@ -338,11 +336,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn lower_id)]
     pub type LowerNonce<T: Config> = StorageValue<_, LowerId, ValueQuery>;
-
-    /// This value gets set once during the runtime upgrade to the LowerNonce value at the time
-    #[pallet::storage]
-    #[pallet::getter(fn lower_v2_threshold)]
-    pub type LowerV2Threshold<T: Config> = StorageValue<_, LowerId, OptionQuery>;
 
     /// The number of blocks lower transactions are delayed before executing
     #[pallet::storage]
@@ -876,15 +869,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn regenerate_proof(lower_id: LowerId, params: LowerParams) -> DispatchResult {
-        let mut params = params;
-
-        if let Some(threshold) = Self::lower_v2_threshold() {
-            if lower_id < threshold {
-                params[PACKED_LOWER_V1_PARAMS_SIZE..PACKED_LOWER_V2_PARAMS_SIZE].fill(0);
-            }
-        }
-
+    fn regenerate_proof(lower_id: u32, params: LowerParams) -> DispatchResult {
         <LowersPendingProof<T>>::insert(lower_id, params);
         T::BridgeInterface::generate_lower_proof(lower_id, &params, PALLET_ID.to_vec())?;
 
