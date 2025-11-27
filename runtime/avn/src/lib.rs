@@ -157,15 +157,18 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(5);
 /// `Operational` extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
-/// We allow for 2 seconds of compute with a 6 second average block time.
+/// We allow for 0.5 of a second of compute with a 12 second average block time.
+// TODO set for async backing We allow for 2 seconds of compute with a 6 second average block time.
 const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
-    WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
+    // TODO set for asynch backing WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
+    WEIGHT_REF_TIME_PER_SECOND.saturating_div(2),
     cumulus_primitives_core::relay_chain::MAX_POV_SIZE as u64,
 );
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 /// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+// TODO Set this value to 3 when enabling asynchronous backing
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = 1;
 /// How many parachain blocks are processed by the relay chain per parent. Limits the
 /// number of blocks authored per slot.
 const BLOCK_PROCESSING_VELOCITY: u32 = 1;
