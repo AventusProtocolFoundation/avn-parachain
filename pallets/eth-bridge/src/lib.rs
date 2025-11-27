@@ -146,11 +146,10 @@ pub type LowerId = u32;
 
 pub const MAX_CONFIRMATIONS: u32 = 100u32;
 const PALLET_NAME: &'static [u8] = b"EthBridge";
-const ADD_CONFIRMATION_CONTEXT: &'static [u8] = b"EthBridgeConfirmation";
-const ADD_CORROBORATION_CONTEXT: &'static [u8] = b"EthBridgeCorroboration";
-const ADD_ETH_TX_HASH_CONTEXT: &'static [u8] = b"EthBridgeEthTxHash";
-pub const SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT: &'static [u8] = b"EthBridgeDiscoveredEthEventsHash";
-pub const SUBMIT_LATEST_ETH_BLOCK_CONTEXT: &'static [u8] = b"EthBridgeLatestEthereumBlockHash";
+use sp_avn_common::context_constants::{
+    ADD_CONFIRMATION_CONTEXT, ADD_CORROBORATION_CONTEXT, ADD_ETH_TX_HASH_CONTEXT,
+    SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
+};
 pub const DEFAULT_ETH_RANGE: u32 = 20u32;
 
 const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
