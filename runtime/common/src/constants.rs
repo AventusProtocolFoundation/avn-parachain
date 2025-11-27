@@ -54,7 +54,7 @@ pub mod time {
     use node_primitives::{BlockNumber, Moment};
 
     /// Change this to adjust the block time.
-    pub const MILLISECS_PER_BLOCK: u64 = 6000;
+    pub const MILLISECS_PER_BLOCK: u64 = 12000;
     pub const SECS_PER_BLOCK: Moment = MILLISECS_PER_BLOCK / 1000;
 
     // These time units are defined in number of blocks.
