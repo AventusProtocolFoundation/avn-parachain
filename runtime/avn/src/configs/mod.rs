@@ -17,7 +17,7 @@
 mod xcm_config;
 
 // Substrate and Polkadot dependencies
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
     derive_impl,
@@ -134,7 +134,8 @@ impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = Moment;
     type OnTimestampSet = Aura;
-    type MinimumPeriod = ConstU64<0>;
+    // TODO update to 0 when enabling asynch backing
+    type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
     type WeightInfo = ();
 }
 
@@ -190,9 +191,11 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
     type ReservedDmpWeight = ReservedDmpWeight;
     type XcmpMessageHandler = XcmpQueue;
     type ReservedXcmpWeight = ReservedXcmpWeight;
-    type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
-    // TODO use ExpectParentIncluded;
-    type ConsensusHook = ConsensusHook;
+    // TODO review this
+    // TODO use RelayNumberMonotonicallyIncreases once asynchronous backing is enabled.
+    type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
+    // TODO use ConsensusHook once asynchronous backing is enabled.
+    type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -263,7 +266,7 @@ impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
     type DisabledValidators = ();
     type MaxAuthorities = ConstU32<100_000>;
-    type AllowMultipleBlocksPerSlot = ConstBool<true>;
+    type AllowMultipleBlocksPerSlot = ConstBool<false>;
     type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
