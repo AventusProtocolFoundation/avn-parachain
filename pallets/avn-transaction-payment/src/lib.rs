@@ -29,7 +29,7 @@ use fee_adjustment_config::{
 };
 
 // If something happens to with the fee calculation
-pub const FALLBACK_MIN_FEE: u128 = 100_000_000_000u128;
+pub const FALLBACK_MIN_FEE: u128 = 11_090_000u128;
 
 pub trait NativeRateProvider {
     /// Return price of 1 native token in USD (8 decimals), or None if unavailable
