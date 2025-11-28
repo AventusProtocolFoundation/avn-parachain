@@ -38,7 +38,7 @@ pub mod pallet {
 
     pub type AVN<T> = avn::Pallet<T>;
     pub type Currency = BoundedVec<u8, ConstU32<{ MAX_CURRENCY_LENGTH }>>;
-    pub type Rates = BoundedVec<(Currency, U256), ConstU32<{ MAX_RATES }>>;
+    pub type Rates = BoundedVec<(Currency, u128), ConstU32<{ MAX_RATES }>>;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -77,7 +77,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn native_token_rate_by_currency)]
     pub type NativeTokenRateByCurrency<T: Config> =
-        StorageMap<_, Blake2_128Concat, Currency, U256, OptionQuery>;
+        StorageMap<_, Blake2_128Concat, Currency, u128, OptionQuery>;
 
     #[pallet::storage]
     #[pallet::getter(fn currency_symbols)]
@@ -552,14 +552,14 @@ pub mod pallet {
             let prices: Value = serde_json::from_slice(&prices_json)
                 .map_err(|_| DispatchError::Other("JSON Parsing Error"))?;
 
-            let mut formatted_rates: Vec<(Currency, U256)> = Vec::new();
+            let mut formatted_rates: Vec<(Currency, u128)> = Vec::new();
 
             if let Some(rates) = prices.as_object() {
                 for (currency_symbol, rate_value) in rates {
                     let rate = rate_value.as_f64().ok_or(Error::<T>::InvalidRateFormat)?;
                     ensure!(rate > 0.0, Error::<T>::PriceMustBeGreaterThanZero);
 
-                    let scaled_rate = U256::from((rate * 1e8) as u128);
+                    let scaled_rate = (rate * 1e8) as u128;
                     let currency = Self::to_currency(currency_symbol.as_bytes().to_vec())?;
                     formatted_rates.push((currency, scaled_rate));
                 }
@@ -593,7 +593,7 @@ pub mod pallet {
             Ok(currency)
         }
 
-        fn to_rates(rates: Vec<(Currency, U256)>) -> Result<Rates, DispatchError> {
+        fn to_rates(rates: Vec<(Currency, u128)>) -> Result<Rates, DispatchError> {
             let bounded: Rates =
                 rates.try_into().map_err(|_| DispatchError::from(Error::<T>::TooManyRates))?;
             Ok(bounded)

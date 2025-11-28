@@ -139,7 +139,7 @@ impl WeightToFeePolynomial for WeightToFee {
     fn polynomial() -> WeightToFeeCoefficients<Self::Balance> {
         // We adjust the fee conversion so that a simple token transfer
         // direct to chain costs base_fee USD.
-        let min_fee: u128 = pallet_avn_transaction_payment::Pallet::<Runtime>::usd_min_fee();
+        let min_fee: u128 = pallet_avn_transaction_payment::Pallet::<Runtime>::get_min_avt_fee();
 
         // fallback if something happens
         let base_fee: u128 = if min_fee == 0 { FALLBACK_MIN_FEE } else { min_fee };
@@ -728,7 +728,7 @@ impl pallet_avn_proxy::Config for Runtime {
 
 pub struct OracleNativeRateProvider;
 impl NativeRateProvider for OracleNativeRateProvider {
-    fn native_rate_usd() -> Option<U256> {
+    fn native_rate_usd() -> Option<u128> {
         let usd_key = pallet_avn_oracle::Pallet::<Runtime>::to_currency(b"usd".to_vec()).ok()?;
         pallet_avn_oracle::NativeTokenRateByCurrency::<Runtime>::get(usd_key)
     }

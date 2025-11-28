@@ -72,8 +72,8 @@ impl system::Config for TestRuntime {
 
 pub struct TestRateProvider;
 impl NativeRateProvider for TestRateProvider {
-    fn native_rate_usd() -> Option<U256> {
-        Some(U256::from(25_000_000u128))
+    fn native_rate_usd() -> Option<u128> {
+        Some(25_000_000u128)
     }
 }
 

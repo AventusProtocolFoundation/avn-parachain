@@ -41,7 +41,7 @@ use fee_adjustment_config::{
 
 pub trait NativeRateProvider {
     /// Return price of 1 native token in USD (8 decimals), or None if unavailable
-    fn native_rate_usd() -> Option<U256>;
+    fn native_rate_usd() -> Option<u128>;
 }
 
 #[frame_support::pallet]
@@ -335,22 +335,20 @@ pub mod pallet {
         }
     }
     impl<T: Config> Pallet<T> {
-        pub fn usd_min_fee() -> u128 {
+        pub fn get_min_avt_fee() -> u128 {
             // Base fee in USD (8 decimals)
-            let base_usd = <BaseGasFeeUsd<T>>::get();
-            if base_usd == 0 {
+            let min_usd_fee: u128 = BaseGasFeeUsd::<T>::get();
+            if min_usd_fee == 0 {
                 return 0;
             }
 
             // Price of 1 native token in USD (8 decimals)
-            let price = match T::NativeRateProvider::native_rate_usd() {
-                Some(p) if p > U256::zero() => p,
+            let rate: u128 = match T::NativeRateProvider::native_rate_usd() {
+                Some(p) if p > 0 => p,
                 _ => return 0,
             };
 
-            let result = U256::from(base_usd) / price;
-
-            result.try_into().unwrap_or(u128::MAX)
+            min_usd_fee.checked_div(rate).unwrap_or(0)
         }
 
         pub fn fee_pot_account() -> T::AccountId {
