@@ -115,7 +115,8 @@ where
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
 where
-    R: pallet_balances::Config + pallet_parachain_staking::Config,
+    R: pallet_balances::Config
+        + pallet_avn_transaction_payment::Config,
     <R as frame_system::Config>::AccountId: From<AccountId>,
     <R as frame_system::Config>::AccountId: Into<AccountId>,
     <R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
@@ -125,7 +126,9 @@ where
             if let Some(tips) = fees_then_tips.next() {
                 tips.merge_into(&mut fees);
             }
-            <ToStakingPot<R> as OnUnbalanced<_>>::on_unbalanced(fees);
+
+            let fee_pot = pallet_avn_transaction_payment::Pallet::<R>::fee_pot_account();
+            <pallet_balances::Pallet<R>>::resolve_creating(&fee_pot, fees);
         }
     }
 }
