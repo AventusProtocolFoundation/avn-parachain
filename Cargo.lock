@@ -7368,6 +7368,7 @@ dependencies = [
  "frame-system",
  "hex-literal",
  "log",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-transaction-payment",
  "parity-scale-codec 3.6.11",

@@ -26,6 +26,7 @@ sp-application-crypto = { git = "https://github.com/paritytech/polkadot-sdk", de
 frame-support = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 frame-system = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.6.0" }
+pallet-authorship = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.6.0" }
 log = { version = "0.4.20",  default-features = false }
 
 # Optional imports for benchmarking
