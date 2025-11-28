@@ -94,7 +94,8 @@ mod base_fee_tests {
                     // base_gas_fee_usd = 50_000_000 ($0.50 with 8 decimals) (minimum gas fee set by
                     // user) NativeRateProvider (in mock) returns price =
                     // 25_000_000 ($0.25) ( 1 Native token worth $0.25 returned by oracle)
-                    // => usd_min_fee = 0.50 / 0.25 = 2 Native tokens (minimum calculated fee based on USD)
+                    // => usd_min_fee = 0.50 / 0.25 = 2 Native tokens (minimum calculated fee based
+                    // on USD)
 
                     BaseGasFeeUsd::<TestRuntime>::put(50_000_000u128);
 
