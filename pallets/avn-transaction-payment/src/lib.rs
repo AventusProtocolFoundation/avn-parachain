@@ -233,17 +233,17 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         pub fn get_min_avt_fee() -> u128 {
             // Base fee in USD (8 decimals)
-            let min_usd_fee: u128 = BaseGasFeeUsd::<T>::get();
-            if min_usd_fee == 0 {
-                return 0;
-            }
+            let min_usd_fee = BaseGasFeeUsd::<T>::get();
 
             // Price of 1 native token in USD (8 decimals)
-            let rate: u128 = match T::NativeRateProvider::native_rate_usd() {
-                Some(p) if p > 0 => p,
-                _ => return 0,
-            };
+            let rate = T::NativeRateProvider::native_rate_usd().unwrap_or(0);
 
+            // Any invalid or zero values → fallback
+            if min_usd_fee == 0 || rate == 0 {
+                return FALLBACK_MIN_FEE;
+            }
+
+            // Safe integer division with fallback
             min_usd_fee.checked_div(rate).unwrap_or(FALLBACK_MIN_FEE)
         }
     }
