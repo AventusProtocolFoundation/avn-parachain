@@ -29,6 +29,9 @@ use fee_adjustment_config::{
     *,
 };
 
+// If something happens to with the fee calculation
+pub const FALLBACK_MIN_FEE: u128 = 100_000_000_000u128;
+
 pub trait NativeRateProvider {
     /// Return price of 1 native token in USD (8 decimals), or None if unavailable
     fn native_rate_usd() -> Option<u128>;
@@ -80,7 +83,7 @@ pub mod pallet {
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { base_gas_fee_usd: 10000000u128, _phantom: Default::default() }
+            Self { base_gas_fee_usd: FALLBACK_MIN_FEE, _phantom: Default::default() }
         }
     }
 
@@ -242,7 +245,7 @@ pub mod pallet {
                 _ => return 0,
             };
 
-            min_usd_fee.checked_div(rate).unwrap_or(0)
+            min_usd_fee.checked_div(rate).unwrap_or(FALLBACK_MIN_FEE)
         }
     }
 }

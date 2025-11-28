@@ -138,15 +138,12 @@ impl WeightToFeePolynomial for WeightToFee {
         // direct to chain costs base_fee USD.
         let min_fee: u128 = pallet_avn_transaction_payment::Pallet::<Runtime>::get_min_avt_fee();
 
-        // fallback if something happens
-        let base_fee: u128 = if min_fee == 0 { FALLBACK_MIN_FEE } else { min_fee };
-
         // The magic number (2.380951) is the result of :
         // setting p = 50 * MILLI_BASE, the cost of a simple transfer was 119.04775 milli AVT
         // (visual observation on polkadot.js). magic_number = 119.04775 / 50 = 2.380951
         let factor = FixedU128::saturating_from_rational(1_000_000u128, 2_380_951u128);
 
-        let p = factor.saturating_mul_int(base_fee);
+        let p = factor.saturating_mul_int(min_fee);
         let q = Balance::from(ExtrinsicBaseWeight::get().ref_time());
         smallvec![WeightToFeeCoefficient {
             degree: 1,
@@ -233,9 +230,6 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
 pub const EXISTENTIAL_DEPOSIT: Balance = 0;
-
-// If something happens to with the fee calculation
-pub const FALLBACK_MIN_FEE: u128 = 100_000_000_000u128;
 
 /// We assume that ~5% of the block weight is consumed by `on_initialize` handlers. This is
 /// used to limit the maximal weight of a single extrinsic.
