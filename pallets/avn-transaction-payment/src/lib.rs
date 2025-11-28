@@ -242,25 +242,6 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        /// Collator reward ratio formula:
-        ///
-        ///     collator_ratio = min( desired_fullness / (block_fullness + epsilon), 1 )
-        ///
-        /// Where:
-        ///   block_fullness   = used_weight / max_weight
-        ///   desired_fullness = 0.005     (0.5% of block capacity)
-        ///   epsilon          = 0.001     (0.1% — avoids division by zero for empty blocks)
-        ///
-        /// Meaning:
-        ///   • If block is < 0.5% full → collator gets 100% of fees
-        ///   • If block is > 0.5% full → collator only gets the amount needed to cover costs,
-        ///                               and the rest is burned.
-        ///
-        /// When `max_weight == 0`, the chain cannot compute fullness,
-        /// so fallback behavior gives 100% of fees to the collator:
-        ///
-        ///     collator_ratio = 1
-
         fn on_finalize(_n: BlockNumberFor<T>) {
             let fee_pot = Self::fee_pot_account();
             let burn_pot = Self::burn_pot_account();
@@ -276,50 +257,28 @@ pub mod pallet {
             let max_weight: u128 =
                 <T as frame_system::Config>::BlockWeights::get().max_block.ref_time() as u128;
 
-            let one = FixedU128::one();
-            // compute collator ratio based on the formula
-            let collator_ratio: FixedU128 = if max_weight == 0 {
-                // fallback: give everything to collator
-                one
-            } else {
-                let fullness =
-                    FixedU128::saturating_from_rational(used_weight.min(max_weight), max_weight);
-
-                // desired_fullness = 0.5% (0.005)
-                let desired_fullness = FixedU128::saturating_from_rational(5u128, 1000u128);
-                // epsilon = 0.1% (0.001)
-                let epsilon = FixedU128::saturating_from_rational(1u128, 1000u128);
-
-                let denom = fullness.saturating_add(epsilon);
-                let mut ratio = desired_fullness / denom;
-
-                if ratio > one {
-                    ratio = one;
-                }
-                ratio
-            };
+            // use extracted formula
+            let collator_ratio = Self::collator_ratio_from_weights(used_weight, max_weight);
 
             // split: collator vs burn_pot
             let collator_share: BalanceOf<T> = collator_ratio.saturating_mul_int(total_fees);
             let burn_share: BalanceOf<T> = total_fees.saturating_sub(collator_share);
 
-            // pay collator from fee_pot
+            // pay collator from fee_pot, or burn their share if there is no author
             if !collator_share.is_zero() {
-                if let Some(author) = pallet_authorship::Pallet::<T>::author() {
-                    let _ = T::Currency::transfer(
-                        &fee_pot,
-                        &author,
-                        collator_share,
-                        ExistenceRequirement::KeepAlive,
-                    );
-                } else {
-                    // if for some reason there is no author, send to burn pot
-                    let _ = T::Currency::transfer(
-                        &fee_pot,
-                        &burn_pot,
-                        collator_share,
-                        ExistenceRequirement::AllowDeath,
-                    );
+                match pallet_authorship::Pallet::<T>::author() {
+                    Some(author) => {
+                        let _ = T::Currency::transfer(
+                            &fee_pot,
+                            &author,
+                            collator_share,
+                            ExistenceRequirement::KeepAlive,
+                        );
+                    },
+                    None => {
+                        // no author → collator share gets burned too
+                        burn_share = total_fees;
+                    },
                 }
             }
 
@@ -334,6 +293,7 @@ pub mod pallet {
             }
         }
     }
+
     impl<T: Config> Pallet<T> {
         pub fn get_min_avt_fee() -> u128 {
             // Base fee in USD (8 decimals)
@@ -357,6 +317,49 @@ pub mod pallet {
 
         pub fn burn_pot_account() -> T::AccountId {
             BURN_POT_ID.into_account_truncating()
+        }
+
+        /// Collator reward ratio formula:
+        ///
+        ///     collator_ratio = min( desired_fullness / (block_fullness + epsilon), 1 )
+        ///
+        /// Where:
+        ///   block_fullness   = used_weight / max_weight
+        ///   desired_fullness = 0.005     (0.5% of block capacity)
+        ///   epsilon          = 0.001     (0.1% — avoids division by zero for empty blocks)
+        ///
+        /// Meaning:
+        ///   • If block is < 0.5% full → collator gets 100% of fees
+        ///   • If block is > 0.5% full → collator only gets the amount needed to cover costs,
+        ///                               and the rest is burned.
+        ///
+        /// When `max_weight == 0`, the chain cannot compute fullness,
+        /// so fallback behavior gives 100% of fees to the collator:
+        ///
+        ///     collator_ratio = 1
+        fn collator_ratio_from_weights(used_weight: u128, max_weight: u128) -> FixedU128 {
+            let one = FixedU128::one();
+
+            // fallback: if we somehow have no limit, give everything to collator
+            if max_weight == 0 {
+                return one;
+            }
+
+            let fullness =
+                FixedU128::saturating_from_rational(used_weight.min(max_weight), max_weight);
+
+            // desired_fullness = 0.5% (0.005)
+            let desired_fullness = FixedU128::saturating_from_rational(5u128, 1000u128);
+            // epsilon = 0.1% (0.001)
+            let epsilon = FixedU128::saturating_from_rational(1u128, 1000u128);
+
+            let denom = fullness.saturating_add(epsilon);
+            let mut ratio = desired_fullness / denom;
+
+            if ratio > one {
+                ratio = one;
+            }
+            ratio
         }
     }
 }
