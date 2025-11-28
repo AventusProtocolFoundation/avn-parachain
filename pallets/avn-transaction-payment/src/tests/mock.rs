@@ -1,5 +1,6 @@
 use crate::{
     self as pallet_avn_transaction_payment, system::limits, AvnCurrencyAdapter, KnownSenders,
+    NativeRateProvider,
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -11,7 +12,7 @@ use frame_support::{
 };
 use frame_system::{self as system, DefaultConfig};
 use pallet_balances;
-use sp_core::{sr25519, Pair};
+use sp_core::{sr25519, Pair, U256};
 use sp_runtime::{
     traits::{IdentityLookup, Verify},
     BuildStorage, Perbill, SaturatedConversion,
@@ -69,12 +70,20 @@ impl system::Config for TestRuntime {
     type AccountData = pallet_balances::AccountData<u128>;
 }
 
+pub struct TestRateProvider;
+impl NativeRateProvider for TestRateProvider {
+    fn native_rate_usd() -> Option<u128> {
+        Some(25_000_000u128)
+    }
+}
+
 impl pallet_avn_transaction_payment::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
     type Currency = Balances;
     type KnownUserOrigin = frame_system::EnsureRoot<AccountId>;
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<TestRuntime>;
+    type NativeRateProvider = TestRateProvider;
 }
 
 impl WeightToFeeT for WeightToFee {
