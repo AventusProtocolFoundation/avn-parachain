@@ -16,7 +16,6 @@ use frame_system::{self as system};
 use core::convert::TryInto;
 pub use pallet::*;
 use pallet_transaction_payment::{CurrencyAdapter, OnChargeTransaction};
-use sp_core::U256;
 use sp_runtime::{
     traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating},
     transaction_validity::InvalidTransaction,
