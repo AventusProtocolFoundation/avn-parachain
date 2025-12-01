@@ -19,7 +19,6 @@ use frame_system::Pallet as System;
 pub use pallet::*;
 use pallet_authorship;
 use pallet_transaction_payment::{CurrencyAdapter, OnChargeTransaction};
-use sp_core::U256;
 use sp_runtime::{
     traits::{
         AccountIdConversion, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, Saturating,
@@ -262,7 +261,7 @@ pub mod pallet {
 
             // split: collator vs burn_pot
             let collator_share: BalanceOf<T> = collator_ratio.saturating_mul_int(total_fees);
-            let burn_share: BalanceOf<T> = total_fees.saturating_sub(collator_share);
+            let mut burn_share: BalanceOf<T> = total_fees.saturating_sub(collator_share);
 
             // pay collator from fee_pot, or burn their share if there is no author
             if !collator_share.is_zero() {
@@ -319,6 +318,7 @@ pub mod pallet {
             BURN_POT_ID.into_account_truncating()
         }
 
+        /// ```text
         /// Collator reward ratio formula:
         ///
         ///     collator_ratio = min( desired_fullness / (block_fullness + epsilon), 1 )
@@ -337,7 +337,8 @@ pub mod pallet {
         /// so fallback behavior gives 100% of fees to the collator:
         ///
         ///     collator_ratio = 1
-        fn collator_ratio_from_weights(used_weight: u128, max_weight: u128) -> FixedU128 {
+        /// ```
+        pub fn collator_ratio_from_weights(used_weight: u128, max_weight: u128) -> FixedU128 {
             let one = FixedU128::one();
 
             // fallback: if we somehow have no limit, give everything to collator
@@ -348,8 +349,12 @@ pub mod pallet {
             let fullness =
                 FixedU128::saturating_from_rational(used_weight.min(max_weight), max_weight);
 
-            // desired_fullness = 0.5% (0.005)
-            let desired_fullness = FixedU128::saturating_from_rational(5u128, 1000u128);
+            // We want the cutoff at 0.5% fullness.
+            // But the formula clamps when: fullness <= desired_fullness - epsilon.
+            // So to get a real cutoff of 0.5%, we set:
+            // desired_fullness = 0.5% + epsilon = 0.6%.
+            let desired_fullness = FixedU128::saturating_from_rational(6u128, 1000u128);
+
             // epsilon = 0.1% (0.001)
             let epsilon = FixedU128::saturating_from_rational(1u128, 1000u128);
 
