@@ -34,7 +34,10 @@ use sc_service::{
 };
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 
-use sp_avn_common::{DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY};
+use sp_avn_common::{
+    transaction_filter::{ExtrinsicFilter, FilteredPool},
+    DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
+};
 use sp_keystore::KeystorePtr;
 use substrate_prometheus_endpoint::Registry;
 
@@ -51,6 +54,33 @@ type ParachainBackend = TFullBackend<Block>;
 
 type ParachainBlockImport<RuntimeApi> =
     TParachainBlockImport<Block, Arc<ParachainClient<RuntimeApi>>, ParachainBackend>;
+
+/// Creates the extrinsic filter using the runtime's filtering policy.
+///
+/// This filter uses `avn_parachain_runtime::is_extrinsic_allowed` to determine
+/// which extrinsics are permitted through the transaction pool.
+struct RuntimeExtrinsicFilter {
+    enabled: bool,
+    log_rejections: bool,
+}
+
+impl ExtrinsicFilter for RuntimeExtrinsicFilter {
+    fn is_banned(&self, xt: &sp_core::Bytes) -> bool {
+        if !self.enabled {
+            return false
+        }
+
+        let allowed = avn_parachain_runtime::is_extrinsic_allowed(xt);
+        if !allowed && self.log_rejections {
+            log::warn!(target: "tx-filter", "Rejected disallowed transaction");
+        }
+        !allowed
+    }
+}
+
+fn create_extrinsic_filter(enabled: bool, log_rejections: bool) -> Arc<dyn ExtrinsicFilter> {
+    Arc::new(RuntimeExtrinsicFilter { enabled, log_rejections })
+}
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -182,7 +212,19 @@ where
 
     let validator = parachain_config.role.is_authority();
     let prometheus_registry = parachain_config.prometheus_registry().cloned();
-    let transaction_pool = params.transaction_pool.clone();
+
+    // Create filtered transaction pool - filters are only applied on submit operations,
+    // read operations (ready, ready_at, etc.) delegate directly to the inner pool.
+    let filter = create_extrinsic_filter(
+        avn_cli_config.enable_extrinsic_filter,
+        avn_cli_config.log_filtered_extrinsics,
+    );
+    // Note: build_network and start_consensus require the concrete BasicPool type,
+    // so we keep a reference to it. The filtered pool wraps it and is used for RPC
+    // and offchain workers where transaction submission filtering matters.
+    let inner_pool = params.transaction_pool.clone();
+    let transaction_pool = Arc::new(FilteredPool::new(params.transaction_pool, filter));
+
     let import_queue_service = params.import_queue.service();
 
     let avn_port = avn_cli_config.avn_port.clone();
@@ -193,7 +235,7 @@ where
             parachain_config: &parachain_config,
             net_config,
             client: client.clone(),
-            transaction_pool: transaction_pool.clone(),
+            transaction_pool: inner_pool.clone(), // Cumulus API requires concrete BasicPool type
             para_id,
             spawn_handle: task_manager.spawn_handle(),
             relay_chain_interface: relay_chain_interface.clone(),
@@ -359,7 +401,7 @@ where
             telemetry.as_ref().map(|t| t.handle()),
             &task_manager,
             relay_chain_interface.clone(),
-            transaction_pool,
+            inner_pool, // Use concrete pool type for consensus
             sync_service.clone(),
             params.keystore_container.keystore(),
             relay_chain_slot_duration,

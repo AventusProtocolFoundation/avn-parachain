@@ -850,6 +850,29 @@ mod benches {
     );
 }
 
+/// Determines whether an extrinsic is allowed through the transaction pool filter.
+///
+/// This function is used by public RPC nodes to restrict which transactions they accept.
+/// Currently whitelists only balance transfer operations.
+///
+/// # Arguments
+/// * `encoded` - The SCALE-encoded extrinsic bytes
+///
+/// # Returns
+/// * `true` if the extrinsic is allowed, `false` otherwise
+#[cfg(feature = "std")]
+pub fn is_extrinsic_allowed(encoded: &[u8]) -> bool {
+    match UncheckedExtrinsic::decode(&mut &encoded[..]) {
+        Ok(xt) => matches!(
+            xt.function,
+            RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. }) |
+                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. }) |
+                RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
+        ),
+        Err(_) => false, // Fail secure: reject malformed extrinsics
+    }
+}
+
 impl_runtime_apis! {
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
         fn slot_duration() -> sp_consensus_aura::SlotDuration {

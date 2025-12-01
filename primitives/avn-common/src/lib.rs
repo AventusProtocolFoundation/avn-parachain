@@ -35,6 +35,8 @@ pub mod ocw_lock;
 #[cfg(test)]
 #[path = "tests/test_event_discovery.rs"]
 pub mod test_event_discovery;
+#[cfg(feature = "transaction-filter")]
+pub mod transaction_filter;
 pub mod watchtower;
 
 /// Ingress counter type for a counter that can sign the same message with a different signature
