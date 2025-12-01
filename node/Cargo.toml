@@ -76,7 +76,6 @@ node-primitives = { version = "2.0.0", git = "https://github.com/paritytech/polk
 # AvN dependencies
 sp-authority-discovery = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 pallet-im-online = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.6.0" }
 sp-avn-common = { path = "../primitives/avn-common"}
 
 # Polkadot

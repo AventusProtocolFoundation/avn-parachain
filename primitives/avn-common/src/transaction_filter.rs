@@ -1,34 +1,29 @@
 use async_trait::async_trait;
 use codec::Encode;
-use futures::Stream;
 use sc_transaction_pool_api::{
     error::Error as PoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
     PoolFuture, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool, TransactionSource,
     TxHash,
 };
 use sp_runtime::traits::{Block as BlockT, NumberFor};
-use std::{collections::HashMap, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc};
 
 pub trait ExtrinsicFilter: Send + Sync + 'static {
     fn is_banned(&self, xt: &sp_core::Bytes) -> bool;
 }
 
-pub struct FilteredPool<Pool, Filter> {
+pub struct FilteredPool<Pool> {
     inner: Arc<Pool>,
-    filter: Arc<Filter>,
+    filter: Arc<dyn ExtrinsicFilter>,
 }
 
-impl<Pool, Filter> FilteredPool<Pool, Filter>
-where
-    Filter: ExtrinsicFilter,
-{
-    pub fn new(inner: Arc<Pool>, filter: Arc<Filter>) -> Self {
+impl<Pool> FilteredPool<Pool> {
+    pub fn new(inner: Arc<Pool>, filter: Arc<dyn ExtrinsicFilter>) -> Self {
         Self { inner, filter }
     }
 
     fn check_banned(&self, xt: &impl Encode) -> Result<(), PoolError> {
         if self.filter.is_banned(&xt.encode().into()) {
-            log::debug!(target: "tx-filter", "Transaction rejected by filter");
             return Err(PoolError::InvalidTransaction(
                 sp_runtime::transaction_validity::InvalidTransaction::Call,
             ))
@@ -37,16 +32,15 @@ where
     }
 }
 
-impl<Pool, Filter> Clone for FilteredPool<Pool, Filter> {
+impl<Pool> Clone for FilteredPool<Pool> {
     fn clone(&self) -> Self {
         Self { inner: self.inner.clone(), filter: self.filter.clone() }
     }
 }
 
-impl<Pool, Filter> TransactionPool for FilteredPool<Pool, Filter>
+impl<Pool> TransactionPool for FilteredPool<Pool>
 where
     Pool: TransactionPool,
-    Filter: ExtrinsicFilter,
     Pool::Error: 'static,
 {
     type Block = Pool::Block;
@@ -61,25 +55,34 @@ where
         xts: Vec<TransactionFor<Self>>,
     ) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
         let mut allowed_xts = Vec::with_capacity(xts.len());
-        let mut rejections = Vec::new();
+        let mut allowed_indices = Vec::with_capacity(xts.len());
+        let mut final_results: Vec<Option<Result<TxHash<Self>, Self::Error>>> =
+            (0..xts.len()).map(|_| None).collect();
 
-        for xt in xts {
+        for (i, xt) in xts.into_iter().enumerate() {
             match self.check_banned(&xt) {
-                Ok(_) => allowed_xts.push(xt),
-                Err(e) => rejections.push(Err(e.into())),
+                Ok(_) => {
+                    allowed_xts.push(xt);
+                    allowed_indices.push(i);
+                },
+                Err(e) => final_results[i] = Some(Err(e.into())),
             }
         }
 
         if allowed_xts.is_empty() {
-            return Box::pin(async move { Ok(rejections) })
+            return Box::pin(async move {
+                Ok(final_results.into_iter().map(|r| r.expect("All items populated")).collect())
+            })
         }
 
         let inner_future = self.inner.submit_at(at, source, allowed_xts);
 
         Box::pin(async move {
-            let mut inner_results = inner_future.await?;
-            rejections.append(&mut inner_results);
-            Ok(rejections)
+            let inner_results = inner_future.await?;
+            for (result, index) in inner_results.into_iter().zip(allowed_indices) {
+                final_results[index] = Some(result);
+            }
+            Ok(final_results.into_iter().map(|r| r.expect("All items populated")).collect())
         })
     }
 
@@ -103,7 +106,7 @@ where
     ) -> PoolFuture<
         Pin<
             Box<
-                dyn Stream<
+                dyn futures::Stream<
                         Item = sc_transaction_pool_api::TransactionStatus<
                             TxHash<Self>,
                             <Self::Block as BlockT>::Hash,
@@ -124,7 +127,7 @@ where
         at: NumberFor<Self::Block>,
     ) -> Pin<
         Box<
-            dyn Future<
+            dyn futures::Future<
                     Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
                 > + Send,
         >,
@@ -166,10 +169,9 @@ where
 }
 
 #[async_trait]
-impl<Pool, Filter> MaintainedTransactionPool for FilteredPool<Pool, Filter>
+impl<Pool> MaintainedTransactionPool for FilteredPool<Pool>
 where
     Pool: MaintainedTransactionPool,
-    Filter: ExtrinsicFilter,
     Pool::Error: 'static,
 {
     async fn maintain(&self, event: ChainEvent<Self::Block>) {
@@ -177,10 +179,9 @@ where
     }
 }
 
-impl<Pool, Filter> sc_transaction_pool_api::LocalTransactionPool for FilteredPool<Pool, Filter>
+impl<Pool> sc_transaction_pool_api::LocalTransactionPool for FilteredPool<Pool>
 where
     Pool: sc_transaction_pool_api::LocalTransactionPool,
-    Filter: ExtrinsicFilter,
 {
     type Block = Pool::Block;
     type Hash = Pool::Hash;

@@ -35,7 +35,7 @@ use sc_service::{
 use sc_telemetry::{Telemetry, TelemetryHandle, TelemetryWorker, TelemetryWorkerHandle};
 
 use sp_avn_common::{
-    transaction_filter::{DecodingFilter, FilteredPool},
+    transaction_filter::{ExtrinsicFilter, FilteredPool},
     DEFAULT_EXTERNAL_SERVICE_PORT_NUMBER, EXTERNAL_SERVICE_PORT_NUMBER_KEY,
 };
 use sp_keystore::KeystorePtr;
@@ -65,27 +65,31 @@ pub type Service<RuntimeApi> = PartialComponents<
     (ParachainBlockImport<RuntimeApi>, Option<Telemetry>, Option<TelemetryWorkerHandle>),
 >;
 
-pub fn create_extrinsic_filter(
-    enable_filter: bool,
-    log_rejections: bool,
-) -> Arc<impl sp_avn_common::transaction_filter::ExtrinsicFilter> {
-    use codec::Decode;
-    use avn_parachain_runtime::{RuntimeCall, UncheckedExtrinsic};
+/// Creates the extrinsic filter using the runtime's filtering policy.
+///
+/// This filter uses `avn_parachain_runtime::is_extrinsic_allowed` to determine
+/// which extrinsics are permitted through the transaction pool.
+fn create_extrinsic_filter(enabled: bool, log_rejections: bool) -> Arc<dyn ExtrinsicFilter> {
+    struct RuntimeExtrinsicFilter {
+        enabled: bool,
+        log_rejections: bool,
+    }
 
-    let decoder = |bytes: &[u8]| -> Result<RuntimeCall, codec::Error> {
-        UncheckedExtrinsic::decode(&mut &bytes[..]).map(|xt| xt.function)
-    };
+    impl ExtrinsicFilter for RuntimeExtrinsicFilter {
+        fn is_banned(&self, xt: &sp_core::Bytes) -> bool {
+            if !self.enabled {
+                return false;
+            }
 
-    let predicate = |call: &RuntimeCall| {
-        matches!(
-            call,
-            RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. }) |
-                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. }) |
-                RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
-        )
-    };
+            let allowed = avn_parachain_runtime::is_extrinsic_allowed(xt);
+            if !allowed && self.log_rejections {
+                log::warn!(target: "tx-filter", "Rejected disallowed transaction");
+            }
+            !allowed
+        }
+    }
 
-    Arc::new(DecodingFilter::new(enable_filter, log_rejections, decoder, predicate))
+    Arc::new(RuntimeExtrinsicFilter { enabled, log_rejections })
 }
 
 /// Starts a `ServiceBuilder` for a full service.
@@ -209,13 +213,12 @@ where
     let validator = parachain_config.role.is_authority();
     let prometheus_registry = parachain_config.prometheus_registry().cloned();
 
-    // Create filtered pool for RPC and offchain workers  
     let filter = create_extrinsic_filter(
         avn_cli_config.enable_extrinsic_filter,
         avn_cli_config.log_filtered_extrinsics,
     );
-    let base_transaction_pool = params.transaction_pool.clone();
-    let filtered_transaction_pool = Arc::new(FilteredPool::new(params.transaction_pool, filter));
+    let inner_pool = params.transaction_pool.clone();
+    let transaction_pool = Arc::new(FilteredPool::new(params.transaction_pool, filter));
     let import_queue_service = params.import_queue.service();
 
     let avn_port = avn_cli_config.avn_port.clone();
@@ -225,7 +228,7 @@ where
             parachain_config: &parachain_config,
             net_config,
             client: client.clone(),
-            transaction_pool: base_transaction_pool.clone(),
+            transaction_pool: inner_pool, // Cumulus API requires concrete BasicPool type
             para_id,
             spawn_handle: task_manager.spawn_handle(),
             relay_chain_interface: relay_chain_interface.clone(),
@@ -257,7 +260,7 @@ where
                 keystore: Some(params.keystore_container.keystore()),
                 offchain_db: backend.offchain_storage(),
                 transaction_pool: Some(OffchainTransactionPoolFactory::new(
-                    filtered_transaction_pool.clone(),
+                    transaction_pool.clone(),
                 )),
                 network_provider: network.clone(),
                 is_validator: parachain_config.role.is_authority(),
@@ -271,7 +274,7 @@ where
 
     let rpc_builder = {
         let client = client.clone();
-        let pool = filtered_transaction_pool.clone();
+        let pool = transaction_pool.clone();
 
         Box::new(move |deny_unsafe, _| {
             let deps = crate::rpc::FullDeps {
@@ -290,7 +293,7 @@ where
     sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         rpc_builder,
         client: client.clone(),
-        transaction_pool: filtered_transaction_pool.clone(),
+        transaction_pool: transaction_pool.clone(),
         task_manager: &mut task_manager,
         config: parachain_config,
         keystore: params.keystore_container.keystore(),
@@ -375,7 +378,7 @@ where
                 web3_data_mutexes: Default::default(),
                 client: client.clone(),
                 offchain_transaction_pool_factory: OffchainTransactionPoolFactory::new(
-                    filtered_transaction_pool.clone(),
+                    transaction_pool.clone(),
                 ),
             };
 
@@ -397,7 +400,7 @@ where
             telemetry.as_ref().map(|t| t.handle()),
             &task_manager,
             relay_chain_interface.clone(),
-            base_transaction_pool,
+            transaction_pool.clone(),
             sync_service.clone(),
             params.keystore_container.keystore(),
             relay_chain_slot_duration,
@@ -447,14 +450,14 @@ where
     ))
 }
 
-fn start_consensus<RuntimeApi>(
+fn start_consensus<RuntimeApi, Pool>(
     client: Arc<ParachainClient<RuntimeApi>>,
     block_import: ParachainBlockImport<RuntimeApi>,
     prometheus_registry: Option<&Registry>,
     telemetry: Option<TelemetryHandle>,
     task_manager: &TaskManager,
     relay_chain_interface: Arc<dyn RelayChainInterface>,
-    transaction_pool: Arc<sc_transaction_pool::FullPool<Block, ParachainClient<RuntimeApi>>>,
+    transaction_pool: Arc<Pool>,
     sync_oracle: Arc<SyncingService<Block>>,
     keystore: KeystorePtr,
     relay_chain_slot_duration: Duration,
@@ -466,6 +469,7 @@ fn start_consensus<RuntimeApi>(
 where
     RuntimeApi: ConstructRuntimeApi<Block, ParachainClient<RuntimeApi>> + Send + Sync + 'static,
     RuntimeApi::RuntimeApi: AvnRuntimeApiCollection,
+    Pool: sc_transaction_pool_api::TransactionPool<Block = Block> + 'static,
 {
     use cumulus_client_consensus_aura::collators::basic::{
         self as basic_aura, Params as BasicAuraParams,

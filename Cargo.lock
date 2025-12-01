@@ -1247,7 +1247,6 @@ dependencies = [
  "log",
  "node-primitives",
  "pallet-avn",
- "pallet-balances",
  "pallet-eth-bridge",
  "pallet-eth-bridge-runtime-api",
  "pallet-im-online",
