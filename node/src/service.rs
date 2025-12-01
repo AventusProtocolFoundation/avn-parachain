@@ -78,7 +78,7 @@ fn create_extrinsic_filter(enabled: bool, log_rejections: bool) -> Arc<dyn Extri
     impl ExtrinsicFilter for RuntimeExtrinsicFilter {
         fn is_banned(&self, xt: &sp_core::Bytes) -> bool {
             if !self.enabled {
-                return false;
+                return false
             }
 
             let allowed = avn_parachain_runtime::is_extrinsic_allowed(xt);
@@ -277,11 +277,8 @@ where
         let pool = transaction_pool.clone();
 
         Box::new(move |deny_unsafe, _| {
-            let deps = crate::rpc::FullDeps {
-                client: client.clone(),
-                pool: pool.clone(),
-                deny_unsafe,
-            };
+            let deps =
+                crate::rpc::FullDeps { client: client.clone(), pool: pool.clone(), deny_unsafe };
 
             crate::rpc::create_full(deps).map_err(Into::into)
         })
