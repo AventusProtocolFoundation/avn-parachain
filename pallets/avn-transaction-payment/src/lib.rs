@@ -1,5 +1,5 @@
 //! # Avn transaction payment
-// Copyright 2023 Aventus Network Services (UK) Ltd.
+// Copyright 2025 Aventus Network Services (UK) Ltd.
 
 //! This is a wrapper pallet for transaction payment that allows the customisation of chain fees
 //! based on defined adjustment configuration and a sender.
