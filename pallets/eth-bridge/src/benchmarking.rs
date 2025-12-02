@@ -1,5 +1,5 @@
 //! # Eth bridge pallet
-// Copyright 2023 Aventus Network Services (UK) Ltd.
+// Copyright 2025 Aventus Network Services (UK) Ltd.
 
 //! eth-bridge pallet benchmarking.
 
