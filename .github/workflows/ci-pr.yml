@@ -57,7 +57,8 @@ jobs:
         id: new_repo_tag
         uses: WyriHaximus/github-action-next-semvers@v1
         with:
-          version: ${{ steps.latest_repo_tag.outputs.previous_tag }}
+          version: ${{ steps.latest_repo_tag.outputs.tag }}
+
       - name: update Versions
         if: env.RELEASE == 'true' && env.SKIP_TESTS != 'true'
         env:
