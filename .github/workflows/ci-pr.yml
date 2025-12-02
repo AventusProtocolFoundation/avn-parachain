@@ -48,9 +48,9 @@ jobs:
       - name: Get latest repo tag
         if: env.RELEASE == 'true' && env.SKIP_TESTS != 'true'
         id: latest_repo_tag
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: WyriHaximus/github-action-get-previous-tag@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get next repo tag
         if: env.RELEASE == 'true' && env.SKIP_TESTS != 'true'
