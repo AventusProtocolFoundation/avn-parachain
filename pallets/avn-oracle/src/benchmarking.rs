@@ -56,7 +56,7 @@ pub fn create_currency(currency_symbol: Vec<u8>) -> Currency {
     currency
 }
 
-pub fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
+pub fn create_rates(rates: Vec<(Currency, u128)>) -> Rates {
     let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
     bounded
 }
@@ -69,7 +69,7 @@ benchmarks! {
         let currency = create_currency(currency_symbol.clone());
         assert_ok!(AvnOracle::<T>::register_currency(RawOrigin::Root.into(), currency_symbol.clone(),));
 
-        let rates = create_rates(vec![(currency, U256::from(1000))]);
+        let rates = create_rates(vec![(currency, 1000u128)]);
 
         let context = (PRICE_SUBMISSION_CONTEXT, rates.clone(), VotingRoundId::<T>::get()).encode();
         let quorum = AVN::<T>::quorum() as usize;
@@ -187,7 +187,7 @@ benchmarks! {
         let current_authors = generate_validators::<T>(10);
 
         let currency = create_currency(b"usd".to_vec().clone());
-        let rates = create_rates(vec![(currency, U256::from(1000))]);
+        let rates = create_rates(vec![(currency, 1000u128)]);
 
         let quorum = AVN::<T>::quorum() as usize;
         for i in 0..=quorum {
