@@ -23,7 +23,7 @@ use frame_support::{
     derive_impl,
     dispatch::DispatchClass,
     parameter_types,
-    traits::{ConstBool, ConstU32, ConstU64, TransformOrigin},
+    traits::{ConstBool, ConstU32, ConstU64, TransformOrigin, VariantCountOf},
     weights::{ConstantMultiplier, Weight},
     PalletId,
 };
@@ -161,8 +161,8 @@ impl pallet_balances::Config for Runtime {
     type ReserveIdentifier = [u8; 8];
     type RuntimeHoldReason = RuntimeHoldReason;
     type RuntimeFreezeReason = RuntimeFreezeReason;
-    type FreezeIdentifier = ();
-    type MaxFreezes = ConstU32<1>;
+    type FreezeIdentifier = RuntimeFreezeReason;
+    type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 impl pallet_transaction_payment::Config for Runtime {

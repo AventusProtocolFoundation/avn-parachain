@@ -22,9 +22,9 @@ members = [
 log = { version = "0.4.21", default-features = false }
 serde = { version = "1.0.197", default-features = false }
 serde_json = { version = "1.0.114", default-features = false }
-jsonrpsee = { version = "0.22", features = ["server"] }
+jsonrpsee = { version = "0.23.2", features = ["server"] }
 hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
-futures = "0.3.28"
+futures = "0.3.30"
 jsonrpc-core = "18.0.0"
 anyhow = "1.0.64"
 clap = { version = "4.5.3", features = ["derive"] }
