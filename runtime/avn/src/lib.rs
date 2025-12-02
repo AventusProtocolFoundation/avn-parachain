@@ -7,6 +7,8 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 pub mod apis;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks;
 mod configs;
 pub mod governance;
 pub mod proxy_config;
@@ -271,9 +273,6 @@ construct_runtime!(
         Whitelist: pallet_whitelist::{Pallet, Call, Storage, Event<T>} = 102
     }
 );
-
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmarks;
 
 cumulus_pallet_parachain_system::register_validate_block! {
     Runtime = Runtime,

@@ -185,16 +185,15 @@ mod tests {
         }
 
         fn load_spec(&self, _: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
+            let builder =
+                GenericChainSpec::<NoExtension, ()>::builder(Default::default(), NoExtension::None);
             Ok(Box::new(
-                GenericChainSpec::<(), Extensions>::builder(
-                    avn_parachain_runtime::WASM_BINARY
-                        .expect("WASM binary was not built, please build it!"),
-                    Extensions { ..Default::default() },
-                )
-                .with_name("test")
-                .with_id("test_id")
-                .with_chain_type(ChainType::Development)
-                .build(),
+                builder
+                    .with_name("test")
+                    .with_id("test_id")
+                    .with_chain_type(ChainType::Development)
+                    .with_genesis_config_patch(Default::default())
+                    .build(),
             ))
         }
     }
