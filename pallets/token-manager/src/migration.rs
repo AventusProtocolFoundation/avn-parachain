@@ -1,5 +1,5 @@
 use crate::{
-    Config, FailedLowerProofs, LowerNonce, LowerProofData, LowerSchedulePeriod, LowersPendingProof,
+    Config, FailedLowerProofs, LowerProofData, LowerSchedulePeriod, LowersPendingProof,
     LowersReadyToClaim, Pallet,
 };
 use frame_support::{

@@ -142,7 +142,7 @@ impl EventRegistry {
                 },
             },
         );
-         m.insert(
+        m.insert(
             ValidEvents::LowerReverted.signature(),
             EventInfo {
                 parser: |data, topics| {

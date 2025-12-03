@@ -960,7 +960,7 @@ impl<T: Config> Pallet<T> {
         let event_id = &event.event_id;
         let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLifted);
-        Self::lift_to_account(event, data.token_contract, &data.receiver_address, data.amount)
+        Self::lift_to_account(event, data.token_contract, &data.t2_public_key, data.amount)
     }
 
     fn lift_to_account(
@@ -1054,10 +1054,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn process_lower_reverted(
-        event: &EthEvent,
-        data: &LowerRevertedData,
-    ) -> DispatchResult {
+    fn process_lower_reverted(event: &EthEvent, data: &LowerRevertedData) -> DispatchResult {
         let event_id = &event.event_id;
         let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerReverted);
@@ -1280,11 +1277,11 @@ impl<T: Config> TokenInterface<T::TokenId, T::AccountId> for Pallet<T> {
     fn process_lift(event: &EthEvent) -> DispatchResult {
         return match &event.event_data {
             EventData::LogLiftedToPredictionMarket(d) => {
-                let lifted_data = LiftedData::new(d.token_contract, d.receiver_address, d.amount);
+                let lifted_data = LiftedData::new(d.token_contract, d.t2_public_key, d.amount);
                 return Self::process_lift(event, &lifted_data)
             },
             EventData::LogErc20Transfer(d) => {
-                let lifted_data = LiftedData::new(d.token_contract, d.receiver_address, d.amount);
+                let lifted_data = LiftedData::new(d.token_contract, d.t2_public_key, d.amount);
                 return Self::process_lift(event, &lifted_data)
             },
 

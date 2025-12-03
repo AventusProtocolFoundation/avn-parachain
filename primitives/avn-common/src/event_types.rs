@@ -792,8 +792,7 @@ impl LowerRevertedData {
             &topics[Self::TOPIC_TOKEN_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
         );
 
-        let t2_public_key =
-            H256::from_slice(&topics[Self::TOPIC_T2_PUBLIC_KEY]);
+        let t2_public_key = H256::from_slice(&topics[Self::TOPIC_T2_PUBLIC_KEY]);
 
         let original_recipient = H160::from_slice(
             &topics[Self::TOPIC_ORIGINAL_RECIPIENT][DISCARDED_ZERO_BYTES..WORD_LENGTH],

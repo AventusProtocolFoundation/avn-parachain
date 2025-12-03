@@ -22,7 +22,7 @@ fn event_data_set() -> Vec<DiscoveredEvent> {
                 event_data: EventData::LogLifted(LiftedData {
                     token_contract: H160::from([1u8; 20]),
                     sender_address: H160::from([2u8; 20]),
-                    receiver_address: H256::from([3u8; 32]),
+                    t2_public_key: H256::from([3u8; 32]),
                     amount: 1000,
                     nonce: U256::from(1),
                 }),
@@ -44,7 +44,7 @@ fn alternative_event_data_set() -> Vec<DiscoveredEvent> {
                 event_data: EventData::LogLifted(LiftedData {
                     token_contract: H160::from([1u8; 20]),
                     sender_address: H160::from([2u8; 20]),
-                    receiver_address: H256::from([3u8; 32]),
+                    t2_public_key: H256::from([3u8; 32]),
                     amount: 1000,
                     nonce: U256::from(1),
                 }),
@@ -423,7 +423,7 @@ mod initial_range_consensus {
         });
     }
 
-        #[test]
+    #[test]
     fn moves_additional_events_queue_into_active_range() {
         let mut ext = ExtBuilder::build_default()
             .with_genesis_config()
@@ -433,9 +433,7 @@ mod initial_range_consensus {
             // given an additional event already queued
             let tx_hash: EthTransactionId = H256::from_low_u64_be(42);
             AdditionalEthereumEventsQueue::<TestRuntime>::mutate(|transactions| {
-                transactions
-                    .try_insert(tx_hash.clone())
-                    .expect("within bound for test");
+                transactions.try_insert(tx_hash.clone()).expect("within bound for test");
             });
 
             // and enough votes to finalise the initial range
