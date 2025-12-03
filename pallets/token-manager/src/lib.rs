@@ -48,7 +48,7 @@ use sp_avn_common::eth::{concat_lower_data, LowerParams};
 use sp_avn_common::{
     event_types::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
-        ProcessedEventHandler, TokenInterface,
+        LowerRevertedData, ProcessedEventHandler, TokenInterface,
     },
     verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, OnIdleHandler, Proof,
 };
@@ -270,6 +270,7 @@ pub mod pallet {
     pub enum Error<T> {
         NoTier1EventForLogLifted,
         NoTier1EventForLogLowerClaimed,
+        NoTier1EventForLogLowerReverted,
         AmountOverflow,
         DepositFailed,
         LowerFailed,
@@ -957,34 +958,44 @@ impl<T: Config> Pallet<T> {
 
     fn process_lift(event: &EthEvent, data: &LiftedData) -> DispatchResult {
         let event_id = &event.event_id;
-        let recipient_account_id = T::AccountId::decode(&mut data.receiver_address.as_bytes())
-            .expect("32 bytes will always decode into an AccountId");
-
         let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLifted);
+        Self::lift_to_account(event, data.token_contract, &data.receiver_address, data.amount)
+    }
 
-        if data.amount == 0 {
+    fn lift_to_account(
+        event: &EthEvent,
+        token_contract: H160,
+        t2_public_key: &H256,
+        amount: u128,
+    ) -> DispatchResult {
+        if amount == 0 {
             Err(Error::<T>::AmountIsZero)?
         }
 
-        if data.token_contract == Self::avt_token_contract() {
-            let updated_amount = Self::update_avt_balance(&recipient_account_id, data.amount)?;
+        let event_id = &event.event_id;
+
+        let recipient_account_id = T::AccountId::decode(&mut t2_public_key.as_bytes())
+            .expect("32 bytes will always decode into an AccountId");
+
+        if token_contract == Self::avt_token_contract() {
+            let updated_amount = Self::update_avt_balance(&recipient_account_id, amount)?;
 
             Self::deposit_event(Event::<T>::AVTLifted {
-                recipient: recipient_account_id.clone(),
+                recipient: recipient_account_id,
                 amount: updated_amount,
                 eth_tx_hash: event_id.transaction_hash,
             });
         } else {
             Self::update_token_balance(
                 event_id.transaction_hash,
-                data.token_contract.into(),
+                token_contract.into(),
                 recipient_account_id,
-                data.amount,
+                amount,
             )?;
         }
 
-        return Ok(())
+        Ok(())
     }
 
     fn process_avt_growth_lift(event: &EthEvent, data: &AvtGrowthLiftedData) -> DispatchResult {
@@ -1023,19 +1034,37 @@ impl<T: Config> Pallet<T> {
         let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerClaimed);
 
-        ensure!(
-            LowersReadyToClaim::<T>::contains_key(data.lower_id) == true,
-            Error::<T>::InvalidLowerId
-        );
-        LowersReadyToClaim::<T>::remove(data.lower_id);
-        ensure!(
-            LowersReadyToClaim::<T>::contains_key(data.lower_id) == false,
-            Error::<T>::InvalidLowerId
-        );
-
+        Self::remove_used_lower(data.lower_id)?;
         Self::deposit_event(Event::<T>::AvtLowerClaimed { lower_id: data.lower_id });
 
         Ok(())
+    }
+
+    fn remove_used_lower(lower_id: LowerId) -> DispatchResult {
+        ensure!(
+            LowersReadyToClaim::<T>::contains_key(lower_id) == true,
+            Error::<T>::InvalidLowerId
+        );
+        LowersReadyToClaim::<T>::remove(lower_id);
+        ensure!(
+            LowersReadyToClaim::<T>::contains_key(lower_id) == false,
+            Error::<T>::InvalidLowerId
+        );
+
+        Ok(())
+    }
+
+    fn process_lower_reverted(
+        event: &EthEvent,
+        data: &LowerRevertedData,
+    ) -> DispatchResult {
+        let event_id = &event.event_id;
+        let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
+        ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerReverted);
+
+        Self::remove_used_lower(data.lower_id)?;
+
+        Self::lift_to_account(event, data.token_contract, &data.t2_public_key, data.amount)
     }
 
     /// The account ID of the AvN treasury.
@@ -1102,6 +1131,7 @@ impl<T: Config> Pallet<T> {
             EventData::LogLifted(d) => return Self::process_lift(event, d),
             EventData::LogAvtGrowthLifted(d) => return Self::process_avt_growth_lift(event, d),
             EventData::LogLowerClaimed(d) => return Self::process_lower_claim(event, d),
+            EventData::LogLowerReverted(d) => return Self::process_lower_reverted(event, d),
 
             // Event handled or it is not for us, in which case ignore it.
             _ => Ok(()),
