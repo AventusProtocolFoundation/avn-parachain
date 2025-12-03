@@ -3,24 +3,23 @@ name = "avn-runtime-common"
 description = "A Cumulus FRAME-based Substrate Node compatible with the AvN parachain"
 license = "GPL-3.0"
 
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 
 [dependencies]
 codec = { workspace = true, features = ["derive"] }
-log = { workspace = true }
-scale-info = { workspace = true }
-
-smallvec = "1.11.0"
+log.workspace = true
+scale-info.workspace = true
+smallvec.workspace = true
 
 # Substrate
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.14.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.14.0" }
-node-primitives = { path = "../../node/primitives/", default-features = false }
+frame-support = { features = ["experimental"], workspace = true }
+sp-runtime.workspace = true
+node-primitives.workspace = true
 
 [features]
 default = [
