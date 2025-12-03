@@ -54,10 +54,11 @@ where
         source: TransactionSource,
         xts: Vec<TransactionFor<Self>>,
     ) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
-        let mut allowed_xts = Vec::with_capacity(xts.len());
-        let mut allowed_indices = Vec::with_capacity(xts.len());
-        let mut final_results: Vec<Option<Result<TxHash<Self>, Self::Error>>> =
-            (0..xts.len()).map(|_| None).collect();
+        let len = xts.len();
+        let mut allowed_xts = Vec::with_capacity(len);
+        let mut allowed_indices = Vec::with_capacity(len);
+        let mut results: Vec<Option<Result<TxHash<Self>, Self::Error>>> = (0..xts.len()).map(|_| None).collect();
+
 
         for (i, xt) in xts.into_iter().enumerate() {
             match self.check_banned(&xt) {
@@ -65,13 +66,20 @@ where
                     allowed_xts.push(xt);
                     allowed_indices.push(i);
                 },
-                Err(e) => final_results[i] = Some(Err(e.into())),
+                Err(e) => results[i] = Some(Err(e.into())),
             }
         }
 
         if allowed_xts.is_empty() {
             return Box::pin(async move {
-                Ok(final_results.into_iter().map(|r| r.expect("All items populated")).collect())
+                let mut final_result = Vec::with_capacity(len);
+                for r in results.into_iter() {
+                    match r {
+                        Some(res) => final_result.push(res),
+                        None => return Err(PoolError::Unactionable.into()),
+                    }
+                }
+                Ok(final_result)
             })
         }
 
@@ -79,10 +87,23 @@ where
 
         Box::pin(async move {
             let inner_results = inner_future.await?;
-            for (result, index) in inner_results.into_iter().zip(allowed_indices) {
-                final_results[index] = Some(result);
+
+            if inner_results.len() != allowed_indices.len() {
+                return Err(PoolError::Unactionable.into())
             }
-            Ok(final_results.into_iter().map(|r| r.expect("All items populated")).collect())
+
+            for (result, index) in inner_results.into_iter().zip(allowed_indices) {
+                results[index] = Some(result);
+            }
+
+            let mut final_result = Vec::with_capacity(len);
+            for r in results.into_iter() {
+                match r {
+                    Some(res) => final_result.push(res),
+                    None => return Err(PoolError::Unactionable.into()),
+                }
+            }
+            Ok(final_result)
         })
     }
 
@@ -202,9 +223,9 @@ where
 /// A generic filter implementation that uses a decoder and a predicate.
 pub struct DecodingFilter<Call, Decoder, Predicate> {
     /// Function to decode raw bytes into a Call
-    decoder: Decoder,
+    call_decoder: Decoder,
     /// Function to check if a Call is allowed
-    predicate: Predicate,
+    func_call_allowed: Predicate,
     /// Whether the filter is active
     enabled: bool,
     /// Whether to log rejections
@@ -221,10 +242,10 @@ where
     pub fn new(
         enabled: bool,
         log_rejections: bool,
-        decoder: Decoder,
-        predicate: Predicate,
+        call_decoder: Decoder,
+        func_call_allowed: Predicate,
     ) -> Self {
-        Self { enabled, log_rejections, decoder, predicate, _phantom: PhantomData }
+        Self { enabled, log_rejections, call_decoder, func_call_allowed, _phantom: PhantomData }
     }
 }
 
@@ -239,9 +260,9 @@ where
             return false
         }
 
-        match (self.decoder)(xt) {
+        match (self.call_decoder)(xt) {
             Ok(call) => {
-                let allowed = (self.predicate)(&call);
+                let allowed = (self.func_call_allowed)(&call);
                 if !allowed && self.log_rejections {
                     log::warn!(target: "tx-filter", "Rejected disallowed transaction");
                 }
