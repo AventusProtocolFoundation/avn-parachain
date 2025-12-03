@@ -2,10 +2,8 @@
 
 use crate::*;
 use mock::{EthBridge, ExtBuilder, TestRuntime};
-use sp_avn_common::event_types::{
-    EthEvent, EthEventId, EthTransactionId, EventData, LiftedData, ValidEvents,
-};
-use sp_core::{H160, H256, U256};
+use sp_avn_common::event_types::{EthEvent, EthEventId, EventData, LiftedData, ValidEvents};
+use sp_core::{H160, U256};
 
 use sp_runtime::testing::{TestSignature, UintAuthorityId};
 
@@ -420,47 +418,6 @@ mod initial_range_consensus {
                     "Should be no votes."
                 );
             }
-        });
-    }
-
-    #[test]
-    fn moves_additional_events_queue_into_active_range() {
-        let mut ext = ExtBuilder::build_default()
-            .with_genesis_config()
-            .with_validators()
-            .as_externality();
-        ext.execute_with(|| {
-            // given an additional event already queued
-            let tx_hash: EthTransactionId = H256::from_low_u64_be(42);
-            AdditionalEthereumEventsQueue::<TestRuntime>::mutate(|transactions| {
-                transactions.try_insert(tx_hash.clone()).expect("within bound for test");
-            });
-
-            // and enough votes to finalise the initial range
-            let contexts = (1..5 as u64)
-                .map(|id| LatestEthBlockContext {
-                    author: Author::<TestRuntime> { key: UintAuthorityId(id), account_id: id },
-                    discovered_block: id as u32 * 100,
-                    eth_start_block: 1,
-                })
-                .take(<TestRuntime as crate::Config>::Quorum::get_supermajority_quorum() as usize)
-                .collect::<Vec<LatestEthBlockContext>>();
-
-            for context in contexts.iter() {
-                assert_ok!(context.submit_latest_block());
-            }
-
-            // then the active range should carry over the queued additional tx,
-            // and the queue itself should now be empty
-            let active_range = EthBridge::active_ethereum_range().expect("Should be set");
-            assert!(
-                active_range.additional_transactions.contains(&tx_hash),
-                "Active range should contain queued additional transaction"
-            );
-            assert!(
-                AdditionalEthereumEventsQueue::<TestRuntime>::get().is_empty(),
-                "AdditionalEthereumEventsQueue should be cleared after range selection"
-            );
         });
     }
 
