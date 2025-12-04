@@ -12,7 +12,7 @@ use frame_support::{
 };
 use frame_system::{self as system, DefaultConfig};
 use pallet_balances;
-use sp_core::{sr25519, Pair};
+use sp_core::{sr25519, Pair, U256};
 use sp_runtime::{
     traits::{IdentityLookup, Verify},
     BuildStorage, Perbill, SaturatedConversion,
