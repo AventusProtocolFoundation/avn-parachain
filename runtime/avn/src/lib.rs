@@ -115,7 +115,7 @@ where
 pub struct DealWithFees<R>(sp_std::marker::PhantomData<R>);
 impl<R> OnUnbalanced<NegativeImbalance<R>> for DealWithFees<R>
 where
-    R: pallet_balances::Config + pallet_parachain_staking::Config,
+    R: pallet_balances::Config + pallet_avn_transaction_payment::Config,
     <R as frame_system::Config>::AccountId: From<AccountId>,
     <R as frame_system::Config>::AccountId: Into<AccountId>,
     <R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
@@ -125,7 +125,9 @@ where
             if let Some(tips) = fees_then_tips.next() {
                 tips.merge_into(&mut fees);
             }
-            <ToStakingPot<R> as OnUnbalanced<_>>::on_unbalanced(fees);
+
+            let fee_pot = pallet_avn_transaction_payment::Pallet::<R>::fee_pot_account();
+            <pallet_balances::Pallet<R>>::resolve_creating(&fee_pot, fees);
         }
     }
 }
@@ -230,6 +232,9 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 /// The existential deposit. Set to 1/10 of the Connected Relay Chain.
 pub const EXISTENTIAL_DEPOSIT: Balance = 0;
+
+// If something happens to with the fee calculation
+pub const FALLBACK_MIN_FEE: u128 = 100_000_000_000u128;
 
 /// We assume that ~5% of the block weight is consumed by `on_initialize` handlers. This is
 /// used to limit the maximal weight of a single extrinsic.

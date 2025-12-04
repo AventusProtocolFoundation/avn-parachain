@@ -7,7 +7,7 @@ use frame_support::{
     derive_impl,
     pallet_prelude::DispatchClass,
     parameter_types,
-    traits::{ConstU8, Imbalance, OnFinalize, OnInitialize, OnUnbalanced},
+    traits::{ConstU8, Currency, Imbalance, OnFinalize, OnInitialize},
     weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use frame_system::{self as system, DefaultConfig};
@@ -36,7 +36,8 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config<T>, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Event<T>},
         TransactionPayment: pallet_transaction_payment::{Pallet, Storage, Event<T>, Config<T>},
-        AvnTransactionPayment: pallet_avn_transaction_payment::{Pallet, Call, Storage, Event<T>}
+        AvnTransactionPayment: pallet_avn_transaction_payment::{Pallet, Call, Storage, Event<T>},
+        Authorship: pallet_authorship::{Pallet, Storage},
     }
 );
 
@@ -109,8 +110,10 @@ parameter_types! {
     pub static TransactionByteFee: u128 = 1u128;
 }
 
-pub struct DealWithFees;
-impl OnUnbalanced<pallet_balances::NegativeImbalance<TestRuntime>> for DealWithFees {
+pub struct DealWithFeesForTest;
+impl frame_support::traits::OnUnbalanced<pallet_balances::NegativeImbalance<TestRuntime>>
+    for DealWithFeesForTest
+{
     fn on_unbalanceds<B>(
         mut fees_then_tips: impl Iterator<Item = pallet_balances::NegativeImbalance<TestRuntime>>,
     ) {
@@ -118,17 +121,38 @@ impl OnUnbalanced<pallet_balances::NegativeImbalance<TestRuntime>> for DealWithF
             if let Some(tips) = fees_then_tips.next() {
                 tips.merge_into(&mut fees);
             }
+
+            let fee_pot = pallet_avn_transaction_payment::Pallet::<TestRuntime>::fee_pot_account();
+            pallet_balances::Pallet::<TestRuntime>::resolve_creating(&fee_pot, fees);
         }
     }
 }
 
 impl pallet_transaction_payment::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
-    type OnChargeTransaction = AvnCurrencyAdapter<Balances, DealWithFees>;
+    type OnChargeTransaction = AvnCurrencyAdapter<Balances, DealWithFeesForTest>;
     type LengthToFee = TransactionByteFee;
     type WeightToFee = WeightToFee;
     type FeeMultiplierUpdate = ();
     type OperationalFeeMultiplier = ConstU8<5>;
+}
+
+use frame_support::traits::FindAuthor;
+use sp_runtime::ConsensusEngineId;
+
+pub struct TestFindAuthor;
+impl FindAuthor<AccountId> for TestFindAuthor {
+    fn find_author<'a, I>(_digests: I) -> Option<AccountId>
+    where
+        I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+    {
+        Some(test_collator())
+    }
+}
+
+impl pallet_authorship::Config for TestRuntime {
+    type FindAuthor = TestFindAuthor;
+    type EventHandler = ();
 }
 
 parameter_types! {
@@ -174,6 +198,11 @@ impl TestAccount {
         data.copy_from_slice(&bytes32[0..32]);
         data
     }
+}
+
+/// The global collator used in all tests.
+pub fn test_collator() -> AccountId {
+    TestAccount::new(42).account_id()
 }
 
 /// Rolls forward one block. Returns the new block number.

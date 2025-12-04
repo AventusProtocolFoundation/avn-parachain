@@ -14,13 +14,23 @@ use frame_support::{
 use frame_system::{self as system};
 
 use core::convert::TryInto;
+use frame_support::{traits::ExistenceRequirement, PalletId};
+use frame_system::Pallet as System;
 pub use pallet::*;
+use pallet_authorship;
 use pallet_transaction_payment::{CurrencyAdapter, OnChargeTransaction};
 use sp_runtime::{
-    traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, Saturating},
+    traits::{
+        AccountIdConversion, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf, Saturating,
+        Zero,
+    },
     transaction_validity::InvalidTransaction,
+    FixedPointNumber, FixedU128,
 };
 use sp_std::{marker::PhantomData, prelude::*};
+
+pub const FEE_POT_ID: PalletId = PalletId(*b"avn/fees");
+pub const BURN_POT_ID: PalletId = PalletId(*b"avn/burn");
 
 pub mod fee_adjustment_config;
 use fee_adjustment_config::{
@@ -43,7 +53,9 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
+    pub trait Config:
+        frame_system::Config + pallet_transaction_payment::Config + pallet_authorship::Config
+    {
         /// The overarching event type.
         type RuntimeEvent: From<Event<Self>>
             + Into<<Self as system::Config>::RuntimeEvent>
@@ -230,6 +242,60 @@ pub mod pallet {
         }
     }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_finalize(_n: BlockNumberFor<T>) {
+            let fee_pot = Self::fee_pot_account();
+            let burn_pot = Self::burn_pot_account();
+
+            // total fees for this block
+            let total_fees: BalanceOf<T> = T::Currency::free_balance(&fee_pot);
+            if total_fees.is_zero() {
+                return;
+            }
+
+            // final used block weight
+            let used_weight: u128 = System::<T>::block_weight().total().ref_time() as u128;
+            let max_weight: u128 =
+                <T as frame_system::Config>::BlockWeights::get().max_block.ref_time() as u128;
+
+            // use extracted formula
+            let collator_ratio = Self::collator_ratio_from_weights(used_weight, max_weight);
+
+            // split: collator vs burn_pot
+            let collator_share: BalanceOf<T> = collator_ratio.saturating_mul_int(total_fees);
+            let mut burn_share: BalanceOf<T> = total_fees.saturating_sub(collator_share);
+
+            // pay collator from fee_pot, or burn their share if there is no author
+            if !collator_share.is_zero() {
+                match pallet_authorship::Pallet::<T>::author() {
+                    Some(author) => {
+                        let _ = T::Currency::transfer(
+                            &fee_pot,
+                            &author,
+                            collator_share,
+                            ExistenceRequirement::KeepAlive,
+                        );
+                    },
+                    None => {
+                        // no author → collator share gets burned too
+                        burn_share = total_fees;
+                    },
+                }
+            }
+
+            // rest is burned
+            if !burn_share.is_zero() {
+                let _ = T::Currency::transfer(
+                    &fee_pot,
+                    &burn_pot,
+                    burn_share,
+                    ExistenceRequirement::AllowDeath,
+                );
+            }
+        }
+    }
+
     impl<T: Config> Pallet<T> {
         pub fn get_min_avt_fee() -> u128 {
             // Base fee in USD (8 decimals)
@@ -245,6 +311,63 @@ pub mod pallet {
 
             // Safe integer division with fallback
             min_usd_fee.checked_div(rate).unwrap_or(FALLBACK_MIN_FEE)
+        }
+
+        pub fn fee_pot_account() -> T::AccountId {
+            FEE_POT_ID.into_account_truncating()
+        }
+
+        pub fn burn_pot_account() -> T::AccountId {
+            BURN_POT_ID.into_account_truncating()
+        }
+
+        /// ```text
+        /// Collator reward ratio formula:
+        ///
+        ///     collator_ratio = min( desired_fullness / (block_fullness + epsilon), 1 )
+        ///
+        /// Where:
+        ///   block_fullness   = used_weight / max_weight
+        ///   desired_fullness = 0.005     (0.5% of block capacity)
+        ///   epsilon          = 0.001     (0.1% — avoids division by zero for empty blocks)
+        ///
+        /// Meaning:
+        ///   • If block is < 0.5% full → collator gets 100% of fees
+        ///   • If block is > 0.5% full → collator only gets the amount needed to cover costs,
+        ///                               and the rest is burned.
+        ///
+        /// When `max_weight == 0`, the chain cannot compute fullness,
+        /// so fallback behavior gives 100% of fees to the collator:
+        ///
+        ///     collator_ratio = 1
+        /// ```
+        pub fn collator_ratio_from_weights(used_weight: u128, max_weight: u128) -> FixedU128 {
+            let one = FixedU128::one();
+
+            // fallback: if we somehow have no limit, give everything to collator
+            if max_weight == 0 {
+                return one;
+            }
+
+            let fullness =
+                FixedU128::saturating_from_rational(used_weight.min(max_weight), max_weight);
+
+            // We want the cutoff at 0.5% fullness.
+            // But the formula clamps when: fullness <= desired_fullness - epsilon.
+            // So to get a real cutoff of 0.5%, we set:
+            // desired_fullness = 0.5% + epsilon = 0.6%.
+            let desired_fullness = FixedU128::saturating_from_rational(6u128, 1000u128);
+
+            // epsilon = 0.1% (0.001)
+            let epsilon = FixedU128::saturating_from_rational(1u128, 1000u128);
+
+            let denom = fullness.saturating_add(epsilon);
+            let mut ratio = desired_fullness / denom;
+
+            if ratio > one {
+                ratio = one;
+            }
+            ratio
         }
     }
 }
