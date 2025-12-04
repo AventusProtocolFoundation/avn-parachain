@@ -38,6 +38,9 @@ use fee_adjustment_config::{
     *,
 };
 
+// If something happens with the fee calculation, use this value
+pub const FALLBACK_MIN_FEE: u128 = 11_090_000u128;
+
 pub trait NativeRateProvider {
     /// Return price of 1 native token in USD (8 decimals), or None if unavailable
     fn native_rate_usd() -> Option<u128>;
@@ -91,7 +94,7 @@ pub mod pallet {
 
     impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
-            Self { base_gas_fee_usd: 10000000u128, _phantom: Default::default() }
+            Self { base_gas_fee_usd: FALLBACK_MIN_FEE, _phantom: Default::default() }
         }
     }
 
@@ -296,18 +299,18 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         pub fn get_min_avt_fee() -> u128 {
             // Base fee in USD (8 decimals)
-            let min_usd_fee: u128 = BaseGasFeeUsd::<T>::get();
-            if min_usd_fee == 0 {
-                return 0;
-            }
+            let min_usd_fee = BaseGasFeeUsd::<T>::get();
 
             // Price of 1 native token in USD (8 decimals)
-            let rate: u128 = match T::NativeRateProvider::native_rate_usd() {
-                Some(p) if p > 0 => p,
-                _ => return 0,
-            };
+            let rate = T::NativeRateProvider::native_rate_usd().unwrap_or(0);
 
-            min_usd_fee.checked_div(rate).unwrap_or(0)
+            // Any invalid or zero values → fallback
+            if min_usd_fee == 0 || rate == 0 {
+                return FALLBACK_MIN_FEE;
+            }
+
+            // Safe integer division with fallback
+            min_usd_fee.checked_div(rate).unwrap_or(FALLBACK_MIN_FEE)
         }
 
         pub fn fee_pot_account() -> T::AccountId {
