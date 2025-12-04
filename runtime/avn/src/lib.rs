@@ -138,10 +138,10 @@ impl WeightToFeePolynomial for WeightToFee {
         // direct to chain costs base_fee USD.
         let min_fee: u128 = pallet_avn_transaction_payment::Pallet::<Runtime>::get_min_avt_fee();
 
-        // The magic number (2.380951) is the result of :
-        // setting p = 50 * MILLI_BASE, the cost of a simple transfer was 119.04775 milli AVT
-        // (visual observation on polkadot.js). magic_number = 119.04775 / 50 = 2.380951
-        let factor = FixedU128::saturating_from_rational(1_000_000u128, 2_380_951u128);
+        // The magic number (0.09124) is the result of :
+        // setting p = 50 * MILLI_BASE, the cost of a simple transfer was 4.5620 milli AVT
+        // (visual observation on polkadot.js). magic_number = 4.5620 / 50 = 0.09124
+        let factor = FixedU128::saturating_from_rational(1_000_000u128, 91_240u128);
 
         let p = factor.saturating_mul_int(min_fee);
         let q = Balance::from(ExtrinsicBaseWeight::get().ref_time());

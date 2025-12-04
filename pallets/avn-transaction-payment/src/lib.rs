@@ -28,7 +28,7 @@ use fee_adjustment_config::{
     *,
 };
 
-// If something happens to with the fee calculation
+// If something happens with the fee calculation, use this value
 pub const FALLBACK_MIN_FEE: u128 = 11_090_000u128;
 
 pub trait NativeRateProvider {
