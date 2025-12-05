@@ -17,7 +17,7 @@ use frame_support::{
 };
 use pallet_session as session;
 use sp_avn_common::event_types::Validator;
-use sp_core::{sr25519, Pair, U256};
+use sp_core::{sr25519, Pair};
 use sp_runtime::{
     testing::{TestSignature, TestXt, UintAuthorityId},
     traits::ConvertInto,
@@ -230,7 +230,7 @@ pub fn create_currency(currency_symbol: Vec<u8>) -> Currency {
     currency
 }
 
-pub fn create_rates(rates: Vec<(Currency, U256)>) -> Rates {
+pub fn create_rates(rates: Vec<(Currency, u128)>) -> Rates {
     let bounded: Rates = rates.try_into().expect("number of rates must be ≤ MAX_RATES");
     bounded
 }
