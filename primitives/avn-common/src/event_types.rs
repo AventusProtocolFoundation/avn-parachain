@@ -65,6 +65,13 @@ pub enum Error {
     AvtLowerClaimedEventBadTopicLength,
     AvtLowerClaimedEventIdConversion,
 
+    LowerRevertedEventMissingData,
+    LowerRevertedEventWrongTopicCount,
+    LowerRevertedEventBadTopicLength,
+    LowerRevertedEventBadDataLength,
+    LowerRevertedEventAmountOverflow,
+    LowerRevertedEventLowerIdConversion,
+
     LiftedToPredictionMarketEventMissingData,
     LiftedToPredictionMarketEventDataOverflow,
     LiftedToPredictionMarketEventBadDataLength,
@@ -107,6 +114,8 @@ pub enum ValidEvents {
     LiftedToPredictionMarket,
     /// Secondary event emitted by the ERC-20 token contract.
     Erc20DirectTransfer,
+    /// A lower was reverted.
+    LowerReverted,
 }
 
 impl ValidEvents {
@@ -156,6 +165,10 @@ impl ValidEvents {
             // hex string of Keccak-256 for Transfer(address,address,uint256)
             ValidEvents::Erc20DirectTransfer =>
                 H256(hex!("ddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef")),
+
+            // hex string of Keccak-256 for LogLowerReverted(address,bytes32,address,uint256,uint32)
+            ValidEvents::LowerReverted =>
+                H256(hex!("3a534ee35b9cf37cfa5e5aac24f8d0d3a2a2841b1ff92db68501d3c46956daa8")),
         }
     }
 
@@ -257,13 +270,12 @@ impl AddedValidatorData {
 }
 
 // T1 Event definition:
-// event LogLifted(address indexed tokenContract, bytes32 indexed liftee,
-// uint256 amount);
+// event LogLifted(address indexed token, bytes32 indexed t2PubKey, uint256 amount);
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct LiftedData {
     pub token_contract: H160,
     pub sender_address: H160,
-    pub receiver_address: H256,
+    pub t2_public_key: H256,
     pub amount: u128,
     pub nonce: U256,
 }
@@ -273,13 +285,13 @@ impl LiftedData {
     const TOPIC_INDEX_T2_ADDRESS: usize = 2;
 
     pub fn is_valid(&self) -> bool {
-        return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
+        return !self.token_contract.is_zero() && !self.t2_public_key.is_zero()
     }
 
-    pub fn new(token_contract: H160, receiver_address: H256, amount: u128) -> Self {
+    pub fn new(token_contract: H160, t2_public_key: H256, amount: u128) -> Self {
         LiftedData {
             token_contract,
-            receiver_address,
+            t2_public_key,
             amount,
             sender_address: H160::zero(),
             nonce: U256::zero(),
@@ -317,7 +329,7 @@ impl LiftedData {
             &topics[Self::TOPIC_CURRENCY_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
         );
 
-        let receiver_address = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
+        let t2_public_key = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
 
         if data[0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
             return Err(Error::LiftedEventDataOverflow)
@@ -332,7 +344,7 @@ impl LiftedData {
             token_contract,
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
             sender_address: H160::zero(),
-            receiver_address,
+            t2_public_key,
             amount,
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
             nonce: U256::zero(),
@@ -396,7 +408,7 @@ impl LiftedData {
             sender_address,
             // This must be overwritten after the lift reach consensus with the account configured
             // on the pallet
-            receiver_address: bridge_contract.into(),
+            t2_public_key: bridge_contract.into(),
             amount,
             nonce: U256::zero(),
         })
@@ -718,6 +730,104 @@ impl AvtLowerClaimedData {
     }
 }
 
+// T1 Event definition:
+// event LogLowerReverted(
+//     address indexed token,
+//     bytes32 indexed t2PubKey,
+//     address indexed originalRecipient,
+//     uint256 amount,
+//     uint32 lowerId
+// );
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
+pub struct LowerRevertedData {
+    pub token_contract: H160,
+    pub t2_public_key: H256,
+    pub original_recipient: H160,
+    pub amount: u128,
+    pub lower_id: u32,
+}
+
+impl LowerRevertedData {
+    const TOPIC_TOKEN_CONTRACT: usize = 1;
+    const TOPIC_T2_PUBLIC_KEY: usize = 2;
+    const TOPIC_ORIGINAL_RECIPIENT: usize = 3;
+
+    pub fn is_valid(&self) -> bool {
+        !self.token_contract.is_zero() && !self.t2_public_key.is_zero() && self.amount > 0u128
+    }
+
+    pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
+        // Structure of input:
+        // data (required, 2 * 32 bytes):
+        //   [0..32)   --> amount (uint256, we enforce it fits into u128)
+        //   [32..64)  --> lowerId (uint32, stored in the low 4 bytes)
+        //
+        // topics:
+        //   topics[0] --> event signature (ignored)
+        //   topics[1] --> token address (H160, last 20 bytes)
+        //   topics[2] --> t2PubKey (H256)
+        //   topics[3] --> originalRecipient (H160, last 20 bytes)
+
+        if data.is_none() {
+            return Err(Error::LowerRevertedEventMissingData)
+        }
+        let data = data.expect("Already checked for errors");
+
+        if data.len() != 2 * WORD_LENGTH {
+            return Err(Error::LowerRevertedEventBadDataLength)
+        }
+
+        if topics.len() != 4 {
+            return Err(Error::LowerRevertedEventWrongTopicCount)
+        }
+
+        if topics[Self::TOPIC_TOKEN_CONTRACT].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_T2_PUBLIC_KEY].len() != WORD_LENGTH ||
+            topics[Self::TOPIC_ORIGINAL_RECIPIENT].len() != WORD_LENGTH
+        {
+            return Err(Error::LowerRevertedEventBadTopicLength)
+        }
+
+        let token_contract = H160::from_slice(
+            &topics[Self::TOPIC_TOKEN_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
+        );
+
+        let t2_public_key = H256::from_slice(&topics[Self::TOPIC_T2_PUBLIC_KEY]);
+
+        let original_recipient = H160::from_slice(
+            &topics[Self::TOPIC_ORIGINAL_RECIPIENT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
+        );
+
+        // Decode amount from the first 32 bytes of data
+        let amount_bytes = &data[0..WORD_LENGTH];
+        if amount_bytes[0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
+            return Err(Error::LowerRevertedEventAmountOverflow)
+        }
+
+        let amount = u128::from_be_bytes(
+            amount_bytes[HALF_WORD_LENGTH..WORD_LENGTH]
+                .try_into()
+                .expect("Slice is the correct size"),
+        );
+
+        // Decode lowerId from the second 32-byte word (last 4 bytes).
+        let lower_id_bytes = &data[WORD_LENGTH..2 * WORD_LENGTH];
+        let lower_id = u32::from_be_bytes(
+            lower_id_bytes[TWENTY_EIGHT_BYTES..WORD_LENGTH]
+                .try_into()
+                .map_err(|_| Error::LowerRevertedEventLowerIdConversion)?,
+        );
+
+        Ok(LowerRevertedData {
+            token_contract,
+            t2_public_key,
+            original_recipient,
+            amount,
+            lower_id,
+        })
+    }
+}
+
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub enum EventData {
     LogAddedValidator(AddedValidatorData),
@@ -729,6 +839,7 @@ pub enum EventData {
     LogNftEndBatchListing(NftEndBatchListingData),
     LogAvtGrowthLifted(AvtGrowthLiftedData),
     LogLowerClaimed(AvtLowerClaimedData),
+    LogLowerReverted(LowerRevertedData),
     LogLiftedToPredictionMarket(LiftedData),
     LogErc20Transfer(LiftedData),
 }
@@ -747,6 +858,7 @@ impl EventData {
             EventData::LogAvtGrowthLifted(d) => d.is_valid(),
             EventData::LogLiftedToPredictionMarket(d) => d.is_valid(),
             EventData::LogErc20Transfer(d) => d.is_valid(),
+            EventData::LogLowerReverted(d) => d.is_valid(),
             EventData::EmptyEvent => true,
             _ => false,
         }
