@@ -92,6 +92,7 @@ pub enum BridgeContractMethod {
     TriggerGrowth,
     AddAuthor,
     RemoveAuthor,
+    BurnTokens,
 }
 
 impl BridgeContractMethod {
@@ -104,6 +105,7 @@ impl BridgeContractMethod {
             BridgeContractMethod::TriggerGrowth => b"triggerGrowth",
             BridgeContractMethod::AddAuthor => b"addAuthor",
             BridgeContractMethod::RemoveAuthor => b"removeAuthor",
+            BridgeContractMethod::BurnTokens => b"burnTokens",
         }
     }
 }

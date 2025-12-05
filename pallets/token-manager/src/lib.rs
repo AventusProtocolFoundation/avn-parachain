@@ -27,6 +27,7 @@ use core::convert::{TryFrom, TryInto};
 use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo},
     ensure,
+    pallet_prelude::*,
     traits::{
         schedule::{
             v3::{Anon as ScheduleAnon, Named as ScheduleNamed, TaskName},
@@ -37,7 +38,7 @@ use frame_support::{
     },
     BoundedVec, PalletId, Parameter,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_signed, pallet_prelude::BlockNumberFor};
 pub use pallet::*;
 use pallet_avn::{
     self as avn, BridgeInterface, BridgeInterfaceNotification, CollatorPayoutDustHandler,
@@ -48,9 +49,10 @@ use sp_avn_common::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
         ProcessedEventHandler, TokenInterface,
     },
-    verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, Proof,
+    verify_signature, BridgeContractMethod, CallDecoder, FeePaymentHandler, InnerCallValidator,
+    Proof,
 };
-use sp_core::{ConstU32, MaxEncodedLen, H160, H256};
+use sp_core::{ConstU32, MaxEncodedLen, H160, H256, U256};
 use sp_runtime::{
     scale_info::TypeInfo,
     traits::{
@@ -98,6 +100,8 @@ mod test_proxying_signed_transfer;
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
 const PALLET_ID: &'static [u8; 13] = b"token_manager";
+
+const BURN_POT_ID: PalletId = PalletId(*b"avn/burn");
 
 pub use pallet::*;
 
@@ -164,6 +168,9 @@ pub mod pallet {
         type PalletsOrigin: From<frame_system::RawOrigin<Self::AccountId>>;
         type BridgeInterface: BridgeInterface;
         type WeightInfo: WeightInfo;
+        /// Minimum Burn Refresh range
+        #[pallet::constant]
+        type MinBurnRefreshRange: Get<u32>;
     }
 
     #[pallet::pallet]
@@ -257,6 +264,12 @@ pub mod pallet {
             recipient: T::AccountId,
             token_balance: T::TokenBalance,
         },
+        BurnPeriodUpdated {
+            burn_period: u32,
+        },
+        BurnedFromPot {
+            amount: BalanceOf<T>,
+        },
     }
 
     #[pallet::error]
@@ -284,6 +297,7 @@ pub mod pallet {
         InvalidLowerId,
         LoweringDisabled,
         InvalidLiftRequest,
+        InvalidBurnPeriod,
     }
 
     #[pallet::storage]
@@ -338,6 +352,24 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn lowers_disabled)]
     pub type LowersDisabled<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn next_burn_at)]
+    pub type NextBurnAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn burn_submission)]
+    pub type PendingBurnSubmission<T: Config> =
+        StorageMap<_, Blake2_128Concat, u32, U256, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn burn_refresh_range)]
+    pub type BurnRefreshRange<T> = StorageValue<_, u32, ValueQuery, DefaultBurnRefreshRange<T>>;
+
+    #[pallet::type_value]
+    pub fn DefaultBurnRefreshRange<T: Config>() -> u32 {
+        T::MinBurnRefreshRange::get()
+    }
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -619,10 +651,71 @@ pub mod pallet {
 
             return Ok(())
         }
+
+        #[pallet::call_index(11)]
+        #[pallet::weight(0)]
+        pub fn set_burn_period(origin: OriginFor<T>, burn_period: u32) -> DispatchResult {
+            ensure_root(origin)?;
+            ensure!(burn_period >= T::MinBurnRefreshRange::get(), Error::<T>::InvalidBurnPeriod);
+
+            BurnRefreshRange::<T>::put(burn_period);
+            Self::deposit_event(Event::<T>::BurnPeriodUpdated { burn_period });
+            Ok(())
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+            let mut total_weight = Weight::zero();
+
+            if Self::is_burn_due(n) {
+                Self::burn_if_required(n);
+                return total_weight;
+            }
+
+            total_weight
+        }
     }
 }
 
 impl<T: Config> Pallet<T> {
+    fn is_burn_due(now: BlockNumberFor<T>) -> bool {
+        now >= NextBurnAt::<T>::get()
+    }
+
+    fn burn_pot_account() -> T::AccountId {
+        BURN_POT_ID.into_account_truncating()
+    }
+
+    fn burn_if_required(now: BlockNumberFor<T>) {
+        let burn_pot = Self::burn_pot_account();
+        let amount: BalanceOf<T> = T::Currency::free_balance(&burn_pot);
+
+        if !amount.is_zero() {
+            Self::deposit_event(Event::<T>::BurnedFromPot { amount });
+            let _ = Self::burn_tokens(amount);
+        }
+
+        NextBurnAt::<T>::put(
+            now.saturating_add(BlockNumberFor::<T>::from(BurnRefreshRange::<T>::get())),
+        );
+    }
+
+    fn burn_tokens(amount: BalanceOf<T>) -> Result<(), DispatchError> {
+        // TODO: convert amount to the right type
+        let test_amount = U256::from(100);
+
+        let function_name: &[u8] = BridgeContractMethod::BurnTokens.as_bytes();
+        let params = vec![(b"uint256".to_vec(), format!("{}", test_amount).into_bytes())];
+
+        let tx_id = T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
+            .map_err(|e| DispatchError::Other(e.into()))?;
+
+        PendingBurnSubmission::<T>::insert(tx_id, test_amount);
+        Ok(())
+    }
+
     fn settle_transfer(
         token_id: &T::TokenId,
         from: &T::AccountId,
@@ -1159,7 +1252,17 @@ pub struct LowerProofData {
 }
 
 impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
-    fn process_result(_: u32, _: Vec<u8>, _: bool) -> DispatchResult {
+    fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult {
+        if caller_id != PALLET_ID.to_vec() {
+            return Ok(()); // Ignore irrelevant transactions
+        }
+
+        if succeeded {
+            PendingBurnSubmission::<T>::remove(tx_id);
+        } else {
+            log::error!("Transaction failed on Ethereum. TxId: {:?}", tx_id);
+        }
+
         Ok(())
     }
 
