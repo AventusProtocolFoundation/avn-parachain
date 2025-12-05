@@ -15,13 +15,8 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 #![cfg(test)]
-use crate::{
-    mock::{Balances, RuntimeEvent, *},
-    Balances as TokenManagerBalances, *,
-};
-use frame_support::{assert_err, assert_noop, assert_ok};
-use hex_literal::hex;
-use pallet_balances::Error as BalancesError;
+use crate::{mock::*, *};
+use frame_support::{assert_noop, assert_ok};
 
 mod burn_tests {
     use super::*;
