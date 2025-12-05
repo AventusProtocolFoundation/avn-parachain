@@ -29,8 +29,6 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-pub const FEE_POT_ID: PalletId = PalletId(*b"avn/fees");
-
 pub mod fee_adjustment_config;
 use fee_adjustment_config::{
     AdjustmentType::{TimeBased, TransactionBased},
