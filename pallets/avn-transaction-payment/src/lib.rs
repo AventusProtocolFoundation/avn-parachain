@@ -30,7 +30,6 @@ use sp_runtime::{
 use sp_std::{marker::PhantomData, prelude::*};
 
 pub const FEE_POT_ID: PalletId = PalletId(*b"avn/fees");
-pub const BURN_POT_ID: PalletId = PalletId(*b"avn/burn");
 
 pub mod fee_adjustment_config;
 use fee_adjustment_config::{
@@ -314,11 +313,11 @@ pub mod pallet {
         }
 
         pub fn fee_pot_account() -> T::AccountId {
-            FEE_POT_ID.into_account_truncating()
+            PalletId(sp_avn_common::FEE_POT_ID).into_account_truncating()
         }
 
-        pub fn burn_pot_account() -> T::AccountId {
-            BURN_POT_ID.into_account_truncating()
+        fn burn_pot_account() -> T::AccountId {
+            PalletId(sp_avn_common::BURN_POT_ID).into_account_truncating()
         }
 
         /// ```text

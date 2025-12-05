@@ -103,8 +103,6 @@ pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer 
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
 const PALLET_ID: &'static [u8; 13] = b"token_manager";
 
-const BURN_POT_ID: PalletId = PalletId(*b"avn/burn");
-
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -689,7 +687,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn burn_pot_account() -> T::AccountId {
-        BURN_POT_ID.into_account_truncating()
+        PalletId(sp_avn_common::BURN_POT_ID).into_account_truncating()
     }
 
     fn burn_if_required(now: BlockNumberFor<T>) -> Weight {
@@ -710,7 +708,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn burn_tokens(amount: BalanceOf<T>) -> Result<(), DispatchError> {
-        // TODO: convert amount to the right type
+        // TODO: convert amount to the right type to match the contract
         let test_amount = U256::from(100);
 
         let function_name: &[u8] = BridgeContractMethod::BurnTokens.as_bytes();
