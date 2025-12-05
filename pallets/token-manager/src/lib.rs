@@ -1060,7 +1060,6 @@ impl<T: Config> Pallet<T> {
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerReverted);
 
         Self::remove_used_lower(data.lower_id)?;
-
         Self::lift_to_account(event, data.token_contract, &data.t2_public_key, data.amount)
     }
 
