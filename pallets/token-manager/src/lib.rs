@@ -83,6 +83,8 @@ mod mock;
 #[cfg(test)]
 mod test_avt_tokens;
 #[cfg(test)]
+mod test_burn_tokens;
+#[cfg(test)]
 mod test_common_cases;
 #[cfg(test)]
 mod test_deferred_lower;
@@ -659,6 +661,11 @@ pub mod pallet {
             ensure!(burn_period >= T::MinBurnRefreshRange::get(), Error::<T>::InvalidBurnPeriod);
 
             BurnRefreshRange::<T>::put(burn_period);
+
+            // reschedule from current block
+            let now = <frame_system::Pallet<T>>::block_number();
+            NextBurnAt::<T>::put(now.saturating_add(burn_period.into()));
+
             Self::deposit_event(Event::<T>::BurnPeriodUpdated { burn_period });
             Ok(())
         }
