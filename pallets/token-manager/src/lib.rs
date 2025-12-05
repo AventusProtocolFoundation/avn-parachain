@@ -655,7 +655,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(11)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_burn_period())]
         pub fn set_burn_period(origin: OriginFor<T>, burn_period: u32) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(burn_period >= T::MinBurnRefreshRange::get(), Error::<T>::InvalidBurnPeriod);
@@ -674,14 +674,11 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            let mut total_weight = Weight::zero();
-
             if Self::is_burn_due(n) {
-                Self::burn_if_required(n);
-                return total_weight;
+                return Self::burn_if_required(n);
             }
 
-            total_weight
+            return <T as pallet::Config>::WeightInfo::on_initialize_burn_not_due();
         }
     }
 }
@@ -695,18 +692,21 @@ impl<T: Config> Pallet<T> {
         BURN_POT_ID.into_account_truncating()
     }
 
-    fn burn_if_required(now: BlockNumberFor<T>) {
+    fn burn_if_required(now: BlockNumberFor<T>) -> Weight {
         let burn_pot = Self::burn_pot_account();
         let amount: BalanceOf<T> = T::Currency::free_balance(&burn_pot);
-
-        if !amount.is_zero() {
-            Self::deposit_event(Event::<T>::BurnedFromPot { amount });
-            let _ = Self::burn_tokens(amount);
-        }
 
         NextBurnAt::<T>::put(
             now.saturating_add(BlockNumberFor::<T>::from(BurnRefreshRange::<T>::get())),
         );
+
+        if !amount.is_zero() {
+            Self::deposit_event(Event::<T>::BurnedFromPot { amount });
+            let _ = Self::burn_tokens(amount);
+            return <T as pallet::Config>::WeightInfo::on_initialize_burn_due_and_pot_has_funds_to_burn();
+        }
+
+        return <T as pallet::Config>::WeightInfo::on_initialize_burn_due_but_pot_empty();
     }
 
     fn burn_tokens(amount: BalanceOf<T>) -> Result<(), DispatchError> {

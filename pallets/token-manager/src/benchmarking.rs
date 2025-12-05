@@ -59,6 +59,17 @@ fn assert_event_not_emitted<T: Config>(generic_event: <T as Config>::RuntimeEven
     );
 }
 
+fn assert_event_emitted<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+    let events = frame_system::Pallet::<T>::events();
+    let system_event: <T as frame_system::Config>::RuntimeEvent = generic_event.into();
+    assert!(
+        events
+            .iter()
+            .any(|frame_system::EventRecord { event, .. }| event == &system_event),
+        "Expected event was not emitted"
+    );
+}
+
 struct Transfer<T: Config> {
     relayer: T::AccountId,
     from: T::AccountId,
@@ -406,7 +417,7 @@ benchmarks! {
         Pallet::<T>::on_initialize(now);
     }
     verify {
-        assert_last_event::<T>(
+        assert_event_emitted::<T>(
             Event::<T>::BurnedFromPot { amount }.into()
         );
     }

@@ -230,7 +230,7 @@ pub mod pallet {
 
         /// Set the base gas fee in usd (8 decimals)
         #[pallet::call_index(2)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_base_gas_fee_usd())]
         pub fn set_base_gas_fee_usd(origin: OriginFor<T>, base_fee: u128) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(base_fee > 0u128, Error::<T>::BaseGasFeeZero);
