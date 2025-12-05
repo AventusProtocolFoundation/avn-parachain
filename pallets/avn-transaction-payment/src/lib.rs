@@ -29,9 +29,6 @@ use sp_runtime::{
 };
 use sp_std::{marker::PhantomData, prelude::*};
 
-pub const FEE_POT_ID: PalletId = PalletId(*b"avn/fees");
-pub const BURN_POT_ID: PalletId = PalletId(*b"avn/burn");
-
 pub mod fee_adjustment_config;
 use fee_adjustment_config::{
     AdjustmentType::{TimeBased, TransactionBased},
@@ -230,7 +227,7 @@ pub mod pallet {
 
         /// Set the base gas fee in usd (8 decimals)
         #[pallet::call_index(2)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as pallet::Config>::WeightInfo::set_base_gas_fee_usd())]
         pub fn set_base_gas_fee_usd(origin: OriginFor<T>, base_fee: u128) -> DispatchResult {
             ensure_root(origin)?;
             ensure!(base_fee > 0u128, Error::<T>::BaseGasFeeZero);
@@ -314,11 +311,11 @@ pub mod pallet {
         }
 
         pub fn fee_pot_account() -> T::AccountId {
-            FEE_POT_ID.into_account_truncating()
+            PalletId(sp_avn_common::FEE_POT_ID).into_account_truncating()
         }
 
-        pub fn burn_pot_account() -> T::AccountId {
-            BURN_POT_ID.into_account_truncating()
+        fn burn_pot_account() -> T::AccountId {
+            PalletId(sp_avn_common::BURN_POT_ID).into_account_truncating()
         }
 
         /// ```text

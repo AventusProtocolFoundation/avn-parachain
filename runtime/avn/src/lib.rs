@@ -665,6 +665,7 @@ parameter_types! {
     pub const EthereumInstanceId: u8 = 1u8;
     pub const MinRatesRefreshRange: u32 = 5;
     pub const PriceRefreshRangeInBlocks: u32 = 50; // 10 minutes
+    pub const MinBurnRefreshRange: u32 = 7200;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -698,6 +699,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
+    type MinBurnRefreshRange = MinBurnRefreshRange;
 }
 
 impl pallet_nft_manager::Config for Runtime {
