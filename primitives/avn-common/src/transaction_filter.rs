@@ -57,8 +57,8 @@ where
         let len = xts.len();
         let mut allowed_xts = Vec::with_capacity(len);
         let mut allowed_indices = Vec::with_capacity(len);
-        let mut results: Vec<Option<Result<TxHash<Self>, Self::Error>>> = (0..xts.len()).map(|_| None).collect();
-
+        let mut results: Vec<Option<Result<TxHash<Self>, Self::Error>>> =
+            (0..xts.len()).map(|_| None).collect();
 
         for (i, xt) in xts.into_iter().enumerate() {
             match self.check_banned(&xt) {
