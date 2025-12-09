@@ -39,9 +39,9 @@ use sp_avn_common::{
     event_discovery::EthereumEventsFilterTrait,
     event_types::{
         AddedValidatorData, AvtGrowthLiftedData, AvtLowerClaimedData, Challenge, ChallengeReason,
-        CheckResult, EthEventCheckResult, EthEventId, EventData, LiftedData, NftCancelListingData,
-        NftEndBatchListingData, NftMintData, NftTransferToData, ProcessedEventHandler, ValidEvents,
-        Validator,
+        CheckResult, EthEventCheckResult, EthEventId, EventData, LiftedData, LowerRevertedData,
+        NftCancelListingData, NftEndBatchListingData, NftMintData, NftTransferToData,
+        ProcessedEventHandler, ValidEvents, Validator,
     },
     verify_signature, EthQueryRequest, EthQueryResponse, EthQueryResponseType, EthTransaction,
     IngressCounter, InnerCallValidator, Proof,
@@ -1128,6 +1128,12 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::EventParsingFailed
             })?;
             return Ok(EventData::LogLowerClaimed(event_data))
+        } else if event_id.signature == ValidEvents::LowerReverted.signature() {
+            let event_data = <LowerRevertedData>::parse_bytes(data, topics).map_err(|e| {
+                log::warn!("Error parsing T1 LogLowerReverted Event: {:#?}", e);
+                Error::<T>::EventParsingFailed
+            })?;
+            return Ok(EventData::LogLowerReverted(event_data))
         } else {
             return Err(Error::<T>::UnrecognizedEventSignature)
         }
