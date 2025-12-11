@@ -27,6 +27,7 @@ pub const CLOSE_BYTES_TAG: &'static [u8] = b"</Bytes>";
 
 pub const BURN_POT_ID: [u8; 8] = *b"avn/burn";
 pub const FEE_POT_ID: [u8; 8] = *b"avn/fees";
+pub const TREASURY_POT_ID: [u8; 12] = *b"avn/treasury";
 
 #[path = "tests/helpers.rs"]
 pub mod avn_tests_helpers;

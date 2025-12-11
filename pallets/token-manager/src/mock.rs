@@ -91,6 +91,7 @@ parameter_types! {
 
 parameter_types! {
     pub const MinBurnRefreshRange: u32 = 50;
+    pub const MinTreasuryBurnThreshold: Perbill = Perbill::from_percent(15);
 }
 
 impl token_manager::Config for TestRuntime {
@@ -111,6 +112,7 @@ impl token_manager::Config for TestRuntime {
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
     type MinBurnRefreshRange = MinBurnRefreshRange;
+    type MinTreasuryBurnThreshold = MinTreasuryBurnThreshold;
 }
 
 parameter_types! {
@@ -395,6 +397,7 @@ impl ExtBuilder {
             avt_token_contract: AVT_TOKEN_CONTRACT,
             lower_schedule_period: 10,
             balances: vec![],
+            treasury_burn_threshold: Perbill::from_percent(15),
         }
         .assimilate_storage(&mut self.storage);
 

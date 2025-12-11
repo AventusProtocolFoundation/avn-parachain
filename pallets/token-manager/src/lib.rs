@@ -99,6 +99,7 @@ mod test_proxying_signed_lower;
 #[cfg(test)]
 mod test_proxying_signed_transfer;
 
+pub const DEFAULT_TREASURY_BURN_THRESHOLD_PERCENT: u32 = 15;
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
 const PALLET_ID: &'static [u8; 13] = b"token_manager";
@@ -171,6 +172,9 @@ pub mod pallet {
         /// Minimum Burn Refresh range
         #[pallet::constant]
         type MinBurnRefreshRange: Get<u32>;
+        /// Minimum allowed treasury burn threshold
+        #[pallet::constant]
+        type MinTreasuryBurnThreshold: Get<Perbill>;
     }
 
     #[pallet::pallet]
@@ -270,6 +274,10 @@ pub mod pallet {
         BurnedFromPot {
             amount: BalanceOf<T>,
         },
+        TreasuryExcessSentToBurnPot {
+            amount: BalanceOf<T>,
+        },
+        TreasuryBurnThresholdUpdated { threshold: Perbill },
     }
 
     #[pallet::error]
@@ -298,6 +306,7 @@ pub mod pallet {
         LoweringDisabled,
         InvalidLiftRequest,
         InvalidBurnPeriod,
+        InvalidTreasuryBurnThreshold,
     }
 
     #[pallet::storage]
@@ -366,6 +375,10 @@ pub mod pallet {
     #[pallet::getter(fn burn_refresh_range)]
     pub type BurnRefreshRange<T> = StorageValue<_, u32, ValueQuery, DefaultBurnRefreshRange<T>>;
 
+    #[pallet::storage]
+    #[pallet::getter(fn treasury_burn_threshold)]
+    pub type TreasuryBurnThreshold<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
     #[pallet::type_value]
     pub fn DefaultBurnRefreshRange<T: Config>() -> u32 {
         T::MinBurnRefreshRange::get()
@@ -378,6 +391,7 @@ pub mod pallet {
         pub avt_token_contract: H160,
         pub lower_schedule_period: BlockNumberFor<T>,
         pub balances: Vec<(H160, T::AccountId, u128)>,
+        pub treasury_burn_threshold: Perbill,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -388,6 +402,7 @@ pub mod pallet {
                 avt_token_contract: H160::zero(),
                 lower_schedule_period: BlockNumberFor::<T>::zero(),
                 balances: vec![],
+                treasury_burn_threshold: Perbill::from_percent(DEFAULT_TREASURY_BURN_THRESHOLD_PERCENT),
             }
         }
     }
@@ -405,6 +420,7 @@ pub mod pallet {
                     .unwrap_or_else(|_| <T::TokenBalance>::default());
                 Balances::<T>::insert(key, val);
             }
+            TreasuryBurnThreshold::<T>::put(self.treasury_burn_threshold);
         }
     }
 
@@ -667,12 +683,31 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::BurnPeriodUpdated { burn_period });
             Ok(())
         }
+
+        #[pallet::call_index(12)]
+        #[pallet::weight(0)]
+        pub fn set_treasury_burn_threshold(
+            origin: OriginFor<T>,
+            threshold: Perbill,
+        ) -> DispatchResult {
+            ensure_root(origin)?;
+    
+            ensure!(
+                threshold >= T::MinTreasuryBurnThreshold::get(),
+                Error::<T>::InvalidTreasuryBurnThreshold
+            );
+    
+            TreasuryBurnThreshold::<T>::put(threshold);
+            Self::deposit_event(Event::<T>::TreasuryBurnThresholdUpdated { threshold });
+            Ok(())
+        }
     }
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
             if Self::is_burn_due(n) {
+                Self::move_treasury_excess_if_required();
                 return Self::burn_if_required(n);
             }
 
@@ -687,6 +722,10 @@ impl<T: Config> Pallet<T> {
     }
 
     fn burn_pot_account() -> T::AccountId {
+        PalletId(sp_avn_common::BURN_POT_ID).into_account_truncating()
+    }
+
+    fn treasury_pot_account() -> T::AccountId {
         PalletId(sp_avn_common::BURN_POT_ID).into_account_truncating()
     }
 
@@ -719,6 +758,39 @@ impl<T: Config> Pallet<T> {
 
         PendingBurnSubmission::<T>::insert(tx_id, test_amount);
         Ok(())
+    }
+
+    /// How much is above the 15% threshold (0 if not above).
+    fn treasury_excess() -> BalanceOf<T> {
+        let total_supply = T::Currency::total_issuance();
+        if total_supply.is_zero() {
+            return Zero::zero();
+        }
+
+        let treasury = Self::treasury_pot_account();
+        let treasury_balance = T::Currency::free_balance(&treasury);
+
+        let threshold = Perbill::from_percent(15) * total_supply;
+        treasury_balance.saturating_sub(threshold)
+    }
+
+    /// Moves the excess from treasury to the burn pot
+    fn move_treasury_excess_if_required() -> Weight {
+        let excess = Self::treasury_excess();
+        if excess.is_zero() {
+            return Weight::zero();
+        }
+
+        let treasury = Self::treasury_pot_account();
+        let burn_pot = Self::burn_pot_account();
+
+        if T::Currency::transfer(&treasury, &burn_pot, excess, ExistenceRequirement::KeepAlive)
+            .is_ok()
+        {
+            Self::deposit_event(Event::<T>::TreasuryExcessSentToBurnPot { amount: excess });
+        }
+
+        Weight::zero()
     }
 
     fn settle_transfer(

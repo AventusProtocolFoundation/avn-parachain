@@ -211,3 +211,89 @@ mod burn_tests {
         }
     }
 }
+
+mod treasury_tests {
+    use super::*;
+
+    mod set_treasury_burn_threshold {
+        use super::*;
+        use frame_support::{assert_noop, assert_ok};
+        use sp_runtime::Perbill;
+    
+        mod succeeds_when {
+            use super::*;
+    
+            #[test]
+            fn origin_is_root() {
+                let mut ext = ExtBuilder::build_default()
+                    .with_genesis_config()
+                    .with_balances()
+                    .as_externality();
+    
+                ext.execute_with(|| {
+                    frame_system::Pallet::<TestRuntime>::reset_events();
+    
+                    let new_threshold = Perbill::from_percent(20);
+    
+                    assert_ok!(TokenManager::set_treasury_burn_threshold(
+                        RuntimeOrigin::root(),
+                        new_threshold
+                    ));
+    
+                    assert_eq!(TreasuryBurnThreshold::<TestRuntime>::get(), new_threshold);
+    
+                    assert!(event_emitted(&mock::RuntimeEvent::TokenManager(
+                        crate::Event::<TestRuntime>::TreasuryBurnThresholdUpdated {
+                            threshold: new_threshold
+                        }
+                    )));
+                });
+            }
+        }
+
+        mod fails_when {
+            use super::*;
+    
+            #[test]
+            fn origin_is_not_root() {
+                let mut ext = ExtBuilder::build_default()
+                    .with_genesis_config()
+                    .with_balances()
+                    .as_externality();
+    
+                ext.execute_with(|| {
+                    let new_threshold = Perbill::from_percent(20);
+    
+                    assert_noop!(
+                        TokenManager::set_treasury_burn_threshold(
+                            RuntimeOrigin::signed(mock::account_id_with_seed_item(1)),
+                            new_threshold
+                        ),
+                        sp_runtime::DispatchError::BadOrigin
+                    );
+                });
+            }
+    
+            #[test]
+            fn threshold_is_below_minimum() {
+                let mut ext = ExtBuilder::build_default()
+                    .with_genesis_config()
+                    .with_balances()
+                    .as_externality();
+    
+                ext.execute_with(|| {
+                    let min = <TestRuntime as crate::Config>::MinTreasuryBurnThreshold::get();
+
+                    let too_low = Perbill::from_percent(0);
+    
+                    if too_low < min {
+                        assert_noop!(
+                            TokenManager::set_treasury_burn_threshold(RuntimeOrigin::root(), too_low),
+                            crate::Error::<TestRuntime>::InvalidTreasuryBurnThreshold
+                        );
+                    }
+                });
+            }
+        }
+    }
+}
