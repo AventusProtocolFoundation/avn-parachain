@@ -262,8 +262,7 @@ pub mod pallet {
                 return;
             }
 
-            let used_weight: u128 =
-                frame_system::Pallet::<T>::block_weight().total().ref_time() as u128;
+            let used_weight: u128 = System::<T>::block_weight().total().ref_time() as u128;
 
             let max_weight: u128 =
                 <T as frame_system::Config>::BlockWeights::get().max_block.ref_time() as u128;
