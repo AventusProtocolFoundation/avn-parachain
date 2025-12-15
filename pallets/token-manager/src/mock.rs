@@ -91,6 +91,14 @@ parameter_types! {
 
 parameter_types! {
     pub const MinBurnRefreshRange: u32 = 50;
+    pub static BurnEnabledFlag: bool = true;
+}
+
+pub struct BurnEnabled;
+impl Get<bool> for BurnEnabled {
+    fn get() -> bool {
+        BurnEnabledFlag::get()
+    }
 }
 
 impl token_manager::Config for TestRuntime {
@@ -111,6 +119,7 @@ impl token_manager::Config for TestRuntime {
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
     type MinBurnRefreshRange = MinBurnRefreshRange;
+    type BurnEnabled = BurnEnabled;
 }
 
 parameter_types! {

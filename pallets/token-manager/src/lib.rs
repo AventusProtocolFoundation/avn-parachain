@@ -49,8 +49,7 @@ use sp_avn_common::{
         AvtGrowthLiftedData, AvtLowerClaimedData, EthEvent, EventData, LiftedData,
         ProcessedEventHandler, TokenInterface,
     },
-    verify_signature, BridgeContractMethod, CallDecoder, FeePaymentHandler, InnerCallValidator,
-    Proof,
+    verify_signature, CallDecoder, FeePaymentHandler, InnerCallValidator, Proof,
 };
 use sp_core::{ConstU32, MaxEncodedLen, H160, H256, U256};
 use sp_runtime::{
@@ -74,6 +73,7 @@ pub type LowerId = u32;
 pub type LowerDataLimit = ConstU32<10000>; // Max lower proof len. 10kB
 
 mod benchmarking;
+mod burn;
 pub mod default_weights;
 pub mod migration;
 pub use default_weights::WeightInfo;
@@ -101,15 +101,13 @@ mod test_proxying_signed_transfer;
 
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
-const PALLET_ID: &'static [u8; 13] = b"token_manager";
-
-pub use pallet::*;
+pub const PALLET_ID: &'static [u8; 13] = b"token_manager";
 
 #[frame_support::pallet]
 pub mod pallet {
 
     use super::*;
-    use frame_support::{pallet_prelude::*, Blake2_128Concat};
+    use frame_support::Blake2_128Concat;
     use frame_system::{ensure_root, pallet_prelude::*};
 
     // Public interface of this pallet
@@ -171,6 +169,9 @@ pub mod pallet {
         /// Minimum Burn Refresh range
         #[pallet::constant]
         type MinBurnRefreshRange: Get<u32>;
+        /// Flag to enable burn mechanism
+        #[pallet::constant]
+        type BurnEnabled: Get<bool>;
     }
 
     #[pallet::pallet]
@@ -365,6 +366,9 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn burn_refresh_range)]
     pub type BurnRefreshRange<T> = StorageValue<_, u32, ValueQuery, DefaultBurnRefreshRange<T>>;
+
+    #[pallet::storage]
+    pub type BurnEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
 
     #[pallet::type_value]
     pub fn DefaultBurnRefreshRange<T: Config>() -> u32 {
@@ -672,55 +676,16 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_initialize(n: BlockNumberFor<T>) -> Weight {
-            if Self::is_burn_due(n) {
-                return Self::burn_if_required(n);
+            if !T::BurnEnabled::get() || !Self::is_burn_due(n) {
+                return <T as Config>::WeightInfo::on_initialize_burn_not_due();
             }
 
-            return <T as pallet::Config>::WeightInfo::on_initialize_burn_not_due();
+            return Self::burn_if_required(n);
         }
     }
 }
 
 impl<T: Config> Pallet<T> {
-    fn is_burn_due(now: BlockNumberFor<T>) -> bool {
-        now >= NextBurnAt::<T>::get()
-    }
-
-    fn burn_pot_account() -> T::AccountId {
-        PalletId(sp_avn_common::BURN_POT_ID).into_account_truncating()
-    }
-
-    fn burn_if_required(now: BlockNumberFor<T>) -> Weight {
-        let burn_pot = Self::burn_pot_account();
-        let amount: BalanceOf<T> = T::Currency::free_balance(&burn_pot);
-
-        NextBurnAt::<T>::put(
-            now.saturating_add(BlockNumberFor::<T>::from(BurnRefreshRange::<T>::get())),
-        );
-
-        if !amount.is_zero() {
-            Self::deposit_event(Event::<T>::BurnedFromPot { amount });
-            let _ = Self::burn_tokens(amount);
-            return <T as pallet::Config>::WeightInfo::on_initialize_burn_due_and_pot_has_funds_to_burn();
-        }
-
-        return <T as pallet::Config>::WeightInfo::on_initialize_burn_due_but_pot_empty();
-    }
-
-    fn burn_tokens(amount: BalanceOf<T>) -> Result<(), DispatchError> {
-        // TODO: convert amount to the right type to match the contract
-        let test_amount = U256::from(100);
-
-        let function_name: &[u8] = BridgeContractMethod::BurnTokens.as_bytes();
-        let params = vec![(b"uint256".to_vec(), format!("{}", test_amount).into_bytes())];
-
-        let tx_id = T::BridgeInterface::publish(function_name, &params, PALLET_ID.to_vec())
-            .map_err(|e| DispatchError::Other(e.into()))?;
-
-        PendingBurnSubmission::<T>::insert(tx_id, test_amount);
-        Ok(())
-    }
-
     fn settle_transfer(
         token_id: &T::TokenId,
         from: &T::AccountId,
