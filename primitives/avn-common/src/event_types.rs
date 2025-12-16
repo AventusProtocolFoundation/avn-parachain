@@ -810,13 +810,7 @@ impl LowerRevertedData {
                 .map_err(|_| Error::LowerRevertedEventLowerIdConversion)?,
         );
 
-        Ok(LowerRevertedData {
-            token_contract,
-            receiver_address,
-            t1_recipient,
-            amount,
-            lower_id,
-        })
+        Ok(LowerRevertedData { token_contract, receiver_address, t1_recipient, amount, lower_id })
     }
 }
 
