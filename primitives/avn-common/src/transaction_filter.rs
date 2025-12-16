@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use codec::Encode;
 use sc_transaction_pool_api::{
     error::Error as PoolError, ChainEvent, ImportNotificationStream, MaintainedTransactionPool,
-    PoolFuture, PoolStatus, ReadyTransactions, TransactionFor, TransactionPool, TransactionSource,
-    TxHash,
+    PoolStatus, ReadyTransactions, TransactionFor, TransactionPool, TransactionSource,
+    TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
-use sp_runtime::traits::{Block as BlockT, NumberFor};
+use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashMap, marker::PhantomData, pin::Pin, sync::Arc};
 
 pub trait ExtrinsicFilter: Send + Sync + 'static {
@@ -38,6 +38,7 @@ impl<Pool> Clone for FilteredPool<Pool> {
     }
 }
 
+#[async_trait]
 impl<Pool> TransactionPool for FilteredPool<Pool>
 where
     Pool: TransactionPool,
@@ -48,12 +49,12 @@ where
     type InPoolTransaction = Pool::InPoolTransaction;
     type Error = Pool::Error;
 
-    fn submit_at(
+    async fn submit_at(
         &self,
         at: <Self::Block as BlockT>::Hash,
         source: TransactionSource,
         xts: Vec<TransactionFor<Self>>,
-    ) -> PoolFuture<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
+    ) -> Result<Vec<Result<TxHash<Self>, Self::Error>>, Self::Error> {
         let len = xts.len();
         let mut allowed_xts = Vec::with_capacity(len);
         let mut allowed_indices = Vec::with_capacity(len);
@@ -71,31 +72,6 @@ where
         }
 
         if allowed_xts.is_empty() {
-            return Box::pin(async move {
-                let mut final_result = Vec::with_capacity(len);
-                for r in results.into_iter() {
-                    match r {
-                        Some(res) => final_result.push(res),
-                        None => return Err(PoolError::Unactionable.into()),
-                    }
-                }
-                Ok(final_result)
-            })
-        }
-
-        let inner_future = self.inner.submit_at(at, source, allowed_xts);
-
-        Box::pin(async move {
-            let inner_results = inner_future.await?;
-
-            if inner_results.len() != allowed_indices.len() {
-                return Err(PoolError::Unactionable.into())
-            }
-
-            for (result, index) in inner_results.into_iter().zip(allowed_indices) {
-                results[index] = Some(result);
-            }
-
             let mut final_result = Vec::with_capacity(len);
             for r in results.into_iter() {
                 match r {
@@ -103,65 +79,70 @@ where
                     None => return Err(PoolError::Unactionable.into()),
                 }
             }
-            Ok(final_result)
-        })
+            return Ok(final_result)
+        }
+
+        let inner_results = self.inner.submit_at(at, source, allowed_xts).await?;
+
+        if inner_results.len() != allowed_indices.len() {
+            return Err(PoolError::Unactionable.into())
+        }
+
+        for (result, index) in inner_results.into_iter().zip(allowed_indices) {
+            results[index] = Some(result);
+        }
+
+        let mut final_result = Vec::with_capacity(len);
+        for r in results.into_iter() {
+            match r {
+                Some(res) => final_result.push(res),
+                None => return Err(PoolError::Unactionable.into()),
+            }
+        }
+        Ok(final_result)
     }
 
-    fn submit_one(
+    async fn submit_one(
         &self,
         at: <Self::Block as BlockT>::Hash,
         source: TransactionSource,
         xt: TransactionFor<Self>,
-    ) -> PoolFuture<TxHash<Self>, Self::Error> {
+    ) -> Result<TxHash<Self>, Self::Error> {
         if let Err(e) = self.check_banned(&xt) {
-            return Box::pin(async move { Err(e.into()) })
+            return Err(e.into())
         }
-        self.inner.submit_one(at, source, xt)
+        self.inner.submit_one(at, source, xt).await
     }
 
-    fn submit_and_watch(
+    async fn submit_and_watch(
         &self,
         at: <Self::Block as BlockT>::Hash,
         source: TransactionSource,
         xt: TransactionFor<Self>,
-    ) -> PoolFuture<
-        Pin<
-            Box<
-                dyn futures::Stream<
-                        Item = sc_transaction_pool_api::TransactionStatus<
-                            TxHash<Self>,
-                            <Self::Block as BlockT>::Hash,
-                        >,
-                    > + Send,
-            >,
-        >,
-        Self::Error,
-    > {
+    ) -> Result<Pin<Box<TransactionStatusStreamFor<Self>>>, Self::Error> {
         if let Err(e) = self.check_banned(&xt) {
-            return Box::pin(async move { Err(e.into()) })
+            return Err(e.into())
         }
-        self.inner.submit_and_watch(at, source, xt)
+        self.inner.submit_and_watch(at, source, xt).await
     }
 
-    fn ready_at(
+    async fn ready_at(
         &self,
-        at: NumberFor<Self::Block>,
-    ) -> Pin<
-        Box<
-            dyn futures::Future<
-                    Output = Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send>,
-                > + Send,
-        >,
-    > {
-        self.inner.ready_at(at)
+        at: <Self::Block as BlockT>::Hash,
+    ) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
+        self.inner.ready_at(at).await
     }
 
     fn ready(&self) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
         self.inner.ready()
     }
 
-    fn remove_invalid(&self, hashes: &[TxHash<Self>]) -> Vec<Arc<Self::InPoolTransaction>> {
-        self.inner.remove_invalid(hashes)
+    fn report_invalid(
+        &self,
+        at: Option<<Self::Block as BlockT>::Hash>,
+        invalid_tx_errors: TxInvalidityReportMap<TxHash<Self>>,
+    ) -> Vec<Arc<Self::InPoolTransaction>> {
+        self.inner.report_invalid(at, invalid_tx_errors)
     }
 
     fn status(&self) -> PoolStatus {
@@ -182,6 +163,14 @@ where
 
     fn ready_transaction(&self, hash: &TxHash<Self>) -> Option<Arc<Self::InPoolTransaction>> {
         self.inner.ready_transaction(hash)
+    }
+
+    async fn ready_at_with_timeout(
+        &self,
+        at: <Self::Block as BlockT>::Hash,
+        timeout: std::time::Duration,
+    ) -> Box<dyn ReadyTransactions<Item = Arc<Self::InPoolTransaction>> + Send> {
+        self.inner.ready_at_with_timeout(at, timeout).await
     }
 
     fn futures(&self) -> Vec<Self::InPoolTransaction> {
