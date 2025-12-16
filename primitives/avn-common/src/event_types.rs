@@ -730,14 +730,6 @@ impl AvtLowerClaimedData {
     }
 }
 
-// T1 Event definition:
-// event LogLowerReverted(
-//     address indexed token,
-//     bytes32 indexed t2PubKey,
-//     address indexed originalRecipient,
-//     uint256 amount,
-//     uint32 lowerId
-// );
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct LowerRevertedData {
     pub token_contract: H160,
