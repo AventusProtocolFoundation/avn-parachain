@@ -125,6 +125,7 @@ pub(crate) fn init_active_range() {
                 ValidEvents::Lifted,
                 ValidEvents::AvtGrowthLifted,
                 ValidEvents::AvtLowerClaimed,
+                ValidEvents::LowerReverted,
             ]
             .into_iter()
             .collect::<BTreeSet<ValidEvents>>(),
