@@ -262,7 +262,7 @@ fn setup_incoming_events<T: Config<I>, I: 'static>(
             event_data: sp_avn_common::event_types::EventData::LogLifted(LiftedData {
                 token_contract: H160::zero(),
                 sender_address: H160::zero(),
-                t2_public_key: H256::zero(),
+                receiver_address: H256::zero(),
                 amount: i.into(),
                 nonce: U256::zero(),
             }),

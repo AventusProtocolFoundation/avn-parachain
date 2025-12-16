@@ -213,6 +213,19 @@ pub mod pallet {
             t1_recipient: H160,
             lower_id: LowerId,
         },
+        AVTLowerReverted {
+            recipient: T::AccountId,
+            amount: BalanceOf<T>,
+            eth_tx_hash: H256,
+            lower_id: LowerId,
+        },
+        TokenLowerReverted {
+            token_id: T::TokenId,
+            recipient: T::AccountId,
+            token_balance: T::TokenBalance,
+            eth_tx_hash: H256,
+            lower_id: LowerId,
+        },
         AvtTransferredFromTreasury {
             recipient: T::AccountId,
             amount: BalanceOf<T>,
@@ -956,17 +969,22 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    fn decode_recipient(receiver_address: &H256) -> Result<T::AccountId, Error<T>> {
+        Ok(T::AccountId::decode(&mut receiver_address.as_bytes())
+            .map_err(|_| Error::<T>::ErrorConvertingAccountId)?)
+    }
+
     fn process_lift(event: &EthEvent, data: &LiftedData) -> DispatchResult {
         let event_id = &event.event_id;
         let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLifted);
-        Self::lift_to_account(event, data.token_contract, &data.t2_public_key, data.amount)
+        Self::lift_to_account(event, data.token_contract, &data.receiver_address, data.amount)
     }
 
     fn lift_to_account(
         event: &EthEvent,
         token_contract: H160,
-        t2_public_key: &H256,
+        receiver_address: &H256,
         amount: u128,
     ) -> DispatchResult {
         if amount == 0 {
@@ -974,9 +992,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let event_id = &event.event_id;
-
-        let recipient_account_id = T::AccountId::decode(&mut t2_public_key.as_bytes())
-            .expect("32 bytes will always decode into an AccountId");
+        let recipient_account_id = Self::decode_recipient(receiver_address)?;
 
         if token_contract == Self::avt_token_contract() {
             let updated_amount = Self::update_avt_balance(&recipient_account_id, amount)?;
@@ -1046,10 +1062,6 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InvalidLowerId
         );
         LowersReadyToClaim::<T>::remove(lower_id);
-        ensure!(
-            LowersReadyToClaim::<T>::contains_key(lower_id) == false,
-            Error::<T>::InvalidLowerId
-        );
 
         Ok(())
     }
@@ -1060,7 +1072,49 @@ impl<T: Config> Pallet<T> {
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerReverted);
 
         Self::remove_used_lower(data.lower_id)?;
-        Self::lift_to_account(event, data.token_contract, &data.t2_public_key, data.amount)
+        let recipient_account_id = Self::decode_recipient(&data.receiver_address)?;
+
+        if data.amount == 0 {
+            Err(Error::<T>::AmountIsZero)?
+        }
+
+        if data.token_contract == Self::avt_token_contract() {
+            let credited = Self::update_avt_balance(&recipient_account_id, data.amount)?;
+
+            Self::deposit_event(Event::<T>::AVTLifted {
+                recipient: recipient_account_id.clone(),
+                amount: credited,
+                eth_tx_hash: event_id.transaction_hash,
+            });
+
+            Self::deposit_event(Event::<T>::AVTLowerReverted {
+                recipient: recipient_account_id,
+                amount: credited,
+                eth_tx_hash: event_id.transaction_hash,
+                lower_id: data.lower_id,
+            });
+        } else {
+            let token_id: T::TokenId = data.token_contract.into();
+            let credited =
+                Self::do_update_token_balance(token_id, recipient_account_id.clone(), data.amount)?;
+
+            Self::deposit_event(Event::<T>::TokenLifted {
+                token_id,
+                recipient: recipient_account_id.clone(),
+                token_balance: credited,
+                eth_tx_hash: event_id.transaction_hash,
+            });
+
+            Self::deposit_event(Event::<T>::TokenLowerReverted {
+                token_id,
+                recipient: recipient_account_id,
+                token_balance: credited,
+                eth_tx_hash: event_id.transaction_hash,
+                lower_id: data.lower_id,
+            });
+        }
+
+        Ok(())
     }
 
     /// The account ID of the AvN treasury.
@@ -1276,11 +1330,11 @@ impl<T: Config> TokenInterface<T::TokenId, T::AccountId> for Pallet<T> {
     fn process_lift(event: &EthEvent) -> DispatchResult {
         return match &event.event_data {
             EventData::LogLiftedToPredictionMarket(d) => {
-                let lifted_data = LiftedData::new(d.token_contract, d.t2_public_key, d.amount);
+                let lifted_data = LiftedData::new(d.token_contract, d.receiver_address, d.amount);
                 return Self::process_lift(event, &lifted_data)
             },
             EventData::LogErc20Transfer(d) => {
-                let lifted_data = LiftedData::new(d.token_contract, d.t2_public_key, d.amount);
+                let lifted_data = LiftedData::new(d.token_contract, d.receiver_address, d.amount);
                 return Self::process_lift(event, &lifted_data)
             },
 

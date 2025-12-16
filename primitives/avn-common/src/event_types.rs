@@ -275,7 +275,7 @@ impl AddedValidatorData {
 pub struct LiftedData {
     pub token_contract: H160,
     pub sender_address: H160,
-    pub t2_public_key: H256,
+    pub receiver_address: H256,
     pub amount: u128,
     pub nonce: U256,
 }
@@ -285,13 +285,13 @@ impl LiftedData {
     const TOPIC_INDEX_T2_ADDRESS: usize = 2;
 
     pub fn is_valid(&self) -> bool {
-        return !self.token_contract.is_zero() && !self.t2_public_key.is_zero()
+        return !self.token_contract.is_zero() && !self.receiver_address.is_zero()
     }
 
-    pub fn new(token_contract: H160, t2_public_key: H256, amount: u128) -> Self {
+    pub fn new(token_contract: H160, receiver_address: H256, amount: u128) -> Self {
         LiftedData {
             token_contract,
-            t2_public_key,
+            receiver_address,
             amount,
             sender_address: H160::zero(),
             nonce: U256::zero(),
@@ -329,7 +329,7 @@ impl LiftedData {
             &topics[Self::TOPIC_CURRENCY_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
         );
 
-        let t2_public_key = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
+        let receiver_address = H256::from_slice(&topics[Self::TOPIC_INDEX_T2_ADDRESS]);
 
         if data[0..HALF_WORD_LENGTH].iter().any(|byte| byte > &0) {
             return Err(Error::LiftedEventDataOverflow)
@@ -344,7 +344,7 @@ impl LiftedData {
             token_contract,
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
             sender_address: H160::zero(),
-            t2_public_key,
+            receiver_address,
             amount,
             // SYS-1905 Keeping for backwards compatibility with the dapps (block explorer)
             nonce: U256::zero(),
@@ -408,7 +408,7 @@ impl LiftedData {
             sender_address,
             // This must be overwritten after the lift reach consensus with the account configured
             // on the pallet
-            t2_public_key: bridge_contract.into(),
+            receiver_address: bridge_contract.into(),
             amount,
             nonce: U256::zero(),
         })
@@ -741,7 +741,7 @@ impl AvtLowerClaimedData {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug, Eq, TypeInfo, MaxEncodedLen)]
 pub struct LowerRevertedData {
     pub token_contract: H160,
-    pub t2_public_key: H256,
+    pub receiver_address: H256,
     pub original_recipient: H160,
     pub amount: u128,
     pub lower_id: u32,
@@ -753,7 +753,7 @@ impl LowerRevertedData {
     const TOPIC_ORIGINAL_RECIPIENT: usize = 3;
 
     pub fn is_valid(&self) -> bool {
-        !self.token_contract.is_zero() && !self.t2_public_key.is_zero() && self.amount > 0u128
+        !self.token_contract.is_zero() && !self.receiver_address.is_zero() && self.amount > 0u128
     }
 
     pub fn parse_bytes(data: Option<Vec<u8>>, topics: Vec<Vec<u8>>) -> Result<Self, Error> {
@@ -792,7 +792,7 @@ impl LowerRevertedData {
             &topics[Self::TOPIC_TOKEN_CONTRACT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
         );
 
-        let t2_public_key = H256::from_slice(&topics[Self::TOPIC_T2_PUBLIC_KEY]);
+        let receiver_address = H256::from_slice(&topics[Self::TOPIC_T2_PUBLIC_KEY]);
 
         let original_recipient = H160::from_slice(
             &topics[Self::TOPIC_ORIGINAL_RECIPIENT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
@@ -820,7 +820,7 @@ impl LowerRevertedData {
 
         Ok(LowerRevertedData {
             token_contract,
-            t2_public_key,
+            receiver_address,
             original_recipient,
             amount,
             lower_id,

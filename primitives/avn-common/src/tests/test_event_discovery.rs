@@ -33,7 +33,7 @@ pub fn discovered_event_ordering_works() {
     let mock_event_data = EventData::LogLifted(LiftedData {
         token_contract: H160::zero(),
         sender_address: H160::zero(),
-        t2_public_key: H256::zero(),
+        receiver_address: H256::zero(),
         amount: 1,
         nonce: U256::zero(),
     });

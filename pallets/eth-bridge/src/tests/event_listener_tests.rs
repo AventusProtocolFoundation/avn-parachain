@@ -20,7 +20,7 @@ fn event_data_set() -> Vec<DiscoveredEvent> {
                 event_data: EventData::LogLifted(LiftedData {
                     token_contract: H160::from([1u8; 20]),
                     sender_address: H160::from([2u8; 20]),
-                    t2_public_key: H256::from([3u8; 32]),
+                    receiver_address: H256::from([3u8; 32]),
                     amount: 1000,
                     nonce: U256::from(1),
                 }),
@@ -42,7 +42,7 @@ fn alternative_event_data_set() -> Vec<DiscoveredEvent> {
                 event_data: EventData::LogLifted(LiftedData {
                     token_contract: H160::from([1u8; 20]),
                     sender_address: H160::from([2u8; 20]),
-                    t2_public_key: H256::from([3u8; 32]),
+                    receiver_address: H256::from([3u8; 32]),
                     amount: 1000,
                     nonce: U256::from(1),
                 }),
