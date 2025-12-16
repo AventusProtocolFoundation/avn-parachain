@@ -218,6 +218,7 @@ pub mod pallet {
             amount: BalanceOf<T>,
             eth_tx_hash: H256,
             lower_id: LowerId,
+            t1_recipient: H160,
         },
         TokenLowerReverted {
             token_id: T::TokenId,
@@ -225,6 +226,7 @@ pub mod pallet {
             token_balance: T::TokenBalance,
             eth_tx_hash: H256,
             lower_id: LowerId,
+            t1_recipient: H160,
         },
         AvtTransferredFromTreasury {
             recipient: T::AccountId,
@@ -1092,6 +1094,7 @@ impl<T: Config> Pallet<T> {
                 amount: credited,
                 eth_tx_hash: event_id.transaction_hash,
                 lower_id: data.lower_id,
+                t1_recipient: data.t1_recipient,
             });
         } else {
             let token_id: T::TokenId = data.token_contract.into();
@@ -1111,6 +1114,7 @@ impl<T: Config> Pallet<T> {
                 token_balance: credited,
                 eth_tx_hash: event_id.transaction_hash,
                 lower_id: data.lower_id,
+                t1_recipient: data.t1_recipient,
             });
         }
 

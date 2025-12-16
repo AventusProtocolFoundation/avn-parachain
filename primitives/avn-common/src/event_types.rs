@@ -742,7 +742,7 @@ impl AvtLowerClaimedData {
 pub struct LowerRevertedData {
     pub token_contract: H160,
     pub receiver_address: H256,
-    pub original_recipient: H160,
+    pub t1_recipient: H160,
     pub amount: u128,
     pub lower_id: u32,
 }
@@ -794,7 +794,7 @@ impl LowerRevertedData {
 
         let receiver_address = H256::from_slice(&topics[Self::TOPIC_T2_PUBLIC_KEY]);
 
-        let original_recipient = H160::from_slice(
+        let t1_recipient = H160::from_slice(
             &topics[Self::TOPIC_ORIGINAL_RECIPIENT][DISCARDED_ZERO_BYTES..WORD_LENGTH],
         );
 
@@ -821,7 +821,7 @@ impl LowerRevertedData {
         Ok(LowerRevertedData {
             token_contract,
             receiver_address,
-            original_recipient,
+            t1_recipient,
             amount,
             lower_id,
         })
