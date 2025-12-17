@@ -701,7 +701,6 @@ pub mod pallet {
                 return <T as Config>::WeightInfo::on_initialize_burn_not_due();
             }
 
-            Self::move_treasury_excess_if_required();
             return Self::burn_if_required(n);
         }
     }
