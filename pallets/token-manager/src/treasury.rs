@@ -9,7 +9,7 @@ use sp_runtime::traits::{AccountIdConversion, Saturating, Zero};
 use sp_runtime::DispatchError;
 
 pub trait TreasuryManager<T: pallet::Config> {
-    /// Funds the treasury and immediately performs housekeeping (move excess to burn pot).
+    /// Funds the treasury and immediately moves excess to burn pot.
     fn fund_treasury(from: &T::AccountId, amount: crate::BalanceOf<T>)
         -> Result<(), DispatchError>;
 }
@@ -19,7 +19,7 @@ impl<T: pallet::Config> pallet::Pallet<T> {
         PalletId(sp_avn_common::TREASURY_POT_ID).into_account_truncating()
     }
 
-    /// How much is above the threshold (0 if not above).
+    /// How much is above the threshold 
     pub fn treasury_excess() -> crate::BalanceOf<T> {
         let total_supply = TotalSupply::<T>::get();
         if total_supply.is_zero() {
@@ -58,13 +58,10 @@ impl<T: pallet::Config> TreasuryManager<T> for pallet::Pallet<T> {
     ) -> Result<(), DispatchError> {
         let treasury = Self::treasury_pot_account();
 
-        // 1) move funds into treasury
         T::Currency::transfer(from, &treasury, amount, ExistenceRequirement::KeepAlive)?;
 
-        // (optional) emit event
         Self::deposit_event(pallet::Event::<T>::TreasuryFunded { from: from.clone(), amount });
 
-        // 2) housekeeping immediately after funding
         Self::move_treasury_excess_if_required();
 
         Ok(())
