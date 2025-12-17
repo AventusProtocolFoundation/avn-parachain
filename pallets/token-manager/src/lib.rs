@@ -62,7 +62,7 @@ use sp_runtime::{
 };
 use sp_std::prelude::*;
 
-type BalanceOf<T> =
+pub type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
@@ -76,6 +76,7 @@ mod benchmarking;
 mod burn;
 pub mod default_weights;
 pub mod migration;
+mod treasury;
 pub use default_weights::WeightInfo;
 
 #[cfg(test)]
@@ -99,6 +100,7 @@ mod test_proxying_signed_lower;
 #[cfg(test)]
 mod test_proxying_signed_transfer;
 
+pub const DEFAULT_TREASURY_BURN_THRESHOLD_PERCENT: u32 = 15;
 pub const SIGNED_TRANSFER_CONTEXT: &'static [u8] = b"authorization for transfer operation";
 pub const SIGNED_LOWER_CONTEXT: &'static [u8] = b"authorization for lower operation";
 pub const PALLET_ID: &'static [u8; 13] = b"token_manager";
@@ -169,6 +171,9 @@ pub mod pallet {
         /// Minimum Burn Refresh range
         #[pallet::constant]
         type MinBurnRefreshRange: Get<u32>;
+        /// Minimum allowed treasury burn threshold
+        #[pallet::constant]
+        type TreasuryBurnThreshold: Get<Perbill>;
         /// Flag to enable burn mechanism
         #[pallet::constant]
         type BurnEnabled: Get<bool>;
@@ -271,6 +276,13 @@ pub mod pallet {
         BurnedFromPot {
             amount: BalanceOf<T>,
         },
+        TreasuryExcessSentToBurnPot {
+            amount: BalanceOf<T>,
+        },
+        TreasuryFunded {
+            from: T::AccountId,
+            amount: BalanceOf<T>,
+        },
     }
 
     #[pallet::error]
@@ -368,7 +380,12 @@ pub mod pallet {
     pub type BurnRefreshRange<T> = StorageValue<_, u32, ValueQuery, DefaultBurnRefreshRange<T>>;
 
     #[pallet::storage]
+    #[pallet::getter(fn burn_enabled)]
     pub type BurnEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn total_supply)]
+    pub type TotalSupply<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
     #[pallet::type_value]
     pub fn DefaultBurnRefreshRange<T: Config>() -> u32 {
@@ -382,6 +399,7 @@ pub mod pallet {
         pub avt_token_contract: H160,
         pub lower_schedule_period: BlockNumberFor<T>,
         pub balances: Vec<(H160, T::AccountId, u128)>,
+        pub treasury_burn_threshold: Perbill,
     }
 
     impl<T: Config> Default for GenesisConfig<T> {
@@ -392,6 +410,9 @@ pub mod pallet {
                 avt_token_contract: H160::zero(),
                 lower_schedule_period: BlockNumberFor::<T>::zero(),
                 balances: vec![],
+                treasury_burn_threshold: Perbill::from_percent(
+                    DEFAULT_TREASURY_BURN_THRESHOLD_PERCENT,
+                ),
             }
         }
     }
