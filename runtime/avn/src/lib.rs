@@ -708,7 +708,6 @@ impl pallet_token_manager::pallet::Config for Runtime {
 
 parameter_types! {
     pub const ConsensusGracePeriod: u32 = 300; // pick your value
-    pub const RefreshRangeBlocks: u32 = 10;
 }
 
 pub struct ConsensusRouter;
@@ -725,7 +724,6 @@ impl pallet_avn_consensus::OnConsensusReached<Runtime> for ConsensusRouter {
 impl pallet_avn_consensus::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type RefreshRangeBlocks = RefreshRangeBlocks;
     type ConsensusGracePeriod = ConsensusGracePeriod;
     type OnConsensusReached = ConsensusRouter;
 }

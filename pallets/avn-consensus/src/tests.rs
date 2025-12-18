@@ -7,10 +7,7 @@ use frame_support::{assert_noop, assert_ok};
 use super::mock::*;
 
 use sp_avn_common::event_types::Validator;
-use sp_runtime::{
-    testing::{TestSignature, UintAuthorityId},
-    traits::Saturating,
-};
+use sp_runtime::testing::{TestSignature, UintAuthorityId};
 
 const FEED_ID_1: u32 = 1;
 const FEED_ID_2: u32 = 2;
@@ -188,9 +185,7 @@ fn clear_consensus_after_grace_period_bumps_round_and_removes_feed() {
 
         let last = consensus::LastSubmissionBlock::<TestRuntime>::get(FEED_ID_2);
 
-        let required_block = last
-            .saturating_add(RefreshRangeBlocks::get().into())
-            .saturating_add(ConsensusGracePeriod::get().into());
+        let required_block = last.saturating_add(ConsensusGracePeriod::get().into());
 
         System::set_block_number(required_block);
 
@@ -279,9 +274,7 @@ fn clear_consensus_after_grace_period_works_even_if_quorum_never_reached() {
 
         let last = consensus::LastSubmissionBlock::<TestRuntime>::get(FEED_ID_2);
 
-        let required_block = last
-            .saturating_add(RefreshRangeBlocks::get().into())
-            .saturating_add(ConsensusGracePeriod::get().into());
+        let required_block = last.saturating_add(ConsensusGracePeriod::get().into());
 
         System::set_block_number(required_block);
 

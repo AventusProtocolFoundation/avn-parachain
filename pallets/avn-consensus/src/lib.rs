@@ -13,8 +13,8 @@ pub mod pallet {
         offchain::{SendTransactionTypes, SubmitTransaction},
         pallet_prelude::*,
     };
-
     use pallet_avn::{self as avn, Error as avn_error};
+    use scale_info::prelude::vec;
     use sp_avn_common::event_types::Validator;
     use sp_runtime::{
         traits::{Hash as HashT, Saturating},
@@ -96,9 +96,6 @@ pub mod pallet {
         type WeightInfo: WeightInfo;
 
         #[pallet::constant]
-        type RefreshRangeBlocks: Get<u32>;
-
-        #[pallet::constant]
         type ConsensusGracePeriod: Get<u32>;
 
         type OnConsensusReached: OnConsensusReached<Self>;
@@ -126,7 +123,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::submit())]
         pub fn submit(
             origin: OriginFor<T>,
             feed_id: FeedId,
@@ -195,7 +192,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(0)]
+        #[pallet::weight(<T as Config>::WeightInfo::clear_consensus())]
         pub fn clear_consensus(
             origin: OriginFor<T>,
             feed_id: FeedId,
@@ -211,15 +208,13 @@ pub mod pallet {
             let current_block = <frame_system::Pallet<T>>::block_number();
             let last = LastSubmissionBlock::<T>::get(feed_id);
 
-            let required = last
-                .saturating_add(BlockNumberFor::<T>::from(T::RefreshRangeBlocks::get()))
-                .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()));
+            let required =
+                last.saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()));
 
             ensure!(current_block >= required, Error::<T>::GracePeriodNotPassed);
 
             // set last submission back so next cycle can start
-            let new_last = current_block
-                .saturating_sub(BlockNumberFor::<T>::from(T::RefreshRangeBlocks::get()));
+            let new_last = current_block;
             LastSubmissionBlock::<T>::insert(feed_id, new_last);
 
             let cleared = RoundId::<T>::get(feed_id);
@@ -341,8 +336,7 @@ pub mod pallet {
             let last = LastSubmissionBlock::<T>::get(feed_id);
 
             current >=
-                last.saturating_add(BlockNumberFor::<T>::from(T::RefreshRangeBlocks::get()))
-                    .saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
+                last.saturating_add(BlockNumberFor::<T>::from(T::ConsensusGracePeriod::get()))
         }
 
         fn clear_consensus_if_required(

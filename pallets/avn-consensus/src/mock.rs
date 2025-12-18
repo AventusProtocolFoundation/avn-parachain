@@ -1,6 +1,6 @@
 #![cfg(feature = "std")]
 
-use crate::{self as pallet_avn_consensus, *};
+use crate::{self as pallet_avn_consensus};
 use frame_support::{
     parameter_types,
     traits::{ConstU16, ConstU64},
@@ -117,14 +117,12 @@ impl pallet_avn_consensus::pallet::OnConsensusReached<TestRuntime> for TestConse
 // ----------------- Consensus Config -----------------
 
 parameter_types! {
-    pub const RefreshRangeBlocks: u32 = 10;
     pub const ConsensusGracePeriod: u32 = 5;
 }
 
 impl pallet_avn_consensus::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type WeightInfo = ();
-    type RefreshRangeBlocks = RefreshRangeBlocks;
     type ConsensusGracePeriod = ConsensusGracePeriod;
     type OnConsensusReached = TestConsensusRouter;
 }

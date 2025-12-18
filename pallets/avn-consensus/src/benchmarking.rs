@@ -113,7 +113,6 @@ benchmarks! {
         let last_submission = LastSubmissionBlock::<T>::get(feed_id);
         let required_block_u32 =
             last_submission.saturated_into::<u32>()
-                .saturating_add(T::RefreshRangeBlocks::get())
                 .saturating_add(T::ConsensusGracePeriod::get())
                 .saturating_add(1);
 
