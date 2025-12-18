@@ -7,14 +7,13 @@ use codec::{Decode, Encode};
 use frame_benchmarking::{benchmarks, impl_benchmark_test_suite};
 use frame_support::{
     assert_ok,
-    pallet_prelude::{Weight},
+    pallet_prelude::Weight,
     traits::{Get, Hooks},
 };
 use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
 use scale_info::prelude::{format, vec, vec::Vec};
 use sp_avn_common::event_types::Validator;
-use sp_runtime::{RuntimeAppPublic, WeakBoundedVec};
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{RuntimeAppPublic, SaturatedConversion, WeakBoundedVec};
 
 fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId, T::AccountId>> {
     let mut validators = Vec::new();
@@ -23,7 +22,7 @@ fn generate_validators<T: Config>(count: usize) -> Vec<Validator<T::AuthorityId,
         let seed = format!("//benchmark_{}", i).as_bytes().to_vec();
         let authority_id = T::AuthorityId::generate_pair(Some(seed));
 
-        // Create dummy AccountId 
+        // Create dummy AccountId
         let account_seed = [i as u8; 32];
         let account_id = T::AccountId::decode(&mut &account_seed[..])
             .unwrap_or_else(|_| panic!("Failed to create AccountId from seed for validator {}", i));

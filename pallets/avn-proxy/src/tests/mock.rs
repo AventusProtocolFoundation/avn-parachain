@@ -140,6 +140,9 @@ impl pallet_avn::Config for TestRuntime {
 parameter_types! {
     pub const AvnTreasuryPotId: PalletId = PalletId(*b"Treasury");
     pub static TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
+    pub const MinBurnRefreshRange: u32 = 7200;
+    pub const BurnEnabled: bool = true;
+    pub const TreasuryBurnThreshold: Perbill = Perbill::from_percent(15);
 }
 
 impl pallet_token_manager::Config for TestRuntime {
@@ -159,6 +162,9 @@ impl pallet_token_manager::Config for TestRuntime {
     type Preimages = ();
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
+    type MinBurnRefreshRange = MinBurnRefreshRange;
+    type TreasuryBurnThreshold = TreasuryBurnThreshold;
+    type BurnEnabled = BurnEnabled;
 }
 
 parameter_types! {
@@ -301,6 +307,7 @@ impl ExtBuilder {
                 get_default_signer_account_id(),
                 100 * ONE_AVT,
             )],
+            treasury_burn_threshold: Perbill::from_percent(15),
         }
         .assimilate_storage(&mut storage);
         Self { storage }

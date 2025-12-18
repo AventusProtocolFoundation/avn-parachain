@@ -609,6 +609,7 @@ parameter_types! {
     pub const AvnInstanceId: u8 = 2u8;
     pub const MinBurnRefreshRange: u32 = 100;
     pub const BurnEnabled: bool = true;
+    pub const TreasuryBurnThreshold: Perbill = Perbill::from_percent(15);
 }
 
 pub type EthSummary = pallet_summary::Instance1;
@@ -669,6 +670,7 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
     type MinBurnRefreshRange = MinBurnRefreshRange;
+    type TreasuryBurnThreshold = TreasuryBurnThreshold;
     type BurnEnabled = BurnEnabled;
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "pallet-consensus"
+name = "pallet-avn-consensus"
 description = "Generic validator consensus engine over opaque payloads"
 license = "GPL-3.0"
 

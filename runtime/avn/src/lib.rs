@@ -667,6 +667,7 @@ parameter_types! {
     pub const PriceRefreshRangeInBlocks: u32 = 50; // 10 minutes
     pub const MinBurnRefreshRange: u32 = 7200;
     pub const BurnEnabled: bool = true;
+    pub const TreasuryBurnThreshold: Perbill = Perbill::from_percent(15);
 }
 
 impl pallet_summary::Config for Runtime {
@@ -701,7 +702,32 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
     type MinBurnRefreshRange = MinBurnRefreshRange;
+    type TreasuryBurnThreshold = TreasuryBurnThreshold;
     type BurnEnabled = BurnEnabled;
+}
+
+parameter_types! {
+    pub const ConsensusGracePeriod: u32 = 300; // pick your value
+    pub const RefreshRangeBlocks: u32 = 10;
+}
+
+pub struct ConsensusRouter;
+impl pallet_avn_consensus::OnConsensusReached<Runtime> for ConsensusRouter {
+    fn on_consensus(
+        _feed_id: u32,
+        _payload: Vec<u8>,
+        _round_id: u32,
+    ) -> sp_runtime::DispatchResult {
+        Ok(())
+    }
+}
+
+impl pallet_avn_consensus::Config for Runtime {
+    type RuntimeEvent = RuntimeEvent;
+    type WeightInfo = ();
+    type RefreshRangeBlocks = RefreshRangeBlocks;
+    type ConsensusGracePeriod = ConsensusGracePeriod;
+    type OnConsensusReached = ConsensusRouter;
 }
 
 impl pallet_nft_manager::Config for Runtime {
@@ -842,7 +868,6 @@ parameter_types! {
     pub const MetadataDepositBase: Balance = 1 * MILLI_AVT;
     pub const MetadataDepositPerByte: Balance = 100 * MICRO_AVT;
     pub const DefaultCheckpointFee: Balance = 60 * MILLI_AVT;
-    pub const ConsensusGracePeriod: u32 = 300;
     pub const MaxCurrencies: u32 = 10;
 }
 const ASSET_ACCOUNT_DEPOSIT: Balance = 100 * MICRO_AVT;
@@ -978,6 +1003,7 @@ construct_runtime!(
         EthBridge: pallet_eth_bridge = 91,
         AvnAnchor: pallet_avn_anchor = 92,
         AvnOracle: pallet_avn_oracle = 93,
+        AvnConsensus: pallet_avn_consensus = 94,
 
         // OpenGov pallets
         Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>, HoldReason} = 97,
@@ -1012,6 +1038,7 @@ mod benches {
         [pallet_parachain_staking, ParachainStaking]
         [pallet_avn_anchor, AvnAnchor]
         [pallet_avn_oracle, AvnOracle]
+        [pallet_avn_consensus, AvnConsensus]
         [cumulus_pallet_parachain_system, ParachainSystem]
         [cumulus_pallet_xcmp_queue, XcmpQueue]
     );
