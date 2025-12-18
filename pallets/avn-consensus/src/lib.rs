@@ -126,7 +126,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         #[pallet::call_index(0)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::submit())]
+        #[pallet::weight(0)]
         pub fn submit(
             origin: OriginFor<T>,
             feed_id: FeedId,
@@ -195,7 +195,7 @@ pub mod pallet {
         }
 
         #[pallet::call_index(1)]
-        #[pallet::weight(<T as pallet::Config>::WeightInfo::clear_consensus())]
+        #[pallet::weight(0)]
         pub fn clear_consensus(
             origin: OriginFor<T>,
             feed_id: FeedId,
