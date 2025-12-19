@@ -820,9 +820,9 @@ impl<T: Config> Pallet<T> {
         let amount = <T::TokenBalance as TryFrom<u128>>::try_from(raw_amount)
             .or_else(|_| Err(Error::<T>::AmountOverflow))?;
 
-        <Balances<T>>::try_mutate((token_id, recipient_account_id.clone()), |balance| -> Result<(), Error<T>> {
+        <Balances<T>>::try_mutate((token_id, recipient_account_id.clone()), |balance| {
             *balance = balance.checked_add(&amount).ok_or(Error::<T>::AmountOverflow)?;
-            Ok(())
+            Ok::<_, Error<T>>(())
         })?;
 
         Ok(amount)
