@@ -820,7 +820,7 @@ impl<T: Config> Pallet<T> {
         let amount = <T::TokenBalance as TryFrom<u128>>::try_from(raw_amount)
             .or_else(|_| Err(Error::<T>::AmountOverflow))?;
 
-        if <Balances<T>>::contains_key((token_id, recipient_account_id)) {
+        if <Balances<T>>::contains_key((&token_id, recipient_account_id)) {
             Self::increment_token_balance(token_id, recipient_account_id, &amount)?;
         } else {
             <Balances<T>>::insert((token_id, recipient_account_id.clone()), amount);
@@ -833,11 +833,11 @@ impl<T: Config> Pallet<T> {
         token_id: T::TokenId,
         recipient_account_id: &T::AccountId,
         amount: &T::TokenBalance,
-    ) -> DispatchResult {
-        let current_balance = Self::balance((token_id, recipient_account_id));
+    ) -> Result<(), Error<T>> {
+        let current_balance = Self::balance((&token_id, recipient_account_id));
         let new_balance = current_balance.checked_add(amount).ok_or(Error::<T>::AmountOverflow)?;
 
-        <Balances<T>>::mutate((token_id, recipient_account_id), |balance| *balance = new_balance);
+        <Balances<T>>::mutate((&token_id, recipient_account_id), |balance| *balance = new_balance);
 
         Ok(())
     }
@@ -968,7 +968,8 @@ impl<T: Config> Pallet<T> {
             });
         } else {
             let token_id: T::TokenId = data.token_contract.into();
-            let credited = Self::credit_token_balance(token_id, &recipient_account_id, data.amount)?;
+            let credited =
+                Self::credit_token_balance(token_id, &recipient_account_id, data.amount)?;
 
             Self::deposit_event(Event::<T>::TokenLifted {
                 token_id,
@@ -993,7 +994,8 @@ impl<T: Config> Pallet<T> {
         let treasury_share = T::TreasuryGrowthPercentage::get() * data.amount;
 
         // Send a portion of the funds to the treasury
-        let treasury_amount = Self::credit_avt_balance(&Self::compute_treasury_account_id(), treasury_share)?;
+        let treasury_amount =
+            Self::credit_avt_balance(&Self::compute_treasury_account_id(), treasury_share)?;
 
         // Now let the runtime know we have a lift so we can payout collators
         let remaining_amount =
@@ -1144,11 +1146,11 @@ impl<T: Config> Pallet<T> {
         account: &T::AccountId,
         token_id: &T::TokenId,
     ) -> Option<T::TokenBalance> {
-        if Balances::<T>::contains_key(token_id, account) {
-            return Some(Self::balance(token_id, account))
+        if Balances::<T>::contains_key((token_id, account)) {
+            return Some(Self::balance((token_id, account)));
         }
 
-        return None
+        None
     }
 }
 
