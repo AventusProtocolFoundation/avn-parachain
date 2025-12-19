@@ -795,7 +795,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn increment_avt_balance(
+    fn update_avt_balance(
         recipient_account_id: &T::AccountId,
         raw_amount: u128,
     ) -> Result<BalanceOf<T>, Error<T>> {
@@ -945,7 +945,7 @@ impl<T: Config> Pallet<T> {
         let recipient_account_id = Self::decode_recipient(&data.receiver_address)?;
 
         if data.token_contract == Self::avt_token_contract() {
-            let credited = Self::increment_avt_balance(&recipient_account_id, data.amount)?;
+            let credited = Self::update_avt_balance(&recipient_account_id, data.amount)?;
 
             Self::deposit_event(Event::<T>::AVTLifted {
                 recipient: recipient_account_id,
@@ -981,7 +981,7 @@ impl<T: Config> Pallet<T> {
 
         // Send a portion of the funds to the treasury
         let treasury_amount =
-            Self::increment_avt_balance(&Self::compute_treasury_account_id(), treasury_share)?;
+            Self::update_avt_balance(&Self::compute_treasury_account_id(), treasury_share)?;
 
         // Now let the runtime know we have a lift so we can payout collators
         let remaining_amount =
@@ -1031,7 +1031,7 @@ impl<T: Config> Pallet<T> {
         ensure!(data.amount != 0, Error::<T>::AmountIsZero);
 
         if data.token_contract == Self::avt_token_contract() {
-            let amount = Self::increment_avt_balance(&t2_refunded_sender, data.amount)?;
+            let amount = Self::update_avt_balance(&t2_refunded_sender, data.amount)?;
 
             Self::deposit_event(Event::<T>::AVTLowerReverted {
                 t2_refunded_sender,
