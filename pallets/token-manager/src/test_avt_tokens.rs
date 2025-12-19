@@ -285,7 +285,7 @@ fn avn_test_lower_some_avt_token_succeed() {
 }
 
 #[test]
-fn avn_test_avt_reverted_lower_refunds_sender_removes_claim_and_emits_event() {
+fn avn_test_reverted_avt_lower_refunds_sender_removes_claim_and_emits_event() {
     let mut ext = ExtBuilder::build_default()
         .with_genesis_config()
         .with_balances()
@@ -300,7 +300,6 @@ fn avn_test_avt_reverted_lower_refunds_sender_removes_claim_and_emits_event() {
         assert!(LowersReadyToClaim::<TestRuntime>::contains_key(lower_id));
 
         let balance_before = Balances::free_balance(from);
-
         let receiver_address = H256::from_slice(&receiver_topic_with_100_avt());
 
         let mock_event = sp_avn_common::event_types::EthEvent {
@@ -324,7 +323,6 @@ fn avn_test_avt_reverted_lower_refunds_sender_removes_claim_and_emits_event() {
         assert_ok!(TokenManager::on_event_processed(&mock_event));
         assert_eq!(Balances::free_balance(from), balance_before + amount);
         assert!(!LowersReadyToClaim::<TestRuntime>::contains_key(lower_id));
-
         assert!(System::events().iter().any(|a| a.event ==
             RuntimeEvent::TokenManager(crate::Event::<TestRuntime>::AVTLowerReverted {
                 t2_refunded_sender: from,
