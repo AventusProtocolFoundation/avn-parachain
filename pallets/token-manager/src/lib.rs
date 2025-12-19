@@ -214,19 +214,19 @@ pub mod pallet {
             lower_id: LowerId,
         },
         AVTLowerReverted {
-            recipient: T::AccountId,
+            t2_refunded_sender: T::AccountId,
             amount: BalanceOf<T>,
             eth_tx_hash: H256,
             lower_id: LowerId,
-            t1_recipient: H160,
+            t1_reverted_recipient: H160,
         },
         TokenLowerReverted {
             token_id: T::TokenId,
-            recipient: T::AccountId,
-            token_balance: T::TokenBalance,
+            t2_refunded_sender: T::AccountId,
+            amount: T::TokenBalance,
             eth_tx_hash: H256,
             lower_id: LowerId,
-            t1_recipient: H160,
+            t1_reverted_recipient: H160,
         },
         AvtTransferredFromTreasury {
             recipient: T::AccountId,
@@ -795,62 +795,36 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn update_token_balance(
-        transaction_hash: H256,
-        token_id: T::TokenId,
-        recipient_account_id: T::AccountId,
-        raw_amount: u128,
-    ) -> DispatchResult {
-        let amount =
-            Self::do_update_token_balance(token_id, recipient_account_id.clone(), raw_amount)?;
-        Self::deposit_event(Event::<T>::TokenLifted {
-            token_id,
-            recipient: recipient_account_id,
-            token_balance: amount,
-            eth_tx_hash: transaction_hash,
-        });
-
-        Ok(())
-    }
-
-    fn do_update_token_balance(
-        token_id: T::TokenId,
-        recipient_account_id: T::AccountId,
-        raw_amount: u128,
-    ) -> Result<T::TokenBalance, Error<T>> {
-        let amount = <T::TokenBalance as TryFrom<u128>>::try_from(raw_amount)
-            .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
-
-        if <Balances<T>>::contains_key((token_id, &recipient_account_id)) {
-            Self::increment_token_balance(token_id, &recipient_account_id, &amount)
-                .map_err(|_e| Error::<T>::AmountOverflow)?;
-        } else {
-            <Balances<T>>::insert((token_id, &recipient_account_id), amount);
-        }
-
-        Ok(amount)
-    }
-
-    fn update_avt_balance(
+    fn credit_avt_balance(
         recipient_account_id: &T::AccountId,
         raw_amount: u128,
     ) -> Result<BalanceOf<T>, Error<T>> {
         let amount = <BalanceOf<T> as TryFrom<u128>>::try_from(raw_amount)
-            .or_else(|_error| Err(Error::<T>::AmountOverflow))?;
+            .or_else(|_| Err(Error::<T>::AmountOverflow))?;
 
-        // Drop the imbalance caused by depositing amount into the recipient account without a
-        // corresponding deduction.  If the recipient account does not exist,
-        // deposit_creating function will create a new one.
         let imbalance: PositiveImbalanceOf<T> =
             <T as pallet::Config>::Currency::deposit_creating(recipient_account_id, amount);
 
-        if imbalance.peek() == BalanceOf::<T>::zero() {
-            Err(Error::<T>::DepositFailed)?
-        }
+        ensure!(imbalance.peek() != BalanceOf::<T>::zero(), Error::<T>::DepositFailed);
 
-        // Increases the total issued AVT when this positive imbalance is dropped
-        // so that total issued AVT becomes equal to total supply once again.
         drop(imbalance);
+
+        Ok(amount)
+    }
+
+    fn credit_token_balance(
+        token_id: T::TokenId,
+        recipient_account_id: &T::AccountId,
+        raw_amount: u128,
+    ) -> Result<T::TokenBalance, Error<T>> {
+        let amount = <T::TokenBalance as TryFrom<u128>>::try_from(raw_amount)
+            .or_else(|_| Err(Error::<T>::AmountOverflow))?;
+
+        if <Balances<T>>::contains_key((token_id, recipient_account_id)) {
+            Self::increment_token_balance(token_id, recipient_account_id, &amount)?;
+        } else {
+            <Balances<T>>::insert((token_id, recipient_account_id.clone()), amount);
+        }
 
         Ok(amount)
     }
@@ -873,8 +847,7 @@ impl<T: Config> Pallet<T> {
         recipient_account_id: T::AccountId,
         raw_amount: u128,
     ) -> DispatchResult {
-        let amount =
-            Self::do_update_token_balance(token_id, recipient_account_id.clone(), raw_amount)?;
+        let amount = Self::credit_token_balance(token_id, &recipient_account_id, raw_amount)?;
 
         Self::deposit_event(Event::<T>::TokensDeposited {
             token_id,
@@ -980,37 +953,29 @@ impl<T: Config> Pallet<T> {
         let event_id = &event.event_id;
         let event_validity = T::ProcessedEventsChecker::processed_event_exists(event_id);
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLifted);
-        Self::lift_to_account(event, data.token_contract, &data.receiver_address, data.amount)
-    }
 
-    fn lift_to_account(
-        event: &EthEvent,
-        token_contract: H160,
-        receiver_address: &H256,
-        amount: u128,
-    ) -> DispatchResult {
-        if amount == 0 {
-            Err(Error::<T>::AmountIsZero)?
-        }
+        ensure!(data.amount != 0, Error::<T>::AmountIsZero);
 
-        let event_id = &event.event_id;
-        let recipient_account_id = Self::decode_recipient(receiver_address)?;
+        let recipient_account_id = Self::decode_recipient(&data.receiver_address)?;
 
-        if token_contract == Self::avt_token_contract() {
-            let updated_amount = Self::update_avt_balance(&recipient_account_id, amount)?;
+        if data.token_contract == Self::avt_token_contract() {
+            let credited = Self::credit_avt_balance(&recipient_account_id, data.amount)?;
 
             Self::deposit_event(Event::<T>::AVTLifted {
                 recipient: recipient_account_id,
-                amount: updated_amount,
+                amount: credited,
                 eth_tx_hash: event_id.transaction_hash,
             });
         } else {
-            Self::update_token_balance(
-                event_id.transaction_hash,
-                token_contract.into(),
-                recipient_account_id,
-                amount,
-            )?;
+            let token_id: T::TokenId = data.token_contract.into();
+            let credited = Self::credit_token_balance(token_id, &recipient_account_id, data.amount)?;
+
+            Self::deposit_event(Event::<T>::TokenLifted {
+                token_id,
+                recipient: recipient_account_id,
+                token_balance: credited,
+                eth_tx_hash: event_id.transaction_hash,
+            });
         }
 
         Ok(())
@@ -1028,8 +993,7 @@ impl<T: Config> Pallet<T> {
         let treasury_share = T::TreasuryGrowthPercentage::get() * data.amount;
 
         // Send a portion of the funds to the treasury
-        let treasury_amount =
-            Self::update_avt_balance(&Self::compute_treasury_account_id(), treasury_share)?;
+        let treasury_amount = Self::credit_avt_balance(&Self::compute_treasury_account_id(), treasury_share)?;
 
         // Now let the runtime know we have a lift so we can payout collators
         let remaining_amount =
@@ -1074,47 +1038,31 @@ impl<T: Config> Pallet<T> {
         ensure!(event_validity, Error::<T>::NoTier1EventForLogLowerReverted);
 
         Self::remove_used_lower(data.lower_id)?;
-        let recipient_account_id = Self::decode_recipient(&data.receiver_address)?;
+        let t2_refunded_sender = Self::decode_recipient(&data.receiver_address)?;
 
-        if data.amount == 0 {
-            Err(Error::<T>::AmountIsZero)?
-        }
+        ensure!(data.amount != 0, Error::<T>::AmountIsZero);
 
         if data.token_contract == Self::avt_token_contract() {
-            let credited = Self::update_avt_balance(&recipient_account_id, data.amount)?;
-
-            Self::deposit_event(Event::<T>::AVTLifted {
-                recipient: recipient_account_id.clone(),
-                amount: credited,
-                eth_tx_hash: event_id.transaction_hash,
-            });
+            let amount = Self::credit_avt_balance(&t2_refunded_sender, data.amount)?;
 
             Self::deposit_event(Event::<T>::AVTLowerReverted {
-                recipient: recipient_account_id,
-                amount: credited,
+                t2_refunded_sender,
+                amount,
                 eth_tx_hash: event_id.transaction_hash,
                 lower_id: data.lower_id,
-                t1_recipient: data.t1_recipient,
+                t1_reverted_recipient: data.t1_recipient,
             });
         } else {
             let token_id: T::TokenId = data.token_contract.into();
-            let credited =
-                Self::do_update_token_balance(token_id, recipient_account_id.clone(), data.amount)?;
-
-            Self::deposit_event(Event::<T>::TokenLifted {
-                token_id,
-                recipient: recipient_account_id.clone(),
-                token_balance: credited,
-                eth_tx_hash: event_id.transaction_hash,
-            });
+            let amount = Self::credit_token_balance(token_id, &t2_refunded_sender, data.amount)?;
 
             Self::deposit_event(Event::<T>::TokenLowerReverted {
                 token_id,
-                recipient: recipient_account_id,
-                token_balance: credited,
+                t2_refunded_sender,
+                amount,
                 eth_tx_hash: event_id.transaction_hash,
                 lower_id: data.lower_id,
-                t1_recipient: data.t1_recipient,
+                t1_reverted_recipient: data.t1_recipient,
             });
         }
 
@@ -1196,8 +1144,8 @@ impl<T: Config> Pallet<T> {
         account: &T::AccountId,
         token_id: &T::TokenId,
     ) -> Option<T::TokenBalance> {
-        if Balances::<T>::contains_key((token_id, account)) {
-            return Some(Self::balance((token_id, account)))
+        if Balances::<T>::contains_key(token_id, account) {
+            return Some(Self::balance(token_id, account))
         }
 
         return None
