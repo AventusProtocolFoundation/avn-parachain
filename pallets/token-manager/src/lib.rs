@@ -822,7 +822,7 @@ impl<T: Config> Pallet<T> {
 
         <Balances<T>>::try_mutate((token_id, recipient_account_id.clone()), |balance| {
             *balance = balance.checked_add(&amount).ok_or(Error::<T>::AmountOverflow)?;
-            Ok::<_, Error<T>>(())
+            Ok(())
         })?;
 
         Ok(amount)
