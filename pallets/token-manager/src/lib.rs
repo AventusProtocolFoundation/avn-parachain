@@ -820,26 +820,12 @@ impl<T: Config> Pallet<T> {
         let amount = <T::TokenBalance as TryFrom<u128>>::try_from(raw_amount)
             .or_else(|_| Err(Error::<T>::AmountOverflow))?;
 
-        if <Balances<T>>::contains_key((&token_id, recipient_account_id)) {
-            Self::increment_token_balance(token_id, recipient_account_id, &amount)?;
-        } else {
-            <Balances<T>>::insert((token_id, recipient_account_id.clone()), amount);
-        }
+        <Balances<T>>::try_mutate((token_id, recipient_account_id.clone()), |balance| -> Result<(), Error<T>> {
+            *balance = balance.checked_add(&amount).ok_or(Error::<T>::AmountOverflow)?;
+            Ok(())
+        })?;
 
         Ok(amount)
-    }
-
-    fn increment_token_balance(
-        token_id: T::TokenId,
-        recipient_account_id: &T::AccountId,
-        amount: &T::TokenBalance,
-    ) -> Result<(), Error<T>> {
-        let current_balance = Self::balance((&token_id, recipient_account_id));
-        let new_balance = current_balance.checked_add(amount).ok_or(Error::<T>::AmountOverflow)?;
-
-        <Balances<T>>::mutate((&token_id, recipient_account_id), |balance| *balance = new_balance);
-
-        Ok(())
     }
 
     fn process_token_deposit(
