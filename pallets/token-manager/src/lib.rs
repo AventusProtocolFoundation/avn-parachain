@@ -1133,10 +1133,10 @@ impl<T: Config> Pallet<T> {
         token_id: &T::TokenId,
     ) -> Option<T::TokenBalance> {
         if Balances::<T>::contains_key((token_id, account)) {
-            return Some(Self::balance((token_id, account)));
+            return Some(Self::balance((token_id, account)))
         }
 
-        None
+        return None
     }
 }
 
