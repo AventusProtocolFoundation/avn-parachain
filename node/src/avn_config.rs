@@ -8,8 +8,4 @@ use clap::Parser;
 pub struct AvnCliConfiguration {
     pub avn_port: Option<String>,
     pub ethereum_node_urls: Vec<String>,
-    /// Enable extrinsic filtering
-    pub enable_extrinsic_filter: bool,
-    /// Log rejected extrinsics
-    pub log_filtered_extrinsics: bool,
 }
