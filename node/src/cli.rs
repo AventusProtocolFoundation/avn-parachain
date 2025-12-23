@@ -64,14 +64,6 @@ pub struct AvnRunCmd {
     /// URL for connecting with an ethereum node
     #[arg(long = "ethereum-node-url", value_name = "ETH URL", num_args = 0..=32)]
     pub eth_node_urls: Vec<String>,
-
-    /// Enable extrinsic filtering for public RPC nodes.
-    #[arg(long, env = "ENABLE_EXTRINSIC_FILTER")]
-    pub enable_extrinsic_filter: bool,
-
-    /// Log rejected extrinsics when filter is enabled.
-    #[arg(long, env = "LOG_FILTERED_EXTRINSICS", default_value = "true")]
-    pub log_filtered_extrinsics: bool,
 }
 
 impl std::ops::Deref for AvnRunCmd {

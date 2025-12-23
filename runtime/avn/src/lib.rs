@@ -144,28 +144,6 @@ pub type SignedExtra = (
 pub type UncheckedExtrinsic =
     generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
 
-/// Checks if an encoded extrinsic is allowed through the transaction filter.
-///
-/// This is used by public RPC nodes to restrict which extrinsics can be submitted.
-/// Returns `true` if the extrinsic is allowed, `false` otherwise.
-///
-/// Currently allows only balance transfer operations:
-/// - `transfer_allow_death`
-/// - `transfer_keep_alive`
-/// - `transfer_all`
-#[cfg(feature = "std")]
-pub fn is_extrinsic_allowed(encoded: &[u8]) -> bool {
-    match UncheckedExtrinsic::decode(&mut &encoded[..]) {
-        Ok(xt) => matches!(
-            xt.function,
-            RuntimeCall::Balances(pallet_balances::Call::transfer_allow_death { .. }) |
-                RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive { .. }) |
-                RuntimeCall::Balances(pallet_balances::Call::transfer_all { .. })
-        ),
-        Err(_) => false, // Fail secure: reject malformed extrinsics
-    }
-}
-
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
     Runtime,
