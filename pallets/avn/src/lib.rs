@@ -857,7 +857,7 @@ impl BridgeInterfaceNotification for Tuple {
         )* );
         Ok(())
     }
-    
+
     fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
         for_tuples!( #( Tuple::on_incoming_event_processed(_event)?; )* );
         Ok(())

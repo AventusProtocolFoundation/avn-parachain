@@ -19,7 +19,7 @@ impl<T: pallet::Config> pallet::Pallet<T> {
         PalletId(sp_avn_common::TREASURY_POT_ID).into_account_truncating()
     }
 
-    /// How much is above the threshold 
+    /// How much is above the threshold
     pub fn treasury_excess() -> crate::BalanceOf<T> {
         let total_supply = TotalSupply::<T>::get();
         if total_supply.is_zero() {

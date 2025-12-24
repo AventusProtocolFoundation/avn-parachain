@@ -229,7 +229,14 @@ fn send_transaction<T: Config>(
     calldata: Vec<u8>,
     author_account_id: &T::AccountId,
 ) -> Result<H256, DispatchError> {
-    make_ethereum_call::<H256, T>(author_account_id, "send", calldata, process_tx_hash::<T>, None, None,)
+    make_ethereum_call::<H256, T>(
+        author_account_id,
+        "send",
+        calldata,
+        process_tx_hash::<T>,
+        None,
+        None,
+    )
 }
 
 fn call_corroborate_method<T: Config>(
@@ -272,9 +279,11 @@ pub fn make_ethereum_call<R, T: Config>(
 ) -> Result<R, DispatchError> {
     let sender = T::AccountToBytesConvert::into_bytes(&author_account_id);
 
-    let contract_address = target_contract.unwrap_or_else(|| AVN::<T>::get_bridge_contract_address());
+    let contract_address =
+        target_contract.unwrap_or_else(|| AVN::<T>::get_bridge_contract_address());
 
-    let ethereum_call = EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
+    let ethereum_call =
+        EthTransaction::new(sender, contract_address, calldata).set_block(eth_block);
     let url_path = format!("eth/{}", endpoint);
 
     let result = AVN::<T>::post_data_to_service(url_path, ethereum_call.encode())?;

@@ -52,11 +52,7 @@ pub fn submit_latest_ethereum_block<T: Config>(
     SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 }
 
-pub fn submit_read_result<T: Config>(
-    read_id: u32,
-    result_hash: H256,
-    author: Author<T>,
-) {
+pub fn submit_read_result<T: Config>(read_id: u32, result_hash: H256, author: Author<T>) {
     let proof = submit_read_result_proof::<T>(read_id, &result_hash, &author.account_id);
     let signature = author.key.sign(&proof).expect("Error signing proof");
     let call = Call::<T>::submit_read_result { read_id, result_hash, author, signature };

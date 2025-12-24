@@ -57,7 +57,7 @@ pub fn add_new_lower_proof_request<T: Config>(
 }
 
 pub fn add_new_read_contract_request<T: Config>(
-    contract_address: H160, // ✅ NEW
+    contract_address: H160,
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
     eth_block: Option<u32>,
@@ -70,12 +70,11 @@ pub fn add_new_read_contract_request<T: Config>(
         return Err(Error::<T>::EmptyFunctionName)
     }
 
-    // Reuse tx id generator for reads
     let read_id = tx::use_next_tx_id::<T>();
 
     let read_req = ReadContractRequestData {
         read_id,
-        contract_address, // ✅ NEW
+        contract_address,
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
@@ -92,7 +91,6 @@ pub fn add_new_read_contract_request<T: Config>(
 
     Ok(read_id)
 }
-
 
 // This function cannot error. Otherwise we need a way to resume processing queued requests.
 pub fn process_next_request<T: Config>() {
@@ -127,17 +125,16 @@ pub fn process_next_request<T: Config>() {
             Request::ReadContract(read_req) => {
                 if let Err(e) = set_up_active_read_contract::<T>(read_req.clone()) {
                     log::error!(target: "runtime::eth-bridge", "Error processing read contract request from queue: {:?}", e);
-            
-                    // Requires callback added later (Step 3/4)
+
                     let _ = T::BridgeInterfaceNotification::process_read_result(
                         read_req.read_id,
                         read_req.caller_id.clone().into(),
                         Err(()),
                     );
-            
+
                     process_next_request::<T>();
                 }
-            }
+            },
         };
     };
 }
@@ -189,11 +186,9 @@ fn set_up_active_lower_proof<T: Config>(req: LowerProofRequestData) -> Result<()
 }
 fn set_up_active_read_contract<T: Config>(req: ReadContractRequestData) -> Result<(), Error<T>> {
     // Encode call data deterministically
-    let calldata = eth::abi_encode_function::<T>(
-        &req.function_name,
-        &util::unbound_params(&req.params),
-    )
-    .map_err(|_| Error::<T>::FunctionEncodingError)?;
+    let calldata =
+        eth::abi_encode_function::<T>(&req.function_name, &util::unbound_params(&req.params))
+            .map_err(|_| Error::<T>::FunctionEncodingError)?;
 
     // ✅ msg_hash includes: read_id + contract_address + calldata + eth_block
     let mut msg: Vec<u8> = Vec::new();
@@ -216,7 +211,6 @@ fn set_up_active_read_contract<T: Config>(req: ReadContractRequestData) -> Resul
 
     Ok(())
 }
-
 
 fn queue_request<T: Config>(request: Request) -> Result<(), Error<T>> {
     RequestQueue::<T>::mutate(|maybe_queue| {

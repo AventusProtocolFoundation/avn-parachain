@@ -31,10 +31,9 @@ impl Request {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ReadContractRequestData {
     pub read_id: u32,
-    pub contract_address: H160, 
+    pub contract_address: H160,
     pub function_name: BoundedVec<u8, FunctionLimit>,
     pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
-    /// Optional eth block to query at (important for deterministic consensus)
     pub eth_block: Option<u32>,
     pub caller_id: BoundedVec<u8, CallerIdLimit>,
 }

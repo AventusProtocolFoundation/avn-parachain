@@ -86,9 +86,8 @@ use sp_avn_common::{
 };
 use sp_core::{ecdsa, ConstU32, H160, H256};
 use sp_io::hashing::keccak_256;
-use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, Saturating};
+use sp_runtime::{scale_info::TypeInfo, traits::Dispatchable, DispatchError, Saturating};
 use sp_std::prelude::*;
-use sp_runtime::DispatchError;
 
 mod call;
 mod eth;
@@ -756,28 +755,27 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            // must have an active request and it must be the same read_id
             let active = ActiveRequest::<T>::get().ok_or(Error::<T>::NoActiveRequest)?;
             match active.request {
-                Request::ReadContract(req) => ensure!(req.read_id == read_id, Error::<T>::InvalidReadRequest),
+                Request::ReadContract(req) =>
+                    ensure!(req.read_id == read_id, Error::<T>::InvalidReadRequest),
                 _ => return Ok(().into()), // ignore if not a read request
             };
 
-            // already finalised?
             ensure!(
                 !AcceptedReadResultHash::<T>::contains_key(read_id),
                 Error::<T>::ReadAlreadyFinalised
             );
 
-            // prevent author voting twice on the same (read_id, hash)
             let key = (read_id, result_hash);
             let mut votes = ReadResultVotes::<T>::get(&key);
 
             ensure!(!votes.contains(&author.account_id), Error::<T>::ReadVoteExists);
 
-            votes.try_insert(author.account_id.clone()).map_err(|_| Error::<T>::ReadVotesFull)?;
+            votes
+                .try_insert(author.account_id.clone())
+                .map_err(|_| Error::<T>::ReadVotesFull)?;
 
-            // emit vote event (optional but very useful)
             <Pallet<T>>::deposit_event(Event::<T>::ReadResultVoted {
                 read_id,
                 result_hash,
@@ -791,33 +789,27 @@ pub mod pallet {
                 return Ok(().into())
             }
 
-            // ✅ quorum met: accept result
             AcceptedReadResultHash::<T>::insert(read_id, result_hash);
 
             <Pallet<T>>::deposit_event(Event::<T>::ReadResultAccepted { read_id, result_hash });
 
-            // cleanup votes for that read_id (simple version)
             Self::cleanup_read_votes(read_id);
 
-            // callback (hash-only for now)
             let caller_id = match ActiveRequest::<T>::get().expect("exists").request {
                 Request::ReadContract(req) => req.caller_id.to_vec(),
                 _ => Default::default(),
             };
 
-            // NOTE: Step 4 adds this callback to BridgeInterfaceNotification trait
             let _ = T::BridgeInterfaceNotification::process_read_result(
                 read_id,
                 caller_id,
                 Ok(result_hash.encode()), // simplest: return hash bytes
             );
 
-            // move to next request
             request::process_next_request::<T>();
 
             Ok(().into())
         }
-
     }
 
     #[pallet::hooks]
@@ -919,31 +911,27 @@ pub mod pallet {
                     }
                 },
                 Request::ReadContract(read_req) => {
-                    // If already finalised, do nothing (will be cleaned up by extrinsic finalization)
                     if AcceptedReadResultHash::<T>::contains_key(read_req.read_id) {
                         return Ok(())
                     }
-                
-                    // Ensure everyone queries the same Ethereum block
-                    // If caller didn’t specify eth_block, pick a deterministic default.
+
                     let eth_block = match read_req.eth_block {
                         Some(b) => Some(b),
                         None => Some(Pallet::<T>::latest_finalised_ethereum_block()?),
                     };
-                
+
                     let bytes = Pallet::<T>::read_contract(
                         &author.account_id,
                         read_req.contract_address,
                         &read_req.function_name,
                         &util::unbound_params(&read_req.params),
                         eth_block,
-                    )?;           
-                
+                    )?;
+
                     let result_hash = H256::from_slice(&keccak_256(&bytes));
-                
-                    // Submit vote
+
                     call::submit_read_result::<T>(read_req.read_id, result_hash, author);
-                }                
+                },
             }
         }
 
@@ -1425,8 +1413,7 @@ impl<T: Config> Pallet<T> {
             },
             Request::ReadContract(read_req) => {
                 request_id = read_req.read_id;
-        
-                // Treat it as a failure/cancel just like lower proof
+
                 let _ = T::BridgeInterfaceNotification::process_read_result(
                     read_req.read_id,
                     read_req.caller_id.clone().into(),
@@ -1461,17 +1448,14 @@ impl<T: Config> Pallet<T> {
     }
 
     fn cleanup_read_votes(read_id: u32) {
-        // Simple cleanup: iterate all keys and remove matching read_id
-        // (bounded by small map size in practice)
-        let keys: Vec<(u32, H256)> = ReadResultVotes::<T>::iter_keys()
-            .filter(|(rid, _)| *rid == read_id)
-            .collect();
-    
+        let keys: Vec<(u32, H256)> =
+            ReadResultVotes::<T>::iter_keys().filter(|(rid, _)| *rid == read_id).collect();
+
         for key in keys {
             ReadResultVotes::<T>::remove(key);
         }
     }
-  
+
     pub fn read_contract(
         account_id: &T::AccountId,
         contract_address: H160,
