@@ -21,7 +21,7 @@
 //! Key related CLI utilities
 
 use sc_cli::{
-    Error, GenerateCmd, GenerateNodeKeyCmd, InspectKeyCmd, InspectNodeKeyCmd, SubstrateCli,
+    Error, GenerateCmd, GenerateKeyCmdCommon, InspectKeyCmd, InspectNodeKeyCmd, SubstrateCli,
 };
 
 use super::insert_avn_key::InsertAvNKeyCmd;
@@ -31,7 +31,7 @@ use super::insert_avn_key::InsertAvNKeyCmd;
 pub enum AvnKeySubcommand {
     /// Generate a random node key, write it to a file or stdout and write the
     /// corresponding peer-id to stderr
-    GenerateNodeKey(GenerateNodeKeyCmd),
+    GenerateNodeKey(GenerateKeyCmdCommon),
 
     /// Generate a random account
     Generate(GenerateCmd),
