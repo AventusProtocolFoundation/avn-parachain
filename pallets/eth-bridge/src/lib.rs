@@ -757,7 +757,6 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
-            // must have an active request and it must be the same read_id
             let active = ActiveRequest::<T>::get().ok_or(Error::<T>::NoActiveRequest)?;
             match active.request {
                 Request::ReadContract(req) => {
@@ -766,7 +765,6 @@ pub mod pallet {
                 _ => return Ok(().into()),
             };
 
-            // already finalised?
             ensure!(
                 !AcceptedReadResultBytes::<T>::contains_key(read_id),
                 Error::<T>::ReadAlreadyFinalised
@@ -774,7 +772,6 @@ pub mod pallet {
 
             let bytes_hash = H256::from_slice(&keccak_256(&bytes));
 
-            // prevent author voting twice for same (read_id, hash)
             let key = (read_id, bytes_hash);
             let mut votes = ReadResultVotes::<T>::get(&key);
 
@@ -797,7 +794,6 @@ pub mod pallet {
                 return Ok(().into());
             }
 
-            // ✅ quorum met — accept bytes
             AcceptedReadResultBytes::<T>::insert(read_id, bytes.clone());
 
             Self::deposit_event(Event::<T>::ReadResultAccepted {
@@ -805,10 +801,8 @@ pub mod pallet {
                 result_hash: bytes_hash,
             });
 
-            // cleanup votes
             Self::cleanup_read_votes(read_id);
 
-            // callback: return bytes
             let caller_id = match ActiveRequest::<T>::get().expect("exists").request {
                 Request::ReadContract(req) => req.caller_id.to_vec(),
                 _ => Default::default(),
