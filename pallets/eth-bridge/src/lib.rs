@@ -135,6 +135,7 @@ pub type CallerIdLimit = ConstU32<50>; // Max chars in caller id value
 pub type ParamsLimit = ConstU32<5>; // Max T1 function params (excluding expiry, t2TxId, and confirmations)
 pub type TypeLimit = ConstU32<7>; // Max chars in a param's type
 pub type ValueLimit = ConstU32<130>; // Max chars in a param's value
+pub type ReadBytesLimit = ConstU32<256>;
 
 pub const TX_HASH_INVALID: bool = false;
 pub type EthereumId = u32;
@@ -300,7 +301,7 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Votes on read results: (read_id, result_hash) -> set of accounts who observed it
+    /// Votes on read results: (read_id, bytes_hash) -> set of accounts who observed it
     #[pallet::storage]
     pub type ReadResultVotes<T: Config> = StorageMap<
         _,
@@ -310,10 +311,10 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Accepted result hash for read_id once quorum is met
+    /// Final accepted bytes for read_id once quorum is met
     #[pallet::storage]
-    pub type AcceptedReadResultHash<T: Config> =
-        StorageMap<_, Blake2_128Concat, u32, H256, OptionQuery>;
+    pub type AcceptedReadResultBytes<T: Config> =
+        StorageMap<_, Blake2_128Concat, u32, BoundedVec<u8, ReadBytesLimit>, OptionQuery>;
 
     // The number of blocks that make up a range
     #[pallet::storage]
@@ -421,6 +422,7 @@ pub mod pallet {
         ReadAlreadyFinalised,
         ReadVoteExists,
         ReadVotesFull,
+        ReadBytesTooLarge,
     }
 
     #[pallet::call]
@@ -749,25 +751,31 @@ pub mod pallet {
         pub fn submit_read_result(
             origin: OriginFor<T>,
             read_id: u32,
-            result_hash: H256,
+            bytes: BoundedVec<u8, ReadBytesLimit>,
             author: Author<T>,
             _signature: <T::AuthorityId as RuntimeAppPublic>::Signature,
         ) -> DispatchResultWithPostInfo {
             ensure_none(origin)?;
 
+            // must have an active request and it must be the same read_id
             let active = ActiveRequest::<T>::get().ok_or(Error::<T>::NoActiveRequest)?;
             match active.request {
-                Request::ReadContract(req) =>
-                    ensure!(req.read_id == read_id, Error::<T>::InvalidReadRequest),
-                _ => return Ok(().into()), // ignore if not a read request
+                Request::ReadContract(req) => {
+                    ensure!(req.read_id == read_id, Error::<T>::InvalidReadRequest);
+                },
+                _ => return Ok(().into()),
             };
 
+            // already finalised?
             ensure!(
-                !AcceptedReadResultHash::<T>::contains_key(read_id),
+                !AcceptedReadResultBytes::<T>::contains_key(read_id),
                 Error::<T>::ReadAlreadyFinalised
             );
 
-            let key = (read_id, result_hash);
+            let bytes_hash = H256::from_slice(&keccak_256(&bytes));
+
+            // prevent author voting twice for same (read_id, hash)
+            let key = (read_id, bytes_hash);
             let mut votes = ReadResultVotes::<T>::get(&key);
 
             ensure!(!votes.contains(&author.account_id), Error::<T>::ReadVoteExists);
@@ -776,9 +784,9 @@ pub mod pallet {
                 .try_insert(author.account_id.clone())
                 .map_err(|_| Error::<T>::ReadVotesFull)?;
 
-            <Pallet<T>>::deposit_event(Event::<T>::ReadResultVoted {
+            Self::deposit_event(Event::<T>::ReadResultVoted {
                 read_id,
-                result_hash,
+                result_hash: bytes_hash,
                 voter: author.account_id.encode(),
             });
 
@@ -786,15 +794,21 @@ pub mod pallet {
 
             if votes.len() < quorum {
                 ReadResultVotes::<T>::insert(&key, votes);
-                return Ok(().into())
+                return Ok(().into());
             }
 
-            AcceptedReadResultHash::<T>::insert(read_id, result_hash);
+            // ✅ quorum met — accept bytes
+            AcceptedReadResultBytes::<T>::insert(read_id, bytes.clone());
 
-            <Pallet<T>>::deposit_event(Event::<T>::ReadResultAccepted { read_id, result_hash });
+            Self::deposit_event(Event::<T>::ReadResultAccepted {
+                read_id,
+                result_hash: bytes_hash,
+            });
 
+            // cleanup votes
             Self::cleanup_read_votes(read_id);
 
+            // callback: return bytes
             let caller_id = match ActiveRequest::<T>::get().expect("exists").request {
                 Request::ReadContract(req) => req.caller_id.to_vec(),
                 _ => Default::default(),
@@ -803,7 +817,7 @@ pub mod pallet {
             let _ = T::BridgeInterfaceNotification::process_read_result(
                 read_id,
                 caller_id,
-                Ok(result_hash.encode()), // simplest: return hash bytes
+                Ok(bytes.to_vec()),
             );
 
             request::process_next_request::<T>();
@@ -911,7 +925,7 @@ pub mod pallet {
                     }
                 },
                 Request::ReadContract(read_req) => {
-                    if AcceptedReadResultHash::<T>::contains_key(read_req.read_id) {
+                    if AcceptedReadResultBytes::<T>::contains_key(read_req.read_id) {
                         return Ok(())
                     }
 
@@ -928,9 +942,10 @@ pub mod pallet {
                         eth_block,
                     )?;
 
-                    let result_hash = H256::from_slice(&keccak_256(&bytes));
+                    let bounded_bytes = BoundedVec::<u8, ReadBytesLimit>::try_from(bytes.clone())
+                        .map_err(|_| Error::<T>::ReadBytesTooLarge)?;
 
-                    call::submit_read_result::<T>(read_req.read_id, result_hash, author);
+                    call::submit_read_result::<T>(read_req.read_id, bounded_bytes, author);
                 },
             }
         }
@@ -1204,14 +1219,14 @@ pub mod pallet {
                         InvalidTransaction::Custom(5u8).into()
                     }
                 },
-                Call::submit_read_result { read_id, result_hash, author, signature } =>
+                Call::submit_read_result { read_id, bytes, author, signature } =>
                     if AVN::<T>::signature_is_valid(
-                        &(SUBMIT_READ_RESULT_CONTEXT, read_id, result_hash, &author.account_id),
+                        &(SUBMIT_READ_RESULT_CONTEXT, read_id, bytes, &author.account_id),
                         &author,
                         signature,
                     ) {
                         ValidTransaction::with_tag_prefix("EthBridgeSubmitReadResult")
-                            .and_provides((call, read_id, result_hash))
+                            .and_provides((call, read_id))
                             .priority(TransactionPriority::max_value() - reduce_priority)
                             .longevity(64_u64)
                             .propagate(true)
@@ -1299,6 +1314,24 @@ pub mod pallet {
             })?;
 
             Ok(latest_block)
+        }
+
+        fn request_read_contract(
+            contract_address: H160,
+            function_name: &[u8],
+            params: &[(Vec<u8>, Vec<u8>)],
+            caller_id: Vec<u8>,
+            eth_block: Option<u32>,
+        ) -> Result<u32, DispatchError> {
+            let read_id = request::add_new_read_contract_request::<T>(
+                contract_address,
+                function_name,
+                params,
+                &caller_id,
+                eth_block,
+            )?;
+
+            Ok(read_id)
         }
     }
 }
@@ -1413,7 +1446,6 @@ impl<T: Config> Pallet<T> {
             },
             Request::ReadContract(read_req) => {
                 request_id = read_req.read_id;
-
                 let _ = T::BridgeInterfaceNotification::process_read_result(
                     read_req.read_id,
                     read_req.caller_id.clone().into(),

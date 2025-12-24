@@ -60,33 +60,30 @@ pub fn add_new_read_contract_request<T: Config>(
     contract_address: H160,
     function_name: &[u8],
     params: &[(Vec<u8>, Vec<u8>)],
-    eth_block: Option<u32>,
     caller_id: &Vec<u8>,
+    eth_block: Option<u32>,
 ) -> Result<u32, Error<T>> {
     let function_name_string =
         String::from_utf8(function_name.to_vec()).map_err(|_| Error::<T>::FunctionNameError)?;
-
-    if function_name_string.is_empty() {
-        return Err(Error::<T>::EmptyFunctionName)
-    }
+    ensure!(!function_name_string.is_empty(), Error::<T>::EmptyFunctionName);
 
     let read_id = tx::use_next_tx_id::<T>();
 
-    let read_req = ReadContractRequestData {
+    let req = ReadContractRequestData {
         read_id,
         contract_address,
         function_name: BoundedVec::<u8, FunctionLimit>::try_from(function_name.to_vec())
             .map_err(|_| Error::<T>::ExceedsFunctionNameLimit)?,
         params: bound_params(&params.to_vec())?,
-        eth_block,
         caller_id: BoundedVec::<_, CallerIdLimit>::try_from(caller_id.clone())
             .map_err(|_| Error::<T>::CallerIdLengthExceeded)?,
+        eth_block,
     };
 
     if ActiveRequest::<T>::get().is_some() {
-        queue_request(Request::ReadContract(read_req))?;
+        queue_request::<T>(Request::ReadContract(req))?;
     } else {
-        set_up_active_read_contract::<T>(read_req)?;
+        set_up_active_read_contract::<T>(req)?;
     }
 
     Ok(read_id)
@@ -184,6 +181,7 @@ fn set_up_active_lower_proof<T: Config>(req: LowerProofRequestData) -> Result<()
 
     return Ok(())
 }
+
 fn set_up_active_read_contract<T: Config>(req: ReadContractRequestData) -> Result<(), Error<T>> {
     let calldata =
         eth::abi_encode_function::<T>(&req.function_name, &util::unbound_params(&req.params))

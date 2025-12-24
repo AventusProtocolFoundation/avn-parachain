@@ -812,6 +812,13 @@ pub trait BridgeInterface {
         eth_block: Option<u32>,
     ) -> Result<Vec<u8>, DispatchError>;
     fn latest_finalised_ethereum_block() -> Result<u32, DispatchError>;
+    fn request_read_contract(
+        contract_address: H160,
+        function_name: &[u8],
+        params: &[(Vec<u8>, Vec<u8>)],
+        caller_id: Vec<u8>,
+        eth_block: Option<u32>,
+    ) -> Result<u32, DispatchError>;
 }
 
 pub trait BridgeInterfaceNotification {
