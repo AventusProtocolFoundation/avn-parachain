@@ -110,8 +110,8 @@ where
     }
 }
 
-pub use node_primitives::{AccountId, Hash, Signature};
-use node_primitives::{Balance, BlockNumber, Nonce};
+pub use node_primitives::{AccountId, Signature};
+use node_primitives::{Balance, BlockNumber, Hash, Moment, Nonce};
 
 use runtime_common::{
     constants::{currency::*, time::*},
@@ -297,7 +297,7 @@ impl frame_system::Config for Runtime {
 
 impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = Aura;
     type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
     type WeightInfo = ();
