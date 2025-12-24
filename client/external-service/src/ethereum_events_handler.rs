@@ -33,7 +33,10 @@ use web3::{
     Web3,
 };
 
-use pallet_eth_bridge::{SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, SUBMIT_LATEST_ETH_BLOCK_CONTEXT};
+pub use sp_avn_common::context_constants::{
+    SUBMIT_ETHEREUM_EVENTS_HASH_CONTEXT, SUBMIT_LATEST_ETH_BLOCK_CONTEXT,
+};
+
 use pallet_eth_bridge_runtime_api::InstanceId;
 
 use crate::{get_chain_id, server_error, setup_web3_connection, Web3Data};
