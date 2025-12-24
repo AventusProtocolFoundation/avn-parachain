@@ -52,7 +52,6 @@ mod on_offence {
                     &context.offenders,
                     &context.slash_fraction,
                     context.session_index,
-                    DisableStrategy::Never,
                 );
 
                 assert_eq!(true, AvnOffenceHandler::get_reported_offender(&VALIDATOR_ID_1));
@@ -74,7 +73,6 @@ mod on_offence {
                         &context.offenders,
                         &context.slash_fraction,
                         context.session_index,
-                        DisableStrategy::Never,
                     );
 
                     assert_eq!(true, AvnOffenceHandler::can_slash());
@@ -100,7 +98,6 @@ mod on_offence {
                         &context.offenders,
                         &context.slash_fraction,
                         context.session_index,
-                        DisableStrategy::Never,
                     );
 
                     assert!(event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(
@@ -129,7 +126,6 @@ mod on_offence {
                         &context.offenders,
                         &context.slash_fraction,
                         context.session_index,
-                        DisableStrategy::Never,
                     );
 
                     assert_eq!(false, AvnOffenceHandler::can_slash());
@@ -167,7 +163,6 @@ mod on_offence {
                         &context.offenders,
                         &context.slash_fraction,
                         context.session_index,
-                        DisableStrategy::Never,
                     );
 
                     assert!(event_emitted(&mock::RuntimeEvent::AvnOffenceHandler(
@@ -196,7 +191,6 @@ mod on_offence {
                     &context.offenders,
                     &context.slash_fraction,
                     context.session_index,
-                    DisableStrategy::Never,
                 );
 
                 assert_eq!(
@@ -235,7 +229,6 @@ mod on_offence {
                     &context.offenders.as_slice(),
                     &context.slash_fraction,
                     context.session_index,
-                    DisableStrategy::Never,
                 );
 
                 assert_eq!(true, AvnOffenceHandler::get_reported_offender(&VALIDATOR_ID_1));

@@ -23,17 +23,16 @@
 //
 // For more information, please refer to <http://unlicense.org>
 
-// mod xcm_config;
-pub mod xcm_config;
+mod xcm_config;
 
 // Substrate and Polkadot dependencies
-use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
+use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
     derive_impl,
     dispatch::DispatchClass,
     parameter_types,
-    traits::{ConstBool, ConstU32, ConstU64, TransformOrigin},
+    traits::{ConstBool, ConstU32, ConstU64, TransformOrigin, VariantCountOf},
     weights::{ConstantMultiplier, Weight},
     PalletId,
 };
@@ -63,9 +62,9 @@ use sp_watchtower::NoopWatchtower;
 use crate::{
     weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
     AccountId, AsEnsureOriginWithArg, Aura, Avn, AvnId, AvnOffenceHandler, AvnProxyConfig, Balance,
-    Balances, Block, BlockNumber, EnsureSigned, EthBridge, EthSecondBridge, Hash, Historical,
-    HoldConsideration, ImOnlineId, LinearStoragePrice, MainEthBridge, MessageQueue, Moment,
-    NftManager, Nonce, Offences, Ordering, OriginCaller, PalletInfo, ParachainStaking,
+    Balances, Block, BlockNumber, ConsensusHook, EnsureSigned, EthBridge, EthSecondBridge, Hash,
+    Historical, HoldConsideration, ImOnlineId, LinearStoragePrice, MainEthBridge, MessageQueue,
+    Moment, NftManager, Nonce, Offences, Ordering, OriginCaller, PalletInfo, ParachainStaking,
     ParachainSystem, Preimage, PrivilegeCmp, RestrictedEndpointFilter, Runtime, RuntimeCall,
     RuntimeEvent, RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, RuntimeTask, Scheduler,
     SecondaryEthBridge, Session, SessionKeys, Signature, Summary, System, TokenManager,
@@ -171,8 +170,8 @@ impl pallet_balances::Config for Runtime {
     type ReserveIdentifier = [u8; 8];
     type RuntimeHoldReason = RuntimeHoldReason;
     type RuntimeFreezeReason = RuntimeFreezeReason;
-    type FreezeIdentifier = ();
-    type MaxFreezes = ConstU32<1>;
+    type FreezeIdentifier = RuntimeFreezeReason;
+    type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -200,7 +199,8 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
     type ReservedDmpWeight = ReservedDmpWeight;
     type XcmpMessageHandler = XcmpQueue;
     type ReservedXcmpWeight = ReservedXcmpWeight;
-    type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
+    type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
+    type ConsensusHook = ConsensusHook;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -226,7 +226,7 @@ impl pallet_message_queue::Config for Runtime {
     // The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
     type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
     type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
-    type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+    type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
     type MaxStale = sp_core::ConstU32<8>;
     type ServiceWeight = MessageQueueServiceWeight;
     // TODO 1.10 review this
@@ -242,6 +242,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
     // Enqueue XCMP messages from siblings for later processing.
     type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
     type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+    type MaxActiveOutboundChannels = ConstU32<128>;
+    type MaxPageSize = ConstU32<{ 1 << 16 }>;
     type ControllerOrigin = EnsureRoot<AccountId>;
     type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
     type WeightInfo = ();

@@ -32,7 +32,7 @@ use frame_support::{
     derive_impl,
     dispatch::DispatchClass,
     parameter_types,
-    traits::{ConstBool, ConstU32, ConstU64, TransformOrigin},
+    traits::{ConstBool, ConstU32, ConstU64, TransformOrigin, VariantCountOf},
     weights::{ConstantMultiplier, Weight},
     PalletId,
 };
@@ -73,6 +73,7 @@ use crate::{
     XcmpQueue, AVERAGE_ON_INITIALIZE_RATIO, EXISTENTIAL_DEPOSIT, HOURS, MAXIMUM_BLOCK_WEIGHT,
     NORMAL_DISPATCH_RATIO, SLOT_DURATION, VERSION,
 };
+
 use xcm_config::XcmOriginToTransactDispatchOrigin;
 parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
@@ -142,6 +143,7 @@ impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = Moment;
     type OnTimestampSet = Aura;
+    // TODO update to 0 when enabling asynch backing
     type MinimumPeriod = ConstU64<{ SLOT_DURATION / 2 }>;
     type WeightInfo = ();
 }
@@ -169,8 +171,8 @@ impl pallet_balances::Config for Runtime {
     type ReserveIdentifier = [u8; 8];
     type RuntimeHoldReason = RuntimeHoldReason;
     type RuntimeFreezeReason = RuntimeFreezeReason;
-    type FreezeIdentifier = ();
-    type MaxFreezes = ConstU32<1>;
+    type FreezeIdentifier = RuntimeFreezeReason;
+    type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 }
 
 impl pallet_transaction_payment::Config for Runtime {
@@ -198,7 +200,11 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
     type ReservedDmpWeight = ReservedDmpWeight;
     type XcmpMessageHandler = XcmpQueue;
     type ReservedXcmpWeight = ReservedXcmpWeight;
+    // TODO review this
+    // TODO use RelayNumberMonotonicallyIncreases once asynchronous backing is enabled.
     type CheckAssociatedRelayNumber = RelayNumberStrictlyIncreases;
+    // TODO use ConsensusHook once asynchronous backing is enabled.
+    type ConsensusHook = cumulus_pallet_parachain_system::consensus_hook::ExpectParentIncluded;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -224,7 +230,7 @@ impl pallet_message_queue::Config for Runtime {
     // The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
     type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
     type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
-    type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
+    type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
     type MaxStale = sp_core::ConstU32<8>;
     type ServiceWeight = MessageQueueServiceWeight;
     // TODO 1.10 review this
@@ -240,6 +246,8 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
     // Enqueue XCMP messages from siblings for later processing.
     type XcmpQueue = TransformOrigin<MessageQueue, AggregateMessageOrigin, ParaId, ParaIdToSibling>;
     type MaxInboundSuspended = sp_core::ConstU32<1_000>;
+    type MaxActiveOutboundChannels = ConstU32<128>;
+    type MaxPageSize = ConstU32<{ 1 << 16 }>;
     type ControllerOrigin = EnsureRoot<AccountId>;
     type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
     type WeightInfo = ();
@@ -270,7 +278,7 @@ impl pallet_aura::Config for Runtime {
     type DisabledValidators = ();
     type MaxAuthorities = ConstU32<100_000>;
     type AllowMultipleBlocksPerSlot = ConstBool<false>;
-    type SlotDuration = pallet_aura::MinimumPeriodTimesTwo<Self>;
+    type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
 parameter_types! {

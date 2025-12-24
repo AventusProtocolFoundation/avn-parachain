@@ -12,7 +12,7 @@ use pallet_avn::{Enforcer, ValidatorRegistrationNotifier};
 use pallet_session::{self as session, historical::IdentificationTuple};
 use sp_runtime::Perbill;
 use sp_staking::{
-    offence::{DisableStrategy, OffenceDetails, OnOffenceHandler},
+    offence::{OffenceDetails, OnOffenceHandler},
     SessionIndex,
 };
 use sp_std::prelude::*;
@@ -124,7 +124,6 @@ impl<T: Config> OnOffenceHandler<T::AccountId, IdentificationTuple<T>, Weight> f
         offenders: &[OffenceDetails<T::AccountId, IdentificationTuple<T>>], /* A list containing both current offenders and previous offenders */
         _slash_fraction: &[Perbill],
         _session: SessionIndex,
-        _disable_strategy: DisableStrategy,
     ) -> Weight {
         let mut consumed_weight: Weight = Weight::from_parts(0 as u64, 0);
         let mut add_db_reads_writes = |reads, writes| {

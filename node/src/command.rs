@@ -13,8 +13,8 @@ use crate::{
     avn_config::*,
     chain_spec,
     cli::{Cli, RelayChainCli, Subcommand},
-    common::{Block, RuntimeApi},
     service::new_partial,
+    Block,
 };
 
 fn load_spec(id: &str) -> std::result::Result<Box<dyn ChainSpec>, String> {
@@ -107,7 +107,7 @@ macro_rules! construct_async_run {
 	(|$components:ident, $cli:ident, $cmd:ident, $config:ident| $( $code:tt )* ) => {{
 		let runner = $cli.create_runner($cmd)?;
 		runner.async_run(|$config| {
-			let $components = new_partial::<RuntimeApi>(&$config)?;
+			let $components = new_partial(&$config)?;
 			let task_manager = $components.task_manager;
 			{ $( $code )* }.map(|v| (v, task_manager))
 		})
@@ -170,7 +170,7 @@ pub fn run() -> Result<()> {
         Some(Subcommand::ExportGenesisHead(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| {
-                let partials = new_partial::<RuntimeApi>(&config)?;
+                let partials = new_partial(&config)?;
 
                 cmd.run(partials.client)
             })
@@ -195,7 +195,7 @@ pub fn run() -> Result<()> {
                             .into())
                     },
                 BenchmarkCmd::Block(cmd) => runner.sync_run(|config| {
-                    let partials = new_partial::<RuntimeApi>(&config)?;
+                    let partials = new_partial(&config)?;
                     cmd.run(partials.client)
                 }),
                 #[cfg(not(feature = "runtime-benchmarks"))]
@@ -208,7 +208,7 @@ pub fn run() -> Result<()> {
                     .into()),
                 #[cfg(feature = "runtime-benchmarks")]
                 BenchmarkCmd::Storage(cmd) => runner.sync_run(|config| {
-                    let partials = new_partial::<RuntimeApi>(&config)?;
+                    let partials = new_partial(&config)?;
                     let db = partials.backend.expose_db();
                     let storage = partials.backend.expose_storage();
                     cmd.run(config, partials.client.clone(), db, storage)
@@ -257,7 +257,7 @@ pub fn run() -> Result<()> {
 
                 info!("Is collating: {}", if config.role.is_authority() { "yes" } else { "no" });
 
-                crate::service::start_parachain_node::<RuntimeApi>(
+                crate::service::start_parachain_node(
                     config,
                     polkadot_config,
                     avn_config,
