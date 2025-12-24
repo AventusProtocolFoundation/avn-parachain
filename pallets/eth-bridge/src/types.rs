@@ -8,6 +8,7 @@ use sp_avn_common::{
 pub enum Request {
     Send(SendRequestData),
     LowerProof(LowerProofRequestData),
+    ReadContract(ReadContractRequestData),
 }
 
 impl Default for Request {
@@ -21,8 +22,21 @@ impl Request {
         match self {
             Request::Send(req) => &req.tx_id == id,
             Request::LowerProof(req) => &req.lower_id == id,
+            Request::ReadContract(req) => &req.read_id == id,
         }
     }
+}
+
+/// Request data for a view-call / read from Ethereum contract (eth_call)
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct ReadContractRequestData {
+    pub read_id: u32,
+    pub contract_address: H160, 
+    pub function_name: BoundedVec<u8, FunctionLimit>,
+    pub params: BoundedVec<(BoundedVec<u8, TypeLimit>, BoundedVec<u8, ValueLimit>), ParamsLimit>,
+    /// Optional eth block to query at (important for deterministic consensus)
+    pub eth_block: Option<u32>,
+    pub caller_id: BoundedVec<u8, CallerIdLimit>,
 }
 
 // Request data for a transaction we are sending to Ethereum

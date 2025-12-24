@@ -819,6 +819,9 @@ pub trait BridgeInterfaceNotification {
     fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
         Ok(())
     }
+    fn process_read_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
+        Ok(())
+    }
     fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
         Ok(())
     }
@@ -840,6 +843,21 @@ impl BridgeInterfaceNotification for Tuple {
         Ok(())
     }
 
+    fn process_read_result(
+        _read_id: u32,
+        _caller_id: Vec<u8>,
+        _result: Result<Vec<u8>, ()>,
+    ) -> DispatchResult {
+        for_tuples!( #(
+            Tuple::process_read_result(
+                _read_id,
+                _caller_id.clone(),
+                _result.clone()
+            )?;
+        )* );
+        Ok(())
+    }
+    
     fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
         for_tuples!( #( Tuple::on_incoming_event_processed(_event)?; )* );
         Ok(())

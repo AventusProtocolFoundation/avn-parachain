@@ -52,6 +52,17 @@ pub fn submit_latest_ethereum_block<T: Config>(
     SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
 }
 
+pub fn submit_read_result<T: Config>(
+    read_id: u32,
+    result_hash: H256,
+    author: Author<T>,
+) {
+    let proof = submit_read_result_proof::<T>(read_id, &result_hash, &author.account_id);
+    let signature = author.key.sign(&proof).expect("Error signing proof");
+    let call = Call::<T>::submit_read_result { read_id, result_hash, author, signature };
+    let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+}
+
 fn add_confirmation_proof<T: Config>(
     tx_id: EthereumId,
     confirmation: &ecdsa::Signature,
@@ -75,4 +86,12 @@ fn add_corroboration_proof<T: Config>(
     account_id: &T::AccountId,
 ) -> Vec<u8> {
     (ADD_CORROBORATION_CONTEXT, tx_id, tx_succeeded, tx_hash_is_valid, &account_id).encode()
+}
+
+fn submit_read_result_proof<T: Config>(
+    read_id: u32,
+    result_hash: &H256,
+    account_id: &T::AccountId,
+) -> Vec<u8> {
+    (SUBMIT_READ_RESULT_CONTEXT, read_id, *result_hash, &account_id).encode()
 }

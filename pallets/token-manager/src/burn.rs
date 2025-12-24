@@ -9,6 +9,13 @@ use sp_runtime::{
     traits::{AccountIdConversion, Saturating, Zero},
     DispatchError,
 };
+use scale_info::prelude::vec;
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::{format, vec::Vec};
 
 impl<T: Config> Pallet<T> {
     pub(crate) fn is_burn_due(now: BlockNumberFor<T>) -> bool {
