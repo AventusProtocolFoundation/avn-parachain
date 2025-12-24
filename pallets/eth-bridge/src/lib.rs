@@ -1310,7 +1310,7 @@ pub mod pallet {
             Ok(latest_block)
         }
 
-        fn request_read_contract(
+        fn read_contract(
             contract_address: H160,
             function_name: &[u8],
             params: &[(Vec<u8>, Vec<u8>)],
