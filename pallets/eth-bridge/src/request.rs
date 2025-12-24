@@ -185,12 +185,10 @@ fn set_up_active_lower_proof<T: Config>(req: LowerProofRequestData) -> Result<()
     return Ok(())
 }
 fn set_up_active_read_contract<T: Config>(req: ReadContractRequestData) -> Result<(), Error<T>> {
-    // Encode call data deterministically
     let calldata =
         eth::abi_encode_function::<T>(&req.function_name, &util::unbound_params(&req.params))
             .map_err(|_| Error::<T>::FunctionEncodingError)?;
 
-    // ✅ msg_hash includes: read_id + contract_address + calldata + eth_block
     let mut msg: Vec<u8> = Vec::new();
     msg.extend_from_slice(&req.read_id.to_le_bytes());
     msg.extend_from_slice(req.contract_address.as_bytes()); // ✅ NEW
