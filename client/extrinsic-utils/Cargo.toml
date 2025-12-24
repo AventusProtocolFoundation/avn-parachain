@@ -1,12 +1,12 @@
 [package]
 name = "client-extrinsic-utils"
 
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
-rust-version = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 
@@ -14,18 +14,18 @@ rust-version = { workspace = true }
 codec = { workspace = true, default-features = true }
 log = { workspace = true,  default-features = true }
 serde = { workspace = true, default-features = true }
-anyhow = { workspace = true }
+anyhow.workspace = true
 
 # primitives
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
+sp-core = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }
 
 # client dependencies
-sc-service = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sc-client-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sc-client-db = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sc-transaction-pool = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sc-transaction-pool-api = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
+sc-service = { default-features = true, workspace = true }
+sc-client-api = { default-features = true, workspace = true }
+sc-client-db = { default-features = true, workspace = true }
+sc-transaction-pool = { default-features = true, workspace = true }
+sc-transaction-pool-api = { default-features = true, workspace = true }
 
 [dev-dependencies]
 hex = { workspace = true, default-features = true }

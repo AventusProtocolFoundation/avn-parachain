@@ -7866,7 +7866,7 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "sp-std 14.0.0",
- "substrate-test-utils",
+ "substrate-build-script-utils",
 ]
 
 [[package]]
@@ -15644,15 +15644,6 @@ dependencies = [
  "sp-state-machine",
  "sp-trie",
  "trie-db",
-]
-
-[[package]]
-name = "substrate-test-utils"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/polkadot-sdk?branch=release-polkadot-v1.14.0#778e9d15552ceb66ab47feb8f681030ef6d357d5"
-dependencies = [
- "futures",
- "tokio",
 ]
 
 [[package]]

@@ -2,54 +2,52 @@
 name = "pallet-parachain-staking"
 description = "parachain staking pallet for collator selection and reward distribution"
 
-version = { workspace = true }
-authors = { workspace = true }
-edition = { workspace = true }
-homepage = { workspace = true }
-repository = { workspace = true }
-rust-version = { workspace = true }
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
 
 [dependencies]
-log = { workspace = true }
+log.workspace = true
 serde = { workspace = true, optional = true }
 rand = { version = "0.8.5", default-features = false }
-hex = { workspace = true }
+hex.workspace = true
 hex-literal = { version = "0.4.1", default-features = false }
 codec = { workspace = true, features = ["derive"] }
 
 # Substrate
-frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", optional = true, default-features = false }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", default-features = false }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", default-features = false }
+frame-benchmarking = { optional = true, workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 
-scale-info = { workspace = true }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", default-features = false }
-sp-std = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", default-features = false }
-sp-core = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-io = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-application-crypto = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.14.0" }
-sp-staking = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
+scale-info.workspace = true
+sp-runtime.workspace = true
+sp-std.workspace = true
+sp-core.workspace = true
+sp-io.workspace = true
+sp-application-crypto.workspace = true
+sp-staking.workspace = true
 substrate-fixed = { version = "0.5.9", default-features = false }
-pallet-authorship = { git = "https://github.com/paritytech/polkadot-sdk", default-features = false, branch = "release-polkadot-v1.14.0" }
-pallet-session = { features = [
-	"historical",
-], git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0", default-features = false }
+pallet-authorship.workspace = true
+pallet-session = { workspace = true, features = ["historical"] }
 
-pallet-avn = { default-features = false, path = "../avn" }
-sp-avn-common = { default-features = false, path = "../../primitives/avn-common" }
+pallet-avn.workspace = true
+sp-avn-common.workspace = true
 
 [dev-dependencies]
 similar-asserts = "1.1.0"
 
-pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0",features=["insecure_zero_ed"] }
-pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-pallet-timestamp = { default-features = false, git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-sp-keystore = { git = "https://github.com/paritytech/polkadot-sdk", branch = "release-polkadot-v1.14.0" }
-pallet-avn-proxy = { default-features = false, path = "../avn-proxy" }
-pallet-eth-bridge = { default-features = false, path = "../eth-bridge" }
+pallet-balances = { workspace = true, default-features = true }
+pallet-transaction-payment = { default-features = true, workspace = true }
+pallet-timestamp.workspace = true
+sp-keystore = { default-features = true, workspace = true }
+pallet-avn-proxy = { default-features = false, workspace = true }
+pallet-eth-bridge = { default-features = false, workspace = true }
 parking_lot = { version = "0.12.0" }
 assert_matches = "1.3.0"
-sp-avn-common = { features=["test-utils"], path = "../../primitives/avn-common" }
+sp-avn-common = { workspace = true, default-features = true, features=["test-utils"] }
 
 [features]
 default = ["std"]
