@@ -812,11 +812,21 @@ pub trait BridgeInterface {
         eth_block: Option<u32>,
     ) -> Result<Vec<u8>, DispatchError>;
     fn latest_finalised_ethereum_block() -> Result<u32, DispatchError>;
+    fn read_contract(
+        contract_address: H160,
+        function_name: &[u8],
+        params: &[(Vec<u8>, Vec<u8>)],
+        caller_id: Vec<u8>,
+        eth_block: Option<u32>,
+    ) -> Result<u32, DispatchError>;
 }
 
 pub trait BridgeInterfaceNotification {
     fn process_result(tx_id: u32, caller_id: Vec<u8>, succeeded: bool) -> DispatchResult;
     fn process_lower_proof_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
+        Ok(())
+    }
+    fn process_read_result(_: u32, _: Vec<u8>, _: Result<Vec<u8>, ()>) -> DispatchResult {
         Ok(())
     }
     fn on_incoming_event_processed(_event: &EthEvent) -> DispatchResult {
@@ -837,6 +847,21 @@ impl BridgeInterfaceNotification for Tuple {
         _encoded_lower: Result<Vec<u8>, ()>,
     ) -> DispatchResult {
         for_tuples!( #( Tuple::process_lower_proof_result(_lower_id, _caller_id.clone(), _encoded_lower.clone())?; )* );
+        Ok(())
+    }
+
+    fn process_read_result(
+        _read_id: u32,
+        _caller_id: Vec<u8>,
+        _result: Result<Vec<u8>, ()>,
+    ) -> DispatchResult {
+        for_tuples!( #(
+            Tuple::process_read_result(
+                _read_id,
+                _caller_id.clone(),
+                _result.clone()
+            )?;
+        )* );
         Ok(())
     }
 

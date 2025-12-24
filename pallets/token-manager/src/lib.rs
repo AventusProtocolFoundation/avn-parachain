@@ -387,6 +387,11 @@ pub mod pallet {
     #[pallet::getter(fn total_supply)]
     pub type TotalSupply<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
+    /// Active pending read id waiting for callback
+    #[pallet::storage]
+    #[pallet::getter(fn pending_total_supply_read)]
+    pub type PendingTotalSupplyRead<T: Config> = StorageValue<_, u32, OptionQuery>;
+
     #[pallet::type_value]
     pub fn DefaultBurnRefreshRange<T: Config>() -> u32 {
         T::MinBurnRefreshRange::get()
@@ -1286,6 +1291,52 @@ impl<T: Config> BridgeInterfaceNotification for Pallet<T> {
 
     fn on_incoming_event_processed(event: &EthEvent) -> DispatchResult {
         Self::processed_event_handler(event)
+    }
+
+    fn process_read_result(
+        read_id: u32,
+        caller_id: Vec<u8>,
+        data: Result<Vec<u8>, ()>,
+    ) -> DispatchResult {
+        if caller_id != PALLET_ID.to_vec() {
+            return Ok(());
+        }
+
+        // verify that we were waiting for this read
+        let pending = PendingTotalSupplyRead::<T>::get()
+            .ok_or(DispatchError::Other("No pending totalSupply read"))?;
+
+        if pending != read_id {
+            return Ok(()); // ignore stale/unknown reads
+        }
+
+        PendingTotalSupplyRead::<T>::kill();
+
+        let bytes = match data {
+            Ok(b) => b,
+            Err(_) => {
+                log::error!("❌ totalSupply read failed for read_id {:?}", read_id);
+                return Ok(());
+            },
+        };
+
+        // totalSupply() returns uint256 (32 bytes)
+        ensure!(bytes.len() >= 32, DispatchError::Other("Invalid totalSupply bytes"));
+
+        // decode uint256 (big-endian)
+        let total_supply_u256 = U256::from_big_endian(&bytes[bytes.len() - 32..]);
+
+        let total_supply_u128: u128 = total_supply_u256
+            .try_into()
+            .map_err(|_| DispatchError::Other("totalSupply overflow u128"))?;
+
+        // convert to BalanceOf<T>
+        let total_supply_balance: BalanceOf<T> = BalanceOf::<T>::try_from(total_supply_u128)
+            .map_err(|_| DispatchError::Other("totalSupply overflow Balance"))?;
+
+        Self::move_treasury_excess_if_required_with_total_supply(total_supply_balance);
+
+        Ok(())
     }
 }
 

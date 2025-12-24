@@ -3,12 +3,19 @@ use crate::{default_weights::WeightInfo, BalanceOf, PALLET_ID};
 use frame_support::{pallet_prelude::Weight, traits::Currency, PalletId};
 use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_avn::BridgeInterface;
+use scale_info::prelude::vec;
 use sp_avn_common::BridgeContractMethod;
 use sp_core::U256;
 use sp_runtime::{
     traits::{AccountIdConversion, Saturating, Zero},
     DispatchError,
 };
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
+#[cfg(not(feature = "std"))]
+use alloc::{format, vec::Vec};
 
 impl<T: Config> Pallet<T> {
     pub(crate) fn is_burn_due(now: BlockNumberFor<T>) -> bool {
