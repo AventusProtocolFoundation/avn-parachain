@@ -784,7 +784,7 @@ pub mod pallet {
             log::debug!(
                 "Nft manager storage chain/current storage version: {:?} / {:?}",
                 onchain_version,
-                Pallet::<T>::current_storage_version(),
+                Pallet::<T>::in_code_storage_version(),
             );
             return Weight::from_parts(0 as u64, 0)
         }

@@ -821,7 +821,7 @@ pub mod pallet {
             if onchain < 1 {
                 log::info!(
                     "💽 Running Summary pallet migration with current storage version {:?} / onchain {:?}",
-                    Pallet::<T, I>::current_storage_version(),
+                    Pallet::<T, I>::in_code_storage_version(),
                     onchain
                 );
 
