@@ -89,6 +89,18 @@ parameter_types! {
     pub static TreasuryGrowthPercentage: Perbill = Perbill::from_percent(75);
 }
 
+parameter_types! {
+    pub const MinBurnPeriod: u32 = 50;
+    pub static BurnEnabledFlag: bool = true;
+}
+
+pub struct BurnEnabled;
+impl Get<bool> for BurnEnabled {
+    fn get() -> bool {
+        BurnEnabledFlag::get()
+    }
+}
+
 impl token_manager::Config for TestRuntime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -106,6 +118,8 @@ impl token_manager::Config for TestRuntime {
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
+    type MinBurnPeriod = MinBurnPeriod;
+    type BurnEnabled = BurnEnabled;
 }
 
 parameter_types! {
@@ -506,6 +520,10 @@ pub fn fast_forward_to_block(n: u64) {
 
 pub fn get_expected_execution_block() -> u64 {
     return System::block_number() + LowerSchedulePeriod::<TestRuntime>::get() + 1
+}
+
+pub fn event_emitted(event: &RuntimeEvent) -> bool {
+    return System::events().iter().any(|a| a.event == *event)
 }
 
 pub struct MockData {

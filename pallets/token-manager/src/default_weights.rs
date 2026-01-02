@@ -47,6 +47,10 @@ pub trait WeightInfo {
 	fn regenerate_lower_proof() -> Weight;
 	fn set_lower_schedule_period() -> Weight;
 	fn toggle_lowering() -> Weight;
+	fn set_burn_period() -> Weight;
+	fn on_initialize_burn_not_due() -> Weight;
+	fn on_initialize_burn_due_but_pot_empty() -> Weight;
+	fn on_initialize_burn_due_and_pot_has_funds_to_burn() -> Weight;
 }
 
 /// Weights for pallet_token_manager using the Substrate node and recommended hardware.
@@ -210,6 +214,72 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(8_660_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `TokenManager::BurnPeriod` (r:0 w:1)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::NextBurnAt` (r:0 w:1)
+	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn set_burn_period() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_673_000 picoseconds.
+		Weight::from_parts(3_862_000, 0)
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	/// Storage: `TokenManager::NextBurnAt` (r:1 w:0)
+	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn on_initialize_burn_not_due() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `154`
+		//  Estimated: `1489`
+		// Minimum execution time: 2_144_000 picoseconds.
+		Weight::from_parts(2_299_000, 1489)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `TokenManager::NextBurnAt` (r:1 w:1)
+	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:1 w:0)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn on_initialize_burn_due_but_pot_empty() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `206`
+		//  Estimated: `3593`
+		// Minimum execution time: 4_109_000 picoseconds.
+		Weight::from_parts(4_384_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `TokenManager::NextBurnAt` (r:1 w:1)
+	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::NextTxId` (r:1 w:1)
+	/// Proof: `EthBridge::NextTxId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthTxLifetimeSecs` (r:1 w:0)
+	/// Proof: `EthBridge::EthTxLifetimeSecs` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::PrimaryCollatorIndexForSending` (r:1 w:1)
+	/// Proof: `Avn::PrimaryCollatorIndexForSending` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:1 w:0)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::PendingBurnSubmission` (r:0 w:1)
+	/// Proof: `TokenManager::PendingBurnSubmission` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	fn on_initialize_burn_due_and_pot_has_funds_to_burn() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `743`
+		//  Estimated: `22429`
+		// Minimum execution time: 22_732_000 picoseconds.
+		Weight::from_parts(23_514_000, 22429)
+			.saturating_add(T::DbWeight::get().reads(9_u64))
+			.saturating_add(T::DbWeight::get().writes(5_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -371,5 +441,71 @@ impl WeightInfo for () {
 		// Minimum execution time: 8_440_000 picoseconds.
 		Weight::from_parts(8_660_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `TokenManager::BurnPeriod` (r:0 w:1)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::NextBurnAt` (r:0 w:1)
+	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn set_burn_period() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 3_673_000 picoseconds.
+		Weight::from_parts(3_862_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	/// Storage: `TokenManager::NextBurnAt` (r:1 w:0)
+	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn on_initialize_burn_not_due() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `154`
+		//  Estimated: `1489`
+		// Minimum execution time: 2_144_000 picoseconds.
+		Weight::from_parts(2_299_000, 1489)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `TokenManager::NextBurnAt` (r:1 w:1)
+	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:1 w:0)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	fn on_initialize_burn_due_but_pot_empty() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `206`
+		//  Estimated: `3593`
+		// Minimum execution time: 4_109_000 picoseconds.
+		Weight::from_parts(4_384_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `TokenManager::NextBurnAt` (r:1 w:1)
+	/// Proof: `TokenManager::NextBurnAt` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::NextTxId` (r:1 w:1)
+	/// Proof: `EthBridge::NextTxId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::ActiveRequest` (r:1 w:1)
+	/// Proof: `EthBridge::ActiveRequest` (`max_values`: Some(1), `max_size`: Some(20944), added: 21439, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `EthBridge::EthTxLifetimeSecs` (r:1 w:0)
+	/// Proof: `EthBridge::EthTxLifetimeSecs` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::Validators` (r:1 w:0)
+	/// Proof: `Avn::Validators` (`max_values`: Some(1), `max_size`: Some(16386), added: 16881, mode: `MaxEncodedLen`)
+	/// Storage: `Avn::PrimaryCollatorIndexForSending` (r:1 w:1)
+	/// Proof: `Avn::PrimaryCollatorIndexForSending` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::BurnPeriod` (r:1 w:0)
+	/// Proof: `TokenManager::BurnPeriod` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
+	/// Storage: `TokenManager::PendingBurnSubmission` (r:0 w:1)
+	/// Proof: `TokenManager::PendingBurnSubmission` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	fn on_initialize_burn_due_and_pot_has_funds_to_burn() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `743`
+		//  Estimated: `22429`
+		// Minimum execution time: 22_732_000 picoseconds.
+		Weight::from_parts(23_514_000, 22429)
+			.saturating_add(RocksDbWeight::get().reads(9_u64))
+			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
 }

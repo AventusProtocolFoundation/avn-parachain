@@ -18,7 +18,7 @@ use scale_info::TypeInfo;
 use sp_runtime::RuntimeAppPublic;
 
 use cumulus_pallet_parachain_system::RelayNumberStrictlyIncreases;
-use frame_support::BoundedVec;
+use frame_support::{traits::ExistenceRequirement, BoundedVec};
 use pallet_avn_transaction_payment::NativeRateProvider;
 use pallet_transaction_payment::{ConstFeeMultiplier, Multiplier};
 use polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery;
@@ -30,7 +30,7 @@ use sp_avn_common::{
 use sp_core::{crypto::KeyTypeId, ConstU128, OpaqueMetadata, H160, U256};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{Block as BlockT, ConvertInto, One},
+    traits::{AccountIdConversion, Block as BlockT, ConvertInto, One, Zero},
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber,
 };
@@ -665,6 +665,8 @@ parameter_types! {
     pub const EthereumInstanceId: u8 = 1u8;
     pub const MinRatesRefreshRange: u32 = 5;
     pub const PriceRefreshRangeInBlocks: u32 = 50; // 10 minutes
+    pub const MinBurnPeriod: u32 = 7200;
+    pub const BurnEnabled: bool = true;
 }
 
 impl pallet_summary::Config for Runtime {
@@ -698,6 +700,8 @@ impl pallet_token_manager::pallet::Config for Runtime {
     type Preimages = Preimage;
     type PalletsOrigin = OriginCaller;
     type BridgeInterface = EthBridge;
+    type MinBurnPeriod = MinBurnPeriod;
+    type BurnEnabled = BurnEnabled;
 }
 
 impl pallet_nft_manager::Config for Runtime {
@@ -730,6 +734,60 @@ impl NativeRateProvider for OracleNativeRateProvider {
     }
 }
 
+pub struct PayCollatorAndBurn;
+impl pallet_avn_transaction_payment::FeeDistributor<Runtime> for PayCollatorAndBurn {
+    fn distribute_fees(
+        fee_pot: &AccountId,
+        total_fees: pallet_avn_transaction_payment::BalanceOf<Runtime>,
+        used_weight: u128,
+        max_weight: u128,
+    ) {
+        if total_fees.is_zero() {
+            return;
+        }
+
+        let burn_pot: AccountId = PalletId(sp_avn_common::BURN_POT_ID).into_account_truncating();
+
+        let collator_ratio =
+            pallet_avn_transaction_payment::Pallet::<Runtime>::collator_ratio_from_weights(
+                used_weight,
+                max_weight,
+            );
+
+        let collator_share: pallet_avn_transaction_payment::BalanceOf<Runtime> =
+            collator_ratio.saturating_mul_int(total_fees);
+        let mut burn_share: pallet_avn_transaction_payment::BalanceOf<Runtime> =
+            total_fees.saturating_sub(collator_share);
+
+        // Pay collator; if no author, burn everything.
+        if !collator_share.is_zero() {
+            match pallet_authorship::Pallet::<Runtime>::author() {
+                Some(author) => {
+                    let _ = <Balances as Currency<AccountId>>::transfer(
+                        fee_pot,
+                        &author,
+                        collator_share,
+                        ExistenceRequirement::KeepAlive,
+                    );
+                },
+                None => {
+                    burn_share = total_fees;
+                },
+            }
+        }
+
+        // Send rest to burn pot
+        if !burn_share.is_zero() {
+            let _ = <Balances as Currency<AccountId>>::transfer(
+                fee_pot,
+                &burn_pot,
+                burn_share,
+                ExistenceRequirement::AllowDeath,
+            );
+        }
+    }
+}
+
 impl pallet_avn_transaction_payment::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type RuntimeCall = RuntimeCall;
@@ -737,6 +795,7 @@ impl pallet_avn_transaction_payment::Config for Runtime {
     type KnownUserOrigin = EnsureRoot<AccountId>;
     type WeightInfo = pallet_avn_transaction_payment::default_weights::SubstrateWeight<Runtime>;
     type NativeRateProvider = OracleNativeRateProvider;
+    type FeeDistributor = PayCollatorAndBurn;
 }
 
 impl pallet_avn_anchor::Config for Runtime {
