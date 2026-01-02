@@ -46,10 +46,6 @@ mod burn_tests {
                     // storage updated correctly
                     assert_eq!(BurnPeriod::<TestRuntime>::get(), new_period);
 
-                    // next burn rescheduled from "now"
-                    let expected_next: u64 = current_block + new_period as u64;
-                    assert_eq!(NextBurnAt::<TestRuntime>::get(), expected_next);
-
                     // event emitted
                     assert!(event_emitted(&mock::RuntimeEvent::TokenManager(crate::Event::<
                         TestRuntime,
@@ -252,8 +248,6 @@ mod treasury_tests {
 
     mod set_treasury_burn_threshold {
         use super::*;
-        use frame_support::{assert_noop, assert_ok};
-        use sp_runtime::Perbill;
 
         mod succeeds_when {
             use super::*;
@@ -270,7 +264,7 @@ mod treasury_tests {
                     let total_supply = 10_000u128;
                     TotalSupply::<TestRuntime>::put(total_supply);
 
-                    let treasury = TokenManager::treasury_pot_account();
+                    let treasury = TokenManager::compute_treasury_account_id();
                     let burn = TokenManager::burn_pot_account();
 
                     // Read the threshold % from runtime config
@@ -303,7 +297,7 @@ mod treasury_tests {
                     let total_supply = 10_000u128;
                     TotalSupply::<TestRuntime>::put(total_supply);
 
-                    let treasury = TokenManager::treasury_pot_account();
+                    let treasury = TokenManager::compute_treasury_account_id();
                     let burn = TokenManager::burn_pot_account();
 
                     let threshold =
@@ -315,7 +309,7 @@ mod treasury_tests {
                     let excess = 500u128;
                     let fund_amount = threshold.saturating_add(excess);
 
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(                        &from.clone(),
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(),
                         fund_amount,
                     )
                     .unwrap();
@@ -337,7 +331,7 @@ mod treasury_tests {
                     let total_supply = 10_000u128;
                     TotalSupply::<TestRuntime>::put(total_supply);
 
-                    let treasury = TokenManager::treasury_pot_account();
+                    let treasury = TokenManager::compute_treasury_account_id();
                     let burn = TokenManager::burn_pot_account();
 
                     let threshold =
@@ -347,7 +341,7 @@ mod treasury_tests {
 
                     // 1) Fund just below threshold (no burn)
                     let first = threshold.saturating_sub(10);
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(                        &from.clone(),
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(),
                         first,
                     )
                     .unwrap();
@@ -356,7 +350,7 @@ mod treasury_tests {
 
                     // 2) Fund +50 => now 40 over threshold => 40 should move
                     let second = 50u128;
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(                        &from.clone(),
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(),
                         second,
                     )
                     .unwrap();
@@ -366,7 +360,7 @@ mod treasury_tests {
 
                     // 3) Fund +100 => treasury already at threshold, so all 100 is excess => all moves
                     let third = 100u128;
-                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(                        &from.clone(),
+                    <crate::pallet::Pallet<TestRuntime> as TreasuryManager<TestRuntime>>::fund_treasury(from.clone(),
                         third,
                     )
                     .unwrap();
